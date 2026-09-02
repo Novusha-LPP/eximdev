@@ -4,7 +4,11 @@ import JobModel from "../../model/jobModel.mjs";
 import CountryModel from "../../model/countryModel.mjs";
 import CustomHouseModel from "../../model/customHouseModel.mjs";
 import PortModel from "../../model/portModel.mjs";
+import BranchModel from "../../model/branchModel.mjs";
 import dotenv from "dotenv";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
+import { recalculateLicenseUtilizationForJob } from "../../services/licenseUtilizationService.mjs";
 
 dotenv.config();
 
@@ -13,14 +17,52 @@ const router = express.Router();
 // IMEXCUBE TEST credentials from env
 const IMEXCUBE_BASE_URL =
   process.env.IMEXCUBE_BASE_URL || "https://impexapi.impexcube.in";
-const IMPEX_USERNAME = process.env.IMPEX_USERNAME || "";
-const IMPEX_PASSWORD = process.env.IMPEX_PASSWORD || "";
-const COMPANY_BR_CODE = process.env.COMPANY_BR_CODE || "";
-const FYEAR = process.env.FYEAR || "";
+const IMPEX_USERNAME = (process.env.IMPEX_USERNAME || "").trim();
+const IMPEX_PASSWORD = (process.env.IMPEX_PASSWORD || "").trim();
+const COMPANY_BR_CODE = (process.env.COMPANY_BR_CODE || "").trim();
+const COMPANY_BR_CODE_AMD = (process.env.COMPANY_BR_CODE_AMD || "").trim() || "5456AD39-7CE7-4B73-9601-AC1C44138992";
+const COMPANY_BR_CODE_GIM = (process.env.COMPANY_BR_CODE_GIM || "").trim() || "6EE3B451-A349-44AD-B49B-A3CD54AEE756";
+const COMPANY_BR_CODE_COK = (process.env.COMPANY_BR_CODE_COK || "").trim() || "128DCE89-0B25-4033-9C27-8B6D8C7CE3BF";
+const FYEAR = (process.env.FYEAR || "").trim();
+
+const getCompanyBrCode = (branchCode) => {
+  const code = (branchCode || "").toUpperCase().trim();
+  if (["AMD", "SND", "KHD", "SCH", "BRD", "AIR"].includes(code)) return COMPANY_BR_CODE_AMD;
+  if (["GIM", "MND", "HZR"].includes(code)) return COMPANY_BR_CODE_GIM;
+  if (code === "COK") return COMPANY_BR_CODE_COK;
+  return COMPANY_BR_CODE_AMD;
+};
+
+const getChaBranchCode = (branchCode) => {
+  const code = (branchCode || "").toUpperCase().trim();
+  if (["AMD", "SND", "KHD", "SCH", "BRD", "AIR"].includes(code)) return "NOVUAMD";
+  if (["GIM", "MND", "HZR"].includes(code)) return "NOVUGDM";
+  if (code === "COK") return "NOVUCOK";
+  return "NOVUAMD";
+};
 
 const ACTION_CREATE = "created";
 const ACTION_UPDATE = "updated";
 const ACTION_DUPLICATE = "duplicate";
+
+// Helper to determine the package code
+const getPackageCode = (j) => {
+  if (j.no_of_pkgs) {
+    const parts = String(j.no_of_pkgs).trim().split(/\s+/);
+    if (parts.length > 1) {
+      const lastPart = parts[parts.length - 1].toUpperCase();
+      if (/^[A-Z]{3}$/.test(lastPart)) {
+        return lastPart;
+      }
+    }
+  }
+  const unitUpper = String(j.unit || "").toUpperCase().trim();
+  const weightVolumeUoms = ["KGS", "MTS", "LTR", "LTS", "MTR", "MTRS", "TON", "TNS", "CFT", "CBM", "SQM"];
+  if (unitUpper && !weightVolumeUoms.includes(unitUpper)) {
+    return unitUpper;
+  }
+  return "PKG";
+};
 
 const REQUIRED_FIELDS = {
   "Custom House Code": "BE_Details.Custom House Code",
@@ -95,12 +137,12 @@ const collectMissingRequiredFields = (payload) => {
  * Helper: Build the scmCube-format job payload (reuses the same mapping logic
  * from scmCubeRoutes.mjs so we can call it internally without an HTTP round-trip).
  */
-async function buildJobPayload(job_number, isPreview = false) {
+async function buildJobPayload(job_number, isPreview = false, senderID = "SURAJAHD") {
   const job = await JobModel.findOne({ job_number }).lean();
   if (!job) throw new Error("Job not found for the provided job_number");
 
   const countryDoc = await CountryModel.findOne({
-    name: job.origin_country || "",
+    name: (job.origin_country || "").trim().toUpperCase(),
   }).lean();
   const countryCode = countryDoc ? countryDoc.code : "";
 
@@ -159,7 +201,24 @@ async function buildJobPayload(job_number, isPreview = false) {
         { code: new RegExp(`^${resolvedCustomHouseCode}$`, "i") },
       ],
     }).lean();
-    if (chDoc) resolvedCustomHouseCode = chDoc.code;
+    if (chDoc) {
+      resolvedCustomHouseCode = chDoc.code;
+    } else {
+      // Fallback: Check branches collection's ports list dynamically
+      const activeBranches = await BranchModel.find({ is_active: true }).lean();
+      for (const branch of activeBranches) {
+        if (branch.ports) {
+          const port = branch.ports.find(p => 
+            p.port_name.toLowerCase() === resolvedCustomHouseCode.toLowerCase() ||
+            p.port_code.toLowerCase() === resolvedCustomHouseCode.toLowerCase()
+          );
+          if (port) {
+            resolvedCustomHouseCode = port.port_code;
+            break;
+          }
+        }
+      }
+    }
   }
 
   // Port of Origin lookup
@@ -177,14 +236,38 @@ async function buildJobPayload(job_number, isPreview = false) {
     else if (match) resolvedPortOfOriginCode = match[1].trim();
   }
 
+  // Fetch all active branch ICD ports from the database dynamically
+  const activeBranches = await BranchModel.find({ is_active: true }).lean();
+  const dbIcdPorts = [];
+  for (const b of activeBranches) {
+    if (b.ports) {
+      for (const p of b.ports) {
+        if (p.is_icd) {
+          dbIcdPorts.push(p);
+        }
+      }
+    }
+  }
+
+  const targetICDs = dbIcdPorts.length > 0
+    ? dbIcdPorts.map(p => p.port_code.toUpperCase())
+    : ["INSAU6", "INJKA6", "INSBI6", "INBRC6", "INVCN6"];
+
+  const targetNames = dbIcdPorts.length > 0
+    ? dbIcdPorts.map(p => p.port_name.toUpperCase())
+    : [
+        "ICD SANAND",
+        "ICD SACHANA",
+        "ICD KHODIYAR",
+        "ICD VARANAMA",
+        "ICD VIROCHANNAGR"
+      ];
+
   const responseData = {
     CHADetails: {
       "CHA Code": validateChar("NOVU", 5, true, "CHA Code"),
       "CHA Branch Code": (() => {
-        let brCode = "";
-        if (job.branch_code === "AMD") brCode = "NOVUAMD";
-        else if (job.branch_code === "GIM") brCode = "NOVUGDM";
-        else if (job.branch_code === "COK") brCode = "NOVUCOK";
+        const brCode = getChaBranchCode(job.branch_code);
         return validateChar(brCode, 10, true, "CHA Branch Code");
       })(),
       "Financial Year": (() => {
@@ -199,7 +282,7 @@ async function buildJobPayload(job_number, isPreview = false) {
         }
         return validateChar(fy, 9, true, "Financial Year");
       })(),
-      SenderID: validateChar("PROTRANS", 15, true, "SenderID"),
+      SenderID: validateChar(senderID, 15, true, "SenderID"),
     },
     BE_Details: {
       "Custom House Code": validateChar(resolvedCustomHouseCode, 6, true, "Custom House Code"),
@@ -225,9 +308,19 @@ async function buildJobPayload(job_number, isPreview = false) {
       Pin: validateChar(job.importer_address?.postal_code || "", 6, false, "Pin"),
       Class: validateChar("N", 1, false, "Class"),
       "Mode of Transport": (() => {
+        const rawCH = getVal(job.custom_house).toUpperCase();
+        const resolvedCH = getVal(resolvedCustomHouseCode).toUpperCase();
+        const isTargetICD = targetICDs.some(code => rawCH.includes(code) || resolvedCH.includes(code)) ||
+                            targetNames.some(name => rawCH.includes(name) || resolvedCH.includes(name));
+
         let mode = "";
-        if (job.mode === "SEA") mode = "S";
-        else if (job.mode === "AIR") mode = "A";
+        if (isTargetICD) {
+          mode = "L";
+        } else if (job.mode === "SEA") {
+          mode = "S";
+        } else if (job.mode === "AIR") {
+          mode = "A";
+        }
         return validateChar(mode, 1, true, "Mode of Transport");
       })(),
       ImporterType: validateChar(job.importer_type || "P", 1, false, "ImporterType"),
@@ -237,7 +330,7 @@ async function buildJobPayload(job_number, isPreview = false) {
         return validateChar(hssVal === "YES" ? "Y" : "N", 1, false, "High sea sale flag");
       })(),
       "Port of Origin": validateChar(resolvedPortOfOriginCode, 6, false, "Port of Origin"),
-      "CHA Code": validateChar("NOVU", 15, false, "CHA Code"),
+      "CHA Code": validateChar("ABOFS1766LCH005", 15, false, "CHA Code"),
       "Country of Origin": validateChar(countryCode, 2, false, "Country of Origin"),
       "Country of Consignment": validateChar(countryCode, 2, false, "Country of Consignment"),
       "Port Of Shipment": validateChar(resolvedPortOfOriginCode, 6, false, "Port Of Shipment"),
@@ -253,7 +346,7 @@ async function buildJobPayload(job_number, isPreview = false) {
       "Ware house BE No": validateChar(job.in_bond_be_no, 7, false, "Ware house BE No"),
       "Ware house BE Date": validateDate(job.in_bond_be_date, false, "Ware house BE Date"),
       "No of packages released": validateNum(job.no_of_pkgs, 8, 0, false, "No of packages released"),
-      "Package Code": validateChar(job.unit, 3, false, "Package Code"),
+      "Package Code": validateChar(getPackageCode(job), 3, false, "Package Code"),
       "Gross Weight": validateNum(job.gross_weight, 12, 3, false, "Gross Weight"),
       "Unit of Measurement": validateChar(job.unit, 3, false, "Unit of Measurement"),
       "Additional Charges": validateNum("", 12, 2, false, "Additional Charges"),
@@ -282,15 +375,15 @@ async function buildJobPayload(job_number, isPreview = false) {
         "Total No. Of Packages": validateNum(job.no_of_pkgs, 8, 0, true, "Total No. Of Packages"),
         "Gross Weight": validateNum(job.gross_weight, 9, 3, false, "Gross Weight"),
         "Unit Quantity Code": validateChar(job.unit, 3, false, "Unit Quantity Code"),
-        "Package Code": validateChar(job.unit, 3, false, "Package Code"),
-        "Marks And Numbers 1": validateChar(job.description || "AS PER BL", 4000, false, "Marks And Numbers 1"),
+        "Package Code": validateChar(getPackageCode(job), 3, false, "Package Code"),
+        "Marks And Numbers 1": validateChar("AS PER BL", 4000, false, "Marks And Numbers 1"),
         "Marks And Numbers 2": validateChar("", 40, false, "Marks And Numbers 2"),
         "Marks And Numbers 3": validateChar("", 40, false, "Marks And Numbers 3"),
       },
     ],
     CONTAINER: (job.container_nos || []).map((container) => ({
-      "IGM Number": validateNum(job.igm_no, 7, 0, true, "IGM Number"),
-      "IGM Date": validateDate(job.igm_date, true, "IGM Date"),
+      "IGM Number": validateNum(job.igm_no, 7, 0, false, "IGM Number"),
+      "IGM Date": validateDate(job.igm_date, false, "IGM Date"),
       "LCL.FCL": (() => {
         const type = getVal(job.consignment_type).toUpperCase();
         let code = "";
@@ -360,11 +453,19 @@ async function buildJobPayload(job_number, isPreview = false) {
  * 3. Pushes the payload to IMEXCUBE CreateJob
  */
 router.post("/api/scmCube/upload-to-imexcube", async (req, res) => {
-  const { job_number, customPayload } = req.body || {};
+  const { job_number, customPayload, senderID } = req.body || {};
   try {
     if (!job_number) {
       return res.status(400).json({ error: "job_number is required" });
     }
+
+    const job = await JobModel.findOne({ job_number }).lean();
+    if (!job) {
+      return res.status(404).json({ error: `Job not found for the provided job_number: ${job_number}` });
+    }
+
+    const companyBrCode = getCompanyBrCode(job.branch_code);
+    console.log(`[IMEXCUBE] Resolved CompanyBrCode for branch ${job.branch_code || "N/A"}: ${companyBrCode}`);
 
     // Step 1: Build or parse the job payload
     let jobPayload;
@@ -379,8 +480,8 @@ router.post("/api/scmCube/upload-to-imexcube", async (req, res) => {
         });
       }
     } else {
-      console.log(`[IMEXCUBE] Building payload for job: ${job_number}`);
-      jobPayload = await buildJobPayload(job_number);
+      console.log(`[IMEXCUBE] Building payload for job: ${job_number} with SenderID: ${senderID || "SURAJAHD"}`);
+      jobPayload = await buildJobPayload(job_number, false, senderID || "SURAJAHD");
     }
 
     // Step 2: Authenticate with IMEXCUBE
@@ -390,7 +491,7 @@ router.post("/api/scmCube/upload-to-imexcube", async (req, res) => {
     )}&password=${encodeURIComponent(
       IMPEX_PASSWORD
     )}&CompanyBrCode=${encodeURIComponent(
-      COMPANY_BR_CODE
+      companyBrCode
     )}&Fyear=${encodeURIComponent(FYEAR)}`;
 
     const loginRes = await axios.post(loginUrl, null, {
@@ -552,7 +653,7 @@ router.post("/api/scmCube/upload-to-imexcube", async (req, res) => {
  */
 router.get("/api/scmCube/job-data-preview", async (req, res) => {
   try {
-    const { job_number } = req.query;
+    const { job_number, senderID } = req.query;
     if (!job_number) {
       return res.status(400).json({ error: "job_number is required" });
     }
@@ -562,7 +663,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    const countryDoc = await CountryModel.findOne({ name: job.origin_country || "" }).lean();
+    const countryDoc = await CountryModel.findOne({ name: (job.origin_country || "").trim().toUpperCase() }).lean();
     const countryCode = countryDoc ? countryDoc.code : "";
 
     const getVal = (val) => (val === undefined || val === null ? "" : String(val).trim());
@@ -584,7 +685,24 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
           { code: new RegExp(`^${resolvedCustomHouseCode}$`, "i") },
         ],
       }).lean();
-      if (chDoc) resolvedCustomHouseCode = chDoc.code;
+      if (chDoc) {
+        resolvedCustomHouseCode = chDoc.code;
+      } else {
+        // Fallback: Check branches collection's ports list dynamically
+        const activeBranches = await BranchModel.find({ is_active: true }).lean();
+        for (const branch of activeBranches) {
+          if (branch.ports) {
+            const port = branch.ports.find(p => 
+              p.port_name.toLowerCase() === resolvedCustomHouseCode.toLowerCase() ||
+              p.port_code.toLowerCase() === resolvedCustomHouseCode.toLowerCase()
+            );
+            if (port) {
+              resolvedCustomHouseCode = port.port_code;
+              break;
+            }
+          }
+        }
+      }
     }
 
     // Port of Origin lookup
@@ -602,12 +720,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
       else if (match) resolvedPortOfOriginCode = match[1].trim();
     }
 
-    const brCode = (() => {
-      if (job.branch_code === "AMD") return "NOVUAMD";
-      if (job.branch_code === "GIM") return "NOVUGDM";
-      if (job.branch_code === "COK") return "NOVUCOK";
-      return "";
-    })();
+    const brCode = getChaBranchCode(job.branch_code);
 
     const fy = (() => {
       const raw = job.financial_year || job.year;
@@ -641,7 +754,40 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
       return "";
     })();
 
+    // Fetch all active branch ICD ports from the database dynamically
+    const activeBranches = await BranchModel.find({ is_active: true }).lean();
+    const dbIcdPorts = [];
+    for (const b of activeBranches) {
+      if (b.ports) {
+        for (const p of b.ports) {
+          if (p.is_icd) {
+            dbIcdPorts.push(p);
+          }
+        }
+      }
+    }
+
+    const targetICDs = dbIcdPorts.length > 0
+      ? dbIcdPorts.map(p => p.port_code.toUpperCase())
+      : ["INSAU6", "INJKA6", "INSBI6", "INBRC6", "INVCN6"];
+
+    const targetNames = dbIcdPorts.length > 0
+      ? dbIcdPorts.map(p => p.port_name.toUpperCase())
+      : [
+          "ICD SANAND",
+          "ICD SACHANA",
+          "ICD KHODIYAR",
+          "ICD VARANAMA",
+          "ICD VIROCHANNAGR"
+        ];
+
     const modeOfTransport = (() => {
+      const rawCH = getVal(job.custom_house).toUpperCase();
+      const resolvedCH = getVal(resolvedCustomHouseCode).toUpperCase();
+      const isTargetICD = targetICDs.some(code => rawCH.includes(code) || resolvedCH.includes(code)) ||
+                          targetNames.some(name => rawCH.includes(name) || resolvedCH.includes(name));
+
+      if (isTargetICD) return "L";
       if (job.mode === "SEA") return "S";
       if (job.mode === "AIR") return "A";
       return "";
@@ -673,7 +819,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
         "CHA Code": field("NOVU", true),
         "CHA Branch Code": field(brCode, true),
         "Financial Year": field(fy, true),
-        "SenderID": field("PROTRANS", true),
+        "SenderID": field(senderID || "SURAJAHD", true),
       },
       BE_Details: {
         "Custom House Code": field(resolvedCustomHouseCode, true),
@@ -697,7 +843,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
         "Kachcha BE": field("N", false),
         "High sea sale flag": field(hssVal, false),
         "Port of Origin": field(resolvedPortOfOriginCode, false),
-        "CHA Code": field("NOVU", false),
+        "CHA Code": field("ABOFS1766LCH005", false),
         "Country of Origin": field(countryCode, false),
         "Country of Consignment": field(countryCode, false),
         "Port Of Shipment": field(resolvedPortOfOriginCode, false),
@@ -711,7 +857,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
         "Ware house BE No": field(job.in_bond_be_no, false),
         "Ware house BE Date": field(fmtDate(job.in_bond_be_date), false),
         "No of packages released": field(job.no_of_pkgs, false),
-        "Package Code": field(job.unit, false),
+        "Package Code": field(getPackageCode(job), false),
         "Gross Weight": field(job.gross_weight, false),
         "Unit of Measurement": field(job.unit, false),
         "Additional Charges": field("", false),
@@ -734,14 +880,14 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
         "Total No. Of Packages": field(job.no_of_pkgs, true),
         "Gross Weight": field(job.gross_weight, false),
         "Unit Quantity Code": field(job.unit, false),
-        "Package Code": field(job.unit, false),
-        "Marks And Numbers 1": field(job.description || "AS PER BL", false),
+        "Package Code": field(getPackageCode(job), false),
+        "Marks And Numbers 1": field("AS PER BL", false),
         "Marks And Numbers 2": field("", false),
         "Marks And Numbers 3": field("", false),
       }],
       CONTAINER: (job.container_nos || []).map((container) => ({
-        "IGM Number": field(job.igm_no, true),
-        "IGM Date": field(fmtDate(job.igm_date), true),
+        "IGM Number": field(job.igm_no, false),
+        "IGM Date": field(fmtDate(job.igm_date), false),
         "LCL.FCL": field(lclFcl, false),
         "Container Number": field(container.container_number, true),
         "Seal Number": field(sealValue(container), false),
@@ -763,7 +909,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
       ],
     };
 
-    const { payload: cleanJobPayload } = await buildJobPayload(job_number, true);
+    const { payload: cleanJobPayload } = await buildJobPayload(job_number, true, senderID || "SURAJAHD");
 
     return res.status(200).json({
       annotated: preview,
@@ -773,6 +919,776 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
   } catch (error) {
     console.error("[IMEXCUBE Preview] Error:", error);
     return res.status(500).json({ error: error.message || "Internal Server Error" });
+  }
+});
+
+/**
+ * GET /api/scmCube/get-imexcube-job-details
+ * Gets job details from IMEXCUBE for testing/verification.
+ */
+router.get("/api/scmCube/get-imexcube-job-details", async (req, res) => {
+  const { job_number } = req.query;
+  try {
+    if (!job_number) {
+      return res.status(400).json({ error: "job_number is required" });
+    }
+
+    const job = await JobModel.findOne({ job_number }).lean();
+    if (!job) {
+      return res.status(404).json({ error: `Job not found for the provided job_number: ${job_number}` });
+    }
+
+    const companyBrCode = getCompanyBrCode(job.branch_code);
+    console.log(`[IMEXCUBE] Resolved CompanyBrCode for branch ${job.branch_code || "N/A"}: ${companyBrCode}`);
+
+    // Step 1: Authenticate with IMEXCUBE
+    console.log("[IMEXCUBE] Authenticating with IMEXCUBE TEST API for fetching details...");
+    const loginUrl = `${IMEXCUBE_BASE_URL}/api/Authentication/login?username=${encodeURIComponent(
+      IMPEX_USERNAME
+    )}&password=${encodeURIComponent(
+      IMPEX_PASSWORD
+    )}&CompanyBrCode=${encodeURIComponent(
+      companyBrCode
+    )}&Fyear=${encodeURIComponent(FYEAR)}`;
+
+    const loginRes = await axios.post(loginUrl, null, {
+      headers: { accept: "*/*" },
+      timeout: 30000,
+    });
+
+    const loginData = loginRes.data;
+    if (!loginData?.success || !loginData?.data?.accessToken) {
+      console.error("[IMEXCUBE] Login failed:", loginData);
+      return res.status(502).json({
+        error: "IMEXCUBE authentication failed",
+        details: loginData,
+      });
+    }
+
+    const accessToken = loginData.data.accessToken;
+    console.log("[IMEXCUBE] Authentication successful, fetching details for job:", job_number);
+
+    // Step 2: Fetch job details from IMEXCUBE
+    let detailsRes;
+    const getJobUrl = `${IMEXCUBE_BASE_URL}/api/v1/GetJobDetails/get-impdetails`;
+    try {
+      detailsRes = await axios({
+        method: "GET",
+        url: getJobUrl,
+        data: {
+          Method: "GetJobInfo",
+          User_Job_No: job_number
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          accept: "*/*"
+        },
+        timeout: 30000
+      });
+    } catch (err) {
+      // Fallback 1: Try old getimpdetails endpoint with query params if first attempt returned 404
+      if (err.response?.status === 404) {
+        const fallbackUrl = `${IMEXCUBE_BASE_URL}/api/v1/GetJobDetails/getimpdetails`;
+        try {
+          detailsRes = await axios.get(fallbackUrl, {
+            params: {
+              Method: "GET",
+              "User Job No.": job_number
+            },
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json"
+            },
+            timeout: 30000
+          });
+        } catch (fallbackErr) {
+          // If fallback also fails, throw original error
+          throw err;
+        }
+      } else {
+        throw err;
+      }
+    }
+
+    console.log("[IMEXCUBE] Details fetched successfully:", detailsRes.data);
+    return res.status(200).json(detailsRes.data);
+  } catch (error) {
+    console.error("[IMEXCUBE Fetch Details Error]:", error?.response?.data || error.message);
+    if (error?.response?.status === 404) {
+      return res.status(404).json({
+        error: "Job not found in IMEXCUBE",
+        details: "This job has likely not been uploaded to IMEXCUBE (TEST) yet. Please upload the job first by clicking the 'Upload to IMEXCUBE (TEST)' button."
+      });
+    }
+    return res.status(error?.response?.status || 500).json({
+      error: "Failed to fetch job details from IMEXCUBE",
+      details: error?.response?.data || error.message
+    });
+  }
+});
+
+/**
+ * POST /api/scmCube/sync-imexcube-job
+ * Fetches the job details from IMEXCUBE and synchronizes them to our local JobModel defensively.
+ */
+router.post("/api/scmCube/sync-imexcube-job", authMiddleware, auditMiddleware('Job'), async (req, res) => {
+  const { job_number } = req.body || {};
+  try {
+    if (!job_number) {
+      return res.status(400).json({ error: "job_number is required" });
+    }
+
+    const job = await JobModel.findOne({ job_number });
+    if (!job) {
+      return res.status(404).json({ error: `Job not found for the provided job_number: ${job_number}` });
+    }
+
+    const companyBrCode = getCompanyBrCode(job.branch_code);
+    console.log(`[IMEXCUBE Sync] Resolved CompanyBrCode for branch ${job.branch_code || "N/A"}: ${companyBrCode}`);
+
+    // Step 1: Authenticate with IMEXCUBE
+    console.log("[IMEXCUBE Sync] Authenticating with IMEXCUBE TEST API...");
+    const loginUrl = `${IMEXCUBE_BASE_URL}/api/Authentication/login?username=${encodeURIComponent(
+      IMPEX_USERNAME
+    )}&password=${encodeURIComponent(
+      IMPEX_PASSWORD
+    )}&CompanyBrCode=${encodeURIComponent(
+      companyBrCode
+    )}&Fyear=${encodeURIComponent(FYEAR)}`;
+
+    const loginRes = await axios.post(loginUrl, null, {
+      headers: { accept: "*/*" },
+      timeout: 30000,
+    });
+
+    const loginData = loginRes.data;
+    if (!loginData?.success || !loginData?.data?.accessToken) {
+      console.error("[IMEXCUBE Sync] Login failed:", loginData);
+      return res.status(502).json({
+        error: "IMEXCUBE authentication failed",
+        details: loginData,
+      });
+    }
+
+    const accessToken = loginData.data.accessToken;
+    console.log("[IMEXCUBE Sync] Authentication successful, fetching details...");
+
+    // Step 2: Fetch job details from IMEXCUBE
+    let detailsRes;
+    const getJobUrl = `${IMEXCUBE_BASE_URL}/api/v1/GetJobDetails/get-impdetails`;
+    try {
+      detailsRes = await axios({
+        method: "GET",
+        url: getJobUrl,
+        data: {
+          Method: "GetJobInfo",
+          User_Job_No: job_number
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          accept: "*/*"
+        },
+        timeout: 30000
+      });
+    } catch (err) {
+      if (err.response?.status === 404) {
+        const fallbackUrl = `${IMEXCUBE_BASE_URL}/api/v1/GetJobDetails/getimpdetails`;
+        try {
+          detailsRes = await axios.get(fallbackUrl, {
+            params: {
+              Method: "GET",
+              "User Job No.": job_number
+            },
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json"
+            },
+            timeout: 30000
+          });
+        } catch (fallbackErr) {
+          throw err;
+        }
+      } else {
+        throw err;
+      }
+    }
+
+    const responseData = detailsRes.data;
+    if (!responseData?.success || !responseData?.data) {
+      return res.status(502).json({
+        error: "Failed to fetch valid job details from IMEXCUBE",
+        details: responseData,
+      });
+    }
+
+    const imexData = responseData.data;
+    const updates = {};
+    const changesSummary = [];
+
+    // Helper: parse date to YYYY-MM-DD
+    const parseAndFormatDate = (dateStr) => {
+      if (!dateStr || String(dateStr).trim() === "" || dateStr === "0") return null;
+      const s = String(dateStr).trim();
+      
+      // Format: DD/MM/YYYY
+      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+        const [d, m, y] = s.split("/");
+        return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      }
+      
+      // Format: YYYY-MM-DD...
+      const parsed = new Date(s);
+      if (!isNaN(parsed.getTime())) {
+        const y = parsed.getFullYear();
+        const m = String(parsed.getMonth() + 1).padStart(2, '0');
+        const d = String(parsed.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+      return null;
+    };
+
+    // Helper: check if a value is present and not a placeholder
+    const isValuePresent = (val) => {
+      if (val === undefined || val === null) return false;
+      const s = String(val).trim();
+      return s !== "" && s !== "0" && s.toLowerCase() !== "n/a" && s.toLowerCase() !== "nil";
+    };
+
+    // --- 1. BE_Details Mapping ---
+    if (Array.isArray(imexData.BE_Details) && imexData.BE_Details.length > 0) {
+      const be = imexData.BE_Details[0];
+
+      // BE Number
+      if (isValuePresent(be.BENo)) {
+        if (job.be_no !== be.BENo) {
+          updates.be_no = be.BENo;
+          changesSummary.push(`be_no: ${job.be_no || 'none'} -> ${be.BENo}`);
+        }
+      }
+
+      // BE Date
+      const parsedBEDate = parseAndFormatDate(be.BEDate);
+      if (parsedBEDate) {
+        if (job.be_date !== parsedBEDate) {
+          updates.be_date = parsedBEDate;
+          changesSummary.push(`be_date: ${job.be_date || 'none'} -> ${parsedBEDate}`);
+        }
+      }
+
+      // BE Type
+      if (isValuePresent(be.BEType)) {
+        let mappedType = "";
+        if (be.BEType === "H") mappedType = "Home";
+        else if (be.BEType === "W") mappedType = "In-Bond";
+        else if (be.BEType === "X") mappedType = "Ex-Bond";
+
+        if (mappedType && job.type_of_b_e !== mappedType) {
+          updates.type_of_b_e = mappedType;
+          changesSummary.push(`type_of_b_e: ${job.type_of_b_e || 'none'} -> ${mappedType}`);
+        }
+      }
+
+      // Custom Port
+      if (isValuePresent(be.CustomPort)) {
+        const portCode = String(be.CustomPort).toUpperCase();
+        let chDoc = await CustomHouseModel.findOne({ code: portCode }).lean();
+        let resolvedName = chDoc ? chDoc.name : null;
+        if (!resolvedName) {
+          // Fallback: Check branches collection's ports list dynamically
+          const activeBranches = await BranchModel.find({ is_active: true }).lean();
+          for (const branch of activeBranches) {
+            if (branch.ports) {
+              const port = branch.ports.find(p => p.port_code.toUpperCase() === portCode);
+              if (port) {
+                resolvedName = port.port_name;
+                break;
+              }
+            }
+          }
+        }
+        if (!resolvedName) {
+          resolvedName = portCode;
+        }
+        if (job.custom_house !== resolvedName) {
+          updates.custom_house = resolvedName;
+          changesSummary.push(`custom_house: ${job.custom_house || 'none'} -> ${resolvedName}`);
+        }
+      }
+
+      // Mode
+      if (isValuePresent(be.Mode)) {
+        let mappedMode = "";
+        if (be.Mode === "A") mappedMode = "AIR";
+        else if (be.Mode === "S" || be.Mode === "L") mappedMode = "SEA";
+
+        if (mappedMode && job.mode !== mappedMode) {
+          updates.mode = mappedMode;
+          changesSummary.push(`mode: ${job.mode || 'none'} -> ${mappedMode}`);
+        }
+      }
+
+      // Job Date
+      const parsedJobDate = parseAndFormatDate(be.JobDate);
+      if (parsedJobDate) {
+        if (job.job_date !== parsedJobDate) {
+          updates.job_date = parsedJobDate;
+          changesSummary.push(`job_date: ${job.job_date || 'none'} -> ${parsedJobDate}`);
+        }
+      }
+    }
+
+    // --- 2. Invoice_Details Mapping ---
+    if (Array.isArray(imexData.Invoice_Details) && imexData.Invoice_Details.length > 0) {
+      let existingInvoices = [...(job.invoice_details || [])];
+      let invoiceChanged = false;
+
+      // Sync top-level summary if not populated yet
+      const firstInv = imexData.Invoice_Details[0];
+      if (firstInv) {
+        if (isValuePresent(firstInv.InvoiceNo) && !job.invoice_number) {
+          updates.invoice_number = firstInv.InvoiceNo;
+          changesSummary.push(`invoice_number: none -> ${firstInv.InvoiceNo}`);
+        }
+        const parsedInvDate = parseAndFormatDate(firstInv.InvoiceDate);
+        if (parsedInvDate && !job.invoice_date) {
+          updates.invoice_date = parsedInvDate;
+          changesSummary.push(`invoice_date: none -> ${parsedInvDate}`);
+        }
+        if (isValuePresent(firstInv.SupplierName) && !job.supplier_exporter) {
+          updates.supplier_exporter = firstInv.SupplierName;
+          changesSummary.push(`supplier_exporter: none -> ${firstInv.SupplierName}`);
+        }
+      }
+
+      imexData.Invoice_Details.forEach((inv) => {
+        if (!isValuePresent(inv.InvoiceNo)) return;
+
+        let idx = existingInvoices.findIndex(item => item.invoice_number === inv.InvoiceNo);
+        let currentInv = idx !== -1 ? (existingInvoices[idx].toObject ? existingInvoices[idx].toObject() : existingInvoices[idx]) : null;
+
+        const mappedInvDate = parseAndFormatDate(inv.InvoiceDate) || "";
+        const mappedTerms = isValuePresent(inv.InvoiceTerms) ? String(inv.InvoiceTerms) : "";
+        const mappedCurrency = isValuePresent(inv.InvoiceCurrency) ? String(inv.InvoiceCurrency) : "";
+        const mappedVal = isValuePresent(inv.InvoiceProductValues) ? String(inv.InvoiceProductValues) : "";
+        const mappedFreight = isValuePresent(inv.FreightAmount) ? String(inv.FreightAmount) : "";
+        const mappedFreightCurr = isValuePresent(inv.FreightCurrency) ? String(inv.FreightCurrency) : "";
+        const mappedInsurance = isValuePresent(inv.InsuranceAmount) ? String(inv.InsuranceAmount) : "";
+        const mappedInsuranceCurr = isValuePresent(inv.InsuranceCurrency) ? String(inv.InsuranceCurrency) : "";
+        const mappedMisc = isValuePresent(inv.MiscAmount) ? String(inv.MiscAmount) : "";
+        const mappedMiscCurr = isValuePresent(inv.MiscCurr) ? String(inv.MiscCurr) : "";
+
+        // Resolve exchange rates dynamically from job exrate or existing values
+        const jobCurrency = job.currency || job._doc?.currency || job.invoice_details?.[0]?.inv_currency || "USD";
+        const getExrateForCurrency = (currencyCode, currentVal) => {
+          const code = String(currencyCode || "").toUpperCase().trim();
+          if (!code) return "";
+          if (code === "INR") return "1";
+          const parsedCurrent = parseFloat(currentVal);
+          if (parsedCurrent && parsedCurrent !== 1) return String(parsedCurrent);
+          if (code === String(jobCurrency || "").toUpperCase().trim() && parseFloat(job.exrate)) {
+            return String(job.exrate);
+          }
+          return currentVal || "1";
+        };
+
+        const mappedExrate = getExrateForCurrency(inv.InvoiceCurrency, currentInv?.exchange_rate);
+        const mappedFreightExrate = getExrateForCurrency(inv.FreightCurrency, currentInv?.freight_exchange_rate);
+        const mappedInsuranceExrate = getExrateForCurrency(inv.InsuranceCurrency, currentInv?.insurance_exchange_rate);
+        const mappedMiscExrate = getExrateForCurrency(inv.MiscCurr, currentInv?.misc_exchange_rate || currentInv?.other_charges_exchange_rate);
+
+        if (currentInv) {
+          let subChanges = false;
+          if (mappedInvDate && currentInv.invoice_date !== mappedInvDate) { currentInv.invoice_date = mappedInvDate; subChanges = true; }
+          if (mappedTerms && currentInv.toi !== mappedTerms) { currentInv.toi = mappedTerms; subChanges = true; }
+          if (mappedCurrency && currentInv.inv_currency !== mappedCurrency) { currentInv.inv_currency = mappedCurrency; subChanges = true; }
+          if (mappedVal && currentInv.product_value !== mappedVal) { currentInv.product_value = mappedVal; subChanges = true; }
+          if (mappedFreight && currentInv.freight !== mappedFreight) { currentInv.freight = mappedFreight; subChanges = true; }
+          if (mappedFreightCurr && currentInv.freight_currency !== mappedFreightCurr) { currentInv.freight_currency = mappedFreightCurr; subChanges = true; }
+          if (mappedInsurance && currentInv.insurance !== mappedInsurance) { currentInv.insurance = mappedInsurance; subChanges = true; }
+          if (mappedInsuranceCurr && currentInv.insurance_currency !== mappedInsuranceCurr) { currentInv.insurance_currency = mappedInsuranceCurr; subChanges = true; }
+          if (mappedExrate && currentInv.exchange_rate !== mappedExrate) { currentInv.exchange_rate = mappedExrate; subChanges = true; }
+          if (mappedFreightExrate && currentInv.freight_exchange_rate !== mappedFreightExrate) { currentInv.freight_exchange_rate = mappedFreightExrate; subChanges = true; }
+          if (mappedInsuranceExrate && currentInv.insurance_exchange_rate !== mappedInsuranceExrate) { currentInv.insurance_exchange_rate = mappedInsuranceExrate; subChanges = true; }
+          if (mappedMisc && currentInv.misc !== mappedMisc) { currentInv.misc = mappedMisc; subChanges = true; }
+          if (mappedMiscCurr && currentInv.misc_currency !== mappedMiscCurr) { currentInv.misc_currency = mappedMiscCurr; subChanges = true; }
+          if (mappedMiscExrate && currentInv.misc_exchange_rate !== mappedMiscExrate) { currentInv.misc_exchange_rate = mappedMiscExrate; subChanges = true; }
+
+          if (subChanges) {
+            existingInvoices[idx] = currentInv;
+            invoiceChanged = true;
+            changesSummary.push(`Updated invoice ${inv.InvoiceNo} details`);
+          }
+        } else {
+          const newInv = {
+            invoice_number: inv.InvoiceNo,
+            invoice_date: mappedInvDate,
+            toi: mappedTerms,
+            inv_currency: mappedCurrency,
+            product_value: mappedVal,
+            freight: mappedFreight,
+            freight_currency: mappedFreightCurr,
+            insurance: mappedInsurance,
+            insurance_currency: mappedInsuranceCurr,
+            exchange_rate: mappedExrate,
+            freight_exchange_rate: mappedFreightExrate,
+            insurance_exchange_rate: mappedInsuranceExrate,
+            misc: mappedMisc,
+            misc_currency: mappedMiscCurr,
+            misc_exchange_rate: mappedMiscExrate,
+          };
+          existingInvoices.push(newInv);
+          invoiceChanged = true;
+          changesSummary.push(`Added invoice ${inv.InvoiceNo}`);
+        }
+      });
+
+      // Helper function to get currency unit
+      const getUnitForCurrency = (currencyCode) => {
+        if (!currencyCode) return 1;
+        const code = String(currencyCode).toUpperCase().trim();
+        if (code === "JPY" || code === "KRW") return 100;
+        return 1;
+      };
+
+      // Helper function to resolve exchange rate for a currency from invoices or job
+      const getExchangeRateForCurrency = (currencyCode) => {
+        if (!currencyCode) return 1;
+        const code = String(currencyCode).toUpperCase().trim();
+        if (code === "INR") return 1;
+        
+        for (const row of existingInvoices) {
+          if (row.inv_currency && String(row.inv_currency).toUpperCase().trim() === code) {
+            if (parseFloat(row.exchange_rate)) return parseFloat(row.exchange_rate);
+          }
+          if (row.freight_currency && String(row.freight_currency).toUpperCase().trim() === code) {
+            if (parseFloat(row.freight_exchange_rate)) return parseFloat(row.freight_exchange_rate);
+          }
+          if (row.insurance_currency && String(row.insurance_currency).toUpperCase().trim() === code) {
+            if (parseFloat(row.insurance_exchange_rate)) return parseFloat(row.insurance_exchange_rate);
+          }
+          if ((row.misc_currency || row.other_charges_currency) && String(row.misc_currency || row.other_charges_currency).toUpperCase().trim() === code) {
+            if (parseFloat(row.misc_exchange_rate || row.other_charges_exchange_rate)) return parseFloat(row.misc_exchange_rate || row.other_charges_exchange_rate);
+          }
+        }
+        return parseFloat(job.exrate) || 1;
+      };
+
+      const getExchangeRateForCharge = (chargeKey, currencyCode) => {
+        if (!currencyCode) return 1;
+        const code = String(currencyCode).toUpperCase().trim();
+        if (code === "INR") return 1;
+        
+        const existingExrate = parseFloat(job.other_charges_details?.[chargeKey]?.exchange_rate);
+        if (existingExrate) return existingExrate;
+        
+        return getExchangeRateForCurrency(code);
+      };
+
+      // Calculate total base value in INR from the invoices
+      let totalBaseValInr = 0;
+      existingInvoices.forEach((row) => {
+        const pv = parseFloat(row.product_value) || 0;
+        const pvEx = parseFloat(row.exchange_rate) || parseFloat(job.exrate) || 1;
+        const oth = parseFloat(row.misc || row.other_charges) || 0;
+        const othEx = parseFloat(row.misc_exchange_rate || row.other_charges_exchange_rate) || 1;
+        
+        const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+        const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency || row.other_charges_currency);
+        
+        totalBaseValInr += pvInr + othInr;
+      });
+
+      const calculateRate = (chargeKey, amount, currency) => {
+        const amtVal = parseFloat(amount) || 0;
+        if (amtVal === 0) return 0;
+        if (totalBaseValInr <= 0) {
+          if (chargeKey === "freight") return 20;
+          if (chargeKey === "insurance") return 1.125;
+          return 0;
+        }
+        const exrateVal = getExchangeRateForCharge(chargeKey, currency);
+        const unitVal = getUnitForCurrency(currency);
+        const amtInr = (amtVal * exrateVal) / unitVal;
+        const calculated = (amtInr / totalBaseValInr) * 100;
+        return parseFloat(calculated.toFixed(4));
+      };
+
+      // Calculate aggregates for job-level other_charges_details
+      let totalFreight = 0;
+      let freightCurrency = "";
+      let totalInsurance = 0;
+      let insuranceCurrency = "";
+      let totalMisc = 0;
+      let miscCurrency = "";
+      let totalDiscount = 0;
+      let discountCurrency = "";
+      let totalAgency = 0;
+      let agencyCurrency = "";
+      let totalLoading = 0;
+      let loadingCurrency = "";
+      let totalHighSea = 0;
+      let highSeaCurrency = "";
+
+      imexData.Invoice_Details.forEach((inv) => {
+        if (isValuePresent(inv.FreightAmount)) {
+          totalFreight += parseFloat(inv.FreightAmount) || 0;
+          if (!freightCurrency && isValuePresent(inv.FreightCurrency)) {
+            freightCurrency = String(inv.FreightCurrency);
+          }
+        }
+        if (isValuePresent(inv.InsuranceAmount)) {
+          totalInsurance += parseFloat(inv.InsuranceAmount) || 0;
+          if (!insuranceCurrency && isValuePresent(inv.InsuranceCurrency)) {
+            insuranceCurrency = String(inv.InsuranceCurrency);
+          }
+        }
+        if (isValuePresent(inv.MiscAmount)) {
+          totalMisc += parseFloat(inv.MiscAmount) || 0;
+          if (!miscCurrency && isValuePresent(inv.MiscCurr)) {
+            miscCurrency = String(inv.MiscCurr);
+          }
+        }
+        if (isValuePresent(inv.DiscountAmount)) {
+          totalDiscount += parseFloat(inv.DiscountAmount) || 0;
+          if (!discountCurrency && isValuePresent(inv.DiscountCurrency)) {
+            discountCurrency = String(inv.DiscountCurrency);
+          }
+        }
+        if (isValuePresent(inv.AgencyAmount)) {
+          totalAgency += parseFloat(inv.AgencyAmount) || 0;
+          if (!agencyCurrency && isValuePresent(inv.AgencyCurrency)) {
+            agencyCurrency = String(inv.AgencyCurrency);
+          }
+        }
+        if (isValuePresent(inv.LoadingAmount)) {
+          totalLoading += parseFloat(inv.LoadingAmount) || 0;
+          if (!loadingCurrency && isValuePresent(inv.LoadingCurrency)) {
+            loadingCurrency = String(inv.LoadingCurrency);
+          }
+        }
+        if (isValuePresent(inv.HighSeaAmt)) {
+          totalHighSea += parseFloat(inv.HighSeaAmt) || 0;
+          if (!highSeaCurrency && isValuePresent(inv.HighSeaCurrency)) {
+            highSeaCurrency = String(inv.HighSeaCurrency);
+          }
+        }
+      });
+
+      const otherChargesDetails = {
+        is_single_for_all: job.other_charges_details?.is_single_for_all ?? true,
+        miscellaneous: {
+          currency: miscCurrency || job.other_charges_details?.miscellaneous?.currency || "",
+          exchange_rate: getExchangeRateForCharge("miscellaneous", miscCurrency || job.other_charges_details?.miscellaneous?.currency),
+          rate: calculateRate("miscellaneous", totalMisc, miscCurrency || job.other_charges_details?.miscellaneous?.currency),
+          amount: totalMisc,
+          remark: job.other_charges_details?.miscellaneous?.remark || ""
+        },
+        agency: {
+          currency: agencyCurrency || job.other_charges_details?.agency?.currency || "INR",
+          exchange_rate: getExchangeRateForCharge("agency", agencyCurrency || job.other_charges_details?.agency?.currency || "INR"),
+          rate: calculateRate("agency", totalAgency, agencyCurrency || job.other_charges_details?.agency?.currency || "INR"),
+          amount: totalAgency,
+          remark: job.other_charges_details?.agency?.remark || ""
+        },
+        discount: {
+          currency: discountCurrency || job.other_charges_details?.discount?.currency || "",
+          exchange_rate: getExchangeRateForCharge("discount", discountCurrency || job.other_charges_details?.discount?.currency),
+          rate: calculateRate("discount", totalDiscount, discountCurrency || job.other_charges_details?.discount?.currency),
+          amount: totalDiscount,
+          remark: job.other_charges_details?.discount?.remark || ""
+        },
+        loading: {
+          currency: loadingCurrency || job.other_charges_details?.loading?.currency || "INR",
+          exchange_rate: getExchangeRateForCharge("loading", loadingCurrency || job.other_charges_details?.loading?.currency || "INR"),
+          rate: calculateRate("loading", totalLoading, loadingCurrency || job.other_charges_details?.loading?.currency || "INR"),
+          amount: totalLoading,
+          remark: job.other_charges_details?.loading?.remark || ""
+        },
+        freight: {
+          currency: freightCurrency || job.other_charges_details?.freight?.currency || "",
+          exchange_rate: getExchangeRateForCharge("freight", freightCurrency || job.other_charges_details?.freight?.currency),
+          rate: calculateRate("freight", totalFreight, freightCurrency || job.other_charges_details?.freight?.currency),
+          amount: totalFreight,
+          remark: job.other_charges_details?.freight?.remark || ""
+        },
+        insurance: {
+          currency: insuranceCurrency || job.other_charges_details?.insurance?.currency || "INR",
+          exchange_rate: getExchangeRateForCharge("insurance", insuranceCurrency || job.other_charges_details?.insurance?.currency || "INR"),
+          rate: calculateRate("insurance", totalInsurance, insuranceCurrency || job.other_charges_details?.insurance?.currency || "INR"),
+          amount: totalInsurance,
+          remark: job.other_charges_details?.insurance?.remark || ""
+        },
+        addl_charge: {
+          currency: highSeaCurrency || job.other_charges_details?.addl_charge?.currency || "INR",
+          exchange_rate: getExchangeRateForCharge("addl_charge", highSeaCurrency || job.other_charges_details?.addl_charge?.currency || "INR"),
+          rate: calculateRate("addl_charge", totalHighSea, highSeaCurrency || job.other_charges_details?.addl_charge?.currency || "INR"),
+          amount: totalHighSea,
+          remark: job.other_charges_details?.addl_charge?.remark || ""
+        },
+        revenue_deposit: job.other_charges_details?.revenue_deposit || { rate: 0, on: "Assessable" },
+        landing_charge: job.other_charges_details?.landing_charge || { rate: 0 }
+      };
+
+      const isOtherChargesChanged = JSON.stringify(job.other_charges_details) !== JSON.stringify(otherChargesDetails);
+      if (isOtherChargesChanged) {
+        updates.other_charges_details = otherChargesDetails;
+        changesSummary.push("Updated other_charges_details with aggregated charge amounts");
+      }
+
+      if (invoiceChanged) {
+        updates.invoice_details = existingInvoices;
+      }
+    }
+
+    // --- 3. Product_Details Mapping ---
+    if (Array.isArray(imexData.Product_Details) && imexData.Product_Details.length > 0) {
+      let existingProducts = [...(job.description_details || [])];
+      let productsChanged = false;
+
+      // Group IMEXCUBE products by their invoice serial number
+      const imexProductCounts = {};
+      imexData.Product_Details.forEach((prod) => {
+        const invSrNo = isValuePresent(prod.InvSrNo) ? String(prod.InvSrNo) : "1";
+        imexProductCounts[invSrNo] = (imexProductCounts[invSrNo] || 0) + 1;
+      });
+
+      // Gather all unique invoice serial numbers present in the DB products
+      const dbInvoiceSrNos = new Set();
+      existingProducts.forEach((item) => {
+        dbInvoiceSrNos.add(String(item.sr_no_invoice || "1"));
+      });
+
+      // Combine both sets of invoice serial numbers
+      const allInvoiceSrNos = new Set([...Object.keys(imexProductCounts), ...dbInvoiceSrNos]);
+
+      console.log(`[IMEXCUBE Sync Debug] existingProducts length: ${existingProducts.length}, allInvoiceSrNos:`, Array.from(allInvoiceSrNos), `imexProductCounts:`, imexProductCounts);
+      // Self-healing: Remove excess/removed product entries in DB for each invoice
+      allInvoiceSrNos.forEach((invSrNo) => {
+        const limit = imexProductCounts[invSrNo] || 0;
+        const matchingIndices = [];
+        existingProducts.forEach((item, i) => {
+          if (String(item.sr_no_invoice || "1") === invSrNo) {
+            matchingIndices.push(i);
+          }
+        });
+
+        if (matchingIndices.length > limit) {
+          const indicesToRemove = matchingIndices.slice(limit);
+          indicesToRemove.sort((a, b) => b - a).forEach((idxToRemove) => {
+            existingProducts.splice(idxToRemove, 1);
+          });
+          productsChanged = true;
+          changesSummary.push(`Removed ${indicesToRemove.length} excess/duplicate products for invoice ${invSrNo}`);
+        }
+      });
+
+      imexData.Product_Details.forEach((prod) => {
+        if (!isValuePresent(prod.ProductDesc) && !isValuePresent(prod.RITCNo)) return;
+
+        let idx = -1;
+        if (prod.ProductSNo) {
+          const targetInvSrNo = isValuePresent(prod.InvSrNo) ? String(prod.InvSrNo) : "1";
+          
+          // Get all indices in existingProducts that belong to this invoice
+          const matchingIndices = [];
+          existingProducts.forEach((item, i) => {
+            if (String(item.sr_no_invoice || "1") === targetInvSrNo) {
+              matchingIndices.push(i);
+            }
+          });
+          
+          if (prod.ProductSNo <= matchingIndices.length) {
+            idx = matchingIndices[prod.ProductSNo - 1];
+          }
+        } else {
+          idx = existingProducts.findIndex(item => item.cth_no === prod.RITCNo && item.description === prod.ProductDesc);
+        }
+
+        let currentProd = idx !== -1 ? (existingProducts[idx].toObject ? existingProducts[idx].toObject() : existingProducts[idx]) : null;
+
+        const mappedDesc = isValuePresent(prod.ProductDesc) ? String(prod.ProductDesc) : "";
+        const mappedCth = isValuePresent(prod.RITCNo) ? String(prod.RITCNo) : "";
+        const mappedQty = isValuePresent(prod.Qty) ? String(prod.Qty) : "";
+        const mappedUnit = isValuePresent(prod.Unit) ? String(prod.Unit) : "";
+        const mappedPrice = isValuePresent(prod.UnitPrice) ? String(prod.UnitPrice) : "";
+        const mappedAmt = isValuePresent(prod.Amount) ? String(prod.Amount) : "";
+        const mappedInvSrNo = isValuePresent(prod.InvSrNo) ? String(prod.InvSrNo) : "1";
+
+        if (currentProd) {
+          let subChanges = false;
+          if (mappedDesc && currentProd.description !== mappedDesc) { currentProd.description = mappedDesc; subChanges = true; }
+          if (mappedCth && currentProd.cth_no !== mappedCth) { currentProd.cth_no = mappedCth; subChanges = true; }
+          if (mappedQty && currentProd.quantity !== mappedQty) { currentProd.quantity = mappedQty; subChanges = true; }
+          if (mappedUnit && currentProd.unit !== mappedUnit) { currentProd.unit = mappedUnit; subChanges = true; }
+          if (mappedPrice && currentProd.unit_price !== mappedPrice) { currentProd.unit_price = mappedPrice; subChanges = true; }
+          if (mappedAmt && currentProd.amount !== mappedAmt) { currentProd.amount = mappedAmt; subChanges = true; }
+          if (mappedInvSrNo && currentProd.sr_no_invoice !== mappedInvSrNo) { currentProd.sr_no_invoice = mappedInvSrNo; subChanges = true; }
+
+          if (subChanges) {
+            existingProducts[idx] = currentProd;
+            productsChanged = true;
+            changesSummary.push(`Updated product SNo ${prod.ProductSNo || idx + 1}`);
+          }
+        } else {
+          const newProd = {
+            description: mappedDesc,
+            cth_no: mappedCth,
+            quantity: mappedQty,
+            unit: mappedUnit,
+            unit_price: mappedPrice,
+            amount: mappedAmt,
+            sr_no_invoice: mappedInvSrNo
+          };
+          existingProducts.push(newProd);
+          productsChanged = true;
+          changesSummary.push(`Added product ${mappedCth}`);
+        }
+      });
+
+      if (productsChanged) {
+        updates.description_details = existingProducts;
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      console.log(`[IMEXCUBE Sync] Job ${job_number} is already up to date.`);
+      return res.status(200).json({
+        success: true,
+        message: "No new or modified fields found to update.",
+        changes: []
+      });
+    }
+
+    // Apply updates to the database
+    console.log(`[IMEXCUBE Sync] Applying updates to job ${job_number}:`, updates);
+    const updatedJob = await JobModel.findOneAndUpdate(
+      { job_number },
+      { $set: updates },
+      { new: true }
+    );
+
+    // Recalculate license utilization if required
+    if (updates.description_details || updates.be_no) {
+      await recalculateLicenseUtilizationForJob(updatedJob).catch(err => {
+        console.error("[IMEXCUBE Sync] Recalculating license utilization failed:", err);
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Job details successfully synchronized from IMEXCUBE.",
+      changes: changesSummary,
+      updatedJob
+    });
+
+  } catch (error) {
+    console.error("[IMEXCUBE Sync Error]:", error?.response?.data || error.message);
+    return res.status(error?.response?.status || 500).json({
+      error: "Failed to synchronize job details from IMEXCUBE",
+      details: error?.response?.data || error.message
+    });
   }
 });
 

@@ -2,6 +2,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import UserModel from "../../model/userModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import verifyToken from "../../middleware/authMiddleware.mjs";
 import { Resend } from "resend";
 import dotenv from "dotenv";
 import crypto from "crypto";
@@ -20,7 +21,15 @@ const CLIENT_URI =
 
 const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || "onboarding@alvision.in";
 
-router.post("/api/onboard-employee", auditMiddleware("User"), async (req, res) => {
+router.post("/api/onboard-employee", verifyToken, (req, res, next) => {
+  const role = String(req.user?.role || '').toUpperCase();
+  const username = String(req.user?.username || '').toLowerCase();
+  
+  if (role === 'ADMIN' || req.user?.isAttendanceAllowedAdmin === true || username === 'afzal_ghanchi') {
+    return next();
+  }
+  return res.status(403).json({ message: 'Insufficient permissions' });
+}, auditMiddleware("User"), async (req, res) => {
   try {
     const {
       first_name,
@@ -31,7 +40,34 @@ router.post("/api/onboard-employee", auditMiddleware("User"), async (req, res) =
       employment_type,
     } = req.body;
 
-    const username = `${first_name.toLowerCase()}_${last_name.toLowerCase()}`;
+    // Validate required fields
+    if (
+      !first_name || typeof first_name !== "string" || !first_name.trim() ||
+      !last_name || typeof last_name !== "string" || !last_name.trim() ||
+      !email || typeof email !== "string" || !email.trim() ||
+      !company || typeof company !== "string" || !company.trim() ||
+      !employment_type || typeof employment_type !== "string" || !employment_type.trim()
+    ) {
+      return res.status(400).send({
+        message: "First name, last name, email, company, and employment type are required fields.",
+      });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).send({
+        message: "Please provide a valid email address.",
+      });
+    }
+
+    const trimmedFirstName = first_name.trim();
+    const trimmedLastName = last_name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedCompany = company.trim();
+    const trimmedEmploymentType = employment_type.trim();
+
+    // Generate username and password
+    const username = `${trimmedFirstName.toLowerCase()}_${trimmedLastName.toLowerCase()}`;
     const password = crypto.randomBytes(8).toString("hex");
 
     const existingEmployee = await UserModel.findOne({ username });
@@ -45,27 +81,27 @@ router.post("/api/onboard-employee", auditMiddleware("User"), async (req, res) =
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const newUser = new UserModel({
-      first_name: first_name.toUpperCase(),
-      middle_name: middle_name ? middle_name.toUpperCase() : "",
-      last_name: last_name.toUpperCase(),
-      email,
-      company: company.toUpperCase(),
+      first_name: trimmedFirstName.toUpperCase(),
+      middle_name: middle_name && typeof middle_name === "string" ? middle_name.trim().toUpperCase() : "",
+      last_name: trimmedLastName.toUpperCase(),
+      email: trimmedEmail,
+      company: trimmedCompany.toUpperCase(),
       username,
       password: hashedPassword,
       modules: ["Employee KYC", "Employee Onboarding", "Attendance"],
       role: "User",
-      employment_type: employment_type,
+      employment_type: trimmedEmploymentType,
     });
 
     await newUser.save();
 
     const mailOptions = {
       from: DEFAULT_FROM,
-      to: email,
-      subject: `Welcome to the Team, ${first_name.toUpperCase()}!`,
+      to: trimmedEmail,
+      subject: `Welcome to the Team, ${trimmedFirstName.toUpperCase()}!`,
       html: `
-        Dear ${first_name.toUpperCase()},<br/><br/>
-        Congratulations on your new role at ${company}!<br/><br/>
+        Dear ${trimmedFirstName.toUpperCase()},<br/><br/>
+        Congratulations on your new role at ${trimmedCompany}!<br/><br/>
         We are pleased to have you join us and look forward to the positive impact you will bring to our team. Enclosed are your onboarding details and some resources to help you get started.<br/>
         <ul>
           <li>Username: ${username}</li>

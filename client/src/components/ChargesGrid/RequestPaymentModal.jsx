@@ -30,7 +30,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
         "Charge Description": '',
         "Charge Heading": '',
         "Charge Head Category": '',
-        "TDS Category": '94C',
+        "TDS Category": '94C_1',
         "Description of Services": '',
         "attachments": []
     });
@@ -90,7 +90,15 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                     "Charge Description": initialData.chargeDescription || '',
                     "Charge Heading": initialData.chargeHead || '',
                     "Charge Head Category": initialData.chargeHeadCategory || '',
-                    "TDS Category": initialData.tdsCategory || '94C',
+                    "TDS Category": (() => {
+                        const cat = initialData.tdsCategory || '94C';
+                        const pct = parseFloat(initialData.tdsPercent) || 0;
+                        if (cat === '94C') {
+                            if (pct === 2) return '94C_2';
+                            return '94C_1';
+                        }
+                        return cat;
+                    })(),
                     "Description of Services": initialData.chargeHead ? (initialData.chargeHeadCategory === 'Margin' ? `${initialData.chargeHead} - E` : initialData.chargeHead) : '',
                     "attachments": initialData.attachments || []
                 }));
@@ -159,6 +167,9 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                 ...formData,
                 "Requested By": user ? `${user.first_name} ${user.last_name}` : (localStorage.getItem("username") || "Unknown")
             };
+            if (submitData["TDS Category"] === '94C_1' || submitData["TDS Category"] === '94C_2') {
+                submitData["TDS Category"] = '94C';
+            }
 
             // Fixed URL: process.env.REACT_APP_API_STRING already contains '/api'
             const response = await axios.post(
@@ -270,13 +281,13 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                                 <span className="charges-ep-label">Charge Head Category</span>
                                 <input type="text" name="Charge Head Category" className="charges-ep-desc-input" value={formData["Charge Head Category"]} onChange={handleInputChange} />
                             </div>
-                            <div className="charges-ep-row">
-                                <span className="charges-ep-label">TDS Category</span>
-                                <select name="TDS Category" className="charges-ep-select" value={formData["TDS Category"]} onChange={handleInputChange}>
-                                    <option value="94C">94C</option>
-                                    <option value="94I">94I</option>
-                                </select>
-                            </div>
+                             <div className="charges-ep-row">
+                                 <span className="charges-ep-label">TDS Category</span>
+                                 <select name="TDS Category" className="charges-ep-select" value={formData["TDS Category"]} onChange={handleInputChange}>
+                                     <option value="94C_1">TDS ON CONTRACT 94C 1023</option>
+                                     <option value="94C_2">TDS ON CONTRACT 94C 1024</option>
+                                 </select>
+                             </div>
                             <div className="charges-ep-row" style={{ gridColumn: 'span 1' }}>
                                 <span className="charges-ep-label">Charge Description</span>
                                 <input type="text" name="Charge Description" className="charges-ep-desc-input" value={formData["Charge Description"]} onChange={handleInputChange} />

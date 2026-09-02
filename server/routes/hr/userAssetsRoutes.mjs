@@ -53,7 +53,7 @@ router.get("/api/hr/active-by-company", authMiddleware, hrOrMarketingOnly, async
     try {
         const users = await UserModel.find(
             { isActive: { $ne: false } },
-            'first_name last_name username company_id employee_photo employee_photo_updatedBy employee_photo_updatedAt email_signature email_signature_updatedBy email_signature_updatedAt marketing_assets department designation profile_photo_proof email_signature_proof is_verified'
+            'first_name last_name username company_id employee_photo employee_photo_updatedBy employee_photo_updatedAt email_signature email_signature_updatedBy email_signature_updatedAt marketing_assets department designation profile_photo_proof email_signature_proof is_verified pf_no pf_card_url esic_no esic_card_url'
         )
             .populate('company_id', 'company_name')
             .lean();

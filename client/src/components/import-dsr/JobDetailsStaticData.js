@@ -57,9 +57,11 @@ function JobDetailsStaticData(props) {
 
   const handleEditClick = (e) => {
     e.stopPropagation();
-    setEditFormData({
+    const initialFormData = {
       job_no: props.params.job_no || "",
       custom_house: props.data?.custom_house || "",
+      importer_reference_no: props.data?.importer_reference_no || "",
+      reason_for_delay: props.data?.reason_for_delay || "",
       importer: props.data?.importer || "",
       awb_bl_no: props.data?.awb_bl_no || "",
       be_no: props.data?.be_no || "",
@@ -112,7 +114,15 @@ function JobDetailsStaticData(props) {
       hss_ad_code: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.ad_code : props.data?.hss_ad_code) || "",
       bill_no: props.data?.bill_no || "",
       bill_date: props.data?.bill_date || "",
-    });
+      exrate: props.data?.exrate || "",
+      cif_amount: props.data?.cif_amount || "",
+    };
+
+    if (!isAirMode(props.data?.mode)) {
+      initialFormData.consignment_type = props.data?.consignment_type || "";
+    }
+
+    setEditFormData(initialFormData);
     setErrorMsg("");
     setEditModalOpen(true);
   };
@@ -167,8 +177,29 @@ function JobDetailsStaticData(props) {
     }
   };
   if (props.data) {
-    const inv_value = (props.data.cif_amount / props.data.exrate).toFixed(2);
-    var invoice_value_and_unit_price = `${props.data.inv_currency} ${inv_value} | ${props.data.unit_price}`;
+    let inv_value = "";
+    if (Array.isArray(props.data.invoice_details) && props.data.invoice_details.length > 0) {
+      const sumPV = props.data.invoice_details.reduce((sum, r) => {
+        const pv = parseFloat(r.product_value);
+        if (!isNaN(pv) && pv > 0) return sum + pv;
+        const amt = parseFloat(r.amount);
+        if (!isNaN(amt) && amt > 0) return sum + amt;
+        const rowVal = parseFloat(r.total_inv_value);
+        if (!isNaN(rowVal) && rowVal > 0) return sum + rowVal;
+        return sum;
+      }, 0);
+      if (sumPV > 0) inv_value = sumPV.toFixed(2);
+    }
+    if (!inv_value) {
+      const topVal = parseFloat(props.data.total_inv_value);
+      if (!isNaN(topVal) && topVal > 0) {
+        inv_value = topVal.toFixed(2);
+      } else {
+        const calcValue = parseFloat(props.data.cif_amount) / parseFloat(props.data.exrate);
+        inv_value = !isNaN(calcValue) && calcValue > 0 ? calcValue.toFixed(2) : (props.data.total_inv_value && props.data.total_inv_value !== "NaN" ? props.data.total_inv_value : "");
+      }
+    }
+    var invoice_value_and_unit_price = `${props.data.inv_currency || ""} ${inv_value} | ${props.data.unit_price || ""}`;
   }
 
   if (props.container_nos) {
@@ -218,9 +249,15 @@ function JobDetailsStaticData(props) {
       "Maersk Line": `https://www.maersk.com/tracking/${blNumber}`,
       "CMA CGM AGENCIES INDIA PVT. LTD":
         "https://www.cma-cgm.com/ebusiness/tracking/search",
+      "CMA CGM AGENCIES (INDIA) PVT. LTD":
+        "https://www.cma-cgm.com/ebusiness/tracking/search",
       "Hapag-Lloyd": `https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html?blno=${blNumber}`,
       "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/ContainerTracking.aspx?&containerno=${containerFirst}&blNo=${blNumber}`,
       "ONE LINE":
+        "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
+      "Ocean Network Express (India) Private Limited":
+        "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
+      "OCEAN NETWORK EXPRESS PTE LTD":
         "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
       HMM: "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
       HYUNDI:
@@ -432,7 +469,18 @@ function JobDetailsStaticData(props) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: "20px", alignItems: "center", flex: 1 }}>
             <div style={{ display: "flex", flexDirection: "column" }}>
               <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>Job Number</span>
-              <span style={{ fontSize: "0.95rem", fontWeight: "700", color: "#212529" }}>{props.data?.job_number || props.params.job_no}</span>
+              <span style={{ fontSize: "0.95rem", fontWeight: "700", color: "#212529", display: "flex", alignItems: "center" }}>
+                {props.data?.job_number || props.params.job_no}
+                <Tooltip title="Copy Job Number">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => handleCopy(e, props.data?.job_number || props.params.job_no)}
+                    sx={{ ml: 0.5, p: 0.2 }}
+                  >
+                    <ContentCopyIcon sx={{ fontSize: "14px" }} />
+                  </IconButton>
+                </Tooltip>
+              </span>
             </div>
 
             <div style={{ width: "1px", height: "30px", background: "#e0e0e0" }}></div>
@@ -445,8 +493,28 @@ function JobDetailsStaticData(props) {
             <div style={{ width: "1px", height: "30px", background: "#e0e0e0" }}></div>
 
             <div style={{ display: "flex", flexDirection: "column" }}>
+              <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>Importer Ref No</span>
+              <span style={{ fontSize: "0.9rem", color: "#212529" }}>{props.data?.importer_reference_no || "-"}</span>
+            </div>
+
+            <div style={{ width: "1px", height: "30px", background: "#e0e0e0" }}></div>
+
+            <div style={{ display: "flex", flexDirection: "column" }}>
               <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>Importer</span>
-              <span style={{ fontSize: "0.9rem", color: "#212529" }}>{props.data?.importer}</span>
+              <span style={{ fontSize: "0.9rem", color: "#212529", display: "flex", alignItems: "center" }}>
+                {props.data?.importer}
+                {props.data?.importer && (
+                  <Tooltip title="Copy Importer">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => { e.stopPropagation(); handleCopy(e, props.data?.importer); }}
+                      sx={{ ml: 0.5, p: 0.2 }}
+                    >
+                      <ContentCopyIcon sx={{ fontSize: "14px" }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </span>
             </div>
 
             <div style={{ width: "1px", height: "30px", background: "#e0e0e0" }}></div>
@@ -523,8 +591,21 @@ function JobDetailsStaticData(props) {
           {/* Header */}
           <Row style={{ marginBottom: "15px", borderBottom: "1px solid #eee", paddingBottom: "10px", alignItems: "center" }}>
             <Col className="d-flex align-items-center justify-content-between">
-              <h5 style={{ fontSize: "1.1rem", fontWeight: "700", margin: 0 }}>
-                Job Number: {props.data?.job_number || props.params.job_no} | Custom House: {props.data?.custom_house}
+              <h5 style={{ fontSize: "1.1rem", fontWeight: "700", margin: 0, display: "flex", alignItems: "center", flexWrap: "wrap" }}>
+                Job Number: {props.data?.job_number || props.params.job_no}
+                <Tooltip title="Copy Job Number">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => handleCopy(e, props.data?.job_number || props.params.job_no)}
+                    sx={{ ml: 0.5, p: 0.2 }}
+                  >
+                    <ContentCopyIcon sx={{ fontSize: "14px" }} />
+                  </IconButton>
+                </Tooltip>
+                <span style={{ margin: "0 8px" }}>|</span>
+                Custom House: {props.data?.custom_house}
+                <span style={{ margin: "0 8px" }}>|</span>
+                Importer Ref No: {props.data?.importer_reference_no || "N/A"}
                 {props.data?.be_no ? null : props.data?.priorityJob &&
                   (props.data.priorityJob === "High Priority" ||
                     props.data.priorityJob === "Priority") && (
@@ -622,15 +703,32 @@ function JobDetailsStaticData(props) {
 
           {/* Row 2: Importer Details */}
           <Row style={compactRowStyle}>
-            <Col xs={12} lg={6}>
+            <Col xs={12} md={6} lg={4}>
               <span style={labelStyle}>Importer: </span>
-              <span style={valueStyle}>{props.data.importer}</span>
+              <span style={valueStyle}>
+                {props.data.importer}
+                {props.data.importer && (
+                  <Tooltip title="Copy Importer">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => { e.stopPropagation(); handleCopy(e, props.data.importer); }}
+                      sx={{ ml: 0.5, p: 0.2, verticalAlign: "middle" }}
+                    >
+                      <ContentCopyIcon sx={{ fontSize: "14px" }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </span>
             </Col>
             <Col xs={12} md={6} lg={3}>
+              <span style={labelStyle}>Importer Ref No: </span>
+              <span style={valueStyle}>{props.data.importer_reference_no || "N/A"}</span>
+            </Col>
+            <Col xs={12} md={6} lg={2.5}>
               <span style={labelStyle}>Importer Type: </span>
               <span style={valueStyle}>{importerTypeOptions.find(opt => opt.value === props.data.importer_type)?.label || props.data.importer_type || "N/A"}</span>
             </Col>
-            <Col xs={12} md={6} lg={3}>
+            <Col xs={12} md={6} lg={2.5}>
               <span style={labelStyle}>Comm. Tax Type: </span>
               <span style={valueStyle}>{commercialTaxTypeOptions.find(opt => opt.value === props.data.commercial_tax_type)?.label || props.data.commercial_tax_type || "N/A"}</span>
             </Col>
@@ -837,14 +935,20 @@ function JobDetailsStaticData(props) {
 
           {/* Row 10: Billing Details (New) */}
           <Row style={compactRowStyle}>
-            <Col xs={12} lg={6}>
+            <Col xs={12} md={6} lg={!isAirMode(props.data?.mode) ? 4 : 6}>
               <span style={labelStyle}>Bill No: </span>
               <span style={{ ...valueStyle, color: "#28a745", fontWeight: "600" }}>{props.data.bill_no || "N/A"}</span>
             </Col>
-            <Col xs={12} lg={6}>
+            <Col xs={12} md={6} lg={!isAirMode(props.data?.mode) ? 4 : 6}>
               <span style={labelStyle}>Bill Date: </span>
               <span style={{ ...valueStyle, color: "#28a745", fontWeight: "600" }}>{props.data.bill_date || "N/A"}</span>
             </Col>
+            {!isAirMode(props.data?.mode) && (
+              <Col xs={12} md={6} lg={4}>
+                <span style={labelStyle}>Consignment Type: </span>
+                <span style={valueStyle}>{props.data.consignment_type || "N/A"}</span>
+              </Col>
+            )}
           </Row>
 
           {/* Row 10: G-IGM & HSS Details */}
@@ -967,6 +1071,22 @@ function JobDetailsStaticData(props) {
             {errorMsg && <Typography color="error" variant="body2" gutterBottom>{errorMsg}</Typography>}
             <Grid container spacing={2} style={{ marginTop: '5px' }}>
               {Object.keys(editFormData).map((key) => {
+                if (key === "importer_reference_no") {
+                  return (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Importer Reference No"
+                        name={key}
+                        value={editFormData[key] || ""}
+                        onChange={(e) => {
+                          setEditFormData(prev => ({ ...prev, [key]: e.target.value.toUpperCase() }));
+                        }}
+                      />
+                    </Grid>
+                  );
+                }
                 if (key === "importer") {
                   return (
                     <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
@@ -1080,6 +1200,32 @@ function JobDetailsStaticData(props) {
                             {...params}
                             size="small"
                             label="Commercial Tax Type"
+                            fullWidth
+                          />
+                        )}
+                      />
+                    </Grid>
+                  );
+                }
+                if (key === "consignment_type") {
+                  const consignmentTypeOptions = [
+                    { value: "FCL", label: "FCL" },
+                    { value: "LCL", label: "LCL" }
+                  ];
+                  return (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
+                      <Autocomplete
+                        options={consignmentTypeOptions}
+                        getOptionLabel={(option) => option.label || ""}
+                        value={consignmentTypeOptions.find(opt => opt.value === editFormData[key]) || null}
+                        onChange={(event, newValue) => {
+                          setEditFormData(prev => ({ ...prev, [key]: newValue ? newValue.value : "" }));
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            size="small"
+                            label="Consignment Type"
                             fullWidth
                           />
                         )}

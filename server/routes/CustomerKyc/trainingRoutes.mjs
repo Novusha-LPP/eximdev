@@ -1,5 +1,6 @@
 import express from "express";
 import CustomerKycModel from "../../model/CustomerKyc/customerKycModel.mjs";
+import UserModel from "../../model/userModel.mjs";
 
 const router = express.Router();
 
@@ -26,13 +27,22 @@ const generateUniqueTrainingCode = async () => {
 // GET /api/customer-trainings: Get all trainings across all customers
 router.get("/api/customer-trainings", async (req, res) => {
   try {
-    const customers = await CustomerKycModel.find({ trainings: { $exists: true, $not: { $size: 0 } } })
-      .select("name_of_individual iec_no trainings")
-      .lean();
+    const customers = await CustomerKycModel.find({
+      $or: [
+        { "trainings.0": { $exists: true } },
+        { approval: { $in: ["Approved", "Approved by HOD"] } }
+      ]
+    }).select("name_of_individual iec_no trainings approval").lean();
+
+    const trainees = await UserModel.find({
+      username: { $in: ["rahul_vaghela", "dharam_yadav", "sourav_a", "ravi_patel"] }
+    }).select("first_name last_name username assigned_importer_name").lean();
 
     const allTrainings = [];
     customers.forEach(customer => {
-      if (customer.trainings && Array.isArray(customer.trainings)) {
+      const hasTrainings = customer.trainings && Array.isArray(customer.trainings) && customer.trainings.length > 0;
+      
+      if (hasTrainings) {
         customer.trainings.forEach(tr => {
           allTrainings.push({
             ...tr,
@@ -41,11 +51,39 @@ router.get("/api/customer-trainings", async (req, res) => {
             customerIec: customer.iec_no
           });
         });
+      } else if (["Approved", "Approved by HOD"].includes(customer.approval)) {
+        let defaultTrainee = "-";
+        const cName = customer.name_of_individual ? customer.name_of_individual.toLowerCase() : "";
+        const matchedTrainee = trainees.find(t => 
+          t.assigned_importer_name && t.assigned_importer_name.some(n => n.toLowerCase() === cName)
+        );
+        if (matchedTrainee) {
+          defaultTrainee = (matchedTrainee.first_name + (matchedTrainee.last_name ? ' ' + matchedTrainee.last_name : '')).trim().toUpperCase() || matchedTrainee.username;
+        }
+
+        allTrainings.push({
+          _id: `mock-${customer._id}`,
+          customerId: customer._id,
+          customerName: customer.name_of_individual,
+          customerIec: customer.iec_no,
+          training_code: "TBD",
+          training_module: "Import Module",
+          trainee_name: defaultTrainee,
+          trainer_name: "-",
+          training_date: null,
+          training_mode: "Online",
+          training_status: "Pending",
+          isMocked: true
+        });
       }
     });
 
-    // Sort by training date descending
-    allTrainings.sort((a, b) => new Date(b.training_date) - new Date(a.training_date));
+    // Sort by training date descending, put mocked ones (null date) at the bottom or top? Let's treat null date as old.
+    allTrainings.sort((a, b) => {
+      const dateA = a.training_date ? new Date(a.training_date).getTime() : 0;
+      const dateB = b.training_date ? new Date(b.training_date).getTime() : 0;
+      return dateB - dateA;
+    });
 
     res.json(allTrainings);
   } catch (error) {
@@ -64,6 +102,19 @@ router.get("/api/customer-trainings/customers", async (req, res) => {
     res.json(customers);
   } catch (error) {
     console.error("Error fetching customers for dropdown:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// GET /api/customer-trainings/trainees: Get specific users for Trainee dropdown
+router.get("/api/customer-trainings/trainees", async (req, res) => {
+  try {
+    const trainees = await UserModel.find({
+      username: { $in: ["rahul_vaghela", "dharam_yadav", "sourav_a", "ravi_patel"] }
+    }).select("first_name last_name username assigned_importer_name").lean();
+    res.json(trainees);
+  } catch (error) {
+    console.error("Error fetching trainees:", error);
     res.status(500).json({ message: error.message });
   }
 });

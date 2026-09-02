@@ -21,17 +21,27 @@ import {
   CircularProgress
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { UserContext } from "../../contexts/UserContext";
 
 function GeneralJobs() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+
+  const [searchQuery, setSearchQuery] = useState(
+    () => sessionStorage.getItem("ib_tab2_search") || ""
+  );
+  const [selectedImporter, setSelectedImporter] = useState(
+    () => sessionStorage.getItem("ib_tab2_importer") || ""
+  );
+  const [page, setPage] = useState(
+    () => Number(sessionStorage.getItem("ib_tab2_page")) || 1
+  );
+
   const { user } = useContext(UserContext);
 
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -39,6 +49,19 @@ function GeneralJobs() {
   const limit = 100;
 
   const navigate = useNavigate();
+
+  // Persist filter states to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab2_search", searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab2_importer", selectedImporter || "");
+  }, [selectedImporter]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab2_page", page.toString());
+  }, [page]);
 
   // Create Job dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -122,7 +145,12 @@ function GeneralJobs() {
   }, [page, debouncedSearchQuery, selectedImporter, selectedYearState, fetchJobs]);
 
   // Debounce search input
+  const isFirstSearch = React.useRef(true);
   useEffect(() => {
+    if (isFirstSearch.current) {
+      isFirstSearch.current = false;
+      return;
+    }
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
       setPage(1);
@@ -137,6 +165,27 @@ function GeneralJobs() {
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
   };
+
+  const handleCopy = useCallback((event, text) => {
+    event.stopPropagation();
+    if (!text) return;
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      navigator.clipboard.writeText(text)
+        .then(() => console.log("Copied:", text))
+        .catch((err) => console.error("Copy failed:", err));
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+      } catch (err) {
+        console.error("Fallback failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  }, []);
 
   const handleOpenDialog = () => {
     fetchKycList();
@@ -229,7 +278,17 @@ function GeneralJobs() {
                 transition: "all 0.2s ease"
               }}
             >
-              {job_number}
+              {job_number}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => {
+                  event.preventDefault();
+                  handleCopy(event, job_number);
+                }}
+                style={{ color: "inherit", padding: "2px" }}
+              >
+                <ContentCopyIcon fontSize="inherit" />
+              </IconButton>
             </Link>
           );
         }

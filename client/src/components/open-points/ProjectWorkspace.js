@@ -32,6 +32,8 @@ const ProjectWorkspace = () => {
     const [filters, setFilters] = useState({ status: '', priority: '', responsibility: '' });
     const [monthFilter, setMonthFilter] = useState('');
     const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
+    const [targetMonthFilter, setTargetMonthFilter] = useState(new Date().getMonth() + 1);
+    const [targetYearFilter, setTargetYearFilter] = useState(new Date().getFullYear());
     const [hideGreen, setHideGreen] = useState(true); // Hide completed points by default
 
     // Quick Add State (Row at bottom)
@@ -52,6 +54,8 @@ const ProjectWorkspace = () => {
 
     // Custom Dialog State
     const [dialogConfig, setDialogConfig] = useState({ open: false, title: '', message: '', type: 'info', onConfirm: null });
+
+    const [showSoftwareTeamMenu, setShowSoftwareTeamMenu] = useState(false);
 
     const showDialog = (title, message, type = 'info', onConfirm = null) => {
         setDialogConfig({ open: true, title, message, type, onConfirm });
@@ -518,6 +522,30 @@ const ProjectWorkspace = () => {
                             ))}
                         </select>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', borderLeft: '1px solid #cbd5e1', paddingLeft: '8px', marginLeft: '4px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Target:</span>
+                            <select 
+                                className="form-control" 
+                                style={{ width: '100px', height: '32px', fontSize: '12px', padding: '0 8px' }} 
+                                value={targetMonthFilter} 
+                                onChange={e => setTargetMonthFilter(e.target.value)}
+                            >
+                                <option value="">All Months</option>
+                                {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
+                                    <option key={m} value={i + 1}>{m}</option>
+                                ))}
+                            </select>
+                            <select 
+                                className="form-control" 
+                                style={{ width: '70px', height: '32px', fontSize: '12px', padding: '0 8px' }} 
+                                value={targetYearFilter} 
+                                onChange={e => setTargetYearFilter(Number(e.target.value))}
+                            >
+                                {[2024, 2025, 2026, 2027].map(y => (
+                                    <option key={y} value={y}>{y}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', borderLeft: '1px solid #cbd5e1', paddingLeft: '8px', marginLeft: '4px' }}>
                             <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Finished:</span>
                             <select 
                                 className="form-control" 
@@ -535,7 +563,7 @@ const ProjectWorkspace = () => {
                             </select>
                             <select 
                                 className="form-control" 
-                                style={{ width: '80px', height: '32px', fontSize: '12px', padding: '0 8px' }} 
+                                style={{ width: '70px', height: '32px', fontSize: '12px', padding: '0 8px' }} 
                                 value={yearFilter} 
                                 onChange={e => setYearFilter(Number(e.target.value))}
                             >
@@ -578,6 +606,54 @@ const ProjectWorkspace = () => {
 
                     {/* Actions Group */}
                     <div style={{ display: 'flex', gap: '8px', borderLeft: '1px solid #cbd5e1', paddingLeft: '15px', marginLeft: '5px' }}>
+                        {projectName === 'Internal Software Team' && (user?.role === 'Admin' || user?.role?.toLowerCase() === 'head_of_department' || user?.role?.toLowerCase() === 'hod') && (
+                            <div style={{ position: 'relative' }}>
+                                <button
+                                    className="btn btn-sm"
+                                    style={{
+                                        background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+                                        color: 'white',
+                                        padding: '5px 12px',
+                                        borderRadius: '4px',
+                                        border: 'none',
+                                        boxShadow: '0 4px 6px rgba(139, 92, 246, 0.3)',
+                                        fontWeight: 500,
+                                        fontSize: '12px'
+                                    }}
+                                    onClick={() => setShowSoftwareTeamMenu(!showSoftwareTeamMenu)}
+                                >
+                                    📊 Team Dashboards
+                                </button>
+                                {showSoftwareTeamMenu && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        right: 0,
+                                        marginTop: '8px',
+                                        background: 'white',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                                        padding: '8px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '4px',
+                                        zIndex: 10,
+                                        minWidth: '220px',
+                                        border: '1px solid #e2e8f0'
+                                    }}>
+                                        <button onClick={() => navigate(`/open-points/project/${projectId}/planned`)} style={{ padding: '8px 12px', textDecoration: 'none', color: '#1e293b', fontWeight: 500, borderRadius: '4px', transition: 'background 0.2s', display: 'block', fontSize: '13px', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', width: '100%' }} onMouseEnter={e => e.target.style.background = '#f1f5f9'} onMouseLeave={e => e.target.style.background = 'transparent'}>
+                                            Planned
+                                        </button>
+                                        <button onClick={() => navigate(`/open-points/project/${projectId}/forecasting`)} style={{ padding: '8px 12px', textDecoration: 'none', color: '#1e293b', fontWeight: 500, borderRadius: '4px', transition: 'background 0.2s', display: 'block', fontSize: '13px', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', width: '100%' }} onMouseEnter={e => e.target.style.background = '#f1f5f9'} onMouseLeave={e => e.target.style.background = 'transparent'}>
+                                            Forecasting
+                                        </button>
+                                        <button onClick={() => navigate(`/open-points/project/${projectId}/month`)} style={{ padding: '8px 12px', textDecoration: 'none', color: '#1e293b', fontWeight: 500, borderRadius: '4px', transition: 'background 0.2s', display: 'block', fontSize: '13px', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', width: '100%' }} onMouseEnter={e => e.target.style.background = '#f1f5f9'} onMouseLeave={e => e.target.style.background = 'transparent'}>
+                                            Month
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         <button className="btn btn-sm btn-info" onClick={() => setShowLegend(true)} style={{ fontSize: '12px', padding: '5px 12px', fontWeight: '500' }}>
                             ℹ Legend
                         </button>
@@ -759,6 +835,17 @@ const ProjectWorkspace = () => {
                             if (filters.status && p.status !== filters.status) return false;
                             if (filters.priority && p.priority !== filters.priority) return false;
                             if (filters.responsibility && p.responsibility !== filters.responsibility) return false;
+
+                            // Target Month Filter
+                            if (targetMonthFilter) {
+                                // If there is no target date, we might want to still show it, or hide it. 
+                                // To be strict, if filtering by month, hide if no date.
+                                if (!p.target_date) return false;
+                                const tDate = new Date(p.target_date);
+                                if (tDate.getMonth() + 1 !== Number(targetMonthFilter) || tDate.getFullYear() !== Number(targetYearFilter)) {
+                                    return false;
+                                }
+                            }
 
                             // Month/Year Filter (Applies to Green items only)
                             if (monthFilter) {

@@ -1,0 +1,340 @@
+{
+	"info": {
+		"_postman_id": "4020a50b-8d63-4f9e-beee-0b44081c7f42",
+		"name": "IMEXCUBE API Collection",
+		"description": "Collection to test IMEXCUBE login and fetch job details APIs for AMD, GIM, and COK branches with automatic token saving.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Authentication (Login)",
+			"item": [
+				{
+					"name": "Login - AMD Branch",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData && jsonData.success && jsonData.data && jsonData.data.accessToken) {",
+									"    pm.collectionVariables.set(\"accessToken\", jsonData.data.accessToken);",
+									"    console.log(\"AMD Token saved to variable: 'accessToken'\");",
+									"}"
+								],
+								"type": "javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "accept",
+								"value": "*/*"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/Authentication/login?username={{username}}&password={{password}}&CompanyBrCode={{companyBrCode_AMD}}&Fyear={{fyear}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"Authentication",
+								"login"
+							],
+							"query": [
+								{
+									"key": "username",
+									"value": "{{username}}"
+								},
+								{
+									"key": "password",
+									"value": "{{password}}"
+								},
+								{
+									"key": "CompanyBrCode",
+									"value": "{{companyBrCode_AMD}}"
+								},
+								{
+									"key": "Fyear",
+									"value": "{{fyear}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login - GIM Branch",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData && jsonData.success && jsonData.data && jsonData.data.accessToken) {",
+									"    pm.collectionVariables.set(\"accessToken\", jsonData.data.accessToken);",
+									"    console.log(\"GIM Token saved to variable: 'accessToken'\");",
+									"}"
+								],
+								"type": "javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "accept",
+								"value": "*/*"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/Authentication/login?username={{username}}&password={{password}}&CompanyBrCode={{companyBrCode_GIM}}&Fyear={{fyear}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"Authentication",
+								"login"
+							],
+							"query": [
+								{
+									"key": "username",
+									"value": "{{username}}"
+								},
+								{
+									"key": "password",
+									"value": "{{password}}"
+								},
+								{
+									"key": "CompanyBrCode",
+									"value": "{{companyBrCode_GIM}}"
+								},
+								{
+									"key": "Fyear",
+									"value": "{{fyear}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login - COK Branch",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData && jsonData.success && jsonData.data && jsonData.data.accessToken) {",
+									"    pm.collectionVariables.set(\"accessToken\", jsonData.data.accessToken);",
+									"    console.log(\"COK Token saved to variable: 'accessToken'\");",
+									"}"
+								],
+								"type": "javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "accept",
+								"value": "*/*"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/Authentication/login?username={{username}}&password={{password}}&CompanyBrCode={{companyBrCode_COK}}&Fyear={{fyear}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"Authentication",
+								"login"
+							],
+							"query": [
+								{
+									"key": "username",
+									"value": "{{username}}"
+								},
+								{
+									"key": "password",
+									"value": "{{password}}"
+								},
+								{
+									"key": "CompanyBrCode",
+									"value": "{{companyBrCode_COK}}"
+								},
+								{
+									"key": "Fyear",
+									"value": "{{fyear}}"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Get Job Details",
+			"item": [
+				{
+					"name": "Get Import Job Details (lowercase getimpdetails)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/GetJobDetails/getimpdetails?Method=GET&User Job No.={{sampleJobNo}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"GetJobDetails",
+								"getimpdetails"
+							],
+							"query": [
+								{
+									"key": "Method",
+									"value": "GET"
+								},
+								{
+									"key": "User Job No.",
+									"value": "{{sampleJobNo}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Import Job Details (Capitalized GetImpDetails Fallback)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/GetJobDetails/GetImpDetails?Method=GET&User Job No.={{sampleJobNo}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"GetJobDetails",
+								"GetImpDetails"
+							],
+							"query": [
+								{
+									"key": "Method",
+									"value": "GET"
+								},
+								{
+									"key": "User Job No.",
+									"value": "{{sampleJobNo}}"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://impexapi.impexcube.in",
+			"type": "string"
+		},
+		{
+			"key": "username",
+			"value": "Surajadmin",
+			"type": "string"
+		},
+		{
+			"key": "password",
+			"value": "admin@2026",
+			"type": "string"
+		},
+		{
+			"key": "fyear",
+			"value": "2026-2027",
+			"type": "string"
+		},
+		{
+			"key": "companyBrCode_AMD",
+			"value": "5E8D2587-A7BA-49A2-B836-21C70B2AAF47",
+			"type": "string"
+		},
+		{
+			"key": "companyBrCode_GIM",
+			"value": "8677A8AA-D338-4413-8CCD-48DB23D28EBD",
+			"type": "string"
+		},
+		{
+			"key": "companyBrCode_COK",
+			"value": "F9BB73B5-C772-4474-866B-C8B2790B7448",
+			"type": "string"
+		},
+		{
+			"key": "sampleJobNo",
+			"value": "AMD/IMP/SEA/00621/26-27",
+			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

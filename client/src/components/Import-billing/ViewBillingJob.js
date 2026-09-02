@@ -4,6 +4,8 @@ import {
   Box,
   FormControlLabel,
   Button,
+  Autocomplete,
+  CircularProgress,
 } from "@mui/material";
 import { useFormik } from "formik";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
@@ -66,6 +68,17 @@ const excelStyles = {
   }
 };
 
+const getExportApiString = (importApiString) => {
+  if (!importApiString) return "";
+  if (importApiString.includes("localhost:9006")) {
+    return importApiString.replace("localhost:9006", "localhost:9002");
+  }
+  if (importApiString.includes("/import/api")) {
+    return importApiString.replace("/import/api", "/export/api");
+  }
+  return importApiString.replace("9006", "9002").replace("/import/", "/export/");
+};
+
 const ViewBillingJob = () => {
   const routeLocation = useLocation();
   const { branch_code, trade_type, mode, job_no, year } = useParams();
@@ -74,6 +87,86 @@ const ViewBillingJob = () => {
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
+
+  const [searchJobOpen, setSearchJobOpen] = useState(false);
+  const [searchJobOptions, setSearchJobOptions] = useState([]);
+  const [searchJobLoading, setSearchJobLoading] = useState(false);
+  const [searchJobInputValue, setSearchJobInputValue] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    if (!searchJobOpen) {
+      return undefined;
+    }
+
+    (async () => {
+      if (searchJobInputValue.trim().length < 2) {
+        setSearchJobOptions([]);
+        return;
+      }
+      setSearchJobLoading(true);
+      try {
+        const exportApiString = getExportApiString(process.env.REACT_APP_API_STRING);
+        const response = await axios.get(`${exportApiString}/job-numbers-search?completed=true&q=${searchJobInputValue}`);
+        if (active) {
+          setSearchJobOptions(response.data.data || []);
+        }
+      } catch (err) {
+        console.error("Error searching completed export job numbers:", err);
+      } finally {
+        setSearchJobLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [searchJobInputValue, searchJobOpen]);
+
+  const handleCopyFromJob = async (selectedJobNo) => {
+    if (!selectedJobNo) return;
+
+    if (window.confirm(`⚠️ DO YOU WANT TO COPY COMPLETED JOB DATA (${selectedJobNo}) INTO THIS GENERAL JOB? \n\nThis will overwrite the billing fields with the completed export job details.`)) {
+      try {
+        const exportApiString = getExportApiString(process.env.REACT_APP_API_STRING);
+        const response = await axios.get(`${exportApiString}/get-export-job/${encodeURIComponent(selectedJobNo)}`);
+        const exportJob = response.data;
+
+        if (exportJob) {
+          const invoice = exportJob.invoices?.[0] || {};
+          const customerRef = exportJob.exporter_ref_no || "";
+          
+          // Calculate CIF Value
+          const fobVal = parseFloat(invoice.freightInsuranceCharges?.fobValue?.amount || invoice.invoiceValue || 0);
+          const freightVal = parseFloat(invoice.freightInsuranceCharges?.freight?.amount || 0);
+          const insuranceVal = parseFloat(invoice.freightInsuranceCharges?.insurance?.amount || 0);
+          const calculatedCif = fobVal + freightVal + insuranceVal;
+
+          formik.setValues({
+            ...formik.values,
+            sb_no: exportJob.sb_no || "",
+            sb_date: exportJob.sb_date || "",
+            consignment_type: exportJob.consignmentType || "",
+            vessel_flight: exportJob.vessel_name || exportJob.vessel || "",
+            po_no: customerRef,
+            invoice_number: invoice.invoiceNumber || "",
+            invoice_date: invoice.invoiceDate || "",
+            toi: invoice.termsOfInvoice || "",
+            total_inv_value: invoice.invoiceValue ? String(invoice.invoiceValue) : "",
+            cifValue: calculatedCif ? String(calculatedCif) : "",
+            assbl_value: exportJob.assbl_value || exportJob.assessableValue || "",
+            total_duty: exportJob.total_duty || "",
+          });
+
+          alert("Job data copied successfully!");
+        }
+      } catch (err) {
+        console.error("Error copying job data:", err);
+        alert("Error fetching source job data.");
+      }
+    }
+  };
 
   console.log(job_no, "jobNo");
   // Add stored search parameters state for consistency with SubmissionJob.js
@@ -91,14 +184,22 @@ const ViewBillingJob = () => {
     }
   }, [routeLocation.state]);
   const handleBackClick = () => {
+    const tabIndex =
+      storedSearchParams?.currentTab !== undefined
+        ? storedSearchParams.currentTab
+        : (sessionStorage.getItem("import_billing_tab") !== null
+            ? Number(sessionStorage.getItem("import_billing_tab"))
+            : 0);
+
     navigate("/import-billing", {
       state: {
         fromJobDetails: true,
+        tabIndex,
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery || "",
           selectedImporter: storedSearchParams.selectedImporter || "",
           selectedJobId: storedSearchParams.selectedJobId || "",
-          currentTab: storedSearchParams.currentTab || 1,
+          currentTab: tabIndex,
         }),
       },
     });
@@ -159,6 +260,20 @@ const ViewBillingJob = () => {
       dsr_queries: data?.dsr_queries || [],
       thar_invoices: data?.thar_invoices || [],
       hasti_invoices: data?.hasti_invoices || [],
+
+      // General Job fields
+      sb_no: data?.sb_no || "",
+      sb_date: data?.sb_date || "",
+      consignment_type: data?.consignment_type || "",
+      vessel_flight: data?.vessel_flight || "",
+      po_no: data?.po_no || "",
+      invoice_number: data?.invoice_number || "",
+      invoice_date: data?.invoice_date || "",
+      toi: data?.toi || "",
+      total_inv_value: data?.total_inv_value || "",
+      cifValue: data?.cifValue || data?.cif_amount || "",
+      assbl_value: data?.assbl_value || "",
+      total_duty: data?.total_duty || "",
     },
     enableReinitialize: true,
     onSubmit: async (values) => {
@@ -178,6 +293,21 @@ const ViewBillingJob = () => {
           dsr_queries: values.dsr_queries || [],
           thar_invoices: values.thar_invoices || [],
           hasti_invoices: values.hasti_invoices || [],
+
+          // General Job fields
+          sb_no: values.sb_no,
+          sb_date: values.sb_date,
+          consignment_type: values.consignment_type,
+          vessel_flight: values.vessel_flight,
+          po_no: values.po_no,
+          invoice_number: values.invoice_number,
+          invoice_date: values.invoice_date,
+          toi: values.toi,
+          total_inv_value: values.total_inv_value,
+          cifValue: values.cifValue,
+          cif_amount: values.cifValue,
+          assbl_value: values.assbl_value,
+          total_duty: values.total_duty,
         };
 
         // Get user info from localStorage for audit trail
@@ -408,7 +538,7 @@ const ViewBillingJob = () => {
                 <h5 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid #eee", paddingBottom: "10px", marginBottom: "15px" }}>
                   General Job Number: {data?.job_number}
                 </h5>
-                <Row style={{ padding: "8px 12px", backgroundColor: "#f8f9fa", borderRadius: "4px", fontSize: "0.875rem", margin: "0px" }}>
+                <Row style={{ padding: "8px 12px", backgroundColor: "#f8f9fa", borderRadius: "4px", fontSize: "0.875rem", margin: "0px 0px 20px 0px" }}>
                   <Col xs={12} md={6} style={{ padding: "4px 8px" }}>
                     <span style={{ color: "#495057", fontWeight: "600", display: "inline-block", minWidth: "120px" }}>Importer:</span>
                     <span style={{ color: "#212529", fontWeight: "700" }}>{data?.importer}</span>
@@ -424,6 +554,172 @@ const ViewBillingJob = () => {
                   <Col xs={12} md={2} style={{ padding: "4px 8px" }}>
                     <span style={{ color: "#495057", fontWeight: "600", display: "inline-block", minWidth: "80px" }}>GST No:</span>
                     <span style={{ color: "#212529" }}>{data?.gst_no || "N/A"}</span>
+                  </Col>
+                </Row>
+
+                <div style={{ display: "flex", gap: "20px", alignItems: "center", marginBottom: "20px", borderBottom: "1px solid #eee", paddingBottom: "20px" }}>
+                  <div style={{ color: "#d32f2f", fontWeight: "bold", fontSize: "14px" }}>Copy From Completed Job:</div>
+                  <div style={{ width: "300px" }}>
+                    <Autocomplete
+                      size="small"
+                      open={searchJobOpen}
+                      onOpen={() => setSearchJobOpen(true)}
+                      onClose={() => setSearchJobOpen(false)}
+                      isOptionEqualToValue={(option, value) => option === value}
+                      getOptionLabel={(option) => option}
+                      options={searchJobOptions}
+                      loading={searchJobLoading}
+                      onInputChange={(event, newInputValue) => {
+                        setSearchJobInputValue(newInputValue);
+                      }}
+                      onChange={(event, newValue) => {
+                        handleCopyFromJob(newValue);
+                      }}
+                      renderOption={(props, option) => (
+                        <li {...props} style={{ fontSize: 13, padding: '6px 12px' }}>
+                          {option}
+                        </li>
+                      )}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Search Job No..."
+                          variant="outlined"
+                          size="small"
+                          InputProps={{
+                            ...params.InputProps,
+                            endAdornment: (
+                              <React.Fragment>
+                                {searchJobLoading ? <CircularProgress color="inherit" size={16} /> : null}
+                                {params.InputProps.endAdornment}
+                              </React.Fragment>
+                            )
+                          }}
+                        />
+                      )}
+                    />
+                  </div>
+                </div>
+
+                <Row>
+                  {/* Left Column */}
+                  <Col md={6} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+                    <TextField
+                      label="Job Number"
+                      value={data?.job_number || ""}
+                      InputProps={{ readOnly: true }}
+                      disabled
+                      size="small"
+                      fullWidth
+                    />
+                    <TextField
+                      label="Job Date"
+                      value={data?.job_date || ""}
+                      InputProps={{ readOnly: true }}
+                      disabled
+                      size="small"
+                      fullWidth
+                    />
+                    <TextField
+                      label="SB No"
+                      name="sb_no"
+                      value={formik.values.sb_no}
+                      onChange={formik.handleChange}
+                      size="small"
+                      fullWidth
+                    />
+                    <TextField
+                      label="SB Date"
+                      name="sb_date"
+                      value={formik.values.sb_date}
+                      onChange={formik.handleChange}
+                      size="small"
+                      fullWidth
+                    />
+                    <TextField
+                      label="Consignment Type"
+                      name="consignment_type"
+                      value={formik.values.consignment_type}
+                      onChange={formik.handleChange}
+                      size="small"
+                      fullWidth
+                    />
+                    <TextField
+                      label="Vessel"
+                      name="vessel_flight"
+                      value={formik.values.vessel_flight}
+                      onChange={formik.handleChange}
+                      size="small"
+                      fullWidth
+                    />
+                    <TextField
+                      label="Customer Ref."
+                      name="po_no"
+                      value={formik.values.po_no}
+                      onChange={formik.handleChange}
+                      size="small"
+                      fullWidth
+                    />
+                  </Col>
+
+                  {/* Right Column */}
+                  <Col md={6} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+                    <TextField
+                      label="Invoice Number"
+                      name="invoice_number"
+                      value={formik.values.invoice_number}
+                      onChange={formik.handleChange}
+                      size="small"
+                      fullWidth
+                    />
+                    <TextField
+                      label="Inv Date"
+                      name="invoice_date"
+                      value={formik.values.invoice_date}
+                      onChange={formik.handleChange}
+                      size="small"
+                      fullWidth
+                    />
+                    <TextField
+                      label="Terms of Invoice"
+                      name="toi"
+                      value={formik.values.toi}
+                      onChange={formik.handleChange}
+                      size="small"
+                      fullWidth
+                    />
+                    <TextField
+                      label="Invoice Value"
+                      name="total_inv_value"
+                      value={formik.values.total_inv_value}
+                      onChange={formik.handleChange}
+                      size="small"
+                      fullWidth
+                    />
+                    <TextField
+                      label="CIF Value"
+                      name="cifValue"
+                      value={formik.values.cifValue}
+                      onChange={formik.handleChange}
+                      size="small"
+                      fullWidth
+                    />
+                    <TextField
+                      label="Assess Value"
+                      name="assbl_value"
+                      value={formik.values.assbl_value}
+                      onChange={formik.handleChange}
+                      size="small"
+                      fullWidth
+                    />
+                    <TextField
+                      label="Total Duty"
+                      name="total_duty"
+                      value={formik.values.total_duty}
+                      onChange={formik.handleChange}
+                      size="small"
+                      fullWidth
+                    />
                   </Col>
                 </Row>
               </div>

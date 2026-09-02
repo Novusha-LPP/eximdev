@@ -3,6 +3,7 @@ import React from "react";
 import FileUpload from "../../gallery/FileUpload";
 import ImagePreview from "../../gallery/ImagePreview";
 import { BranchContext } from "../../../contexts/BranchContext";
+import axios from "axios";
 
 export default function TrackingTab({
   user,
@@ -32,6 +33,68 @@ export default function TrackingTab({
   handleOpenDutyModal,
   isDutyPaidDateDisabled,
 }) {
+  const [cthOptions, setCthOptions] = React.useState([]);
+  const [cthLoading, setCthLoading] = React.useState(false);
+  const [showDropdown, setShowDropdown] = React.useState(false);
+  const cthTimeoutRef = React.useRef(null);
+  const wrapperRef = React.useRef(null);
+
+  React.useEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const fetchCthOptions = async (query) => {
+    if (!query || query.length < 4) {
+      setCthOptions([]);
+      return;
+    }
+    setCthLoading(true);
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/search?query=${query}&addToRecent=false`, {
+        withCredentials: true
+      });
+      if (response.data && response.data.results) {
+        const cthResults = response.data.results;
+        const uniqueCodes = Array.from(new Set(cthResults.map(item => item.hs_code))).filter(Boolean);
+        setCthOptions(uniqueCodes);
+        setShowDropdown(true);
+      } else {
+        setCthOptions([]);
+      }
+    } catch (error) {
+      console.error("Error fetching CTH options:", error);
+      setCthOptions([]);
+    } finally {
+      setCthLoading(false);
+    }
+  };
+
+  const handleCthInputChange = (e) => {
+    const val = e.target.value;
+    formik.setFieldValue("cth_no", val);
+    
+    if (cthTimeoutRef.current) {
+      clearTimeout(cthTimeoutRef.current);
+    }
+    
+    if (val && val.length >= 4) {
+      cthTimeoutRef.current = setTimeout(() => {
+        fetchCthOptions(val);
+      }, 500);
+    } else {
+      setCthOptions([]);
+      setShowDropdown(false);
+    }
+  };
+
   const containerStyle = {
     padding: "10px 12px",
     backgroundColor: "#f9f9f9",
@@ -195,6 +258,26 @@ export default function TrackingTab({
       </div>
 
       <div style={rowStyle}>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>{data?.mode === 'AIR' ? 'Flight Name' : 'Vessel Name'}:</label>
+          <input
+            type="text"
+            style={inputStyle}
+            value={formik.values.vessel_flight || ""}
+            onChange={(e) => formik.setFieldValue("vessel_flight", e.target.value)}
+            placeholder={data?.mode === 'AIR' ? 'Enter Flight No' : 'Enter Vessel Name'}
+          />
+        </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Voyage No:</label>
+          <input
+            type="text"
+            style={inputStyle}
+            value={formik.values.voyage_no || ""}
+            onChange={(e) => formik.setFieldValue("voyage_no", e.target.value)}
+            placeholder="Enter Voyage No"
+          />
+        </div>
         <div style={fieldStyle}>
           <label style={labelStyle}>ETA Date:</label>
           <input
@@ -413,7 +496,10 @@ export default function TrackingTab({
               type="number"
               style={inputStyle}
               value={formik.values.cifValue || ""}
-              onChange={(e) => formik.setFieldValue("cifValue", e.target.value)}
+              onChange={(e) => {
+                formik.setFieldValue("cifValue", e.target.value);
+                formik.setFieldValue("cif_amount", e.target.value);
+              }}
               placeholder="₹"
             />
           </div>
@@ -548,14 +634,78 @@ export default function TrackingTab({
 
       {/* ------- CTH / BOE Type / Clearance / In-Bond ------- */}
       <div style={rowStyle}>
-        <div style={fieldStyle}>
+        <div style={fieldStyle} ref={wrapperRef}>
           <label style={labelStyle}>CTH No:</label>
-          <input
-            type="text"
-            style={inputStyle}
-            value={formik.values.cth_no || ""}
-            onChange={(e) => formik.setFieldValue("cth_no", e.target.value)}
-          />
+          <div style={{ position: "relative" }}>
+            <input
+              type="text"
+              style={{ ...inputStyle, width: "100%" }}
+              value={formik.values.cth_no || ""}
+              onChange={handleCthInputChange}
+              onFocus={() => {
+                if (cthOptions.length > 0) setShowDropdown(true);
+              }}
+            />
+            {cthLoading && (
+              <span style={{
+                position: "absolute",
+                right: "8px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                fontSize: "10px",
+                color: "#666"
+              }}>
+                Loading...
+              </span>
+            )}
+            {showDropdown && cthOptions.length > 0 && (
+              <ul style={{
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                right: 0,
+                margin: 0,
+                padding: 0,
+                listStyle: "none",
+                backgroundColor: "#fff",
+                border: "1px solid #ccc",
+                borderRadius: "0 0 3px 3px",
+                maxHeight: "150px",
+                overflowY: "auto",
+                zIndex: 1000,
+                boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+              }}>
+                {cthOptions.map((code) => (
+                  <li
+                    key={code}
+                    style={{
+                      padding: "6px 10px",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                      borderBottom: "1px solid #eee"
+                    }}
+                    onMouseDown={() => {
+                      formik.setFieldValue("cth_no", code);
+                      setShowDropdown(false);
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#f0f0f0";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    {code}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {formik.values.cth_no && (formik.values.cth_no.length < 8 || !/^\d+$/.test(formik.values.cth_no)) && (
+            <div style={{ color: '#ef4444', fontSize: '10px', marginTop: '2px', fontWeight: '500' }}>
+              Invalid CTH
+            </div>
+          )}
         </div>
 
         <div style={fieldStyle}>

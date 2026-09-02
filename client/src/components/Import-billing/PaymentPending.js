@@ -21,12 +21,18 @@ import {
   Paper,
   CircularProgress,
   Divider,
-  Grid
+  Grid,
+  Popover
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import TuneIcon from "@mui/icons-material/Tune";
+import TodayIcon from "@mui/icons-material/Today";
+import DateRangeIcon from "@mui/icons-material/DateRange";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import EventIcon from "@mui/icons-material/Event";
 import { generatePurchaseBookPDF } from "../../utils/purchaseBookPrint.js";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
@@ -38,17 +44,38 @@ import logo from "../../assets/images/logo.webp";
 
 function PaymentPending({ workMode = "Payment" }) {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const {
-    searchQuery,
-    setSearchQuery,
-    selectedImporter,
-    setSelectedImporter,
-  } = useSearchQuery();
+
+  const [searchQuery, setSearchQuery] = useState(
+    () => sessionStorage.getItem("ib_tab4_search") || ""
+  );
+  const [selectedImporter, setSelectedImporter] = useState(
+    () => sessionStorage.getItem("ib_tab4_importer") || ""
+  );
+  const [selectedRequestDate, setSelectedRequestDate] = useState(
+    () => sessionStorage.getItem("ib_tab4_requestDate") !== null
+      ? sessionStorage.getItem("ib_tab4_requestDate")
+      : new Date().toLocaleString("en-CA", { timeZone: "Asia/Kolkata" }).split(',')[0]
+  );
+  const [selectedTransactionType, setSelectedTransactionType] = useState(
+    () => sessionStorage.getItem("ib_tab4_txType") || "All"
+  );
+  const [dateFilterType, setDateFilterType] = useState(
+    () => sessionStorage.getItem("ib_tab4_dateFilterType") || "single"
+  );
+  const [startDate, setStartDate] = useState(
+    () => sessionStorage.getItem("ib_tab4_startDate") || ""
+  );
+  const [endDate, setEndDate] = useState(
+    () => sessionStorage.getItem("ib_tab4_endDate") || ""
+  );
+  const [page, setPage] = useState(
+    () => Number(sessionStorage.getItem("ib_tab4_page")) || 1
+  );
+
   const { user } = useContext(UserContext);
   const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
@@ -66,11 +93,95 @@ function PaymentPending({ workMode = "Payment" }) {
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const [receiptUrl, setReceiptUrl] = useState("");
 
+  // Persist filter states to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_search", searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_importer", selectedImporter || "");
+  }, [selectedImporter]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_requestDate", selectedRequestDate || "");
+  }, [selectedRequestDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_txType", selectedTransactionType || "All");
+  }, [selectedTransactionType]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_dateFilterType", dateFilterType);
+  }, [dateFilterType]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_startDate", startDate || "");
+  }, [startDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_endDate", endDate || "");
+  }, [endDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_page", page.toString());
+  }, [page]);
+
   // New States for Rejection (Restored)
   const [openRejectPopup, setOpenRejectPopup] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [selectedRequestDate, setSelectedRequestDate] = useState(new Date().toLocaleString("en-CA", { timeZone: "Asia/Kolkata" }).split(',')[0]);
+  const [anchorEl, setAnchorEl] = useState(null);
+
+  const handleAdvancedClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleAdvancedClose = () => {
+    setAnchorEl(null);
+  };
+
+  const calculateDates = useCallback(() => {
+    const today = new Date();
+    let start = "";
+    let end = "";
+
+    switch (dateFilterType) {
+      case "single":
+        if (startDate) {
+          start = startDate;
+          end = startDate;
+        }
+        break;
+      case "today":
+        start = end = today.toISOString().split("T")[0];
+        break;
+      case "week": {
+        const d_start = new Date(today);
+        d_start.setDate(today.getDate() - today.getDay());
+        const d_end = new Date(d_start);
+        d_end.setDate(d_start.getDate() + 6);
+        start = d_start.toISOString().split("T")[0];
+        end = d_end.toISOString().split("T")[0];
+        break;
+      }
+      case "month": {
+        start = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split("T")[0];
+        end = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split("T")[0];
+        break;
+      }
+      case "year":
+        start = new Date(today.getFullYear(), 0, 1).toISOString().split("T")[0];
+        end = new Date(today.getFullYear(), 11, 31).toISOString().split("T")[0];
+        break;
+      case "range":
+        start = startDate;
+        end = endDate;
+        break;
+      default:
+        break;
+    }
+    return { start, end };
+  }, [dateFilterType, startDate, endDate]);
 
   const fetchPaymentRequestDetails = async (requestNo) => {
     try {
@@ -257,7 +368,10 @@ function PaymentPending({ workMode = "Payment" }) {
       username,
       selectedBranch = "all",
       selectedCategory = "all",
-      requestDate = ""
+      requestDate = "",
+      transactionType = "All",
+      startDate = "",
+      endDate = ""
     ) => {
       setLoading(true);
       try {
@@ -274,6 +388,9 @@ function PaymentPending({ workMode = "Payment" }) {
               branchId: selectedBranch || "all",
               category: selectedCategory || "all",
               requestDate,
+              transactionType,
+              startDate,
+              endDate,
               workMode
             },
           }
@@ -296,6 +413,7 @@ function PaymentPending({ workMode = "Payment" }) {
 
   useEffect(() => {
     if (selectedYearState && user?.username) {
+      const { start, end } = calculateDates();
       fetchJobs(
         page,
         debouncedSearchQuery,
@@ -305,7 +423,9 @@ function PaymentPending({ workMode = "Payment" }) {
         selectedBranch,
         selectedCategory,
         selectedRequestDate,
-        workMode
+        selectedTransactionType,
+        start,
+        end
       );
     }
   }, [
@@ -318,14 +438,17 @@ function PaymentPending({ workMode = "Payment" }) {
     selectedBranch,
     selectedCategory,
     selectedRequestDate,
+    selectedTransactionType,
+    calculateDates,
     workMode
   ]);
 
+  const isFirstSearch = React.useRef(true);
   useEffect(() => {
-    setPage(1);
-  }, [selectedRequestDate]);
-
-  useEffect(() => {
+    if (isFirstSearch.current) {
+      isFirstSearch.current = false;
+      return;
+    }
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
       setPage(1);
@@ -356,7 +479,18 @@ function PaymentPending({ workMode = "Payment" }) {
               rel="noopener noreferrer"
               style={{ display: "inline-block", padding: "10px", textAlign: "center", textDecoration: "none", color: 'blue' }}
             >
-              {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+              {cell.row.original.job_number || job_no}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => {
+                  event.preventDefault();
+                  handleCopy(event, cell.row.original.job_number || job_no);
+                }}
+                style={{ color: "inherit" }}
+              >
+                <ContentCopyIcon fontSize="inherit" />
+              </IconButton>
+              <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
             </Link>
           );
         },
@@ -383,7 +517,14 @@ function PaymentPending({ workMode = "Payment" }) {
         accessorKey: "be_no",
         header: "BE NO and BL NO",
         Cell: ({ cell }) => {
-          const { be_no, be_date, awb_bl_no } = cell.row.original;
+          const { be_no, be_date, awb_bl_no, charges, ie_code_no } = cell.row.original;
+          const hasCustomsDuty = charges && charges.some(c => 
+            c.chargeHead && (
+              c.chargeHead.toUpperCase() === "CUSTOMS DUTY" || 
+              c.chargeHead.toUpperCase() === "CUSTOM DUTY" ||
+              c.chargeHead.toUpperCase().includes("CUSTOMS DUTY")
+            )
+          );
           return (
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               <div style={{ fontSize: "11px", fontWeight: "bold", color: "#1a237e", display: "flex", alignItems: "center" }}>
@@ -416,6 +557,27 @@ function PaymentPending({ workMode = "Payment" }) {
                   </IconButton>
                 )}
               </div>
+              {hasCustomsDuty && (
+                <div style={{ 
+                  fontSize: "11px", 
+                  fontWeight: "bold", 
+                  color: "#d32f2f", 
+                  marginTop: "4px",
+                  padding: "2px 4px",
+                  backgroundColor: "#ffebee",
+                  borderRadius: "4px",
+                  width: "fit-content",
+                  display: "flex",
+                  alignItems: "center"
+                }}>
+                  IE CODE: {ie_code_no || "-"}
+                  {ie_code_no && (
+                    <IconButton size="small" onClick={(e) => handleCopy(e, ie_code_no)} sx={{ ml: 0.5, p: 0.2 }}>
+                      <ContentCopyIcon sx={{ fontSize: "10px" }} />
+                    </IconButton>
+                  )}
+                </div>
+              )}
             </div>
           );
         },
@@ -546,46 +708,140 @@ function PaymentPending({ workMode = "Payment" }) {
     renderTopToolbarCustomActions: () => (
       <div style={{ display: "flex", alignItems: "center", width: "100%", padding: '10px', gap: '20px' }}>
         <Typography variant="h6" sx={{ fontWeight: "bold" }}>{workMode === "Payment" ? "Payment Approved" : "Purchase Book Approved"}: {totalJobs}</Typography>
-        <Autocomplete sx={{ width: "300px" }} options={importerNames.map(o => o.label)} value={selectedImporter || ""} onInputChange={(e, v) => setSelectedImporter(v)} renderInput={(params) => <TextField {...params} size="small" label="Select Importer" />} />
+        <Autocomplete sx={{ width: "300px" }} options={importerNames.map(o => o.label)} value={selectedImporter || ""} onInputChange={(e, v) => { setSelectedImporter(v); setPage(1); }} renderInput={(params) => <TextField {...params} size="small" label="Select Importer" />} />
         <TextField select size="small" value={selectedYearState} onChange={(e) => setSelectedYearState(e.target.value)} sx={{ width: "150px" }}>{years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}</TextField>
-        <TextField
-          type="date"
-          size="small"
-          label="Request Date"
-          value={selectedRequestDate}
-          onChange={(e) => setSelectedRequestDate(e.target.value)}
-          sx={{ width: "160px" }}
-          InputLabelProps={{ shrink: true }}
-        />
-        <TextField placeholder="Search..." size="small" value={searchQuery} onChange={handleSearchInputChange} sx={{ width: "300px" }} />
-        <Button
-          variant="contained"
-          size="small"
-          onClick={() => {
-            if (selectedRequestDate) {
+        {/* Date Filter */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#1a237e' }}>DATE:</Typography>
+          <TextField
+            type="date"
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            value={startDate || selectedRequestDate}
+            onChange={(e) => {
+              setStartDate(e.target.value);
               setSelectedRequestDate("");
-            } else {
-              setSelectedRequestDate(new Date().toLocaleString("en-CA", { timeZone: "Asia/Kolkata" }).split(',')[0]);
-            }
-          }}
-          sx={{
-            borderRadius: 3,
-            textTransform: "none",
-            fontWeight: 500,
-            fontSize: "0.875rem",
-            padding: "8px 20px",
-            background: selectedRequestDate ? "linear-gradient(135deg, #7b1fa2 0%, #9c27b0 100%)" : "linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)",
-            color: "#ffffff",
-            whiteSpace: 'nowrap',
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            "&:hover": {
-              transform: "translateY(-1px)",
-              boxShadow: "0 6px 16px rgba(0,0,0,0.2)",
-            }
-          }}
+              setDateFilterType("single");
+              setPage(1);
+            }}
+            sx={{ width: '150px', '& .MuiOutlinedInput-root': { borderRadius: '20px' } }}
+          />
+          
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={handleAdvancedClick}
+            startIcon={<TuneIcon />}
+            sx={{ borderRadius: '20px', textTransform: 'none', fontWeight: 'bold' }}
+          >
+            Advanced
+          </Button>
+
+          <Popover
+            open={Boolean(anchorEl)}
+            anchorEl={anchorEl}
+            onClose={handleAdvancedClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            PaperProps={{ sx: { p: 2, width: '320px', mt: 1, borderRadius: 3, boxShadow: '0 8px 32px rgba(0,0,0,0.1)' } }}
+          >
+            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>QUICK FILTERS</Typography>
+            <Grid container spacing={1} sx={{ mb: 3 }}>
+              {[
+                { label: 'Today', type: 'today', icon: <TodayIcon fontSize="small" /> },
+                { label: 'Week', type: 'week', icon: <DateRangeIcon fontSize="small" /> },
+                { label: 'Month', type: 'month', icon: <CalendarMonthIcon fontSize="small" /> },
+                { label: 'Year', type: 'year', icon: <EventIcon fontSize="small" /> }
+              ].map((preset) => (
+                <Grid item xs={6} key={preset.type}>
+                  <Button
+                    fullWidth
+                    size="small"
+                    variant={dateFilterType === preset.type ? "contained" : "outlined"}
+                    startIcon={preset.icon}
+                    onClick={() => {
+                      setDateFilterType(preset.type);
+                      setStartDate("");
+                      setEndDate("");
+                      setSelectedRequestDate("");
+                      setPage(1);
+                      handleAdvancedClose();
+                    }}
+                    sx={{ borderRadius: '10px', textTransform: 'none' }}
+                  >
+                    {preset.label}
+                  </Button>
+                </Grid>
+              ))}
+            </Grid>
+
+            <Divider sx={{ mb: 2 }} />
+            
+            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>CUSTOM RANGE</Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
+                type="date"
+                size="small"
+                label="Start Date"
+                InputLabelProps={{ shrink: true }}
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setSelectedRequestDate("");
+                  setDateFilterType("range");
+                  setPage(1);
+                }}
+              />
+              <TextField
+                type="date"
+                size="small"
+                label="End Date"
+                InputLabelProps={{ shrink: true }}
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setSelectedRequestDate("");
+                  setDateFilterType("range");
+                  setPage(1);
+                }}
+              />
+            </Box>
+            
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button 
+                size="small" 
+                color="error" 
+                onClick={() => {
+                  setStartDate("");
+                  setEndDate("");
+                  setSelectedRequestDate("");
+                  setDateFilterType("single");
+                  setPage(1);
+                  handleAdvancedClose();
+                }}
+              >
+                Clear All
+              </Button>
+            </Box>
+          </Popover>
+        </Box>
+
+        <TextField 
+          select 
+          size="small" 
+          label="Transaction Type" 
+          value={selectedTransactionType} 
+          onChange={(e) => {
+            setSelectedTransactionType(e.target.value);
+            setPage(1);
+          }} 
+          sx={{ width: "180px" }}
         >
-          {selectedRequestDate ? "SHOW ALL PENDING" : "SHOW TODAY'S ONLY"}
-        </Button>
+          {["All", "NEFT", "CHEQUE", "CASH", "IMPS", "RTGS", "ONLINE", "DEMAND DRAFT", "ODEX"].map(type => (
+            <MenuItem key={type} value={type}>{type}</MenuItem>
+          ))}
+        </TextField>
+
+        <TextField placeholder="Search..." size="small" value={searchQuery} onChange={handleSearchInputChange} sx={{ width: "300px" }} />
       </div>
     ),
   };
@@ -647,15 +903,27 @@ function PaymentPending({ workMode = "Payment" }) {
                   </Grid>
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">
-                      {selectedPaymentRequest.isPurchaseBook ? "Entry No" : "Request No"}
-                    </Typography>
+                    <Typography variant="caption" fontWeight="bold">Payment Request No</Typography>
                   </Grid>
                   <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.requestNo}</Typography>
-                    <IconButton size="small" onClick={(e) => handleCopy(e, selectedPaymentRequest.requestNo)} title="Copy No">
-                      <ContentCopyIcon sx={{ fontSize: '1rem' }} />
-                    </IconButton>
+                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.paymentRequestNo || "-"}</Typography>
+                    {selectedPaymentRequest.paymentRequestNo && (
+                      <IconButton size="small" onClick={(e) => handleCopy(e, selectedPaymentRequest.paymentRequestNo)} title="Copy PR No">
+                        <ContentCopyIcon sx={{ fontSize: '1rem' }} />
+                      </IconButton>
+                    )}
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Purchase Book No</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.purchaseBookNo || "-"}</Typography>
+                    {selectedPaymentRequest.purchaseBookNo && (
+                      <IconButton size="small" onClick={(e) => handleCopy(e, selectedPaymentRequest.purchaseBookNo)} title="Copy PB No">
+                        <ContentCopyIcon sx={{ fontSize: '1rem' }} />
+                      </IconButton>
+                    )}
                   </Grid>
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
@@ -875,7 +1143,7 @@ function PaymentPending({ workMode = "Payment" }) {
                       sx={{ textTransform: 'none' }}
                     >
                       {selectedReceipt ? "Change Receipt" : "Attach Receipt (Optional)"}
-                      <inputKOTAK MAHINDRA BANK LTDKOTAK MAHINDRA BANK LTD
+                      <input
                         type="file"
                         hidden
                         disabled={!selectedPaymentRequest.isApproved}

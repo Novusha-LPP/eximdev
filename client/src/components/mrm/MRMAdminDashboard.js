@@ -15,8 +15,8 @@ const MRMAdminDashboard = () => {
     const [dashboardData, setDashboardData] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    // Admin access based on role
-    const isAuthorized = user?.role === 'Admin';
+    // Admin access based on role (case-insensitive)
+    const isAuthorized = String(user?.role || '').toLowerCase() === 'admin';
 
     useEffect(() => {
         if (isAuthorized) {
@@ -234,7 +234,7 @@ const MRMAdminDashboard = () => {
                                         </td>
                                         <td style={{ padding: '12px', textAlign: 'center' }}>
                                             <button
-                                                onClick={() => navigate(`/mrm?userId=${row.userId}`)}
+                                                onClick={() => navigate(`/mrm?userId=${row.userId}&month=${selectedMonth}&year=${selectedYear}`)}
                                                 style={{
                                                     background: '#217346',
                                                     color: 'white',

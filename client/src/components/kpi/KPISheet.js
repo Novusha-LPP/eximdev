@@ -70,6 +70,9 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
     // Remarks Dialog State
     const [openRemarks, setOpenRemarks] = useState(false);
 
+    // Debounce reference for handling rapid cell changes
+    const debounceRef = React.useRef({});
+
     const handleCloseSnackbar = () => {
         setSnackbar({ ...snackbar, open: false });
     };
@@ -161,7 +164,7 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
     const handleCellChange = async (rowId, day, value) => {
         if (value < 0) return;
         
-        // Update local state first
+        // Update local state first (Optimistic UI)
         const newRows = sheet.rows.map(r => {
             if (r.row_id === rowId) {
                 const newDailyValues = { ...(r.daily_values instanceof Map ? Object.fromEntries(r.daily_values) : r.daily_values) };
@@ -174,18 +177,26 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
         const updatedSheet = recalculateTotals({ ...sheet, rows: newRows });
         setSheet(updatedSheet);
 
-        // API Call
-        try {
-            await axios.put(`${process.env.REACT_APP_API_STRING}/kpi/sheet/entry`, {
-                sheetId,
-                rowId,
-                day,
-                value
-            }, { withCredentials: true });
-        } catch (error) {
-            console.error("Failed to save cell", error);
-            showMessage("Failed to save changes: " + (error.response?.data?.message || error.message), 'error');
+        // Debounce API Call to prevent race conditions on rapid keystrokes
+        const cellKey = `${rowId}-${day}`;
+        if (debounceRef.current[cellKey]) {
+            clearTimeout(debounceRef.current[cellKey]);
         }
+
+        debounceRef.current[cellKey] = setTimeout(async () => {
+            try {
+                await axios.put(`${process.env.REACT_APP_API_STRING}/kpi/sheet/entry`, {
+                    sheetId,
+                    rowId,
+                    day,
+                    value
+                }, { withCredentials: true });
+            } catch (error) {
+                console.error("Failed to save cell", error);
+                showMessage("Failed to save changes: " + (error.response?.data?.message || error.message), 'error');
+            }
+            delete debounceRef.current[cellKey];
+        }, 500); // 500ms debounce
     };
 
     const isSunday = (day, currentSheet = sheet) => {
@@ -830,7 +841,7 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                                                         type="number"
                                                         min="0"
                                                         onKeyPress={(e) => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
-                                                        value={row.daily_values[day] || ''}
+                                                        value={row.daily_values[day] ?? ''}
                                                         onChange={(e) => handleCellChange(row.row_id, day, e.target.value)}
                                                         disabled={isLocked(day)}
                                                     />

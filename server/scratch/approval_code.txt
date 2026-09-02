@@ -1,0 +1,501 @@
+=== HOD.controller.js ===
+export const approveRequest = async (req, res) => {
+    const debug = [];
+    debug.push(`--- APPROVE REQUEST START ${new Date().toISOString()} ---`);
+    try {
+        const { id, type, status, comments } = req.body;
+        const actor = req.user; // Can be HOD or ADMIN
+
+        debug.push(`Body: ${JSON.stringify(req.body)}`);
+        debug.push(`Actor: ${actor.username} Role: ${actor.role}`);
+
+        if (type === 'leave') {
+            if (!['approved', 'rejected'].includes(status)) {
+                return res.status(400).json({ message: 'Invalid status transition' });
+            }
+
+            const commentText = String(comments || '').trim();
+            if (status === 'rejected' && !commentText) {
+                return res.status(400).json({ message: 'Rejection reason is required' });
+            }
+
+            const application = await LeaveApplication.findById(id)
+                .populate('employee_id', 'first_name last_name username role hod_id')
+                .populate('current_approver_id', 'first_name last_name username role');
+            if (!application) {
+                debug.push(`Application not found: ${id}`);
+                fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                return res.status(404).json({ message: 'Application not found' });
+            }
+
+            debug.push(`Found Application: ${application._id}`);
+
+            const requesterId = application.employee_id?._id ? application.employee_id._id.toString() : application.employee_id?.toString();
+            const actorId = (actor._id?._id || actor._id).toString();
+            const actorRole = normalizeRole(actor.role);
+            const actorObjectId = actor._id?._id || actor._id;
+            const actorName = actor.first_name
+                ? `${actor.first_name} ${actor.last_name || ''}`.trim()
+                : (actor.name || actor.username || 'Unknown');
+
+            const actorUsername = String(actor.username || '').toLowerCase();
+            const canSelfApprove = REQUIRED_ADMIN_SELF_APPROVAL_USERNAMES.has(actorUsername);
+            if (requesterId === actorId && !canSelfApprove) {
+                debug.push('SELF APPROVAL DENIED');
+                fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                return res.status(403).json({ message: 'Unauthorized: You cannot process your own leave application' });
+            }
+
+            if (!await canActorActOnLeave(application, actor)) {
+                debug.push(`ACTOR PERMISSION DENIED for ${actorUsername}`);
+                fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                return res.status(403).json({ message: 'Unauthorized: You do not have permission to act on this leave application' });
+            }
+
+            try {
+                if (application.approval_status === 'pending_hod') {
+                    application.approval_status = 'pending';
+                    if (!application.approval_stage) {
+                        application.approval_stage = LEAVE_STAGE.HOD;
+                    }
+                }
+
+                if (isTerminalLeaveStatus(application.approval_status)) {
+                    return res.status(400).json({ message: 'Request is already finalized' });
+                }
+
+                const currentYear = new Date().getFullYear();
+                let balanceRecord = await LeaveBalance.findOne({
+                    employee_id: application.employee_id,
+                    leave_policy_id: application.leave_policy_id,
+                    year: currentYear
+                });
+
+                if (!balanceRecord) {
+                    const policy = await LeavePolicy.findById(application.leave_policy_id);
+                    const defaultQuota = 24;
+                    const quota = policy?.annual_quota || defaultQuota;
+
+                    balanceRecord = new LeaveBalance({
+                        employee_id: application.employee_id,
+                        company_id: application.company_id,
+                        leave_policy_id: application.leave_policy_id,
+                        leave_type: application.leave_type,
+                        year: currentYear,
+                        opening_balance: quota,
+                        used: 0,
+                        closing_balance: quota,
+                        pending_approval: 0
+                    });
+                }
+
+                const isUnpaid = String(application.leave_type || '').toLowerCase() === 'lwp';
+                const stage = application.approval_stage || LEAVE_STAGE.HOD;
+                const currentApproverId = toIdString(application.current_approver_id);
+
+                const applyLeaveAttendance = async (processedBy) => {
+                    const company = await Company.findById(application.company_id).select('timezone').lean();
+                    const tz = company?.timezone || 'Asia/Kolkata';
+
+                    const start = moment(application.from_date_str || application.from_date).tz(tz).startOf('day');
+                    const end = moment(application.to_date_str || application.to_date).tz(tz).startOf('day');
+                    let curr = start.clone();
+
+                    while (curr.isSameOrBefore(end, 'day')) {
+                        const dateStr = curr.format('YYYY-MM-DD');
+                        const attDate = moment.utc(dateStr, 'YYYY-MM-DD').startOf('day').toDate();
+
+                        await AttendanceRecord.findOneAndUpdate(
+                            { employee_id: application.employee_id, attendance_date: attDate },
+                            {
+                                employee_id: application.employee_id,
+                                company_id: application.company_id,
+                                attendance_date: attDate,
+                                attendance_date_str: dateStr,
+                                status: application.is_half_day ? 'half_day' : 'leave',
+                                is_half_day: application.is_half_day || false,
+                                half_day_session: application.half_day_session,
+                                year_month: curr.format('YYYY-MM'),
+                                processed_by: processedBy
+                            },
+                            { upsert: true }
+                        );
+                        curr.add(1, 'day');
+                    }
+                };
+
+                const addBackPendingBalance = () => {
+                    if (!isUnpaid) {
+                        balanceRecord.pending_approval = Number(balanceRecord.pending_approval || 0) + Number(application.total_days || 0);
+                    }
+                    balanceRecord.pending_approval = Math.max(0, Number(balanceRecord.pending_approval || 0));
+                };
+
+                const finalizeRejection = async () => {
+                    application.approval_status = 'rejected';
+                    application.approval_stage = null;
+                    application.current_approver_id = undefined;
+                    application.rejected_by = actorObjectId;
+                    application.rejected_at = new Date();
+                    application.rejection_reason = commentText;
+                    application.final_reviewed_by = actorObjectId;
+                    application.final_reviewed_at = new Date();
+                    application.final_review_comment = commentText;
+                    application.comments = commentText;
+
+                    if (stage === LEAVE_STAGE.HOD) {
+                        application.hod_reviewed_by = actorObjectId;
+                        application.hod_reviewed_at = new Date();
+                        application.hod_review_comment = commentText;
+                    }
+
+                    markApprovalChainStage(application, stage, 'rejected', commentText);
+                    appendApprovalHistoryEntry(application, actorObjectId, actorName, actorRole, 'rejected', commentText);
+                    await application.save();
+
+                    addBackPendingBalance();
+                    balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
+                    await balanceRecord.save();
+
+                    await logApprovalActivity(
+                        req,
+                        'APPROVAL',
+                        'LEAVE_REJECTED',
+                        `${actorName} rejected leave request for ${application.employee_id}`,
+                        {
+                            leave_application_id: application._id,
+                            employee_id: application.employee_id,
+                            source_stage: stage,
+                            comments: commentText || ''
+                        }
+                    );
+
+                    fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                    AggregationService.clearCache();
+                    return res.json({ message: 'Leave rejected successfully' });
+                };
+
+                const finalizeApproval = async () => {
+                    application.approval_status = 'approved';
+                    application.approval_stage = null;
+                    application.current_approver_id = undefined;
+                    application.final_reviewed_by = actorObjectId;
+                    application.final_reviewed_at = new Date();
+                    application.final_review_comment = commentText || application.final_review_comment;
+                    application.rejected_by = undefined;
+                    application.rejected_at = undefined;
+                    application.rejection_reason = undefined;
+                    if (commentText) {
+                        application.comments = commentText;
+                    }
+
+                    markApprovalChainStage(application, LEAVE_STAGE.FINAL, 'approved', commentText);
+                    appendApprovalHistoryEntry(application, actorObjectId, actorName, actorRole, 'approved', commentText);
+                    await application.save();
+
+                    await applyLeaveAttendance('admin');
+
+                    // Balance was already deducted from pending_approval at application stage
+                    if (!isUnpaid) {
+                        balanceRecord.used = Number(balanceRecord.used || 0) + Number(application.total_days || 0);
+                    }
+                    balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
+                    await balanceRecord.save();
+
+                    await logApprovalActivity(
+                        req,
+                        'APPROVAL',
+                        'LEAVE_APPROVED',
+                        `${actorName} approved leave request for ${application.employee_id}`,
+                        {
+                            leave_application_id: application._id,
+                            employee_id: application.employee_id,
+                            source_stage: LEAVE_STAGE.FINAL,
+                            comments: commentText || ''
+                        }
+                    );
+
+                    fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                    AggregationService.clearCache();
+                    return res.json({ message: 'Leave approved successfully' });
+                };
+
+                if (stage === LEAVE_STAGE.HOD) {
+                    if (!isAssignedToActor(application, actor)) {
+                        return res.status(403).json({ message: 'Unauthorized: You are not the assigned HOD approver' });
+                    }
+
+                    if (status === 'rejected') {
+                        return finalizeRejection();
+                    }
+
+                    markApprovalChainStage(application, LEAVE_STAGE.HOD, 'approved', commentText);
+                    application.hod_reviewed_by = actorObjectId;
+                    application.hod_reviewed_at = new Date();
+                    application.hod_review_comment = commentText || application.hod_review_comment;
+                    appendApprovalHistoryEntry(application, actorObjectId, actorName, actorRole, 'approved', commentText);
+
+                    const shaliniApprover = await getShaliniApprover(application.company_id);
+                    if (!shaliniApprover) {
+                        return res.status(400).json({ message: `Unable to route approval: ${STAGE_2_APPROVER_USERNAME} not configured` });
+                    }
+
+                    setPendingStage(application, LEAVE_STAGE.SHALINI, shaliniApprover._id, 'ADMIN', STAGE_2_APPROVER_USERNAME);
+                    await application.save();
+                    AggregationService.clearCache();
+                    return res.json({ message: 'Leave approved by HOD and forwarded to shalini_arun' });
+                }
+
+                if (stage === LEAVE_STAGE.SHALINI) {
+                    if (actorUsername !== STAGE_2_APPROVER_USERNAME) {
+                        return res.status(403).json({ message: 'Only shalini_arun can process this stage' });
+                    }
+                    if (currentApproverId && currentApproverId !== actorId) {
+                        return res.status(403).json({ message: 'Unauthorized: You are not the assigned stage-2 approver' });
+                    }
+
+                    if (status === 'rejected') {
+                        return finalizeRejection();
+                    }
+
+                    markApprovalChainStage(application, LEAVE_STAGE.SHALINI, 'approved', commentText);
+                    appendApprovalHistoryEntry(application, actorObjectId, actorName, actorRole, 'approved', commentText);
+                    setPendingStage(application, LEAVE_STAGE.FINAL, undefined, 'ADMIN');
+                    await application.save();
+                    AggregationService.clearCache();
+                    return res.json({ message: 'Leave approved by shalini_arun and forwarded for final approval' });
+                }
+
+                if (stage === LEAVE_STAGE.FINAL) {
+                    if (!isAdminRole(actorRole) || !FINAL_APPROVER_USERNAMES.has(actorUsername)) {
+                        return res.status(403).json({ message: 'Final leave approval is restricted to designated final approvers' });
+                    }
+                    if (currentApproverId && currentApproverId !== actorId) {
+                        return res.status(403).json({ message: 'Unauthorized: You are not the assigned stage-3 approver' });
+                    }
+
+                    if (status === 'rejected') {
+                        return finalizeRejection();
+                    }
+
+                    return finalizeApproval();
+                }
+
+                return res.status(400).json({ message: 'Invalid leave approval stage' });
+
+            } catch (error) {
+                throw error;
+            }
+
+        } else if (type === 'regularization') {
+            const request = await RegularizationRequest.findById(id);
+            if (!request) return res.status(404).json({ message: 'Request not found' });
+
+            // Admin bypasses team check
+            if (!isAdminRole(actor.role)) {
+                // HOD: verify employee is in their team
+                const hodTeams = await TeamModel.find({
+                    $or: [
+                        { hodId: actor._id },
+                        ...(isHodRole(actor.role) ? [{ "members.userId": actor._id }] : [])
+                    ],
+                    isActive: { $ne: false }
+                });
+
+                const teamMemberIds = new Set();
+                hodTeams.forEach(team => {
+                    if (team.members && Array.isArray(team.members)) {
+                        team.members.forEach(m => {
+                            if (m.userId) teamMemberIds.add(m.userId.toString());
+                        });
+                    }
+                });
+
+                const requestEmpId = (request.employee_id?._id || request.employee_id).toString();
+                if (!teamMemberIds.has(requestEmpId)) {
+                    return res.status(403).json({ message: 'Unauthorized: Employee is not in your team' });
+                }
+            }
+
+            request.status = status;
+            if (comments) request.remarks = comments;
+            await request.save();
+
+            // If approved, update attendance record
+            if (status === 'approved') {
+                const empId = request.employee_id?._id || request.employee_id;
+
+                const dateStr = request.attendance_date;
+                const companyId = request.company_id?._id || request.company_id;
+                const attDate = moment.utc(dateStr, 'YYYY-MM-DD').startOf('day').toDate();
+
+                await AttendanceRecord.findOneAndUpdate(
+                    { employee_id: empId, attendance_date: attDate },
+                    {
+                        employee_id: empId,
+                        company_id: companyId,
+                        attendance_date: attDate,
+                        attendance_date_str: dateStr,
+                        year_month: moment.utc(dateStr, 'YYYY-MM-DD').format('YYYY-MM'),
+                        first_in: request.requested_in_time || request.expected_in,
+                        last_out: request.requested_out_time || request.expected_out,
+                        status: 'present',
+                        is_regularized: true,
+                        processed_at: new Date(),
+                        processed_by: actor.role === 'ADMIN' ? 'admin' : 'hod'
+                    },
+                    { upsert: true }
+                );
+            }
+
+            await logApprovalActivity(
+                req,
+                'APPROVAL',
+                status === 'approved' ? 'REGULARIZATION_APPROVED' : 'REGULARIZATION_REJECTED',
+                `${actor.username || actor.role} ${status} regularization request ${request._id}`,
+                {
+                    regularization_id: request._id,
+                    employee_id: request.employee_id,
+                    comments: comments || ''
+                }
+            );
+
+            AggregationService.clearCache();
+            return res.json({ message: `Regularization ${status} successfully` });
+        }
+
+        res.status(400).json({ message: 'Invalid request type' });
+    } catch (err) {
+        debug.push(`FATAL ERROR: ${err.message}`);
+        debug.push(err.stack);
+        fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+        console.error('Error in approveRequest:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+=== attendance.controller.js ===
+export const approveRegularization = async (req, res) => {
+    try {
+        const regularizationId = req.params.id || req.body.regularization_id;
+        const { approval_remarks } = req.body;
+        const companyId = resolveCompanyId(req);
+
+        if (!regularizationId) {
+            return res.status(400).json({ message: 'regularization_id is required' });
+        }
+
+        const actorRoleNorm = String(req.user.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        const isAdminActor = actorRoleNorm === 'ADMIN';
+        const isHodActor = actorRoleNorm === 'HOD' || actorRoleNorm === 'HEADOFDEPARTMENT';
+
+        // Fetch regularization request first (needed for the designated-HOD check below)
+        const regularization = await RegularizationRequest.findById(regularizationId);
+        if (!regularization) {
+            return res.status(404).json({ message: 'Regularization request not found' });
+        }
+
+        if (regularization.status !== 'pending') {
+            return res.status(400).json({ message: 'Regularization is not in pending status' });
+        }
+
+        // Check if actor is a designated HOD (hodId) for this employee's team,
+        // even if they don't carry the HOD role label.
+        const isDesignatedHod = await isDesignatedHodForEmployee(req.user._id, regularization.employee_id);
+
+        if (!isAdminActor && !isHodActor && !isDesignatedHod) {
+            return res.status(403).json({ message: 'Authorization denied: Only admins and designated HODs can approve regularizations' });
+        }
+
+        // HOD Authorization Check: if actor has HOD role, ensure the employee is in their team
+        if (isHodActor && !isDesignatedHod) {
+            if (!await isHODauthorized(req.user._id, regularization.employee_id)) {
+                return res.status(403).json({ message: 'Forbidden: Employee not in your team' });
+            }
+        }
+
+        const employee = await User.findById(regularization.employee_id);
+        const company = await Company.findById(companyId);
+        const shift = await PolicyResolver.resolveShift(employee);
+        const attendanceDate = regularization.attendance_date;
+
+        // Fetch all punches for that date
+        const punches = await AttendancePunch.find({
+            employee_id: regularization.employee_id,
+            punch_date: moment.utc(attendanceDate).format('YYYY-MM-DD')
+        }).sort({ punch_time: 1 });
+
+        // Recalculate work hours with corrected times from regularization
+        const workData = WorkHoursCalculator.recalculateWithRegularization(
+            punches,
+            regularization,
+            shift
+        );
+
+        // Resolve status based on work hours
+        const overrides = await fetchDayOverrides(regularization.employee_id, attendanceDate, company._id);
+        const statusResult = AttendanceStatusResolver.resolveStatus(workData, shift, overrides);
+
+        // Update or create AttendanceRecord with recalculated data
+        const attendanceDateObj = moment.utc(attendanceDate).startOf('day').toDate();
+        let record = await AttendanceRecord.findOne({
+            employee_id: regularization.employee_id,
+            company_id: companyId,
+            attendance_date: attendanceDateObj
+        });
+
+        if (!record) {
+            record = new AttendanceRecord({
+                employee_id: regularization.employee_id,
+                company_id: companyId,
+                attendance_date: attendanceDateObj,
+                attendance_date_str: moment.utc(attendanceDate).format('YYYY-MM-DD'),
+                year_month: moment.utc(attendanceDate).format('YYYY-MM')
+            });
+        }
+
+        // Update record with recalculated data
+        record.status = statusResult.status;
+        record.total_work_hours = workData.total_work_hours;
+        record.total_work_sessions = workData.total_sessions;
+        record.work_sessions = workData.sessions;
+        record.has_incomplete_session = workData.has_incomplete;
+        record.is_late = workData.is_late;
+        record.late_by_minutes = workData.late_by_minutes;
+        record.is_early_exit = workData.is_early_exit;
+        record.early_exit_minutes = workData.early_exit_minutes;
+        record.regularization_applied = regularizationId;
+        record.remarks = approval_remarks;
+
+        await record.save();
+
+        // Mark regularization as approved
+        regularization.status = 'approved';
+        regularization.approved_by = req.user._id;
+        regularization.approved_at = moment().toDate();
+        regularization.approved_comments = approval_remarks;
+        await regularization.save();
+
+        await logActivity(req, 'ATTENDANCE', 'APPROVE_REGULARIZATION', `Approved regularization for ${employee.first_name}`, {
+            company_id: regularization.company_id,
+            regularization_id: regularizationId,
+            attendance_date: attendanceDate,
+            previous_status: statusResult.status
+        });
+
+        res.json({
+            success: true,
+            message: 'Regularization approved and attendance recalculated',
+            record,
+            workData: {
+                total_work_hours: workData.total_work_hours,
+                total_sessions: workData.total_sessions,
+                status: statusResult.status
+            }
+        });
+
+    } catch (err) {
+        console.error('Approve Regularization Error:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};

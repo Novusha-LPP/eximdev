@@ -43,6 +43,10 @@ const userSchema = new Schema({
     type: [String],
     default: ["Attendance"]
   },
+  tyre_procurement_tabs: {
+    type: [String],
+    default: [],
+  },
   assigned_importer_name: [
     {
       type: String,
@@ -96,6 +100,7 @@ const userSchema = new Schema({
     punch_allowed: { type: Boolean, default: true },
     punch_methods: [{ type: String, enum: ['web', 'mobile', 'biometric'] }],
     geo_fencing_required: { type: Boolean },
+    has_smartphone: { type: Boolean, default: true },
     allowed_locations: [{
       name: String,
       latitude: Number,
@@ -125,12 +130,40 @@ const userSchema = new Schema({
   last_punch_type: { type: String },
   current_status: { type: String, enum: ['in_office', 'out_office', 'on_leave', 'on_duty'] },
   monthly_salary: { type: Number, default: 0 },
+  isAttendanceAllowedAdmin: { type: Boolean, default: false },
+  is_operator: { type: Boolean, default: false },
+  category: { type: String, default: 'Management' },
+
+  // ─── Profile / HR / Payroll fields ──────────────────────────────────────────
+  pf_joining_date: { type: Date },
+  pf_bank: { type: String },
+  pf_bank_ifsc_code: { type: String },
+  pf_bank_account_number: { type: String },
+  uan_number: { type: String },
+  esic_joining_date: { type: Date },
+  esic_end_month: { type: Date },
+  name_on_bank: { type: String },
+  bank_account_status: { type: String, default: 'Approved' },
+  biometric_serial_no: [{ type: String }],
+  biometric_code: { type: String },
+  salary_calculation_act: { type: String, enum: ['Shop Act', 'Factory Act', 'On Working Days'], default: 'Shop Act' },
+  payroll_frequency: { type: String, enum: ['Monthly', 'Weekly', 'Daily'], default: 'Monthly' },
+  enable_full_month_presence: { type: Boolean, default: false },
+  retirement_age: { type: Number, default: 60 },
+  worker_type: { type: String, enum: ['Company Staff', 'Contractor', 'Daily Wage'], default: 'Company Staff' },
+  employment_applicable_date: { type: Date },
+  employment_end_date: { type: Date },
+  skill_category: { type: String, enum: ['Skilled', 'Unskilled', 'Semi-Skilled'], default: 'Skilled' },
+  relieving_date: { type: Date },
 
   // Audit
   updated_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   // ─────────────────────────────────────────────────────────────────────────
 
   skill: {
+    type: String,
+  },
+  skills_secondary: {
     type: String,
   },
   company_policy_visited: {
@@ -144,6 +177,7 @@ const userSchema = new Schema({
   },
   resume: { type: String },
   address_proof: { type: String },
+  training_completed: { type: String },
   nda: { type: String },
   ////////////////////////////////////////////////////////////////// KYC
   designation: {
@@ -247,7 +281,13 @@ const userSchema = new Schema({
   pf_no: {
     type: String,
   },
+  pf_card_url: {
+    type: String,
+  },
   esic_no: {
+    type: String,
+  },
+  esic_card_url: {
     type: String,
   },
   insurance_status: [
@@ -357,6 +397,14 @@ const userSchema = new Schema({
       remarks: { type: String },
     },
   ],
+  profile_employee_notified_at: {
+    type: Date,
+    default: null,
+  },
+  profile_manager_notified_at: {
+    type: Date,
+    default: null,
+  },
 });
 
 userSchema.plugin(auditPlugin, { documentType: "User" });

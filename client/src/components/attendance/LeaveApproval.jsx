@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
-import { 
-  FiCheck, FiX, FiRefreshCw, FiFileText, FiFilter, FiSearch, FiXCircle, 
+import {
+  FiCheck, FiX, FiRefreshCw, FiFileText, FiFilter, FiSearch, FiXCircle,
   FiCalendar, FiUsers, FiBriefcase, FiClock, FiMoreVertical, FiChevronLeft, FiChevronRight,
   FiChevronDown
 } from 'react-icons/fi';
@@ -18,8 +18,9 @@ import LeaveBalanceManagement from './admin/LeaveBalanceManagement';
 
 // ── Cancel eligibility (30-day cutoff) ───────────────────────────────────────
 const CANCEL_CUTOFF_DAYS = 30;
-const isHistoryEligibleForCancel = (req) => {
+const isHistoryEligibleForCancel = (req, isAdminOrHod = false) => {
   if (!['pending', 'approved'].includes(req.status)) return false;
+  if (isAdminOrHod) return true;
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - CANCEL_CUTOFF_DAYS);
   return new Date(req.fromDate || req.from_date) >= cutoff;
@@ -28,16 +29,16 @@ const isHistoryEligibleForCancel = (req) => {
 // ── Inline Cancel Modal ───────────────────────────────────────────────────────
 const ApCancelModal = ({ req, onClose, onDone }) => {
   const fromDate = req.fromDate || req.from_date;
-  const toDate   = req.toDate   || req.to_date;
+  const toDate = req.toDate || req.to_date;
   const isMultiDay = !req.is_half_day && fromDate !== toDate;
   const [cancelType, setCancelType] = useState('full');
   const [cancelFrom, setCancelFrom] = useState(formatAttendanceDate(fromDate, 'yyyy-MM-dd'));
-  const [cancelTo,   setCancelTo]   = useState(formatAttendanceDate(toDate,   'yyyy-MM-dd'));
+  const [cancelTo, setCancelTo] = useState(formatAttendanceDate(toDate, 'yyyy-MM-dd'));
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const origFrom   = new Date(fromDate);
-  const origTo     = new Date(toDate);
+  const origFrom = new Date(fromDate);
+  const origTo = new Date(toDate);
   const totalRange = Math.round((origTo - origFrom) / 86400000) + 1;
 
   const previewDays = () => {
@@ -87,11 +88,13 @@ const ApCancelModal = ({ req, onClose, onDone }) => {
             <div style={{ display: 'flex', gap: 8 }}>
               {['full', 'partial'].map(t => (
                 <button key={t} type="button" onClick={() => setCancelType(t)}
-                  style={{ flex: 1, padding: '7px 0', borderRadius: 7, border: '1.5px solid', cursor: 'pointer',
+                  style={{
+                    flex: 1, padding: '7px 0', borderRadius: 7, border: '1.5px solid', cursor: 'pointer',
                     borderColor: cancelType === t ? '#3b82f6' : '#e2e8f0',
                     background: cancelType === t ? '#eff6ff' : '#fff',
                     color: cancelType === t ? '#1d4ed8' : '#374151',
-                    fontWeight: cancelType === t ? 700 : 500, fontSize: '.8125rem' }}
+                    fontWeight: cancelType === t ? 700 : 500, fontSize: '.8125rem'
+                  }}
                 >
                   {t === 'full' ? 'Full Cancellation' : 'Partial Days'}
                 </button>
@@ -141,7 +144,7 @@ const ApCancelModal = ({ req, onClose, onDone }) => {
 const initials = (n = '') => n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 const fmt = (d, f) => { try { return formatDate(d, f); } catch { return d || '-'; } };
 const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
-const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
+const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza']);
 const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
 const isAdminRole = (role) => normalizeRole(role) === 'ADMIN';
 const isAllowedUser = (username) => ALLOWED_USERNAMES.has(String(username || '').toLowerCase());
@@ -246,9 +249,10 @@ const LeaveApproval = () => {
   const { user } = useContext(UserContext);
   const username = String(user?.username || '').toLowerCase();
 
-  const isAdmin = isAdminRole(user?.role) || isAllowedUser(username);
+  const isDynamicAdmin = user?.isAttendanceAllowedAdmin === true;
+  const isAdmin = isAdminRole(user?.role) || isAllowedUser(username) || isDynamicAdmin;
   const isHOD = isHodRole(user?.role);
-  const canManageAdminTools = isAdminRole(user?.role) && isAllowedUser(username);
+  const canManageAdminTools = (isAdminRole(user?.role) && isAllowedUser(username)) || isDynamicAdmin;
   const [isAllowedAdmin, setIsAllowedAdmin] = useState(canManageAdminTools);
 
   const [activeTab, setActiveTab] = useState(location.state?.tab || 'approvals');
@@ -333,8 +337,8 @@ const LeaveApproval = () => {
     }
   }, [isAdmin, teams.length]);
 
-  useEffect(() => { 
-    fetchRequests(selectedTeam, 1, '', '', ''); 
+  useEffect(() => {
+    fetchRequests(selectedTeam, 1, '', '', '');
     const fetchOrgs = async () => {
       try {
         const res = await attendanceAPI.getOrganizations();
@@ -385,10 +389,12 @@ const LeaveApproval = () => {
       const response = await attendanceAPI.approveRequest('leave', id, status, remark);
       toast.success(response?.message || `Leave ${status}`);
       setHistory(h => h.some(r => String(r.id) === String(id)) ? h :
-        [{ ...acted, status, actionDate: new Date().toISOString(), historyKey: `${id}-${Date.now()}`,
+        [{
+          ...acted, status, actionDate: new Date().toISOString(), historyKey: `${id}-${Date.now()}`,
           approvedBy: status === 'approved' ? (user?.name || user?.username || 'You') : null,
           rejectedBy: status === 'rejected' ? (user?.name || user?.username || 'You') : null,
-          decisionRemark: remark || '' }, ...h]);
+          decisionRemark: remark || ''
+        }, ...h]);
     } catch {
       toast.error('Action failed');
       setRequests(prev => [acted, ...prev]);
@@ -413,9 +419,19 @@ const LeaveApproval = () => {
     (r.leaveType || '').toLowerCase().includes(approvalsSearch.toLowerCase())
   ), [requests, approvalsSearch]);
 
+  const sortedRequests = useMemo(() => {
+    return [...filteredRequests].sort((a, b) => {
+      if (a.canAct && !b.canAct) return -1;
+      if (!a.canAct && b.canAct) return 1;
+      const dateA = new Date(a.appliedOn || a.createdAt || 0);
+      const dateB = new Date(b.appliedOn || b.createdAt || 0);
+      return dateB - dateA;
+    });
+  }, [filteredRequests]);
+
   const groupedRequests = useMemo(() => {
-    if (groupBy === 'none') return { 'All Requests': filteredRequests };
-    const grouped = filteredRequests.reduce((acc, req) => {
+    if (groupBy === 'none') return { 'All Requests': sortedRequests };
+    const grouped = sortedRequests.reduce((acc, req) => {
       const key = groupBy === 'organization' ? (req.organizationName || 'General') : (req.teamName || 'No Team');
       if (!acc[key]) acc[key] = [];
       acc[key].push(req);
@@ -425,7 +441,7 @@ const LeaveApproval = () => {
       acc[key] = grouped[key];
       return acc;
     }, {});
-  }, [filteredRequests, groupBy]);
+  }, [sortedRequests, groupBy]);
 
   const groupedHistory = useMemo(() => {
     if (groupBy === 'none') return { 'All History': history.filter(h => (h.employeeName || '').toLowerCase().includes(historySearch.toLowerCase()) || (h.leaveType || '').toLowerCase().includes(historySearch.toLowerCase())) };
@@ -453,7 +469,7 @@ const LeaveApproval = () => {
   const TABS = useMemo(() => [
     { key: 'approvals', label: 'Leave Approvals', count: requests.length },
     { key: 'history', label: 'Leave History', count: 0 },
-    ...(canManageAdminTools ? [{ key: 'policy', label: 'Leave Policy', count: 0 }] : []),
+    // ...(canManageAdminTools ? [{ key: 'policy', label: 'Leave Policy', count: 0 }] : []),
   ], [requests.length, canManageAdminTools]);
 
   if (loading && requests.length === 0) return (
@@ -547,8 +563,8 @@ const LeaveApproval = () => {
       </div>
 
       {activeTab === 'balances' && isAllowedAdmin && <div className="animation-fade-in"><LeaveBalanceManagement /></div>}
-      {activeTab === 'policy'   && isAllowedAdmin && <div className="animation-fade-in"><LeavePolicyManagement embedded readOnly /></div>}
-      {activeTab === 'holiday'  && isAllowedAdmin && <div className="animation-fade-in"><HolidayManagement embedded readOnly /></div>}
+      {activeTab === 'policy' && isAllowedAdmin && <div className="animation-fade-in"><LeavePolicyManagement embedded readOnly /></div>}
+      {activeTab === 'holiday' && isAllowedAdmin && <div className="animation-fade-in"><HolidayManagement embedded readOnly /></div>}
 
       {activeTab === 'approvals' && (
         <div className="animation-fade-in">
@@ -782,64 +798,64 @@ const LeaveApproval = () => {
                   )}
                   {!collapsedGroups[groupKey] && (
                     <div className="ap-history-wrap">
-                    <table className="ap-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-                      <thead>
-                        <tr style={{ background: '#f8fafc' }}>
-                          <th style={{ padding: '10px 14px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Employee</th>
-                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Type</th>
-                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Duration</th>
-                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Date Range</th>
-                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Reason</th>
-                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Applied On</th>
-                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Status</th>
-                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Approver Status</th>
-                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Decision By</th>
-                          <th style={{ padding: '10px 14px', textAlign: 'right', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {groupedHistory[groupKey].map(req => (
-                          <tr key={req.historyKey}>
-                            <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0f172a', fontSize: '13px' }}>{req.employeeName}</td>
-                            <td style={{ padding: '10px 12px' }}><span className="ap-badge blue">{req.leaveType}</span></td>
-                            <td style={{ padding: '10px 12px', fontWeight: 600, fontSize: '13px' }}>{req.is_half_day ? 'Half Day' : `${req.totalDays}d`}</td>
-                            <td style={{ padding: '10px 12px', fontSize: '12px', color: '#475569' }}>
-                              {fmt(req.fromDate, 'dd MMM')} – {fmt(req.toDate, 'dd MMM')}
-                            </td>
-                            <td style={{ padding: '10px 12px', fontSize: '12px', color: '#64748b', fontStyle: 'italic', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.reason}>
-                              {req.reason || <span style={{ color: '#cbd5e1' }}>—</span>}
-                            </td>
-                            <td style={{ padding: '10px 12px', fontSize: '12px', color: '#475569' }}>
-                              {fmt(req.appliedOn || req.applied_on || req.createdAt, 'dd MMM yyyy')}
-                            </td>
-                            <td style={{ padding: '10px 12px' }}>
-                              <span className="ap-status-badge" style={getHistoryBadgeMeta(req).style}>
-                                {getHistoryBadgeMeta(req).label}
-                              </span>
-                            </td>
-                            <td style={{ padding: '10px 12px' }}>
-                              <span className="ap-badge gray" style={{ whiteSpace: 'nowrap' }}>
-                                {req.approvalStageLabel || req.approval_stage_label || req.approvalStage || req.approval_stage || '—'}
-                              </span>
-                            </td>
-                            <td style={{ padding: '10px 12px', fontSize: '12px', color: '#64748b' }}>
-                              {['approved', 'rejected', 'cancelled', 'withdrawn'].includes(String(req.status || '').toLowerCase())
-                                ? (req.status === 'approved' ? (req.approvedBy || '—') : (req.rejectedBy || '—'))
-                                : (req.currentApproverName || req.approvedBy || '—')}
-                            </td>
-                            <td style={{ padding: '10px 14px', textAlign: 'right' }}>
-                              {isHistoryEligibleForCancel(req) && (
-                                <button className="ap-icon-btn" style={{ color: '#ef4444', border: 'none' }} onClick={() => setCancelModal(req)}>
-                                  <FiXCircle size={16} />
-                                </button>
-                              )}
-                            </td>
+                      <table className="ap-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                        <thead>
+                          <tr style={{ background: '#f8fafc' }}>
+                            <th style={{ padding: '10px 14px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Employee</th>
+                            <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Type</th>
+                            <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Duration</th>
+                            <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Date Range</th>
+                            <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Reason</th>
+                            <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Applied On</th>
+                            <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Status</th>
+                            <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Approver Status</th>
+                            <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Decision By</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'right', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Actions</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                        </thead>
+                        <tbody>
+                          {groupedHistory[groupKey].map(req => (
+                            <tr key={req.historyKey}>
+                              <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0f172a', fontSize: '13px' }}>{req.employeeName}</td>
+                              <td style={{ padding: '10px 12px' }}><span className="ap-badge blue">{req.leaveType}</span></td>
+                              <td style={{ padding: '10px 12px', fontWeight: 600, fontSize: '13px' }}>{req.is_half_day ? 'Half Day' : `${req.totalDays}d`}</td>
+                              <td style={{ padding: '10px 12px', fontSize: '12px', color: '#475569' }}>
+                                {fmt(req.fromDate, 'dd MMM')} – {fmt(req.toDate, 'dd MMM')}
+                              </td>
+                              <td style={{ padding: '10px 12px', fontSize: '12px', color: '#64748b', fontStyle: 'italic', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.reason}>
+                                {req.reason || <span style={{ color: '#cbd5e1' }}>—</span>}
+                              </td>
+                              <td style={{ padding: '10px 12px', fontSize: '12px', color: '#475569' }}>
+                                {fmt(req.appliedOn || req.applied_on || req.createdAt, 'dd MMM yyyy')}
+                              </td>
+                              <td style={{ padding: '10px 12px' }}>
+                                <span className="ap-status-badge" style={getHistoryBadgeMeta(req).style}>
+                                  {getHistoryBadgeMeta(req).label}
+                                </span>
+                              </td>
+                              <td style={{ padding: '10px 12px' }}>
+                                <span className="ap-badge gray" style={{ whiteSpace: 'nowrap' }}>
+                                  {req.approvalStageLabel || req.approval_stage_label || req.approvalStage || req.approval_stage || '—'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '10px 12px', fontSize: '12px', color: '#64748b' }}>
+                                {['approved', 'rejected', 'cancelled', 'withdrawn'].includes(String(req.status || '').toLowerCase())
+                                  ? (req.status === 'approved' ? (req.approvedBy || '—') : (req.rejectedBy || '—'))
+                                  : (req.currentApproverName || req.approvedBy || '—')}
+                              </td>
+                              <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                                {isHistoryEligibleForCancel(req, isAdmin || isHOD) && (
+                                  <button className="ap-icon-btn" style={{ color: '#ef4444', border: 'none' }} onClick={() => setCancelModal(req)}>
+                                    <FiXCircle size={16} />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

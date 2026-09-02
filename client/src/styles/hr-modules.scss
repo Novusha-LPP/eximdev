@@ -954,3 +954,46 @@
         }
     }
 }
+
+// Premium Card Navigation styles
+.hr-nav-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+
+    &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: transparent;
+        transition: background 0.3s ease;
+    }
+
+    &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.08), 0 8px 8px -5px rgba(0, 0, 0, 0.04) !important;
+        border-color: #cbd5e0 !important;
+
+        .hr-icon-wrapper {
+            transform: scale(1.1);
+        }
+    }
+
+    // Specific bottom accents for hover states:
+    &:hover:has(.hr-icon-wrapper) {
+        &::after {
+            background: linear-gradient(90deg, var(--hr-primary), #63b3ed);
+        }
+    }
+
+    .hr-icon-wrapper {
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+}

@@ -21,6 +21,34 @@ export function normalizeHsCode(code) {
 }
 
 /**
+ * Converts a quantity between different units (e.g. KGS and MTS).
+ */
+export function convertQuantity(qty, fromUnit, toUnit) {
+  const f = String(fromUnit || "").toLowerCase().trim().replace(/[^a-z]/g, "");
+  const t = String(toUnit || "").toLowerCase().trim().replace(/[^a-z]/g, "");
+
+  if (f === t) return qty;
+
+  // KGS -> MTS
+  if (
+    (f === "kgs" || f === "kg" || f === "kilogram" || f === "kilograms") &&
+    (t === "mts" || t === "mt" || t === "metricton" || t === "metrictons")
+  ) {
+    return qty / 1000;
+  }
+
+  // MTS -> KGS
+  if (
+    (f === "mts" || f === "mt" || f === "metricton" || f === "metrictons") &&
+    (t === "kgs" || t === "kg" || t === "kilogram" || t === "kilograms")
+  ) {
+    return qty * 1000;
+  }
+
+  return qty;
+}
+
+/**
  * Get the latest USD import rate from CurrencyRate collection.
  * Falls back to 84 (approximate INR/USD) if not found.
  */
@@ -60,10 +88,13 @@ export async function validateLicenseUtilization(descriptionDetails, currentJobI
     const licenseSr = Number(row.license_sr) || 1;
 
     // A. Authorization exists
+    const cleanedLicenseNo = String(licenseNo).replace(/^LIC\//i, "").trim();
     const auth = await AuthorizationRegistrationModel.findOne({
       $or: [
         { registration_no: licenseNo },
-        { licence_no: licenseNo }
+        { licence_no: licenseNo },
+        { job_no: licenseNo },
+        { job_no: cleanedLicenseNo }
       ]
     }).session(session);
     if (!auth) {
@@ -100,21 +131,38 @@ export async function validateLicenseUtilization(descriptionDetails, currentJobI
     //   throw new Error(`Row ${i + 1}: Selected License Item HS Code does not match Product HS Code. Please verify DGFT Authorization mapping.`);
     // }
 
+    // Resolve both aliases for authorization record
+    const searchNos = [licenseNo, cleanedLicenseNo];
+    if (auth.registration_no) searchNos.push(auth.registration_no);
+    if (auth.licence_no) searchNos.push(auth.licence_no);
+    if (auth.job_no) {
+      searchNos.push(auth.job_no);
+      searchNos.push(`LIC/${auth.job_no}`);
+      searchNos.push(`lic/${auth.job_no}`);
+    }
+    const uniqueSearchNos = [...new Set(searchNos.filter(n => n && n.trim() !== ""))];
+
     // E. Quantity available (check balance excluding this job)
     const requestedQty = parseFloat(row.quantity) || 0;
     const licensedQty = parseFloat(licenseItem.qty) || 0;
 
     const otherRecords = await LicenseUtilizationModel.find({
-      authorization_no: licenseNo,
+      authorization_no: { $in: uniqueSearchNos },
       license_sr: licenseSr,
       job_id: { $ne: currentJobId }
     }).session(session).lean();
 
-    const totalOtherQty = otherRecords.reduce((sum, r) => sum + (r.qty || 0), 0);
-    const totalUtilizedQty = totalOtherQty + requestedQty;
+    const licenseUnit = licenseItem.unit || "MTS";
+    const requestedQtyInLicUnit = convertQuantity(requestedQty, row.unit, licenseUnit);
+
+    const totalOtherQtyInLicUnit = otherRecords.reduce((sum, r) => {
+      return sum + convertQuantity(r.qty || 0, r.unit, licenseUnit);
+    }, 0);
+
+    const totalUtilizedQty = totalOtherQtyInLicUnit + requestedQtyInLicUnit;
 
     if (totalUtilizedQty > licensedQty) {
-      throw new Error(`Row ${i + 1}: Utilized quantity exceeds authorized quantity (Licensed: ${licensedQty}, Utilized: ${totalUtilizedQty}).`);
+      throw new Error(`Row ${i + 1}: Utilized quantity exceeds authorized quantity (Licensed: ${licensedQty}, Utilized: ${Math.round(totalUtilizedQty * 1000) / 1000}).`);
     }
 
     // F. Value available (check balance excluding this job)
@@ -153,7 +201,7 @@ export async function validateLicenseUtilization(descriptionDetails, currentJobI
 
     if (orConditions.length > 0) {
       const duplicate = await LicenseUtilizationModel.findOne({
-        authorization_no: licenseNo,
+        authorization_no: { $in: uniqueSearchNos },
         license_sr: licenseSr,
         job_id: { $ne: currentJobId },
         $or: orConditions
@@ -174,11 +222,14 @@ export async function recalculateLicenseUtilization(authorizationNo, session = n
   if (!authorizationNo) return;
 
   try {
+    const cleanedNo = String(authorizationNo).replace(/^LIC\//i, "").trim();
     // 1. Find the authorization document
     const authorization = await AuthorizationRegistrationModel.findOne({
       $or: [
         { registration_no: authorizationNo },
-        { licence_no: authorizationNo }
+        { licence_no: authorizationNo },
+        { job_no: authorizationNo },
+        { job_no: cleanedNo }
       ]
     }).session(session);
 
@@ -187,9 +238,19 @@ export async function recalculateLicenseUtilization(authorizationNo, session = n
       return;
     }
 
+    const searchNos = [authorizationNo, cleanedNo];
+    if (authorization.registration_no) searchNos.push(authorization.registration_no);
+    if (authorization.licence_no) searchNos.push(authorization.licence_no);
+    if (authorization.job_no) {
+      searchNos.push(authorization.job_no);
+      searchNos.push(`LIC/${authorization.job_no}`);
+      searchNos.push(`lic/${authorization.job_no}`);
+    }
+    const uniqueSearchNos = [...new Set(searchNos.filter(n => n && n.trim() !== ""))];
+
     // 2. Load all records from licenseUtilizationModel where authorization_no matches
     const records = await LicenseUtilizationModel.find({
-      authorization_no: authorizationNo
+      authorization_no: { $in: uniqueSearchNos }
     }).session(session).lean();
 
     // Group transactions by license_sr
@@ -221,7 +282,10 @@ export async function recalculateLicenseUtilization(authorizationNo, session = n
       const matchingRecords = recordsBySr[itemSrNo] || [];
 
       // Sum utilization records
-      const totalUtilizedQty = matchingRecords.reduce((sum, r) => sum + (r.qty || 0), 0);
+      const licenseUnit = item.unit || "MTS";
+      const totalUtilizedQty = matchingRecords.reduce((sum, r) => {
+        return sum + convertQuantity(r.qty || 0, r.unit, licenseUnit);
+      }, 0);
       const totalUtilizedUsd = matchingRecords.reduce((sum, r) => sum + (r.cif_usd || 0), 0);
       const totalUtilizedInr = matchingRecords.reduce((sum, r) => sum + (r.cif_inr || 0), 0);
 
@@ -335,16 +399,66 @@ export async function recalculateLicenseUtilizationForJob(jobDoc, session = null
       const amtCurrency = row.amount_currency || "USD";
       const exrate = parseFloat(row.exchange_rate_used) || parseFloat(jobDoc.exrate) || usdRate || 84;
 
-      // Calculate CIF values historically based on the job's exchange rate
+      // Calculate CIF values based on the job's exchange rate or pre-calculated taxable value
       let cifUsd = 0;
       let cifInr = 0;
+      
+      const savedTaxableValueInr = parseFloat(row.taxable_value_inr);
+      const invIdx = Number(row.sr_no_invoice) - 1;
+      const activeInvoice = (jobDoc.invoice_details || [])[invIdx] || {};
 
-      if (amtCurrency === "INR") {
+      if (!isNaN(savedTaxableValueInr) && savedTaxableValueInr > 0) {
+        // If the frontend has explicitly calculated and saved a true CIF/Taxable Value (e.g. for FOB)
+        cifInr = savedTaxableValueInr;
+        cifUsd = exrate > 0 ? savedTaxableValueInr / exrate : 0;
+      } else if (activeInvoice.toi === "FOB") {
+        // Dynamic fallback calculation for brand new FOB jobs
+        const allFobInvoices = (jobDoc.invoice_details || []).filter(inv => inv.toi === "FOB");
+        const totalFobFreight = allFobInvoices.reduce((sum, inv) => sum + (parseFloat(inv.freight) || 0), 0);
+        const totalFobValue = allFobInvoices.reduce((sum, inv) => sum + (parseFloat(inv.product_value) || 0), 0);
+        
+        const fRate = totalFobValue > 0 ? (totalFobFreight / totalFobValue) : 0;
+        const productFreight = rawAmount * fRate;
+        
+        // Find insurance rate from other_charges_details or default to 1.125
+        const iRateVal = jobDoc.other_charges_details?.insurance?.rate;
+        const iRate = (iRateVal === undefined || iRateVal === null || iRateVal === "" || isNaN(parseFloat(iRateVal))) ? 1.125 : parseFloat(iRateVal);
+        const productInsurance = rawAmount * (iRate / 100);
+        
+        const totalCifUSD = rawAmount + productFreight + productInsurance;
+        cifInr = totalCifUSD * exrate;
+        cifUsd = totalCifUSD;
+      } else if (amtCurrency === "INR") {
         cifInr = rawAmount;
         cifUsd = exrate > 0 ? rawAmount / exrate : 0;
       } else {
         cifUsd = rawAmount;
         cifInr = rawAmount * exrate;
+      }
+
+      // Convert quantity to the License Authorization item's unit if specified
+      const cleanedLicenseNo = String(licenseNo).replace(/^LIC\//i, "").trim();
+      const auth = await AuthorizationRegistrationModel.findOne({
+        $or: [
+          { registration_no: licenseNo },
+          { licence_no: licenseNo },
+          { job_no: licenseNo },
+          { job_no: cleanedLicenseNo }
+        ]
+      }).session(session).lean();
+
+      let targetUnit = row.unit || "";
+      let convertedQty = qtyVal;
+
+      if (auth) {
+        const licenseItem = (auth.import_details_array || []).find((item, index) => {
+          const itemSrNo = item.sr_no || (index + 1);
+          return itemSrNo === licenseSr;
+        });
+        if (licenseItem && licenseItem.unit) {
+          targetUnit = licenseItem.unit;
+          convertedQty = convertQuantity(qtyVal, row.unit, targetUnit);
+        }
       }
 
       await LicenseUtilizationModel.create([{
@@ -356,8 +470,8 @@ export async function recalculateLicenseUtilizationForJob(jobDoc, session = null
         be_date: jobDoc.be_date || "",
         hs_code: row.cth_no || row.hs_code || "",
         item_description: row.description || "",
-        qty: qtyVal,
-        unit: row.unit || "",
+        qty: convertedQty,
+        unit: targetUnit,
         cif_usd: Math.round(cifUsd * 100) / 100,
         cif_inr: Math.round(cifInr * 100) / 100,
         exchange_rate_used: exrate,

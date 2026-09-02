@@ -16,6 +16,7 @@ const emptyForm = () => ({
   break_time_minutes: 60, break_included_in_work_hours: false,
   full_day_hours: 8, half_day_hours: 4, minimum_hours: 3,
   late_allowed_minutes: 0, early_leave_allowed_minutes: 0,
+  detection_window_start: '', detection_window_end: '', priority: 1,
   applicability: {
     teams: { all: true, list: [] }
   }
@@ -54,9 +55,16 @@ const ShiftManagement = () => {
     },
     {
       label: 'Timings', render: (_, row) =>
-        <span style={{ fontFamily: 'monospace', background: 'var(--as-s2)', padding: '4px 9px', borderRadius: 6, fontSize: '.8rem', color: 'var(--as-t1)', fontWeight: 600 }}>
-          {row.start_time || 'N/A'}   {row.end_time || 'N/A'}
-        </span>
+        <div>
+          <span style={{ fontFamily: 'monospace', background: 'var(--as-s2)', padding: '4px 9px', borderRadius: 6, fontSize: '.8rem', color: 'var(--as-t1)', fontWeight: 600 }}>
+            {row.start_time || 'N/A'} - {row.end_time || 'N/A'}
+          </span>
+          {row.detection_window_start && row.detection_window_end && (
+            <div style={{ fontSize: '.7rem', color: 'var(--as-t3)', marginTop: '4px' }}>
+              Detect: {row.detection_window_start} - {row.detection_window_end} (Priority: {row.priority ?? 1})
+            </div>
+          )}
+        </div>
     },
     { label: 'Full Day Hrs', render: (_, row) => <span style={{ fontSize: '.8125rem', color: 'var(--as-t2)' }}>{row.full_day_hours || 8}h</span> },
     {
@@ -332,6 +340,25 @@ const ShiftManagement = () => {
                   <label className="checkbox-label" style={{ marginTop: 6, color: 'var(--as-t2)' }}>
                     <input type="checkbox" checked={formData.night_shift} onChange={e => setFormData({ ...formData, night_shift: e.target.checked })} /> Night Shift
                   </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Auto Shift Detection Settings */}
+            <div className="modern-section">
+              <h4 className="modern-section-title"><FiClock size={11} /> Auto Shift Detection Configuration (RABS Only)</h4>
+              <div className="modern-grid">
+                <div className="form-group">
+                  <label>Detection Window Start</label>
+                  <input type="time" className="form-input" value={formData.detection_window_start || ''} onChange={e => setFormData({ ...formData, detection_window_start: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Detection Window End</label>
+                  <input type="time" className="form-input" value={formData.detection_window_end || ''} onChange={e => setFormData({ ...formData, detection_window_end: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Priority (Tie-Breaker)</label>
+                  <input type="number" className="form-input" placeholder="e.g. 1 (highest)" value={formData.priority ?? 1} onChange={e => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })} />
                 </div>
               </div>
             </div>

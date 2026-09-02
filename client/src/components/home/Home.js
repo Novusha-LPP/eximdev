@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { UserContext } from "../../contexts/UserContext";
+import { YearContext } from "../../contexts/yearContext.js";
 import { Row, Col } from "react-bootstrap";
 import "../../styles/home.scss";
 import { useNavigate } from "react-router-dom";
@@ -20,6 +21,7 @@ const importPriority = [
   "Import - Operations",
   "Import - Add",
   "Import - Billing",
+  "Billing Confirmation",
   "Import Utility Tool",
   "Report",
   "Audit Trail",
@@ -138,6 +140,7 @@ const getModuleStyle = (module) => {
 
 function Home() {
   const { user } = useContext(UserContext);
+  const { selectedYearState } = useContext(YearContext);
   const [data, setData] = useState();
   const navigate = useNavigate();
 
@@ -172,8 +175,11 @@ function Home() {
     getUser();
   }, [user]);
 
-  const userModulesList = data?.modules || [];
+  let sopsGrouped = false;
+  const isRabsUser = user?.company && /RABS/i.test(user.company);
+  let userModulesList = data?.modules || [];
   let finalModulesList = [...userModulesList];
+
   if (!finalModulesList.includes("AMC Suppliers Renewal")) {
     finalModulesList.push("AMC Suppliers Renewal");
   }
@@ -183,8 +189,46 @@ function Home() {
   if (!finalModulesList.includes("Admin Equipment Checklist")) {
     finalModulesList.push("Admin Equipment Checklist");
   }
+  if (isRabsUser && !finalModulesList.includes("First Aid")) {
+    finalModulesList.push("First Aid");
+  }
 
   const categorizedModules = finalModulesList.reduce((acc, module) => {
+    // Restrict 5S Audit card to RABS Admin and HOD users only
+    if (module === "5S Audit") {
+      const isRabs = user?.company && /RABS/i.test(user.company);
+      const isAdminOrHod = user?.role === "Admin" || user?.role === "Head_of_Department" || user?.role === "HOD" || user?.isHOD;
+      if (!(isRabs && isAdminOrHod)) {
+        return acc;
+      }
+    }
+
+    // Restrict First Aid card to RABS Admin and HOD users only
+    if (module === "First Aid") {
+      const isRabs = user?.company && /RABS/i.test(user.company);
+      const isAdminOrHod = user?.role === "Admin" || user?.role === "Head_of_Department" || user?.role === "HOD" || user?.isHOD;
+      if (!(isRabs && isAdminOrHod)) {
+        return acc;
+      }
+    }
+
+    if (["RM Procurement SOP", "Tyre Procurement SOP", "Fleet Insurance SOP"].includes(module)) {
+      if (!sopsGrouped) {
+        const category = "Accounts";
+        if (!acc[category]) acc[category] = [];
+        acc[category].push("Procurement & Insurance SOPs");
+        sopsGrouped = true;
+      }
+      return acc;
+    }
+
+    if (module === "Accounts") {
+      const category = "Accounts";
+      if (!acc[category]) acc[category] = [];
+      if (!acc[category].includes("Accounts")) acc[category].push("Accounts");
+      if (!acc[category].includes("Pricing Requests")) acc[category].push("Pricing Requests");
+      return acc;
+    }
     const category = moduleCategories[module] || "Uncategorized";
     if (!acc[category]) acc[category] = [];
     acc[category].push(module);
@@ -201,6 +245,7 @@ function Home() {
 
   const [pendingDocCount, setPendingDocCount] = useState(0);
   const [openPointsCount, setOpenPointsCount] = useState(0);
+  const [billingConfirmCount, setBillingConfirmCount] = useState(0);
 
   useEffect(() => {
     async function fetchPendingCount() {
@@ -223,9 +268,29 @@ function Home() {
       }
     }
 
+    async function fetchBillingConfirmCount() {
+      if (user && (user.role === "Admin" || user.modules?.includes("Billing Confirmation"))) {
+        try {
+          const year = selectedYearState || localStorage.getItem("selectedYear") || "25-26";
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/${year}/jobs/Billing_Confirmation/all/all/all?page=1&limit=1`,
+            {
+              headers: {
+                ...(user?.username ? { "x-username": user.username } : {}),
+              },
+            }
+          );
+          setBillingConfirmCount(res.data.total || 0);
+        } catch (err) {
+          console.error("Error fetching billing confirmation count:", err);
+        }
+      }
+    }
+
     fetchPendingCount();
     fetchPointsCount();
-  }, []);
+    fetchBillingConfirmCount();
+  }, [selectedYearState, user]);
 
   const [searchQueryId, setSearchQueryId] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
@@ -616,67 +681,89 @@ function Home() {
                 {(category === "DSR Module"
                   ? sortImports(categorizedModules[category])
                   : categorizedModules[category].sort()
-                                ).map((module, id) => {
-                  const mStyle = getModuleStyle(module);
-                  return (
-                    <Col xs={12} md={4} lg={2} key={id} className="module-col">
-                      <div
-                        className="module-col-inner"
-                        onClick={() => navigateToModule(module, navigate)}
-                      >
-                        <p>{module}</p>
-                        {module === "Document Collection" && pendingDocCount > 0 && (
-                          <span
-                            style={{
-                              position: "absolute",
-                              top: "-6px",
-                              right: "-6px",
-                              backgroundColor: "#ef4444",
-                              color: "white",
-                              borderRadius: "50%",
-                              width: "22px",
-                              height: "22px",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: "11px",
-                              fontWeight: "bold",
-                              border: "2px solid white",
-                              boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                              zIndex: 10,
-                            }}
-                          >
-                            {pendingDocCount}
-                          </span>
-                        )}
-                        {module === "Open Points" && openPointsCount > 0 && (
-                          <span
-                            style={{
-                              position: "absolute",
-                              top: "-6px",
-                              right: "-6px",
-                              backgroundColor: "#ef4444",
-                              color: "white",
-                              borderRadius: "50%",
-                              width: "22px",
-                              height: "22px",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: "11px",
-                              fontWeight: "bold",
-                              border: "2px solid white",
-                              boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                              zIndex: 10,
-                            }}
-                          >
-                            {openPointsCount}
-                          </span>
-                        )}
-                      </div>
-                    </Col>
-                  );
-                })}
+                ).map((module, id) => (
+                  <Col xs={12} md={4} lg={2} key={id} className="module-col">
+                    <div
+                      className="module-col-inner"
+                      style={{ position: "relative" }}
+                      onClick={() => navigateToModule(module, navigate)}
+                    >
+                      <p>{module}</p>
+                      {module === "Document Collection" && pendingDocCount > 0 && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "-10px",
+                            right: "-10px",
+                            backgroundColor: "#ef4444",
+                            color: "white",
+                            borderRadius: "50%",
+                            width: "22px",
+                            height: "22px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                            border: "2px solid white",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                            zIndex: 10,
+                          }}
+                        >
+                          {pendingDocCount}
+                        </span>
+                      )}
+                      {module === "Open Points" && openPointsCount > 0 && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "-10px",
+                            right: "-10px",
+                            backgroundColor: "#ef4444",
+                            color: "white",
+                            borderRadius: "50%",
+                            width: "22px",
+                            height: "22px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                            border: "2px solid white",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                            zIndex: 10,
+                          }}
+                        >
+                          {openPointsCount}
+                        </span>
+                      )}
+                      {module === "Billing Confirmation" && billingConfirmCount > 0 && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "-10px",
+                            right: "-10px",
+                            backgroundColor: "#ef4444",
+                            color: "white",
+                            borderRadius: "50%",
+                            width: "22px",
+                            height: "22px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                            border: "2px solid white",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                            zIndex: 10,
+                          }}
+                        >
+                          {billingConfirmCount}
+                        </span>
+                      )}
+                    </div>
+                  </Col>
+                ))}
               </Row>
             </div>
           ))}

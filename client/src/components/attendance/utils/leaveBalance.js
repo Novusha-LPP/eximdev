@@ -29,10 +29,9 @@ export const normalizeLeaveBalanceRows = (rows = []) => {
     const policyName = getPolicyName(row);
     const openingBalance = toNumber(row.opening_balance);
     const used = toNumber(row.used ?? row.consumed);
-    const computedPending = Math.max(0, openingBalance - used);
-    const pending = leaveType === 'lwp' ? 0 : computedPending;
-    const closingBalance = leaveType === 'lwp' ? 0 : pending;
-    const available = leaveType === 'lwp' ? 0 : pending;
+    const pending = leaveType === 'lwp' ? 0 : toNumber(row.pending ?? row.pending_approval);
+    const available = leaveType === 'lwp' ? 0 : toNumber(row.available ?? row.balance ?? row.closing_balance ?? Math.max(0, openingBalance - used - pending));
+    const closingBalance = available;
 
     const key = getBalanceKey(row, leaveType);
     if (seen.has(key)) continue;

@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/node";
 import logger from "./logger.js";
 import dotenv from "dotenv";
+import moment from "moment-timezone";
 
 
 dotenv.config();
@@ -85,6 +86,9 @@ import reminderRoutes, {
 } from "./routes/accounts/remiderRoutes.js";
 import accountLedger from "./routes/accounts/Ledger/accountLedger.mjs";
 import getBillCover from "./routes/accounts/getBillCover.mjs";
+import rmProcurementSopRoutes from "./routes/accounts/rmProcurementSop.mjs";
+import tyreProcurementSopRoutes from "./routes/accounts/tyreProcurementSop.mjs";
+import fleetInsuranceSopRoutes from "./routes/accounts/fleetInsuranceSop.mjs";
 
 // Documentation
 import updateDocumentationJob from "./routes/documentation/updateDocumentationJob.mjs";
@@ -130,6 +134,7 @@ import getNfimsSimsJobs from "./routes/e-sanchit/getNfimsSimsJobs.mjs";
 
 // import - billing
 import getImportBilling from "./routes/import-billing/getImportBilling.js";
+import virtualBalanceRoutes from "./routes/import-billing/virtualBalanceRoutes.mjs";
 
 // Home
 import assignModules from "./routes/home/assignModules.mjs";
@@ -186,6 +191,8 @@ import viewDSR from "./routes/import-dsr/viewDSR.mjs";
 import containerTrack from "./routes/import-dsr/containerTrack.mjs";
 import checkDuplicateJob from "./routes/import-dsr/checkDuplicateJob.mjs";
 import getNextJobNumber from "./routes/import-dsr/getNextJobNumber.mjs";
+import importDSRAnalytics from "./routes/import-dsr/importDSRAnalytics.mjs";
+import boeOcr from "./routes/import-dsr/boeOcr.mjs";
 // import ImportCreateJob from "./routes/import-dsr/ImportCreateJob.mjs";
 
 // Import Operations
@@ -218,6 +225,7 @@ import updateSubmissionJob from "./routes/submission/updateSubmissionJob.mjs";
 import getPenaltyReport from "./routes/report/getPenaltyReport.mjs";
 import getBillingPendingReport from "./routes/report/getBillingPendingReport.mjs";
 import getBillingChargesReport from "./routes/report/getBillingChargesReport.mjs";
+import getBillingTATReport from "./routes/report/getBillingTATReport.mjs";
 
 // Audit Trail
 import auditTrail from "./routes/audit/auditTrail.mjs";
@@ -241,17 +249,22 @@ import cron from "node-cron";
 import { scrapeAndSaveCurrencyRates } from "./services/currencyRateScraper.js";
 import ActiveSession from "./model/attendance/ActiveSession.js";
 import AttendanceRecord from "./model/attendance/AttendanceRecord.js";
+import Opportunity from "./model/crm/Opportunity.mjs";
 
 import currencyRateRoutes from "./routes/currencyRate.js";
 
 // Open Points Module
 import openPointsRoutes from "./routes/open-points/openPointsRoutes.mjs";
+import teamKarmaLeaderboard from "./routes/open-points/teamKarmaLeaderboard.mjs";
 
 import analyticsRoutes from "./routes/analytics/analyticsRoutes.mjs";
 import uploadFileRoutes from "./routes/upload/uploadFile.mjs";
 
 // Project Nucleus
 import nucleusReports from "./routes/project-nucleus/nucleusReports.mjs";
+import invoicingNucleusRoutes from "./routes/project-nucleus/invoicingNucleusRoutes.mjs";
+import { seedDefaultInvoicingData, initInvoicingCronScheduler } from "./services/invoicing/invoicingSyncService.mjs";
+import clientQueryRoutes from "./routes/clientQueryRoutes.mjs";
 
 // KPI Module
 import kpiRoutes from "./routes/kpi/kpiRoutes.mjs";
@@ -287,6 +300,11 @@ import contractRoutes from "./routes/it-helpdesk/contractRoutes.mjs";
 import licenseRoutes from "./routes/it-helpdesk/licenseRoutes.mjs";
 import inventoryRoutes from "./routes/it-helpdesk/inventoryRoutes.mjs";
 
+import employeeKPIRoutes from "./routes/hr/employeeKPIRoutes.mjs";
+import profileCompletionRoutes from "./routes/hr/profileCompletionRoutes.mjs";
+import pfEsicRoutes from "./routes/hr/pfEsicRoutes.mjs";
+import audit5sRoutes from "./routes/audit5s/audit5sRoutes.mjs";
+
 const MISSED_PUNCH_LIMIT_HOURS = 12;
 
 const autoMarkStaleMissedPunchSessions = async () => {
@@ -319,7 +337,7 @@ const autoMarkStaleMissedPunchSessions = async () => {
 
     if (!updated) continue;
 
-    const sessionDateKey = new Date(session.session_date).toISOString().slice(0, 10);
+    const sessionDateKey = moment(session.session_date).tz("Asia/Kolkata").format("YYYY-MM-DD");
     const attendanceDate = new Date(`${sessionDateKey}T00:00:00.000Z`);
 
     await AttendanceRecord.findOneAndUpdate(
@@ -366,6 +384,7 @@ import shippingLineRoutes from "./routes/master-directory/shippingLineRoutes.mjs
 import supplierRoutes from "./routes/master-directory/supplierRoutes.mjs";
 import currencyRoutes from "./routes/master-directory/currencyRoutes.mjs";
 import portRoutes from "./routes/master-directory/portRoutes.mjs";
+import indianPortRoutes from "./routes/master-directory/indianPortRoutes.mjs";
 import customHouseRoutes from "./routes/master-directory/customHouseRoutes.mjs";
 import cfsRoutes from "./routes/master-directory/cfsRoutes.mjs";
 import transporterRoutes from "./routes/master-directory/transporterRoutes.mjs";
@@ -380,6 +399,8 @@ import attendanceRoutes from "./routes/attendance/attendanceRoutes.mjs";
 import leaveRoutes from "./routes/attendance/leaveRoutes.mjs";
 import hodAttendanceRoutes from "./routes/attendance/hodRoutes.mjs";
 import masterAttendanceRoutes from "./routes/attendance/masterRoutes.mjs";
+import payrollRoutes from "./routes/attendance/payrollRoutes.mjs";
+import firstAidRoutes from "./routes/attendance/firstAidRoutes.mjs";
 // scmCube API
 import scmCubeRoutes from "./routes/scmCubeRoutes.mjs";
 import uploadToImexcube from "./routes/scmCube/uploadToImexcube.mjs";
@@ -435,34 +456,41 @@ app.use((req, res, next) => {
 });
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (mobile apps, curl, etc.)
-      if (!origin) return callback(null, true);
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, server-to-server, etc.)
+      if (!origin || origin === "null") return callback(null, true);
 
-      const allowedStaticOrigins = [
+      const allowedOrigins = [
         "null",
         "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:9007",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
         "http://0.0.0.0:3000",
         "http://0.0.0.0:3001",
         "http://0.0.0.0:9007",
         "http://192.168.1.105:3000",
         "http://192.168.1.105:3001",
         "http://192.168.1.103:3000",
+        "http://192.168.2.36:3002",
+        "http://192.168.2.95:3000",
         "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
         "https://import.alvision.in",
         "https://test-frontend.alvision.in",
-        "http://192.168.2.95:3000",
-        "http://0.0.0.0:3000",
+        "http://localhost:5173",
+        "https://export.alvision.in"
       ];
 
-      // Allow any local network IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x) on any port
-      const localNetworkPattern = /^http:\/\/(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/;
+      const localNetworkPattern = /^http:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/;
 
-      if (allowedStaticOrigins.includes(origin) || localNetworkPattern.test(origin)) {
+      if (allowedOrigins.includes(origin) || localNetworkPattern.test(origin)) {
         return callback(null, true);
       }
 
-      callback(null, true); // Allow all origins for now (AMC public form needs it)
+      callback(null, true);
     },
     credentials: true,
     // Allow custom headers for audit trail
@@ -536,6 +564,9 @@ app.use("/api", Accounts);
 app.use("/api", reminderRoutes);
 app.use("/api", accountLedger);
 app.use("/api", getBillCover);
+app.use("/api", rmProcurementSopRoutes);
+app.use("/api", tyreProcurementSopRoutes);
+app.use("/api", fleetInsuranceSopRoutes);
 app.use("/api/billing", invoiceGenerator);
 
 // Documentation
@@ -633,6 +664,8 @@ app.use(viewDSR);
 app.use(containerTrack);
 app.use(checkDuplicateJob);
 app.use("/api", getNextJobNumber);
+app.use(importDSRAnalytics);
+app.use(boeOcr);
 // app.use(ImportCreateJob);
 
 // Import Operations
@@ -643,6 +676,7 @@ app.use(getOperationPlanningList);
 
 // import billing
 app.use(getImportBilling);
+app.use(virtualBalanceRoutes);
 
 // import cth search
 app.use(getCthSearch);
@@ -672,6 +706,7 @@ app.use(getSubmissionJobs);
 app.use(getPenaltyReport);
 app.use(getBillingPendingReport);
 app.use(getBillingChargesReport);
+app.use(getBillingTATReport);
 app.use(monthlyContainersRouter);
 app.use(monthlyClearanceRouter);
 
@@ -695,12 +730,14 @@ app.use(analyticsRoutes);
 
 // Open Points
 app.use(openPointsRoutes);
+app.use("/api/open-points", teamKarmaLeaderboard);
 
 // Upload
 app.use(uploadFileRoutes);
 
 // Project Nucleus
 app.use("/api/project-nucleus", nucleusReports);
+app.use("/api/project-nucleus/invoicing", invoicingNucleusRoutes);
 
 // KPI Module
 app.use(kpiRoutes);
@@ -719,6 +756,7 @@ app.use("/api/admin/job-migration", jobMigrationRouter);
 app.use("/api/admin/email", emailRoutes);
 
 app.use(userAssetsRoutes);
+<<<<<<< HEAD
 app.use(userAssetEquipmentRoutes);
 
 // Scorecard Module
@@ -738,6 +776,11 @@ app.use("/api/it-helpdesk/licenses", licenseRoutes);
 app.use("/api/it-helpdesk/inventory", inventoryRoutes);
 app.use("/api/it-helpdesk/users", userRoutes);
 
+app.use(employeeKPIRoutes);
+app.use(profileCompletionRoutes);
+app.use(pfEsicRoutes);
+app.use("/api/audit5s", audit5sRoutes);
+
 // Document Collection Module
 app.use(documentCollectionRoutes);
 
@@ -750,6 +793,7 @@ app.use("/api", shippingLineRoutes);
 app.use("/api", supplierRoutes);
 app.use("/api", currencyRoutes);
 app.use("/api", portRoutes);
+app.use("/api", indianPortRoutes);
 app.use("/api", customHouseRoutes);
 app.use("/api", cfsRoutes);
 app.use("/api", transporterRoutes);
@@ -766,6 +810,8 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/leave', leaveRoutes);
 app.use('/api/hod-attendance', hodAttendanceRoutes);
 app.use('/api/master', masterAttendanceRoutes);
+app.use('/api/payroll', payrollRoutes);
+app.use('/api/first-aid', firstAidRoutes);
 app.use('/uploads/leaves', express.static(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'leaves')
 ));
@@ -773,6 +819,9 @@ app.use('/uploads/it-helpdesk', express.static(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'it-helpdesk')
 ));
 // ─────────────────────────────────────────────────────────────────────────────
+// Client Queries API
+app.use("/api/client-queries", clientQueryRoutes);
+
 // scmCube API
 app.use(scmCubeRoutes);
 app.use(uploadToImexcube);
@@ -851,7 +900,7 @@ if (!disableCluster && cluster.isPrimary) {
 
   // Connect to DB and Start Server (Skipped in Test Mode)
   if (process.env.NODE_ENV !== 'test') {
-    console.log(MONGODB_URI);
+    console.log(`🔌 [eximdev] Connecting to MongoDB URI (env: ${process.env.NODE_ENV || 'development'}):`, MONGODB_URI);
     mongoose
       .connect(MONGODB_URI, {
         appName: "exim", // Identifies this app in Atlas logs
@@ -902,8 +951,46 @@ if (!disableCluster && cluster.isPrimary) {
             }
           );
 
+          // CRM Pipeline Monthly Carry Forward Cron
+          cron.schedule(
+            "1 0 0 1 * *",
+            async () => {
+              console.log("🕐 Running scheduled Monthly CRM Carry-Forward job...");
+              try {
+                const lastMonthDate = new Date();
+                lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+                const lastMonthStr = lastMonthDate.toISOString().substring(0, 7);
+                const thisMonthStr = new Date().toISOString().substring(0, 7);
+
+                const result = await Opportunity.updateMany(
+                  {
+                    stage: { $nin: ['won', 'lost'] },
+                    period: lastMonthStr
+                  },
+                  {
+                    $set: {
+                      period: thisMonthStr,
+                      carry_forward: true,
+                      origin_month: lastMonthStr
+                    }
+                  }
+                );
+                console.log(`✅ CRM Month Carry-forward completed. Updated ${result.modifiedCount} deals from ${lastMonthStr} to ${thisMonthStr}.`);
+              } catch (err) {
+                console.error("❌ CRM Month Carry-forward failed:", err);
+              }
+            },
+            {
+              timezone: "Asia/Kolkata",
+            }
+          );
+
           // Initialize reminder system cron
           initReminderSystem();
+
+          // Initialize Invoicing Module seed and auto-retrieve scheduler
+          seedDefaultInvoicingData();
+          initInvoicingCronScheduler();
         }
 
         // Initialize WebSocket logic
@@ -969,4 +1056,6 @@ if (!disableCluster && cluster.isPrimary) {
 }
 
 export default app;
+// Trivial change to force nodemon reload of environment variables
+
 

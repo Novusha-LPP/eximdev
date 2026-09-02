@@ -27,7 +27,7 @@ function LoginPage() {
               Version: {process.env.REACT_APP_VERSION}
             </p>
             <img
-              src={require("../assets/images/alluvium-logo.webp")}
+              src={require("../assets/images/logo.png")}
               width={80}
               alt=""
             />
@@ -41,7 +41,7 @@ function LoginPage() {
                 <span>AlVision &nbsp;</span>
               </a>
             </p>
-           
+
           </div>
         </Col>
       </Row>

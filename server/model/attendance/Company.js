@@ -32,6 +32,9 @@ const companySchema = new mongoose.Schema({
   currency: { type: String, default: 'INR' },
   financial_year_start: { type: Date },
   shift_policy: { type: String, enum: ['fixed', 'rotational', 'flexible'], default: 'fixed' },
+  shift_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift' },
+  weekoff_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'WeekOffPolicy' },
+  holiday_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'HolidayPolicy' },
   branch_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Branch' }],
 
   // === STATUS & SUBSCRIPTION ===
@@ -85,7 +88,8 @@ const companySchema = new mongoose.Schema({
     lates_per_deduction: { type: Number, default: 3 },
     half_day_threshold_hours: { type: Number, default: 4 },
     full_day_threshold_hours: { type: Number, default: 8 },
-    min_hours_for_presence: { type: Number, default: 1 }
+    min_hours_for_presence: { type: Number, default: 1 },
+    auto_shift_detection_enabled: { type: Boolean, default: false }
   },
 
   // === LEAVE CONFIGURATION ===
@@ -118,6 +122,9 @@ const companySchema = new mongoose.Schema({
     monthly_report_enabled: { type: Boolean, default: false }
   },
 
+  policy_handbook_url: { type: String, default: null },
+  policy_handbook_name: { type: String, default: null },
+
   // === AUDIT FIELDS ===
   created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   updated_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
@@ -125,7 +132,7 @@ const companySchema = new mongoose.Schema({
 }, { timestamps: true }); // Automatically adds created_at and updated_at
 
 // Pre-save hook to auto-populate company_name_lower
-companySchema.pre('save', function(next) {
+companySchema.pre('save', function (next) {
   if (this.company_name) {
     this.company_name_lower = this.company_name.toLowerCase();
   }

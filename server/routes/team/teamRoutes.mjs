@@ -10,14 +10,40 @@ const router = express.Router();
 router.get("/api/teams/hod/:hodUsername", authMiddleware, async (req, res) => {
     try {
         const { hodUsername } = req.params;
-        const query = { hodUsername, isActive: { $ne: false } };
+        const userObj = await UserModel.findOne({ username: hodUsername });
+
+        const isHodRole = (r) => {
+            const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+            return normalized === 'hod' || normalized === 'headofdepartment';
+        };
+
+        let query = { isActive: { $ne: false } };
+        if (userObj && isHodRole(userObj.role)) {
+            query.$or = [
+                { hodUsername: hodUsername },
+                { "members.username": hodUsername }
+            ];
+        } else {
+            query.hodUsername = hodUsername;
+        }
 
         // If user is Admin, they must be in allowedAdmins (unless they are the HOD themselves, let's allow that)
         if (req.user.role === 'Admin') {
-            query.$or = [
+            const adminOr = [
                 { allowedAdmins: req.user.username },
                 { hodUsername: req.user.username }
             ];
+            if (query.$or) {
+                query = {
+                    $and: [
+                        { isActive: { $ne: false } },
+                        { $or: query.$or },
+                        { $or: adminOr }
+                    ]
+                };
+            } else {
+                query.$or = adminOr;
+            }
         }
 
         const teams = await TeamModel.find(query)
@@ -69,7 +95,8 @@ router.get("/api/teams/all", authMiddleware, async (req, res) => {
         // Admins should see all teams used on the /assign page.
         // Non-admins will continue to see only teams where they are HOD or listed in allowedAdmins.
         let teamsQuery;
-        if (req.user && req.user.role === 'Admin') {
+        const role = String(req.user?.role || '').trim().toUpperCase();
+        if (req.user && (role === 'ADMIN' || req.user.username === 'chirag_shah')) {
             teamsQuery = { isActive: { $ne: false } };
         } else {
             teamsQuery = {
@@ -116,7 +143,7 @@ router.get("/api/teams/all", authMiddleware, async (req, res) => {
         teamsLean.forEach(t => t.members.forEach(m => allMemberUsernames.add(m.username)));
 
         const members = await UserModel.find({ username: { $in: [...allMemberUsernames] } })
-            .select('username first_name last_name department employee_photo role employee_code mobile branch_id designation company isActive current_status')
+            .select('username first_name last_name department employee_photo role employee_code mobile branch_id designation company isActive current_status isAttendanceAllowedAdmin is_operator category')
             .populate('branch_id', 'branch_name branch_code')
             .lean();
 
@@ -238,8 +265,14 @@ router.put("/api/teams/:teamId", authMiddleware, auditMiddleware("Team"), async 
             return res.status(404).json({ success: false, message: "Team not found" });
         }
 
+        const isHodRole = (r) => {
+            const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+            return normalized === 'hod' || normalized === 'headofdepartment';
+        };
+        const isHodMember = isHodRole(req.user.role) && team.members.some(m => m.username === req.user.username);
+
         // Access control: non-admins must be listed in allowedAdmins or be the HOD
-        if (req.user.role !== 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username) {
+        if (req.user.role !== 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username && !isHodMember) {
             return res.status(403).json({ success: false, message: "You do not have permission to modify this team" });
         }
 
@@ -290,8 +323,14 @@ router.delete("/api/teams/:teamId", authMiddleware, auditMiddleware("Team"), asy
             return res.status(404).json({ success: false, message: "Team not found" });
         }
 
+        const isHodRole = (r) => {
+            const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+            return normalized === 'hod' || normalized === 'headofdepartment';
+        };
+        const isHodMember = isHodRole(req.user.role) && team.members.some(m => m.username === req.user.username);
+
         // Access control: non-admins must be listed in allowedAdmins or be the HOD
-        if (req.user.role !== 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username) {
+        if (req.user.role !== 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username && !isHodMember) {
             return res.status(403).json({ success: false, message: "You do not have permission to delete this team" });
         }
 
@@ -319,8 +358,14 @@ router.post("/api/teams/:teamId/members", authMiddleware, auditMiddleware("Team"
             return res.status(404).json({ success: false, message: "Team not found" });
         }
 
+        const isHodRole = (r) => {
+            const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+            return normalized === 'hod' || normalized === 'headofdepartment';
+        };
+        const isHodMember = isHodRole(req.user.role) && team.members.some(m => m.username === req.user.username);
+
         // Access control: non-admins must be listed in allowedAdmins or be the HOD
-        if (req.user.role !== 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username) {
+        if (req.user.role !== 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username && !isHodMember) {
             return res.status(403).json({ success: false, message: "You do not have permission to add members to this team" });
         }
 
@@ -377,8 +422,14 @@ router.delete("/api/teams/:teamId/members/:username", authMiddleware, auditMiddl
             return res.status(404).json({ success: false, message: "Team not found" });
         }
 
+        const isHodRole = (r) => {
+            const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+            return normalized === 'hod' || normalized === 'headofdepartment';
+        };
+        const isHodMember = isHodRole(req.user.role) && team.members.some(m => m.username === req.user.username);
+
         // Access control: non-admins must be listed in allowedAdmins or be the HOD
-        if (req.user.role !== 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username) {
+        if (req.user.role !== 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username && !isHodMember) {
             return res.status(403).json({ success: false, message: "You do not have permission to remove members from this team" });
         }
 
@@ -401,14 +452,40 @@ router.delete("/api/teams/:teamId/members/:username", authMiddleware, auditMiddl
 router.get("/api/teams/hod/:hodUsername/members", authMiddleware, async (req, res) => {
     try {
         const { hodUsername } = req.params;
-        const query = { hodUsername, isActive: { $ne: false } };
+        const userObj = await UserModel.findOne({ username: hodUsername });
+
+        const isHodRole = (r) => {
+            const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+            return normalized === 'hod' || normalized === 'headofdepartment';
+        };
+
+        let query = { isActive: { $ne: false } };
+        if (userObj && isHodRole(userObj.role)) {
+            query.$or = [
+                { hodUsername: hodUsername },
+                { "members.username": hodUsername }
+            ];
+        } else {
+            query.hodUsername = hodUsername;
+        }
 
         // If user is Admin, they must be in allowedAdmins (or be the HOD)
         if (req.user.role === 'Admin') {
-            query.$or = [
+            const adminOr = [
                 { allowedAdmins: req.user.username },
                 { hodUsername: req.user.username }
             ];
+            if (query.$or) {
+                query = {
+                    $and: [
+                        { isActive: { $ne: false } },
+                        { $or: query.$or },
+                        { $or: adminOr }
+                    ]
+                };
+            } else {
+                query.$or = adminOr;
+            }
         }
 
         const teams = await TeamModel.find(query);
@@ -424,7 +501,7 @@ router.get("/api/teams/hod/:hodUsername/members", authMiddleware, async (req, re
         // Fetch full user details for these members
         const members = await UserModel.find({ username: { $in: Array.from(memberUsernames) } })
             .select(
-                "username role _id first_name last_name isActive deactivatedAt modules employee_photo assigned_importer_name department employee_code mobile branch_id designation company current_status"
+                "username role _id first_name last_name isActive deactivatedAt modules employee_photo assigned_importer_name department employee_code mobile branch_id designation company current_status isAttendanceAllowedAdmin is_operator category"
             )
             .populate("branch_id", "branch_name branch_code");
 
@@ -439,14 +516,40 @@ router.get("/api/teams/hod/:hodUsername/members", authMiddleware, async (req, re
 router.get("/api/teams/hod/:hodUsername/available-users", authMiddleware, async (req, res) => {
     try {
         const { hodUsername } = req.params;
-        const query = { hodUsername, isActive: { $ne: false } };
+        const userObj = await UserModel.findOne({ username: hodUsername });
+
+        const isHodRole = (r) => {
+            const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+            return normalized === 'hod' || normalized === 'headofdepartment';
+        };
+
+        let query = { isActive: { $ne: false } };
+        if (userObj && isHodRole(userObj.role)) {
+            query.$or = [
+                { hodUsername: hodUsername },
+                { "members.username": hodUsername }
+            ];
+        } else {
+            query.hodUsername = hodUsername;
+        }
 
         // If user is Admin, they must be in allowedAdmins (or be the HOD)
         if (req.user.role === 'Admin') {
-            query.$or = [
+            const adminOr = [
                 { allowedAdmins: req.user.username },
                 { hodUsername: req.user.username }
             ];
+            if (query.$or) {
+                query = {
+                    $and: [
+                        { isActive: { $ne: false } },
+                        { $or: query.$or },
+                        { $or: adminOr }
+                    ]
+                };
+            } else {
+                query.$or = adminOr;
+            }
         }
 
         const teams = await TeamModel.find(query);

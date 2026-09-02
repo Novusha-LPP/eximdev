@@ -1,0 +1,20 @@
+export const CONTAINER_TYPE_OPTIONS = [
+  "20 Standard Dry",
+  "20 Flat Rack",
+  "20 Collapsible Flat Rack",
+  "20 Reefer",
+  "20 Tank",
+  "20 Open Top",
+  "20 Hard Top",
+  "20 Platform",
+  "40 Standard Dry",
+  "40 Flat Rack",
+  "40 Collapsible Flat Rack",
+  "40 Reefer",
+  "40 Tank",
+  "40 Open Top",
+  "40 Hard Top",
+  "40 High Cube",
+  "40 Reefer High Cube",
+  "40 Platform"
+];

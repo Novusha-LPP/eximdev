@@ -133,23 +133,26 @@
 /* Company Card */
 .cm-card {
     background: white;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.025);
     overflow: hidden;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cm-card:hover {
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.05);
-    border-color: #d1d5db;
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border-color: #bfdbfe;
 }
 
 .cm-card-header {
     padding: 20px;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid #f1f5f9;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
 }
 
 .cm-card-title h3 {
@@ -981,6 +984,440 @@
 .cm-empty-state h3 { margin: 0; color: #0f172a; font-size: 1rem; }
 .cm-empty-state p { margin: 6px 0 0; color: #64748b; font-size: 0.875rem; }
 
+/* Policies layout inside Company Card */
+.cm-card-policies {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 0;
+    margin-bottom: 14px;
+    border-top: 1px solid #f1f5f9;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.cm-card-policy-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cm-policy-icon {
+    font-size: 1.15rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: #f8fafc;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
+
+.cm-policy-detail {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+
+.cm-policy-label {
+    font-size: 0.72rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.cm-policy-val {
+    font-size: 0.82rem;
+    color: #1e293b;
+    font-weight: 600;
+}
+
+/* Propagation section in Modal */
+.cm-propagate-section {
+    margin-top: 20px;
+    background: linear-gradient(135deg, #fef3c7, #fffbeb);
+    border: 1px solid #fde68a;
+    border-radius: 10px;
+    padding: 12px 16px;
+    border-left: 4px solid #d97706;
+}
+
+.cm-checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.cm-checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-top: 3px;
+    accent-color: #d97706;
+}
+
+.cm-checkbox-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.cm-checkbox-text strong {
+    font-size: 0.875rem;
+    color: #92400e;
+    font-weight: 700;
+}
+
+.cm-checkbox-text p {
+    margin: 4px 0 0;
+    font-size: 0.78rem;
+    color: #b45309;
+    line-height: 1.3;
+}
+
+/* View Toggle */
+.cm-view-toggle {
+    display: flex;
+    gap: 4px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 3px;
+    background: #f8fafc;
+    margin-left: auto;
+}
+
+.cm-view-btn {
+    border: none;
+    background: transparent;
+    padding: 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.cm-view-btn.active {
+    background: white;
+    color: #2563eb;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Overview cards details */
+.cm-overview-card {
+    position: relative;
+    padding-left: 76px !important;
+    min-height: 88px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.cm-overview-card-icon {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Colors for card icons */
+.cm-overview-row .cm-overview-card:nth-child(1) .cm-overview-card-icon {
+    background: #eff6ff;
+    color: #2563eb;
+}
+.cm-overview-row .cm-overview-card:nth-child(2) .cm-overview-card-icon {
+    background: #f0fdf4;
+    color: #16a34a;
+}
+.cm-overview-row .cm-overview-card:nth-child(3) .cm-overview-card-icon {
+    background: #faf5ff;
+    color: #7c3aed;
+}
+
+.cm-overview-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: #64748b;
+    margin-top: 4px;
+    font-weight: 500;
+}
+
+.cm-sub-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+    display: inline-block;
+}
+
+/* Table Container & Table */
+.cm-table-container {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow-x: auto;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.cm-org-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    color: #334155;
+    text-align: left;
+    min-width: 800px;
+}
+
+.cm-org-table th {
+    background: #f8fafc;
+    padding: 14px 20px;
+    font-weight: 600;
+    color: #475569;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.cm-org-table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.cm-org-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.cm-org-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+/* Organization Cell info */
+.cm-org-info {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.cm-org-icon-container {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: #f1f5f9;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.cm-org-table tbody tr:nth-child(5n+1) .cm-org-icon-container { background: #eff6ff; color: #2563eb; }
+.cm-org-table tbody tr:nth-child(5n+2) .cm-org-icon-container { background: #f0fdf4; color: #16a34a; }
+.cm-org-table tbody tr:nth-child(5n+3) .cm-org-icon-container { background: #faf5ff; color: #7c3aed; }
+.cm-org-table tbody tr:nth-child(5n+4) .cm-org-icon-container { background: #fff5f5; color: #ef4444; }
+.cm-org-table tbody tr:nth-child(5n+5) .cm-org-icon-container { background: #fffbeb; color: #d97706; }
+
+.cm-org-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cm-org-name {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 0.9rem;
+}
+
+.cm-org-code {
+    font-size: 0.72rem;
+    color: #64748b;
+    font-weight: 600;
+    background: #f1f5f9;
+    padding: 1px 6px;
+    border-radius: 4px;
+    width: fit-content;
+}
+
+/* Shift Mode Tag */
+.cm-shift-mode-tag {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.cm-shift-mode-tag.fixed {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.cm-shift-mode-tag.flexible {
+    background: #faf5ff;
+    color: #7c3aed;
+}
+
+.cm-shift-mode-tag.rotational {
+    background: #fff7ed;
+    color: #ea580c;
+}
+
+/* Branches Count */
+.cm-branch-count {
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 0.95rem;
+}
+
+/* Total Users Cell */
+.cm-total-users {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: #475569;
+}
+
+/* Status Tag */
+.cm-status-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.cm-status-tag.active {
+    background: #f0fdf4;
+    color: #16a34a;
+}
+
+.cm-status-tag.inactive, .cm-status-tag.suspended {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+/* Action buttons */
+.cm-action-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.cm-btn-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.cm-btn-circle:hover {
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: #cbd5e1;
+}
+
+.cm-btn-circle.delete:hover {
+    background: #fee2e2;
+    color: #dc2626;
+    border-color: #fca5a5;
+}
+
+/* Pagination container */
+.cm-pagination-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 24px;
+    padding: 0 4px;
+}
+
+.cm-pagination-info {
+    font-size: 0.82rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.cm-pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cm-page-btn {
+    border: 1px solid #cbd5e1;
+    background: white;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #334155;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 30px;
+}
+
+.cm-page-btn:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #94a3b8;
+}
+
+.cm-page-btn.active {
+    background: #2563eb;
+    color: white;
+    border-color: #2563eb;
+    box-shadow: 0 1px 3px rgba(37,99,235,0.2);
+}
+
+.cm-page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.cm-page-size-select {
+    padding: 5px 24px 5px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #334155;
+    outline: none;
+    background: white;
+    cursor: pointer;
+    height: 30px;
+}
+
 /* ─── Responsive ─────────────────────────────────────────── */
 
 @media (max-width: 900px) {
@@ -988,8 +1425,10 @@
     .cm-overview-row { flex-direction: column; }
     .cm-toolbar { flex-direction: column; align-items: stretch; }
     .cm-filter-select { width: 100%; }
+    .cm-view-toggle { margin-left: 0; justify-content: center; }
     .cm-grid { grid-template-columns: 1fr; }
     .cm-modal-grid { grid-template-columns: 1fr; gap: 0; }
     .cm-loc-tbl { font-size: 0.75rem; }
     .cm-lth-dir { width: 18%; }
+    .cm-pagination-row { flex-direction: column; gap: 12px; align-items: center; text-align: center; }
 }

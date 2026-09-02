@@ -35,7 +35,20 @@ export class WorkHoursCalculator {
     }
 
     // Filter only IN/OUT punches (ignore BREAK_START/BREAK_END for now)
-    const inOutPunches = punches.filter(p => ['IN', 'OUT'].includes(p.punch_type));
+    const rawInOutPunches = punches.filter(p => ['IN', 'OUT'].includes(p.punch_type));
+
+    // Deduplicate consecutive punches of the same type (keep first IN, keep first OUT)
+    const inOutPunches = [];
+    for (const p of rawInOutPunches) {
+      if (inOutPunches.length === 0) {
+        inOutPunches.push(p);
+      } else {
+        const lastPunch = inOutPunches[inOutPunches.length - 1];
+        if (lastPunch.punch_type !== p.punch_type) {
+          inOutPunches.push(p);
+        }
+      }
+    }
 
     // Group into sessions: consecutive IN followed by OUT
     let currentSessionNumber = 0;
@@ -83,8 +96,16 @@ export class WorkHoursCalculator {
           // OUT punch is missing
           isIncomplete = true;
           hasIncompleteSession = true;
-          // For incomplete, we calculate up to now (system considers it unfinished)
-          durationHours = this.calculateDurationHours(inTime, new Date());
+          // For incomplete sessions: if today (ongoing), calculate elapsed time capped at max session limit; if past date, 0
+          const inMoment = moment.tz(inTime, 'Asia/Kolkata');
+          const nowMoment = moment.tz('Asia/Kolkata');
+          const isToday = inMoment.isSame(nowMoment, 'day');
+          if (isToday) {
+            const rawElapsed = this.calculateDurationHours(inTime, new Date());
+            durationHours = Math.max(0, Math.min(rawElapsed, shift?.max_session_hours || 12));
+          } else {
+            durationHours = 0;
+          }
         }
 
         sessions.push({
@@ -95,6 +116,7 @@ export class WorkHoursCalculator {
           is_incomplete: isIncomplete,
         });
 
+        // Only add duration to totalWorkHours if session is complete or current ongoing today
         totalWorkHours += durationHours;
         i = sessionEndIndex;
       } else {
@@ -225,20 +247,23 @@ export class WorkHoursCalculator {
    * @returns {Object} Updated work data
    */
   static recalculateWithRegularization(punches, regularization, shift) {
-    if (!regularization.corrected_punch_in_time || !regularization.corrected_punch_out_time) {
+    const inTime = regularization.corrected_punch_in_time || regularization.requested_in_time;
+    const outTime = regularization.corrected_punch_out_time || regularization.requested_out_time;
+
+    if (!inTime || !outTime) {
       // No correction, use original calculation
       return this.calculateDailyWorkHours(punches, shift);
     }
 
-    // Create virtual punches from corrected times
+    // Create virtual punches from corrected/requested times
     const virtualPunches = [
       {
         punch_type: 'IN',
-        punch_time: regularization.corrected_punch_in_time,
+        punch_time: inTime,
       },
       {
         punch_type: 'OUT',
-        punch_time: regularization.corrected_punch_out_time,
+        punch_time: outTime,
       },
     ];
 

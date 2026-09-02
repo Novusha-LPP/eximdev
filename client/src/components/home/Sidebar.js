@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "../../styles/sidebar.scss";
@@ -16,11 +16,12 @@ import InsightsIcon from "@mui/icons-material/Insights";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import HubIcon from "@mui/icons-material/Hub";
 import SupervisedUserCircleIcon from "@mui/icons-material/SupervisedUserCircle";
-import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import DomainIcon from "@mui/icons-material/Domain";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import FactCheckIcon from "@mui/icons-material/FactCheck";
+import MedicalServicesIcon from "@mui/icons-material/MedicalServices";
 import ComputerIcon from "@mui/icons-material/Computer";
 import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
@@ -31,6 +32,30 @@ function Sidebar() {
   const navigate = useNavigate();
   const { user, setUser } = useContext(UserContext);
   const [currencyDialogOpen, setCurrencyDialogOpen] = useState(false);
+  const [pendingCorrectionCount, setPendingCorrectionCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchCount = async () => {
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/attendance/correction-notifications/count`,
+          { withCredentials: true }
+        );
+        if (response.data && typeof response.data.count === 'number') {
+          setPendingCorrectionCount(response.data.count);
+        }
+      } catch (error) {
+        console.error("Failed to fetch pending correction count:", error);
+      }
+    };
+
+    fetchCount();
+    const interval = setInterval(fetchCount, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   const clearClientAuthData = () => {
     // Remove user/auth-related client state from storage.
@@ -108,6 +133,60 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
+      {true && (
+        <>
+          <Tooltip title="Attendance" enterDelay={0} placement="right">
+            <ListItemButton
+              className="appbar-links"
+              aria-label="list-item"
+              onClick={() => navigate("/attendance/dashboard")}
+            >
+              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                <Badge badgeContent={pendingCorrectionCount} color="error">
+                  <AccessTimeIcon />
+                </Badge>
+              </IconButton>
+            </ListItemButton>
+          </Tooltip>
+
+          {(() => {
+            const isRabs = user?.company && /RABS/i.test(user.company);
+            const isAdminOrHod = user?.role === "Admin" || user?.role === "Head_of_Department" || user?.role === "HOD" || user?.isHOD;
+            return isRabs && isAdminOrHod;
+          })() && (
+            <Tooltip title="5S Audit" enterDelay={0} placement="right">
+              <ListItemButton
+                className="appbar-links"
+                aria-label="list-item"
+                onClick={() => navigate("/audit-5s")}
+              >
+                <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                  <FactCheckIcon />
+                </IconButton>
+              </ListItemButton>
+            </Tooltip>
+          )}
+
+          {(() => {
+            const isRabs = user?.company && /RABS/i.test(user.company);
+            const isAdminOrHod = user?.role === "Admin" || user?.role === "Head_of_Department" || user?.role === "HOD" || user?.isHOD;
+            return isRabs && isAdminOrHod;
+          })() && (
+            <Tooltip title="First Aid Kit" enterDelay={0} placement="right">
+              <ListItemButton
+                className="appbar-links"
+                aria-label="list-item"
+                onClick={() => navigate("/first-aid")}
+              >
+                <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                  <MedicalServicesIcon />
+                </IconButton>
+              </ListItemButton>
+            </Tooltip>
+          )}
+        </>
+      )}
+
       {user.role === "Admin" && (
         <>
           <Tooltip title="Admin" enterDelay={0} placement="right">
@@ -176,7 +255,6 @@ function Sidebar() {
       )}
 
 
-
       {/* NEW: Currency Exchange Rates Icon */}
       <Tooltip title="Currency Exchange Rates" enterDelay={0} placement="right">
         <ListItemButton
@@ -191,27 +269,13 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
-      {/* Attendance Module */}
-      <Tooltip title="Attendance & Leave" enterDelay={0} placement="right">
-        <ListItemButton
-          sx={{ textAlign: "left" }}
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/attendance")}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <CalendarMonthIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
-
 
 
 
 
 
       {
-        ['suraj_rajan', 'uday_zope', 'geethanjali_b'].includes(user.username) && (
+        ['suraj_rajan', 'geethanjali_b', 'masood_raza'].includes(user.username) && (
           <Tooltip title="Project Nucleus" enterDelay={0} placement="right">
             <ListItemButton
               className="appbar-links"

@@ -1,10 +1,105 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import axios from "axios";
 import { useFormik } from "formik";
 import { convertDateFormatForUI } from "../utils/convertDateFormatForUI";
 import { useNavigate } from "react-router-dom";
 import AWS from "aws-sdk";
 import toast from "react-hot-toast";
+
+const getFormattedDateForRates = (dateInput) => {
+  if (!dateInput) dateInput = new Date();
+  if (dateInput instanceof Date) {
+    const day = String(dateInput.getDate()).padStart(2, '0');
+    const month = String(dateInput.getMonth() + 1).padStart(2, '0');
+    const year = dateInput.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+  if (typeof dateInput === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+      const [y, m, d] = dateInput.split('-');
+      return `${d}-${m}-${y}`;
+    }
+    if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(dateInput)) {
+      return dateInput.replace(/\//g, '-');
+    }
+  }
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
+const getUnitForCurrency = (currencyCode) => {
+  if (!currencyCode) return 1;
+  const code = String(currencyCode).toUpperCase().trim();
+  if (code === "JPY" || code === "KRW") return 100;
+  return 1;
+};
+
+const exrateCache = {};
+
+const fetchExrateForCurrency = async (currency, date) => {
+  if (!currency || currency.toUpperCase() === "INR") return 1;
+  const formattedDate = getFormattedDateForRates(date);
+  const cacheKey = `${currency}_${formattedDate}`;
+  
+  if (exrateCache[cacheKey]) {
+    return exrateCache[cacheKey];
+  }
+
+  if (!exrateCache[`promise_${cacheKey}`]) {
+    exrateCache[`promise_${cacheKey}`] = (async () => {
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${formattedDate}`
+        );
+        if (response.data.success && response.data.data?.exchange_rates) {
+          const rateObj = response.data.data.exchange_rates.find(
+            r => r.currency_code.toUpperCase() === currency.toUpperCase()
+          );
+          if (rateObj) {
+            return parseFloat(rateObj.import_rate) || 1;
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching exchange rate:", err);
+      }
+      
+      const currentDateFormatted = getFormattedDateForRates(new Date());
+      if (formattedDate !== currentDateFormatted) {
+        try {
+          const response = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${currentDateFormatted}`
+          );
+          if (response.data.success && response.data.data?.exchange_rates) {
+            const rateObj = response.data.data.exchange_rates.find(
+              r => r.currency_code.toUpperCase() === currency.toUpperCase()
+            );
+            if (rateObj) {
+              return parseFloat(rateObj.import_rate) || 1;
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching fallback exchange rate:", err);
+        }
+      }
+      return 1;
+    })();
+  }
+  
+  const result = await exrateCache[`promise_${cacheKey}`];
+  exrateCache[cacheKey] = result;
+  return result;
+};
+
 // import { Dropdown } from "react-bootstrap";
 
 const handleSingleFileUpload = async (file, folderName, setFileSnackbar, shouldCompress = false) => {
@@ -50,6 +145,7 @@ function useFetchJobDetails(
   const [data, setData] = useState(null);
   const [detentionFrom, setDetentionFrom] = useState([]);
   const navigate = useNavigate();
+  const [isCthDocsLoading, setIsCthDocsLoading] = useState(false);
   const [cthDocuments, setCthDocuments] = useState([
     {
       document_name: "Commercial Invoice",
@@ -116,7 +212,7 @@ function useFetchJobDetails(
   const [jobDetails, setJobDetails] = useState([]);
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL"];
-  const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
+  const beTypeOptions = ["Home", "In-Bond", "Ex-Bond", "SEZ"];
   const clearanceOptionsMapping = {
     Home: [
       { value: "Full Duty", label: "Full Duty" },
@@ -129,6 +225,16 @@ function useFetchJobDetails(
     ],
     "In-Bond": [{ value: "In-Bond", label: "In-Bond" }],
     "Ex-Bond": [
+      { value: "Full Duty", label: "Full Duty" },
+      { value: "DEEC", label: "DEEC" },
+      { value: "EPCG", label: "EPCG" },
+      { value: "RODTEP", label: "RODTEP" },
+      { value: "ROSTL", label: "ROSTL" },
+      { value: "TQ", label: "TQ" },
+      { value: "SIL", label: "SIL" },
+    ],
+    SEZ: [
+      { value: "SEZ", label: "SEZ" },
       { value: "Full Duty", label: "Full Duty" },
       { value: "DEEC", label: "DEEC" },
       { value: "EPCG", label: "EPCG" },
@@ -228,6 +334,23 @@ function useFetchJobDetails(
   useEffect(() => {
     async function getCthDocs() {
       if (data?.cth_no) {
+        setIsCthDocsLoading(true);
+        // Step 1: Immediately merge data.cth_documents into state to prevent losing them during pending fetches
+        if (data.cth_documents && data.cth_documents.length > 0) {
+          setCthDocuments((prev) => {
+            let merged = [...prev];
+            data.cth_documents.forEach((d) => {
+              const idx = merged.findIndex((m) => m.document_name === d.document_name);
+              if (idx === -1) {
+                merged.push(d);
+              } else {
+                merged[idx] = { ...merged[idx], ...d };
+              }
+            });
+            return merged;
+          });
+        }
+
         try {
           // Handle multiple CTH numbers separated by " / "
           const cthNumbers = data.cth_no.split(' / ').map(cth => cth.trim());
@@ -240,7 +363,6 @@ function useFetchJobDetails(
             `${process.env.REACT_APP_API_STRING}/get-cth-docs?${queryParams.toString()}`
           );
 
-          // Rest of your existing logic...
           const fetchedCthDocuments =
             Array.isArray(cthRes.data) &&
             cthRes.data.map((cthDoc) => {
@@ -254,37 +376,67 @@ function useFetchJobDetails(
               };
             });
 
-          // Continue with your existing merging logic...
-          let documentsToMerge = [...cthDocuments];
+          setCthDocuments((prev) => {
+            let documentsToMerge = [...prev];
 
-          if (cthNumbers.some(cth => commonCthCodes.includes(cth))) {
-            documentsToMerge = [...documentsToMerge, ...additionalDocs];
-          }
-
-          documentsToMerge = fetchedCthDocuments
-            ? [...documentsToMerge, ...fetchedCthDocuments]
-            : [...documentsToMerge];
-
-          documentsToMerge = [...documentsToMerge, ...data.cth_documents];
-
-          const uniqueDocuments = documentsToMerge.reduce((acc, current) => {
-            const existingDocIndex = acc.findIndex(
-              (doc) => doc.document_name === current.document_name
-            );
-
-            if (existingDocIndex === -1) {
-              return acc.concat([current]);
-            } else {
-              if (current.url) {
-                acc[existingDocIndex] = current;
-              }
-              return acc;
+            if (cthNumbers.some(cth => commonCthCodes.includes(cth))) {
+              documentsToMerge = [...documentsToMerge, ...additionalDocs];
             }
-          }, []);
 
-          setCthDocuments(uniqueDocuments);
+            if (fetchedCthDocuments) {
+              documentsToMerge = [...documentsToMerge, ...fetchedCthDocuments];
+            }
+
+            // Also merge data.cth_documents just in case
+            if (data?.cth_documents) {
+              documentsToMerge = [...documentsToMerge, ...data.cth_documents];
+            }
+
+            const uniqueDocuments = documentsToMerge.reduce((acc, current) => {
+              const existingDocIndex = acc.findIndex(
+                (doc) => doc.document_name === current.document_name
+              );
+
+              if (existingDocIndex === -1) {
+                return acc.concat([current]);
+              } else {
+                acc[existingDocIndex] = {
+                  ...acc[existingDocIndex],
+                  ...current,
+                  url: current.url && current.url.length > 0 ? current.url : acc[existingDocIndex].url,
+                };
+                return acc;
+              }
+            }, []);
+
+            return uniqueDocuments;
+          });
         } catch (error) {
           console.error("Error fetching CTH documents:", error);
+          // Fallback merge
+          if (data?.cth_documents) {
+            setCthDocuments((prev) => {
+              let documentsToMerge = [...prev, ...data.cth_documents];
+              const uniqueDocuments = documentsToMerge.reduce((acc, current) => {
+                const existingDocIndex = acc.findIndex(
+                  (doc) => doc.document_name === current.document_name
+                );
+                if (existingDocIndex === -1) {
+                  return acc.concat([current]);
+                } else {
+                  acc[existingDocIndex] = {
+                    ...acc[existingDocIndex],
+                    ...current,
+                    url: current.url && current.url.length > 0 ? current.url : acc[existingDocIndex].url,
+                  };
+                  return acc;
+                }
+              }, []);
+              return uniqueDocuments;
+            });
+          }
+        } finally {
+          setIsCthDocsLoading(false);
         }
       } else if (data?.cth_documents && data.cth_documents.length > 0) {
         setCthDocuments(data.cth_documents);
@@ -307,6 +459,8 @@ function useFetchJobDetails(
       obl_telex_bl: "",
       is_obl_recieved: false,
       document_received_date: "",
+      vessel_flight: "",
+      voyage_no: "",
       vessel_berthing: "",
       hawb_hbl_no: "",
       hawb_hbl_date: "",
@@ -396,6 +550,7 @@ function useFetchJobDetails(
       submissionQueries: [],
       eSachitQueries: [],
       processed_be_attachment: [],
+      part_iii_duties: [],
       ooc_copies: [],
       in_bond_ooc_copies: [],
       gate_pass_copies: [],
@@ -410,7 +565,9 @@ function useFetchJobDetails(
       submission_completed_date_time: "",
       completed_operation_date: "",
       esanchit_completed_date_time: "",
+      delivery_completed_date: "",
       bill_document_sent_to_accounts: "",
+      billing_confirmation_date: "",
       do_completed: "",
       import_terms: "",
       // container_rail_out_date: ""   
@@ -424,6 +581,8 @@ function useFetchJobDetails(
       client_remark: "",
       DsrCharges: [],
       cifValue: "",
+      cif_amount: "",
+      exrate: "",
       freight: "",
       insurance: "",
       bill_no: "",
@@ -436,8 +595,8 @@ function useFetchJobDetails(
         agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
         discount: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
         loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-        freight: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-        insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        freight: { currency: "", exchange_rate: 1, rate: 20, amount: 0, remark: "" },
+        insurance: { currency: "INR", exchange_rate: 1, rate: 1.125, amount: 0, remark: "" },
         addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
         revenue_deposit: { rate: 0, on: "Assessable" },
         landing_charge: { rate: 0 }
@@ -448,6 +607,32 @@ function useFetchJobDetails(
       sent_to_submission_date_time: "",
     },
     onSubmit: async (values) => {
+      if (isCthDocsLoading) {
+        toast.error("Please wait, loading CTH documents...");
+        return;
+      }
+
+      // --- CTH / HS CODE VALIDATION ---
+      if (values.description_details) {
+        for (let i = 0; i < values.description_details.length; i++) {
+          const row = values.description_details[i];
+          if (row.cth_no) {
+            const clean = String(row.cth_no).trim();
+            if (clean && !/^\d{8,}$/.test(clean)) {
+              toast.error(`Row ${i + 1}: HS Code (CTH No) must be at least 8 digits long and contain only numbers.`);
+              return;
+            }
+          }
+        }
+      }
+
+      if (values.cth_no) {
+        const clean = String(values.cth_no).trim();
+        if (clean && !/^\d{8,}$/.test(clean)) {
+          toast.error("Job-level CTH No must be at least 8 digits long and contain only numbers.");
+          return;
+        }
+      }
       // Filter documents that are sent to e-Sanchit
       const sentDocuments = cthDocuments.filter(
         (doc) => doc.is_sent_to_esanchit === true
@@ -483,6 +668,56 @@ function useFetchJobDetails(
         'user-role': user.role || 'unknown'
       };
 
+      // --- HSS Validation ---
+      if (values.hss === "Yes") {
+        const otherCharges = values.other_charges_details || {};
+        const addlCharge = otherCharges.addl_charge || {};
+        const addlRate = parseFloat(addlCharge.rate) || 0;
+        const addlAmount = parseFloat(addlCharge.amount) || 0;
+        const addlExrate = parseFloat(addlCharge.exchange_rate) || 1;
+        const addlAmountInr = (addlAmount * addlExrate) / getUnitForCurrency(addlCharge.currency);
+
+        // Base CIF excluding HSS
+        let baseCifInr = 0;
+        if (values.invoice_details && values.invoice_details.length > 0) {
+          baseCifInr = values.invoice_details.reduce((sum, row) => {
+            const pv = parseFloat(row.product_value) || 0;
+            const pvEx = parseFloat(row.exchange_rate) || parseFloat(values.exrate) || 1;
+            const fr = parseFloat(row.freight) || 0;
+            const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(values.exrate) || 1;
+            const ins = parseFloat(row.insurance) || 0;
+            const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+            const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+            const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
+            
+            const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+            const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
+            const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
+            const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
+            
+            return sum + (pvInr + frInr + insInr + othInr);
+          }, 0);
+        } else {
+          baseCifInr = (parseFloat(values.cif_amount || values.cifValue) || 0) - addlAmountInr;
+        }
+        if (baseCifInr < 0) baseCifInr = 0;
+
+        const minAllowedAmountInr = baseCifInr * 0.02;
+
+        if (addlRate > 0 && addlRate < 2) {
+          toast.error("High Sea Sale (HSS) is marked. Additional Charge (High Sea) Rate % cannot be less than 2%.");
+          return;
+        }
+        if (addlAmountInr > 0 && baseCifInr > 0 && parseFloat(addlAmountInr.toFixed(2)) < parseFloat(minAllowedAmountInr.toFixed(2))) {
+          toast.error(`High Sea Sale (HSS) is marked. Additional Charge (High Sea) Amount (${addlAmountInr.toFixed(2)} INR) cannot be less than 2% of CIF (${minAllowedAmountInr.toFixed(2)} INR).`);
+          return;
+        }
+        if (addlRate === 0 && addlAmount === 0) {
+          toast.error("High Sea Sale (HSS) is marked. Additional Charge (High Sea) is required and must be minimum 2% of CIF.");
+          return;
+        }
+      }
+
       try {
         // Update the payload with the modified cthDocuments and other values
         await axios.put(
@@ -492,12 +727,14 @@ function useFetchJobDetails(
             cth_documents: updatedCthDocuments,
             documents: selectedDocuments,
             checkedDocs: values.checkedDocs,
+            vessel_flight: values.vessel_flight,
+            voyage_no: values.voyage_no,
             vessel_berthing: values.vessel_berthing,
             hawb_hbl_no: values.hawb_hbl_no,
             hawb_hbl_date: values.hawb_hbl_date,
             awb_bl_no: values.awb_bl_no,
             awb_bl_date: values.awb_bl_date,
-            cth_no: values.cth_no || values.description_details?.[0]?.cth_no,
+            cth_no: values.description_details?.[0]?.cth_no || values.cth_no || "",
             free_time: values.free_time,
             status: values.status,
             detailed_status: values.detailed_status,
@@ -509,7 +746,7 @@ function useFetchJobDetails(
             job_sticker_upload: values.job_sticker_upload,
             // rail_out_date: values.rail_out_date,
             remarks: values.remarks,
-            description: values.description || values.description_details?.[0]?.description,
+            description: values.description_details?.[0]?.description || values.description || "",
             consignment_type: values.consignment_type,
             sims_reg_no: values.sims_reg_no,
             pims_reg_no: values.pims_reg_no,
@@ -586,6 +823,7 @@ function useFetchJobDetails(
             submissionQueries: values.submissionQueries,
             eSachitQueries: values.eSachitQueries,
             processed_be_attachment: values.processed_be_attachment,
+            part_iii_duties: values.part_iii_duties,
             ooc_copies: values.ooc_copies,
             in_bond_ooc_copies: values.in_bond_ooc_copies,
             gate_pass_copies: values.gate_pass_copies,
@@ -610,11 +848,15 @@ function useFetchJobDetails(
             submission_completed_date_time: values.submission_completed_date_time,
             completed_operation_date: values.completed_operation_date,
             esanchit_completed_date_time: values.esanchit_completed_date_time,
+            delivery_completed_date: values.delivery_completed_date,
             bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
+            billing_confirmation_date: values.billing_confirmation_date,
             do_completed: values.do_completed,
             import_terms: values.import_terms,
             freight: values.freight,
             cifValue: values.cifValue,
+            cif_amount: values.cif_amount,
+            exrate: values.exrate,
             insurance: values.insurance,
             bill_date: values.bill_date,
             bill_no: values.bill_no,
@@ -655,6 +897,8 @@ function useFetchJobDetails(
   // Utility function to handle undefined/null checks
   const safeValue = (value, defaultVal = "") =>
     value === undefined || value === null ? defaultVal : value;
+
+
   const filteredClearanceOptions =
     clearanceOptionsMapping[formik.values.type_of_b_e] || [];
   // When the BE type changes, update Formik's clearanceValue field to the first available option only if no value is set.
@@ -776,6 +1020,8 @@ function useFetchJobDetails(
         is_obl_recieved: safeValue(data.is_obl_recieved, false),
         document_received_date: safeValue(data.document_received_date),
         arrival_date: safeValue(data.arrival_date),
+        vessel_flight: safeValue(data.vessel_flight, ""),
+        voyage_no: safeValue(data.voyage_no, ""),
         vessel_berthing: safeValue(data.vessel_berthing)
           ? new Date(data.vessel_berthing).toLocaleDateString("en-CA").split("/").reverse().join("-")
           : "",
@@ -855,7 +1101,65 @@ function useFetchJobDetails(
                 igst_amount_inr: safeValue(row.igst_amount_inr, ""),
                 igst_amount_manual: Boolean(safeValue(row.igst_amount_manual, false)),
                 comp_cess_percent: safeValue(row.comp_cess_percent, ""),
-                comp_cess_amount: safeValue(row.comp_cess_amount, "")
+                comp_cess_amount: safeValue(row.comp_cess_amount, ""),
+
+                bcd_notn: safeValue(row.bcd_notn, ""),
+                bcd_sr_no: safeValue(row.bcd_sr_no, ""),
+                bcd_rate: safeValue(row.bcd_rate, ""),
+                bcd_specific_rate: safeValue(row.bcd_specific_rate, ""),
+                bcd_unit: safeValue(row.bcd_unit, ""),
+                bcd_flag: safeValue(row.bcd_flag, ""),
+                bcd_amount: safeValue(row.bcd_amount, ""),
+
+                aidc_notn: safeValue(row.aidc_notn, ""),
+                aidc_sr_no: safeValue(row.aidc_sr_no, ""),
+                aidc_rate: safeValue(row.aidc_rate, ""),
+                aidc_specific_rate: safeValue(row.aidc_specific_rate, ""),
+                aidc_unit: safeValue(row.aidc_unit, ""),
+                aidc_amount: safeValue(row.aidc_amount, ""),
+
+                sw_surcharge_notn: safeValue(row.sw_surcharge_notn, ""),
+                sw_surcharge_sr_no: safeValue(row.sw_surcharge_sr_no, ""),
+                sw_surcharge_rate: safeValue(row.sw_surcharge_rate, "10.00"),
+                sw_surcharge_foc: safeValue(row.sw_surcharge_foc, "No"),
+                sw_surcharge_amount: safeValue(row.sw_surcharge_amount, ""),
+
+                igst_notn: safeValue(row.igst_notn, ""),
+                igst_sr_no: safeValue(row.igst_sr_no, ""),
+                igst_specific_rate: safeValue(row.igst_specific_rate, ""),
+                igst_unit: safeValue(row.igst_unit, ""),
+                igst_type: safeValue(row.igst_type, "C - Customs"),
+
+                igst_exc_notn: safeValue(row.igst_exc_notn, ""),
+                igst_exc_sr_no: safeValue(row.igst_exc_sr_no, ""),
+                igst_exc_rate: safeValue(row.igst_exc_rate, ""),
+                igst_exc_amount: safeValue(row.igst_exc_amount, ""),
+
+                comp_cess_notn: safeValue(row.comp_cess_notn, ""),
+                comp_cess_sr_no: safeValue(row.comp_cess_sr_no, ""),
+                comp_cess_specific_rate: safeValue(row.comp_cess_specific_rate, ""),
+                comp_cess_unit: safeValue(row.comp_cess_unit, ""),
+
+                comp_exc_notn: safeValue(row.comp_exc_notn, ""),
+                comp_exc_sr_no: safeValue(row.comp_exc_sr_no, ""),
+                comp_exc_rate: safeValue(row.comp_exc_rate, ""),
+                comp_exc_specific_rate: safeValue(row.comp_exc_specific_rate, ""),
+                comp_exc_amount: safeValue(row.comp_exc_amount, ""),
+
+                safeguard_notn: safeValue(row.safeguard_notn, ""),
+                safeguard_sr_no: safeValue(row.safeguard_sr_no, ""),
+                safeguard_rate: safeValue(row.safeguard_rate, ""),
+                safeguard_specific_rate: safeValue(row.safeguard_specific_rate, ""),
+                safeguard_amount: safeValue(row.safeguard_amount, ""),
+
+                sapta_notn: safeValue(row.sapta_notn, ""),
+                sapta_sr_no: safeValue(row.sapta_sr_no, ""),
+                sapta_rate: safeValue(row.sapta_rate, ""),
+                sapta_amount: safeValue(row.sapta_amount, ""),
+
+                standard_uqc_qty: safeValue(row.standard_uqc_qty, ""),
+                standard_uqc_unit: safeValue(row.standard_uqc_unit, ""),
+                total_duty_amount: safeValue(row.total_duty_amount, "")
               }))
             : [
               {
@@ -910,7 +1214,65 @@ function useFetchJobDetails(
                 igst_amount_inr: "",
                 igst_amount_manual: false,
                 comp_cess_percent: "",
-                comp_cess_amount: ""
+                comp_cess_amount: "",
+
+                bcd_notn: "",
+                bcd_sr_no: "",
+                bcd_rate: "",
+                bcd_specific_rate: "",
+                bcd_unit: "",
+                bcd_flag: "",
+                bcd_amount: "",
+
+                aidc_notn: "",
+                aidc_sr_no: "",
+                aidc_rate: "",
+                aidc_specific_rate: "",
+                aidc_unit: "",
+                aidc_amount: "",
+
+                sw_surcharge_notn: "",
+                sw_surcharge_sr_no: "",
+                sw_surcharge_rate: "10.00",
+                sw_surcharge_foc: "No",
+                sw_surcharge_amount: "",
+
+                igst_notn: "",
+                igst_sr_no: "",
+                igst_specific_rate: "",
+                igst_unit: "",
+                igst_type: "C - Customs",
+
+                igst_exc_notn: "",
+                igst_exc_sr_no: "",
+                igst_exc_rate: "",
+                igst_exc_amount: "",
+
+                comp_cess_notn: "",
+                comp_cess_sr_no: "",
+                comp_cess_specific_rate: "",
+                comp_cess_unit: "",
+
+                comp_exc_notn: "",
+                comp_exc_sr_no: "",
+                comp_exc_rate: "",
+                comp_exc_specific_rate: "",
+                comp_exc_amount: "",
+
+                safeguard_notn: "",
+                safeguard_sr_no: "",
+                safeguard_rate: "",
+                safeguard_specific_rate: "",
+                safeguard_amount: "",
+
+                sapta_notn: "",
+                sapta_sr_no: "",
+                sapta_rate: "",
+                sapta_amount: "",
+
+                standard_uqc_qty: "",
+                standard_uqc_unit: "",
+                total_duty_amount: ""
               },
             ],
         consignment_type: safeValue(data.consignment_type),
@@ -987,6 +1349,7 @@ function useFetchJobDetails(
         submissionQueries: safeValue(data.submissionQueries, []),
         eSachitQueries: safeValue(data.eSachitQueries, []),
         processed_be_attachment: safeValue(data.processed_be_attachment, []),
+        part_iii_duties: safeValue(data.part_iii_duties, []),
         ooc_copies: safeValue(data.ooc_copies, []),
         in_bond_ooc_copies: safeValue(data.in_bond_ooc_copies, []),
         gate_pass_copies: safeValue(data.gate_pass_copies, []),
@@ -997,7 +1360,9 @@ function useFetchJobDetails(
         submission_completed_date_time: safeValue(data.submission_completed_date_time),
         completed_operation_date: safeValue(data.completed_operation_date),
         esanchit_completed_date_time: safeValue(data.esanchit_completed_date_time),
+        delivery_completed_date: safeValue(data.delivery_completed_date),
         bill_document_sent_to_accounts: safeValue(data.bill_document_sent_to_accounts),
+        billing_confirmation_date: safeValue(data.billing_confirmation_date),
         do_completed: safeValue(data.do_completed),
         import_terms: safeValue(data.import_terms),
         freight: safeValue(data.freight),
@@ -1013,9 +1378,17 @@ function useFetchJobDetails(
                 ...inv,
                 po_no: inv.po_no || "",
                 po_date: inv.po_date || "",
+                po_details: inv.po_details && inv.po_details.length > 0
+                  ? inv.po_details.map(p => ({ po_no: p.po_no || "", po_date: p.po_date || "" }))
+                  : [{ po_no: inv.po_no || "", po_date: inv.po_date || "" }],
                 freight_currency: inv.freight_currency || inv.inv_currency || "",
-                insurance_currency: inv.insurance_currency || inv.inv_currency || "",
-                other_charges_currency: inv.other_charges_currency || "INR",
+                insurance_currency: inv.insurance_currency || "INR",
+                misc_currency: inv.misc_currency || inv.other_charges_currency || "USD",
+                misc: inv.misc || inv.other_charges || "",
+                exchange_rate: inv.exchange_rate || "",
+                freight_exchange_rate: inv.freight_exchange_rate || "",
+                insurance_exchange_rate: inv.insurance_exchange_rate || "",
+                misc_exchange_rate: inv.misc_exchange_rate || inv.other_charges_exchange_rate || "",
               }))
             : [
                 {
@@ -1023,42 +1396,71 @@ function useFetchJobDetails(
                   invoice_date: safeValue(data.invoice_date),
                   po_no: safeValue(data.po_no),
                   po_date: safeValue(data.po_date),
+                  po_details: [{ po_no: safeValue(data.po_no), po_date: safeValue(data.po_date) }],
                   total_inv_value: safeValue(data.total_inv_value),
                   inv_currency: safeValue(data.inv_currency),
                   toi: safeValue(data.import_terms) || "CIF",
                   freight: safeValue(data.freight),
                   insurance: safeValue(data.insurance),
                   freight_currency: safeValue(data.inv_currency),
-                  insurance_currency: safeValue(data.inv_currency),
-                  other_charges_currency: "INR",
+                  insurance_currency: "INR",
+                  misc_currency: "USD",
+                  misc: "",
+                  exchange_rate: safeValue(data.exrate),
+                  freight_exchange_rate: safeValue(data.exrate),
+                  insurance_exchange_rate: "1",
+                  misc_exchange_rate: "1",
                 },
               ],
         bill_date: safeValue(data.bill_date),
         bill_no: safeValue(data.bill_no),
         cifValue: safeValue(data.cifValue),
+        cif_amount: safeValue(data.cif_amount),
+        exrate: safeValue(data.exrate),
         out_of_charge: safeValue(data.out_of_charge),
         checked: safeValue(data.checked, false),
         type_of_Do: safeValue(data.type_of_Do),
         obl_telex_bl: safeValue(data.obl_telex_bl),
 
         dsr_queries: safeValue(data.dsr_queries, []),
-        other_charges_details: {
-          is_single_for_all: true,
-          miscellaneous: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          discount: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          freight: { currency: safeValue(data.inv_currency), exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          insurance: { currency: safeValue(data.inv_currency), exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          revenue_deposit: { rate: 0, on: "Assessable" },
-          landing_charge: { rate: 0 },
-          ...safeValue(data.other_charges_details, {}),
-          landing_charge: {
-            rate: 0,
-            ...safeValue(data.other_charges_details?.landing_charge, {})
+        other_charges_details: (() => {
+          const dbDetails = safeValue(data.other_charges_details, {});
+          
+          let fRate = 20;
+          if (dbDetails.freight?.rate !== undefined && dbDetails.freight?.rate !== null && dbDetails.freight?.rate !== "") {
+            const parsedRate = parseFloat(dbDetails.freight.rate);
+            if (!isNaN(parsedRate)) {
+              const amt = parseFloat(dbDetails.freight.amount) || 0;
+              if (parsedRate !== 0 || amt > 0) {
+                fRate = parsedRate;
+              }
+            }
           }
-        },
+
+          let iRate = 1.125;
+          if (dbDetails.insurance?.rate !== undefined && dbDetails.insurance?.rate !== null && dbDetails.insurance?.rate !== "") {
+            const parsedRate = parseFloat(dbDetails.insurance.rate);
+            if (!isNaN(parsedRate)) {
+              const amt = parseFloat(dbDetails.insurance.amount) || 0;
+              if (parsedRate !== 0 || amt > 0) {
+                iRate = parsedRate;
+              }
+            }
+          }
+
+          return {
+            is_single_for_all: dbDetails.is_single_for_all !== undefined ? dbDetails.is_single_for_all : true,
+            miscellaneous: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.miscellaneous || {}) },
+            agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.agency || {}) },
+            discount: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.discount || {}) },
+            loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.loading || {}) },
+            freight: { currency: safeValue(data.inv_currency), exchange_rate: 1, amount: 0, remark: "", ...(dbDetails.freight || {}), rate: fRate },
+            insurance: { currency: "INR", exchange_rate: 1, amount: 0, remark: "", ...(dbDetails.insurance || {}), rate: iRate },
+            addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.addl_charge || {}) },
+            revenue_deposit: { rate: 0, on: "Assessable", ...(dbDetails.revenue_deposit || {}) },
+            landing_charge: { rate: 0, ...(dbDetails.landing_charge || {}) }
+          };
+        })(),
         misc_charges: safeValue(data.misc_charges, []),
       });
     }
@@ -1183,8 +1585,8 @@ function useFetchJobDetails(
   useEffect(() => {
     if (formik.values.description_details?.length > 0) {
       const firstRow = formik.values.description_details[0];
-      if (firstRow.description && !formik.values.description) formik.setFieldValue("description", firstRow.description || "");
-      if (firstRow.cth_no && !formik.values.cth_no) formik.setFieldValue("cth_no", firstRow.cth_no || "");
+      if (firstRow.description && formik.values.description !== firstRow.description) formik.setFieldValue("description", firstRow.description || "");
+      if (firstRow.cth_no && formik.values.cth_no !== firstRow.cth_no) formik.setFieldValue("cth_no", firstRow.cth_no || "");
       if (firstRow.clearance_under && !formik.values.clearanceValue) formik.setFieldValue("clearanceValue", firstRow.clearance_under || "");
       if (firstRow.sr_no_invoice && !formik.values.invoice_number) formik.setFieldValue("invoice_number", firstRow.sr_no_invoice || "");
       if (firstRow.quantity && !formik.values.no_of_pkgs) formik.setFieldValue("no_of_pkgs", firstRow.quantity || "");
@@ -1198,22 +1600,254 @@ function useFetchJobDetails(
   useEffect(() => {
     if (formik.values.invoice_details?.length > 0) {
       const firstRow = formik.values.invoice_details[0];
-      if (firstRow.invoice_number && !formik.values.invoice_number) formik.setFieldValue("invoice_number", firstRow.invoice_number || "");
-      if (firstRow.invoice_date && !formik.values.invoice_date) formik.setFieldValue("invoice_date", firstRow.invoice_date || "");
-      if (firstRow.po_no && !formik.values.po_no) formik.setFieldValue("po_no", firstRow.po_no || "");
-      if (firstRow.total_inv_value && !formik.values.total_inv_value) formik.setFieldValue("total_inv_value", firstRow.total_inv_value || "");
-      if (firstRow.toi && !formik.values.import_terms) formik.setFieldValue("import_terms", firstRow.toi || "");
-      if (firstRow.freight && !formik.values.freight) formik.setFieldValue("freight", firstRow.freight || "");
-      if (firstRow.insurance && !formik.values.insurance) formik.setFieldValue("insurance", firstRow.insurance || "");
-
-      // Sync cif_amount and cifValue as sum of all invoice rows total_inv_value
-      const totalCif = formik.values.invoice_details.reduce((sum, r) => sum + (parseFloat(r.total_inv_value) || 0), 0);
-      if (totalCif > 0) {
-        formik.setFieldValue("cif_amount", totalCif.toFixed(2));
-        formik.setFieldValue("cifValue", totalCif.toFixed(2));
+      if (firstRow.invoice_number && formik.values.invoice_number !== firstRow.invoice_number) formik.setFieldValue("invoice_number", firstRow.invoice_number || "");
+      if (firstRow.invoice_date && formik.values.invoice_date !== firstRow.invoice_date) formik.setFieldValue("invoice_date", firstRow.invoice_date || "");
+      if (firstRow.po_no && formik.values.po_no !== firstRow.po_no) formik.setFieldValue("po_no", firstRow.po_no || "");
+      const totalInvVal = formik.values.invoice_details.reduce((sum, r) => {
+        const rowTotal = parseFloat(r.total_inv_value);
+        if (!isNaN(rowTotal) && rowTotal > 0) return sum + rowTotal;
+        const pv = parseFloat(r.product_value) || 0;
+        const fr = parseFloat(r.freight) || 0;
+        const ins = parseFloat(r.insurance) || 0;
+        const oth = parseFloat(r.other_charges) || 0;
+        return sum + (pv + fr + ins + oth);
+      }, 0);
+      if (totalInvVal > 0 && formik.values.total_inv_value !== totalInvVal.toFixed(2)) {
+        formik.setFieldValue("total_inv_value", totalInvVal.toFixed(2));
       }
+      if (firstRow.toi && formik.values.import_terms !== firstRow.toi) formik.setFieldValue("import_terms", firstRow.toi || "");
+      if (firstRow.freight && formik.values.freight !== firstRow.freight) formik.setFieldValue("freight", firstRow.freight || "");
+      if (firstRow.insurance && formik.values.insurance !== firstRow.insurance) formik.setFieldValue("insurance", firstRow.insurance || "");
+
+      // Sync cif_amount and cifValue by converting each row's components (product value, freight, insurance, others) to INR using their respective exchange rates
+      const syncCifValue = async () => {
+        let totalCifInr = 0;
+        let updated = false;
+
+        const resolveRate = async (curr, existingRateStr, date) => {
+          let rate = parseFloat(existingRateStr);
+          const globalCurrency = formik.values.inv_currency || data?.inv_currency || "";
+          const globalRate = parseFloat(formik.values.exrate || data?.exrate);
+
+          if (!curr) return { rate: 1, updated: false };
+          if (curr.toUpperCase() === "INR") {
+            if (parseFloat(existingRateStr) !== 1) {
+              return { rate: 1, updated: true };
+            }
+            return { rate: 1, updated: false };
+          }
+          if (curr.toUpperCase() === globalCurrency.toUpperCase()) {
+            if (globalRate && !isNaN(globalRate) && parseFloat(existingRateStr) !== globalRate) {
+              return { rate: globalRate, updated: true };
+            } else if (!rate || isNaN(rate)) {
+              const hasBeNo = formik.values.be_no && String(formik.values.be_no).trim().length > 0;
+              let resolved = 1;
+              if (!hasBeNo) {
+                const fetchedRate = await fetchExrateForCurrency(curr, date);
+                resolved = fetchedRate > 0 ? fetchedRate : 1;
+              } else {
+                resolved = globalRate || 1;
+              }
+              return { rate: resolved, updated: true };
+            }
+          } else {
+            if (!rate || isNaN(rate)) {
+              const fetchedRate = await fetchExrateForCurrency(curr, date);
+              const resolved = fetchedRate > 0 ? fetchedRate : 1;
+              return { rate: resolved, updated: true };
+            }
+          }
+          return { rate: rate, updated: false };
+        };
+
+        const newRows = await Promise.all(formik.values.invoice_details.map(async (row) => {
+          const date = formik.values.be_date || row.invoice_date || formik.values.invoice_date || "";
+          const resInv = await resolveRate(row.inv_currency, row.exchange_rate, date);
+          const resFr = await resolveRate(row.freight_currency, row.freight_exchange_rate, date);
+          const resIns = await resolveRate(row.insurance_currency, row.insurance_exchange_rate, date);
+          const resOth = await resolveRate(row.misc_currency || row.other_charges_currency, row.misc_exchange_rate || row.other_charges_exchange_rate, date);
+
+          if (resInv.updated || resFr.updated || resIns.updated || resOth.updated) {
+            updated = true;
+          }
+
+          const pv = parseFloat(row.product_value) || 0;
+          const fr = parseFloat(row.freight) || 0;
+          const ins = parseFloat(row.insurance) || 0;
+          const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+
+          const rowCif = ((pv * resInv.rate) / getUnitForCurrency(row.inv_currency)) + 
+                         ((fr * resFr.rate) / getUnitForCurrency(row.freight_currency)) + 
+                         ((ins * resIns.rate) / getUnitForCurrency(row.insurance_currency)) + 
+                         ((oth * resOth.rate) / getUnitForCurrency(row.misc_currency || row.other_charges_currency));
+          totalCifInr += rowCif;
+
+          return {
+            ...row,
+            exchange_rate: String(resInv.rate),
+            freight_exchange_rate: String(resFr.rate),
+            insurance_exchange_rate: String(resIns.rate),
+            misc_exchange_rate: String(resOth.rate),
+          };
+        }));
+
+        if (updated) {
+          formik.setFieldValue("invoice_details", newRows);
+        }
+
+        // Add HSS value if active
+        if (formik.values.hss === "Yes") {
+          const hssAmt = parseFloat(formik.values.other_charges_details?.addl_charge?.amount) || 0;
+          const hssEx = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
+          totalCifInr += (hssAmt * hssEx) / getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
+        }
+
+        const calculatedCifStr = totalCifInr.toFixed(2);
+        if (formik.values.cif_amount !== calculatedCifStr) {
+          formik.setFieldValue("cif_amount", calculatedCifStr);
+        }
+        if (formik.values.cifValue !== calculatedCifStr) {
+          formik.setFieldValue("cifValue", calculatedCifStr);
+        }
+      };
+      syncCifValue();
     }
-  }, [serializedInvoiceDetails]);
+  }, [
+    serializedInvoiceDetails,
+    formik.values.exrate,
+    formik.values.inv_currency,
+    formik.values.hss,
+    formik.values.other_charges_details?.addl_charge?.amount,
+    formik.values.other_charges_details?.addl_charge?.exchange_rate
+  ]);
+
+  // Handle automatic fetching of exchange rates for other_charges_details
+  const serializedOtherChargesDetails = JSON.stringify(formik.values.other_charges_details || {});
+  useEffect(() => {
+    if (formik.values.other_charges_details) {
+      const chargeKeys = ["miscellaneous", "agency", "discount", "loading", "freight", "insurance", "addl_charge"];
+      const fetchChargesRates = async () => {
+        let updated = false;
+        const newDetails = { ...formik.values.other_charges_details };
+        const globalCurrency = formik.values.inv_currency || data?.inv_currency || "";
+
+        await Promise.all(chargeKeys.map(async (key) => {
+          const charge = newDetails[key] || {};
+          const currency = charge.currency;
+          let rate = parseFloat(charge.exchange_rate);
+
+          if (currency?.toUpperCase() === "INR") {
+            if (parseFloat(charge.exchange_rate) !== 1) {
+              newDetails[key] = { ...charge, exchange_rate: 1 };
+              updated = true;
+            }
+          } else if (currency && currency.toUpperCase() === globalCurrency.toUpperCase()) {
+            const globalRate = parseFloat(formik.values.exrate || data?.exrate);
+            if (globalRate && !isNaN(globalRate) && parseFloat(charge.exchange_rate) !== globalRate) {
+              newDetails[key] = { ...charge, exchange_rate: globalRate };
+              updated = true;
+            } else if (!rate || isNaN(rate)) {
+              newDetails[key] = { ...charge, exchange_rate: globalRate || 1 };
+              updated = true;
+            }
+          } else if (currency) {
+            if (!rate || isNaN(rate)) {
+              const invDate = formik.values.be_date || formik.values.invoice_details?.[0]?.invoice_date || formik.values.invoice_date || "";
+              const fetchedRate = await fetchExrateForCurrency(currency, invDate);
+              newDetails[key] = { ...charge, exchange_rate: fetchedRate > 0 ? fetchedRate : 1 };
+              updated = true;
+            }
+          }
+        }));
+
+        if (updated) {
+          formik.setFieldValue("other_charges_details", newDetails);
+        }
+      };
+      fetchChargesRates();
+    }
+  }, [serializedOtherChargesDetails, formik.values.exrate, formik.values.inv_currency, formik.values.invoice_date, formik.values.invoice_details?.[0]?.invoice_date, formik.values.be_date]);
+
+  // Fetch new exchange rates when BE Date or Global Currency changes
+  const prevBeDateRef = useRef(formik.values.be_date);
+  const prevInvCurrencyRef = useRef(formik.values.inv_currency);
+
+  useEffect(() => {
+    const prevBeDate = prevBeDateRef.current;
+    const currentBeDate = formik.values.be_date;
+    const prevInvCurrency = prevInvCurrencyRef.current;
+    const currentInvCurrency = formik.values.inv_currency;
+
+    if (currentBeDate && (currentBeDate !== prevBeDate || currentInvCurrency !== prevInvCurrency)) {
+      const fetchNewRatesForBeDate = async () => {
+        // 1. Fetch rate for global currency
+        if (currentInvCurrency && currentInvCurrency.toUpperCase() !== "INR") {
+          const newExrate = await fetchExrateForCurrency(currentInvCurrency, currentBeDate);
+          if (newExrate > 0) {
+            formik.setFieldValue("exrate", String(newExrate));
+          }
+        }
+
+        // 2. Update invoice_details rates for this new BE Date
+        if (formik.values.invoice_details && formik.values.invoice_details.length > 0) {
+          const updatedInvoices = await Promise.all(
+            formik.values.invoice_details.map(async (row) => {
+              const updatedRow = { ...row };
+              
+              if (row.inv_currency && row.inv_currency.toUpperCase() !== "INR") {
+                const fetchedRate = await fetchExrateForCurrency(row.inv_currency, currentBeDate);
+                if (fetchedRate > 0) updatedRow.exchange_rate = String(fetchedRate);
+              }
+              if (row.freight_currency && row.freight_currency.toUpperCase() !== "INR") {
+                const fetchedRate = await fetchExrateForCurrency(row.freight_currency, currentBeDate);
+                if (fetchedRate > 0) updatedRow.freight_exchange_rate = String(fetchedRate);
+              }
+              if (row.insurance_currency && row.insurance_currency.toUpperCase() !== "INR") {
+                const fetchedRate = await fetchExrateForCurrency(row.insurance_currency, currentBeDate);
+                if (fetchedRate > 0) updatedRow.insurance_exchange_rate = String(fetchedRate);
+              }
+              const miscCurr = row.misc_currency || row.other_charges_currency;
+              if (miscCurr && miscCurr.toUpperCase() !== "INR") {
+                const fetchedRate = await fetchExrateForCurrency(miscCurr, currentBeDate);
+                if (fetchedRate > 0) {
+                  if (row.misc_currency) updatedRow.misc_exchange_rate = String(fetchedRate);
+                  if (row.other_charges_currency) updatedRow.other_charges_exchange_rate = String(fetchedRate);
+                }
+              }
+              return updatedRow;
+            })
+          );
+          formik.setFieldValue("invoice_details", updatedInvoices);
+        }
+
+        // 3. Update other_charges_details rates for this new BE Date
+        if (formik.values.other_charges_details) {
+          const chargeKeys = ["miscellaneous", "agency", "discount", "loading", "freight", "insurance", "addl_charge"];
+          const newDetails = { ...formik.values.other_charges_details };
+          let chargesUpdated = false;
+          await Promise.all(
+            chargeKeys.map(async (key) => {
+              const charge = newDetails[key] || {};
+              const currency = charge.currency;
+              if (currency && currency.toUpperCase() !== "INR") {
+                const fetchedRate = await fetchExrateForCurrency(currency, currentBeDate);
+                if (fetchedRate > 0) {
+                  newDetails[key] = { ...charge, exchange_rate: fetchedRate };
+                  chargesUpdated = true;
+                }
+              }
+            })
+          );
+          if (chargesUpdated) {
+            formik.setFieldValue("other_charges_details", newDetails);
+          }
+        }
+      };
+      fetchNewRatesForBeDate();
+    }
+    prevBeDateRef.current = currentBeDate;
+    prevInvCurrencyRef.current = currentInvCurrency;
+  }, [formik.values.be_date, formik.values.inv_currency]);
 
   const handleFileChange = async (event, documentName, index, isCth) => {
     const file = event.target.files[0];
@@ -1336,7 +1970,8 @@ function useFetchJobDetails(
     canChangeClearance,
     resetOtherDetails,
 
-    setData
+    setData,
+    isCthDocsLoading
   };
 }
 

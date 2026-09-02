@@ -28,6 +28,7 @@ const cfsSchema = new mongoose.Schema({
   }],
   credit_terms: { type: String, trim: true, uppercase: true },
   cin: { type: String, trim: true, uppercase: true },
+  openingBalance: { type: Number, default: 0 },
   created_at: { type: Date, default: Date.now },
 });
 

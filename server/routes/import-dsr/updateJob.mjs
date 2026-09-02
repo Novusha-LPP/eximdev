@@ -5,6 +5,14 @@ import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { sanitizeJobPayload } from "../../utils/modeLogic.mjs";
 import { recalculateLicenseUtilizationForJob, validateLicenseUtilization, getUsdImportRate } from "../../services/licenseUtilizationService.mjs";
+import { validateRodtepUtilization } from "../../services/rodtepService.mjs";
+
+const getUnitForCurrency = (currencyCode) => {
+  if (!currencyCode) return 1;
+  const code = String(currencyCode).toUpperCase().trim();
+  if (code === "JPY" || code === "KRW") return 100;
+  return 1;
+};
 
 const router = express.Router();
 
@@ -93,6 +101,54 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
           throw new Error("Job is locked as a bill has been generated. Please contact an Admin to make changes._403");
         }
 
+        // ✅ HSS Validation
+        const hssVal = req.body.hss !== undefined ? req.body.hss : matchingJob.hss;
+        if (hssVal === "Yes") {
+          const cifInr = parseFloat(req.body.cif_amount !== undefined ? req.body.cif_amount : (req.body.cifValue !== undefined ? req.body.cifValue : (matchingJob.cif_amount || matchingJob.cifValue))) || 0;
+          const otherCharges = req.body.other_charges_details || matchingJob.other_charges_details || {};
+          const addlCharge = otherCharges.addl_charge || {};
+          const addlRate = parseFloat(addlCharge.rate) || 0;
+          const addlAmount = parseFloat(addlCharge.amount) || 0;
+          const addlExrate = parseFloat(addlCharge.exchange_rate) || 1;
+          const addlAmountInr = (addlAmount * addlExrate) / getUnitForCurrency(addlCharge.currency);
+
+          const invoiceDetails = req.body.invoice_details || matchingJob.invoice_details || [];
+          let baseCifInr = 0;
+          if (invoiceDetails && invoiceDetails.length > 0) {
+            baseCifInr = invoiceDetails.reduce((sum, row) => {
+              const pv = parseFloat(row.product_value) || 0;
+              const pvEx = parseFloat(row.exchange_rate) || parseFloat(req.body.exrate || matchingJob.exrate) || 1;
+              const fr = parseFloat(row.freight) || 0;
+              const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(req.body.exrate || matchingJob.exrate) || 1;
+              const ins = parseFloat(row.insurance) || 0;
+              const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+              const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+              const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
+              const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
+              const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+              const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
+              const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
+              
+              return sum + (pvInr + frInr + insInr + othInr);
+            }, 0);
+          } else {
+            baseCifInr = cifInr - addlAmountInr;
+          }
+          if (baseCifInr < 0) baseCifInr = 0;
+
+          const minAllowedAmountInr = baseCifInr * 0.02;
+
+          if (addlRate > 0 && addlRate < 2) {
+            throw new Error("High Sea Sale (HSS) is Yes. Additional Charge (High Sea) Rate % cannot be less than 2%._400");
+          }
+          if (addlAmountInr > 0 && baseCifInr > 0 && parseFloat(addlAmountInr.toFixed(2)) < parseFloat(minAllowedAmountInr.toFixed(2))) {
+            throw new Error(`High Sea Sale (HSS) is Yes. Additional Charge (High Sea) Amount (${addlAmountInr.toFixed(2)} INR) cannot be less than 2% of CIF (${minAllowedAmountInr.toFixed(2)} INR)._400`);
+          }
+          if (addlRate === 0 && addlAmount === 0) {
+            throw new Error("High Sea Sale (HSS) is Yes. Additional Charge (High Sea) is required and must be minimum 2% of CIF._400");
+          }
+        }
+
         // ✅ Validate license utilization limits & check for duplicates before saving
         const usdRate = await getUsdImportRate();
         await validateLicenseUtilization(
@@ -102,6 +158,12 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
           usdRate,
           req.body.be_no || matchingJob.be_no || "",
           matchingJob.job_no || matchingJob.job_number || "",
+          session
+        );
+        await validateRodtepUtilization(
+          req.body.description_details,
+          matchingJob._id,
+          req.body.exrate || matchingJob.exrate || 84,
           session
         );
 
@@ -205,6 +267,8 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
         delete sanitizedUpdate.job_no;
         delete sanitizedUpdate.year;
         delete sanitizedUpdate.financial_year;
+        delete sanitizedUpdate.cth_documents;
+        delete sanitizedUpdate.documents;
 
         // ✅ Support legacy address formats (strings) by converting them to objects before assignment
         if (typeof sanitizedUpdate.importer_address === 'string') {
@@ -215,6 +279,10 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
         }
 
         Object.assign(matchingJob, sanitizedUpdate);
+
+        if (sanitizedUpdate.other_charges_details) {
+          matchingJob.markModified('other_charges_details');
+        }
 
         if (checked) {
           matchingJob.container_nos = container_nos.map((container) => {
@@ -245,38 +313,44 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
           });
         }
 
-        if (cth_documents && cth_documents.length > 0) {
+        if (Array.isArray(cth_documents)) {
+          const incomingDocNames = cth_documents.map((doc) => doc.document_name);
+          const docsToRemove = matchingJob.cth_documents.filter(
+            (doc) => !incomingDocNames.includes(doc.document_name)
+          );
+          docsToRemove.forEach((doc) => {
+            matchingJob.cth_documents.pull({ _id: doc._id });
+          });
+
           cth_documents.forEach((incomingDoc) => {
             const existingDocIndex = matchingJob.cth_documents.findIndex(
               (doc) => doc.document_name === incomingDoc.document_name
             );
             if (existingDocIndex !== -1) {
-              // Update the existing document
-              matchingJob.cth_documents[existingDocIndex] = {
-                ...matchingJob.cth_documents[existingDocIndex],
-                ...incomingDoc,
-              };
+              matchingJob.cth_documents[existingDocIndex].set(incomingDoc);
             } else {
-              // Add new document if it doesn't exist
               matchingJob.cth_documents.push(incomingDoc);
             }
           });
         }
 
         // 3. Update documents
-        if (documents && documents.length > 0) {
+        if (Array.isArray(documents)) {
+          const incomingDocNames = documents.map((doc) => doc.document_name);
+          const docsToRemove = matchingJob.documents.filter(
+            (doc) => !incomingDocNames.includes(doc.document_name)
+          );
+          docsToRemove.forEach((doc) => {
+            matchingJob.documents.pull({ _id: doc._id });
+          });
+
           documents.forEach((incomingDoc) => {
             const existingDocIndex = matchingJob.documents.findIndex(
               (doc) => doc.document_name === incomingDoc.document_name
             );
             if (existingDocIndex !== -1) {
-              // Update the existing document
-              matchingJob.documents[existingDocIndex] = {
-                ...matchingJob.documents[existingDocIndex],
-                ...incomingDoc,
-              };
+              matchingJob.documents[existingDocIndex].set(incomingDoc);
             } else {
-              // Add new document if it doesn't exist
               matchingJob.documents.push(incomingDoc);
             }
           });
@@ -291,28 +365,33 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
       });
 
       res.status(200).json(updatedJob);
-    } catch (error) {
-      console.error(error);
-      if (error.message && error.message.includes("_404")) {
-        return res.status(404).json({ error: "Job not found" });
+      } catch (error) {
+        console.error(error);
+        if (error.message && error.message.includes("_404")) {
+          return res.status(404).json({ error: "Job not found" });
+        }
+        if (error.message && error.message.includes("_403")) {
+          return res.status(403).json({ error: error.message.replace("_403", "") });
+        }
+        if (error.message && error.message.includes("_400")) {
+          return res.status(400).json({ error: error.message.replace("_400", "") });
+        }
+        // Return 400 for validation failures
+        if (error.message && (
+          error.message.includes("does not exist") ||
+          error.message.includes("expired") ||
+          error.message.includes("mismatch") ||
+          error.message.includes("exceeded") ||
+          error.message.includes("exceeds") ||
+          error.message.includes("already utilized") ||
+          error.message.includes("already utilized this license item") ||
+          error.message.includes("High Sea Sale") ||
+          error.message.includes("HSS")
+        )) {
+          return res.status(400).json({ error: error.message });
+        }
+        res.status(500).json({ error: error.message || "Server error" });
       }
-      if (error.message && error.message.includes("_403")) {
-        return res.status(403).json({ error: error.message.replace("_403", "") });
-      }
-      // Return 400 for validation failures
-      if (error.message && (
-        error.message.includes("does not exist") ||
-        error.message.includes("expired") ||
-        error.message.includes("mismatch") ||
-        error.message.includes("exceeded") ||
-        error.message.includes("exceeds") ||
-        error.message.includes("already utilized") ||
-        error.message.includes("already utilized this license item")
-      )) {
-        return res.status(400).json({ error: error.message });
-      }
-      res.status(500).json({ error: error.message || "Server error" });
-    }
   });
 
 
@@ -414,6 +493,12 @@ router.put("/api/admin/update-job-static/:branch_code/:trade_type/:mode/:year/:j
           matchingJob.job_no || matchingJob.job_number || "",
           session
         );
+        await validateRodtepUtilization(
+          req.body.description_details,
+          matchingJob._id,
+          req.body.exrate || matchingJob.exrate || 84,
+          session
+        );
 
         // ✅ Support legacy address formats (strings) by converting them to objects before assignment
         if (typeof updateData.importer_address === 'string') {
@@ -441,6 +526,10 @@ router.put("/api/admin/update-job-static/:branch_code/:trade_type/:mode/:year/:j
         }
 
         Object.assign(matchingJob, updateData);
+
+        if (updateData.other_charges_details) {
+          matchingJob.markModified('other_charges_details');
+        }
 
         // ✅ Enhanced Status Reset Logic
         const currentBillNo = (matchingJob.bill_no || "").trim();

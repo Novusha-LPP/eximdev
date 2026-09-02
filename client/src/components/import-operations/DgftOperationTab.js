@@ -11,6 +11,7 @@ const TABLE_COLUMNS = [
   { key: "date",         label: "DATE",                width: 100 },
   { key: "party_name",   label: "FIRM NAME",           width: 250 },
   { key: "iec_no",       label: "IEC NAME",            width: 130 },
+  { key: "licence_no",   label: "LICENSE NO.",         width: 150 },
   { key: "bg_number",    label: "BG NUMBER",           width: 130 },
   { key: "bg_expiry_date", label: "BG EXPIRY DATE",    width: 150 },
   { key: "bg_amount",    label: "BG AMOUNT",           width: 130 },
@@ -408,7 +409,7 @@ function DgftOperationTab() {
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(
-                                `/dgft/authorization-details/${row._id}`
+                                `/dgft/authorization-details/${row._id}?readOnly=true`
                               );
                             }}
                           >
@@ -420,6 +421,7 @@ function DgftOperationTab() {
                       if (
                         col.key === "date" ||
                         col.key === "iec_no" ||
+                        col.key === "licence_no" ||
                         col.key === "documents_send_to_icd"
                       ) {
                         return <td key={col.key}>{val}</td>;

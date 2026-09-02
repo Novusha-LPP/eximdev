@@ -19,11 +19,12 @@ import AdminAnalyticsTab from './AdminAnalyticsTab';
 import AdminMonthlySummaryTab from './AdminMonthlySummaryTab';
 import ApplyLeaveModal from './ApplyLeaveModal';
 import AttendanceAnalyticsModal from './AttendanceAnalyticsModal';
+import { downloadRabsPolicyBook } from '../../utils/rabsPolicyManual';
 import './Dashboard.css';
 
 /* -- Constants -- */
 const AUTHORIZED_DASHBOARD_ADMINS = new Set([
-  'shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope'
+  'shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza'
 ]);
 
 /* -- Helpers -- */
@@ -150,7 +151,7 @@ export default function Dashboard() {
   const normalizeRole = (r) => String(r || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
   const nRole = normalizeRole(user?.role);
   const isAdmin = nRole === 'ADMIN';
-  const isHOD = nRole === 'HOD' || nRole === 'HEADOFDEPARTMENT' || !!user?.isHOD || !!user?.hodId;
+  const isHOD = nRole === 'HOD' || nRole === 'HEADOFDEPARTMENT' || !!user?.isHOD;
   const isManager = isAdmin || isHOD;
 
   const [loading, setLoading] = useState(true);
@@ -166,7 +167,7 @@ export default function Dashboard() {
   const [month, setMonth] = useState(new Date());
   const [showApplyLeaveModal, setShowApplyLeaveModal] = useState(false);
   const [leaveModalDate, setLeaveModalDate] = useState('');
-  
+
   // Analytics Modal
   const [analyticsModal, setAnalyticsModal] = useState({
     isOpen: false,
@@ -174,6 +175,7 @@ export default function Dashboard() {
     initialDate: new Date().toISOString().split('T')[0]
   });
   const [liveTimer, setLiveTimer] = useState('0h 00m 00s');
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
 
   // Adhoc Admin Tabs
   const [activeTab, setActiveTab] = useState('calendar');
@@ -186,7 +188,9 @@ export default function Dashboard() {
   const [companies, setCompanies] = useState([]);
 
   const username = String(user?.username || '').toLowerCase();
-  const isAuthorizedAdmin = AUTHORIZED_DASHBOARD_ADMINS.has(username);
+  const isAuthorizedAdmin = AUTHORIZED_DASHBOARD_ADMINS.has(username) || user?.isAttendanceAllowedAdmin === true;
+  const isHR = nRole === 'HR';
+  const canManagePolicy = isAuthorizedAdmin || isAdmin || isHR;
   const [weekOff, setWeekOff] = useState(0);
 
   /* -- Fetch -- */
@@ -211,12 +215,14 @@ export default function Dashboard() {
       if (dashRes) setDash(dashRes);
       setBalances(balRes?.data || []);
 
-      // Build set of dates with correction requests (non-cancelled/rejected)
+      // Build set of dates with pending/unresolved correction requests
       const corrList = Array.isArray(corrRes?.data) ? corrRes.data : Array.isArray(corrRes?.requests) ? corrRes.requests : [];
       const corrDates = new Set();
       corrList.forEach(r => {
         const s = String(r.status || '').toLowerCase();
-        if (s !== 'cancelled') {
+        const source = String(r.resolution_source || '').toLowerCase();
+        const isResolved = r.is_resolved || s === 'approved' || s === 'resolved' || s === 'rejected' || s === 'cancelled' || source === 'admin_manual_correction' || source === 'hod_manual_correction';
+        if (!isResolved) {
           const d = String(r.date || r.attendance_date || '').slice(0, 10);
           if (d) corrDates.add(d);
         }
@@ -245,11 +251,16 @@ export default function Dashboard() {
       masterAPI.getCompanies().then(res => {
         if (res?.success) {
           const list = res.data || [];
-          setCompanies(list);
+          const isRabsAdmin = String(user?.company || '').toLowerCase().includes('rabs') || String(user?.department || '').toLowerCase().includes('rabs');
+          const filteredList = list.filter(c => {
+            const name = String(c.company_name || '').toLowerCase();
+            return isRabsAdmin ? name.includes('rabs') : !name.includes('rabs');
+          });
+          setCompanies(filteredList);
         }
       }).catch(err => console.error('Failed to load companies', err));
     }
-  }, [isAuthorizedAdmin]);
+  }, [isAuthorizedAdmin, user]);
 
 
 
@@ -261,16 +272,16 @@ export default function Dashboard() {
       setAdminLoading(true);
       const res = isAuthorizedAdmin
         ? await attendanceAPI.getAdminAttendanceReport(
-            date,
-            endDate || date,
-            'all',
-            companyId || undefined
-          )
+          date,
+          endDate || date,
+          'all',
+          companyId || undefined
+        )
         : await attendanceAPI.getTeamAttendanceReport(
-            date,
-            endDate || date,
-            'all'
-          );
+          date,
+          endDate || date,
+          'all'
+        );
 
       if (res?.success) {
         const rows = Array.isArray(res.data) ? res.data : [];
@@ -289,8 +300,9 @@ export default function Dashboard() {
             team: row.team_name || row.team || 'Unassigned',
             status,
             inTime: row.latestRecord?.first_in || todayRecord.check_in || null,
-            outTime: row.latestRecord?.last_out || todayRecord.check_out || null,
+            outTime: row.latestRecord?.check_out || todayRecord.check_out || null,
             lateMinutes: Number(row.latestRecord?.late_by_minutes ?? todayRecord.late_by_minutes ?? 0),
+            shiftName: todayRecord.shift_id?.shift_name || row.shift_id?.shift_name || row.shift_name || null,
             leave: todayRecord.leaveType || todayRecord.leave_type ? {
               type: todayRecord.leaveType || todayRecord.leave_type,
               status: leaveStatus,
@@ -299,29 +311,124 @@ export default function Dashboard() {
           };
         });
 
+        const isRabsAdmin = String(user?.company || '').toLowerCase().includes('rabs') || String(user?.department || '').toLowerCase().includes('rabs');
+        const filteredRows = normalizedRows.filter(row => {
+          const comp = String(row.organization || '').toLowerCase();
+          const dept = String(row.department || '').toLowerCase();
+          const hasRabs = comp.includes('rabs') || dept.includes('rabs');
+          return isRabsAdmin ? hasRabs : !hasRabs;
+        });
+
         const stats = {
-          total: normalizedRows.length,
-          present: normalizedRows.filter(e => ['present', 'late', 'half_day'].includes(e.status)).length,
-          absent: normalizedRows.filter(e => e.status === 'absent').length,
-          onLeave: normalizedRows.filter(e => ['leave', 'pending_leave'].includes(e.status)).length,
-          halfDay: normalizedRows.filter(e => e.status === 'half_day').length,
-          late: normalizedRows.filter(e => e.status === 'late').length
+          total: filteredRows.length,
+          present: filteredRows.filter(e => ['present', 'late', 'half_day'].includes(e.status)).length,
+          absent: filteredRows.filter(e => e.status === 'absent').length,
+          onLeave: filteredRows.filter(e => ['leave', 'pending_leave'].includes(e.status)).length,
+          halfDay: filteredRows.filter(e => e.status === 'half_day').length,
+          late: filteredRows.filter(e => e.status === 'late').length
         };
 
         setAdminData({
           success: true,
           stats,
-          dailySummary: normalizedRows,
-          summaryRows: normalizedRows,
-          employees: normalizedRows
+          dailySummary: filteredRows,
+          summaryRows: filteredRows,
+          employees: filteredRows
         });
       }
-    } catch { 
-      toast.error('Failed to load daily analytics'); 
-    } finally { 
-      setAdminLoading(false); 
+    } catch {
+      toast.error('Failed to load daily analytics');
+    } finally {
+      setAdminLoading(false);
     }
-  }, [isAuthorizedAdmin, isHOD]);
+  }, [isAuthorizedAdmin, isHOD, user]);
+
+  const handlePolicyDownloadClick = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const url = dash?.companySettings?.policy_handbook_url;
+    const filename = dash?.companySettings?.policy_handbook_name || 'Policy_Manual.pdf';
+    if (!url) return;
+
+    try {
+      toast.loading('Downloading policy document...', { id: 'policy-download' });
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+
+      // Clean up
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success('Download complete!', { id: 'policy-download' });
+    } catch (err) {
+      console.error('Download error:', err);
+      toast.error('Failed to download policy manual. Opening in new tab...', { id: 'policy-download' });
+      // Fallback: open in new tab if blob fetch fails
+      window.open(url, '_blank');
+    }
+  };
+
+  const handlePolicyUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      toast.error('Only PDF files are allowed');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('files', file);
+    formData.append('bucketPath', 'policies');
+
+    try {
+      setLoading(true);
+      const res = await masterAPI.uploadPolicyFile(formData);
+      if (res && res.urls && res.urls[0]) {
+        const currentSettings = await masterAPI.getCompanySettings();
+        const updated = {
+          ...currentSettings,
+          policy_handbook_url: res.urls[0],
+          policy_handbook_name: file.name
+        };
+        await masterAPI.updateCompanySettings(updated);
+
+        load(month.getMonth() + 1, month.getFullYear());
+        toast.success('Policy handbook uploaded and saved!');
+      } else {
+        toast.error('Failed to upload file');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Upload failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemovePolicy = async () => {
+    try {
+      setLoading(true);
+      const currentSettings = await masterAPI.getCompanySettings();
+      const updated = {
+        ...currentSettings,
+        policy_handbook_url: null,
+        policy_handbook_name: null
+      };
+      await masterAPI.updateCompanySettings(updated);
+
+      load(month.getMonth() + 1, month.getFullYear());
+      toast.success('Policy handbook removed!');
+    } catch (err) {
+      toast.error(err.message || 'Remove failed');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'daily' && (isAuthorizedAdmin || isHOD)) {
@@ -361,7 +468,7 @@ export default function Dashboard() {
       setPunching(true);
       let location = null;
       try {
-        const pos = await new Promise((res, rej) => 
+        const pos = await new Promise((res, rej) =>
           navigator.geolocation.getCurrentPosition(res, rej, {
             enableHighAccuracy: true,
             timeout: 10000,
@@ -450,8 +557,8 @@ export default function Dashboard() {
   const ps = dash?.punchStatus;
   const ms = dash?.monthStats;
   const isIn = ps?.action === 'OUT';
-  const displayName = user?.first_name 
-    ? `${user.first_name} ${user.last_name || ''}`.trim() 
+  const displayName = user?.first_name
+    ? `${user.first_name} ${user.last_name || ''}`.trim()
     : (user?.name || 'there');
   const monthName = month.toLocaleString('default', { month: 'long', year: 'numeric' });
 
@@ -468,8 +575,8 @@ export default function Dashboard() {
   const teamCalendar = mgmtData?.teamCalendar || mgmtData?.teamAvailability || [];
   const absentList = mgmtData?.absentToday || mgmtData?.absent || [];
   const lateList = mgmtData?.lateToday || mgmtData?.late || [];
-  const onLeaveList = mgmtData?.onLeaveToday || []; 
-  
+  const onLeaveList = mgmtData?.onLeaveToday || [];
+
   const allPending = [
     ...pendingLeaves.map(r => ({ ...r, _kind: 'leave' })),
     ...pendingRegs.map(r => ({ ...r, _kind: 'reg' })),
@@ -512,7 +619,7 @@ export default function Dashboard() {
   /* -- Quick actions -- */
   const hodActions = [
     { icon: <FiCheckSquare size={14} />, lbl: 'Leave Approvals', sub: `${pendingLeaves.length} pending`, path: '/attendance/hod/leave-approval', count: pendingLeaves.length },
-    { icon: <FiFileText size={14} />, lbl: 'Regularizations', sub: `${pendingRegs.length} pending`, path: '/attendance/hod/regularization-approval', count: pendingRegs.length },
+    { icon: <FiFileText size={14} />, lbl: 'Regularizations', sub: `${pendingRegs.length} pending`, path: '/attendance/admin/employee/all', count: pendingRegs.length },
     { icon: <FiActivity size={14} />, lbl: 'Team Report', sub: 'Attendance & analytics', path: '/attendance/hod/report', count: 0 },
     { icon: <FiCalendar size={14} />, lbl: 'Apply My Leave', sub: 'Submit a leave request', path: '/attendance/leave', count: 0 },
   ];
@@ -549,8 +656,8 @@ export default function Dashboard() {
 
         <div className="db-tiles">
           {(activeTab === 'calendar' ? personalTiles : managerTiles).map((t, i) => (
-            <div 
-              key={i} 
+            <div
+              key={i}
               className={`tile ${t.cls} ${activeTab !== 'calendar' && showManagerTiles && (isAuthorizedAdmin || isHOD) && ['present', 'absent', 'leave', 'late'].includes(t.type) ? 'clickable' : ''}`}
               onClick={() => activeTab !== 'calendar' && showManagerTiles && (isAuthorizedAdmin || isHOD) && ['present', 'absent', 'leave', 'late'].includes(t.type) && openAnalytics(t.type)}
             >
@@ -563,19 +670,19 @@ export default function Dashboard() {
 
         {(isAuthorizedAdmin || isHOD) && (
           <div className="db-main-tabs">
-            <button 
+            <button
               className={`db-main-tab ${activeTab === 'calendar' ? 'active' : ''}`}
               onClick={() => setActiveTab('calendar')}
             >
               <FiCalendar /> My Dashboard
             </button>
-            <button 
+            <button
               className={`db-main-tab ${activeTab === 'daily' ? 'active' : ''}`}
               onClick={() => setActiveTab('daily')}
             >
               <FiActivity /> Daily Summary
             </button>
-            <button 
+            <button
               className={`db-main-tab ${activeTab === 'monthly' ? 'active' : ''}`}
               onClick={() => setActiveTab('monthly')}
             >
@@ -586,382 +693,451 @@ export default function Dashboard() {
       </div>
 
       {/* -- BODY -- */}
-<div className={`db-body ${activeTab !== 'calendar' ? 'full-width' : ''}`}>
+      <div className={`db-body ${activeTab !== 'calendar' ? 'full-width' : ''}`}>
 
         {/* -- LEFT / MAIN -- */}
         {activeTab === 'calendar' ? (
           <>
             <div className="db-main">
 
-          <div className={`db-upper-row ${(isAuthorizedAdmin || isHOD) ? 'has-pending' : ''}`}>
-            {/* Personal punch card */}
-            <div className="ph-card" style={{ height: '100%' }}>
-              <div className="ph-top">
-                <div>
-                  <div className={`ph-status ${isIn ? 'on' : 'off'}`}>
-                    <span className="ph-dot" />
-                    <span className="ph-status-text">{isIn ? 'Clocked in' : 'Not clocked in'}</span>
+              <div className={`db-upper-row ${(isAuthorizedAdmin || isHOD) ? 'has-pending' : ''}`}>
+                {/* Personal punch card */}
+                <div className="ph-card" style={{ height: '100%' }}>
+                  <div className="ph-top">
+                    <div>
+                      <div className={`ph-status ${isIn ? 'on' : 'off'}`}>
+                        <span className="ph-dot" />
+                        <span className="ph-status-text">{isIn ? 'Clocked in' : 'Not clocked in'}</span>
+                      </div>
+                      <div className="ph-greeting">{ps?.shiftName || 'General Shift'}</div>
+                      {ps?.shiftTime && <div className="ph-shift">{ps.shiftTime}</div>}
+                      <div className="ph-timer">{liveTimer}</div>
+                      <div className="ph-timer-lbl">Time logged today</div>
+                      <div className="ph-meta">
+                        <div className="ph-meta-item">
+                          <span className="ph-meta-key">Punched In</span>
+                          <span className="ph-meta-val">{ps?.firstIn ? fmtTime(ps.firstIn) : '-'}</span>
+                        </div>
+                        <div className="ph-meta-item">
+                          <span className="ph-meta-key">Punched Out</span>
+                          <span className={`ph-meta-val ${showMiss ? 'red' : ''}`}>
+                            {showMiss ? 'Miss' : ps?.lastOut ? fmtTime(ps.lastOut) : '-'}
+                          </span>
+                        </div>
+                        <div className="ph-meta-item">
+                          <span className="ph-meta-key">Status</span>
+                          <span className={`ph-meta-val ${isIn ? 'green' : ''}`}>{ps?.status || '-'}</span>
+                        </div>
+                        {ps?.isLate && (
+                          <div className="ph-meta-item">
+                            <span className="ph-meta-key">Late By</span>
+                            <span className="ph-meta-val amber">{minutesToHours(ps.lateByMinutes)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="ph-greeting">{ps?.shiftName || 'General Shift'}</div>
-                  {ps?.shiftTime && <div className="ph-shift">{ps.shiftTime}</div>}
-                  <div className="ph-timer">{liveTimer}</div>
-                  <div className="ph-timer-lbl">Time logged today</div>
-                  <div className="ph-meta">
-                    <div className="ph-meta-item">
-                      <span className="ph-meta-key">Punched In</span>
-                      <span className="ph-meta-val">{ps?.firstIn ? fmtTime(ps.firstIn) : '-'}</span>
+                </div>
+
+                {/* -- Pending Approvals -- */}
+                {(isAuthorizedAdmin || isHOD) && (
+                  <div className="card pending-approvals-card" style={{ margin: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <div className="card-head" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                        <span className="card-title">Pending Approvals</span>
+                        {allPending.length > 0
+                          ? <span className="card-badge badge-amber">{allPending.length}</span>
+                          : <span className="card-badge badge-green">All clear</span>
+                        }
+                      </div>
+                      <div className="db-tabs-mini" style={{ width: '100%' }}>
+                        <button
+                          className={`db-tab-mini ${pendingTab === 'leave' ? 'active' : ''}`}
+                          onClick={() => setPendingTab('leave')}
+                          style={{ flex: 1, justifyContent: 'center' }}
+                        >
+                          Leaves {allPending.filter(r => r._kind === 'leave').length > 0 && <span className="tab-count-amber">{allPending.filter(r => r._kind === 'leave').length}</span>}
+                        </button>
+                        <button
+                          className={`db-tab-mini ${pendingTab === 'reg' ? 'active' : ''}`}
+                          onClick={() => setPendingTab('reg')}
+                          style={{ flex: 1, justifyContent: 'center' }}
+                        >
+                          Corrections {allPending.filter(r => r._kind === 'reg').length > 0 && <span className="tab-count-amber">{allPending.filter(r => r._kind === 'reg').length}</span>}
+                        </button>
+                      </div>
                     </div>
-                    <div className="ph-meta-item">
-                      <span className="ph-meta-key">Punched Out</span>
-                      <span className={`ph-meta-val ${showMiss ? 'red' : ''}`}>
-                        {showMiss ? 'Miss' : ps?.lastOut ? fmtTime(ps.lastOut) : '-'}
-                      </span>
+                    <div style={{ overflowY: 'auto', flex: 1 }}>
+                      {allPending.filter(r => r._kind === pendingTab).length === 0 ? (
+                        <div className="empty-msg">Nothing pending right now! ✨</div>
+                      ) : allPending.filter(r => r._kind === pendingTab).slice(0, 4).map((req, i) => (
+                        <div
+                          key={i}
+                          className="approval-row"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            if (req._kind === 'reg') {
+                              if (req.employeeUsername) {
+                                navigate(`/attendance/teams/${req.company_id || 'all'}/user/${req.employeeUsername}/performance`);
+                              } else {
+                                navigate(isHOD ? "/attendance/hod/report" : "/attendance/admin/attendance", { state: { openUserId: req.employeeId || req.employee_id } });
+                              }
+                            } else {
+                              navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/leave-approval");
+                            }
+                          }}
+                        >
+                          <div className="approval-left">
+                            <div className="approval-av">{(req.employeeName || "?")[0]}</div>
+                            <div className="approval-body">
+                              <div className="approval-name">
+                                {req.employeeName}{req.teamName ? ` - ${req.teamName}` : ''}
+                              </div>
+                              <div className="approval-meta">
+                                {req._kind === 'leave' ? (
+                                  <>
+                                    {formatLeaveDates(req.fromDate || req.from_date, req.toDate || req.to_date)}
+                                    {req.totalDays ? ` • ${isHalfDayRequest(req) ? 'Half Day' : `${req.totalDays} Day${req.totalDays > 1 ? 's' : ''}`}` : ''}
+                                    {` • ${req.leaveType || 'Leave'}`}
+                                  </>
+                                ) : (
+                                  <>
+                                    {req.date ? new Date(req.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : 'Regularization'}
+                                    {` • Correction`}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {req.canAct && (
+                            <div className="approval-actions" onClick={e => e.stopPropagation()}>
+                              <button
+                                className="act approve"
+                                disabled={approving[req.id]}
+                                onClick={() => handleApprove(req.id, req._kind, "approved")}
+                              >
+                                <FiCheck size={10} /> Approve
+                              </button>
+                              <button
+                                className="act reject"
+                                disabled={approving[req.id]}
+                                onClick={() => handleApprove(req.id, req._kind, "rejected")}
+                              >
+                                <FiX size={10} /> Reject
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                    <div className="ph-meta-item">
-                      <span className="ph-meta-key">Status</span>
-                      <span className={`ph-meta-val ${isIn ? 'green' : ''}`}>{ps?.status || '-'}</span>
-                    </div>
-                    {ps?.isLate && (
-                      <div className="ph-meta-item">
-                        <span className="ph-meta-key">Late By</span>
-                        <span className="ph-meta-val amber">{minutesToHours(ps.lateByMinutes)}</span>
+                    {allPending.filter(r => r._kind === pendingTab).length > 4 && (
+                      <div style={{ padding: ".75rem 1.25rem", borderTop: "1px solid var(--border)" }}>
+                        <button className="card-link" onClick={() => {
+                          if (pendingTab === 'reg') {
+                            navigate(isHOD ? "/attendance/hod/report" : "/attendance/admin/attendance");
+                          } else {
+                            navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/leave-approval");
+                          }
+                        }}>
+                          +{allPending.filter(r => r._kind === pendingTab).length - 4} more <FiArrowRight size={12} />
+                        </button>
                       </div>
                     )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* -- Pending Approvals -- */}
-            {(isAuthorizedAdmin || isHOD) && (
-              <div className="card pending-approvals-card" style={{ margin: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <div className="card-head" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                    <span className="card-title">Pending Approvals</span>
-                    {allPending.length > 0
-                      ? <span className="card-badge badge-amber">{allPending.length}</span>
-                      : <span className="card-badge badge-green">All clear</span>
-                    }
-                  </div>
-                  <div className="db-tabs-mini" style={{ width: '100%' }}>
-                    <button 
-                      className={`db-tab-mini ${pendingTab === 'leave' ? 'active' : ''}`}
-                      onClick={() => setPendingTab('leave')}
-                      style={{ flex: 1, justifyContent: 'center' }}
-                    >
-                      Leaves {allPending.filter(r => r._kind === 'leave').length > 0 && <span className="tab-count-amber">{allPending.filter(r => r._kind === 'leave').length}</span>}
-                    </button>
-                    <button 
-                      className={`db-tab-mini ${pendingTab === 'reg' ? 'active' : ''}`}
-                      onClick={() => setPendingTab('reg')}
-                      style={{ flex: 1, justifyContent: 'center' }}
-                    >
-                      Corrections {allPending.filter(r => r._kind === 'reg').length > 0 && <span className="tab-count-amber">{allPending.filter(r => r._kind === 'reg').length}</span>}
-                    </button>
-                  </div>
-                </div>
-                <div style={{ overflowY: 'auto', flex: 1 }}>
-                  {allPending.filter(r => r._kind === pendingTab).length === 0 ? (
-                    <div className="empty-msg">Nothing pending right now! ✨</div>
-                  ) : allPending.filter(r => r._kind === pendingTab).slice(0, 4).map((req, i) => (
-                    <div 
-                      key={i} 
-                      className="approval-row" 
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => {
-                        if (req._kind === 'reg') {
-                          if (req.employeeUsername) {
-                            navigate(`/attendance/teams/${req.company_id || 'all'}/user/${req.employeeUsername}/performance`);
-                          } else {
-                            navigate(isHOD ? "/attendance/hod/report" : "/attendance/admin/attendance", { state: { openUserId: req.employeeId || req.employee_id } });
-                          }
-                        } else {
-                          navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/leave-approval");
-                        }
-                      }}
-                    >
-                      <div className="approval-left">
-                        <div className="approval-av">{(req.employeeName || "?")[0]}</div>
-                        <div className="approval-body">
-                          <div className="approval-name">
-                            {req.employeeName}{req.teamName ? ` - ${req.teamName}` : ''}
-                          </div>
-                          <div className="approval-meta">
-                            {req._kind === 'leave' ? (
-                              <>
-                                {formatLeaveDates(req.fromDate || req.from_date, req.toDate || req.to_date)}
-                                {req.totalDays ? ` • ${isHalfDayRequest(req) ? 'Half Day' : `${req.totalDays} Day${req.totalDays > 1 ? 's' : ''}`}` : ''}
-                                {` • ${req.leaveType || 'Leave'}`}
-                              </>
-                            ) : (
-                              <>
-                                {req.date ? new Date(req.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : 'Regularization'}
-                                {` • Correction`}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      {req._kind !== 'reg' && (
-                        <div className="approval-actions" onClick={e => e.stopPropagation()}>
-                          <button
-                            className="act approve"
-                            disabled={approving[req.id]}
-                            onClick={() => handleApprove(req.id, req._kind, "approved")}
-                          >
-                            <FiCheck size={10} /> Approve
-                          </button>
-                          <button
-                            className="act reject"
-                            disabled={approving[req.id]}
-                            onClick={() => handleApprove(req.id, req._kind, "rejected")}
-                          >
-                            <FiX size={10} /> Reject
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {allPending.filter(r => r._kind === pendingTab).length > 4 && (
-                  <div style={{ padding: ".75rem 1.25rem", borderTop: "1px solid var(--border)" }}>
-                    <button className="card-link" onClick={() => {
-                        if (pendingTab === 'reg') {
-                            navigate(isHOD ? "/attendance/hod/report" : "/attendance/admin/attendance");
-                        } else {
-                            navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/leave-approval");
-                        }
-                    }}>
-                      +{allPending.filter(r => r._kind === pendingTab).length - 4} more <FiArrowRight size={12} />
-                    </button>
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
 
-          {/* -- Attendance calendar – ALL ROLES -- */}
-          <div className="card cal-card">
-            <div className="card-head">
-              <span className="card-title">Attendance Calendar</span>
-              <button className="card-link" onClick={() => navigate('/attendance/my-attendance')}>
-                Full report <FiArrowRight size={12} />
-              </button>
-            </div>
-            <div className="cal-nav">
-              <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>‹</button>
-              <span>{monthName}</span>
-              <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
-            </div>
-            <div className="cal-grid">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                <div key={d} className="cal-day-header">{d}</div>
-              ))}
-              {getCalDays().map((day, i) => {
-                const rec = getCalRecord(day);
-                const isTd = day && month.getMonth() === new Date().getMonth() && month.getFullYear() === new Date().getFullYear() && day === new Date().getDate();
-                let cls = calClass(rec, isTd, dash?.punchStatus);
-
-                if (day && !rec) {
-                  const dObj = new Date(month.getFullYear(), month.getMonth(), day);
-                  const dow = dObj.getDay();
-                  const offDays = dash?.punchStatus?.weeklyOffDays || [0, 6];
-                  if (offDays.includes(dow)) {
-                      cls = 'weekly_off';
-                  } else if (dObj <= new Date()) {
-                      cls = 'absent';
-                  }
-                }
-
-                let statusLabel = CAL_LABELS[cls] || '';
-                let leaveLabel = '';
-                let isLeavePending = false;
-
-                if (cls === 'half_day') {
-                  const session = rec?.half_day_session || '';
-                  statusLabel = session.toLowerCase().includes('first') ? '1st Half' : (session.toLowerCase().includes('second') ? '2nd Half' : '½ Day');
-                }
-
-                if (rec?.leaveType) {
-                  const badge = formatLeaveBadge(rec.leaveType);
-                  const isApproved = rec.leaveStatus === 'approved';
-                  const isPending = rec.leaveStatus && rec.leaveStatus !== 'approved' && !['rejected', 'cancelled', 'withdrawn'].includes(rec.leaveStatus);
-                  isLeavePending = isPending;
-                  const statusTxt = isApproved ? 'Approved' : (isPending ? 'Pending' : 'Applied');
-                  
-                  if (cls === 'half_day') {
-                    statusLabel = `${statusLabel} (${badge})`;
-                    leaveLabel = statusTxt;
-                  } else {
-                    leaveLabel = `${badge} ${statusTxt}`;
-                  }
-                }
-
-                // Check if this day has a correction request
-                const dayKey = day ? `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : null;
-                const hasCorrectionDot = dayKey && correctionDatesSet.has(dayKey);
-
-                return (
-                  <div
-                    key={i}
-                    className={`cal-day-v2 ${cls} ${isTd ? 'today' : ''} ${!day ? 'empty' : ''}`}
-                    onClick={() => openApplyLeaveModal(day)}
-                  >
-                    <span className="cal-day-num">{day}</span>
-                    {day && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', alignItems: 'center' }}>
-                        {statusLabel && <div className={`cal-status-badge ${cls}`}>{statusLabel}</div>}
-                        {leaveLabel && <div className={`cal-status-badge ${isLeavePending ? 'pending_leave' : 'leave'}`}>{leaveLabel}</div>}
-                      </div>
-                    )}
-                    {hasCorrectionDot && (
-                      <div className="cal-correction-dot" title="Correction request submitted" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="cal-legend">
-              {[
-                ['Present', '#36b60f'],
-                ['Absent', '#c02e2e'],
-                ['Half-Day', '#ff9101'],
-                ['Leave', '#1e40af'],
-                ['Weekly Off', '#475569'],
-                ['Holiday', '#86198f'],
-                ['Missed Punch', '#f97316']
-              ].map(([l, c]) => (
-                <span key={l}><span className="cal-ldot" style={{ background: c }} />{l}</span>
-              ))}
-              <span><span className="cal-correction-legend-dot" />Correction</span>
-            </div>
-          </div>
-        </div>
-
-        {/* -- RIGHT SIDEBAR -- */}
-        <div className="db-side">
-
-          {/* Quick actions – for allowed admins and HODs */}
-          {(isAuthorizedAdmin || isHOD) && (
-            <div className="card">
-              <div className="card-head">
-                <span className="card-title">Quick Actions</span>
-              </div>
-            {(isAdmin ? adminActions : hodActions).map((item, i) => (
-              <button key={i} className="qa-item" onClick={() => navigate(item.path)}>
-                <div className="qa-icon">{item.icon}</div>
-                <div className="qa-text">
-                  <div className="qa-lbl">{item.lbl}</div>
-                  {item.sub && <div className="qa-sub">{item.sub}</div>}
+              {/* -- Attendance calendar – ALL ROLES -- */}
+              <div className="card cal-card">
+                <div className="card-head">
+                  <span className="card-title">Attendance Calendar</span>
+                  <button className="card-link" onClick={() => navigate('/attendance/my-attendance')}>
+                    Full report <FiArrowRight size={12} />
+                  </button>
                 </div>
-                {item.count > 0 && <span className="qa-count">{item.count}</span>}
-                <FiChevronRight className="qa-arrow" size={13} />
-              </button>
-            ))}
-          </div>
-          )}
+                <div className="cal-nav">
+                  <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>‹</button>
+                  <span>{monthName}</span>
+                  <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
+                </div>
+                <div className="cal-grid">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                    <div key={d} className="cal-day-header">{d}</div>
+                  ))}
+                  {getCalDays().map((day, i) => {
+                    const rec = getCalRecord(day);
+                    const isTd = day && month.getMonth() === new Date().getMonth() && month.getFullYear() === new Date().getFullYear() && day === new Date().getDate();
+                    let cls = calClass(rec, isTd, dash?.punchStatus);
 
-          {/* Leave balance – all roles */}
-          <div className="card">
-            <div className="card-head">
-              <span className="card-title">Leave Balance</span>
-              <button className="card-link" onClick={() => navigate("/attendance/leave")}>
-                Apply leave <FiArrowRight size={12} />
-              </button>
-            </div>
-            {balances.length === 0
-              ? <div className="empty-msg">No leave data</div>
-              : balances.slice(0, 5).map((b, i) => {
-                const available = b.available || b.balance || 0;
-                const used = b.used ?? 0;
-                const total = b.total || b.annual_quota || 1;
-                const pct = Math.min(100, (used / total) * 100);
-                const icon = getLeaveIcon(b.name || b.leave_type || "");
-                const countCls = available === 0 ? "zero" : available <= 2 ? "low" : "";
-                return (
-                  <div key={i} className="leave-row">
-                    <span className="leave-emoji">{icon.emoji}</span>
-                    <div className="leave-info">
-                      <div className="leave-name">{b.name || b.leave_type}</div>
-                      <div className="leave-sub">{used} used{b.pending > 0 ? ` • ${b.pending} pending` : ""}</div>
-                      <div className="leave-bar">
-                        <div className="leave-fill" style={{ width: `${pct}%`, background: icon.color }} />
+                    if (day && !rec) {
+                      const dObj = new Date(month.getFullYear(), month.getMonth(), day);
+                      const dow = dObj.getDay();
+                      const offDays = dash?.punchStatus?.weeklyOffDays || [0, 6];
+                      if (offDays.includes(dow)) {
+                        cls = 'weekly_off';
+                      } else if (dObj <= new Date()) {
+                        cls = 'absent';
+                      }
+                    }
+
+                    let statusLabel = CAL_LABELS[cls] || '';
+                    let leaveLabel = '';
+                    let isLeavePending = false;
+
+                    if (cls === 'half_day') {
+                      const session = rec?.half_day_session || '';
+                      statusLabel = session.toLowerCase().includes('first') ? '1st Half' : (session.toLowerCase().includes('second') ? '2nd Half' : '½ Day');
+                    }
+
+                    if (rec?.leaveType) {
+                      const badge = formatLeaveBadge(rec.leaveType);
+                      const isApproved = rec.leaveStatus === 'approved';
+                      const isPending = rec.leaveStatus && rec.leaveStatus !== 'approved' && !['rejected', 'cancelled', 'withdrawn'].includes(rec.leaveStatus);
+                      isLeavePending = isPending;
+                      const statusTxt = isApproved ? 'Approved' : (isPending ? 'Pending' : 'Applied');
+
+                      if (cls === 'half_day') {
+                        statusLabel = `${statusLabel} (${badge})`;
+                        leaveLabel = statusTxt;
+                      } else {
+                        leaveLabel = `${badge} ${statusTxt}`;
+                      }
+                    }
+
+                    // Check if this day has a correction request
+                    const dayKey = day ? `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : null;
+                    const hasCorrectionDot = dayKey && correctionDatesSet.has(dayKey);
+
+                    return (
+                      <div
+                        key={i}
+                        className={`cal-day-v2 ${cls} ${isTd ? 'today' : ''} ${!day ? 'empty' : ''}`}
+                        onClick={() => openApplyLeaveModal(day)}
+                      >
+                        <span className="cal-day-num">{day}</span>
+                        {day && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', alignItems: 'center' }}>
+                            {statusLabel && <div className={`cal-status-badge ${cls}`}>{statusLabel}</div>}
+                            {leaveLabel && <div className={`cal-status-badge ${isLeavePending ? 'pending_leave' : 'leave'}`}>{leaveLabel}</div>}
+                          </div>
+                        )}
+                        {hasCorrectionDot && (
+                          <div className="cal-correction-dot" title="Correction request submitted" />
+                        )}
                       </div>
-                    </div>
-                    <div className={`leave-count ${countCls}`}>
-                      {available}
-                    </div>
-                  </div>
-                );
-              })
-            }
-          </div>
+                    );
+                  })}
+                </div>
+                <div className="cal-legend">
+                  {[
+                    ['Present', '#36b60f'],
+                    ['Absent', '#c02e2e'],
+                    ['Half-Day', '#ff9101'],
+                    ['Leave', '#1e40af'],
+                    ['Weekly Off', '#475569'],
+                    ['Holiday', '#86198f'],
+                    ['Missed Punch', '#f97316']
+                  ].map(([l, c]) => (
+                    <span key={l}><span className="cal-ldot" style={{ background: c }} />{l}</span>
+                  ))}
+                  <span><span className="cal-correction-legend-dot" />Correction</span>
+                </div>
+              </div>
+            </div>
 
-          {/* Upcoming holidays */}
-          {!isAuthorizedAdmin && (
-            <div className="card">
-              <div className="card-head" style={{ cursor: 'pointer' }} onClick={() => navigate('/attendance/holiday-calendar')}>
-                <span className="card-title">Upcoming Holidays</span>
-                {isAdmin
-                  ? <button className="card-link" onClick={(e) => { e.stopPropagation(); navigate("/attendance/admin/holidays"); }}>
-                      Manage <FiArrowRight size={12} />
+            {/* -- RIGHT SIDEBAR -- */}
+            <div className="db-side">
+
+              {/* Quick actions – for allowed admins and HODs */}
+              {(isAuthorizedAdmin || isHOD) && (
+                <div className="card">
+                  <div className="card-head">
+                    <span className="card-title">Quick Actions</span>
+                  </div>
+                  {(isAdmin ? adminActions : hodActions).map((item, i) => (
+                    <button key={i} className="qa-item" onClick={() => navigate(item.path)}>
+                      <div className="qa-icon">{item.icon}</div>
+                      <div className="qa-text">
+                        <div className="qa-lbl">{item.lbl}</div>
+                        {item.sub && <div className="qa-sub">{item.sub}</div>}
+                      </div>
+                      {item.count > 0 && <span className="qa-count">{item.count}</span>}
+                      <FiChevronRight className="qa-arrow" size={13} />
                     </button>
-                  : <button className="card-link" onClick={(e) => { e.stopPropagation(); navigate('/attendance/holiday-calendar'); }}>
-                      View all <FiArrowRight size={12} />
-                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Leave balance – all roles */}
+              <div className="card">
+                <div className="card-head">
+                  <span className="card-title">Leave Balance</span>
+                  <button className="card-link" onClick={() => navigate("/attendance/leave")}>
+                    Apply leave <FiArrowRight size={12} />
+                  </button>
+                </div>
+                {balances.length === 0
+                  ? <div className="empty-msg">No leave data</div>
+                  : balances.slice(0, 5).map((b, i) => {
+                    const available = b.available || b.balance || 0;
+                    const used = b.used ?? 0;
+                    const total = b.total || b.annual_quota || 1;
+                    const pct = Math.min(100, (used / total) * 100);
+                    const icon = getLeaveIcon(b.name || b.leave_type || "");
+                    const countCls = available === 0 ? "zero" : available <= 2 ? "low" : "";
+                    return (
+                      <div key={i} className="leave-row">
+                        <span className="leave-emoji">{icon.emoji}</span>
+                        <div className="leave-info">
+                          <div className="leave-name">{b.name || b.leave_type}</div>
+                          <div className="leave-sub">{used} used{b.pending > 0 ? ` • ${b.pending} pending` : ""}</div>
+                          <div className="leave-bar">
+                            <div className="leave-fill" style={{ width: `${pct}%`, background: icon.color }} />
+                          </div>
+                        </div>
+                        <div className={`leave-count ${countCls}`}>
+                          {available}
+                        </div>
+                      </div>
+                    );
+                  })
                 }
               </div>
-            {(isAdmin ? holidays : upcomingHolidays).length === 0 ? (
-              <div className="empty-msg" style={{ cursor: 'pointer' }} onClick={() => navigate('/attendance/holiday-calendar')}>No upcoming holidays</div>
-            ) : (isAdmin ? holidays : upcomingHolidays).map((h, i) => {
-              const d = new Date(h.holiday_date || h.date);
-              const name = h.holiday_name || h.name || "";
-              const type = h.holiday_type || h.type || "national";
-              return (
-                <div key={i} className="upcoming-row" style={{ cursor: 'pointer' }} onClick={() => navigate('/attendance/holiday-calendar')}>
-                  <div className="upcoming-badge">
-                    <span className="upcoming-month">{d.toLocaleString("default", { month: "short" })}</span>
-                    <span className="upcoming-day">{d.getDate()}</span>
+
+              {/* Upcoming holidays */}
+              {!isAuthorizedAdmin && (
+                <div className="card">
+                  <div className="card-head" style={{ cursor: 'pointer' }} onClick={() => navigate('/attendance/holiday-calendar')}>
+                    <span className="card-title">Upcoming Holidays</span>
+                    {isAdmin
+                      ? <button className="card-link" onClick={(e) => { e.stopPropagation(); navigate("/attendance/admin/holidays"); }}>
+                        Manage <FiArrowRight size={12} />
+                      </button>
+                      : <button className="card-link" onClick={(e) => { e.stopPropagation(); navigate('/attendance/holiday-calendar'); }}>
+                        View all <FiArrowRight size={12} />
+                      </button>
+                    }
                   </div>
-                  <div>
-                    <div className="upcoming-name">{getHolidayEmoji(name, type)} {name}</div>
-                    <div className="upcoming-sub">{d.toLocaleString("default", { weekday: "long" })}</div>
-                  </div>
+                  {(isAdmin ? holidays : upcomingHolidays).length === 0 ? (
+                    <div className="empty-msg" style={{ cursor: 'pointer' }} onClick={() => navigate('/attendance/holiday-calendar')}>No upcoming holidays</div>
+                  ) : (isAdmin ? holidays : upcomingHolidays).map((h, i) => {
+                    const d = new Date(h.holiday_date || h.date);
+                    const name = h.holiday_name || h.name || "";
+                    const type = h.holiday_type || h.type || "national";
+                    return (
+                      <div key={i} className="upcoming-row" style={{ cursor: 'pointer' }} onClick={() => navigate('/attendance/holiday-calendar')}>
+                        <div className="upcoming-badge">
+                          <span className="upcoming-month">{d.toLocaleString("default", { month: "short" })}</span>
+                          <span className="upcoming-day">{d.getDate()}</span>
+                        </div>
+                        <div>
+                          <div className="upcoming-name">{getHolidayEmoji(name, type)} {name}</div>
+                          <div className="upcoming-sub">{d.toLocaleString("default", { weekday: "long" })}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              )}
+
+              {/* Company Policy Manual - RABS Only (Compact Sidebar Row) */}
+              {(() => {
+                const companyName = dash?.companySettings?.company_name || user?.company_name || '';
+                const isRabs = String(companyName).match(/RABS/i);
+                const canSeePolicy = isAuthorizedAdmin || isAdmin || isHOD || isHR;
+                if (!isRabs || !canSeePolicy) return null;
+
+                const hasFile = !!dash?.companySettings?.policy_handbook_url;
+
+                return (
+                  <div className="card" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 1rem 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <FiBookOpen size={15} style={{ color: '#3b82f6' }} />
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>Policy Manual</span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '600' }}>
+                      {hasFile ? (
+                        <>
+                          <a
+                            href={dash.companySettings.policy_handbook_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ color: '#3b82f6', textDecoration: 'none' }}
+                          >
+                            View
+                          </a>
+                          <span style={{ color: '#cbd5e1' }}>|</span>
+                          <button
+                            onClick={handlePolicyDownloadClick}
+                            style={{ background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: 0, fontWeight: '600', fontSize: '12px' }}
+                          >
+                            Download
+                          </button>
+                          {canManagePolicy && (
+                            <>
+                              <span style={{ color: '#cbd5e1' }}>|</span>
+                              <button
+                                onClick={() => setShowPolicyModal(true)}
+                                style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: 0, fontWeight: '600' }}
+                              >
+                                Manage
+                              </button>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {canManagePolicy ? (
+                            <>
+                              <span style={{ color: '#94a3b8', fontStyle: 'italic', fontWeight: 'normal' }}>Please upload manual</span>
+                              <span style={{ color: '#cbd5e1' }}>|</span>
+                              <button
+                                onClick={() => setShowPolicyModal(true)}
+                                style={{ background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: 0, fontWeight: '600' }}
+                              >
+                                Upload
+                              </button>
+                            </>
+                          ) : (
+                            <span style={{ color: '#94a3b8', fontStyle: 'italic', fontWeight: 'normal' }}>Not uploaded yet</span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </>
+        ) : activeTab === "daily" ? (
+          <div className="db-full-page">
+            <AdminAnalyticsTab
+              data={adminData}
+              loading={adminLoading}
+              currentDate={adminDate}
+              endDate={adminEndDate}
+              onDateChange={setAdminDate}
+              onEndDateChange={setAdminEndDate}
+              companies={companies}
+              selectedCompanyId={adminCompanyId}
+              onCompanyChange={setAdminCompanyId}
+              isHOD={isHOD && !isAuthorizedAdmin}
+              isAdmin={isAdmin}
+            />
           </div>
-          )}
-        </div>
-      </>
-    ) : activeTab === "daily" ? (
-      <div className="db-full-page">
-        <AdminAnalyticsTab
-          data={adminData}
-          loading={adminLoading}
-          currentDate={adminDate}
-          endDate={adminEndDate}
-          onDateChange={setAdminDate}
-          onEndDateChange={setAdminEndDate}
-          companies={companies}
-          selectedCompanyId={adminCompanyId}
-          onCompanyChange={setAdminCompanyId}
-          isHOD={isHOD && !isAuthorizedAdmin}
-          isAdmin={isAdmin}
-        />
-      </div>
-    ) : activeTab === "monthly" ? (
-      <div className="db-full-page">
-        <AdminMonthlySummaryTab 
-            currentMonth={adminMonth}
-            onMonthChange={setAdminMonth}
-            companies={companies}
-            selectedCompanyId={adminCompanyId}
-            onCompanyChange={setAdminCompanyId}
-        />
-      </div>
-    ) : null}
+        ) : activeTab === "monthly" ? (
+          <div className="db-full-page">
+            <AdminMonthlySummaryTab
+              currentMonth={adminMonth}
+              onMonthChange={setAdminMonth}
+              companies={companies}
+              selectedCompanyId={adminCompanyId}
+              onCompanyChange={setAdminCompanyId}
+            />
+          </div>
+        ) : null}
       </div>
 
 
@@ -985,6 +1161,134 @@ export default function Dashboard() {
         isHOD={isHOD && !isAuthorizedAdmin}
         isAdmin={isAdmin}
       />
+
+      {/* -- Manage Policy Modal -- */}
+      {showPolicyModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(15, 23, 42, 0.5)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000
+          }}
+          onClick={() => setShowPolicyModal(false)}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '12px',
+              width: '100%',
+              maxWidth: '400px',
+              padding: '24px',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+              position: 'relative'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#0f172a' }}>Manage Policy Handbook</h3>
+              <button
+                onClick={() => setShowPolicyModal(false)}
+                style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 20px 0', lineHeight: '1.5' }}>
+              Upload a custom PDF policy manual to override the default system-generated RABS Handbook.
+            </p>
+
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
+              {dash?.companySettings?.policy_handbook_url ? (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                    <span style={{ fontSize: '24px' }}>📄</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {dash.companySettings.policy_handbook_name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#10b981', marginTop: '2px', fontWeight: '500' }}>
+                        ✓ Custom PDF Active
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <a
+                      href={dash.companySettings.policy_handbook_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-secondary text-center"
+                      style={{ flex: 1, padding: '6px 12px', fontSize: '12px', fontWeight: '600', textDecoration: 'none', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', color: '#0f172a', display: 'inline-block' }}
+                    >
+                      View Current
+                    </a>
+                    <button
+                      className="btn btn-danger"
+                      style={{ flex: 1, padding: '6px 12px', fontSize: '12px', fontWeight: '600', color: '#ef4444', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer' }}
+                      onClick={async () => {
+                        await handleRemovePolicy();
+                        setShowPolicyModal(false);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                  <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>
+                    Using system-generated RABS Handbook.
+                  </div>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={async (e) => {
+                      await handlePolicyUpload(e);
+                      setShowPolicyModal(false);
+                    }}
+                    style={{ display: 'none' }}
+                    id="modal-policy-file-input"
+                  />
+                  <label
+                    htmlFor="modal-policy-file-input"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '8px 16px',
+                      background: '#0f172a',
+                      color: '#ffffff',
+                      borderRadius: '6px',
+                      fontWeight: '600',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Upload PDF Handbook
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowPolicyModal(false)}
+                style={{ padding: '8px 16px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', color: '#475569' }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

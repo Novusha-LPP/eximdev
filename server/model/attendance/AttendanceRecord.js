@@ -6,6 +6,7 @@ const recordSchema = new mongoose.Schema({
   department_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
   team_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Team' },
   shift_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift' },
+  assigned_shift_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift' },
 
   attendance_date: { type: Date, required: true }, // Date object for YYYY-MM-DD
   attendance_date_str: { type: String, required: true, index: true }, // "2026-05-13" string
@@ -79,10 +80,15 @@ const recordSchema = new mongoose.Schema({
   remarks: String,
 
   processed_at: { type: Date },
-  processed_by: { type: String, enum: ['system', 'admin', 'cron'], default: 'system' },
+  processed_by: { type: String, enum: ['system', 'admin', 'cron', 'hod', 'regularization'], default: 'system' },
 
   is_half_day: { type: Boolean, default: false },
-  half_day_session: { type: String, enum: ['first_half', 'second_half', null], default: null }
+  half_day_session: { type: String, enum: ['first_half', 'second_half', null], default: null },
+
+  // ─── Payroll Integration ─────────────────────────────────────────────────
+  regular_hours: { type: Number, default: 0 },        // Hours capped at shift limit
+  overtime_minutes: { type: Number, default: 0 },      // Raw OT minutes after grace
+  payroll_processed: { type: Boolean, default: false }  // Locked after payroll generation
 
 }, { timestamps: true });
 

@@ -14,6 +14,11 @@ async function main() {
   await mongoose.connect(mongoUri);
   
   const empId = mongoose.Types.ObjectId.isValid('69804de8317a48004a05479a') 
+
+
+
+
+  
     ? new mongoose.Types.ObjectId('69804de8317a48004a05479a') 
     : '69804de8317a48004a05479a';
   

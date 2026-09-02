@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigation } from "../../contexts/NavigationContext";
@@ -13,6 +13,7 @@ import {
 
 function CompletedKyc() {
   const [data, setData] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState("all");
   const { user } = useContext(UserContext);
   const { navigateWithRef } = useNavigation();
 
@@ -205,22 +206,69 @@ function CompletedKyc() {
     },
   ];
 
+  // Extract unique months for filter dropdown
+  const uniqueMonths = useMemo(() => {
+    const monthsMap = {};
+    data.forEach((item) => {
+      const dateVal = item.approvedAt || item.updatedAt || item.createdAt;
+      if (dateVal) {
+        const d = new Date(dateVal);
+        if (!isNaN(d.getTime())) {
+          const month = d.getMonth(); // 0-11
+          const year = d.getFullYear();
+          const key = `${year}-${String(month + 1).padStart(2, '0')}`;
+          const label = d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+          monthsMap[key] = { value: key, label, dateObj: d };
+        }
+      }
+    });
+    return Object.values(monthsMap).sort((a, b) => b.dateObj - a.dateObj);
+  }, [data]);
+
+  // Filter completed KYCs based on selection
+  const filteredData = useMemo(() => {
+    if (selectedMonth === "all") return data;
+    return data.filter((item) => {
+      const dateVal = item.approvedAt || item.updatedAt || item.createdAt;
+      if (!dateVal) return false;
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return false;
+      const month = d.getMonth();
+      const year = d.getFullYear();
+      const key = `${year}-${String(month + 1).padStart(2, '0')}`;
+      return key === selectedMonth;
+    });
+  }, [data, selectedMonth]);
+
   return (
     <div className="kyc-page-wrapper">
       <div className="kyc-page-header">
-        <div className="kyc-header-left">
-          <h2 className="kyc-page-title">
+        <div className="kyc-header-left" style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <h2 className="kyc-page-title" style={{ margin: 0 }}>
             <CheckCircle style={{ fontSize: "1.2rem", color: "var(--success)" }} /> Completed KYC Applications
           </h2>
         </div>
-        <span className="kyc-verified-tag">
-          {data.length} verified record{data.length !== 1 ? "s" : ""}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="form-control"
+            style={{ width: "200px", height: "36px", fontSize: "0.85rem", padding: "0 8px", borderRadius: "6px", border: "1px solid #cbd5e1" }}
+          >
+            <option value="all">All Months (All Time)</option>
+            {uniqueMonths.map((m) => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+          <span className="kyc-verified-tag" style={{ margin: 0 }}>
+            {filteredData.length} verified record{filteredData.length !== 1 ? "s" : ""}
+          </span>
+        </div>
       </div>
 
       <div className="kyc-card">
         <div className="kyc-section" style={{ padding: "1.5rem" }}>
-          <CustomTable columns={columns} data={data} />
+          <CustomTable columns={columns} data={filteredData} />
         </div>
       </div>
     </div>

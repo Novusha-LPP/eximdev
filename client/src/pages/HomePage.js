@@ -26,6 +26,7 @@ import ItHelpdeskPage from "./ItHelpdeskPage.jsx";
 
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
+import TallyTransactions from "../components/tally/TallyTransactions.jsx";
 // Documentation
 import DocumentationJob from "../components/documentation/DocumentationJob.js";
 
@@ -37,10 +38,10 @@ import LeaveManagement from "../components/attendance/LeaveManagement.jsx";
 import Regularization from "../components/attendance/Regularization.jsx";
 import HODDashboard from "../components/attendance/HODDashboard.jsx";
 import LeaveApproval from "../components/attendance/LeaveApproval.jsx";
-import RegularizationApproval from "../components/attendance/RegularizationApproval.jsx";
 import AdminDashboard from "../components/attendance/AdminDashboard.jsx";
 import AttendanceReport from "../components/attendance/AttendanceReport.jsx";
 import EmployeeProfileWorkspace from "../components/attendance/admin/EmployeeProfileWorkspace.jsx";
+import OperatorAttendance from "../components/attendance/admin/OperatorAttendance.jsx";
 import HolidayManagement from "../components/attendance/admin/HolidayManagement.jsx";
 import HolidayPolicyManager from "../components/attendance/admin/HolidayPolicyManager.jsx";
 import WeekOffPolicyManager from "../components/attendance/admin/WeekOffPolicyManager.jsx";
@@ -50,6 +51,7 @@ import LockAttendance from "../components/attendance/admin/LockAttendance.jsx";
 import PayrollExport from "../components/attendance/admin/PayrollExport.jsx";
 import AttendanceSettings from "../components/attendance/admin/Settings.jsx";
 import CompanyManagement from "../components/attendance/admin/CompanyManagement.jsx";
+import AttendanceReports from "../components/attendance/admin/AttendanceReports.jsx";
 // Submission
 import SubmissionTabs from "../components/submission/SubmissionTabs.js";
 import SubmissionJob from "../components/submission/SubmissionJob.js";
@@ -59,7 +61,20 @@ import ViewIndividualKyc from "../components/employeeKyc/ViewIndividualKyc.js";
 // Employee Onboarding
 import EmployeeOnboarding from "../components/employeeOnboarding/EmployeeOnboarding.js";
 import UpdateEmployeeData from "../components/hr/UpdateEmployeeData.js";
-// import HRHome from "../components/hr/HRHome.js";
+import HRHome from "../components/hr/HRHome.js";
+
+// Scorecard Module
+import ScorecardList from "./ScorecardList.jsx";
+import ScorecardForm from "./ScorecardForm.jsx";
+
+// AMC Suppliers Renewal Module
+import AmcRenewalList from "./AmcRenewalList.jsx";
+import AmcVisitorList from "./AmcVisitorList.jsx";
+import AdminEquipmentChecklist from "./AdminEquipmentChecklist.jsx";
+
+// Regularization approval & DGFT details
+import RegularizationApproval from "../components/attendance/RegularizationApproval.jsx";
+import ViewAuthorizationDetails from "../components/dgft/ViewAuthorizationDetails.js";
 
 // Customer KYC
 import CustomerKyc from "../components/customerKyc/CustomerKyc.js";
@@ -114,11 +129,10 @@ import CustomHouseDirectory from "../components/master-directory/CustomHouseDire
 import CFSDirectory from "../components/master-directory/CFSDirectory.js";
 import TransporterDirectory from "../components/master-directory/TransporterDirectory.js";
 import EmptyOffLocationDirectory from "../components/master-directory/EmptyOffLocationDirectory.js";
+import IndianPortDirectory from "../components/master-directory/IndianPortDirectory.js";
 
 // Document Collection
 import DocumentCollection from "../components/document-collection/DocumentCollection.js";
-
-
 
 //import Report
 import ReportTabs from "../components/Report/ReportTabs.js";
@@ -145,8 +159,12 @@ import UtilityParent from "../components/import-utility-tool/UtilityParent.js";
 import DutyCalculator from "../components/import-utility-tool/duty-calculator/DutyCalculator.js";
 import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
 import AllUsersPage from "./AllUsersPage.js";
-// import BillingReports from "../components/accounts/BillingReports.js";
-// import RmProcurementSop from "../components/accounts/rmProcurementSop/RmProcurementSop.js";
+import BillingReports from "../components/accounts/BillingReports.js";
+import ProcurementInsuranceSopsContainer from "../components/accounts/ProcurementInsuranceSopsContainer.js";
+import RmProcurementSop from "../components/accounts/rmProcurementSop/RmProcurementSop.js";
+import TyreProcurementSop from "../components/accounts/tyreProcurementSop/TyreProcurementSop.js";
+import FleetInsuranceSop from "../components/accounts/fleetInsuranceSop/FleetInsuranceSop.js";
+import FleetInsuranceHistory from "../components/accounts/fleetInsuranceSop/FleetInsuranceHistory.js";
 
 // Analytics
 import AnalyticsLayout from "../components/analytics/AnalyticsLayout";
@@ -166,6 +184,10 @@ import OpenPointsHome from "../components/open-points/OpenPointsHome.js";
 import ProjectWorkspace from "../components/open-points/ProjectWorkspace.js";
 import AnalyticsDashboard from "../components/open-points/AnalyticsDashboard.js";
 import MyOpenPoints from "../components/open-points/MyOpenPoints.js";
+import KarmaPointsModule from "../components/open-points/KarmaPointsModule";
+import PlannedDashboard from "../components/open-points/dashboards/PlannedDashboard.js";
+import ForecastingDashboard from "../components/open-points/dashboards/ForecastingDashboard.js";
+import MonthDashboard from "../components/open-points/dashboards/MonthDashboard.js";
 
 // Project Nucleus
 import NucleusHome from "../components/project-nucleus/NucleusHome.js";
@@ -192,7 +214,10 @@ import DgftTabs from "../components/dgft/DgftTabs.js";
 import ViewDgftRegisterDetails from "../components/dgft/ViewDgftRegisterDetails.js";
 
 // CRM Module
-// import CRMModule from "../components/crm/CRMModule.jsx";
+import CRMModule from "../components/crm/CRMModule.jsx";
+import PricingRequestsList from "../components/crm/components/PricingRequestsList.jsx";
+import Audit5sDashboard from "../components/audit5s/Audit5sDashboard.jsx";
+import FirstAidDashboard from "../components/first-aid/FirstAidDashboard.jsx";
 
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
@@ -224,7 +249,6 @@ function HomePageContent() {
     JSON.parse(localStorage.getItem("tab_value") || 0)
   );
   const [criticalAlertOpen, setCriticalAlertOpen] = useState(false);
-
   const { isChangingBranch } = useBranch();
 
   React.useEffect(() => {
@@ -255,37 +279,34 @@ function HomePageContent() {
     }
   }, [user]);
 
-  if (isChangingBranch) {
-    return (
-      <Box sx={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        backgroundColor: 'rgba(249, 250, 251, 0.7)',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 9999,
-        backdropFilter: 'blur(8px)'
-      }}>
-        <CircularProgress size={60} thickness={4} sx={{ color: '#1a237e', mb: 2 }} />
-        <Typography variant="h5" sx={{ color: '#1a237e', fontWeight: 600, letterSpacing: '0.5px' }}>
-          Switching Branch...
-        </Typography>
-        <Typography variant="body2" sx={{ color: '#666', mt: 1 }}>
-          Please wait while we prepare your workspace
-        </Typography>
-      </Box>
-    );
-  }
-
   return (
     <TabValueContext.Provider value={{ tabValue, setTabValue }}>
       <SearchQueryProvider>
         <Box sx={{ display: "flex" }}>
+        {isChangingBranch && (
+          <Box sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(249, 250, 251, 0.7)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+            backdropFilter: 'blur(8px)'
+          }}>
+            <CircularProgress size={60} thickness={4} sx={{ color: '#1a237e', mb: 2 }} />
+            <Typography variant="h5" sx={{ color: '#1a237e', fontWeight: 600, letterSpacing: '0.5px' }}>
+              Switching Branch...
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#666', mt: 1 }}>
+              Please wait while we prepare your workspace
+            </Typography>
+          </Box>
+        )}
           <CssBaseline />
           <Snackbar
             open={Boolean(user?.passwordExpired && !passwordAlertDismissed)}
@@ -439,12 +460,19 @@ function HomePageContent() {
               <Route path="/change-password" element={<ChangePassword />} />
               <Route path="/profile/:username" element={<UserProfile />} />
 
+              {/* Karma Points - New Module */}
+              <Route path="/karma-points" element={<KarmaPointsModule />} />
+              
+              {/* Open Points Dashboards */}
+              <Route path="/open-points/project/:projectId/planned" element={<PlannedDashboard />} />
+              <Route path="/open-points/project/:projectId/forecasting" element={<ForecastingDashboard />} />
+              <Route path="/open-points/project/:projectId/month" element={<MonthDashboard />} />
+
               {/* Protected Routes */}
               <Route path="/assign" element={<Assign />} />
               <Route path="/admin/branches" element={<BranchManagement />} />
               <Route path="/admin/api-keys" element={<ApiKeyManagement />} />
               <Route path="/admin/job-migration" element={<JobMigrationUtility />} />
-
 
               {/* HOD Management - For Head of Department users */}
               <Route path="/hod-management" element={<HodManagement />} />
@@ -455,6 +483,24 @@ function HomePageContent() {
                 element={
                   <ProtectedRoute requiredModule={["Accounts", "Bill Cover"]}>
                     <Accounts />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tally-transactions"
+                element={
+                  <ProtectedRoute requiredModule="Tally Transactions">
+                    <TallyTransactions />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Pricing Requests */}
+              <Route
+                path="/pricing-requests"
+                element={
+                  <ProtectedRoute requiredModule="Accounts">
+                    <PricingRequestsList hideRaiseButton={true} />
                   </ProtectedRoute>
                 }
               />
@@ -580,14 +626,14 @@ function HomePageContent() {
                   </ProtectedRoute>
                 }
               />
-              {/* <Route
+              <Route
                 path="/hr"
                 element={
                   <ProtectedRoute requiredModule="HR">
                     <HRHome />
                   </ProtectedRoute>
                 }
-              /> */}
+              />
 
               {/* ESanchit */}
               <Route
@@ -607,8 +653,7 @@ function HomePageContent() {
                 }
               />
 
-              {/* DGFT Module */}
-              <Route path="/dgft" element={<DgftTabs />} />
+
 
               {/* CRM Module */}
               {/* <Route
@@ -774,6 +819,15 @@ function HomePageContent() {
                 element={
                   <ProtectedRoute requiredModule="MasterDirectory">
                     <CustomHouseDirectory />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/indian-port-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <IndianPortDirectory />
                   </ProtectedRoute>
                 }
               />
@@ -959,6 +1013,121 @@ function HomePageContent() {
                 element={
                   <ProtectedRoute requiredModule="Import Utility Tool">
                     <UtilityParent />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/billing-reports"
+                element={
+                  <ProtectedRoute requiredModule="Billing Reports">
+                    <BillingReports />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/rm-procurement"
+                element={
+                  <ProtectedRoute requiredModule="RM Procurement SOP">
+                    <RmProcurementSop />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/tyre-procurement/*"
+                element={
+                  <ProtectedRoute requiredModule="Tyre Procurement SOP">
+                    <TyreProcurementSop />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/fleet-insurance/*"
+                element={
+                  <ProtectedRoute requiredModule="Accounts">
+                    <FleetInsuranceSop />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/procurement-insurance-sops/*"
+                element={
+                  <ProtectedRoute requiredModule="Accounts">
+                    <ProcurementInsuranceSopsContainer />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/fleet-insurance-history"
+                element={
+                  <ProtectedRoute requiredModule="Accounts">
+                    <FleetInsuranceHistory />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/fleet-insurance-history/:registrationNo"
+                element={
+                  <ProtectedRoute requiredModule="Accounts">
+                    <FleetInsuranceHistory />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* AMC Suppliers Renewal Module */}
+              <Route
+                path="/amc-renewals"
+                element={
+                  <ProtectedRoute requiredModule="AMC Suppliers Renewal">
+                    <AmcRenewalList />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/amc-visitor-logs"
+                element={
+                  <ProtectedRoute requiredModule="AMC Visitor Logs">
+                    <AmcVisitorList />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/equipment-checklist"
+                element={
+                  <ProtectedRoute requiredModule="Admin Equipment Checklist">
+                    <AdminEquipmentChecklist />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Supplier Scorecard Module */}
+              <Route
+                path="/scorecards"
+                element={
+                  <ProtectedRoute requiredModule="Supplier Scorecard">
+                    <ScorecardList />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/scorecards/new"
+                element={
+                  <ProtectedRoute requiredModule="Supplier Scorecard">
+                    <ScorecardForm />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/scorecards/:id/edit"
+                element={
+                  <ProtectedRoute requiredModule="Supplier Scorecard">
+                    <ScorecardForm />
                   </ProtectedRoute>
                 }
               />
@@ -1181,15 +1350,57 @@ function HomePageContent() {
               <Route path="/project-nucleus" element={<NucleusHome />} />
 
               {/* DGFT Module */}
-              <Route path="/dgft" element={<DgftTabs />} />
-              <Route path="/dgft/:tab" element={<DgftTabs />} />
-              {/* <Route
+              <Route
+                path="/dgft"
+                element={
+                  <ProtectedRoute requiredModule="DGFT">
+                    <DgftTabs />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dgft/:tab"
+                element={
+                  <ProtectedRoute requiredModule="DGFT">
+                    <DgftTabs />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/dgft/authorization-details/:id"
-                element={<ViewAuthorizationDetails />}
-              /> */}
+                element={
+                  <ProtectedRoute requiredModule="DGFT">
+                    <ViewAuthorizationDetails />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/dgft/register-details/:id"
-                element={<ViewDgftRegisterDetails />}
+                element={
+                  <ProtectedRoute requiredModule="DGFT">
+                    <ViewDgftRegisterDetails />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* 5S Audit Checklist Module */}
+              <Route
+                path="/audit-5s"
+                element={
+                  <ProtectedRoute requiredModule="5S Audit">
+                    <Audit5sDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* First Aid Kit Checklist Module */}
+              <Route
+                path="/first-aid"
+                element={
+                  <ProtectedRoute requiredModule="First Aid">
+                    <FirstAidDashboard />
+                  </ProtectedRoute>
+                }
               />
 
               {/* Attendance Module */}
@@ -1213,6 +1424,7 @@ function HomePageContent() {
                 <Route path="admin/attendance" element={<AttendanceReport isAdmin />} />
                 <Route path="admin/leave-approval" element={<LeaveApproval />} />
                 <Route path="admin/employee/:id/:activeTab?" element={<EmployeeProfileWorkspace />} />
+                <Route path="admin/operator-attendance" element={<OperatorAttendance />} />
                 <Route path="admin/holidays" element={<HolidayPolicyManager />} />
                 <Route path="admin/holiday-policies" element={<HolidayPolicyManager />} />
                 <Route path="admin/weekoff-policies" element={<WeekOffPolicyManager />} />
@@ -1221,11 +1433,13 @@ function HomePageContent() {
                 <Route path="admin/companies" element={<CompanyManagement />} />
                 <Route path="admin/lock" element={<LockAttendance />} />
                 <Route path="admin/payroll" element={<PayrollExport />} />
+                <Route path="admin/reports" element={<AttendanceReports />} />
                 <Route path="admin/settings" element={<AttendanceSettings />} />
                 <Route path="hod/report" element={<AttendanceReport />} />
                 <Route path="report" element={<AttendanceReport isAdmin />} />
               </Route>
             </Routes>
+          </Box>
           </Box>
         </Box>
       </SearchQueryProvider>

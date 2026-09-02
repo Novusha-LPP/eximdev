@@ -9,7 +9,7 @@ import {
     UserCheck,
     Loader2
 } from 'lucide-react';
-import { message } from 'antd';
+import { message, Modal } from 'antd';
 import moment from 'moment';
 import leaveAPI from '../../../api/attendance/leave.api';
 import '../LeaveManagement.css'; // Reuse existing styles
@@ -166,7 +166,16 @@ const AdminApplyLeaveModal = ({ isOpen, onClose, employeeId, employeeName, onSuc
             }
         } catch (err) {
             console.error('Submit error:', err);
-            message.error(getErrorMessage(err, 'Error submitting leave application'));
+            const errMsg = getErrorMessage(err, '');
+            if (errMsg && errMsg.includes('Unable to route leave approval: no active Team HOD assigned for this employee')) {
+                Modal.error({
+                    title: 'Unable to Submit Leave Request',
+                    content: 'This employee is not assigned to a team with an active HOD. Please assign the employee to a team before submitting the leave request.',
+                    okText: 'OK'
+                });
+            } else {
+                message.error(getErrorMessage(err, 'Error submitting leave application'));
+            }
         } finally {
             setSubmitting(false);
         }

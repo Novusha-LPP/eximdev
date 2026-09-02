@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { YearContext } from "../../contexts/yearContext.js";
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { BranchContext } from '../../contexts/BranchContext';
 import './NucleusHome.css';
 
 // Import refactored report components
@@ -16,9 +18,30 @@ import ClientLoginAnalyticsReport from './reports/ClientLoginAnalyticsReport';
 import NewCustomersReport from './reports/NewCustomersReport';
 import ElockUtilizationReport from './reports/ElockUtilizationReport';
 import ElockAssignedCountReport from './reports/ElockAssignedCountReport';
+import ElockBillingReport from './reports/ElockBillingReport';
 import TransportAccountsReport from './reports/TransportAccountsReport';
+import KarmaReport from './reports/KarmaReport';
+import ExportPulseReport from './reports/ExportPulseReport';
+import ExportLeoSummaryReport from './reports/ExportLeoSummaryReport';
+import ImportPendingSummaryReport from './reports/ImportPendingSummaryReport';
+import ImportOutOfChargeSummaryReport from './reports/ImportOutOfChargeSummaryReport';
+import TransportMonitoringReport from './reports/TransportMonitoringReport';
+
+// Invoicing & Sales Intelligence Module
+import InvoicingGroupDashboard from './reports/InvoicingGroupDashboard';
+import InvoicingCompanyDashboard from './reports/InvoicingCompanyDashboard';
+import InvoicingDailyGridReport from './reports/InvoicingDailyGridReport';
+import InvoicingPendingUnbilledReport from './reports/InvoicingPendingUnbilledReport';
+import InvoicingProformaReport from './reports/InvoicingProformaReport';
+import InvoicingYoYComparisonReport from './reports/InvoicingYoYComparisonReport';
+import InvoicingExceptionReport from './reports/InvoicingExceptionReport';
+import InvoicingTargetAchievementReport from './reports/InvoicingTargetAchievementReport';
+import InvoicingCreditNoteReport from './reports/InvoicingCreditNoteReport';
+import InvoicingCustomerReport from './reports/InvoicingCustomerReport';
+import InvoicingSettingsReport from './reports/InvoicingSettingsReport';
 
 const NucleusHome = () => {
+    const { selectedCategory, selectedBranchGroup } = useContext(BranchContext);
     // Categories Configuration
     const reportCategories = [
         {
@@ -28,18 +51,29 @@ const NucleusHome = () => {
             reports: [
                 { id: 'fine', label: 'Bill of Entry – Fine Report' },
                 { id: 'penalty', label: 'Bill of Entry – Penalty Report' },
-                { id: 'top10', label: 'Top 10 Importers' }
+                { id: 'top10', label: 'Top 10 Importers' },
+                { id: 'import_pending_summary', label: 'Pending Job Summary' },
+                { id: 'import_out_of_charge_summary', label: 'Out of Charge Summary' }
             ]
         },
-        { id: 'export', label: 'Export', icon: '🛫', reports: [] },
+        {
+            id: 'export',
+            label: 'Export',
+            icon: '🛫',
+            reports: [
+                { id: 'export_pulse', label: 'Export Pulse Dashboard' },
+                { id: 'export_leo_summary', label: 'Let Export Order (LEO) Summary' }
+            ]
+        },
         {
             id: 'transport',
             label: 'Transport',
             icon: '🚚',
             reports: [
-                { id: 'transport_table', label: 'Top 10 Transporters' },
                 { id: 'fleet_utilization', label: 'Fleet Utilization' },
-                { id: 'elock_lr_completed', label: 'LR Completed Count' }
+                { id: 'transport_table', label: 'Top 10 Transporters' },
+                { id: 'elock_lr_completed', label: 'LR Completed Count' },
+                { id: 'transport_monitoring', label: 'Pending LRs & Dispatch Monitoring' }
             ]
         },
         {
@@ -60,7 +94,26 @@ const NucleusHome = () => {
             icon: '🔒',
             reports: [
                 { id: 'elock_utilization', label: 'E-Lock Utilization' },
-                { id: 'elock_assigned_count', label: 'E-Lock Assigned Count' }
+                { id: 'elock_assigned_count', label: 'E-Lock Assigned Count' },
+                { id: 'elock_billing', label: 'E-Lock Billing' }
+            ]
+        },
+        {
+            id: 'invoicing',
+            label: 'Invoicing & Sales',
+            icon: '📊',
+            reports: [
+                { id: 'invoicing_group', label: 'Group Invoicing Dashboard' },
+                { id: 'invoicing_company', label: 'Company Invoicing Deep-Dive' },
+                { id: 'invoicing_daily', label: 'Daily Sales Grid & Overrides' },
+                { id: 'invoicing_targets', label: 'Targets & Projections Matrix' },
+                { id: 'invoicing_unbilled', label: 'Pending Unbilled Jobs (AlVision)' },
+                { id: 'invoicing_proforma', label: 'Proforma Invoice Monitoring' },
+                { id: 'invoicing_credit_notes', label: 'Credit Note Impact & Reversals' },
+                { id: 'invoicing_customers', label: 'Customer Billing Intelligence' },
+                { id: 'invoicing_yoy', label: 'Last Year YoY Comparison' },
+                { id: 'invoicing_exceptions', label: 'Exception Resolution Center' },
+                { id: 'invoicing_settings', label: '⚙️ Settings & Configuration' }
             ]
         },
         {
@@ -69,6 +122,14 @@ const NucleusHome = () => {
             icon: '💰',
             reports: [
                 { id: 'transport_accounts', label: 'Transport Accounts' }
+            ]
+        },
+        {
+            id: 'gamification',
+            label: 'Gamification',
+            icon: '🏆',
+            reports: [
+                { id: 'karma_leaderboard', label: 'Karma Leaderboard' }
             ]
         }
     ];
@@ -83,7 +144,11 @@ const NucleusHome = () => {
         .find(r => r.id === activeReport);
 
     // Date Filter State
-    const [filterType, setFilterType] = useState('month'); // Default to month
+    const { selectedYearState, setSelectedYearState } = React.useContext(YearContext);
+    const [filterType, setFilterType] = useState('year');
+    const [financialYears, setFinancialYears] = useState(['26-27', '25-26', '24-25', '23-24']);
+    const selectedFinancialYear = selectedYearState || '26-27';
+    const setSelectedFinancialYear = setSelectedYearState;
     const [selectedDay, setSelectedDay] = useState(format(new Date(), 'yyyy-MM-dd'));
 
     // Custom Date Filter Values
@@ -95,6 +160,18 @@ const NucleusHome = () => {
     // Base Compliance Data State (Shared for Fine and Penalty)
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Auto-switch filter type based on report
+    useEffect(() => {
+        if (activeReport === 'transport_monitoring') {
+            setFilterType('day');
+        } else if (['import_pending_summary'].includes(activeReport)) {
+            setFilterType('fin-year');
+        } else {
+            if (filterType === 'fin-year' && activeReport !== 'import_out_of_charge_summary') setFilterType('year');
+        }
+    }, [activeReport]);
+
 
     const currentYear = new Date().getFullYear();
     const years = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
@@ -114,7 +191,12 @@ const NucleusHome = () => {
                     ? `${apiUrl}/project-nucleus/reports`
                     : `${apiUrl}/api/project-nucleus/reports`;
 
-                const response = await axios.get(endpoint, { withCredentials: true });
+                const params = {
+                    branchId: selectedBranchGroup === 'all' ? '' : selectedBranchGroup,
+                    category: selectedCategory || 'all'
+                };
+
+                const response = await axios.get(endpoint, { params, withCredentials: true });
                 setData(response.data || []);
             } catch (error) {
                 console.error("Error fetching reports:", error);
@@ -124,19 +206,9 @@ const NucleusHome = () => {
         };
 
         fetchReports();
-    }, []);
+    }, [selectedBranchGroup, selectedCategory]);
 
-    // Force sensible default date filter type for transport/elock reports
-    useEffect(() => {
-        if (['fleet_utilization', 'elock_utilization', 'transport_accounts'].includes(activeReport)) {
-            setFilterType('day');
-            setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
-        } else {
-            if (filterType === 'day') {
-                setFilterType('month');
-            }
-        }
-    }, [activeReport]);
+
 
     const renderActiveReport = () => {
         if (loading && ['fine', 'penalty'].includes(activeReport)) {
@@ -155,6 +227,7 @@ const NucleusHome = () => {
                         data={data}
                         filterType={filterType}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedMonth={selectedMonth}
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
@@ -167,6 +240,7 @@ const NucleusHome = () => {
                         data={data}
                         filterType={filterType}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedMonth={selectedMonth}
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
@@ -181,6 +255,9 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        category={selectedCategory}
+                        branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
                     />
                 );
             case 'udyam':
@@ -191,6 +268,22 @@ const NucleusHome = () => {
                 return <ClientLoginAnalyticsReport />;
             case 'new_customers':
                 return <NewCustomersReport />;
+            case 'export_pulse':
+                return <ExportPulseReport />;
+            case 'export_leo_summary':
+                return (
+                    <ExportLeoSummaryReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                        selectedCategory={selectedCategory}
+                        selectedBranch={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
+                    />
+                );
             case 'transport_table':
                 return (
                     <Top10TransportersReport
@@ -199,6 +292,19 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                    />
+                );
+            case 'transport_monitoring':
+                return (
+                    <TransportMonitoringReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                     />
                 );
@@ -210,6 +316,7 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                     />
                 );
@@ -221,6 +328,7 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                     />
                 );
@@ -232,6 +340,7 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                     />
                 );
@@ -243,6 +352,19 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                    />
+                );
+            case 'elock_billing':
+                return (
+                    <ElockBillingReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                     />
                 );
@@ -254,16 +376,82 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                     />
                 );
+            case 'karma_leaderboard':
+                return (
+                    <KarmaReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                    />
+                );
+            case 'import_pending_summary':
+                return (
+                    <ImportPendingSummaryReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                        category={selectedCategory}
+                        branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
+                    />
+                );
+            case 'import_out_of_charge_summary':
+                return (
+                    <ImportOutOfChargeSummaryReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                        category={selectedCategory}
+                        branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
+                    />
+                );
+            case 'invoicing_group':
+                return <InvoicingGroupDashboard />;
+            case 'invoicing_company':
+                return <InvoicingCompanyDashboard />;
+            case 'invoicing_daily':
+                return <InvoicingDailyGridReport />;
+            case 'invoicing_targets':
+                return <InvoicingTargetAchievementReport />;
+            case 'invoicing_unbilled':
+                return <InvoicingPendingUnbilledReport />;
+            case 'invoicing_proforma':
+                return <InvoicingProformaReport />;
+            case 'invoicing_credit_notes':
+                return <InvoicingCreditNoteReport />;
+            case 'invoicing_customers':
+                return <InvoicingCustomerReport />;
+            case 'invoicing_yoy':
+                return <InvoicingYoYComparisonReport />;
+            case 'invoicing_exceptions':
+                return <InvoicingExceptionReport />;
+            case 'invoicing_settings':
+                return <InvoicingSettingsReport />;
             default:
                 return <div style={{ padding: '20px', color: '#64748b' }}>Select a report from the sidebar</div>;
         }
     };
 
-    // Determine if date controls are needed (udyam, training, client login analytics, new_customers don't need them)
-    const showDateControls = !['udyam', 'training', 'client_login_analytics', 'new_customers'].includes(activeReport);
+    // Determine if date controls are needed (udyam, training, client login analytics, new_customers, invoicing reports don't need them)
+    const showDateControls = ![
+        'udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse', 'import_pending_summary',
+        'invoicing_group', 'invoicing_company', 'invoicing_daily', 'invoicing_targets', 'invoicing_unbilled', 'invoicing_proforma', 'invoicing_credit_notes', 'invoicing_customers', 'invoicing_yoy', 'invoicing_exceptions', 'invoicing_settings'
+    ].includes(activeReport);
 
     return (
         <div className="nucleus-layout">
@@ -325,7 +513,23 @@ const NucleusHome = () => {
                                             <div
                                                 key={report.id}
                                                 className={`report-item ${activeReport === report.id ? 'active' : ''}`}
-                                                onClick={() => setActiveReport(report.id)}
+                                                onClick={() => {
+                                                    setActiveReport(report.id);
+                                                    if (['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts'].includes(report.id)) {
+                                                        setFilterType('day');
+                                                        setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
+                                                    } else if (report.id === 'import_pending_summary') {
+                                                        setFilterType('fin-year');
+                                                    } else if (report.id === 'import_out_of_charge_summary') {
+                                                        if (filterType === 'fin-year') {
+                                                            setFilterType('month');
+                                                        }
+                                                    } else {
+                                                        if (filterType === 'day') {
+                                                            setFilterType('month');
+                                                        }
+                                                    }
+                                                }}
                                             >
                                                 {report.label}
                                             </div>
@@ -353,23 +557,27 @@ const NucleusHome = () => {
                     <div className="nucleus-controls-container">
                         <div className="nucleus-filter-section">
                             <div className="filter-row custom-filter-row" style={{ marginTop: 0, paddingLeft: 0, background: 'transparent' }}>
-                                <div className="filter-type-selector">
-                                    <span className="filter-label" style={{ minWidth: 'auto', marginRight: '10px' }}>Filter Period:</span>
-                                    <select
-                                        value={filterType}
-                                        onChange={(e) => setFilterType(e.target.value)}
-                                        className="nucleus-select"
-                                    >
-                                        {['fleet_utilization', 'elock_utilization', 'transport_accounts'].includes(activeReport) && (
-                                            <option value="day">Day Wise</option>
-                                        )}
-                                        <option value="month">Month Wise</option>
-                                        <option value="quarter">Quarter Wise</option>
-                                        <option value="year">Year Wise</option>
-                                        <option value="date-range">Date Range</option>
-                                        <option value="all">Unfiltered (All Time)</option>
-                                    </select>
-                                </div>
+                                {!["import_pending_summary"].includes(activeReport) && (
+                                    <div className="filter-type-selector">
+                                        <span className="filter-label" style={{ minWidth: 'auto', marginRight: '10px' }}>Filter Period:</span>
+                                        <select
+                                            value={filterType}
+                                            onChange={(e) => setFilterType(e.target.value)}
+                                            className="nucleus-select"
+                                        >
+                                            {['transport_monitoring', 'fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts', 'import_pending_summary', 'import_out_of_charge_summary', 'export_leo_summary'].includes(activeReport) && (
+                                                <option value="day">Day Wise</option>
+                                            )}
+                                            <option value="week">Week Wise</option>
+                                            <option value="month">Month Wise</option>
+                                            <option value="quarter">Quarter Wise</option>
+                                            <option value="year">Year Wise</option>
+                                            {["import_pending_summary", "import_out_of_charge_summary", "export_leo_summary"].includes(activeReport) && <option value="fin-year">Financial Year</option>}
+                                            <option value="date-range">Date Range</option>
+                                            <option value="all">Unfiltered (All Time)</option>
+                                        </select>
+                                    </div>
+                                )}
 
                                 {filterType === 'day' && (
                                     <div className="custom-inputs">
@@ -379,6 +587,22 @@ const NucleusHome = () => {
                                             value={selectedDay}
                                             onChange={(e) => setSelectedDay(e.target.value)}
                                         />
+                                    </div>
+                                )}
+
+                                {filterType === 'week' && (
+                                    <div className="custom-inputs" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <input
+                                            type="date"
+                                            className="nucleus-input"
+                                            value={selectedDay}
+                                            onChange={(e) => setSelectedDay(e.target.value)}
+                                        />
+                                        {selectedDay && (
+                                            <span style={{ fontSize: '13px', color: '#4b5563', fontWeight: 600 }}>
+                                                ({format(startOfWeek(new Date(selectedDay), { weekStartsOn: 1 }), 'dd MMM')} - {format(endOfWeek(new Date(selectedDay), { weekStartsOn: 1 }), 'dd MMM')})
+                                            </span>
+                                        )}
                                     </div>
                                 )}
 
@@ -437,6 +661,20 @@ const NucleusHome = () => {
                                             onChange={(e) => setSelectedYear(e.target.value)}
                                         >
                                             {years.map(y => <option key={y} value={y}>{y}</option>)}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {filterType === 'fin-year' && (
+                                    <div className="custom-inputs">
+                                        <select
+                                            className="nucleus-select"
+                                            value={selectedFinancialYear}
+                                            onChange={(e) => setSelectedFinancialYear(e.target.value)}
+                                        >
+                                            {financialYears.map(y => (
+                                                <option key={y} value={y}>{y}</option>
+                                            ))}
                                         </select>
                                     </div>
                                 )}

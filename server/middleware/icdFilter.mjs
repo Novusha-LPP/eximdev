@@ -11,12 +11,19 @@ import UserBranchModel from "../model/userBranchModel.mjs";
  */
 const applyUserIcdFilter = async (req, res, next) => {
   try {
+    if (req.user?.role === "Admin") {
+      req.userIcdFilter = null;
+      req.icdFilterCondition = {};
+      return next();
+    }
+
     // Extract username from various sources - prioritize params.username
     let username =
       req.params?.username ||
       req.query?.username ||
       req.headers['x-username'] ||
-      req.body?.username;
+      req.body?.username ||
+      req.user?.username;
 
     // If no username provided, proceed without filtering (for backward compatibility)
     if (!username) {
@@ -104,11 +111,18 @@ export const icdFilter = applyUserIcdFilter;
 // Helper function to escape special characters in regex
 export const applyUserImporterFilter = async (req, res, next) => {
   try {
+    if (req.user?.role === "Admin") {
+      req.userImporterFilter = null;
+      req.importerFilterCondition = {};
+      return next();
+    }
+
     let username =
       req.params?.username ||
       req.query?.username ||
       req.headers['x-username'] ||
-      req.body?.username;
+      req.body?.username ||
+      req.user?.username;
 
     if (!username) {
       // Security fix: If no username is provided, do not allow open access.
@@ -122,7 +136,7 @@ export const applyUserImporterFilter = async (req, res, next) => {
     }
 
     // Fetch user data from database
-    const user = await UserModel.findOne({ username }).select('assigned_importer_name role _id');
+    const user = await UserModel.findOne({ username }).select('username assigned_importer_name role _id');
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });

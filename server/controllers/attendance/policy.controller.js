@@ -12,6 +12,8 @@ import LeaveApplication from '../../model/attendance/LeaveApplication.js';
 import User from '../../model/userModel.mjs';
 import ActivityLog from '../../model/attendance/ActivityLog.js';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
+import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
+import Company from '../../model/attendance/Company.js';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const resolveCompanyId = (req) => {
@@ -33,9 +35,13 @@ const log = async (req, module, action, details, metadata = {}) => {
   } catch (e) { console.error('Activity log error', e); }
 };
 
-const canMutatePolicy = (policy, userId) => {
+const canMutatePolicy = (policy, user) => {
   if (!policy?.created_by) return true;
-  return String(policy.created_by) === String(userId);
+  const username = (user?.username || '').toLowerCase();
+  if (user?.role?.toUpperCase() === 'ADMIN' && ALLOWED_USERNAMES.has(username)) {
+    return true;
+  }
+  return String(policy.created_by) === String(user?._id || user);
 };
 
 export const getPolicyHistory = async (req, res) => {
@@ -143,8 +149,46 @@ export const getPolicyHistory = async (req, res) => {
 
 export const listWeekOffPolicies = async (req, res) => {
   try {
-    // Fetch all policies without company_id filtering
-    const policies = await WeekOffPolicy.find({})
+    const { all_companies, company_id } = req.query;
+    const username = (req.user?.username || '').toLowerCase();
+    const isAllowedAdmin = req.user?.role?.toUpperCase() === 'ADMIN' && ALLOWED_USERNAMES.has(username);
+
+    const filter = {};
+    if (!isAllowedAdmin) {
+      filter.company_id = resolveCompanyId(req);
+    } else {
+      const allCompanies = String(all_companies || '').toLowerCase() === 'true';
+      if (!allCompanies && company_id && company_id !== 'all') {
+        filter.company_id = company_id;
+      }
+    }
+
+    // Apply RABS visibility scoping
+    const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+    const rabsCompanyId = rabsCompany?._id;
+    const userCompanyId = req.user.company_id?._id || req.user.company_id;
+    const isRabsUser = rabsCompanyId && String(userCompanyId) === String(rabsCompanyId);
+
+    if (isRabsUser) {
+      // RABS users only see RABS policies created by RABS users (HR/Admin)
+      filter.company_id = rabsCompanyId;
+      const rabsUsers = await User.find({ company_id: rabsCompanyId }).select('_id');
+      const rabsUserIds = rabsUsers.map(u => u._id);
+      filter.created_by = { $in: rabsUserIds };
+    } else {
+      // Non-RABS users do not see RABS policies
+      if (rabsCompanyId) {
+        if (filter.company_id) {
+          if (String(filter.company_id) === String(rabsCompanyId)) {
+            filter.company_id = null;
+          }
+        } else {
+          filter.company_id = { $ne: rabsCompanyId };
+        }
+      }
+    }
+
+    const policies = await WeekOffPolicy.find(filter)
       .populate('applicability.teams.list', 'name')
       .populate('created_by', 'first_name last_name username role')
       .populate('updated_by', 'first_name last_name username role')
@@ -217,7 +261,7 @@ export const updateWeekOffPolicy = async (req, res) => {
       return res.status(403).json({ message: 'You do not have access to this policy' });
     }
     
-    if (!canMutatePolicy(policy, req.user._id)) {
+    if (!canMutatePolicy(policy, req.user)) {
       return res.status(403).json({ message: 'Only the admin who created this policy can edit it' });
     }
 
@@ -258,7 +302,7 @@ export const deleteWeekOffPolicy = async (req, res) => {
       return res.status(403).json({ message: 'You do not have access to this policy' });
     }
     
-    if (!canMutatePolicy(policy, req.user._id)) {
+    if (!canMutatePolicy(policy, req.user)) {
       return res.status(403).json({ message: 'Only the admin who created this policy can delete it' });
     }
     
@@ -281,10 +325,46 @@ export const deleteWeekOffPolicy = async (req, res) => {
 
 export const listHolidayPolicies = async (req, res) => {
   try {
-    const companyId = resolveCompanyId(req);
-    const { year } = req.query;
-    const filter = { company_id: companyId };
+    const { year, all_companies, company_id } = req.query;
+    const username = (req.user?.username || '').toLowerCase();
+    const isAllowedAdmin = req.user?.role?.toUpperCase() === 'ADMIN' && ALLOWED_USERNAMES.has(username);
+
+    const filter = {};
     if (year) filter.year = parseInt(year, 10);
+
+    if (!isAllowedAdmin) {
+      filter.company_id = resolveCompanyId(req);
+    } else {
+      const allCompanies = String(all_companies || '').toLowerCase() === 'true';
+      if (!allCompanies && company_id && company_id !== 'all') {
+        filter.company_id = company_id;
+      }
+    }
+
+    // Apply RABS visibility scoping
+    const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+    const rabsCompanyId = rabsCompany?._id;
+    const userCompanyId = req.user.company_id?._id || req.user.company_id;
+    const isRabsUser = rabsCompanyId && String(userCompanyId) === String(rabsCompanyId);
+
+    if (isRabsUser) {
+      // RABS users only see RABS policies created by RABS users (HR/Admin)
+      filter.company_id = rabsCompanyId;
+      const rabsUsers = await User.find({ company_id: rabsCompanyId }).select('_id');
+      const rabsUserIds = rabsUsers.map(u => u._id);
+      filter.created_by = { $in: rabsUserIds };
+    } else {
+      // Non-RABS users do not see RABS policies
+      if (rabsCompanyId) {
+        if (filter.company_id) {
+          if (String(filter.company_id) === String(rabsCompanyId)) {
+            filter.company_id = null;
+          }
+        } else {
+          filter.company_id = { $ne: rabsCompanyId };
+        }
+      }
+    }
 
     const policies = await HolidayPolicy.find(filter)
       .populate('applicability.teams.list', 'name')
@@ -303,8 +383,17 @@ export const listHolidayPolicies = async (req, res) => {
 export const getHolidayPolicyById = async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = resolveCompanyId(req);
-    const policy = await HolidayPolicy.findOne({ _id: id, company_id: companyId });
+    const username = (req.user?.username || '').toLowerCase();
+    const isAllowedAdmin = req.user?.role?.toUpperCase() === 'ADMIN' && ALLOWED_USERNAMES.has(username);
+
+    let policy;
+    if (isAllowedAdmin) {
+      policy = await HolidayPolicy.findById(id);
+    } else {
+      const companyId = resolveCompanyId(req);
+      policy = await HolidayPolicy.findOne({ _id: id, company_id: companyId });
+    }
+
     if (!policy) return res.status(404).json({ message: 'Holiday policy not found' });
     res.json({ success: true, data: policy });
   } catch (err) {
@@ -344,10 +433,19 @@ export const createHolidayPolicy = async (req, res) => {
 export const updateHolidayPolicy = async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = resolveCompanyId(req);
-    const policy = await HolidayPolicy.findOne({ _id: id, company_id: companyId });
+    const username = (req.user?.username || '').toLowerCase();
+    const isAllowedAdmin = req.user?.role?.toUpperCase() === 'ADMIN' && ALLOWED_USERNAMES.has(username);
+
+    let policy;
+    if (isAllowedAdmin) {
+      policy = await HolidayPolicy.findById(id);
+    } else {
+      const companyId = resolveCompanyId(req);
+      policy = await HolidayPolicy.findOne({ _id: id, company_id: companyId });
+    }
+
     if (!policy) return res.status(404).json({ message: 'Holiday policy not found' });
-    if (!canMutatePolicy(policy, req.user._id)) {
+    if (!canMutatePolicy(policy, req.user)) {
       return res.status(403).json({ message: 'Only the admin who created this policy can edit it' });
     }
     if (!policy.created_by) policy.created_by = req.user._id;
@@ -369,10 +467,19 @@ export const updateHolidayPolicy = async (req, res) => {
 export const deleteHolidayPolicy = async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = resolveCompanyId(req);
-    const policy = await HolidayPolicy.findOne({ _id: id, company_id: companyId });
+    const username = (req.user?.username || '').toLowerCase();
+    const isAllowedAdmin = req.user?.role?.toUpperCase() === 'ADMIN' && ALLOWED_USERNAMES.has(username);
+
+    let policy;
+    if (isAllowedAdmin) {
+      policy = await HolidayPolicy.findById(id);
+    } else {
+      const companyId = resolveCompanyId(req);
+      policy = await HolidayPolicy.findOne({ _id: id, company_id: companyId });
+    }
+
     if (!policy) return res.status(404).json({ message: 'Holiday policy not found' });
-    if (!canMutatePolicy(policy, req.user._id)) {
+    if (!canMutatePolicy(policy, req.user)) {
       return res.status(403).json({ message: 'Only the admin who created this policy can delete it' });
     }
 
@@ -395,16 +502,25 @@ export const deleteHolidayPolicy = async (req, res) => {
 export const addHolidayToPolicy = async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = resolveCompanyId(req);
     const { holiday_name, holiday_date, is_optional, holiday_type } = req.body;
 
     if (!holiday_name || !holiday_date) {
       return res.status(400).json({ message: 'holiday_name and holiday_date are required' });
     }
 
-    const policy = await HolidayPolicy.findOne({ _id: id, company_id: companyId });
+    const username = (req.user?.username || '').toLowerCase();
+    const isAllowedAdmin = req.user?.role?.toUpperCase() === 'ADMIN' && ALLOWED_USERNAMES.has(username);
+
+    let policy;
+    if (isAllowedAdmin) {
+      policy = await HolidayPolicy.findById(id);
+    } else {
+      const companyId = resolveCompanyId(req);
+      policy = await HolidayPolicy.findOne({ _id: id, company_id: companyId });
+    }
+
     if (!policy) return res.status(404).json({ message: 'Holiday policy not found' });
-    if (!canMutatePolicy(policy, req.user._id)) {
+    if (!canMutatePolicy(policy, req.user)) {
       return res.status(403).json({ message: 'Only the admin who created this policy can edit it' });
     }
     if (!policy.created_by) policy.created_by = req.user._id;
@@ -438,11 +554,19 @@ export const addHolidayToPolicy = async (req, res) => {
 export const removeHolidayFromPolicy = async (req, res) => {
   try {
     const { id, holidayDate } = req.params;
-    const companyId = resolveCompanyId(req);
+    const username = (req.user?.username || '').toLowerCase();
+    const isAllowedAdmin = req.user?.role?.toUpperCase() === 'ADMIN' && ALLOWED_USERNAMES.has(username);
 
-    const policy = await HolidayPolicy.findOne({ _id: id, company_id: companyId });
+    let policy;
+    if (isAllowedAdmin) {
+      policy = await HolidayPolicy.findById(id);
+    } else {
+      const companyId = resolveCompanyId(req);
+      policy = await HolidayPolicy.findOne({ _id: id, company_id: companyId });
+    }
+
     if (!policy) return res.status(404).json({ message: 'Holiday policy not found' });
-    if (!canMutatePolicy(policy, req.user._id)) {
+    if (!canMutatePolicy(policy, req.user)) {
       return res.status(403).json({ message: 'Only the admin who created this policy can edit it' });
     }
 
@@ -499,6 +623,13 @@ export const assignPolicyToUser = async (req, res) => {
     const { userId } = req.params;
     const { weekoff_policy_id, holiday_policy_id, shift_id, shift_ids, leave_policy_ids, attendance_settings } = req.body;
 
+    if (isRestrictedAllowedAdmin(req.user)) {
+      const allowedIds = await getRestrictedEmployeeIds(req.user);
+      if (!allowedIds || !allowedIds.includes(String(userId))) {
+        return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+      }
+    }
+
     const update = {};
     if (weekoff_policy_id !== undefined) update.weekoff_policy_id = weekoff_policy_id || null;
     if (holiday_policy_id !== undefined) update.holiday_policy_id = holiday_policy_id || null;
@@ -507,9 +638,11 @@ export const assignPolicyToUser = async (req, res) => {
       const normalizedShiftIds = Array.isArray(shift_ids) ? shift_ids.filter(Boolean) : [];
       update.shift_ids = normalizedShiftIds;
       update.shift_id = normalizedShiftIds[0] || null;
+      update['work_pattern_override.custom_shift'] = normalizedShiftIds.length > 0;
     } else if (shift_id !== undefined) {
       update.shift_id = shift_id || null;
       update.shift_ids = shift_id ? [shift_id] : [];
+      update['work_pattern_override.custom_shift'] = !!shift_id;
     }
 
     if (leave_policy_ids !== undefined) {
@@ -565,6 +698,14 @@ export const bulkAssignPoliciesToUsers = async (req, res) => {
 
     if (!Array.isArray(user_ids) || user_ids.length === 0) {
       return res.status(400).json({ message: 'user_ids is required' });
+    }
+
+    if (isRestrictedAllowedAdmin(req.user)) {
+      const allowedIds = await getRestrictedEmployeeIds(req.user);
+      const allAllowed = user_ids.every(id => allowedIds && allowedIds.includes(String(id)));
+      if (!allAllowed) {
+        return res.status(403).json({ message: 'Forbidden: One or more members not in your team' });
+      }
     }
 
     const hasAnyAssignment =

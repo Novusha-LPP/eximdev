@@ -4,7 +4,7 @@ export const ALLOWED_USERNAMES = new Set([
   'manu_pillai',
   'suraj_rajan',
   'rajan_aranamkatte',
-  'uday_zope'
+  'masood_raza'
 ]);
 
 function isAdminRole(role) {
@@ -13,13 +13,17 @@ function isAdminRole(role) {
 }
 
 export default function requireAllowedAdmin(req, res, next) {
-  if (!isAdminRole(req.user?.role)) {
-    return res.status(403).json({ message: 'Admin access required' });
-  }
+  const isDynamic = req.user?.isAttendanceAllowedAdmin === true;
 
-  const username = (req.user?.username || '').toLowerCase();
-  if (!ALLOWED_USERNAMES.has(username)) {
-    return res.status(403).json({ message: 'Admin access restricted to authorized users' });
+  if (!isDynamic) {
+    if (!isAdminRole(req.user?.role)) {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const username = (req.user?.username || '').toLowerCase();
+    if (!ALLOWED_USERNAMES.has(username)) {
+      return res.status(403).json({ message: 'Admin access restricted to authorized users' });
+    }
   }
 
   next();

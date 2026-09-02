@@ -5,7 +5,7 @@ import WorkingDayEngine from './WorkingDayEngine.js';
 import PolicyResolver from './PolicyResolver.js';
 import LeaveApplication from '../../model/attendance/LeaveApplication.js';
 import { IST_TIMEZONE, nowIST, getISTDayRange, toISTDateStr } from '../../utils/attendance/DateUtils.js';
-const MISSED_PUNCH_LIMIT_HOURS = 12;
+import { getMissedPunchLimitHours } from '../../utils/attendance/shiftUtils.js';
 
 
 
@@ -32,7 +32,8 @@ class AttendanceEngine {
         };
 
         // Automatically detect if shift spans midnight even if is_cross_day flag is missing
-        const isCrossDay = shift?.is_cross_day || (shift?.start_time && shift?.end_time && 
+        const isRabs = company && /RABS/i.test(company.company_name);
+        const isCrossDay = isRabs || shift?.is_cross_day || (shift?.start_time && shift?.end_time && 
             moment(shift.end_time, 'HH:mm').isSameOrBefore(moment(shift.start_time, 'HH:mm')));
 
         if (isCrossDay) {
@@ -91,7 +92,9 @@ class AttendanceEngine {
                 // Only consider IN punches that occur on the date being processed.
                 // This prevents the next day's shift from being counted in this day's record.
                 if (punch.punch_date_str === date) {
-                    lastInPunch = punch;
+                    if (!lastInPunch) {
+                        lastInPunch = punch;
+                    }
                 }
             } else if (punch.punch_type === 'OUT' && lastInPunch) {
                 cumulativeMs += (punch.punch_time - lastInPunch.punch_time);
@@ -112,7 +115,7 @@ class AttendanceEngine {
         let isEarlyIn = false;
         let earlyInMinutes = 0;
 
-        const firstIn = punches.find(p => p.punch_type === 'IN');
+        const firstIn = punches.find(p => p.punch_type === 'IN' && p.punch_date_str === date);
 
         // If employee punched in
         if (firstIn) {
@@ -123,6 +126,9 @@ class AttendanceEngine {
             if (shift) {
                 const shiftStart = moment.tz(`${date} ${shift.start_time}`, 'YYYY-MM-DD HH:mm', tz);
                 let shiftEnd = moment.tz(`${date} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
+
+                // Dynamic missed-punch limit: shift duration + 4h buffer
+                const missedPunchLimit = getMissedPunchLimitHours(shift);
 
                 // For cross-day shifts, the end time is on the next day.
                 // We rely on actual time crossing midnight (end <= start) as the primary indicator.
@@ -189,7 +195,9 @@ class AttendanceEngine {
                 const isCurrentlyPunchedOut = !lastInPunch;
                 const hoursSinceLastPunch = lastOut ? now.diff(moment(lastOut.punch_time).tz(tz), 'hours') : 0;
                 const hoursSinceIn = lastInPunch ? now.diff(moment(lastInPunch.punch_time).tz(tz), 'hours', true) : 0;
-                const isGapTooLarge = isCurrentlyPunchedOut && hoursSinceLastPunch >= 4;
+                const isGapTooLarge = !isRabs && isCurrentlyPunchedOut && hoursSinceLastPunch >= 4;
+                const currentLimitHours = isRabs ? 24 : 12;
+                const rabsStatusBypass = isRabs && lastInPunch && hoursSinceIn <= 24;
 
                 // Determine status based on cumulative work hours
                 let effectiveHours = totalWorkHours;
@@ -209,6 +217,8 @@ class AttendanceEngine {
                 // --- ADVANCED HALF-DAY INTEGRATION ---
                 // Query for approved half-day leaves on this date
                 leave = await LeaveApplication.findOne({
+
+                    
                     employee_id: user._id,
                     approval_status: 'approved',
                     from_date_str: { $lte: date },
@@ -232,9 +242,9 @@ class AttendanceEngine {
                 } else if (effectiveHours >= adjustedFullDay) {
                     status = 'present';
                 } else if (effectiveHours <= adjustedHalfDay) {
-                    // Only finalize as half_day if shift is over and it's not today, or if it's been > 18h
+                    // Only finalize as half_day if shift is over and it's not today, or if it's been > 24h
                     // For TODAY: Only mark as half_day if they are punched out AND the shift is over.
-                    if ((!isToday && (isShiftOver || hoursSinceIn > MISSED_PUNCH_LIMIT_HOURS)) || (isToday && isCurrentlyPunchedOut && isShiftOver)) {
+                    if (!rabsStatusBypass && ((!isToday && (isShiftOver || hoursSinceIn > currentLimitHours)) || (isToday && isCurrentlyPunchedOut && isShiftOver))) {
                         status = 'half_day';
                         isHalfDayFlag = true;
                         isLate = false;
@@ -242,7 +252,7 @@ class AttendanceEngine {
                         status = 'present';
                     }
                 } else {
-                    if ((!isToday && (isShiftOver || hoursSinceIn > MISSED_PUNCH_LIMIT_HOURS)) || isGapTooLarge || (isToday && isCurrentlyPunchedOut && isShiftOver)) {
+                    if (!rabsStatusBypass && ((!isToday && (isShiftOver || hoursSinceIn > currentLimitHours)) || isGapTooLarge || (isToday && isCurrentlyPunchedOut && isShiftOver))) {
                          status = 'half_day';
                          isHalfDayFlag = true;
                          isLate = false;
@@ -252,7 +262,7 @@ class AttendanceEngine {
                 }
 
                 // ✅ Fix: Don't mark as incomplete until 18 hours after punch-in
-                if (!isToday && lastInPunch && status === 'present' && hoursSinceIn > MISSED_PUNCH_LIMIT_HOURS) {
+                if (!isToday && lastInPunch && status === 'present' && hoursSinceIn > currentLimitHours) {
                     status = 'incomplete';
                     isHalfDayFlag = false;
                 }
@@ -301,8 +311,13 @@ class AttendanceEngine {
                 attendance_date_str: date
             });
 
-            if (existingRecordAdminCheck && existingRecordAdminCheck.processed_by === 'admin') {
-                return existingRecordAdminCheck; // Admin manually edited this, do not overwrite metrics
+            if (existingRecordAdminCheck && (
+                existingRecordAdminCheck.processed_by === 'admin' || 
+                existingRecordAdminCheck.processed_by === 'hod' || 
+                existingRecordAdminCheck.processed_by === 'regularization' || 
+                existingRecordAdminCheck.is_regularized
+            )) {
+                return existingRecordAdminCheck; // Admin/HOD/regularization-corrected record, do not overwrite metrics
             }
 
             return await AttendanceRecord.findOneAndUpdate(
@@ -313,6 +328,7 @@ class AttendanceEngine {
                     company_id: compId,
                     department_id: deptId,
                     shift_id: shift ? (shift._id?._id || shift._id) : null,
+                    assigned_shift_id: user.shift_id || null,
                     first_in: firstIn.punch_time,
                     last_out: lastOut ? lastOut.punch_time : null,
                     total_punches: punches.length,
@@ -329,7 +345,12 @@ class AttendanceEngine {
                     is_half_day: recordIsHalfDay,
                     half_day_session: leave?.half_day_session,
                     is_on_leave: !!leaveId,
-                    leave_application_id: leaveId
+                    leave_application_id: leaveId,
+                    has_incomplete_session: status === 'incomplete',
+                    missed_punch: status === 'incomplete',
+                    missed_punch_reason: status === 'incomplete' ? (existingRecordAdminCheck?.missed_punch_reason || (isRabs ? 'timeout_24h' : 'timeout_12h')) : null,
+                    missed_punch_marked_at: status === 'incomplete' ? (existingRecordAdminCheck?.missed_punch_marked_at || new Date()) : null,
+                    missed_punch_source: status === 'incomplete' ? (existingRecordAdminCheck?.missed_punch_source || 'system') : null
                 },
                 { upsert: true, new: true }
             );
@@ -365,13 +386,20 @@ class AttendanceEngine {
                     attendance_date_str: date,
                     company_id: compId,
                     department_id: deptId,
+                    shift_id: shift ? (shift._id?._id || shift._id) : null,
+                    assigned_shift_id: user.shift_id || null,
                     status: status,
                     is_on_leave: !!leaveId,
                     leave_application_id: leaveId,
                     year_month: moment.utc(date).format('YYYY-MM'),
                     total_work_hours: 0,
                     processed_at: new Date(),
-                    processed_by: 'system'
+                    processed_by: 'system',
+                    has_incomplete_session: false,
+                    missed_punch: false,
+                    missed_punch_reason: null,
+                    missed_punch_marked_at: null,
+                    missed_punch_source: null
                 },
                 { upsert: true, new: true }
             );

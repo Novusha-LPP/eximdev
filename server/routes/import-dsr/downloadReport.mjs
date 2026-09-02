@@ -46,18 +46,37 @@ router.get(
         .replace(/pvt/g, 'pvt[._]?')
         .replace(/ltd/g, 'ltd[._]?');
 
-      const { branchId, detailedStatus } = req.query;
+      // Pattern 4: Handle spaces, dots, and underscores interchangeably to search in original importer name field
+      const generalPattern = escapedImporterURL
+        .replace(/pvt/g, 'pvt[\\s._]?')
+        .replace(/ltd/g, 'ltd[\\s._]?')
+        .replace(/\./g, '[\\s._]?')
+        .replace(/_/g, '[\\s._]?');
 
-      // MongoDB query with multiple pattern options
+      const { branchId, detailedStatus, filterType, fromDate, toDate, month } = req.query;
+
+      // MongoDB query with multiple pattern options to match both importerURL and importer fields
       const query = {
-        year: { $in: yearArray },
         $or: [
           { importerURL: { $regex: new RegExp(exactPattern, 'i') } },
           { importerURL: { $regex: new RegExp(`^${flexiblePattern}$`, 'i') } },
-          { importerURL: { $regex: new RegExp(`^${pvtPattern}$`, 'i') } }
+          { importerURL: { $regex: new RegExp(`^${pvtPattern}$`, 'i') } },
+          { importer: { $regex: new RegExp(`^${generalPattern}$`, 'i') } }
         ],
         status,
       };
+
+      if (filterType === "dateRange") {
+        if (fromDate && toDate) {
+          query.job_date = { $gte: fromDate, $lte: toDate + "z" };
+        }
+      } else if (filterType === "month") {
+        if (month) {
+          query.job_date = { $regex: new RegExp(`^${month}`) };
+        }
+      } else {
+        query.year = { $in: yearArray };
+      }
 
       if (branchId && branchId !== 'all') {
         query.branch_id = branchId;

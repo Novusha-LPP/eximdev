@@ -304,3 +304,8 @@
 .ar-status-leave { background-color: #2563eb; }
 .ar-status-pending-leave { background-color: #f59e0b; }
 .ar-status-default { background-color: #adb5bd; }
+
+/* ── Download Report spinner ─────────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

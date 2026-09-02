@@ -1,0 +1,147 @@
+CHANGE REQUEST DOCUMENT
+In-House Sales CRM  —  Version 2.0
+Feature Enhancements — Second Release
+Suraj Group of Companies  |  Submitted to: Development Team
+Document Information
+Document Title
+CRM Feature Change Request — Version 2.0
+Prepared By
+Krishnapal Puvar  |  Suraj Group of Companies
+Submitted To
+CRM Software Development Team
+Previous Version
+v1.0 — 6 Change Requests (already submitted)
+This Version
+v2.0 — 5 Additional Change Requests
+Date
+April 2026
+Status
+Open — Awaiting Development
+Change Requests — Summary Index
+#
+Title
+Module
+Priority
+Status
+CR-007
+Total Pipeline Value Display Per Stage
+Pipeline
+High
+Open
+CR-008
+Lead Source Tagging on Lead Cards
+Leads / Pipeline
+High
+Open
+CR-009
+Month-end Carry Forward of Active Deals
+Pipeline
+High
+Open
+CR-010
+Stage-specific Filter with Daily/Weekly/Monthly
+All Modules
+High
+Open
+CR-011
+Stage Analysis in Reports — Full Data View
+Reports
+High
+Open
+Change Request Specifications
+CR-007  Total Pipeline Value Display Per Stage
+Priority: High   |   Module: Pipeline
+Requirement
+The total combined value of all deals within each pipeline stage must be displayed clearly — either above or below the stage column header on the Kanban board. This should update in real time as deals are added, moved, or updated.
+Current Behavior
+Individual deal values are shown on each deal card (e.g. ₹25.5L), but there is no aggregate total shown for each stage column. To know the total value in a stage, a user has to manually add up all card values.
+Expected Behavior
+A total value summary should appear at the top or bottom of each stage column on the Pipeline Kanban board. For example: • Lead: ₹0  (0 deals) • Qualified: ₹1.0L  (1 deal) • Opportunity: ₹25.5L  (1 deal) • Proposal: ₹1.8L  (1 deal) • Negotiation: ₹0  (0 deals) • Won: ₹0  (0 deals) The count of deals in each stage should also be shown alongside the value.
+Display Position
+Recommended: Below the stage column header and above the deal cards. Alternatively, a pinned footer at the bottom of each stage column is acceptable. Business team preference is above the cards for immediate visibility.
+Format
+Total value displayed in Indian number format (₹ Lakhs — e.g. ₹25.5L or ₹2,55,000). Deal count shown alongside (e.g. '1 deal' or '3 deals'). Both should update dynamically when filters are applied.
+Filter Behaviour
+If a date, month, branch, or team filter is applied to the pipeline view, the stage totals must recalculate and update instantly to reflect only the filtered data.
+Technical Note
+Stage totals should be computed server-side and returned as part of the pipeline stage data. Avoid computing totals only on the frontend to ensure accuracy when pagination is involved (if deal cards are paginated).
+Acceptance Criteria
+1. Total value visible on every stage column of the Pipeline Kanban 2. Deal count shown alongside the total value 3. Values update in real time when deals are moved between stages 4. Values recalculate correctly when any filter is applied 5. Display format follows Indian currency format (₹ Lakhs)
+CR-008  Lead Source Tagging — Display on Lead Cards with Value & Percentage
+Priority: Medium   |   Module: Leads / Pipeline
+Requirement
+Each lead must have a Lead Source field that tags how the lead was generated. This source tag must be visibly displayed on the lead card/header (both in Lead Management list and in Pipeline deal cards) along with its contribution value and percentage to the overall pipeline.
+Current Behavior
+There is no lead source field in the current system. It is not possible to distinguish whether a lead came from IndiaMart, the company website, direct sales, a referral, or any other channel.
+Lead Source Options
+The following sources must be available as a dropdown when creating or editing a lead: • IndiaMart Lead • Web / Own Generated Lead • Direct Sales Visit • Referral • Email Campaign • Other (with free-text entry)
+Display on Lead Card
+The lead source must be shown as a visible badge or label on: (A) The Lead Management list row — shown as a coloured tag next to the company name (B) The Pipeline Kanban deal card — shown as a small label alongside the deal value and probability Example card display:   Motherson (SMR) Hanslapur   ₹25.5L  |  85%  |  IndiaMart
+Value & Percentage Display
+In the Pipeline view and Reports, the system must show: • Total deal value per source (e.g. IndiaMart: ₹26.5L) • Percentage of total pipeline value from each source (e.g. IndiaMart: 72% of pipeline) This can be shown as a summary panel or within the Reports section (ties into CR-011).
+Filter by Source
+A filter option should allow users to view only leads/deals from a specific source (e.g. show only IndiaMart leads across all pipeline stages).
+Technical Note
+Lead Source should be stored as a field on the Lead/Deal record. The badge colour on the card should differ by source type for quick visual identification. Source data should feed into the reporting module.
+Acceptance Criteria
+1. Lead Source dropdown available when creating/editing a lead 2. Source label/badge visible on Lead Management list rows 3. Source label visible on Pipeline Kanban deal cards 4. Source-wise total value and percentage shown in pipeline summary or reports 5. Filter by Lead Source works across all views 6. Source data available in export (Excel/PDF)
+CR-009  Month-end Carry Forward — Active Deals Merged into Next Month
+Priority: High   |   Module: Pipeline / Leads
+Requirement
+When the month changes (1st of new month), any deal or lead that has NOT been marked as 'Lost' must automatically carry forward and appear in the new month's active pipeline. Only Lost deals should be archived and not visible in the live view. All open/active deals must continue seamlessly into the next month without any manual action from the team.
+Context
+This requirement works alongside CR-001 (Monthly Auto-Reset). CR-001 states that data disappears at month-end — this CR clarifies the carry-forward rule: only Lost deals are archived. Active deals continue forward.
+Current Behavior
+This behaviour does not exist yet as the monthly reset feature (CR-001) has not been built. This CR defines the carry-forward logic that must be part of the CR-001 implementation.
+Expected Behavior
+On the 1st of each month: • Deals in stages: Lead, Qualified, Opportunity, Proposal, Negotiation → CARRY FORWARD automatically into the new month's live pipeline. No action needed from the sales team. • Deals in stage: Won → Archived into the previous month's record (closed business). Not carried forward. • Deals in stage: Lost → Archived into the previous month's record. Not carried forward.  The carried-forward deals should show their original creation date AND a 'Carried from: [Month Name]' label so users know the deal originated in a previous month.
+Merge Logic
+The new month's pipeline will contain: (A) Deals carried forward from previous month(s) — clearly labelled (B) New deals created fresh in the current month Both types appear together in the same stage columns.
+Carried Forward Label
+Each carried-forward deal card should display a small indicator such as: 'Carried from: March 2026' This helps the team distinguish old vs. new deals at a glance.
+Multi-month Carry
+If a deal is not closed for 2 or 3 months, it must continue to carry forward each month until it is either Won or Lost. The label should update to reflect the original creation month.
+Technical Note
+Add a 'carry_forward' boolean flag and 'origin_month' field to deal records. The CRON job (from CR-001) should process: 1. Archive Won and Lost deals from the previous month 2. Update the 'current_period' tag on all remaining open deals to the new month 3. No records should be duplicated — same record, updated period tag.
+Acceptance Criteria
+1. On the 1st of the month, Won and Lost deals move to archive 2. All other open deals remain in the live pipeline automatically 3. Carried forward deals show 'Carried from: [Month]' label on their card 4. No manual action required from the sales team 5. Multi-month carry works correctly for deals open across 3+ months 6. Archive correctly shows Won/Lost deals against the month they were closed
+CR-0010  Stage-specific Filter with Daily / Weekly / Monthly View
+Priority: High   |   Module: Pipeline, Leads, Accounts, Reports
+Requirement
+Users must be able to filter the pipeline and lead views to show only a specific stage (e.g. only Qualified leads, or only Opportunity deals). Within that filtered stage view, they must also be able to toggle between Daily, Weekly, and Monthly time periods to see data specific to that time window.
+Current Behavior
+The Pipeline shows all stages simultaneously on the Kanban board. There is no way to isolate a single stage and view its data with a time-period breakdown.
+Expected Behavior
+A 'Stage Filter' dropdown should be available on the Pipeline and Leads views: • Options: All Stages (default) | Lead | Qualified | Opportunity | Proposal | Negotiation | Won | Lost  When a specific stage is selected, the view changes to show only deals/leads in that stage.  Within the filtered stage view, a Time Period toggle must be available: • Daily — shows deals active or created on the selected date • Weekly — shows deals active or created in the selected week (Mon–Sun) • Monthly — shows deals active or created in the selected month  All three toggles should be supported with a date/week/month picker alongside.
+Stage Filter + Time Example
+Example use case: 'Show me all deals in Proposal stage for this week' → User selects Stage: Proposal + Time: Weekly + selects current week → View shows only Proposal deals active in that week with full deal details.
+Combination Filters
+Stage filter must work in combination with existing filters (from CR-002): • Stage + Date Range • Stage + Month • Stage + Branch (SEA/AIR) • Stage + Team • Stage + Sales Person All combinations must work without conflict.
+Display Format
+When a single stage is selected, the view can switch from Kanban to a List/Table view showing: • Deal Name, Company, Value, Probability, Crate Size (CR-004), Lead Source (CR-008), Created Date, Last Updated, Assigned To
+Technical Note
+Stage filter should be implemented as a query parameter on the pipeline API endpoint. Time period filters should pass date ranges to the backend — avoid client-side filtering only. Ensure the filter state is retained in the URL so it can be shared or bookmarked.
+Acceptance Criteria
+1. Stage filter dropdown present on Pipeline and Leads views 2. Selecting a stage shows only deals in that stage 3. Daily / Weekly / Monthly toggle available within stage view 4. Date/week/month picker works with each toggle 5. Stage filter combines correctly with all other filters (CR-002) 6. Filtered view shows all deal fields in list/table format 7. Filter state is preserved on page refresh
+CR-0011  Stage Analysis in Reports — Complete Data View Per Stage
+Priority: High   |   Module: Reports
+Requirement
+The Reports module must include a dedicated 'Stage Analysis' section that provides a complete, detailed view of all data for each pipeline stage. This goes beyond the summary numbers already requested in CR-006 — Stage Analysis must show the full record-level detail for every stage, filterable by any time period.
+Current Behavior
+No stage-level analysis report exists. The Dashboard shows only top-level KPIs. There is no way to drill down into a specific stage and see all the deals within it with their complete business data.
+Report Structure
+The Stage Analysis report should be structured as follows:  Top Level: Select a Stage (or view All Stages) → Qualified | Opportunity | Proposal | Negotiation | Won | Lost  For the selected stage, display a table with ALL deals in that stage for the selected time period, including: • Deal Name • Company / Account • Contact Person • Lead Source (CR-008) • Crate Size (CR-004) • Deal Value (₹) • Probability (%) • Weighted Value (₹ × Probability) • Stage Entry Date (when it entered this stage) • Days in Stage (how long it has been in this stage) • Assigned Sales Person • Last Activity / Last Updated • Current Status (Active / Carried Forward / Won / Lost) • Lost Reason (if Lost — from CR-005)
+Summary Row
+Below the full data table, a summary row must show: • Total Deals: [count] • Total Deal Value: ₹[sum] • Total Weighted Value: ₹[sum] • Average Days in Stage: [avg] • Conversion Rate from this stage: [%]
+All Stages View
+When 'All Stages' is selected, the report shows a collapsed summary table with one row per stage: • Stage Name | Deal Count | Total Value | Weighted Value | Avg Days in Stage | % of Total Pipeline Each stage row should be expandable to show the full deal list underneath.
+Time Period Filters
+Stage Analysis must support the same filters as CR-006 and CR-010: • Daily / Weekly / Monthly toggle • Custom date range • Month picker (including historical months via CR-001 archive) • Branch filter (SEA / AIR) • Team filter • Sales person filter
+Lead Source Breakdown
+Within each stage's report, a sub-section should show the source breakdown: • How many deals in this stage came from IndiaMart vs. Web vs. Direct, etc. • Value and percentage per source (ties into CR-008)
+Export
+The Stage Analysis report must be fully exportable: • Excel (.xlsx) — with all fields, one row per deal • PDF — formatted as a professional report with summary table and stage detail Export should apply all active filters at the time of export.
+Technical Note
+Stage Analysis should query both live data (current month) and archived data (past months via CR-001) based on the selected time period. Ensure deal history/audit log tracks stage changes so 'Stage Entry Date' and 'Days in Stage' can be calculated accurately.
+Acceptance Criteria
+1. Stage Analysis section accessible from the Reports module 2. Stage selector shows all 7 stages including Won and Lost 3. Full deal-level data table shown for selected stage and time period 4. All data fields listed above visible in the table 5. Summary row displayed below the deal table 6. All Stages view shows collapsed summary with expandable rows 7. Lead Source breakdown shown within each stage view 8. All time period and entity filters work correctly 9. Excel and PDF export functional with all filters applied 10. Historical month data accessible via archive filter (CR-001)

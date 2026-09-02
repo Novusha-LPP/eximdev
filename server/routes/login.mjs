@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import UserModel from "../model/userModel.mjs";
 import TeamModel from "../model/teamModel.mjs";
+import { calculateProfileCompletion, sendManagerNotification } from "../utils/profileCompletion.mjs";
 
 const router = express.Router();
 
@@ -10,8 +11,10 @@ router.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const user = await UserModel.findOne({ username }).select('+password');
-
+    const user = await UserModel.findOne({ username })
+      .select('+password')
+      .populate("hod_id")
+      .populate("attendance_settings.manager_id");
     if (!user) {
       return res.status(400).json({ message: "User not registered" });
     }
@@ -74,6 +77,30 @@ router.post("/api/login", async (req, res) => {
           passwordExpired: passwordExpired,
           isAttendanceAllowedAdmin: user.isAttendanceAllowedAdmin
         };
+
+        // Calculate profile completion
+        const completion = calculateProfileCompletion(user);
+        userResponse.profileCompletion = completion;
+
+        // Automatically notify manager if critical fields are missing
+        if (completion.hasCriticalMissing && user.role !== 'Admin') {
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const alreadyNotified = user.profile_manager_notified_at && user.profile_manager_notified_at > oneDayAgo;
+          
+          if (!alreadyNotified) {
+            const manager = user.hod_id || user.attendance_settings?.manager_id;
+            if (manager && manager.email) {
+              try {
+                await sendManagerNotification(user, manager.email, completion.missingBlockingFields);
+                user.profile_manager_notified_at = new Date();
+                await user.save();
+                console.log(`Automatically notified manager ${manager.email} about incomplete profile of ${user.username}`);
+              } catch (emailErr) {
+                console.error("Error automatically notifying manager on login:", emailErr);
+              }
+            }
+          }
+        }
 
         const token = jwt.sign(
           {

@@ -9,6 +9,7 @@ import PaymentPending from "./PaymentPending";
 import PaymentCompleted from "./PaymentCompleted";
 import ImportCompletedBilling from './ImportCompletedBilling.js'
 import GeneralJobs from './GeneralJobs.js';
+import VirtualBalanceList from './VirtualBalanceList.js';
 
 // Create a context to share tab state between components
 export const TabContext = React.createContext({
@@ -22,17 +23,43 @@ function ImportBillingTab() {
   const navigate = useNavigate();
   const { a11yProps, CustomTabPanel } = useTabs();
 
-  // Get initial tab value from URL state or default to 0
-  const initialTab = location.state?.tabIndex ?? 0;
-  const [value, setValue] = React.useState(initialTab);
-  const [workMode, setWorkMode] = React.useState("Payment");
+  // Get initial tab value from location state, sessionStorage, or default to 0
+  const initialTab =
+    location.state?.tabIndex !== undefined
+      ? location.state.tabIndex
+      : (sessionStorage.getItem("import_billing_tab") !== null
+          ? Number(sessionStorage.getItem("import_billing_tab"))
+          : 0);
 
-  // Sync tab state when the component mounts (to prevent mismatches)
+  const [value, setValue] = React.useState(initialTab);
+  const [workMode, setWorkMode] = React.useState(
+    () => location.state?.workMode || sessionStorage.getItem("import_billing_work_mode") || "Payment"
+  );
+
+  // Sync tab state when location.state changes
   React.useEffect(() => {
-    if (value !== initialTab) {
-      setValue(initialTab);
+    if (location.state?.tabIndex !== undefined && value !== location.state.tabIndex) {
+      setValue(location.state.tabIndex);
+      sessionStorage.setItem("import_billing_tab", location.state.tabIndex.toString());
     }
-  }, [initialTab]);
+  }, [location.state?.tabIndex]);
+
+  // Sync workMode when location.state changes
+  React.useEffect(() => {
+    if (location.state?.workMode && workMode !== location.state.workMode) {
+      setWorkMode(location.state.workMode);
+      sessionStorage.setItem("import_billing_work_mode", location.state.workMode);
+    }
+  }, [location.state?.workMode]);
+
+  // Persist tabIndex and workMode whenever they change
+  React.useEffect(() => {
+    sessionStorage.setItem("import_billing_tab", value.toString());
+  }, [value]);
+
+  React.useEffect(() => {
+    sessionStorage.setItem("import_billing_work_mode", workMode);
+  }, [workMode]);
 
   const handleWorkModeChange = (event, newMode) => {
     if (newMode !== null) {
@@ -44,6 +71,7 @@ function ImportBillingTab() {
   const handleChange = React.useCallback(
     (event, newValue) => {
       setValue(newValue);
+      sessionStorage.setItem("import_billing_tab", newValue.toString());
       navigate(".", { state: { tabIndex: newValue }, replace: true });
     },
     [navigate]
@@ -64,20 +92,26 @@ function ImportBillingTab() {
       <Box sx={{ width: "100%" }}>
         {/* Tabs Navigation */}
         <Box sx={{ borderBottom: 1, borderColor: "divider", display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Tabs
-            value={value}
-            onChange={handleChange}
-            aria-label="import Billing Tabs"
-            sx={{ flexGrow: 1 }}
-          >
-            <Tab label="Import Billing" {...a11yProps(0)} />
-            <Tab label="Clearance Completed" {...a11yProps(1)} />
-            <Tab label="General Job" {...a11yProps(2)} />
-            <Tab label={workMode === "Payment" ? "Payment Requested" : "Purchase Book Requested"} {...a11yProps(3)} />
-            <Tab label={workMode === "Payment" ? "Payment" : "Purchase Book"} {...a11yProps(4)} />
-            <Tab label={workMode === "Payment" ? "Payment Completed" : "Purchase Book Completed"} {...a11yProps(5)} />
-            <Tab label="Import Completed Billing" {...a11yProps(6)} />
-          </Tabs>
+          {workMode !== "Virtual Balance" ? (
+            <Tabs
+              value={value}
+              onChange={handleChange}
+              aria-label="import Billing Tabs"
+              sx={{ flexGrow: 1 }}
+            >
+              <Tab label="Import Billing" {...a11yProps(0)} />
+              <Tab label="Clearance Completed" {...a11yProps(1)} />
+              <Tab label="General Job" {...a11yProps(2)} />
+              <Tab label={workMode === "Payment" ? "Payment Requested" : "Purchase Book Requested"} {...a11yProps(3)} />
+              <Tab label={workMode === "Payment" ? "Payment" : "Purchase Book"} {...a11yProps(4)} />
+              <Tab label={workMode === "Payment" ? "Payment Completed" : "Purchase Book Completed"} {...a11yProps(5)} />
+              <Tab label="Import Completed Billing" {...a11yProps(6)} />
+            </Tabs>
+          ) : (
+            <Typography variant="h6" sx={{ flexGrow: 1, pl: 2, fontWeight: 'bold', color: '#1a237e', fontSize: '15px' }}>
+              Virtual Balance Management
+            </Typography>
+          )}
           <Box sx={{ display: 'flex', alignItems: 'center', px: 2, gap: 1 }}>
             <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', textTransform: 'uppercase' }}>Work Mode:</Typography>
             <ToggleButtonGroup
@@ -90,32 +124,41 @@ function ImportBillingTab() {
             >
               <ToggleButton value="Payment" sx={{ px: 2, fontSize: '0.75rem' }}>Payment</ToggleButton>
               <ToggleButton value="Purchase Book" sx={{ px: 2, fontSize: '0.75rem' }}>Purchase Book</ToggleButton>
+              <ToggleButton value="Virtual Balance" sx={{ px: 2, fontSize: '0.75rem' }}>Virtual Balance</ToggleButton>
             </ToggleButtonGroup>
           </Box>
         </Box>
 
         {/* Tab Panels */}
-        <CustomTabPanel value={value} index={0}>
-          <ImportBilling workMode={workMode} />
-        </CustomTabPanel>
-        <CustomTabPanel value={value} index={1}>
-          <ClearanceCompleted workMode={workMode} />
-        </CustomTabPanel>
-        <CustomTabPanel value={value} index={2}>
-          <GeneralJobs />
-        </CustomTabPanel>
-        <CustomTabPanel value={value} index={3}>
-          <PaymentRequested workMode={workMode} />
-        </CustomTabPanel>
-        <CustomTabPanel value={value} index={4}>
-          <PaymentPending workMode={workMode} />
-        </CustomTabPanel>
-        <CustomTabPanel value={value} index={5}>
-          <PaymentCompleted workMode={workMode} />
-        </CustomTabPanel>
-        <CustomTabPanel value={value} index={6}>
-          <ImportCompletedBilling workMode={workMode} />
-        </CustomTabPanel>
+        {workMode === "Virtual Balance" ? (
+          <Box sx={{ p: 2 }}>
+            <VirtualBalanceList />
+          </Box>
+        ) : (
+          <>
+            <CustomTabPanel value={value} index={0}>
+              <ImportBilling workMode={workMode} />
+            </CustomTabPanel>
+            <CustomTabPanel value={value} index={1}>
+              <ClearanceCompleted workMode={workMode} />
+            </CustomTabPanel>
+            <CustomTabPanel value={value} index={2}>
+              <GeneralJobs />
+            </CustomTabPanel>
+            <CustomTabPanel value={value} index={3}>
+              <PaymentRequested workMode={workMode} />
+            </CustomTabPanel>
+            <CustomTabPanel value={value} index={4}>
+              <PaymentPending workMode={workMode} />
+            </CustomTabPanel>
+            <CustomTabPanel value={value} index={5}>
+              <PaymentCompleted workMode={workMode} />
+            </CustomTabPanel>
+            <CustomTabPanel value={value} index={6}>
+              <ImportCompletedBilling workMode={workMode} />
+            </CustomTabPanel>
+          </>
+        )}
       </Box>
     </TabContext.Provider>
   );

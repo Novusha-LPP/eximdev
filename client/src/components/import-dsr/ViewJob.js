@@ -16,9 +16,11 @@ import {
   Autocomplete,
   Alert,
   AlertTitle,
+  Slider,
 } from "@mui/material";
 import MenuItem from "@mui/material/MenuItem";
 import axios from "axios";
+import toast from "react-hot-toast";
 import "../../styles/job-details.scss";
 import useFetchJobDetails from "../../customHooks/useFetchJobDetails";
 import Checkbox from "@mui/material/Checkbox";
@@ -44,6 +46,7 @@ import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import ErrorIcon from "@mui/icons-material/Error";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
 import AddIcon from "@mui/icons-material/Add";
+import RemoveIcon from "@mui/icons-material/Remove";
 import {
   Dialog,
   DialogActions,
@@ -54,14 +57,17 @@ import {
   Box,
   Tabs,
   Tab,
+  CircularProgress,
 } from "@mui/material";
-import { Edit, Delete } from "@mui/icons-material";
+import { Edit, Delete, Sync as SyncIcon } from "@mui/icons-material";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ConfirmDialog from "../../components/gallery/ConfirmDialog.js";
 import { TabContext } from "../documentation/DocumentationTab.js";
+import { CONTAINER_TYPE_OPTIONS } from "../../config/containerTypes";
 import DeliveryChallanPdf from "./DeliveryChallanPDF.js";
 import IgstModal from "../gallery/IgstModal.js";
 import IgstCalculationPDF from "./IgstCalculationPDF.js";
+import BoePartIIIDutyTable from "./BoePartIIIDutyTable.js";
 import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter.js";
 import JobDocRequests from "../document-collection/JobDocRequests.js";
 import DocRequestCheckbox from "../document-collection/DocRequestCheckbox.js";
@@ -75,15 +81,127 @@ import {
   shouldHideField,
 } from "../../utils/modeLogic";
 
+const getFormattedDateForRates = (dateInput) => {
+  if (!dateInput) dateInput = new Date();
+  if (dateInput instanceof Date) {
+    const day = String(dateInput.getDate()).padStart(2, '0');
+    const month = String(dateInput.getMonth() + 1).padStart(2, '0');
+    const year = dateInput.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+  if (typeof dateInput === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+      const [y, m, d] = dateInput.split('-');
+      return `${d}-${m}-${y}`;
+    }
+    if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(dateInput)) {
+      return dateInput.replace(/\//g, '-');
+    }
+  }
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
+const getUnitForCurrency = (currencyCode) => {
+  if (!currencyCode) return 1;
+  const code = String(currencyCode).toUpperCase().trim();
+  if (code === "JPY" || code === "KRW") return 100;
+  return 1;
+};
+
+const fetchExrateForCurrency = async (currency, date) => {
+  if (!currency || currency.toUpperCase() === "INR") return 1;
+  const formattedDate = getFormattedDateForRates(date);
+  try {
+    const response = await axios.get(
+      `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${formattedDate}`
+    );
+    if (response.data.success && response.data.data?.exchange_rates) {
+      const rateObj = response.data.data.exchange_rates.find(
+        r => r.currency_code.toUpperCase() === currency.toUpperCase()
+      );
+      if (rateObj) {
+        return parseFloat(rateObj.import_rate) || 1;
+      }
+    }
+  } catch (err) {
+    console.error("Error fetching exchange rate:", err);
+  }
+
+  const currentDateFormatted = getFormattedDateForRates(new Date());
+  if (formattedDate !== currentDateFormatted) {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${currentDateFormatted}`
+      );
+      if (response.data.success && response.data.data?.exchange_rates) {
+        const rateObj = response.data.data.exchange_rates.find(
+          r => r.currency_code.toUpperCase() === currency.toUpperCase()
+        );
+        if (rateObj) {
+          return parseFloat(rateObj.import_rate) || 1;
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching fallback exchange rate:", err);
+    }
+  }
+  return 1;
+};
+
 const compactInputSx = {
-  "& .MuiOutlinedInput-root": { height: "32px" },
-  "& .MuiOutlinedInput-input": { padding: "6px 8px", fontSize: "0.95rem", fontWeight: "bold" },
-  "& .MuiInputLabel-root": { fontSize: "0.95rem", fontWeight: "bold", top: "-4px" }, // Adjust label position if needed
-  "& .MuiInputLabel-shrink": { top: "0px" }
+  "& .MuiOutlinedInput-root": {
+    height: "34px",
+    borderRadius: "6px",
+    fontSize: "0.85rem",
+    backgroundColor: "#ffffff",
+    transition: "all 0.2s ease-in-out",
+    "& fieldset": {
+      borderColor: "#cbd5e1",
+      borderWidth: "1px",
+    },
+    "&:hover fieldset": {
+      borderColor: "#94a3b8 !important",
+    },
+    "&.Mui-focused fieldset": {
+      borderColor: "#1e293b !important",
+      borderWidth: "1.5px",
+    },
+    "&.Mui-disabled": {
+      backgroundColor: "#f8fafc",
+      color: "#64748b",
+      "& fieldset": {
+        borderColor: "#e2e8f0 !important",
+      }
+    }
+  },
+  "& .MuiOutlinedInput-input": {
+    padding: "6px 10px",
+    color: "#334155",
+    fontWeight: "500",
+  },
+  "& .MuiSelect-select": {
+    display: "flex",
+    alignItems: "center",
+  },
+  "& .MuiInputLabel-root": {
+    fontSize: "0.85rem",
+    top: "-3px",
+  },
 };
 
 
-const schemeOptions = ["Full Duty", "DEEC", "EPCG","RODTEP", "ROSCTL", "TQ", "SIL", "SEZ", "EOU", "DFIA", "Jobbing"];
+const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSCTL", "TQ", "SIL", "SEZ", "EOU", "DFIA", "Jobbing"];
 
 function JobDetails() {
   const [viewJobTab, setViewJobTab] = useState(0);
@@ -92,12 +210,14 @@ function JobDetails() {
   };
 
   const [activeProductIndex, setActiveProductIndex] = useState(0);
-  const [productSubTab, setProductSubTab] = useState("Main");
+  const [productSubTab, setProductSubTab] = useState(0);
 
   const [invoiceSubTab, setInvoiceSubTab] = useState(0);
   const handleInvoiceSubTabChange = (event, newValue) => {
     setInvoiceSubTab(newValue);
   };
+  const [invoiceTableWidth, setInvoiceTableWidth] = useState(1800);
+  const [productTableWidth, setProductTableWidth] = useState(1800);
 
   // State to track which containers have expanded seal number lists
   const [expandedSealIndices, setExpandedSealIndices] = useState({});
@@ -348,17 +468,25 @@ function JobDetails() {
   const [imexcubeDialogOpen, setImexcubeDialogOpen] = useState(false);
   const [imexcubePreviewData, setImexcubePreviewData] = useState(null);
   const [imexcubePreviewLoading, setImexcubePreviewLoading] = useState(false);
-  
+
+  // IMEXCUBE details state
+  const [imexcubeDetailsLoading, setImexcubeDetailsLoading] = useState(false);
+  const [imexcubeDetailsDialogOpen, setImexcubeDetailsDialogOpen] = useState(false);
+  const [imexcubeDetailsData, setImexcubeDetailsData] = useState(null);
+  const [imexcubeSyncing, setImexcubeSyncing] = useState(false);
+
   // JSON Editor state
   const [imexcubeShowEditor, setImexcubeShowEditor] = useState(false);
   const [imexcubeErrorDialog, setImexcubeErrorDialog] = useState({ open: false, title: "", message: "", details: null });
   const [imexcubeRawPayloadString, setImexcubeRawPayloadString] = useState("");
+  const [imexcubeSenderID, setImexcubeSenderID] = useState("SURAJAHD");
 
   // Import Terms state
   const [importTerms, setImportTerms] = useState("CIF");
 
   // Step 1: Fetch job data preview and show in dialog
-  const handleUploadToImexcube = async () => {
+  const handleUploadToImexcube = async (targetSenderID = imexcubeSenderID) => {
+    const finalSenderID = (typeof targetSenderID === "string") ? targetSenderID : imexcubeSenderID;
     const jobNumber = data?.job_number;
     if (!jobNumber) {
       setImexcubeSnackbar({ open: true, message: "Job number not found", severity: "error" });
@@ -373,7 +501,7 @@ function JobDetails() {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/scmCube/job-data-preview`,
-        { params: { job_number: jobNumber } }
+        { params: { job_number: jobNumber, senderID: finalSenderID } }
       );
       setImexcubePreviewData(res.data);
       setImexcubeRawPayloadString(JSON.stringify(res.data.rawPayload || res.data, null, 2));
@@ -385,12 +513,83 @@ function JobDetails() {
     }
   };
 
+  // Fetch job details directly from IMEXCUBE
+  const handleGetImexcubeDetails = async () => {
+    const jobNumber = data?.job_number;
+    if (!jobNumber) {
+      setImexcubeSnackbar({ open: true, message: "Job number not found", severity: "error" });
+      setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 4000);
+      return;
+    }
+    setImexcubeDetailsLoading(true);
+    setImexcubeDetailsDialogOpen(true);
+    setImexcubeDetailsData(null);
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/scmCube/get-imexcube-job-details`,
+        { params: { job_number: jobNumber } }
+      );
+      setImexcubeDetailsData(res.data);
+    } catch (err) {
+      console.error(err);
+      const errMsg = err?.response?.data?.error || err?.response?.data?.details || err.message || "Failed to fetch job details from IMEXCUBE";
+      setImexcubeDetailsData({ error: errMsg });
+    } finally {
+      setImexcubeDetailsLoading(false);
+    }
+  };
+
+  // Synchronize job details from IMEXCUBE to our local DB
+  const handleSyncImexcubeDetails = async () => {
+    const jobNumber = data?.job_number;
+    if (!jobNumber) {
+      setImexcubeSnackbar({ open: true, message: "Job number not found", severity: "error" });
+      setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 4000);
+      return;
+    }
+    setImexcubeSyncing(true);
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/scmCube/sync-imexcube-job`,
+        { job_number: jobNumber }
+      );
+
+      if (res.data?.success) {
+        setImexcubeDetailsDialogOpen(false);
+        setImexcubeSnackbar({
+          open: true,
+          message: res.data?.message || "Job synchronized successfully",
+          severity: "success"
+        });
+        setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 4000);
+
+        if (res.data.updatedJob && setData) {
+          setData(res.data.updatedJob);
+        }
+      } else {
+        setImexcubeSnackbar({
+          open: true,
+          message: res.data?.message || "No updates found",
+          severity: "info"
+        });
+        setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 4000);
+      }
+    } catch (err) {
+      console.error(err);
+      const errMsg = err?.response?.data?.error || err?.response?.data?.details || err.message || "Failed to sync job details from IMEXCUBE";
+      setImexcubeSnackbar({ open: true, message: errMsg, severity: "error" });
+      setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 5000);
+    } finally {
+      setImexcubeSyncing(false);
+    }
+  };
+
   // Step 2: Confirm and push to IMEXCUBE
   const handleConfirmImexcubeUpload = async () => {
     const jobNumber = data?.job_number;
     setImexcubeDialogOpen(false);
     setImexcubeUploading(true);
-    
+
     // Check if JSON is valid before sending
     let parsedPayload = null;
     if (imexcubeShowEditor) {
@@ -407,8 +606,9 @@ function JobDetails() {
     try {
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/scmCube/upload-to-imexcube`,
-        { 
+        {
           job_number: jobNumber,
+          senderID: imexcubeSenderID,
           ...(parsedPayload && { customPayload: parsedPayload })
         }
       );
@@ -422,7 +622,7 @@ function JobDetails() {
         message: res.data?.message || successMsg,
         severity: "success",
       });
-      
+
       // Mark uploaded only for successful create/update actions.
       if (setData) {
         setData(prev => ({
@@ -439,7 +639,7 @@ function JobDetails() {
       let errMsg = "Upload failed";
       let errDetails = null;
       const resData = err?.response?.data;
-      
+
       if (resData) {
         if (resData.action === "duplicate" || err?.response?.status === 409) {
           errMsg = resData.message || "Job already exists in IMEXCUBE";
@@ -456,7 +656,7 @@ function JobDetails() {
       } else if (err.message) {
         errMsg = err.message;
       }
-      
+
       setImexcubeErrorDialog({
         open: true,
         title: (resData?.action === "duplicate" || err?.response?.status === 409) ? "Duplicate Job" : "Upload Failed",
@@ -512,6 +712,7 @@ function JobDetails() {
     canChangeClearance,
     resetOtherDetails,
     setData,
+    isCthDocsLoading,
     // schemeOptions,
   } = useFetchJobDetails(
     params,
@@ -521,6 +722,35 @@ function JobDetails() {
     setFileSnackbar,
     storedSearchParams
   );
+
+  const [cthOptions, setCthOptions] = useState({});
+  const [cthLoading, setCthLoading] = useState({});
+  const cthTimeoutRef = useRef({});
+
+  const fetchCthOptions = async (query, rowIndex) => {
+    if (!query || query.length < 4) {
+      setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+      return;
+    }
+    setCthLoading(prev => ({ ...prev, [rowIndex]: true }));
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/search?query=${query}&addToRecent=false`, {
+        withCredentials: true
+      });
+      if (response.data && response.data.results) {
+        const cthResults = response.data.results;
+        const uniqueCodes = Array.from(new Set(cthResults.map(item => item.hs_code))).filter(Boolean);
+        setCthOptions(prev => ({ ...prev, [rowIndex]: uniqueCodes }));
+      } else {
+        setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+      }
+    } catch (error) {
+      console.error("Error fetching CTH options:", error);
+      setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+    } finally {
+      setCthLoading(prev => ({ ...prev, [rowIndex]: false }));
+    }
+  };
 
   const totalInvoiceValue = (formik?.values?.invoice_details || []).reduce((acc, row) => acc + (parseFloat(row.product_value) || 0), 0);
   const totalProductAmount = (formik?.values?.description_details || []).reduce((acc, row) => acc + (parseFloat(row.amount) || 0), 0);
@@ -542,6 +772,26 @@ function JobDetails() {
     };
     if (data?.ie_code_no) {
       fetchAuthorizations();
+    }
+  }, [data?.ie_code_no]);
+
+  // Fetch RODTEPs by IEC
+  const [rodtepsList, setRodtepsList] = useState([]);
+  useEffect(() => {
+    const fetchRodteps = async () => {
+      const iec = data?.ie_code_no;
+      if (!iec) return;
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-rodteps-by-iec?iec_no=${iec}`
+        );
+        setRodtepsList(res.data || []);
+      } catch (error) {
+        console.error("Error fetching RODTEPs by IEC:", error);
+      }
+    };
+    if (data?.ie_code_no) {
+      fetchRodteps();
     }
   }, [data?.ie_code_no]);
 
@@ -586,6 +836,53 @@ function JobDetails() {
     }
   }, [formik.values.import_terms]);
 
+  // Recalculate HSS additional charge amount when CIF changes
+  const serializedInvoiceDetails = JSON.stringify(formik.values.invoice_details || []);
+  useEffect(() => {
+    if (formik.values.hss === "Yes") {
+      let baseCifInr = 0;
+      if (formik.values.invoice_details && formik.values.invoice_details.length > 0) {
+        baseCifInr = formik.values.invoice_details.reduce((sum, row) => {
+          const pv = parseFloat(row.product_value) || 0;
+          const pvEx = parseFloat(row.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+          const fr = parseFloat(row.freight) || 0;
+          const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
+          const ins = parseFloat(row.insurance) || 0;
+          const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+          const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+          const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
+
+          const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+          const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
+          const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
+
+          return sum + (pvInr + frInr + insInr + othInr);
+        }, 0);
+      } else {
+        const totalCif = parseFloat(formik.values.cif_amount || formik.values.cifValue) || 0;
+        const currentAmount = parseFloat(formik.values.other_charges_details?.addl_charge?.amount) || 0;
+        const exrateVal = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
+        const hssUnit = getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
+        baseCifInr = totalCif - ((currentAmount * exrateVal) / hssUnit);
+      }
+      if (baseCifInr < 0) baseCifInr = 0;
+
+      const rateNum = parseFloat(formik.values.other_charges_details?.addl_charge?.rate) || 2;
+      const exrateVal = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
+      const hssUnit = getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
+      const expectedAmount = ((baseCifInr * rateNum) / 100) / (exrateVal / hssUnit);
+
+      const currentAmount = parseFloat(formik.values.other_charges_details?.addl_charge?.amount) || 0;
+      if (Math.abs(currentAmount - expectedAmount) > 0.01) {
+        formik.setFieldValue("other_charges_details.addl_charge.amount", expectedAmount > 0 ? expectedAmount.toFixed(2) : "");
+      }
+    }
+  }, [
+    formik.values.hss,
+    serializedInvoiceDetails
+  ]);
+
   const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
     useState(false);
   const [deleveryDate, setDeliveryDate] = useState(false);
@@ -605,6 +902,7 @@ function JobDetails() {
       do_completed,
       igm_no,
       igm_date,
+      delivery_completed_date,
     } = formik.values;
 
     const isValidDate = (date) => {
@@ -627,6 +925,8 @@ function JobDetails() {
     const allDelivered = hasContainers
       ? container_nos.every((c) => isValidDate(c?.delivery_date))
       : false;
+
+    const isDeliveryCompleted = isValidDate(delivery_completed_date) || allDelivered;
 
     const allEmptyOffloaded = hasContainers
       ? container_nos.every((c) => isValidDate(c?.emptyContainerOffLoadDate))
@@ -660,11 +960,11 @@ function JobDetails() {
 
     // Ex-Bond: return early to avoid fall-through
     if (isExBond) {
-      if (be_no && validOOC && allDelivered) {
+      if (be_no && validOOC && isDeliveryCompleted) {
         formik.setFieldValue("detailed_status", "Billing Pending");
         return;
       }
-      if (validDoCompleted && !allDelivered) {
+      if (validDoCompleted && !isDeliveryCompleted) {
         formik.setFieldValue("detailed_status", "Do completed and Delivery pending");
         return;
       }
@@ -692,16 +992,16 @@ function JobDetails() {
         billingComplete = allEmptyOffloaded;
       } else {
         // In-Bond Factory: Needs EmptyOff AND Delivery
-        billingComplete = allEmptyOffloaded && allDelivered;
+        billingComplete = allEmptyOffloaded && isDeliveryCompleted;
       }
     } else {
       // Standard Logic (Home Consumption, etc.)
-      billingComplete = (isLCL || isTypeDoIcd) ? allDelivered : allEmptyOffloaded;
+      billingComplete = (isLCL || isTypeDoIcd) ? isDeliveryCompleted : allEmptyOffloaded;
     }
 
     if (be_no && anyArrival && validOOC && billingComplete) {
       formik.setFieldValue("detailed_status", "Billing Pending");
-    } else if (validDoCompleted && !allDelivered) {
+    } else if (validDoCompleted && !isDeliveryCompleted) {
       formik.setFieldValue("detailed_status", "Do completed and Delivery pending");
     } else if (be_no && anyArrival && validOOC) {
       formik.setFieldValue("detailed_status", "Custom Clearance Completed");
@@ -750,7 +1050,6 @@ function JobDetails() {
   useEffect(() => {
     updateDetailedStatus();
   }, [
-    formik.values.vessel_berthing,
     formik.values.gateway_igm_date,
     formik.values.discharge_date,
     // formik.values.rail_out_date,
@@ -763,6 +1062,7 @@ function JobDetails() {
     formik.values.be_no,
     formik.values.emptyContainerOffLoadDate,
     formik.values.delivery_date,
+    formik.values.delivery_completed_date,
     formik.values.container_nos, // Include container_nos to track the changes in arrival_date for containers
   ]);
 
@@ -905,11 +1205,14 @@ function JobDetails() {
   };
 
   const handleAddContainer = () => {
+    const containersList = formik.values.container_nos || [];
+    const existingSizeContainer = containersList.find(c => c && c.size && String(c.size).trim() !== "");
+    const defaultSize = existingSizeContainer ? existingSizeContainer.size : (containersList[0]?.size || "");
     formik.setFieldValue("container_nos", [
       ...formik.values.container_nos,
       {
         container_number: "",
-        size: "",
+        size: defaultSize,
         arrival_date: "",
         do_validity_upto_container_level: "",
         do_revalidation_date: "",
@@ -1049,8 +1352,8 @@ function JobDetails() {
     } catch (error) {
       console.error("Error autosaving duty data:", error);
     }
-  }; 
-  
+  };
+
   // Check if duty_paid_date should be disabled
   const isDutyPaidDateDisabled =
     !formik.values.assessment_date || !formik.values.igst_ammount;
@@ -1067,7 +1370,40 @@ function JobDetails() {
   const ExBondflag = formik.values.type_of_b_e === "Ex-Bond";
   const InBondflag = formik.values.type_of_b_e === "In-Bond";
   const LCLFlag = formik.values.consignment_type === "LCL";
-  const isDescriptionTableReadOnly = user?.role !== "Admin" && isSubmissionDate;
+  const isDescriptionTableReadOnly = false;
+
+  const candidateBoeFiles = useMemo(() => {
+    const list = [];
+    const addUrl = (url, sourceLabel) => {
+      if (!url) return;
+      const strUrl = typeof url === "object" && url !== null ? url.url : url;
+      if (typeof strUrl === "string" && strUrl.trim() !== "") {
+        const fileName = strUrl.split("/").pop().split("?")[0] || "document.pdf";
+        list.push({ url: strUrl, name: decodeURIComponent(fileName), source: sourceLabel });
+      }
+    };
+
+    (formik.values.processed_be_attachment || []).forEach((f) => addUrl(f, "Processed BE Copy"));
+    (formik.values.ex_be_copy_documents || []).forEach((f) => addUrl(f, "InBond/ExBond BE"));
+    (formik.values.in_bond_be_copy || []).forEach((f) => addUrl(f, "InBond BE Copy"));
+    (formik.values.be_copy || []).forEach((f) => addUrl(f, "BE Copy"));
+    (formik.values.checklist || []).forEach((f) => addUrl(f, "Checklist"));
+    (cthDocuments || []).forEach((doc) => {
+      (doc.url || []).forEach((f) => addUrl(f, doc.document_name || "CTH Document"));
+    });
+    (formik.values.all_documents || []).forEach((f) => addUrl(f, "General Document"));
+
+    return list;
+  }, [
+    formik.values.processed_be_attachment,
+    formik.values.ex_be_copy_documents,
+    formik.values.in_bond_be_copy,
+    formik.values.be_copy,
+    formik.values.checklist,
+    cthDocuments,
+    formik.values.all_documents,
+  ]);
+
   const descriptionRows = useMemo(() => {
     return Array.isArray(formik.values.description_details) &&
       formik.values.description_details.length > 0
@@ -1087,6 +1423,7 @@ function JobDetails() {
           license_no: "",
           license_date: "",
           license_sr: "",
+          rodtep: "",
           utilized_qty: "",
           utilized_unit: "",
           utilized_amount: "",
@@ -1125,10 +1462,171 @@ function JobDetails() {
           igst_amount_inr: "",
           igst_amount_manual: false,
           comp_cess_percent: "",
-          comp_cess_amount: ""
+          comp_cess_amount: "",
+
+          bcd_notn: "",
+          bcd_sr_no: "",
+          bcd_rate: "",
+          bcd_specific_rate: "",
+          bcd_unit: "",
+          bcd_flag: "",
+          bcd_amount: "",
+
+          aidc_notn: "",
+          aidc_sr_no: "",
+          aidc_rate: "",
+          aidc_specific_rate: "",
+          aidc_unit: "",
+          aidc_amount: "",
+
+          sw_surcharge_notn: "",
+          sw_surcharge_sr_no: "",
+          sw_surcharge_rate: "10.00",
+          sw_surcharge_foc: "No",
+          sw_surcharge_amount: "",
+
+          igst_notn: "",
+          igst_sr_no: "",
+          igst_specific_rate: "",
+          igst_unit: "",
+          igst_type: "C - Customs",
+
+          igst_exc_notn: "",
+          igst_exc_sr_no: "",
+          igst_exc_rate: "",
+          igst_exc_amount: "",
+
+          comp_cess_notn: "",
+          comp_cess_sr_no: "",
+          comp_cess_specific_rate: "",
+          comp_cess_unit: "",
+
+          comp_exc_notn: "",
+          comp_exc_sr_no: "",
+          comp_exc_rate: "",
+          comp_exc_specific_rate: "",
+          comp_exc_amount: "",
+
+          safeguard_notn: "",
+          safeguard_sr_no: "",
+          safeguard_rate: "",
+          safeguard_specific_rate: "",
+          safeguard_amount: "",
+
+          sapta_notn: "",
+          sapta_sr_no: "",
+          sapta_rate: "",
+          sapta_amount: "",
+
+          standard_uqc_qty: "",
+          standard_uqc_unit: "",
+          total_duty_amount: ""
         },
       ];
   }, [formik.values.description_details, formik.values.clearanceValue]);
+
+  const calculateProductTaxableValue = (productAmount, invoiceIndex) => {
+    const amtNum = parseFloat(productAmount) || 0;
+    const activeInvoice = (formik.values.invoice_details || [])[invoiceIndex] || {};
+    const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+
+    if (activeInvoice.toi === "FOB") {
+      const allInvoices = formik.values.invoice_details || [];
+      const allFobInvoices = allInvoices.filter(inv => inv.toi === "FOB");
+
+      let productFreight = 0;
+      let productInsurance = 0;
+
+      // Proportional calculation for FOB
+      const totalFobFreight = allFobInvoices.reduce((sum, inv) => {
+        const frAmount = parseFloat(inv.freight) || 0;
+        const invCurr = inv.inv_currency || "";
+        const frCurr = inv.freight_currency || invCurr;
+        const rowExRate = parseFloat(inv.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+
+        let frInvCurr = frAmount;
+        if (frCurr === "INR" && invCurr !== "INR") {
+          frInvCurr = (frAmount / rowExRate) * getUnitForCurrency(invCurr);
+        }
+        return sum + frInvCurr;
+      }, 0);
+
+      const totalFobValue = allFobInvoices.reduce((sum, inv) => sum + (parseFloat(inv.product_value) || 0), 0);
+
+      const fRate = totalFobValue > 0 ? (totalFobFreight / totalFobValue) : 0;
+      productFreight = amtNum * fRate;
+
+      // Calculate Total Insurance across all FOB invoices in Invoice Currency
+      const totalFobInsurance = allFobInvoices.reduce((sum, inv) => {
+        const insAmount = parseFloat(inv.insurance) || 0;
+        const insCurr = inv.insurance_currency || "INR";
+        const invCurr = inv.inv_currency || "";
+        const rowExRate = parseFloat(inv.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+
+        let insInvCurr = insAmount;
+        if (insCurr === "INR" && invCurr !== "INR") {
+          insInvCurr = (insAmount / rowExRate) * getUnitForCurrency(invCurr);
+        }
+        return sum + insInvCurr;
+      }, 0);
+
+      const iRateFromTotal = totalFobValue > 0 ? (totalFobInsurance / totalFobValue) : 0;
+      productInsurance = amtNum * iRateFromTotal;
+
+      const totalCifUSD = amtNum + productFreight + productInsurance;
+      return (totalCifUSD * exrate).toFixed(2);
+    } else if (activeInvoice.toi === "CF" || activeInvoice.toi === "C&F") {
+      const allInvoices = formik.values.invoice_details || [];
+      const allCfInvoices = allInvoices.filter(inv => inv.toi === "CF" || inv.toi === "C&F");
+
+      const totalCfValue = allCfInvoices.reduce((sum, inv) => sum + (parseFloat(inv.product_value) || 0), 0);
+
+      const totalCfInsurance = allCfInvoices.reduce((sum, inv) => {
+        const insAmount = parseFloat(inv.insurance) || 0;
+        const insCurr = inv.insurance_currency || "INR";
+        const invCurr = inv.inv_currency || "";
+        const rowExRate = parseFloat(inv.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+
+        let insInvCurr = insAmount;
+        if (insCurr === "INR" && invCurr !== "INR") {
+          insInvCurr = (insAmount / rowExRate) * getUnitForCurrency(invCurr);
+        }
+        return sum + insInvCurr;
+      }, 0);
+
+      const iRateFromTotal = totalCfValue > 0 ? (totalCfInsurance / totalCfValue) : 0;
+      const productInsurance = amtNum * iRateFromTotal;
+
+      const totalCifUSD = amtNum + productInsurance;
+      return (totalCifUSD * exrate).toFixed(2);
+    } else if (activeInvoice.toi === "CI" || activeInvoice.toi === "C&I") {
+      const allInvoices = formik.values.invoice_details || [];
+      const allCiInvoices = allInvoices.filter(inv => inv.toi === "CI" || inv.toi === "C&I");
+
+      const totalCiValue = allCiInvoices.reduce((sum, inv) => sum + (parseFloat(inv.product_value) || 0), 0);
+      const totalCiFreight = allCiInvoices.reduce((sum, inv) => {
+        const frAmount = parseFloat(inv.freight) || 0;
+        const invCurr = inv.inv_currency || "";
+        const frCurr = inv.freight_currency || invCurr;
+        const rowExRate = parseFloat(inv.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+
+        let frInvCurr = frAmount;
+        if (frCurr === "INR" && invCurr !== "INR") {
+          frInvCurr = (frAmount / rowExRate) * getUnitForCurrency(invCurr);
+        }
+        return sum + frInvCurr;
+      }, 0);
+
+      const fRate = totalCiValue > 0 ? (totalCiFreight / totalCiValue) : 0;
+      const productFreight = amtNum * fRate;
+
+      const totalCifUSD = amtNum + productFreight;
+      return (totalCifUSD * exrate).toFixed(2);
+    }
+
+    // CIF or other
+    return (amtNum * exrate).toFixed(2);
+  };
 
   const updateDescriptionRowMultiple = (rowIndex, updates) => {
     const updatedRows = [...descriptionRows];
@@ -1176,7 +1674,7 @@ function JobDetails() {
     if (updates.cth_no !== undefined) {
       const licNum = updatedRows[rowIndex].sr_no_lic || updatedRows[rowIndex].license_no;
       const cthNoNormalized = updates.cth_no ? String(updates.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
-      
+
       if (licNum && cthNoNormalized) {
         const selectedAuth = authorizationsList.find(a => a.authorization_no === licNum);
         const importItems = selectedAuth?.import_details_array || [];
@@ -1193,6 +1691,16 @@ function JobDetails() {
     }
 
     formik.setFieldValue("description_details", updatedRows);
+
+    // Sync top-level fields for the first row
+    if (rowIndex === 0) {
+      if (updates.description !== undefined) {
+        formik.setFieldValue("description", updates.description);
+      }
+      if (updates.cth_no !== undefined) {
+        formik.setFieldValue("cth_no", updates.cth_no);
+      }
+    }
   };
 
   const updateDescriptionRow = (rowIndex, field, value) => {
@@ -1217,6 +1725,7 @@ function JobDetails() {
         license_no: "",
         license_date: "",
         license_sr: "",
+        rodtep: "",
         utilized_qty: "",
         utilized_unit: "",
         utilized_amount: "",
@@ -1255,7 +1764,65 @@ function JobDetails() {
         igst_amount_inr: "",
         igst_amount_manual: false,
         comp_cess_percent: "",
-        comp_cess_amount: ""
+        comp_cess_amount: "",
+
+        bcd_notn: "",
+        bcd_sr_no: "",
+        bcd_rate: "",
+        bcd_specific_rate: "",
+        bcd_unit: "",
+        bcd_flag: "",
+        bcd_amount: "",
+
+        aidc_notn: "",
+        aidc_sr_no: "",
+        aidc_rate: "",
+        aidc_specific_rate: "",
+        aidc_unit: "",
+        aidc_amount: "",
+
+        sw_surcharge_notn: "",
+        sw_surcharge_sr_no: "",
+        sw_surcharge_rate: "10.00",
+        sw_surcharge_foc: "No",
+        sw_surcharge_amount: "",
+
+        igst_notn: "",
+        igst_sr_no: "",
+        igst_specific_rate: "",
+        igst_unit: "",
+        igst_type: "C - Customs",
+
+        igst_exc_notn: "",
+        igst_exc_sr_no: "",
+        igst_exc_rate: "",
+        igst_exc_amount: "",
+
+        comp_cess_notn: "",
+        comp_cess_sr_no: "",
+        comp_cess_specific_rate: "",
+        comp_cess_unit: "",
+
+        comp_exc_notn: "",
+        comp_exc_sr_no: "",
+        comp_exc_rate: "",
+        comp_exc_specific_rate: "",
+        comp_exc_amount: "",
+
+        safeguard_notn: "",
+        safeguard_sr_no: "",
+        safeguard_rate: "",
+        safeguard_specific_rate: "",
+        safeguard_amount: "",
+
+        sapta_notn: "",
+        sapta_sr_no: "",
+        sapta_rate: "",
+        sapta_amount: "",
+
+        standard_uqc_qty: "",
+        standard_uqc_unit: "",
+        total_duty_amount: ""
       },
     ]);
   };
@@ -1271,26 +1838,31 @@ function JobDetails() {
     return Array.isArray(formik.values.invoice_details) &&
       formik.values.invoice_details.length > 0
       ? formik.values.invoice_details.map(inv => ({
-          ...inv,
-          freight_currency: inv.freight_currency || inv.inv_currency || "",
-          insurance_currency: inv.insurance_currency || inv.inv_currency || "",
-          other_charges_currency: inv.other_charges_currency || "INR",
-        }))
+        ...inv,
+        po_details: inv.po_details && inv.po_details.length > 0
+          ? inv.po_details.map(p => ({ po_no: p.po_no || "", po_date: p.po_date || "" }))
+          : [{ po_no: inv.po_no || "", po_date: inv.po_date || "" }],
+        freight_currency: inv.freight_currency || inv.inv_currency || "",
+        insurance_currency: inv.insurance_currency || "INR",
+        misc_currency: inv.misc_currency || inv.other_charges_currency || "USD",
+        misc: inv.misc || inv.other_charges || "",
+      }))
       : [
         {
           invoice_number: "",
           invoice_date: "",
           po_no: "",
+          po_details: [{ po_no: "", po_date: "" }],
           product_value: "",
-          other_charges: "",
+          misc: "",
           total_inv_value: "",
           inv_currency: "",
           toi: "CIF",
           freight: "",
           insurance: "",
           freight_currency: "",
-          insurance_currency: "",
-          other_charges_currency: "INR",
+          insurance_currency: "INR",
+          misc_currency: "USD",
         },
       ];
   }, [formik.values.invoice_details]);
@@ -1301,6 +1873,61 @@ function JobDetails() {
       ...updatedRows[rowIndex],
       [field]: value,
     };
+
+    if (field === "misc") {
+      updatedRows[rowIndex].other_charges = value;
+    }
+    if (field === "misc_currency") {
+      updatedRows[rowIndex].other_charges_currency = value;
+    }
+    if (field === "misc_exchange_rate") {
+      updatedRows[rowIndex].other_charges_exchange_rate = value;
+    }
+    if (field === "other_charges") {
+      updatedRows[rowIndex].misc = value;
+    }
+    if (field === "other_charges_currency") {
+      updatedRows[rowIndex].misc_currency = value;
+    }
+    if (field === "other_charges_exchange_rate") {
+      updatedRows[rowIndex].misc_exchange_rate = value;
+    }
+
+    if (["misc", "other_charges", "misc_currency", "other_charges_currency", "misc_exchange_rate", "other_charges_exchange_rate"].includes(field)) {
+      const totalMiscAmount = updatedRows.reduce((sum, r) => sum + (parseFloat(r.misc || r.other_charges) || 0), 0);
+      formik.setFieldValue("other_charges_details.miscellaneous.amount", totalMiscAmount > 0 ? totalMiscAmount.toFixed(2) : "");
+
+      const currency = updatedRows[rowIndex].misc_currency || updatedRows[rowIndex].other_charges_currency || "USD";
+      const exchange_rate = updatedRows[rowIndex].misc_exchange_rate || updatedRows[rowIndex].other_charges_exchange_rate || "";
+      formik.setFieldValue("other_charges_details.miscellaneous.currency", currency);
+      formik.setFieldValue("other_charges_details.miscellaneous.exchange_rate", exchange_rate);
+
+      const exrateVal = parseFloat(exchange_rate) || 1;
+      const unitVal = getUnitForCurrency(currency);
+      const amtInr = (totalMiscAmount * exrateVal) / unitVal;
+
+      let totalBaseValInr = updatedRows.reduce((sum, r) => {
+        const pv = parseFloat(r.product_value) || 0;
+        const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+        const oth = parseFloat(r.misc || r.other_charges) || 0;
+        const othEx = parseFloat(r.misc_exchange_rate || r.other_charges_exchange_rate) || 1;
+
+        const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+        const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency || r.other_charges_currency);
+
+        return sum + (pvInr + othInr);
+      }, 0);
+
+      const calculatedRate = totalBaseValInr > 0 ? (amtInr / totalBaseValInr) * 100 : 0;
+      formik.setFieldValue("other_charges_details.miscellaneous.rate", calculatedRate > 0 ? calculatedRate.toFixed(4) : "");
+    }
+
+    if (field === "po_details") {
+      if (Array.isArray(value) && value[0]) {
+        updatedRows[rowIndex].po_no = value[0].po_no || "";
+        updatedRows[rowIndex].po_date = value[0].po_date || "";
+      }
+    }
 
     // Auto-sync product_value (Invoice Value) to linked description row(s) amount in product tab
     if (field === "product_value") {
@@ -1320,30 +1947,98 @@ function JobDetails() {
       formik.setFieldValue("description_details", updatedDescRows);
     }
 
-    // Auto-calculate freight and insurance if TOI is FOB
+    // Auto-calculate freight and insurance based on TOI
     const toiValue = field === "toi" ? value : (updatedRows[rowIndex].toi || "CIF");
-    if (toiValue === "FOB") {
-      if (field === "product_value" || field === "toi") {
-        const pv = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
-        const calculatedFreight = pv * 0.20;
-        const calculatedInsurance = pv * 0.01125;
-        updatedRows[rowIndex].freight = calculatedFreight > 0 ? calculatedFreight.toFixed(2) : "";
-        updatedRows[rowIndex].insurance = calculatedInsurance > 0 ? calculatedInsurance.toFixed(2) : "";
+    const pv = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
+
+    if (field === "freight") {
+      updatedRows[rowIndex].is_freight_manual = true;
+    }
+    if (field === "insurance") {
+      updatedRows[rowIndex].is_insurance_manual = true;
+    }
+    const isFreightManual = updatedRows[rowIndex].is_freight_manual;
+    const isInsuranceManual = updatedRows[rowIndex].is_insurance_manual;
+
+    const fRateVal = formik.values.other_charges_details?.freight?.rate;
+    const fRate = (fRateVal === undefined || fRateVal === null || fRateVal === "" || isNaN(parseFloat(fRateVal))) ? 20 : parseFloat(fRateVal);
+
+    const iRateVal = formik.values.other_charges_details?.insurance?.rate;
+    const iRate = (iRateVal === undefined || iRateVal === null || iRateVal === "" || isNaN(parseFloat(iRateVal))) ? 1.125 : parseFloat(iRateVal);
+
+    const otherVal = parseFloat(field === "other_charges" ? value : (updatedRows[rowIndex].other_charges || 0)) || 0;
+
+    // Convert other_charges to invoice currency for correct base value summing
+    const invEx = parseFloat(field === "exchange_rate" ? value : (updatedRows[rowIndex].exchange_rate || formik.values.exrate || 1)) || 1;
+    const othEx = parseFloat(field === "other_charges_exchange_rate" ? value : (updatedRows[rowIndex].other_charges_exchange_rate || 1)) || 1;
+    const otherInInv = (otherVal * othEx) / invEx;
+    const baseVal = pv + otherInInv;
+
+    const calculateInsuranceValue = () => {
+      if (baseVal <= 0) return "";
+      const baseInsurance = baseVal * (iRate / 100);
+      const invCurr = field === "inv_currency" ? value : (updatedRows[rowIndex].inv_currency || "");
+      const insCurr = field === "insurance_currency" ? value : (updatedRows[rowIndex].insurance_currency || "INR");
+      const exRate = parseFloat(field === "exchange_rate" ? value : (updatedRows[rowIndex].exchange_rate || formik.values.exrate || 1)) || 1;
+
+      if (insCurr === "INR" && invCurr !== "INR") {
+        return (baseInsurance * exRate).toFixed(2);
       }
-    } else if (field === "toi") {
-      updatedRows[rowIndex].freight = "";
-      updatedRows[rowIndex].insurance = "";
+      return baseInsurance.toFixed(2);
+    };
+
+    const triggerFields = ["product_value", "toi", "exchange_rate", "insurance_currency", "inv_currency", "other_charges", "misc", "other_charges_exchange_rate", "misc_exchange_rate", "other_charges_currency", "misc_currency"];
+
+    if (triggerFields.includes(field)) {
+      if (toiValue === "FOB") {
+        if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
+          updatedRows[rowIndex].freight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
+        }
+        if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
+          updatedRows[rowIndex].insurance = calculateInsuranceValue();
+        }
+      } else if (toiValue === "CF" || toiValue === "C&F") {
+        if (field === "toi") {
+          updatedRows[rowIndex].freight = "";
+        }
+        if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
+          updatedRows[rowIndex].insurance = calculateInsuranceValue();
+        }
+      } else if (toiValue === "CI" || toiValue === "C&I") {
+        if (field === "toi") {
+          updatedRows[rowIndex].insurance = "";
+        }
+        if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
+          updatedRows[rowIndex].freight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
+        }
+      } else if (field === "toi") {
+        // CIF or other
+        updatedRows[rowIndex].freight = "";
+        updatedRows[rowIndex].insurance = "";
+      }
     }
 
     // Auto-calculate total invoice value if any contributing field changes
-    const fieldsToSum = ["product_value", "freight", "insurance", "other_charges", "toi"];
+    const fieldsToSum = ["product_value", "freight", "insurance", "other_charges", "toi", "exchange_rate", "freight_exchange_rate", "insurance_exchange_rate", "other_charges_exchange_rate"];
     if (fieldsToSum.includes(field)) {
       const prod = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
       const frt = parseFloat(field === "freight" ? value : (updatedRows[rowIndex].freight || 0)) || 0;
       const ins = parseFloat(field === "insurance" ? value : (updatedRows[rowIndex].insurance || 0)) || 0;
       const other = parseFloat(field === "other_charges" ? value : (updatedRows[rowIndex].other_charges || 0)) || 0;
-      const total = (prod + frt + ins + other).toFixed(2);
-      
+
+      // Exchange rates for conversion to invoice currency
+      const invEx = parseFloat(field === "exchange_rate" ? value : (updatedRows[rowIndex].exchange_rate || formik.values.exrate || 1)) || 1;
+      const frEx = parseFloat(field === "freight_exchange_rate" ? value : (updatedRows[rowIndex].freight_exchange_rate || formik.values.exrate || 1)) || 1;
+      const insEx = parseFloat(field === "insurance_exchange_rate" ? value : (updatedRows[rowIndex].insurance_exchange_rate || 1)) || 1;
+      const othEx = parseFloat(field === "other_charges_exchange_rate" ? value : (updatedRows[rowIndex].other_charges_exchange_rate || 1)) || 1;
+
+      const prodInInv = prod; // already in invoice currency
+      const frtInInv = (frt * frEx) / invEx;
+      const insInInv = (ins * insEx) / invEx;
+      const othInInv = (other * othEx) / invEx;
+
+      const total = (prodInInv + frtInInv + insInInv + othInInv).toFixed(2);
+
       updatedRows[rowIndex].total_inv_value = total;
     }
 
@@ -1351,14 +2046,16 @@ function JobDetails() {
 
     // Also sync F & I Charges tab amounts and rates based on FOB invoices
     const hasFOB = updatedRows.some(row => row.toi === "FOB");
+
     if (hasFOB) {
       const totalFreight = updatedRows.reduce((sum, row) => sum + (parseFloat(row.freight) || 0), 0);
       const totalInsurance = updatedRows.reduce((sum, row) => sum + (parseFloat(row.insurance) || 0), 0);
-      
+
       formik.setFieldValue("other_charges_details.freight.amount", totalFreight > 0 ? totalFreight.toFixed(2) : "");
-      formik.setFieldValue("other_charges_details.freight.rate", "20");
+      formik.setFieldValue("other_charges_details.freight.rate", fRate.toString());
+
       formik.setFieldValue("other_charges_details.insurance.amount", totalInsurance > 0 ? totalInsurance.toFixed(2) : "");
-      formik.setFieldValue("other_charges_details.insurance.rate", "1.125");
+      formik.setFieldValue("other_charges_details.insurance.rate", iRate.toString());
     } else if (field === "toi") {
       formik.setFieldValue("other_charges_details.freight.amount", "");
       formik.setFieldValue("other_charges_details.freight.rate", 0);
@@ -1367,24 +2064,55 @@ function JobDetails() {
     }
 
     // Auto-sync currency for all charge heads in other_charges_details when invoice currency changes
-    if (field === "inv_currency") {
+    if (field === "inv_currency" && invoiceRows[rowIndex]?.inv_currency !== value) {
       updatedRows[rowIndex].freight_currency = value || "";
-      updatedRows[rowIndex].insurance_currency = value || "";
-      updatedRows[rowIndex].other_charges_currency = "INR";
+      updatedRows[rowIndex].insurance_currency = "INR";
+      updatedRows[rowIndex].misc_currency = "USD";
+      updatedRows[rowIndex].other_charges_currency = "USD";
+      updatedRows[rowIndex].exchange_rate = "";
+      updatedRows[rowIndex].freight_exchange_rate = "";
+      updatedRows[rowIndex].insurance_exchange_rate = "";
+      updatedRows[rowIndex].misc_exchange_rate = "";
+      updatedRows[rowIndex].other_charges_exchange_rate = "";
 
-      ["freight", "insurance"].forEach(key => {
+      ["freight"].forEach(key => {
         formik.setFieldValue(`other_charges_details.${key}.currency`, value || "");
+        formik.setFieldValue(`other_charges_details.${key}.exchange_rate`, "");
       });
-      ["miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
+      ["insurance", "miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
         formik.setFieldValue(`other_charges_details.${key}.currency`, "INR");
+        formik.setFieldValue(`other_charges_details.${key}.exchange_rate`, 1);
       });
+
+      // Clear the exrate to force re-fetch only if BE No is NOT present!
+      const hasBeNo = formik.values.be_no && String(formik.values.be_no).trim().length > 0;
+      if (!hasBeNo) {
+        formik.setFieldValue("exrate", "");
+      }
     }
 
-    // Sync global CIF value (term value) across all rows
+    if (field === "freight_currency" && invoiceRows[rowIndex]?.freight_currency !== value) {
+      updatedRows[rowIndex].freight_exchange_rate = "";
+    }
+    if (field === "insurance_currency" && invoiceRows[rowIndex]?.insurance_currency !== value) {
+      updatedRows[rowIndex].insurance_exchange_rate = "";
+    }
+    if (field === "misc_currency" && invoiceRows[rowIndex]?.misc_currency !== value) {
+      updatedRows[rowIndex].misc_exchange_rate = "";
+    }
+    if (field === "other_charges_currency" && invoiceRows[rowIndex]?.other_charges_currency !== value) {
+      updatedRows[rowIndex].other_charges_exchange_rate = "";
+    }
+
+    formik.setFieldValue("invoice_details", updatedRows);
+
     const totalCif = updatedRows.reduce((sum, row) => sum + (parseFloat(row.total_inv_value) || 0), 0);
+    const totalProductVal = updatedRows.reduce((sum, row) => sum + (parseFloat(row.product_value) || 0), 0);
+
     if (totalCif > 0) {
-      formik.setFieldValue("cifValue", totalCif.toFixed(2));
-      formik.setFieldValue("cif_amount", totalCif.toFixed(2));
+      formik.setFieldValue("total_inv_value", totalProductVal.toFixed(2));
+    } else {
+      formik.setFieldValue("total_inv_value", "");
     }
   };
 
@@ -1395,16 +2123,22 @@ function JobDetails() {
         invoice_number: "",
         invoice_date: "",
         po_no: "",
+        po_details: [{ po_no: "", po_date: "" }],
         product_value: "",
         other_charges: "",
         total_inv_value: "",
         inv_currency: invoiceRows[0]?.inv_currency || "",
+        exchange_rate: "",
+        freight_exchange_rate: "",
+        insurance_exchange_rate: "",
+        misc_exchange_rate: "",
         toi: "CIF",
         freight: "",
         insurance: "",
         freight_currency: invoiceRows[0]?.inv_currency || "",
-        insurance_currency: invoiceRows[0]?.inv_currency || "",
-        other_charges_currency: "INR",
+        insurance_currency: "INR",
+        misc: "",
+        misc_currency: "USD",
       },
     ]);
   };
@@ -1413,6 +2147,338 @@ function JobDetails() {
     if (invoiceRows.length <= 1) return;
     const updatedRows = invoiceRows.filter((_, index) => index !== rowIndex);
     formik.setFieldValue("invoice_details", updatedRows);
+  };
+
+  const handleOtherChargesRateChange = (chargeId, rateValue) => {
+    formik.setFieldValue(`other_charges_details.${chargeId}.rate`, rateValue);
+
+    if (chargeId === "miscellaneous") {
+      const rateNum = parseFloat(rateValue) || 0;
+      const chargeDetails = formik.values.other_charges_details?.miscellaneous || {};
+      const exrateVal = parseFloat(chargeDetails.exchange_rate) || 1;
+      const unitVal = getUnitForCurrency(chargeDetails.currency);
+
+      let totalBaseValInr = 0;
+      if (invoiceRows && invoiceRows.length > 0) {
+        totalBaseValInr = invoiceRows.reduce((sum, r) => {
+          const pv = parseFloat(r.product_value) || 0;
+          const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+          const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
+          const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
+
+          const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
+
+          return sum + (pvInr + othInr);
+        }, 0);
+      }
+
+      const amtInr = (totalBaseValInr * rateNum) / 100;
+      const calculatedAmount = amtInr / (exrateVal / unitVal);
+      const amountStr = calculatedAmount > 0 ? calculatedAmount.toFixed(2) : "";
+      formik.setFieldValue(`other_charges_details.miscellaneous.amount`, amountStr);
+
+      if (invoiceRows && invoiceRows.length > 0) {
+        const updatedRows = [...invoiceRows];
+        updatedRows[0] = {
+          ...updatedRows[0],
+          misc: amountStr,
+          other_charges: amountStr,
+          misc_currency: chargeDetails.currency || "USD",
+          other_charges_currency: chargeDetails.currency || "USD",
+          misc_exchange_rate: String(exrateVal),
+          other_charges_exchange_rate: String(exrateVal),
+        };
+        const pv = parseFloat(updatedRows[0].product_value) || 0;
+        const fr = parseFloat(updatedRows[0].freight) || 0;
+        const ins = parseFloat(updatedRows[0].insurance) || 0;
+        const oth = parseFloat(calculatedAmount) || 0;
+        updatedRows[0].total_inv_value = (pv + fr + ins + oth).toFixed(2);
+
+        formik.setFieldValue("invoice_details", updatedRows);
+      }
+    }
+
+    if (chargeId === "addl_charge" && formik.values.hss === "Yes") {
+      const rateNum = parseFloat(rateValue) || 0;
+      const exrateVal = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
+      const hssUnit = getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
+
+      let baseCifInr = 0;
+      if (invoiceRows && invoiceRows.length > 0) {
+        baseCifInr = invoiceRows.reduce((sum, r) => {
+          const pv = parseFloat(r.product_value) || 0;
+          const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+          const fr = parseFloat(r.freight) || 0;
+          const frEx = parseFloat(r.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
+          const ins = parseFloat(r.insurance) || 0;
+          const insEx = parseFloat(r.insurance_exchange_rate) || 1;
+          const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
+          const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
+
+          const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+          const frInr = (fr * frEx) / getUnitForCurrency(r.freight_currency);
+          const insInr = (ins * insEx) / getUnitForCurrency(r.insurance_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
+
+          return sum + (pvInr + frInr + insInr + othInr);
+        }, 0);
+      } else {
+        const totalCif = parseFloat(formik.values.cif_amount || formik.values.cifValue) || 0;
+        const currentAmount = parseFloat(formik.values.other_charges_details?.addl_charge?.amount) || 0;
+        baseCifInr = totalCif - ((currentAmount * exrateVal) / hssUnit);
+      }
+      if (baseCifInr < 0) baseCifInr = 0;
+
+      const calculatedAmount = (baseCifInr * (rateNum / 100)) / (exrateVal / hssUnit);
+      formik.setFieldValue(`other_charges_details.addl_charge.amount`, calculatedAmount > 0 ? calculatedAmount.toFixed(2) : "");
+    }
+
+    if (chargeId === "freight" || chargeId === "insurance") {
+      const fRateVal = chargeId === "freight" ? rateValue : formik.values.other_charges_details?.freight?.rate;
+      const fRate = (fRateVal === undefined || fRateVal === null || fRateVal === "" || isNaN(parseFloat(fRateVal))) ? 20 : parseFloat(fRateVal);
+
+      const iRateVal = chargeId === "insurance" ? rateValue : formik.values.other_charges_details?.insurance?.rate;
+      const iRate = (iRateVal === undefined || iRateVal === null || iRateVal === "" || isNaN(parseFloat(iRateVal))) ? 1.125 : parseFloat(iRateVal);
+
+      const updatedRows = invoiceRows.map((row) => {
+        const pv = parseFloat(row.product_value) || 0;
+        const otherVal = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+        const invEx = parseFloat(row.exchange_rate || formik.values.exrate || 1) || 1;
+        const othEx = parseFloat(row.misc_exchange_rate || row.other_charges_exchange_rate || 1) || 1;
+        const otherInInv = ((otherVal * othEx) / getUnitForCurrency(row.misc_currency || row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+        const baseVal = pv + otherInInv;
+
+        let newFreight = row.freight;
+        let newInsurance = row.insurance;
+
+        if (row.toi === "FOB") {
+          newFreight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
+
+          if (baseVal > 0) {
+            const baseInsurance = baseVal * (iRate / 100);
+            const invCurr = row.inv_currency || "";
+            const insCurr = row.insurance_currency || "INR";
+            const exRate = parseFloat(row.exchange_rate || formik.values.exrate || 1) || 1;
+            if (insCurr === "INR" && invCurr !== "INR") {
+              newInsurance = ((baseInsurance * exRate) / getUnitForCurrency(invCurr)).toFixed(2);
+            } else {
+              newInsurance = baseInsurance.toFixed(2);
+            }
+          } else {
+            newInsurance = "";
+          }
+
+        } else {
+          newFreight = "";
+          newInsurance = "";
+        }
+
+        // Recalculate row total invoice value
+        const prod = pv;
+        const frt = parseFloat(newFreight) || 0;
+        const ins = parseFloat(newInsurance) || 0;
+        const other = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+
+        const frEx = parseFloat(row.freight_exchange_rate || formik.values.exrate || 1) || 1;
+        const insEx = parseFloat(row.insurance_exchange_rate || 1) || 1;
+
+        const prodInInv = prod;
+        const frtInInv = ((frt * frEx) / getUnitForCurrency(row.freight_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+        const insInInv = ((ins * insEx) / getUnitForCurrency(row.insurance_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+        const othInInv = ((other * othEx) / getUnitForCurrency(row.misc_currency || row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+
+        const total = (prodInInv + frtInInv + insInInv + othInInv).toFixed(2);
+
+        return {
+          ...row,
+          freight: newFreight,
+          insurance: newInsurance,
+          total_inv_value: total,
+        };
+      });
+
+      formik.setFieldValue("invoice_details", updatedRows);
+
+      // Also update the total amount of freight/insurance in other_charges_details
+      const totalAmount = updatedRows.reduce((sum, row) => sum + (parseFloat(chargeId === "freight" ? row.freight : row.insurance) || 0), 0);
+      formik.setFieldValue(`other_charges_details.${chargeId}.amount`, totalAmount > 0 ? totalAmount.toFixed(2) : "");
+    }
+  };
+
+  const handleOtherChargesAmountChange = (chargeId, amountValue) => {
+    formik.setFieldValue(`other_charges_details.${chargeId}.amount`, amountValue);
+
+    if (chargeId === "miscellaneous") {
+      const amtNum = parseFloat(amountValue) || 0;
+      const chargeDetails = formik.values.other_charges_details?.miscellaneous || {};
+      const exrateVal = parseFloat(chargeDetails.exchange_rate) || 1;
+      const unitVal = getUnitForCurrency(chargeDetails.currency);
+      const amtInr = (amtNum * exrateVal) / unitVal;
+
+      let totalBaseValInr = 0;
+      if (invoiceRows && invoiceRows.length > 0) {
+        totalBaseValInr = invoiceRows.reduce((sum, r) => {
+          const pv = parseFloat(r.product_value) || 0;
+          const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+          const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
+          const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
+
+          const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
+
+          return sum + (pvInr + othInr);
+        }, 0);
+      }
+
+      const calculatedRate = totalBaseValInr > 0 ? (amtInr / totalBaseValInr) * 100 : 0;
+      formik.setFieldValue(`other_charges_details.miscellaneous.rate`, calculatedRate > 0 ? calculatedRate.toFixed(4) : "");
+
+      if (invoiceRows && invoiceRows.length > 0) {
+        const updatedRows = [...invoiceRows];
+        updatedRows[0] = {
+          ...updatedRows[0],
+          misc: amountValue,
+          other_charges: amountValue,
+          misc_currency: chargeDetails.currency || "USD",
+          other_charges_currency: chargeDetails.currency || "USD",
+          misc_exchange_rate: String(exrateVal),
+          other_charges_exchange_rate: String(exrateVal),
+        };
+        const pv = parseFloat(updatedRows[0].product_value) || 0;
+        const fr = parseFloat(updatedRows[0].freight) || 0;
+        const ins = parseFloat(updatedRows[0].insurance) || 0;
+        const oth = parseFloat(amountValue) || 0;
+        updatedRows[0].total_inv_value = (pv + fr + ins + oth).toFixed(2);
+
+        formik.setFieldValue("invoice_details", updatedRows);
+      }
+    }
+
+    if (chargeId === "addl_charge" && formik.values.hss === "Yes") {
+      const amtNum = parseFloat(amountValue) || 0;
+      const exrateVal = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
+      const hssUnit = getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
+      const amtInr = (amtNum * exrateVal) / hssUnit;
+
+      let baseCifInr = 0;
+      if (invoiceRows && invoiceRows.length > 0) {
+        baseCifInr = invoiceRows.reduce((sum, r) => {
+          const pv = parseFloat(r.product_value) || 0;
+          const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+          const fr = parseFloat(r.freight) || 0;
+          const frEx = parseFloat(r.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
+          const ins = parseFloat(r.insurance) || 0;
+          const insEx = parseFloat(r.insurance_exchange_rate) || 1;
+          const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
+          const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
+
+          const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+          const frInr = (fr * frEx) / getUnitForCurrency(r.freight_currency);
+          const insInr = (ins * insEx) / getUnitForCurrency(r.insurance_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
+
+          return sum + (pvInr + frInr + insInr + othInr);
+        }, 0);
+      } else {
+        const totalCif = parseFloat(formik.values.cif_amount || formik.values.cifValue) || 0;
+        baseCifInr = totalCif - amtInr;
+      }
+      if (baseCifInr < 0) baseCifInr = 0;
+
+      const calculatedRate = baseCifInr > 0 ? (amtInr / baseCifInr) * 100 : 0;
+      formik.setFieldValue(`other_charges_details.addl_charge.rate`, calculatedRate > 0 ? calculatedRate.toFixed(4) : "");
+    }
+
+    if (chargeId === "freight" || chargeId === "insurance") {
+      const amtNum = parseFloat(amountValue) || 0;
+      const chargeDetails = formik.values.other_charges_details?.[chargeId] || {};
+      const exrateVal = parseFloat(chargeDetails.exchange_rate) || 1;
+      const unitVal = getUnitForCurrency(chargeDetails.currency);
+      const amtInr = (amtNum * exrateVal) / unitVal;
+
+      let totalBaseValInr = 0;
+      if (invoiceRows && invoiceRows.length > 0) {
+        totalBaseValInr = invoiceRows.reduce((sum, r) => {
+          const pv = parseFloat(r.product_value) || 0;
+          const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+          const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
+          const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
+
+          const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
+
+          return sum + (pvInr + othInr);
+        }, 0);
+      }
+
+      const calculatedRate = totalBaseValInr > 0 ? (amtInr / totalBaseValInr) * 100 : 0;
+      formik.setFieldValue(`other_charges_details.${chargeId}.rate`, calculatedRate > 0 ? calculatedRate.toFixed(4) : "");
+
+      if (invoiceRows && invoiceRows.length > 0) {
+        const fRate = chargeId === "freight" ? calculatedRate : (parseFloat(formik.values.other_charges_details?.freight?.rate) || 0);
+        const iRate = chargeId === "insurance" ? calculatedRate : (parseFloat(formik.values.other_charges_details?.insurance?.rate) || 0);
+
+        const updatedRows = invoiceRows.map((row) => {
+          const pv = parseFloat(row.product_value) || 0;
+          const otherVal = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+          const invEx = parseFloat(row.exchange_rate || formik.values.exrate || 1) || 1;
+          const othEx = parseFloat(row.misc_exchange_rate || row.other_charges_exchange_rate || 1) || 1;
+          const otherInInv = ((otherVal * othEx) / getUnitForCurrency(row.misc_currency || row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+          const baseVal = pv + otherInInv;
+
+          let newFreight = row.freight;
+          let newInsurance = row.insurance;
+
+          if (row.toi === "FOB") {
+            newFreight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
+
+            if (baseVal > 0) {
+              const baseInsurance = baseVal * (iRate / 100);
+              const invCurr = row.inv_currency || "";
+              const insCurr = row.insurance_currency || "INR";
+              const exRate = parseFloat(row.exchange_rate || formik.values.exrate || 1) || 1;
+              if (insCurr === "INR" && invCurr !== "INR") {
+                newInsurance = ((baseInsurance * exRate) / getUnitForCurrency(invCurr)).toFixed(2);
+              } else {
+                newInsurance = baseInsurance.toFixed(2);
+              }
+            } else {
+              newInsurance = "";
+            }
+
+          } else {
+            newFreight = "";
+            newInsurance = "";
+          }
+
+          // Recalculate row total invoice value
+          const prod = pv;
+          const frt = parseFloat(newFreight) || 0;
+          const ins = parseFloat(newInsurance) || 0;
+          const other = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+
+          const frEx = parseFloat(row.freight_exchange_rate || formik.values.exrate || 1) || 1;
+          const insEx = parseFloat(row.insurance_exchange_rate || 1) || 1;
+
+          const prodInInv = prod;
+          const frtInInv = ((frt * frEx) / getUnitForCurrency(row.freight_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+          const insInInv = ((ins * insEx) / getUnitForCurrency(row.insurance_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+          const othInInv = ((other * othEx) / getUnitForCurrency(row.misc_currency || row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+
+          const total = (prodInInv + frtInInv + insInInv + othInInv).toFixed(2);
+
+          return {
+            ...row,
+            freight: newFreight,
+            insurance: newInsurance,
+            total_inv_value: total,
+          };
+        });
+
+        formik.setFieldValue("invoice_details", updatedRows);
+      }
+    }
   };
 
   // ---- Misc Charges Details helpers ----
@@ -1480,28 +2546,50 @@ function JobDetails() {
             </Button>
           </Box>
           {user?.role === "Admin" && (
-            <Box sx={{ position: "fixed", top: 80, right: 30, zIndex: 999 }}>
-              <Button
-                variant="contained"
-                startIcon={imexcubeUploading ? null : <CloudUploadIcon />}
-                onClick={handleUploadToImexcube}
-                disabled={imexcubeUploading}
-                sx={{
-                  backgroundColor: data?.imexcube_uploaded ? "#2e7d32" : "#1565c0",
-                  color: "white",
-                  "&:hover": {
-                    backgroundColor: data?.imexcube_uploaded ? "#1b5e20" : "#0d47a1",
-                  },
-                  "&.Mui-disabled": {
-                    backgroundColor: data?.imexcube_uploaded ? "#a5d6a7" : "#90caf9",
+            <Box sx={{ position: "fixed", top: 80, right: 30, zIndex: 999, display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Button
+                  variant="contained"
+                  startIcon={imexcubeUploading ? null : <CloudUploadIcon />}
+                  onClick={handleUploadToImexcube}
+                  disabled={imexcubeUploading}
+                  sx={{
+                    backgroundColor: data?.imexcube_uploaded ? "#2e7d32" : "#1565c0",
                     color: "white",
-                  },
-                }}
-              >
-                {imexcubeUploading ? "Uploading..." : data?.imexcube_uploaded ? "Job Uploaded to IMEXCUBE" : "Upload to IMEXCUBE (TEST)"}
-              </Button>
+                    "&:hover": {
+                      backgroundColor: data?.imexcube_uploaded ? "#1b5e20" : "#0d47a1",
+                    },
+                    "&.Mui-disabled": {
+                      backgroundColor: data?.imexcube_uploaded ? "#a5d6a7" : "#90caf9",
+                      color: "white",
+                    },
+                  }}
+                >
+                  {imexcubeUploading ? "Uploading..." : data?.imexcube_uploaded ? "Job Uploaded to IMEXCUBE" : "Upload to IMEXCUBE (TEST)"}
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={handleGetImexcubeDetails}
+                  disabled={imexcubeDetailsLoading}
+                  sx={{
+                    borderColor: "#1565c0",
+                    color: "#1565c0",
+                    backgroundColor: "white",
+                    "&:hover": {
+                      borderColor: "#0d47a1",
+                      backgroundColor: "rgba(21, 101, 192, 0.04)"
+                    },
+                    "&.Mui-disabled": {
+                      borderColor: "#90caf9",
+                      color: "#90caf9"
+                    }
+                  }}
+                >
+                  {imexcubeDetailsLoading ? "Fetching..." : "Get Job Data from IMEXCUBE"}
+                </Button>
+              </Box>
               {data?.imexcube_uploaded && data?.imexcube_uploaded_at && (
-                <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 0.5, color: '#2e7d32', fontWeight: 700 }}>
+                <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 0.5, color: '#2e7d32', fontWeight: 700, width: "100%" }}>
                   Uploaded on: {new Date(data.imexcube_uploaded_at).toLocaleString("en-IN", {
                     day: "2-digit",
                     month: "short",
@@ -1518,7 +2606,11 @@ function JobDetails() {
           {/* Importer info start*/}
           <div style={{ marginTop: "70px" }}>
             <JobDetailsStaticData
-              data={{ ...data, cif_amount: formik.values.cif_amount || data.cif_amount }}
+              data={{
+                ...data,
+                cif_amount: formik.values.cif_amount || data.cif_amount,
+                total_inv_value: formik.values.total_inv_value || data.total_inv_value
+              }}
               params={params}
               bl_no_ref={bl_no_ref}
               setSnackbar={setSnackbar}
@@ -1876,6 +2968,70 @@ function JobDetails() {
                           <span
                             style={{
                               fontWeight: "700",
+                              color: (formik.values.delivery_completed_date || deliveryCompletedDate)
+                                ? "#28a745"
+                                : "#212529",
+                            }}
+                          >
+                            {(formik.values.delivery_completed_date || deliveryCompletedDate)
+                              ? new Date(
+                                formik.values.delivery_completed_date || deliveryCompletedDate
+                              ).toLocaleString("en-US", {
+                                timeZone: "Asia/Kolkata",
+                                month: "short",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              })
+                              : "-"}
+                          </span>
+                        </div>
+                        {user?.role === "Admin" && (
+                          <div>
+                            <TextField
+                              type="datetime-local"
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              id="delivery_completed_date"
+                              name="delivery_completed_date"
+                              value={
+                                formik.values.delivery_completed_date
+                                  ? formatDateForInput(
+                                    formik.values.delivery_completed_date
+                                  )
+                                  : ""
+                              }
+                              onChange={(e) =>
+                                formik.setFieldValue(
+                                  "delivery_completed_date",
+                                  e.target.value
+                                )
+                              }
+                              InputLabelProps={{ shrink: true }}
+                              sx={compactInputSx}
+                            />
+                          </div>
+                        )}
+                      </Col>
+
+                      <Col xs={12} md={6} lg={3} className="pb-3">
+                        <div
+                          style={{
+                            fontSize: "0.95rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <span style={{ fontWeight: "600", color: "#495057" }}>
+                            DO Sent to Billing:
+                          </span>
+                          <span
+                            style={{
+                              fontWeight: "700",
                               color: formik.values.bill_document_sent_to_accounts
                                 ? "#28a745"
                                 : "#212529",
@@ -1914,6 +3070,83 @@ function JobDetails() {
                               onChange={(e) =>
                                 formik.setFieldValue(
                                   "bill_document_sent_to_accounts",
+                                  e.target.value
+                                )
+                              }
+                              InputLabelProps={{ shrink: true }}
+                              sx={compactInputSx}
+                            />
+                          </div>
+                        )}
+                      </Col>
+
+                      <Col xs={12} md={6} lg={3} className="pb-3">
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <Checkbox
+                            size="small"
+                            style={{ padding: "0" }}
+                            checked={!!formik.values.billing_confirmation_date}
+                            disabled={user?.role !== "Admin" && !user?.modules?.includes("Billing Confirmation")}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                const dt = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                                formik.setFieldValue("billing_confirmation_date", dt);
+                              } else {
+                                formik.setFieldValue("billing_confirmation_date", "");
+                              }
+                            }}
+                          />
+                          <span style={{ fontWeight: "600", color: "#495057" }}>
+                            Confirm for Billing:
+                          </span>
+                          <span
+                            style={{
+                              fontWeight: "700",
+                              color: formik.values.billing_confirmation_date
+                                ? "#28a745"
+                                : "#dc3545",
+                            }}
+                          >
+                            {formik.values.billing_confirmation_date
+                              ? new Date(
+                                formik.values.billing_confirmation_date
+                              ).toLocaleString("en-US", {
+                                timeZone: "Asia/Kolkata",
+                                month: "short",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              })
+                              : "Pending"}
+                          </span>
+                        </div>
+                        {(user?.role === "Admin" || user?.modules?.includes("Billing Confirmation")) && (
+                          <div>
+                            <TextField
+                              type="datetime-local"
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              id="billing_confirmation_date"
+                              name="billing_confirmation_date"
+                              value={
+                                formik.values.billing_confirmation_date
+                                  ? formatDateForInput(
+                                    formik.values.billing_confirmation_date
+                                  )
+                                  : ""
+                              }
+                              onChange={(e) =>
+                                formik.setFieldValue(
+                                  "billing_confirmation_date",
                                   e.target.value
                                 )
                               }
@@ -2216,6 +3449,20 @@ function JobDetails() {
                         onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
+                        {isAirMode(data?.mode) ? "Flight Name" : "Vessel Name"}
+                      </label>
+                      <TextField fullWidth size="small" variant="outlined" id="vessel_flight" name="vessel_flight"
+                        value={formik.values.vessel_flight || ""} onChange={formik.handleChange}
+                        placeholder={isAirMode(data?.mode) ? "Enter Flight No" : "Enter Vessel Name"} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Voyage No</label>
+                      <TextField fullWidth size="small" variant="outlined" id="voyage_no" name="voyage_no"
+                        value={formik.values.voyage_no || ""} onChange={formik.handleChange}
+                        placeholder="Enter Voyage No" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
                       <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>ETA Date</label>
                       <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="vessel_berthing" name="vessel_berthing"
                         value={formik.values.vessel_berthing ? (formik.values.vessel_berthing.length === 10 ? `${formik.values.vessel_berthing}T00:00` : formik.values.vessel_berthing) : ""}
@@ -2267,7 +3514,46 @@ function JobDetails() {
                     <Col xs={12} md={2} lg={2} className="mb-3">
                       <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>HSS</label>
                       <TextField fullWidth select size="small" variant="outlined" id="hss" name="hss"
-                        disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss || "No"} onChange={formik.handleChange} sx={compactInputSx}>
+                        disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss || "No"}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          formik.setFieldValue("hss", val);
+                          if (val === "Yes") {
+                            const currentRate = parseFloat(formik.values.other_charges_details?.addl_charge?.rate) || 0;
+                            const rateToSet = currentRate < 2 ? 2 : currentRate;
+
+                            let baseCifInr = 0;
+                            if (formik.values.invoice_details && formik.values.invoice_details.length > 0) {
+                              baseCifInr = formik.values.invoice_details.reduce((sum, row) => {
+                                const pv = parseFloat(row.product_value) || 0;
+                                const pvEx = parseFloat(row.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+                                const fr = parseFloat(row.freight) || 0;
+                                const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
+                                const ins = parseFloat(row.insurance) || 0;
+                                const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+                                const oth = parseFloat(row.other_charges) || 0;
+                                const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+
+                                const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+                                const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
+                                const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
+                                const othInr = (oth * othEx) / getUnitForCurrency(row.other_charges_currency);
+
+                                return sum + (pvInr + frInr + insInr + othInr);
+                              }, 0);
+                            } else {
+                              baseCifInr = parseFloat(formik.values.cif_amount || formik.values.cifValue) || 0;
+                            }
+                            if (baseCifInr < 0) baseCifInr = 0;
+
+                            const exrateVal = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
+                            const hssUnit = getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
+                            const minAmount = (baseCifInr * (rateToSet / 100)) / (exrateVal / hssUnit);
+                            formik.setFieldValue("other_charges_details.addl_charge.rate", rateToSet);
+                            formik.setFieldValue("other_charges_details.addl_charge.amount", minAmount > 0 ? minAmount.toFixed(2) : "0.00");
+                          }
+                        }}
+                        sx={compactInputSx}>
                         <MenuItem value="Yes">Yes</MenuItem>
                         <MenuItem value="No">No</MenuItem>
                       </TextField>
@@ -2290,8 +3576,22 @@ function JobDetails() {
                         </Col>
                         <Col xs={12} md={12} lg={12} className="mb-3">
                           <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Address Details</label>
-                          <TextField fullWidth multiline rows={2} size="small" variant="outlined" id="hss_address_details" name="hss_address_details"
-                            disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_address_details || ""} onChange={formik.handleChange} sx={compactInputSx} />
+                          <TextField fullWidth multiline minRows={2} size="small" variant="outlined" id="hss_address_details" name="hss_address_details"
+                            disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_address_details || ""} onChange={formik.handleChange}
+                            sx={{
+                              ...compactInputSx,
+                              "& .MuiOutlinedInput-root": {
+                                ...compactInputSx["& .MuiOutlinedInput-root"],
+                                height: "auto",
+                                minHeight: "54px"
+                              },
+                              "& .MuiOutlinedInput-input": {
+                                ...compactInputSx["& .MuiOutlinedInput-input"],
+                                padding: "4px 8px",
+                                lineHeight: "1.3"
+                              }
+                            }}
+                          />
                         </Col>
                         <Col xs={6} md={2} lg={2} className="mb-3">
                           <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Branch SNo</label>
@@ -2838,293 +4138,588 @@ function JobDetails() {
 
               {invoiceSubTab === 0 && (
                 <div style={{ background: "#ffffff", border: "1px solid #dee2e6", borderRadius: "4px", padding: "16px", marginBottom: "20px" }}>
-                <h6 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#495057", marginBottom: "16px", borderBottom: "1px solid #eee", paddingBottom: "8px" }}>
-                  Invoice Terms & Priority
-                </h6>
-                <Row>
-                  <Col xs={12} md={2} lg={2} className="mb-3">
-                    <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>AD Code</label>
-                    <TextField fullWidth size="small" variant="outlined" id="adCode" name="adCode" disabled={user?.role !== "Admin" && isSubmissionDate}
-                      value={formik.values.adCode || ""} onChange={formik.handleChange} placeholder="Enter AD Code" sx={compactInputSx} />
-                  </Col>
-                  <Col xs={12} md={2} lg={2} className="mb-3">
-                    <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Bank Name</label>
-                    <TextField fullWidth size="small" variant="outlined" id="bank_name" name="bank_name" disabled={user?.role !== "Admin" && isSubmissionDate}
-                      value={formik.values.bank_name || ""} onChange={formik.handleChange} placeholder="Enter Bank Name" sx={compactInputSx} />
-                  </Col>
-                  <Col xs={12} md={2} lg={3} className="mb-3">
-                    <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>FTA Benefit Date</label>
-                    <TextField fullWidth size="small" variant="outlined" type="datetime-local" name="fta_Benefit_date_time"
-                      value={formik.values.fta_Benefit_date_time || ""} InputLabelProps={{ shrink: true }}
-                      onChange={(e) => formik.setFieldValue("fta_Benefit_date_time", e.target.value)}
-                      disabled={user?.role !== "Admin" && isSubmissionDate} sx={{ bgcolor: "white", ...compactInputSx }} />
-                  </Col>
-                  <Col xs={12} lg={4} className="mb-3 d-flex align-items-center" style={{ paddingTop: '22px' }}>
-                    <div style={{ marginRight: "8px", fontWeight: "600", fontSize: "0.9rem", color: "#6c757d" }}>Payment:</div>
-                    <RadioGroup row name="payment_method" value={formik.values.payment_method || ""} onChange={formik.handleChange}>
-                      <FormControlLabel value="Transaction" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: "0.9rem" }}>Transaction</span>} />
-                      <FormControlLabel value="Deferred" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: "0.9rem" }}>Deferred</span>} />
-                    </RadioGroup>
-                  </Col>
-                </Row>
+                  <h6 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#495057", marginBottom: "16px", borderBottom: "1px solid #eee", paddingBottom: "8px" }}>
+                    Invoice Terms & Priority
+                  </h6>
+                  <Row>
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>AD Code</label>
+                      <TextField fullWidth size="small" variant="outlined" id="adCode" name="adCode" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.adCode || ""} onChange={formik.handleChange} placeholder="Enter AD Code" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Bank Name</label>
+                      <TextField fullWidth size="small" variant="outlined" id="bank_name" name="bank_name" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.bank_name || ""} onChange={formik.handleChange} placeholder="Enter Bank Name" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Exchange Rate</label>
+                      <TextField fullWidth size="small" variant="outlined" id="exrate" name="exrate" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.exrate || ""}
+                        onChange={(e) => {
+                          const newExrate = e.target.value;
+                          formik.setFieldValue("exrate", newExrate);
 
-                {/* Invoice Details Table */}
-                <Row>
-                  <Col xs={12} className="mb-3">
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                      <label style={{ marginBottom: 0, fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
-                        Invoice Details
-                      </label>
-                      {!isDescriptionTableReadOnly && (
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<AddIcon />}
-                          onClick={addInvoiceRow}
-                        >
-                          Add Invoice
-                        </Button>
-                      )}
-                    </div>
+                          const exrateNum = parseFloat(newExrate) || 0;
+                          const invoiceDetails = formik.values.invoice_details || [];
 
-                    <div style={{ overflowX: "auto", border: "1px solid #e9ecef", borderRadius: "6px" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}>
-                        <thead>
-                           <tr style={{ background: "#f8f9fa" }}>
-                            {["Sr No", "Invoice Number", "Date", "PO NO", "PO Date", "TOI", "Invoice Value", "Currency", "Freight", "Insurance", "Other Chrgs", "CIF Value", "Action"].map((h) => (
-                              <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
-                                {h}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {invoiceRows.map((row, rowIndex) => (
-                            <tr key={`inv-row-${rowIndex}`}>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center", width: "40px" }}>
-                                {rowIndex + 1}
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.invoice_number || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "invoice_number", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  placeholder="Invoice No"
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "110px" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  type="date"
-                                  value={row.invoice_date || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  InputLabelProps={{ shrink: true }}
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "100px" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.po_no || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "po_no", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  placeholder="PO No"
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "110px" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  type="date"
-                                  value={row.po_date || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "po_date", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  InputLabelProps={{ shrink: true }}
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  select
-                                  size="small"
-                                  fullWidth
-                                  value={row.toi || "CIF"}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
+                          // Also recalculate auto-derived insurance amounts in invoices based on the new exchange rate
+                          const updatedInvoiceDetails = invoiceDetails.map(row => {
+                            const toiValue = row.toi || "CIF";
+                            if (row.insurance_currency === "INR" && row.inv_currency !== "INR" && toiValue === "FOB") {
+                              const rowExRate = parseFloat(row.exchange_rate);
+                              if (isNaN(rowExRate) && !row.is_insurance_manual && !row.insurance) {
+                                const pv = parseFloat(row.product_value) || 0;
+                                const baseInsurance = pv * 0.01125;
+                                const newInsurance = (baseInsurance * exrateNum).toFixed(2);
+
+                                // Recalculate row's total invoice value too
+                                const frt = parseFloat(row.freight) || 0;
+                                const ins = parseFloat(newInsurance) || 0;
+                                const other = parseFloat(row.other_charges) || 0;
+
+                                // Exchange rates for summing
+                                const invEx = exrateNum || 1;
+                                const frEx = parseFloat(row.freight_exchange_rate || exrateNum || 1) || 1;
+                                const insEx = parseFloat(row.insurance_exchange_rate || 1) || 1;
+                                const othEx = parseFloat(row.other_charges_exchange_rate || 1) || 1;
+
+                                const prodInInv = pv;
+                                const frtInInv = (frt * frEx) / invEx;
+                                const insInInv = (ins * insEx) / invEx;
+                                const othInInv = (other * othEx) / invEx;
+
+                                const total = (prodInInv + frtInInv + insInInv + othInInv).toFixed(2);
+
+                                return {
+                                  ...row,
+                                  insurance: newInsurance,
+                                  total_inv_value: total
+                                };
+                              }
+                            }
+                            return row;
+                          });
+
+                          formik.setFieldValue("invoice_details", updatedInvoiceDetails);
+
+                          const totalCif = updatedInvoiceDetails.reduce((sum, r) => sum + (parseFloat(r.total_inv_value) || 0), 0);
+                          const fallbackVal = parseFloat(formik.values.total_inv_value) || 0;
+                          const effectiveCif = totalCif > 0 ? totalCif : fallbackVal;
+
+                          if (effectiveCif > 0 && exrateNum > 0) {
+                            const cifInr = effectiveCif * exrateNum;
+                            formik.setFieldValue("cif_amount", cifInr.toFixed(2));
+                            formik.setFieldValue("cifValue", cifInr.toFixed(2));
+                          }
+                        }}
+                        placeholder="Exchange Rate" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>FTA Benefit Date</label>
+                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" name="fta_Benefit_date_time"
+                        value={formik.values.fta_Benefit_date_time || ""} InputLabelProps={{ shrink: true }}
+                        onChange={(e) => formik.setFieldValue("fta_Benefit_date_time", e.target.value)}
+                        disabled={user?.role !== "Admin" && isSubmissionDate} sx={{ bgcolor: "white", ...compactInputSx }} />
+                    </Col>
+                    <Col xs={12} lg={4} className="mb-3 d-flex align-items-center" style={{ paddingTop: '22px' }}>
+                      <div style={{ marginRight: "8px", fontWeight: "600", fontSize: "0.9rem", color: "#6c757d" }}>Payment:</div>
+                      <RadioGroup row name="payment_method" value={formik.values.payment_method || ""} onChange={formik.handleChange}>
+                        <FormControlLabel value="Transaction" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: "0.9rem" }}>Transaction</span>} />
+                        <FormControlLabel value="Deferred" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: "0.9rem" }}>Deferred</span>} />
+                      </RadioGroup>
+                    </Col>
+                  </Row>
+
+                  {/* Invoice Details Table */}
+                  <Row>
+                    <Col xs={12} className="mb-3">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", gap: "24px" }}>
+                        <label style={{ marginBottom: 0, fontSize: "0.9rem", fontWeight: "600", color: "#000000", whiteSpace: "nowrap" }}>
+                          Invoice Details
+                        </label>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '250px' }}>
+                          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                            Table Width:
+                          </Typography>
+                          <Slider
+                            value={invoiceTableWidth}
+                            onChange={(e, val) => setInvoiceTableWidth(val)}
+                            min={1200}
+                            max={2500}
+                            step={100}
+                            valueLabelDisplay="auto"
+                            valueLabelFormat={(val) => `${val}px`}
+                            sx={{ color: '#1e293b' }}
+                          />
+                        </Box>
+                        {!isDescriptionTableReadOnly && (
+                          <Button
+                            variant="contained"
+                            type="button"
+                            startIcon={<AddIcon />}
+                            onClick={addInvoiceRow}
+                            sx={{
+                              backgroundColor: "#1e293b",
+                              color: "#ffffff",
+                              "&:hover": {
+                                backgroundColor: "#0f172a"
+                              },
+                              textTransform: "none",
+                              fontWeight: "600",
+                              fontSize: "0.85rem",
+                              padding: "7px 16px",
+                              borderRadius: "6px",
+                              boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+                              marginBottom: "12px"
+                            }}
+                          >
+                            Add Invoice
+                          </Button>
+                        )}
+                      </div>
+
+                      <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: `${invoiceTableWidth}px`, backgroundColor: "#ffffff" }}>
+                          <thead>
+                            <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                              {[
+                                { label: "Sr No", width: "45px", align: "center" },
+                                { label: "Invoice Number", width: "150px", align: "left" },
+                                { label: "Date", width: "120px", align: "left" },
+                                { label: "PO Details", width: "280px", align: "left" },
+                                { label: "TOI", width: "90px", align: "left" },
+                                { label: "Invoice Value", width: "130px", align: "left" },
+                                { label: "Currency", width: "95px", align: "left" },
+                                { label: "Ex. Rate", width: "100px", align: "left" },
+                                { label: "Freight", width: "170px", align: "left" },
+                                { label: "Insurance", width: "170px", align: "left" },
+                                { label: "Other Chrgs", width: "170px", align: "left" },
+                                { label: "CIF", width: "130px", align: "left" },
+
+                                { label: "Action", width: "50px", align: "center" }
+                              ].map((col) => (
+                                <th
+                                  key={col.label}
+                                  style={{
+                                    padding: "10px 8px",
+                                    fontSize: "0.8rem",
+                                    fontWeight: "600",
+                                    textAlign: col.align || "left",
+                                    whiteSpace: "nowrap",
+                                    color: "#475569",
+                                    width: col.width || "auto",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.05em"
+                                  }}
                                 >
-                                  <MenuItem value="CIF">CIF</MenuItem>
-                                  <MenuItem value="FOB">FOB</MenuItem>
-                                  <MenuItem value="CF">C&F</MenuItem>
-                                  <MenuItem value="CI">C&I</MenuItem>
-                                </TextField>
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.product_value || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "product_value", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  placeholder="Invoice Value"
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                 <Autocomplete
-                                   freeSolo
-                                   size="small"
-                                   options={currencies.map(c => c.code)}
-                                   sx={compactInputSx}
-                                   value={row.inv_currency || ""}
-                                   onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue)}
-                                   onChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue || "")}
-                                   disabled={isDescriptionTableReadOnly}
-                                   renderInput={(params) => (
-                                     <TextField
-                                       {...params}
-                                       variant="outlined"
-                                       size="small"
-                                       placeholder="Currency"
-                                       sx={compactInputSx}
-                                     />
-                                   )}
-                                 />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "160px" }}>
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    value={row.freight || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
-                                    disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
-                                    placeholder="Freight"
-                                  />
-                                  <Autocomplete
-                                    freeSolo
-                                    size="small"
-                                    options={currencies.map(c => c.code)}
-                                    value={row.freight_currency || ""}
-                                    onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue)}
-                                    onChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue || "")}
-                                    disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
-                                    renderInput={(params) => (
-                                      <TextField
-                                        {...params}
-                                        variant="outlined"
-                                        size="small"
-                                        placeholder="Cur"
-                                        sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
-                                      />
-                                    )}
-                                  />
-                                </div>
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "160px" }}>
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    value={row.insurance || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
-                                    disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
-                                    placeholder="Insurance"
-                                  />
-                                  <Autocomplete
-                                    freeSolo
-                                    size="small"
-                                    options={currencies.map(c => c.code)}
-                                    value={row.insurance_currency || ""}
-                                    onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue)}
-                                    onChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue || "")}
-                                    disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
-                                    renderInput={(params) => (
-                                      <TextField
-                                        {...params}
-                                        variant="outlined"
-                                        size="small"
-                                        placeholder="Cur"
-                                        sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
-                                      />
-                                    )}
-                                  />
-                                </div>
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "160px" }}>
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    value={row.other_charges || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "other_charges", e.target.value)}
-                                    disabled={isDescriptionTableReadOnly}
-                                    placeholder="Other"
-                                  />
-                                  <Autocomplete
-                                    freeSolo
-                                    size="small"
-                                    options={currencies.map(c => c.code)}
-                                    value={row.other_charges_currency || ""}
-                                    onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue)}
-                                    onChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue || "")}
-                                    disabled={isDescriptionTableReadOnly}
-                                    renderInput={(params) => (
-                                      <TextField
-                                        {...params}
-                                        variant="outlined"
-                                        size="small"
-                                        placeholder="Cur"
-                                        sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
-                                      />
-                                    )}
-                                  />
-                                </div>
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.total_inv_value || ""}
-                                  InputProps={{ readOnly: true }}
-                                  disabled={isDescriptionTableReadOnly}
-                                  placeholder="CIF Value"
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center" }}>
-                                {!isDescriptionTableReadOnly && (
-                                  <IconButton
-                                    size="small"
-                                    color="error"
-                                    disabled={invoiceRows.length <= 1}
-                                    onClick={() => removeInvoiceRow(rowIndex)}
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                )}
-                              </td>
+                                  {col.label}
+                                </th>
+                              ))}
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {invoiceRows.map((invRow, idx) => {
-                      const invVal = parseFloat(invRow.product_value) || 0;
-                      const prodSum = descriptionRows.reduce((sum, dRow) => 
-                        (dRow.sr_no_invoice === String(idx + 1) || (!dRow.sr_no_invoice && idx === 0)) ? sum + (parseFloat(dRow.amount) || 0) : sum, 0
-                      );
-                      const hasMismatch = (invVal > 0 || prodSum > 0) && Math.abs(invVal - prodSum) > 0.01;
-                      if (!hasMismatch) return null;
-                      return (
-                        <div key={idx} style={{ marginTop: "8px", padding: "8px 12px", background: "#fffbeb", border: "1px solid #fef3c7", borderRadius: "4px", color: "#b45309", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "6px" }}>
-                          <span>⚠️</span>
-                          <span><strong>Note:</strong> Invoice Sr No. {idx + 1} Value ({invVal.toFixed(2)}) and Product Details Amount ({prodSum.toFixed(2)}) do not match!</span>
-                        </div>
-                      );
-                    })}
-                  </Col>
-                </Row>
+                          </thead>
+                          <tbody>
+                            {invoiceRows.map((row, rowIndex) => (
+                              <tr
+                                key={`inv-row-${rowIndex}`}
+                                style={{
+                                  borderBottom: "1px solid #e2e8f0",
+                                  background: "transparent",
+                                  transition: "background-color 0.2s"
+                                }}
+                              >
+                                <td style={{ padding: "8px 6px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold", color: "#64748b", verticalAlign: "middle" }}>
+                                  {rowIndex + 1}
+                                </td>
+                                <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.invoice_number || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "invoice_number", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="Invoice No"
+                                    sx={compactInputSx}
+                                  />
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    type="date"
+                                    value={row.invoice_date || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    InputLabelProps={{ shrink: true }}
+                                    sx={compactInputSx}
+                                  />
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "280px", verticalAlign: "middle" }}>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                    {(row.po_details || [{ po_no: "", po_date: "" }]).map((po, poIndex) => (
+                                      <div key={poIndex} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                        <TextField
+                                          size="small"
+                                          value={po.po_no || ""}
+                                          placeholder="PO No"
+                                          disabled={isDescriptionTableReadOnly}
+                                          onChange={(e) => {
+                                            const updatedPoList = [...(row.po_details || [{ po_no: "", po_date: "" }])];
+                                            updatedPoList[poIndex] = { ...updatedPoList[poIndex], po_no: e.target.value };
+                                            updateInvoiceRow(rowIndex, "po_details", updatedPoList);
+                                          }}
+                                          sx={{ ...compactInputSx, width: "100px", minWidth: "100px" }}
+                                        />
+                                        <TextField
+                                          size="small"
+                                          type="date"
+                                          value={po.po_date || ""}
+                                          disabled={isDescriptionTableReadOnly}
+                                          InputLabelProps={{ shrink: true }}
+                                          onChange={(e) => {
+                                            const updatedPoList = [...(row.po_details || [{ po_no: "", po_date: "" }])];
+                                            updatedPoList[poIndex] = { ...updatedPoList[poIndex], po_date: e.target.value };
+                                            updateInvoiceRow(rowIndex, "po_details", updatedPoList);
+                                          }}
+                                          sx={{ ...compactInputSx, width: "110px", minWidth: "110px" }}
+                                        />
+                                        {!isDescriptionTableReadOnly && (
+                                          <div style={{ display: "flex", gap: "2px" }}>
+                                            <IconButton
+                                              size="small"
+                                              onClick={() => {
+                                                const updatedPoList = [...(row.po_details || [{ po_no: "", po_date: "" }])];
+                                                updatedPoList.push({ po_no: "", po_date: "" });
+                                                updateInvoiceRow(rowIndex, "po_details", updatedPoList);
+                                              }}
+                                              sx={{ padding: "2px" }}
+                                            >
+                                              <AddIcon sx={{ fontSize: "0.95rem" }} />
+                                            </IconButton>
+                                            {(row.po_details || [{ po_no: "", po_date: "" }]).length > 1 && (
+                                              <IconButton
+                                                size="small"
+                                                color="error"
+                                                onClick={() => {
+                                                  const updatedPoList = (row.po_details || [{ po_no: "", po_date: "" }]).filter((_, i) => i !== poIndex);
+                                                  updateInvoiceRow(rowIndex, "po_details", updatedPoList);
+                                                }}
+                                                sx={{ padding: "2px" }}
+                                              >
+                                                <RemoveIcon sx={{ fontSize: "0.95rem" }} />
+                                              </IconButton>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
+                                  <TextField
+                                    select
+                                    size="small"
+                                    fullWidth
+                                    value={row.toi === "CF" ? "C&F" : (row.toi === "CI" ? "C&I" : (row.toi || "CIF"))}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={compactInputSx}
+                                  >
+                                    <MenuItem value="CIF">CIF</MenuItem>
+                                    <MenuItem value="FOB">FOB</MenuItem>
+                                    <MenuItem value="C&F">C&F</MenuItem>
+                                    <MenuItem value="C&I">C&I</MenuItem>
+                                    <MenuItem value="EXW">EXW</MenuItem>
+                                    <MenuItem value="FCA">FCA</MenuItem>
+                                    <MenuItem value="CPT">CPT</MenuItem>
+                                    <MenuItem value="CIP">CIP</MenuItem>
+                                    <MenuItem value="DAT">DAT</MenuItem>
+                                    <MenuItem value="DAP">DAP</MenuItem>
+                                    <MenuItem value="DDP">DDP</MenuItem>
+                                  </TextField>
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.product_value || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "product_value", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="Invoice Value"
+                                    sx={compactInputSx}
+                                  />
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "95px", verticalAlign: "middle" }}>
+                                  <Autocomplete
+                                    freeSolo
+                                    size="small"
+                                    options={currencies.map(c => c.code)}
+                                    value={row.inv_currency || ""}
+                                    onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue)}
+                                    onChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue || "")}
+                                    disabled={isDescriptionTableReadOnly}
+                                    renderInput={(params) => (
+                                      <TextField
+                                        {...params}
+                                        variant="outlined"
+                                        size="small"
+                                        placeholder="Currency"
+                                        sx={compactInputSx}
+                                      />
+                                    )}
+                                  />
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "100px", verticalAlign: "middle" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    type="number"
+                                    value={row.exchange_rate || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "exchange_rate", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="Ex. Rate"
+                                    sx={compactInputSx}
+                                  />
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        value={row.freight || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
+                                        disabled={isDescriptionTableReadOnly}
+                                        placeholder="Freight"
+                                        sx={compactInputSx}
+                                      />
+                                      <Autocomplete
+                                        freeSolo
+                                        size="small"
+                                        options={currencies.map(c => c.code)}
+                                        value={row.freight_currency || ""}
+                                        onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue)}
+                                        onChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue || "")}
+                                        disabled={isDescriptionTableReadOnly}
+                                        renderInput={(params) => (
+                                          <TextField
+                                            {...params}
+                                            variant="outlined"
+                                            size="small"
+                                            placeholder="Cur"
+                                            sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
+                                          />
+                                        )}
+                                      />
+                                    </div>
+                                    {row.freight_currency && row.freight_currency.toUpperCase() !== 'INR' && (
+                                      <TextField
+                                        size="small"
+                                        type="number"
+                                        placeholder="Fr. Ex Rate"
+                                        value={row.freight_exchange_rate || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "freight_exchange_rate", e.target.value)}
+                                        disabled={isDescriptionTableReadOnly}
+                                        sx={compactInputSx}
+                                      />
+                                    )}
+                                  </div>
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        value={row.insurance || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
+                                        disabled={isDescriptionTableReadOnly}
+                                        placeholder="Insurance"
+                                        sx={compactInputSx}
+                                      />
+                                      <Autocomplete
+                                        freeSolo
+                                        size="small"
+                                        options={currencies.map(c => c.code)}
+                                        value={row.insurance_currency || ""}
+                                        onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue)}
+                                        onChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue || "")}
+                                        disabled={isDescriptionTableReadOnly}
+                                        renderInput={(params) => (
+                                          <TextField
+                                            {...params}
+                                            variant="outlined"
+                                            size="small"
+                                            placeholder="Cur"
+                                            sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
+                                          />
+                                        )}
+                                      />
+                                    </div>
+                                    {row.insurance_currency && row.insurance_currency.toUpperCase() !== 'INR' && (
+                                      <TextField
+                                        size="small"
+                                        type="number"
+                                        placeholder="Ins. Ex Rate"
+                                        value={row.insurance_exchange_rate || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "insurance_exchange_rate", e.target.value)}
+                                        disabled={isDescriptionTableReadOnly}
+                                        sx={compactInputSx}
+                                      />
+                                    )}
+                                  </div>
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        value={row.misc || row.other_charges || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "misc", e.target.value)}
+                                        disabled={isDescriptionTableReadOnly}
+                                        placeholder="Misc"
+                                        sx={compactInputSx}
+                                      />
+                                      <Autocomplete
+                                        freeSolo
+                                        size="small"
+                                        options={currencies.map(c => c.code)}
+                                        value={row.misc_currency || row.other_charges_currency || ""}
+                                        onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "misc_currency", newValue)}
+                                        onChange={(event, newValue) => updateInvoiceRow(rowIndex, "misc_currency", newValue || "")}
+                                        disabled={isDescriptionTableReadOnly}
+                                        renderInput={(params) => (
+                                          <TextField
+                                            {...params}
+                                            variant="outlined"
+                                            size="small"
+                                            placeholder="Cur"
+                                            sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
+                                          />
+                                        )}
+                                      />
+                                    </div>
+                                    {(row.misc_currency || row.other_charges_currency) && (row.misc_currency || row.other_charges_currency).toUpperCase() !== 'INR' && (
+                                      <TextField
+                                        size="small"
+                                        type="number"
+                                        placeholder="Oth. Ex Rate"
+                                        value={row.misc_exchange_rate || row.other_charges_exchange_rate || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "misc_exchange_rate", e.target.value)}
+                                        disabled={isDescriptionTableReadOnly}
+                                        sx={compactInputSx}
+                                      />
+                                    )}
+                                  </div>
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={(() => {
+                                      const pv = parseFloat(row.product_value) || 0;
+                                      const pvEx = parseFloat(row.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+                                      const fr = parseFloat(row.freight) || 0;
+                                      const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
+                                      const ins = parseFloat(row.insurance) || 0;
+                                      const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+                                      const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+                                      const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
+
+                                      const rowCifBase = ((pv * pvEx) / getUnitForCurrency(row.inv_currency)) +
+                                        ((fr * frEx) / getUnitForCurrency(row.freight_currency)) +
+                                        ((ins * insEx) / getUnitForCurrency(row.insurance_currency)) +
+                                        ((oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency));
+
+                                      let hssRowShare = 0;
+                                      if (formik.values.hss === "Yes") {
+                                        const totalHssAmt = parseFloat(formik.values.other_charges_details?.addl_charge?.amount) || 0;
+                                        const hssEx = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
+                                        const totalHssInr = (totalHssAmt * hssEx) / getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
+
+                                        const totalCifBase = invoiceRows.reduce((sum, r) => {
+                                          const rpv = parseFloat(r.product_value) || 0;
+                                          const rpvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+                                          const rfr = parseFloat(r.freight) || 0;
+                                          const rfrEx = parseFloat(r.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
+                                          const rins = parseFloat(r.insurance) || 0;
+                                          const rinsEx = parseFloat(r.insurance_exchange_rate) || 1;
+                                          const roth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
+                                          const rothEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
+
+                                          const rpvInr = (rpv * rpvEx) / getUnitForCurrency(r.inv_currency);
+                                          const rfrInr = (rfr * rfrEx) / getUnitForCurrency(r.freight_currency);
+                                          const rinsInr = (rins * rinsEx) / getUnitForCurrency(r.insurance_currency);
+                                          const rothInr = (roth * rothEx) / getUnitForCurrency(roth.misc_currency !== undefined ? roth.misc_currency : roth.other_charges_currency);
+
+                                          return sum + (rpvInr + rfrInr + rinsInr + rothInr);
+                                        }, 0);
+
+                                        if (totalCifBase > 0) {
+                                          hssRowShare = totalHssInr * (rowCifBase / totalCifBase);
+                                        } else {
+                                          hssRowShare = totalHssInr / invoiceRows.length;
+                                        }
+                                      }
+
+                                      return (rowCifBase + hssRowShare).toFixed(2);
+                                    })()}
+                                    InputProps={{ readOnly: true }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="CIF"
+                                    sx={compactInputSx}
+                                  />
+                                </td>
+
+                                <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>
+                                  {!isDescriptionTableReadOnly && (
+                                    <IconButton
+                                      size="small"
+                                      disabled={invoiceRows.length <= 1}
+                                      onClick={() => removeInvoiceRow(rowIndex)}
+                                      sx={{
+                                        border: "1px solid #e2e8f0",
+                                        borderRadius: "6px",
+                                        color: "#94a3b8",
+                                        padding: "6px",
+                                        transition: "all 0.2s",
+                                        "&:hover": {
+                                          color: "#ef4444",
+                                          borderColor: "#fecaca",
+                                          backgroundColor: "#fef2f2"
+                                        },
+                                        "&.Mui-disabled": {
+                                          color: "#cbd5e1",
+                                          borderColor: "#f1f5f9"
+                                        }
+                                      }}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {invoiceRows.map((invRow, idx) => {
+                        const invVal = parseFloat(invRow.product_value) || 0;
+                        const prodSum = descriptionRows.reduce((sum, dRow) =>
+                          (dRow.sr_no_invoice === String(idx + 1) || (!dRow.sr_no_invoice && idx === 0)) ? sum + (parseFloat(dRow.amount) || 0) : sum, 0
+                        );
+                        const hasMismatch = (invVal > 0 || prodSum > 0) && Math.abs(invVal - prodSum) > 0.01;
+                        if (!hasMismatch) return null;
+                        return (
+                          <div key={idx} style={{ marginTop: "8px", padding: "8px 12px", background: "#fffbeb", border: "1px solid #fef3c7", borderRadius: "4px", color: "#b45309", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span>⚠️</span>
+                            <span><strong>Note:</strong> Invoice Sr No. {idx + 1} Value ({invVal.toFixed(2)}) and Product Details Amount ({prodSum.toFixed(2)}) do not match!</span>
+                          </div>
+                        );
+                      })}
+                    </Col>
+                  </Row>
                 </div>
               )}
 
@@ -3140,16 +4735,35 @@ function JobDetails() {
                     </label>
                   </div>
 
-                  <div style={{ overflowX: "auto" }}>
-                    <table className="table table-bordered" style={{ fontSize: "0.9rem", minWidth: "900px" }}>
-                      <thead style={{ background: "#f8f9fa" }}>
-                        <tr>
-                          <th style={{ width: "20%", fontWeight: "600" }}>Charge Head</th>
-                          <th style={{ width: "12%", fontWeight: "600" }}>Currency</th>
-                          <th style={{ width: "12%", fontWeight: "600" }}>Exch. Rate</th>
-                          <th style={{ width: "12%", fontWeight: "600" }}>Rate %</th>
-                          <th style={{ width: "12%", fontWeight: "600" }}>Amount</th>
-                          <th style={{ width: "32%", fontWeight: "600" }}>Description/Remark</th>
+                  <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px", backgroundColor: "#ffffff" }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                          {[
+                            { label: "Charge Head", width: "20%" },
+                            { label: "Currency", width: "12%" },
+                            { label: "Exch. Rate", width: "12%" },
+                            { label: "Rate %", width: "12%" },
+                            { label: "Amount", width: "12%" },
+                            { label: "Description/Remark", width: "32%" }
+                          ].map((col) => (
+                            <th
+                              key={col.label}
+                              style={{
+                                padding: "10px 8px",
+                                fontSize: "0.8rem",
+                                fontWeight: "600",
+                                textAlign: "left",
+                                whiteSpace: "nowrap",
+                                color: "#475569",
+                                width: col.width,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em"
+                              }}
+                            >
+                              {col.label}
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
@@ -3162,29 +4776,42 @@ function JobDetails() {
                           { id: "insurance", label: "Insurance" },
                           { id: "addl_charge", label: "Addl Chrg(High Sea)" },
                         ].map((row) => (
-                          <tr key={row.id}>
-                            <td style={{ verticalAlign: "middle", fontWeight: "500" }}>{row.label}</td>
-                            <td>
-                               <Autocomplete
-                                 freeSolo
-                                 size="small"
-                                 options={currencies.map(c => c.code)}
-                                 sx={compactInputSx}
-                                 value={formik.values.other_charges_details?.[row.id]?.currency || ""}
-                                 onInputChange={(event, newValue) => formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue)}
-                                 onChange={(event, newValue) => formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue || "")}
-                                 renderInput={(params) => (
-                                   <TextField
-                                     {...params}
-                                     variant="outlined"
-                                     size="small"
-                                     placeholder="Currency"
-                                     sx={compactInputSx}
-                                   />
-                                 )}
-                               />
+                          <tr
+                            key={row.id}
+                            style={{
+                              borderBottom: "1px solid #e2e8f0",
+                              background: "transparent",
+                              transition: "background-color 0.2s"
+                            }}
+                          >
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle", fontWeight: "500", fontSize: "0.85rem", color: "#475569" }}>{row.label}</td>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
+                              <Autocomplete
+                                freeSolo
+                                size="small"
+                                options={currencies.map(c => c.code)}
+                                sx={compactInputSx}
+                                value={formik.values.other_charges_details?.[row.id]?.currency || ""}
+                                onInputChange={(event, newValue) => {
+                                  formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue);
+                                  formik.setFieldValue(`other_charges_details.${row.id}.exchange_rate`, "");
+                                }}
+                                onChange={(event, newValue) => {
+                                  formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue || "");
+                                  formik.setFieldValue(`other_charges_details.${row.id}.exchange_rate`, "");
+                                }}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    variant="outlined"
+                                    size="small"
+                                    placeholder="Currency"
+                                    sx={compactInputSx}
+                                  />
+                                )}
+                              />
                             </td>
-                            <td>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 fullWidth
                                 size="small"
@@ -3194,27 +4821,104 @@ function JobDetails() {
                                 onChange={(e) => formik.setFieldValue(`other_charges_details.${row.id}.exchange_rate`, e.target.value)}
                               />
                             </td>
-                            <td>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 fullWidth
                                 size="small"
                                 type="number"
                                 sx={compactInputSx}
                                 value={formik.values.other_charges_details?.[row.id]?.rate || ""}
-                                onChange={(e) => formik.setFieldValue(`other_charges_details.${row.id}.rate`, e.target.value)}
+                                onChange={(e) => handleOtherChargesRateChange(row.id, e.target.value)}
+                                onBlur={(e) => {
+                                  if (row.id === "addl_charge" && formik.values.hss === "Yes") {
+                                    const rateNum = parseFloat(e.target.value) || 0;
+                                    if (rateNum < 2) {
+                                      let baseCifInr = 0;
+                                      if (formik.values.invoice_details && formik.values.invoice_details.length > 0) {
+                                        baseCifInr = formik.values.invoice_details.reduce((sum, row) => {
+                                          const pv = parseFloat(row.product_value) || 0;
+                                          const pvEx = parseFloat(row.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+                                          const fr = parseFloat(row.freight) || 0;
+                                          const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
+                                          const ins = parseFloat(row.insurance) || 0;
+                                          const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+                                          const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+                                          const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
+
+                                          const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+                                          const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
+                                          const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
+                                          const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
+
+                                          return sum + (pvInr + frInr + insInr + othInr);
+                                        }, 0);
+                                      } else {
+                                        baseCifInr = parseFloat(formik.values.cif_amount || formik.values.cifValue) || 0;
+                                      }
+                                      if (baseCifInr < 0) baseCifInr = 0;
+
+                                      const exrateVal = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
+                                      const hssUnit = getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
+                                      const minAmount = (baseCifInr * 0.02) / (exrateVal / hssUnit);
+                                      formik.setFieldValue("other_charges_details.addl_charge.rate", 2);
+                                      formik.setFieldValue("other_charges_details.addl_charge.amount", minAmount > 0 ? minAmount.toFixed(2) : "");
+                                      toast.error("Additional Charge (High Sea) Rate % cannot be less than 2%. Reset to 2%.");
+                                    }
+                                  }
+                                }}
                               />
                             </td>
-                            <td>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 fullWidth
                                 size="small"
                                 type="number"
                                 sx={compactInputSx}
                                 value={formik.values.other_charges_details?.[row.id]?.amount || ""}
-                                onChange={(e) => formik.setFieldValue(`other_charges_details.${row.id}.amount`, e.target.value)}
+                                onChange={(e) => handleOtherChargesAmountChange(row.id, e.target.value)}
+                                onBlur={(e) => {
+                                  if (row.id === "addl_charge" && formik.values.hss === "Yes") {
+                                    const amtNum = parseFloat(e.target.value) || 0;
+                                    const exrateVal = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
+                                    const hssUnit = getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
+                                    const amtInr = (amtNum * exrateVal) / hssUnit;
+
+                                    let baseCifInr = 0;
+                                    if (formik.values.invoice_details && formik.values.invoice_details.length > 0) {
+                                      baseCifInr = formik.values.invoice_details.reduce((sum, row) => {
+                                        const pv = parseFloat(row.product_value) || 0;
+                                        const pvEx = parseFloat(row.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+                                        const fr = parseFloat(row.freight) || 0;
+                                        const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
+                                        const ins = parseFloat(row.insurance) || 0;
+                                        const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+                                        const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+                                        const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
+
+                                        const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+                                        const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
+                                        const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
+                                        const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
+
+                                        return sum + (pvInr + frInr + insInr + othInr);
+                                      }, 0);
+                                    } else {
+                                      baseCifInr = parseFloat(formik.values.cif_amount || formik.values.cifValue) || 0;
+                                    }
+                                    if (baseCifInr < 0) baseCifInr = 0;
+
+                                    const minAmountInr = baseCifInr * 0.02;
+                                    if (baseCifInr > 0 && parseFloat(amtInr.toFixed(2)) < parseFloat(minAmountInr.toFixed(2))) {
+                                      const minAmount = minAmountInr / (exrateVal / hssUnit);
+                                      formik.setFieldValue("other_charges_details.addl_charge.rate", 2);
+                                      formik.setFieldValue("other_charges_details.addl_charge.amount", minAmount.toFixed(2));
+                                      toast.error(`Additional Charge (High Sea) Amount cannot be less than 2% of CIF (${minAmountInr.toFixed(2)} INR). Reset to 2%.`);
+                                    }
+                                  }
+                                }}
                               />
                             </td>
-                            <td>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 fullWidth
                                 size="small"
@@ -3283,34 +4987,77 @@ function JobDetails() {
                     </h6>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <Button
-                        variant="outlined"
-                        size="small"
+                        variant="contained"
+                        type="button"
                         startIcon={<AddIcon />}
                         onClick={addMiscChargeRow}
+                        sx={{
+                          backgroundColor: "#1e293b",
+                          color: "#ffffff",
+                          "&:hover": {
+                            backgroundColor: "#0f172a"
+                          },
+                          textTransform: "none",
+                          fontWeight: "600",
+                          fontSize: "0.85rem",
+                          padding: "7px 16px",
+                          borderRadius: "6px",
+                          boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
+                        }}
                       >
                         Add Charge
                       </Button>
                     </Box>
                   </div>
 
-                  <div style={{ overflowX: "auto", border: "1px solid #e9ecef", borderRadius: "6px" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1000px" }}>
+                  <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1000px", backgroundColor: "#ffffff" }}>
                       <thead>
-                        <tr style={{ background: "#f8f9fa" }}>
-                          {["Sr No", "Charge Type", "Currency", "Ex. Rate", "Rate %", "Amount", "Amount (Rs.)", "Remark", "Action"].map((h) => (
-                            <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
-                              {h}
+                        <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                          {[
+                            { label: "Sr No", width: "45px", align: "center" },
+                            { label: "Charge Type", width: "220px", align: "left" },
+                            { label: "Currency", width: "100px", align: "left" },
+                            { label: "Ex. Rate", width: "100px", align: "left" },
+                            { label: "Rate %", width: "100px", align: "left" },
+                            { label: "Amount", width: "120px", align: "left" },
+                            { label: "Amount (Rs.)", width: "120px", align: "left" },
+                            { label: "Remark", width: "auto", align: "left" },
+                            { label: "Action", width: "50px", align: "center" }
+                          ].map((col) => (
+                            <th
+                              key={col.label}
+                              style={{
+                                padding: "10px 8px",
+                                fontSize: "0.8rem",
+                                fontWeight: "600",
+                                textAlign: col.align || "left",
+                                whiteSpace: "nowrap",
+                                color: "#475569",
+                                width: col.width,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em"
+                              }}
+                            >
+                              {col.label}
                             </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {miscChargesRows.map((row, rowIndex) => (
-                          <tr key={`misc-row-${rowIndex}`}>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center", width: "40px" }}>
+                          <tr
+                            key={`misc-row-${rowIndex}`}
+                            style={{
+                              borderBottom: "1px solid #e2e8f0",
+                              background: "transparent",
+                              transition: "background-color 0.2s"
+                            }}
+                          >
+                            <td style={{ padding: "8px 6px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold", color: "#64748b", verticalAlign: "middle" }}>
                               {rowIndex + 1}
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "220px" }}>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 select
                                 size="small"
@@ -3339,27 +5086,27 @@ function JobDetails() {
                                 ))}
                               </TextField>
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "100px" }}>
-                               <Autocomplete
-                                 freeSolo
-                                 size="small"
-                                 options={currencies.map(c => c.code)}
-                                 sx={compactInputSx}
-                                 value={row.currency || "USD"}
-                                 onInputChange={(event, newValue) => updateMiscChargeRow(rowIndex, "currency", newValue)}
-                                 onChange={(event, newValue) => updateMiscChargeRow(rowIndex, "currency", newValue || "")}
-                                 renderInput={(params) => (
-                                   <TextField
-                                     {...params}
-                                     variant="outlined"
-                                     size="small"
-                                     placeholder="Currency"
-                                     sx={compactInputSx}
-                                   />
-                                 )}
-                               />
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
+                              <Autocomplete
+                                freeSolo
+                                size="small"
+                                options={currencies.map(c => c.code)}
+                                sx={compactInputSx}
+                                value={row.currency || "USD"}
+                                onInputChange={(event, newValue) => updateMiscChargeRow(rowIndex, "currency", newValue)}
+                                onChange={(event, newValue) => updateMiscChargeRow(rowIndex, "currency", newValue || "")}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    variant="outlined"
+                                    size="small"
+                                    placeholder="Currency"
+                                    sx={compactInputSx}
+                                  />
+                                )}
+                              />
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "100px" }}>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 size="small"
                                 fullWidth
@@ -3369,7 +5116,7 @@ function JobDetails() {
                                 sx={compactInputSx}
                               />
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "100px" }}>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 size="small"
                                 fullWidth
@@ -3379,7 +5126,7 @@ function JobDetails() {
                                 sx={compactInputSx}
                               />
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "120px" }}>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 size="small"
                                 fullWidth
@@ -3389,7 +5136,7 @@ function JobDetails() {
                                 sx={compactInputSx}
                               />
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "120px" }}>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 size="small"
                                 fullWidth
@@ -3399,7 +5146,7 @@ function JobDetails() {
                                 sx={{ ...compactInputSx, "& .MuiInputBase-root": { bgcolor: "#f8f9fa" } }}
                               />
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 size="small"
                                 fullWidth
@@ -3409,11 +5156,22 @@ function JobDetails() {
                                 sx={compactInputSx}
                               />
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center", width: "50px" }}>
+                            <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>
                               <IconButton
                                 size="small"
-                                color="error"
                                 onClick={() => removeMiscChargeRow(rowIndex)}
+                                sx={{
+                                  border: "1px solid #e2e8f0",
+                                  borderRadius: "6px",
+                                  color: "#94a3b8",
+                                  padding: "6px",
+                                  transition: "all 0.2s",
+                                  "&:hover": {
+                                    color: "#ef4444",
+                                    borderColor: "#fecaca",
+                                    backgroundColor: "#fef2f2"
+                                  }
+                                }}
                               >
                                 <DeleteIcon fontSize="small" />
                               </IconButton>
@@ -3460,7 +5218,7 @@ function JobDetails() {
                   </div>
                 </div>
               )}
-              
+
               {/* Product Circles Selector */}
               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", flexWrap: "wrap", background: "#f8fafc", padding: "12px 16px", borderRadius: "8px", border: "1px solid #cbd5e1" }}>
                 <span style={{ fontSize: "14px", fontWeight: "bold", color: "#334155" }}>Product</span>
@@ -3517,11 +5275,40 @@ function JobDetails() {
                     +
                   </button>
                 )}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '250px', marginLeft: 'auto' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    Table Width:
+                  </Typography>
+                  <Slider
+                    value={productTableWidth}
+                    onChange={(e, val) => setProductTableWidth(val)}
+                    min={1200}
+                    max={2500}
+                    step={100}
+                    valueLabelDisplay="auto"
+                    valueLabelFormat={(val) => `${val}px`}
+                    sx={{ color: '#1e293b' }}
+                  />
+                </Box>
               </div>
 
-              {/* Tab Content */}
-              <div style={{ background: "#ffffff", border: "1px solid #dee2e6", borderRadius: "4px", padding: "16px", marginBottom: "20px" }}>
-                <div>
+              {/* Product Sub Tabs */}
+              <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+                <Tabs
+                  value={productSubTab}
+                  onChange={(e, val) => setProductSubTab(val)}
+                  sx={{ minHeight: "40px" }}
+                >
+                  <Tab label="General Details" sx={{ textTransform: "none", fontWeight: "600", fontSize: "0.95rem" }} />
+                  <Tab label="Notifications & Duties" sx={{ textTransform: "none", fontWeight: "600", fontSize: "0.95rem" }} />
+                  <Tab label="BOE Part-III Duties (OCR Table)" sx={{ textTransform: "none", fontWeight: "600", fontSize: "0.95rem" }} />
+                </Tabs>
+              </Box>
+
+              {/* Sub Tab 0: General Details */}
+              {productSubTab === 0 && (
+                <div style={{ background: "#ffffff", border: "1px solid #dee2e6", borderRadius: "4px", padding: "16px", marginBottom: "20px" }}>
+                  <div>
                     {/* Selected Invoice box */}
                     {(() => {
                       const activeRow = descriptionRows[activeProductIndex] || {};
@@ -3542,26 +5329,69 @@ function JobDetails() {
                     })()}
 
                     {/* Product Items Table */}
-                    <div style={{ overflowX: "auto", border: "1px solid #dee2e6", borderRadius: "4px" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1500px" }}>
+                    <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: `${productTableWidth}px`, backgroundColor: "#ffffff" }}>
                         <thead>
-                          <tr style={{ background: "#f8f9fa" }}>
-                            {["Sr No", "Inv SR", "Description", "RITC (HS Code)", "Quantity", "Unit Price", "Currency", "Amount", "License No", "License Date", "License SR", "Action"].map((h) => (
-                              <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px 6px", fontSize: "0.82rem", fontWeight: "bold", textAlign: "left", whiteSpace: "nowrap", color: "#333333" }}>
-                                {h}
+                          <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                            {[
+                              { label: "Sr No", width: "45px", align: "center" },
+                              { label: "Inv SR", width: "80px", align: "left" },
+                              { label: "Description", minWidth: "280px", align: "left" },
+                              { label: "RITC (HS Code)", width: "150px", align: "left" },
+                              { label: "Quantity", width: "240px", align: "left" },
+                              { label: "Unit Price", width: "100px", align: "left" },
+                              { label: "Currency", width: "90px", align: "left" },
+                              { label: "Amount", width: "115px", align: "left" },
+                              ...((invoiceRows.length > 0 && invoiceRows.every(r => r.toi === "CIF")) ? [] : [
+                                { label: "CIF Value (INR)", width: "130px", align: "right" }
+                              ]),
+                              { label: "Clearance Under", width: "140px", align: "left" },
+                              ...((formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP") ? [
+                                { label: "License No", width: "180px", align: "left" },
+                                { label: "License Date", width: "120px", align: "left" },
+                                { label: "License SR", width: "90px", align: "left" }
+                              ] : []),
+                              ...((formik.values.clearanceValue === "RODTEP") ? [
+                                { label: "RODTEP", width: "180px", align: "left" }
+                              ] : []),
+                              { label: "Action", width: "50px", align: "center" }
+                            ].map((col) => (
+                              <th
+                                key={col.label}
+                                style={{
+                                  padding: "10px 8px",
+                                  fontSize: "0.8rem",
+                                  fontWeight: "600",
+                                  textAlign: col.align || "left",
+                                  whiteSpace: "nowrap",
+                                  color: "#475569",
+                                  width: col.width || "auto",
+                                  minWidth: col.minWidth || "auto",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.05em"
+                                }}
+                              >
+                                {col.label}
                               </th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {descriptionRows.map((row, rowIndex) => (
-                            <tr key={`main-desc-row-${rowIndex}`} style={{ borderBottom: "1px solid #cbd5e1", background: activeProductIndex === rowIndex ? "#f0f7ff" : "transparent" }}>
+                            <tr
+                              key={`main-desc-row-${rowIndex}`}
+                              style={{
+                                borderBottom: "1px solid #e2e8f0",
+                                background: activeProductIndex === rowIndex ? "#f8fafc" : "transparent",
+                                transition: "background-color 0.2s"
+                              }}
+                            >
                               {/* Sr No */}
-                              <td style={{ padding: "6px 8px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold" }}>
+                              <td style={{ padding: "8px 6px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold", color: "#64748b", verticalAlign: "middle" }}>
                                 {rowIndex + 1}
                               </td>
                               {/* Inv SR */}
-                              <td style={{ padding: "6px 8px", width: "80px" }}>
+                              <td style={{ padding: "8px 6px", width: "80px", verticalAlign: "middle" }}>
                                 <TextField
                                   select
                                   size="small"
@@ -3575,18 +5405,21 @@ function JobDetails() {
                                     const qty = parseFloat(row.quantity) || 0;
                                     const price = parseFloat(row.unit_price) || 0;
                                     const amount = qty * price;
-                                    
+
+                                    const taxVal = calculateProductTaxableValue(amount, invIdx);
+
                                     updateDescriptionRowMultiple(rowIndex, {
                                       sr_no_invoice: val,
                                       ...(!row.taxable_value_manual && {
-                                        taxable_value_inr: (amount * exrate).toFixed(2),
+                                        taxable_value_inr: taxVal,
                                         ...(!row.igst_amount_manual && {
-                                          igst_amount_inr: ((amount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                          igst_amount_inr: ((parseFloat(taxVal) * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
                                         })
                                       })
                                     });
                                   }}
                                   disabled={isDescriptionTableReadOnly}
+                                  sx={compactInputSx}
                                 >
                                   <MenuItem value="">Select</MenuItem>
                                   {invoiceRows.map((_, idx) => (
@@ -3597,32 +5430,90 @@ function JobDetails() {
                                 </TextField>
                               </td>
                               {/* Description */}
-                              <td style={{ padding: "6px 8px", minWidth: "240px" }}>
+                              <td style={{ padding: "8px 6px", minWidth: "280px", verticalAlign: "middle" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
                                   multiline
-                                  rows={2}
+                                  minRows={2}
                                   value={row.description || ""}
                                   onChange={(e) => updateDescriptionRow(rowIndex, "description", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
-                                  sx={compactInputSx}
+                                  sx={{
+                                    ...compactInputSx,
+                                    "& .MuiOutlinedInput-root": {
+                                      ...compactInputSx["& .MuiOutlinedInput-root"],
+                                      height: "auto",
+                                      minHeight: "58px"
+                                    },
+                                    "& .MuiOutlinedInput-input": {
+                                      ...compactInputSx["& .MuiOutlinedInput-input"],
+                                      padding: "4px 8px",
+                                      lineHeight: "1.3"
+                                    }
+                                  }}
                                 />
                               </td>
                               {/* RITC (HS Code) */}
-                              <td style={{ padding: "6px 8px", width: "120px" }}>
-                                <TextField
+                              <td style={{ padding: "8px 6px", width: "150px", verticalAlign: "middle" }}>
+                                <Autocomplete
                                   size="small"
+                                  freeSolo
                                   fullWidth
-                                  value={row.cth_no || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "cth_no", e.target.value)}
+                                  disableClearable
                                   disabled={isDescriptionTableReadOnly}
-                                  sx={compactInputSx}
+                                  options={cthOptions[rowIndex] || []}
+                                  getOptionLabel={(option) => typeof option === 'string' ? option : option}
+                                  loading={cthLoading[rowIndex]}
+                                  inputValue={row.cth_no || ""}
+                                  onInputChange={(event, newInputValue) => {
+                                    updateDescriptionRow(rowIndex, "cth_no", newInputValue);
+                                    if (cthTimeoutRef.current[rowIndex]) {
+                                      clearTimeout(cthTimeoutRef.current[rowIndex]);
+                                    }
+                                    if (newInputValue && newInputValue.length >= 4) {
+                                      cthTimeoutRef.current[rowIndex] = setTimeout(() => {
+                                        fetchCthOptions(newInputValue, rowIndex);
+                                      }, 500);
+                                    } else {
+                                      setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+                                    }
+                                  }}
+                                  onChange={(event, newValue) => {
+                                    const selectedCode = typeof newValue === 'string' ? newValue : newValue || "";
+                                    updateDescriptionRow(rowIndex, "cth_no", selectedCode);
+                                  }}
+                                  renderInput={(params) => (
+                                    <TextField
+                                      {...params}
+                                      fullWidth
+                                      sx={compactInputSx}
+                                      InputProps={{
+                                        ...params.InputProps,
+                                        endAdornment: (
+                                          <React.Fragment>
+                                            {cthLoading[rowIndex] ? <CircularProgress color="inherit" size={12} /> : null}
+                                            {params.InputProps.endAdornment}
+                                          </React.Fragment>
+                                        ),
+                                      }}
+                                    />
+                                  )}
+                                  renderOption={(props, option) => (
+                                    <li {...props} key={option}>
+                                      {option}
+                                    </li>
+                                  )}
                                 />
+                                {row.cth_no && (row.cth_no.length < 8 || !/^\d+$/.test(row.cth_no)) && (
+                                  <div style={{ color: '#ef4444', fontSize: '10px', marginTop: '2px', fontWeight: '500' }}>
+                                    Invalid CTH
+                                  </div>
+                                )}
                               </td>
                               {/* Quantity */}
-                              <td style={{ padding: "6px 8px", width: "190px" }}>
-                                <div style={{ display: "flex", gap: "4px" }}>
+                              <td style={{ padding: "8px 6px", width: "240px", verticalAlign: "middle" }}>
+                                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                                   <TextField
                                     size="small"
                                     value={row.quantity || ""}
@@ -3644,15 +5535,17 @@ function JobDetails() {
                                       const invIndex = Number(row.sr_no_invoice) - 1;
                                       const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
                                       const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
-                                      
+
+                                      const taxVal = calculateProductTaxableValue(calculatedAmount, invIndex);
+
                                       updateDescriptionRowMultiple(rowIndex, {
                                         quantity: qty,
                                         unit_price: calculatedPrice > 0 ? calculatedPrice.toFixed(4) : "",
                                         amount: calculatedAmount > 0 ? calculatedAmount.toFixed(2) : "",
                                         ...(!row.taxable_value_manual && {
-                                          taxable_value_inr: (calculatedAmount * exrate).toFixed(2),
+                                          taxable_value_inr: taxVal,
                                           ...(!row.igst_amount_manual && {
-                                            igst_amount_inr: ((calculatedAmount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                            igst_amount_inr: ((parseFloat(taxVal) * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
                                           })
                                         })
                                       });
@@ -3671,14 +5564,21 @@ function JobDetails() {
                                         if (reason === "input") updateDescriptionRow(rowIndex, "unit", newInputValue);
                                       }}
                                       disabled={isDescriptionTableReadOnly}
-                                      renderInput={(params) => <TextField {...params} size="small" placeholder="Unit" label="Unit" />}
+                                      renderInput={(params) => (
+                                        <TextField
+                                          {...params}
+                                          size="small"
+                                          placeholder="Unit"
+                                          sx={compactInputSx}
+                                        />
+                                      )}
                                     />
                                   </div>
                                 </div>
                               </td>
 
                               {/* Unit Price */}
-                              <td style={{ padding: "6px 8px", width: "95px" }}>
+                              <td style={{ padding: "8px 6px", width: "100px", verticalAlign: "middle" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
@@ -3692,13 +5592,15 @@ function JobDetails() {
                                     const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
                                     const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
 
+                                    const taxVal = calculateProductTaxableValue(amount, invIndex);
+
                                     updateDescriptionRowMultiple(rowIndex, {
                                       unit_price: price,
                                       amount: amount.toFixed(2),
                                       ...(!row.taxable_value_manual && {
-                                        taxable_value_inr: (amount * exrate).toFixed(2),
+                                        taxable_value_inr: taxVal,
                                         ...(!row.igst_amount_manual && {
-                                          igst_amount_inr: ((amount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                          igst_amount_inr: ((parseFloat(taxVal) * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
                                         })
                                       })
                                     });
@@ -3708,24 +5610,29 @@ function JobDetails() {
                                 />
                               </td>
                               {/* Currency */}
-                              <td style={{ padding: "6px 8px", width: "95px" }}>
-                                <TextField
-                                  select
+                              <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
+                                <Autocomplete
+                                  freeSolo
                                   size="small"
-                                  fullWidth
+                                  options={currencies.map(c => c.code)}
                                   value={row.amount_currency || "USD"}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "amount_currency", e.target.value)}
+                                  onInputChange={(event, newValue) => updateDescriptionRow(rowIndex, "amount_currency", newValue)}
+                                  onChange={(event, newValue) => updateDescriptionRow(rowIndex, "amount_currency", newValue || "USD")}
                                   disabled={isDescriptionTableReadOnly}
-                                >
-                                  <MenuItem value="USD">USD</MenuItem>
-                                  <MenuItem value="INR">INR</MenuItem>
-                                  <MenuItem value="EUR">EUR</MenuItem>
-                                  <MenuItem value="GBP">GBP</MenuItem>
-                                </TextField>
+                                  renderInput={(params) => (
+                                    <TextField
+                                      {...params}
+                                      variant="outlined"
+                                      size="small"
+                                      placeholder="Currency"
+                                      sx={compactInputSx}
+                                    />
+                                  )}
+                                />
                               </td>
 
                               {/* Amount */}
-                              <td style={{ padding: "6px 8px", width: "110px" }}>
+                              <td style={{ padding: "8px 6px", width: "115px", verticalAlign: "middle" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
@@ -3734,7 +5641,7 @@ function JobDetails() {
                                     const amt = e.target.value;
                                     const amtNum = parseFloat(amt) || 0;
                                     const qty = parseFloat(row.quantity) || 0;
-                                    
+
                                     let calculatedPrice = parseFloat(row.unit_price) || 0;
                                     if (qty > 0 && amtNum > 0) {
                                       calculatedPrice = amtNum / qty;
@@ -3744,13 +5651,15 @@ function JobDetails() {
                                     const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
                                     const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
 
+                                    const taxVal = calculateProductTaxableValue(amtNum, invIndex);
+
                                     updateDescriptionRowMultiple(rowIndex, {
                                       amount: amt,
                                       unit_price: calculatedPrice > 0 ? calculatedPrice.toFixed(4) : "",
                                       ...(!row.taxable_value_manual && {
-                                        taxable_value_inr: (amtNum * exrate).toFixed(2),
+                                        taxable_value_inr: taxVal,
                                         ...(!row.igst_amount_manual && {
-                                          igst_amount_inr: ((amtNum * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                          igst_amount_inr: ((parseFloat(taxVal) * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
                                         })
                                       })
                                     });
@@ -3759,145 +5668,254 @@ function JobDetails() {
                                   sx={compactInputSx}
                                 />
                               </td>
-                              {/* License No */}
-                              <td style={{ padding: "6px 8px", width: "180px" }}>
-                                <Autocomplete
-                                  size="small"
-                                  fullWidth
-                                  freeSolo
-                                  options={authorizationsList.map((auth) => auth.authorization_no)}
-                                  value={row.sr_no_lic || row.license_no || ""}
-                                  onChange={async (e, newValue) => {
-                                    if (newValue) {
-                                      const selectedAuth = authorizationsList.find(a => a.authorization_no === newValue);
-                                      let licenseDate = "";
-                                      let importItems = [];
-                                      if (selectedAuth) {
-                                        licenseDate = selectedAuth.authorization_date || "";
-                                        importItems = selectedAuth.import_details_array || [];
-                                      } else {
-                                        try {
-                                          const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-authorization-by-no?authorization_no=${newValue}`);
-                                          if (res.data) {
-                                            licenseDate = res.data.licence_date || res.data.auth_date || "";
-                                            importItems = res.data.import_details_array || [];
-                                          }
-                                        } catch (err) {
-                                          console.error("Error fetching license:", err);
-                                        }
-                                      }
-
-                                      const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                      let autoSr = "";
-                                      if (rowNormalizedHs && importItems.length > 0) {
-                                        const matchingItems = importItems.filter(item => {
-                                          const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                          return itemNormalizedHs === rowNormalizedHs;
-                                        });
-                                        if (matchingItems.length === 1) {
-                                          autoSr = Number(matchingItems[0].sr_no) || 1;
-                                        }
-                                      }
-
-                                      updateDescriptionRowMultiple(rowIndex, {
-                                        sr_no_lic: newValue,
-                                        license_no: newValue,
-                                        license_date: licenseDate,
-                                        license_sr: autoSr
-                                      });
-                                    } else {
-                                      updateDescriptionRowMultiple(rowIndex, {
-                                        sr_no_lic: "",
-                                        license_no: "",
-                                        license_date: "",
-                                        license_sr: ""
-                                      });
+                              {/* CIF Value */}
+                              {!(invoiceRows.length > 0 && invoiceRows.every(r => r.toi === "CIF")) && (
+                                <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle", textAlign: "right" }}>
+                                  {(() => {
+                                    const activeInvoice = (formik.values.invoice_details || [])[Number(row.sr_no_invoice) - 1] || {};
+                                    const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+                                    let taxVal = parseFloat(row.taxable_value_inr);
+                                    if (isNaN(taxVal) || taxVal === 0) {
+                                      taxVal = parseFloat(calculateProductTaxableValue(row.amount, Number(row.sr_no_invoice) - 1)) || 0;
                                     }
-                                  }}
-                                  onInputChange={(e, newInputValue, reason) => {
-                                    if (reason === "input") {
-                                      updateDescriptionRowMultiple(rowIndex, {
-                                        sr_no_lic: newInputValue,
-                                        license_no: newInputValue
-                                      });
-                                    }
-                                  }}
-                                  disabled={isDescriptionTableReadOnly}
-                                  renderInput={(params) => <TextField {...params} size="small" />}
-                                />
-                              </td>
-                              {/* License Date */}
-                              <td style={{ padding: "6px 8px", width: "120px" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.license_date || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "license_date", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  sx={compactInputSx}
-                                />
-                              </td>
-                              {/* License SR */}
-                              <td style={{ padding: "6px 8px", width: "120px" }}>
-                                {(() => {
-                                  const licNum = row.sr_no_lic || row.license_no;
-                                  const selectedAuth = authorizationsList.find(a => a.authorization_no === licNum);
-                                  const importItems = selectedAuth?.import_details_array || [];
-
-                                  const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                  const filteredItems = rowNormalizedHs
-                                    ? importItems.filter(item => {
-                                        const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                        return itemNormalizedHs === rowNormalizedHs;
-                                      })
-                                    : importItems;
-
-                                  if (filteredItems.length > 0) {
-                                    return (
-                                      <TextField
-                                        select
-                                        size="small"
-                                        fullWidth
-                                        value={String(row.license_sr || "")}
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
-                                        }}
-                                        disabled={isDescriptionTableReadOnly}
-                                      >
-                                        <MenuItem value="">Select</MenuItem>
-                                        {filteredItems.map((item) => (
-                                          <MenuItem key={item.sr_no || item.value_usd} value={String(item.sr_no)}>
-                                            {item.sr_no} - {item.item_description || "Item"}
-                                          </MenuItem>
-                                        ))}
-                                      </TextField>
-                                    );
-                                  } else {
+                                    const cifVal = taxVal > 0 ? taxVal.toFixed(2) : "";
                                     return (
                                       <TextField
                                         size="small"
                                         fullWidth
-                                        value={row.license_sr || ""}
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
-                                        }}
-                                        disabled={isDescriptionTableReadOnly}
+                                        value={cifVal}
+                                        disabled
+                                        inputProps={{ style: { textAlign: 'right', fontWeight: 'bold', color: '#0f172a', backgroundColor: '#f8fafc' } }}
                                         sx={compactInputSx}
                                       />
                                     );
-                                  }
-                                })()}
+                                  })()}
+                                </td>
+                              )}
+                              {/* Clearance Under */}
+                              <td style={{ padding: "8px 6px", width: "140px", verticalAlign: "middle" }}>
+                                <TextField
+                                  select
+                                  size="small"
+                                  fullWidth
+                                  variant="outlined"
+                                  value={row.clearance_under || formik.values.clearanceValue || ""}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (canChangeClearance && canChangeClearance()) {
+                                      formik.setFieldValue("clearanceValue", val);
+                                      const updatedRows = descriptionRows.map(r => ({ ...r, clearance_under: val }));
+                                      formik.setFieldValue("description_details", updatedRows);
+                                    } else {
+                                      alert("Please clear Ex-Bond details before changing Clearance Under.");
+                                    }
+                                  }}
+                                  disabled={isDescriptionTableReadOnly}
+                                  sx={compactInputSx}
+                                >
+                                  <MenuItem value="" disabled>Select</MenuItem>
+                                  {filteredClearanceOptions.map((option, index) => (
+                                    <MenuItem key={index} value={option.value || ""}>
+                                      {option.label}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
                               </td>
+                              {/* License No */}
+                              {formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP" && (
+                                <td style={{ padding: "8px 6px", width: "180px", verticalAlign: "middle" }}>
+                                  <Autocomplete
+                                    size="small"
+                                    fullWidth
+                                    freeSolo
+                                    options={authorizationsList.map((auth) => auth.authorization_no)}
+                                    value={row.sr_no_lic || row.license_no || ""}
+                                    onChange={async (e, newValue) => {
+                                      if (newValue) {
+                                        const selectedAuth = authorizationsList.find(a => a.authorization_no === newValue);
+                                        let licenseDate = "";
+                                        let importItems = [];
+                                        if (selectedAuth) {
+                                          licenseDate = selectedAuth.authorization_date || "";
+                                          importItems = selectedAuth.import_details_array || [];
+                                        } else {
+                                          try {
+                                            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-authorization-by-no?authorization_no=${newValue}`);
+                                            if (res.data) {
+                                              licenseDate = res.data.licence_date || res.data.auth_date || "";
+                                              importItems = res.data.import_details_array || [];
+                                            }
+                                          } catch (err) {
+                                            console.error("Error fetching license:", err);
+                                          }
+                                        }
+
+                                        const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                        let autoSr = "";
+                                        if (rowNormalizedHs && importItems.length > 0) {
+                                          const matchingItems = importItems.filter(item => {
+                                            const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                            return itemNormalizedHs === rowNormalizedHs;
+                                          });
+                                          if (matchingItems.length === 1) {
+                                            autoSr = Number(matchingItems[0].sr_no) || 1;
+                                          }
+                                        }
+
+                                        updateDescriptionRowMultiple(rowIndex, {
+                                          sr_no_lic: newValue,
+                                          license_no: newValue,
+                                          license_date: licenseDate,
+                                          license_sr: autoSr
+                                        });
+                                      } else {
+                                        updateDescriptionRowMultiple(rowIndex, {
+                                          sr_no_lic: "",
+                                          license_no: "",
+                                          license_date: "",
+                                          license_sr: ""
+                                        });
+                                      }
+                                    }}
+                                    onInputChange={(e, newInputValue, reason) => {
+                                      if (reason === "input") {
+                                        updateDescriptionRowMultiple(rowIndex, {
+                                          sr_no_lic: newInputValue,
+                                          license_no: newInputValue
+                                        });
+                                      }
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    renderInput={(params) => (
+                                      <TextField
+                                        {...params}
+                                        size="small"
+                                        sx={compactInputSx}
+                                      />
+                                    )}
+                                  />
+                                </td>
+                              )}
+                              {/* License Date */}
+                              {formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP" && (
+                                <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.license_date || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "license_date", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={compactInputSx}
+                                  />
+                                </td>
+                              )}
+                              {/* License SR */}
+                              {formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP" && (
+                                <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
+                                  {(() => {
+                                    const licNum = row.sr_no_lic || row.license_no;
+                                    const selectedAuth = authorizationsList.find(a => a.authorization_no === licNum);
+                                    const importItems = selectedAuth?.import_details_array || [];
+
+                                    const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                    const filteredItems = rowNormalizedHs
+                                      ? importItems.filter(item => {
+                                        const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                        return itemNormalizedHs === rowNormalizedHs;
+                                      })
+                                      : importItems;
+
+                                    if (filteredItems.length > 0) {
+                                      return (
+                                        <TextField
+                                          select
+                                          size="small"
+                                          fullWidth
+                                          value={String(row.license_sr || "")}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
+                                          }}
+                                          disabled={isDescriptionTableReadOnly}
+                                          sx={compactInputSx}
+                                        >
+                                          <MenuItem value="">Select</MenuItem>
+                                          {filteredItems.map((item) => (
+                                            <MenuItem key={item.sr_no || item.value_usd} value={String(item.sr_no)}>
+                                              {item.sr_no}
+                                            </MenuItem>
+                                          ))}
+                                        </TextField>
+                                      );
+                                    } else {
+                                      return (
+                                        <TextField
+                                          size="small"
+                                          fullWidth
+                                          value={row.license_sr || ""}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
+                                          }}
+                                          disabled={isDescriptionTableReadOnly}
+                                          sx={compactInputSx}
+                                        />
+                                      );
+                                    }
+                                  })()}
+                                </td>
+                              )}
+                              {/* RODTEP */}
+                              {formik.values.clearanceValue === "RODTEP" && (
+                                <td style={{ padding: "8px 6px", width: "180px", verticalAlign: "middle" }}>
+                                  <Autocomplete
+                                    size="small"
+                                    fullWidth
+                                    freeSolo
+                                    options={rodtepsList.map((r) => r.rodtep)}
+                                    value={row.rodtep || ""}
+                                    onChange={(e, newValue) => {
+                                      updateDescriptionRow(rowIndex, "rodtep", newValue || "");
+                                    }}
+                                    onInputChange={(e, newInputValue, reason) => {
+                                      if (reason === "input") {
+                                        updateDescriptionRow(rowIndex, "rodtep", newInputValue);
+                                      }
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    renderInput={(params) => (
+                                      <TextField
+                                        {...params}
+                                        size="small"
+                                        sx={compactInputSx}
+                                      />
+                                    )}
+                                  />
+                                </td>
+                              )}
                               {/* Action */}
-                              <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                              <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>
                                 {!isDescriptionTableReadOnly && (
                                   <IconButton
                                     size="small"
-                                    color="error"
                                     disabled={descriptionRows.length <= 1}
                                     onClick={() => removeDescriptionRow(rowIndex)}
+                                    sx={{
+                                      border: "1px solid #e2e8f0",
+                                      borderRadius: "6px",
+                                      color: "#94a3b8",
+                                      padding: "6px",
+                                      transition: "all 0.2s",
+                                      "&:hover": {
+                                        color: "#ef4444",
+                                        borderColor: "#fecaca",
+                                        backgroundColor: "#fef2f2"
+                                      },
+                                      "&.Mui-disabled": {
+                                        color: "#cbd5e1",
+                                        borderColor: "#f1f5f9"
+                                      }
+                                    }}
                                   >
                                     <DeleteIcon fontSize="small" />
                                   </IconButton>
@@ -3918,16 +5936,17 @@ function JobDetails() {
                             setActiveProductIndex(descriptionRows.length);
                           }}
                           sx={{
-                            backgroundColor: "#1a3168",
-                            color: "#fff",
+                            backgroundColor: "#1e293b",
+                            color: "#ffffff",
                             "&:hover": {
-                              backgroundColor: "#162854"
+                              backgroundColor: "#0f172a"
                             },
                             textTransform: "none",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                            padding: "6px 16px",
-                            borderRadius: "4px"
+                            fontWeight: "600",
+                            fontSize: "0.85rem",
+                            padding: "7px 16px",
+                            borderRadius: "6px",
+                            boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
                           }}
                         >
                           + Add New Product
@@ -3935,7 +5954,875 @@ function JobDetails() {
                       </div>
                     )}
                   </div>
-              </div>
+                </div>
+              )}
+
+              {/* Sub Tab 1: Notifications & Duties */}
+              {productSubTab === 1 && (
+                <div style={{ background: "#ffffff", border: "1px solid #dee2e6", borderRadius: "4px", padding: "20px", marginBottom: "20px" }}>
+                  {(() => {
+                    const activeRow = descriptionRows[activeProductIndex] || {};
+                    const invIndex = Number(activeRow.sr_no_invoice) - 1;
+                    const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
+                    const invoiceNo = activeInvoice.invoice_number || "None";
+                    let cifInr = parseFloat(activeRow.taxable_value_inr);
+                    if (isNaN(cifInr) || cifInr === 0) {
+                      cifInr = parseFloat(calculateProductTaxableValue(activeRow.amount, invIndex)) || 0;
+                    }
+                    const qty = parseFloat(activeRow.quantity) || 0;
+
+                    // Duty Calculation helpers
+                    const bcdRate = parseFloat(activeRow.bcd_rate) || 0;
+                    const bcdSpec = parseFloat(activeRow.bcd_specific_rate) || 0;
+                    const calcBcd = (cifInr * bcdRate / 100) + (qty * bcdSpec);
+                    const bcdAmt = activeRow.bcd_amount !== "" && activeRow.bcd_amount !== undefined ? parseFloat(activeRow.bcd_amount) || calcBcd : calcBcd;
+
+                    const aidcRate = parseFloat(activeRow.aidc_rate) || 0;
+                    const aidcSpec = parseFloat(activeRow.aidc_specific_rate) || 0;
+                    const calcAidc = (cifInr * aidcRate / 100) + (qty * aidcSpec);
+                    const aidcAmt = activeRow.aidc_amount !== "" && activeRow.aidc_amount !== undefined ? parseFloat(activeRow.aidc_amount) || calcAidc : calcAidc;
+
+                    const swsRate = activeRow.sw_surcharge_rate !== undefined && activeRow.sw_surcharge_rate !== "" ? parseFloat(activeRow.sw_surcharge_rate) : 10.00;
+                    const isSwsFoc = activeRow.sw_surcharge_foc === "Yes";
+                    const calcSws = isSwsFoc ? 0 : ((bcdAmt + aidcAmt) * swsRate / 100);
+                    const swsAmt = activeRow.sw_surcharge_amount !== "" && activeRow.sw_surcharge_amount !== undefined ? (isSwsFoc ? 0 : (parseFloat(activeRow.sw_surcharge_amount) || calcSws)) : calcSws;
+
+                    const safeguardRate = parseFloat(activeRow.safeguard_rate) || 0;
+                    const safeguardSpec = parseFloat(activeRow.safeguard_specific_rate) || 0;
+                    const calcSafeguard = (cifInr * safeguardRate / 100) + (qty * safeguardSpec);
+                    const safeguardAmt = activeRow.safeguard_amount !== "" && activeRow.safeguard_amount !== undefined ? parseFloat(activeRow.safeguard_amount) || calcSafeguard : calcSafeguard;
+
+                    const igstBase = cifInr + bcdAmt + aidcAmt + swsAmt + safeguardAmt;
+                    const igstRate = parseFloat(activeRow.igst_rate) || 0;
+                    const igstSpec = parseFloat(activeRow.igst_specific_rate) || 0;
+                    const calcIgst = (igstBase * igstRate / 100) + (qty * igstSpec);
+                    const igstAmt = activeRow.igst_amount_inr !== "" && activeRow.igst_amount_inr !== undefined ? parseFloat(activeRow.igst_amount_inr) || calcIgst : calcIgst;
+
+                    const igstExcRate = parseFloat(activeRow.igst_exc_rate) || 0;
+                    const igstExcAmt = parseFloat(activeRow.igst_exc_amount) || 0;
+
+                    const compCessPercent = parseFloat(activeRow.comp_cess_percent) || 0;
+                    const compCessSpec = parseFloat(activeRow.comp_cess_specific_rate) || 0;
+                    const calcCompCess = (igstBase * compCessPercent / 100) + (qty * compCessSpec);
+                    const compCessAmt = activeRow.comp_cess_amount !== "" && activeRow.comp_cess_amount !== undefined ? parseFloat(activeRow.comp_cess_amount) || calcCompCess : calcCompCess;
+
+                    const compExcAmt = parseFloat(activeRow.comp_exc_amount) || 0;
+                    const saptaAmt = parseFloat(activeRow.sapta_amount) || 0;
+
+                    const totalDuty = bcdAmt + aidcAmt + swsAmt + igstAmt + compCessAmt + safeguardAmt + saptaAmt;
+
+                    const notnInputStyle = {
+                      height: "30px",
+                      borderRadius: "3px",
+                      fontSize: "0.85rem",
+                      backgroundColor: "#ffffff",
+                      "& .MuiOutlinedInput-input": {
+                        padding: "4px 8px",
+                      },
+                      "& fieldset": {
+                        borderColor: "#90b4ce",
+                        borderWidth: "1px",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "#4b86b4 !important",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#1e293b !important",
+                      }
+                    };
+
+                    return (
+                      <div>
+                        {/* Summary Header */}
+                        <div style={{
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "6px",
+                          padding: "12px 18px",
+                          marginBottom: "20px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          gap: "12px"
+                        }}>
+                          <div>
+                            <div style={{ fontSize: "14px", fontWeight: "700", color: "#1e293b" }}>
+                              Product #{activeProductIndex + 1}: {activeRow.description || "No description specified"}
+                            </div>
+                            <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+                              Invoice: <strong>{invoiceNo}</strong> | RITC/HS Code: <strong>{activeRow.cth_no || "N/A"}</strong> | Quantity: <strong>{activeRow.quantity || 0} {activeRow.unit || ""}</strong>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+                            {candidateBoeFiles.length > 0 && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<SyncIcon />}
+                                onClick={() => setProductSubTab(2)}
+                                sx={{
+                                  textTransform: "none",
+                                  fontWeight: 600,
+                                  fontSize: "0.8rem",
+                                  borderColor: "#2563eb",
+                                  color: "#2563eb",
+                                  background: "#ffffff",
+                                  "&:hover": { background: "#eff6ff", borderColor: "#1d4ed8" }
+                                }}
+                              >
+                                Sync Duties from BOE File ({candidateBoeFiles.length})
+                              </Button>
+                            )}
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: "600" }}>Assessable Value (CIF INR)</div>
+                              <div style={{ fontSize: "15px", fontWeight: "700", color: "#0f172a" }}>
+                                ₹{cifInr.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: "right", borderLeft: "2px solid #cbd5e1", paddingLeft: "18px" }}>
+                              <div style={{ fontSize: "11px", color: "#2563eb", textTransform: "uppercase", fontWeight: "600" }}>Total Product Duty (INR)</div>
+                              <div style={{ fontSize: "16px", fontWeight: "800", color: "#2563eb" }}>
+                                ₹{totalDuty.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Notifications Form Table */}
+                        <div style={{ overflowX: "auto", borderTop: "2px solid #cbd5e1", paddingTop: "14px" }}>
+                          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 8px" }}>
+                            <tbody>
+                              {/* 1. BCD/Notn */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  BCD/Notn <span style={{ color: "#dc2626", fontWeight: "700", marginLeft: "6px" }}>({(parseFloat(activeRow.bcd_rate) || 10).toFixed(2)}%)</span>
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder=""
+                                    value={activeRow.bcd_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "bcd_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder=""
+                                    value={activeRow.bcd_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "bcd_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="10.00"
+                                    value={activeRow.bcd_rate || ""}
+                                    onChange={(e) => {
+                                      const rate = e.target.value;
+                                      const newCalc = (cifInr * (parseFloat(rate) || 0) / 100) + (qty * (parseFloat(activeRow.bcd_specific_rate) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        bcd_rate: rate,
+                                        bcd_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.bcd_specific_rate || ""}
+                                    onChange={(e) => {
+                                      const spec = e.target.value;
+                                      const newCalc = (cifInr * (parseFloat(activeRow.bcd_rate) || 0) / 100) + (qty * (parseFloat(spec) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        bcd_specific_rate: spec,
+                                        bcd_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "80px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="KGS"
+                                    value={activeRow.bcd_unit || activeRow.unit || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "bcd_unit", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "70px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.bcd_flag || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "bcd_flag", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {bcdAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 2. AIDC/Notn * */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  AIDC/Notn <span style={{ color: "#dc2626", fontWeight: "700" }}>*</span>
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="011/2021"
+                                    value={activeRow.aidc_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "aidc_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="17"
+                                    value={activeRow.aidc_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "aidc_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.aidc_rate || ""}
+                                    onChange={(e) => {
+                                      const rate = e.target.value;
+                                      const newCalc = (cifInr * (parseFloat(rate) || 0) / 100) + (qty * (parseFloat(activeRow.aidc_specific_rate) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        aidc_rate: rate,
+                                        aidc_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.aidc_specific_rate || ""}
+                                    onChange={(e) => {
+                                      const spec = e.target.value;
+                                      const newCalc = (cifInr * (parseFloat(activeRow.aidc_rate) || 0) / 100) + (qty * (parseFloat(spec) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        aidc_specific_rate: spec,
+                                        aidc_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "80px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.aidc_unit || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "aidc_unit", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "70px", padding: "0 6px" }}></td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {aidcAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 3. SW Surcharge */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  SW Surcharge
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.sw_surcharge_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "sw_surcharge_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.sw_surcharge_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "sw_surcharge_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="10.00"
+                                    value={activeRow.sw_surcharge_rate !== undefined ? activeRow.sw_surcharge_rate : "10.00"}
+                                    onChange={(e) => {
+                                      const rate = e.target.value;
+                                      const newCalc = isSwsFoc ? 0 : ((bcdAmt + aidcAmt) * (parseFloat(rate) || 0) / 100);
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        sw_surcharge_rate: rate,
+                                        sw_surcharge_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td colSpan={3} style={{ padding: "0 6px", verticalAlign: "middle" }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <span style={{ fontWeight: "700", color: "#1d4ed8", fontSize: "0.9rem" }}>FOC</span>
+                                    <TextField
+                                      select
+                                      size="small"
+                                      value={activeRow.sw_surcharge_foc || "No"}
+                                      onChange={(e) => {
+                                        const focVal = e.target.value;
+                                        const newCalc = focVal === "Yes" ? 0 : ((bcdAmt + aidcAmt) * swsRate / 100);
+                                        updateDescriptionRowMultiple(activeProductIndex, {
+                                          sw_surcharge_foc: focVal,
+                                          sw_surcharge_amount: newCalc.toFixed(2)
+                                        });
+                                      }}
+                                      disabled={isDescriptionTableReadOnly}
+                                      sx={{ ...notnInputStyle, width: "90px" }}
+                                    >
+                                      <MenuItem value="No">No</MenuItem>
+                                      <MenuItem value="Yes">Yes</MenuItem>
+                                    </TextField>
+                                  </div>
+                                </td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {swsAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 4. IGST(Levy) * */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  IGST(Levy) <span style={{ color: "#dc2626", fontWeight: "700" }}>*</span>
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="009/2025"
+                                    value={activeRow.igst_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "igst_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="II162"
+                                    value={activeRow.igst_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "igst_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="18.00"
+                                    value={activeRow.igst_rate || ""}
+                                    onChange={(e) => {
+                                      const rate = e.target.value;
+                                      const newCalc = (igstBase * (parseFloat(rate) || 0) / 100) + (qty * (parseFloat(activeRow.igst_specific_rate) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        igst_rate: rate,
+                                        igst_amount_inr: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.igst_specific_rate || ""}
+                                    onChange={(e) => {
+                                      const spec = e.target.value;
+                                      const newCalc = (igstBase * (parseFloat(activeRow.igst_rate) || 0) / 100) + (qty * (parseFloat(spec) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        igst_specific_rate: spec,
+                                        igst_amount_inr: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "80px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.igst_unit || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "igst_unit", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    select
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.igst_type || "C - Customs"}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "igst_type", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  >
+                                    <MenuItem value="C - Customs">C - Customs</MenuItem>
+                                    <MenuItem value="G - GST">G - GST</MenuItem>
+                                    <MenuItem value="E - Exempt">E - Exempt</MenuItem>
+                                  </TextField>
+                                </td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {igstAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 5. IGST Exc. */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  IGST Exc.
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.igst_exc_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "igst_exc_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.igst_exc_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "igst_exc_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.igst_exc_rate || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "igst_exc_rate", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td colSpan={3} style={{ padding: "0 6px" }}></td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {igstExcAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 6. Comp. Cess * */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  Comp. Cess <span style={{ color: "#dc2626", fontWeight: "700" }}>*</span>
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="001/2017"
+                                    value={activeRow.comp_cess_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "comp_cess_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="56"
+                                    value={activeRow.comp_cess_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "comp_cess_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.comp_cess_percent || ""}
+                                    onChange={(e) => {
+                                      const rate = e.target.value;
+                                      const newCalc = (igstBase * (parseFloat(rate) || 0) / 100) + (qty * (parseFloat(activeRow.comp_cess_specific_rate) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        comp_cess_percent: rate,
+                                        comp_cess_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.comp_cess_specific_rate || ""}
+                                    onChange={(e) => {
+                                      const spec = e.target.value;
+                                      const newCalc = (igstBase * (parseFloat(activeRow.comp_cess_percent) || 0) / 100) + (qty * (parseFloat(spec) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        comp_cess_specific_rate: spec,
+                                        comp_cess_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "80px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.comp_cess_unit || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "comp_cess_unit", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "70px", padding: "0 6px" }}></td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {compCessAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 7. Comp. Exc. */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  Comp. Exc.
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.comp_exc_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "comp_exc_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.comp_exc_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "comp_exc_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.comp_exc_rate || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "comp_exc_rate", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0"
+                                    value={activeRow.comp_exc_specific_rate || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "comp_exc_specific_rate", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td colSpan={2} style={{ padding: "0 6px" }}></td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {compExcAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 8. Safeguard */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  Safeguard
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.safeguard_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "safeguard_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.safeguard_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "safeguard_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.safeguard_rate || ""}
+                                    onChange={(e) => {
+                                      const rate = e.target.value;
+                                      const newCalc = (cifInr * (parseFloat(rate) || 0) / 100) + (qty * (parseFloat(activeRow.safeguard_specific_rate) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        safeguard_rate: rate,
+                                        safeguard_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.safeguard_specific_rate || ""}
+                                    onChange={(e) => {
+                                      const spec = e.target.value;
+                                      const newCalc = (cifInr * (parseFloat(activeRow.safeguard_rate) || 0) / 100) + (qty * (parseFloat(spec) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        safeguard_specific_rate: spec,
+                                        safeguard_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td colSpan={2} style={{ padding: "0 6px" }}></td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {safeguardAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 9. SAPTA Notn */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  SAPTA Notn
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.sapta_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "sapta_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.sapta_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "sapta_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.sapta_rate || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "sapta_rate", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td colSpan={3} style={{ padding: "0 6px" }}></td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {saptaAmt.toFixed(2)}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Standard UQC Row */}
+                        <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "16px" }}>
+                          <span style={{ fontWeight: "700", fontSize: "0.9rem", color: "#000000", minWidth: "160px" }}>
+                            Standard UQC <span style={{ color: "#dc2626", fontWeight: "700" }}>*</span>
+                          </span>
+                          <TextField
+                            size="small"
+                            placeholder="7928.201193"
+                            value={activeRow.standard_uqc_qty || ""}
+                            onChange={(e) => updateDescriptionRow(activeProductIndex, "standard_uqc_qty", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            sx={{ ...notnInputStyle, width: "180px" }}
+                          />
+                          <span style={{ fontWeight: "800", color: "#dc2626", fontSize: "0.95rem", letterSpacing: "0.05em" }}>
+                            {activeRow.standard_uqc_unit || activeRow.unit || "KGS"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Sub Tab 2: BOE Part-III Duties (OCR Table) */}
+              {productSubTab === 2 && (
+                <div style={{ background: "#ffffff", border: "1px solid #dee2e6", borderRadius: "4px", padding: "20px", marginBottom: "20px" }}>
+                  <BoePartIIIDutyTable
+                    duties={formik.values.part_iii_duties || []}
+                    candidateFiles={candidateBoeFiles}
+                    showUploader={true}
+                    onUploadSuccess={(ocrResponse) => {
+                      const extractedDuties = ocrResponse?.data?.PartIIIDuties || [];
+                      if (!extractedDuties || extractedDuties.length === 0) return;
+
+                      const updatedDesc = [...descriptionRows];
+                      extractedDuties.forEach((partIII, idx) => {
+                        const itemDet = partIII.ItemDetails || {};
+                        const itemDuty = partIII.ItemDuty || {};
+                        const otherDuties = partIII.OtherDuties || {};
+
+                        const bcd = itemDuty.BCD || {};
+                        const sws = itemDuty.SWS || {};
+                        const igst = itemDuty.IGST || {};
+                        const gcess = itemDuty["G. CESS"] || {};
+                        const caidc = otherDuties.CAIDC || {};
+                        const sg = itemDuty.SG || {};
+
+                        const updates = {
+                          bcd_notn: bcd.NOTN_NO || "",
+                          bcd_sr_no: bcd.NOTN_SNO || "",
+                          bcd_rate: bcd.RATE || "",
+                          bcd_amount: bcd.AMOUNT || "",
+                          bcd_unit: itemDet["C.UQC"] || "",
+                          bcd_flag: bcd.DUTY_FG || "",
+
+                          aidc_notn: caidc.NOTN_NO || "",
+                          aidc_sr_no: caidc.NOTN_SNO || "",
+                          aidc_rate: caidc.RATE || "",
+                          aidc_amount: caidc.AMOUNT || "",
+                          aidc_unit: itemDet["C.UQC"] || "",
+
+                          sw_surcharge_notn: sws.NOTN_NO || "",
+                          sw_surcharge_sr_no: sws.NOTN_SNO || "",
+                          sw_surcharge_rate: sws.RATE || "10.00",
+                          sw_surcharge_amount: sws.AMOUNT || "",
+
+                          igst_notn: igst.NOTN_NO || "",
+                          igst_sr_no: igst.NOTN_SNO || "",
+                          igst_rate: igst.RATE || "",
+                          igst_amount_inr: igst.AMOUNT || "",
+                          igst_unit: itemDet["C.UQC"] || "",
+
+                          comp_cess_notn: gcess.NOTN_NO || "",
+                          comp_cess_sr_no: gcess.NOTN_SNO || "",
+                          comp_cess_percent: gcess.RATE || "",
+                          comp_cess_amount: gcess.AMOUNT || "",
+                          comp_cess_unit: itemDet["C.UQC"] || "",
+
+                          safeguard_notn: sg.NOTN_NO || "",
+                          safeguard_sr_no: sg.NOTN_SNO || "",
+                          safeguard_rate: sg.RATE || "",
+                          safeguard_amount: sg.AMOUNT || "",
+
+                          standard_uqc_qty: itemDet["S.QTY"] || "",
+                          standard_uqc_unit: itemDet["S.UQC"] || itemDet["C.UQC"] || "KGS",
+                        };
+
+                        if (updatedDesc[idx]) {
+                          updatedDesc[idx] = { ...updatedDesc[idx], ...updates };
+                        }
+                      });
+
+                      formik.setFieldValue("part_iii_duties", extractedDuties);
+                      formik.setFieldValue("description_details", updatedDesc);
+                      toast.success("Autofilled & saved product duties and notifications from Bill of Entry OCR!");
+                    }}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -4096,11 +6983,11 @@ function JobDetails() {
               {/* NEW CHARGES COMPONENT */}
               <div style={{ marginTop: '40px' }}>
                 <JobDetailsRowHeading heading="Charges Management (New)" />
-                <ChargesGrid 
-                  parentId={data?._id} 
-                  parentModule="Job" 
-                  shippingLineAirline={data?.shipping_line_airline} 
-                  importerName={data?.importer} 
+                <ChargesGrid
+                  parentId={data?._id}
+                  parentModule="Job"
+                  shippingLineAirline={data?.shipping_line_airline}
+                  importerName={data?.importer}
                   jobNumber={data?.job_no}
                   jobDisplayNumber={data?.job_number}
                   jobYear={data?.year}
@@ -4153,10 +7040,15 @@ function JobDetails() {
                       >
                         <div style={{ fontWeight: "600", color: "#495057", fontSize: "0.9rem" }}>
                           {container.container_number || `${getContainerOrPackageLabel(data?.mode)} ${i + 1}`}
+                          {container.size && !isAirMode(data?.mode) && (
+                            <span style={{ fontSize: "0.8rem", color: "#28a745", fontWeight: "600", marginLeft: "6px" }}>
+                              ({container.size})
+                            </span>
+                          )}
                         </div>
                         {container.size && !isAirMode(data?.mode) && (
-                          <div style={{ fontSize: "0.9rem", color: "#000000" }}>
-                            Size: {container.size}
+                          <div style={{ fontSize: "0.85rem", color: "#6c757d" }}>
+                            Size/Type: {container.size}
                           </div>
                         )}
                       </div>
@@ -4268,6 +7160,11 @@ function JobDetails() {
                                   }}
                                 />
                               </span>
+                              {container.size && !isAirMode(data?.mode) && (
+                                <span style={{ color: "#28a745", fontWeight: "600", fontSize: "0.85rem", backgroundColor: "#e8f5e9", padding: "2px 8px", borderRadius: "4px", border: "1px solid #c8e6c9" }}>
+                                  {container.size}
+                                </span>
+                              )}
                             </h6>
                             <IconButton
                               onClick={() =>
@@ -4300,19 +7197,40 @@ function JobDetails() {
                           <Row className="mb-3">
                             {!isAirMode(data?.mode) && (
                               <Col xs={12} md={3} lg={2} className="mb-3">
-                                <label style={labelStyle}>Size</label>
+                                <label style={labelStyle}>Size / Type</label>
                                 <TextField
                                   select
                                   fullWidth
                                   size="small"
                                   variant="outlined"
                                   name={`container_nos[${index}].size`}
-                                  value={container.size}
-                                  onChange={formik.handleChange}
+                                  value={container.size || ""}
+                                  onChange={(e) => {
+                                    const newSize = e.target.value;
+                                    const prevFirstSize = formik.values.container_nos[0]?.size || "";
+                                    formik.handleChange(e);
+                                    if (index === 0) {
+                                      const updatedContainers = formik.values.container_nos.map((c, i) => {
+                                        if (i === 0) return { ...c, size: newSize };
+                                        if (!c.size || c.size === prevFirstSize) {
+                                          return { ...c, size: newSize };
+                                        }
+                                        return c;
+                                      });
+                                      formik.setFieldValue("container_nos", updatedContainers);
+                                    }
+                                  }}
                                   sx={compactInputSx}
                                 >
-                                  <MenuItem value="20">20</MenuItem>
-                                  <MenuItem value="40">40</MenuItem>
+                                  <MenuItem value="">Select</MenuItem>
+                                  {CONTAINER_TYPE_OPTIONS.map((opt) => (
+                                    <MenuItem key={opt} value={opt}>
+                                      {opt}
+                                    </MenuItem>
+                                  ))}
+                                  {container.size && !CONTAINER_TYPE_OPTIONS.includes(container.size) && (
+                                    <MenuItem value={container.size}>{container.size}</MenuItem>
+                                  )}
                                 </TextField>
                               </Col>
                             )}
@@ -4611,91 +7529,91 @@ function JobDetails() {
                               </Col>
                             )}
                             {!isAirMode(data?.mode) && (
-                            <Col xs={12} md={3} lg={2} className="mb-3">
-                              <label style={labelStyle}>
-                                {InBondflag
-                                  ? "Destuffing Date"
-                                  : "Empty Off-Load Date"}
-                              </label>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                type="datetime-local"
-                                variant="outlined"
-                                name={`container_nos[${index}].emptyContainerOffLoadDate`}
-                                value={formatDateForInput(
-                                  container.emptyContainerOffLoadDate
-                                )}
-                                disabled={LCLFlag}
-                                onChange={formik.handleChange}
-                                InputLabelProps={{ shrink: true }}
-                                sx={compactInputSx}
-                              />
-                            </Col>
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>
+                                  {InBondflag
+                                    ? "Destuffing Date"
+                                    : "Empty Off-Load Date"}
+                                </label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="datetime-local"
+                                  variant="outlined"
+                                  name={`container_nos[${index}].emptyContainerOffLoadDate`}
+                                  value={formatDateForInput(
+                                    container.emptyContainerOffLoadDate
+                                  )}
+                                  disabled={LCLFlag}
+                                  onChange={formik.handleChange}
+                                  InputLabelProps={{ shrink: true }}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
                             )}
                           </Row>
 
                           {/* Row 3: DO & Detention (hidden for AIR) */}
                           {!isAirMode(data?.mode) && (
-                          <Row className="mb-3">
-                            <Col xs={12} md={3} lg={2} className="mb-3">
-                              <label style={labelStyle}>Detention From</label>
-                              <div style={readOnlyStyle}>
-                                {detentionFrom[index]}
-                              </div>
-                            </Col>
-                            <Col xs={12} md={3} lg={2} className="mb-3">
-                              <label style={labelStyle}>DO Validity</label>
-                              <div style={readOnlyStyle}>
-                                {subtractOneDay(detentionFrom[index])}
-                              </div>
-                            </Col>
-                            <Col xs={12} md={3} lg={2} className="mb-3">
-                              <label style={labelStyle}>
-                                Required DO Validity Upto
-                              </label>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                type="date"
-                                variant="outlined"
-                                name={`container_nos[${index}].required_do_validity_upto`}
-                                value={container.required_do_validity_upto}
-                                onChange={(e) => handleDateChange(e.target.value, index)}
-                                InputLabelProps={{ shrink: true }}
-                                disabled={user.role !== "Admin"}
-                                sx={compactInputSx}
-                              />
-                            </Col>
-                            <Col
-                              xs={12}
-                              md={3}
-                              lg={6}
-                              className="mb-3"
-                              style={{
-                                display: "flex",
-                                gap: "10px",
-                                alignItems: "center",
-                              }}
-                            >
-                              <DeliveryChallanPdf
-                                year={params.selected_year}
-                                jobNo={params.job_no}
-                                branch_code={params.branch_code}
-                                trade_type={params.trade_type}
-                                mode={params.mode}
-                                containerIndex={index}
-                              />
-                              <IgstCalculationPDF
-                                year={params.selected_year}
-                                jobNo={params.job_no}
-                                branch_code={params.branch_code}
-                                trade_type={params.trade_type}
-                                mode={params.mode}
-                                containerIndex={index}
-                              />
-                            </Col>
-                          </Row>
+                            <Row className="mb-3">
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>Detention From</label>
+                                <div style={readOnlyStyle}>
+                                  {detentionFrom[index]}
+                                </div>
+                              </Col>
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>DO Validity</label>
+                                <div style={readOnlyStyle}>
+                                  {subtractOneDay(detentionFrom[index])}
+                                </div>
+                              </Col>
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>
+                                  Required DO Validity Upto
+                                </label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="date"
+                                  variant="outlined"
+                                  name={`container_nos[${index}].required_do_validity_upto`}
+                                  value={container.required_do_validity_upto}
+                                  onChange={(e) => handleDateChange(e.target.value, index)}
+                                  InputLabelProps={{ shrink: true }}
+                                  disabled={user.role !== "Admin"}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
+                              <Col
+                                xs={12}
+                                md={3}
+                                lg={6}
+                                className="mb-3"
+                                style={{
+                                  display: "flex",
+                                  gap: "10px",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <DeliveryChallanPdf
+                                  year={params.selected_year}
+                                  jobNo={params.job_no}
+                                  branch_code={params.branch_code}
+                                  trade_type={params.trade_type}
+                                  mode={params.mode}
+                                  containerIndex={index}
+                                />
+                                <IgstCalculationPDF
+                                  year={params.selected_year}
+                                  jobNo={params.job_no}
+                                  branch_code={params.branch_code}
+                                  trade_type={params.trade_type}
+                                  mode={params.mode}
+                                  containerIndex={index}
+                                />
+                              </Col>
+                            </Row>
                           )}
 
                           {/* Row 4: DO Revalidations */}
@@ -5034,6 +7952,7 @@ function JobDetails() {
                 <Button
                   type="submit"
                   variant="contained"
+                  disabled={isCthDocsLoading}
                   sx={{
                     backgroundColor: "#000000",
                     color: "#ffffff",
@@ -5047,7 +7966,11 @@ function JobDetails() {
                     textTransform: "none"
                   }}
                 >
-                  Submit
+                  {isCthDocsLoading ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : (
+                    "Submit"
+                  )}
                 </Button>
               </Box>
             </Col>
@@ -5107,7 +8030,35 @@ function JobDetails() {
         message={
           isEditMode
             ? undefined // No message for edit
-            : `Are you sure you want to delete the document "${currentDocument?.document_name}"?`
+            : (() => {
+              if (!currentDocument) return "";
+              const hasUrls = Array.isArray(currentDocument.url)
+                ? currentDocument.url.length > 0
+                : !!currentDocument.url;
+              const isSent = currentDocument.is_sent_to_esanchit;
+              const isVerified = !!currentDocument.document_check_date;
+
+              const warnings = [];
+              if (hasUrls) warnings.push("contains uploaded files");
+              if (isSent) warnings.push("has been marked as sent to e-Sanchit");
+              if (isVerified) warnings.push("has been verified/checked");
+
+              if (warnings.length > 0) {
+                return (
+                  <Box sx={{ mt: 1 }}>
+                    <Alert severity="warning" sx={{ mb: 2, borderRadius: "6px" }}>
+                      <AlertTitle sx={{ fontWeight: "700" }}>Critical Warning</AlertTitle>
+                      This document <strong>{warnings.join(", and ")}</strong>.
+                      Deleting it will permanently remove it along with all associated files and data.
+                    </Alert>
+                    <Typography variant="body1">
+                      Are you sure you want to delete the document <strong>"{currentDocument.document_name}"</strong>? This action cannot be undone.
+                    </Typography>
+                  </Box>
+                );
+              }
+              return `Are you sure you want to delete the document "${currentDocument.document_name}"?`;
+            })()
         }
         isEdit={isEditMode}
         editValues={editValues}
@@ -5273,9 +8224,28 @@ function JobDetails() {
             <Box>
               <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
                 <Box>
-                  <Typography variant="subtitle2" sx={{ color: "#666", mb: 1 }}>
-                    Review the job data before uploading:
-                  </Typography>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap", mb: 1.5 }}>
+                    <Typography variant="subtitle2" sx={{ color: "#666" }}>
+                      Review the job data before uploading:
+                    </Typography>
+                    <FormControl size="small" variant="outlined" sx={{ minWidth: 160 }}>
+                      <InputLabel id="imexcube-senderid-select-label">Sender ID</InputLabel>
+                      <Select
+                        labelId="imexcube-senderid-select-label"
+                        id="imexcube-senderid-select"
+                        label="Sender ID"
+                        value={imexcubeSenderID}
+                        onChange={(e) => {
+                          const newSender = e.target.value;
+                          setImexcubeSenderID(newSender);
+                          handleUploadToImexcube(newSender);
+                        }}
+                      >
+                        <MenuItem value="SURAJAHD">SURAJAHD (Default)</MenuItem>
+                        <MenuItem value="SURAJAMD">SURAJAMD</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Box>
                   {!imexcubeShowEditor && (
                     <Box sx={{ mb: 2 }}>
                       <Box sx={{ display: "flex", gap: 1.5, fontSize: "0.75rem", mb: 1.5 }}>
@@ -5377,24 +8347,63 @@ function JobDetails() {
                   />
                 ) : (
                   Object.entries(imexcubePreviewData.annotated || {}).map(([sectionName, sectionData]) => (
-                  <Box key={sectionName} sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" sx={{
-                      fontWeight: 700, bgcolor: "#1565c0", color: "#fff",
-                      px: 1.5, py: 0.5, borderRadius: "4px 4px 0 0", fontSize: "0.85rem"
-                    }}>
-                      {sectionName}
-                    </Typography>
-                    {Array.isArray(sectionData) ? (
-                      sectionData.map((item, idx) => (
-                        <Box key={idx} sx={{ border: "1px solid #e0e0e0", borderTop: idx > 0 ? "2px solid #1565c0" : "none", mb: idx < sectionData.length - 1 ? 0 : 0 }}>
-                          {idx > 0 && (
-                            <Typography sx={{ bgcolor: "#e3f2fd", px: 1.5, py: 0.3, fontSize: "0.75rem", fontWeight: 600, color: "#1565c0" }}>
-                              #{idx + 1}
-                            </Typography>
-                          )}
+                    <Box key={sectionName} sx={{ mb: 2 }}>
+                      <Typography variant="subtitle1" sx={{
+                        fontWeight: 700, bgcolor: "#1565c0", color: "#fff",
+                        px: 1.5, py: 0.5, borderRadius: "4px 4px 0 0", fontSize: "0.85rem"
+                      }}>
+                        {sectionName}
+                      </Typography>
+                      {Array.isArray(sectionData) ? (
+                        sectionData.map((item, idx) => (
+                          <Box key={idx} sx={{ border: "1px solid #e0e0e0", borderTop: idx > 0 ? "2px solid #1565c0" : "none", mb: idx < sectionData.length - 1 ? 0 : 0 }}>
+                            {idx > 0 && (
+                              <Typography sx={{ bgcolor: "#e3f2fd", px: 1.5, py: 0.3, fontSize: "0.75rem", fontWeight: 600, color: "#1565c0" }}>
+                                #{idx + 1}
+                              </Typography>
+                            )}
+                            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                              <tbody>
+                                {Object.entries(item).map(([fieldName, fieldData]) => {
+                                  const isMandatory = fieldData?.mandatory;
+                                  const isValid = fieldData?.valid;
+                                  const value = fieldData?.value;
+                                  const displayVal = value === null || value === undefined || value === "" ? "—" : String(value);
+                                  const bgColor = isMandatory
+                                    ? (isValid ? "#e8f5e9" : "#ffebee")
+                                    : (displayVal !== "—" ? "#f1f8e9" : "#fafafa");
+                                  return (
+                                    <tr key={fieldName}>
+                                      <td style={{
+                                        padding: "4px 10px", borderBottom: "1px solid #f0f0f0",
+                                        width: "45%", fontSize: "0.8rem", fontWeight: 600, color: "#333",
+                                        whiteSpace: "nowrap"
+                                      }}>
+                                        {fieldName}
+                                        {isMandatory && <span style={{ color: "#d32f2f", marginLeft: 2, fontWeight: 800 }}>*</span>}
+                                      </td>
+                                      <td style={{
+                                        padding: "4px 10px", borderBottom: "1px solid #f0f0f0",
+                                        fontSize: "0.8rem", fontFamily: "monospace",
+                                        backgroundColor: bgColor,
+                                        color: displayVal === "—" ? "#bbb" : "#222",
+                                        fontWeight: displayVal === "—" ? 400 : 500,
+                                        wordBreak: "break-word",
+                                      }}>
+                                        {displayVal}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </Box>
+                        ))
+                      ) : (
+                        <Box sx={{ border: "1px solid #e0e0e0", borderTop: "none" }}>
                           <table style={{ width: "100%", borderCollapse: "collapse" }}>
                             <tbody>
-                              {Object.entries(item).map(([fieldName, fieldData]) => {
+                              {Object.entries(sectionData).map(([fieldName, fieldData]) => {
                                 const isMandatory = fieldData?.mandatory;
                                 const isValid = fieldData?.valid;
                                 const value = fieldData?.value;
@@ -5428,48 +8437,9 @@ function JobDetails() {
                             </tbody>
                           </table>
                         </Box>
-                      ))
-                    ) : (
-                      <Box sx={{ border: "1px solid #e0e0e0", borderTop: "none" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                          <tbody>
-                            {Object.entries(sectionData).map(([fieldName, fieldData]) => {
-                              const isMandatory = fieldData?.mandatory;
-                              const isValid = fieldData?.valid;
-                              const value = fieldData?.value;
-                              const displayVal = value === null || value === undefined || value === "" ? "—" : String(value);
-                              const bgColor = isMandatory
-                                ? (isValid ? "#e8f5e9" : "#ffebee")
-                                : (displayVal !== "—" ? "#f1f8e9" : "#fafafa");
-                              return (
-                                <tr key={fieldName}>
-                                  <td style={{
-                                    padding: "4px 10px", borderBottom: "1px solid #f0f0f0",
-                                    width: "45%", fontSize: "0.8rem", fontWeight: 600, color: "#333",
-                                    whiteSpace: "nowrap"
-                                  }}>
-                                    {fieldName}
-                                    {isMandatory && <span style={{ color: "#d32f2f", marginLeft: 2, fontWeight: 800 }}>*</span>}
-                                  </td>
-                                  <td style={{
-                                    padding: "4px 10px", borderBottom: "1px solid #f0f0f0",
-                                    fontSize: "0.8rem", fontFamily: "monospace",
-                                    backgroundColor: bgColor,
-                                    color: displayVal === "—" ? "#bbb" : "#222",
-                                    fontWeight: displayVal === "—" ? 400 : 500,
-                                    wordBreak: "break-word",
-                                  }}>
-                                    {displayVal}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </Box>
-                    )}
-                  </Box>
-                ))
+                      )}
+                    </Box>
+                  ))
                 )}
               </Box>
             </Box>
@@ -5483,8 +8453,8 @@ function JobDetails() {
             onClick={handleConfirmImexcubeUpload}
             variant="contained"
             disabled={
-              imexcubePreviewLoading || 
-              imexcubePreviewData?.error || 
+              imexcubePreviewLoading ||
+              imexcubePreviewData?.error ||
               (() => {
                 if (!imexcubePreviewData?.annotated) return false;
                 let found = false;
@@ -5531,10 +8501,10 @@ function JobDetails() {
             {imexcubeErrorDialog.message}
           </Typography>
           {imexcubeErrorDialog.details && (
-            <Box sx={{ 
-              p: 1.5, 
-              bgcolor: "#f5f5f5", 
-              borderRadius: 1, 
+            <Box sx={{
+              p: 1.5,
+              bgcolor: "#f5f5f5",
+              borderRadius: 1,
               border: "1px solid #e0e0e0",
               fontFamily: "monospace",
               fontSize: "0.85rem",
@@ -5557,6 +8527,92 @@ function JobDetails() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setImexcubeErrorDialog({ ...imexcubeErrorDialog, open: false })} variant="contained">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* IMEXCUBE Job Details Dialog */}
+      <Dialog
+        open={imexcubeDetailsDialogOpen}
+        onClose={() => setImexcubeDetailsDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        aria-labelledby="imexcube-details-dialog-title"
+      >
+        <DialogTitle id="imexcube-details-dialog-title" sx={{ fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <CloudUploadIcon color="primary" />
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>IMEXCUBE Job Details</Typography>
+          </Box>
+          {imexcubeDetailsData && !imexcubeDetailsData.error && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                navigator.clipboard.writeText(JSON.stringify(imexcubeDetailsData, null, 2));
+                setImexcubeSnackbar({ open: true, message: "JSON copied to clipboard", severity: "success" });
+                setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 3000);
+              }}
+              sx={{ textTransform: "none", fontSize: "0.75rem" }}
+            >
+              Copy JSON
+            </Button>
+          )}
+        </DialogTitle>
+        <DialogContent dividers>
+          {imexcubeDetailsLoading ? (
+            <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: 250, gap: 2 }}>
+              <CircularProgress />
+              <Typography variant="body1" color="text.secondary">Fetching details from IMEXCUBE...</Typography>
+            </Box>
+          ) : imexcubeDetailsData?.error ? (
+            <Box sx={{ p: 2, bgcolor: "#fff3f3", borderRadius: 1, border: "1px solid #ffcdd2" }}>
+              <Typography variant="body1" color="error" fontWeight={600} sx={{ mb: 1 }}>
+                Failed to Fetch Job Details
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontFamily: "monospace", whiteSpace: "pre-wrap" }}>
+                {typeof imexcubeDetailsData.error === "object" ? JSON.stringify(imexcubeDetailsData.error, null, 2) : String(imexcubeDetailsData.error)}
+              </Typography>
+            </Box>
+          ) : imexcubeDetailsData ? (
+            <Box>
+              <Typography variant="subtitle2" sx={{ color: "#666", mb: 2 }}>
+                Raw response from IMEXCUBE for Job Number: <strong>{data?.job_number}</strong>
+              </Typography>
+              <Box sx={{
+                p: 2,
+                bgcolor: "#1e1e1e",
+                color: "#d4d4d4",
+                borderRadius: 1,
+                fontFamily: "Fira Code, Consolas, Monaco, monospace",
+                fontSize: "0.85rem",
+                maxHeight: "500px",
+                overflow: "auto",
+                boxShadow: "inset 0 2px 4px rgba(0,0,0,0.3)"
+              }}>
+                <pre style={{ margin: 0, color: "#9cdcfe" }}>
+                  {JSON.stringify(imexcubeDetailsData, null, 2)}
+                </pre>
+              </Box>
+            </Box>
+          ) : (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 150 }}>
+              <Typography variant="body1" color="text.secondary">No data available.</Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleSyncImexcubeDetails}
+            variant="contained"
+            color="success"
+            disabled={imexcubeSyncing || !imexcubeDetailsData || !!imexcubeDetailsData.error || imexcubeDetailsLoading}
+            sx={{ mr: 1 }}
+          >
+            {imexcubeSyncing ? "Syncing..." : "Sync to Local Job"}
+          </Button>
+          <Button onClick={() => setImexcubeDetailsDialogOpen(false)} variant="contained" sx={{ backgroundColor: "#1565c0", "&:hover": { backgroundColor: "#0d47a1" } }}>
             Close
           </Button>
         </DialogActions>

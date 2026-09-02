@@ -320,34 +320,55 @@ router.get("/api/open-points/project/:projectId", authMiddleware, verifyProjectA
 // Get Points for Project
 router.get("/api/open-points/project/:projectId/points", authMiddleware, verifyProjectAccess, async (req, res) => {
     try {
+        const project = req.project; // Populated by verifyProjectAccess
+        
+        let query = { project_id: req.params.projectId };
+        let updateQuery = { project_id: req.params.projectId };
+
+        if (project && project.name && project.name.trim().toLowerCase() === "internal software team") {
+            const memberIds = project.team_members.map(m => m.user);
+            if (project.owner) memberIds.push(project.owner);
+            
+            const virtualCondition = {
+                $or: [
+                    { project_id: req.params.projectId },
+                    { responsible_person: { $in: memberIds } }
+                ]
+            };
+            query = virtualCondition;
+            updateQuery = virtualCondition;
+        }
+
         // Auto-update overdue points (target_date BEFORE today's date)
         const today = new Date();
         today.setHours(0, 0, 0, 0); // Start of today
         await OpenPoint.updateMany({
-            project_id: req.params.projectId,
+            ...updateQuery,
             status: { $nin: ['Green', 'Yellow', 'Orange'] },
             target_date: { $lt: today }
         }, {
             $set: { status: 'Red' }
         });
 
-        const points = await OpenPoint.find({ project_id: req.params.projectId })
+        const points = await OpenPoint.find(query)
             .populate('responsible_person', 'username first_name last_name')
             .populate('reviewer', 'username first_name last_name')
             .populate('created_by', 'username first_name last_name')
             .populate({
                 path: 'project_id',
-                select: 'owner',
+                select: 'name owner',
                 populate: { path: 'owner', select: 'username first_name last_name' }
             })
             .sort({ status: 1, target_date: 1 });
 
-        // Transform to apply fallback for created_by
+        // Transform to apply fallback for created_by and add project name
         const transformedPoints = points.map(p => {
             const pointObj = p.toObject();
             if (!pointObj.created_by && pointObj.project_id?.owner) {
                 pointObj.created_by = pointObj.project_id.owner;
             }
+            // Add project name since tasks might belong to other projects
+            pointObj.project_name = p.project_id?.name || 'Unknown Project';
             return pointObj;
         });
 

@@ -11,24 +11,31 @@ import JobCounterModel from "../../model/jobCounterModel.mjs";
 const router = express.Router();
 
 // Function to build the search query
-const buildSearchQuery = (search) => ({
-  $or: [
-    { job_no: { $regex: search, $options: "i" } },
-    { job_number: { $regex: search, $options: "i" } },
-    { year: { $regex: search, $options: "i" } },
-    { importer: { $regex: search, $options: "i" } },
-    { custom_house: { $regex: search, $options: "i" } },
-    { consignment_type: { $regex: search, $options: "i" } },
-    { type_of_b_e: { $regex: search, $options: "i" } },
-    { awb_bl_no: { $regex: search, $options: "i" } },
-    { be_no: { $regex: search, $options: "i" } },
-    { "charges.purchase_book_no": { $regex: search, $options: "i" } },
-    { "charges.payment_request_no": { $regex: search, $options: "i" } },
-    { detailed_status: { $regex: search, $options: "i" } },
-    { "container_nos.container_number": { $regex: search, $options: "i" } },
-    { "container_nos.size": { $regex: search, $options: "i" } },
-  ],
-});
+const buildSearchQuery = (search) => {
+  const isSearchUnassigned = search.toLowerCase() === "unassigned";
+  return {
+    $or: [
+      { job_no: { $regex: search, $options: "i" } },
+      { job_number: { $regex: search, $options: "i" } },
+      { year: { $regex: search, $options: "i" } },
+      { importer: { $regex: search, $options: "i" } },
+      { custom_house: { $regex: search, $options: "i" } },
+      { consignment_type: { $regex: search, $options: "i" } },
+      { type_of_b_e: { $regex: search, $options: "i" } },
+      { awb_bl_no: { $regex: search, $options: "i" } },
+      { be_no: { $regex: search, $options: "i" } },
+      { "charges.purchase_book_no": { $regex: search, $options: "i" } },
+      { "charges.payment_request_no": { $regex: search, $options: "i" } },
+      { detailed_status: { $regex: search, $options: "i" } },
+      { "container_nos.container_number": { $regex: search, $options: "i" } },
+      { "container_nos.size": { $regex: search, $options: "i" } },
+      isSearchUnassigned 
+        ? { $or: [{ job_owner: { $exists: false } }, { job_owner: "" }, { job_owner: null }, { job_owner: "Unassigned" }] }
+        : { job_owner: { $regex: search, $options: "i" } },
+      { port_of_reporting: { $regex: search, $options: "i" } },
+    ],
+  };
+};
 
 // ==================== SHARED SORTING LOGIC ====================
 
@@ -157,6 +164,8 @@ router.get(
       branchId,
       category,
       transactionType,
+      fromDate,
+      toDate,
     } = req.query;
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
 
@@ -174,31 +183,63 @@ router.get(
     try {
       const skip = (pageNumber - 1) * limitNumber;
 
-      const baseQuery = {
-        $and: [
-          { status: { $regex: /^pending$/i } },
-          {
-            bill_document_sent_to_accounts: {
-              $exists: true,
-              $nin: [null, ""],
+      let baseQuery;
+
+      if (fromDate || toDate) {
+        const dateCondition = {};
+        if (fromDate) {
+          dateCondition.$gte = `${fromDate}T00:00:00`;
+        }
+        if (toDate) {
+          dateCondition.$lte = `${toDate}T23:59:59`;
+        }
+
+        baseQuery = {
+          $and: [
+            {
+              bill_document_sent_to_accounts: dateCondition,
             },
-          },
-          {
-            $or: [
-              { billing_completed_date: { $exists: false } },
-              { billing_completed_date: "" },
-              { billing_completed_date: null },
-              // Include if has billing completed date but ALSO has unresolved queries for Accounts
-              {
-                $and: [
-                  { billing_completed_date: { $exists: true, $ne: "" } },
-                  { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
-                ]
-              }
-            ],
-          },
-        ],
-      };
+            {
+              billing_confirmation_date: {
+                $exists: true,
+                $nin: [null, ""],
+              },
+            },
+          ],
+        };
+      } else {
+        baseQuery = {
+          $and: [
+            { status: { $in: ["pending", "Pending", "PENDING"] } },
+            {
+              bill_document_sent_to_accounts: {
+                $exists: true,
+                $nin: [null, ""],
+              },
+            },
+            {
+              billing_confirmation_date: {
+                $exists: true,
+                $nin: [null, ""],
+              },
+            },
+            {
+              $or: [
+                { billing_completed_date: { $exists: false } },
+                { billing_completed_date: "" },
+                { billing_completed_date: null },
+                // Include if has billing completed date but ALSO has unresolved queries for Accounts
+                {
+                  $and: [
+                    { billing_completed_date: { $exists: true, $ne: "" } },
+                    { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
+                  ]
+                }
+              ],
+            },
+          ],
+        };
+      }
 
       if (unresolvedOnly === "true") {
         baseQuery.$and.push({
@@ -210,7 +251,7 @@ router.get(
         baseQuery.$and.push(buildSearchQuery(search.trim()));
       }
 
-      if (selectedYear) {
+      if (selectedYear && !(fromDate || toDate)) {
         baseQuery.$and.push({ year: selectedYear });
       }
 
@@ -443,14 +484,14 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
     if (detailed_status && detailed_status !== "All") {
       baseQuery.$and.push({
         $and: [
-          { status: { $regex: /^pending$/i } },
+          { status: { $in: ["pending", "Pending", "PENDING"] } },
           { detailed_status: detailed_status },
         ],
       });
     } else {
       baseQuery.$and.push({
         $and: [
-          { status: { $regex: /^pending$/i } },
+          { status: { $in: ["pending", "Pending", "PENDING"] } },
           {
             detailed_status: {
               $in: ["Billing Pending", "Custom Clearance Completed"],
@@ -524,7 +565,9 @@ router.get(
       branchId,
       category,
       transactionType,
-      workMode = 'Payment'
+      workMode = 'Payment',
+      startDate,
+      endDate
     } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -548,7 +591,7 @@ router.get(
 
       const matchConditions = {
         $and: [
-          { status: { $in: [/pending/i, /Completed/i] } },
+          { status: { $in: ["pending", "Pending", "PENDING", "Completed", "completed", "COMPLETED"] } },
           { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] } } } }
         ],
       };
@@ -587,7 +630,27 @@ router.get(
         });
       }
 
-      const transTypeField = workMode === 'Purchase Book' ? 'purchase_book_transaction_type' : 'payment_request_transaction_type';
+      if (startDate || endDate) {
+        const dateFilter = {};
+        if (startDate) dateFilter.$gte = new Date(startDate);
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          dateFilter.$lte = end;
+        }
+        
+        let requestNos = [];
+        if (workMode === 'Purchase Book') {
+          const entries = await PurchaseBookEntryModel.find({ createdAt: dateFilter }).select('entryNo').lean();
+          requestNos = entries.map(e => e.entryNo);
+        } else {
+          const requests = await PaymentRequestModel.find({ createdAt: dateFilter }).select('requestNo').lean();
+          requestNos = requests.map(r => r.requestNo);
+        }
+        matchConditions.$and.push({ [`charges.${filterField}`]: { $in: requestNos } });
+      }
+
+      const transTypeField = 'payment_request_transaction_type';
 
       if (transactionType && transactionType !== "All") {
         matchConditions.$and.push({
@@ -618,6 +681,9 @@ router.get(
                           { $ne: [`$$charge.${statusField}`, "Paid"] },
                           { $ne: [`$$charge.${statusField}`, "Rejected"] },
                           { $ne: [`$$charge.${isApprovedField}`, true] },
+                          ...(transactionType && transactionType !== "All" ? [
+                            { $eq: [{ $toLower: `$$charge.${transTypeField}` }, transactionType.toLowerCase()] }
+                          ] : [])
                         ],
                       },
                     },
@@ -688,6 +754,7 @@ router.get(
             branch_code: 1,
             trade_type: 1,
             mode: 1,
+            ie_code_no: 1,
             charges: {
               $filter: {
                 input: { $ifNull: ["$charges", []] },
@@ -700,6 +767,9 @@ router.get(
                     { $ne: [`$$charge.${statusField}`, "Paid"] },
                     { $ne: [`$$charge.${statusField}`, "Rejected"] },
                     { $ne: [`$$charge.${isApprovedField}`, true] },
+                    ...(transactionType && transactionType !== "All" ? [
+                      { $eq: [{ $toLower: `$$charge.${transTypeField}` }, transactionType.toLowerCase()] }
+                    ] : [])
                   ],
                 },
               },
@@ -817,7 +887,10 @@ router.get(
       branchId,
       category,
       workMode = 'Payment',
-      requestDate
+      requestDate,
+      transactionType = 'All',
+      startDate,
+      endDate
     } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -841,12 +914,30 @@ router.get(
 
       const matchConditions = {
         $and: [
-          { status: { $in: [/pending/i, /Completed/i] } },
+          { status: { $in: ["pending", "Pending", "PENDING", "Completed", "completed", "COMPLETED"] } },
           { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] }, [isApprovedField]: true } } }
         ],
       };
 
-      if (requestDate) {
+      if (startDate || endDate) {
+        const dateFilter = {};
+        if (startDate) dateFilter.$gte = new Date(startDate);
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          dateFilter.$lte = end;
+        }
+        
+        let requestNos = [];
+        if (workMode === 'Purchase Book') {
+          const entries = await PurchaseBookEntryModel.find({ createdAt: dateFilter }).select('entryNo').lean();
+          requestNos = entries.map(e => e.entryNo);
+        } else {
+          const requests = await PaymentRequestModel.find({ createdAt: dateFilter }).select('requestNo').lean();
+          requestNos = requests.map(r => r.requestNo);
+        }
+        matchConditions.$and.push({ [`charges.${filterField}`]: { $in: requestNos } });
+      } else if (requestDate) {
         let requestNos = [];
         if (workMode === 'Purchase Book') {
           const entries = await PurchaseBookEntryModel.find({ entryDate: requestDate }).select('entryNo').lean();
@@ -856,6 +947,14 @@ router.get(
           requestNos = requests.map(r => r.requestNo);
         }
         matchConditions.$and.push({ [`charges.${filterField}`]: { $in: requestNos } });
+      }
+
+      const transTypeField = 'payment_request_transaction_type';
+
+      if (transactionType && transactionType !== "All") {
+        matchConditions.$and.push({
+          [`charges.${transTypeField}`]: { $regex: new RegExp(`^${transactionType}$`, "i") },
+        });
       }
 
       const branchMatch = getBranchMatch(branchId, category);
@@ -908,6 +1007,9 @@ router.get(
                           { $ne: [`$$charge.${filterField}`, "undefined"] },
                           { $eq: [`$$charge.${isApprovedField}`, true] },
                           { $ne: [`$$charge.${statusField}`, "Paid"] },
+                          ...(transactionType && transactionType !== "All" ? [
+                            { $eq: [{ $toLower: `$$charge.${transTypeField}` }, transactionType.toLowerCase()] }
+                          ] : [])
                         ],
                       },
                     },
@@ -929,6 +1031,7 @@ router.get(
             year: 1,
             importer: 1,
             shipping_line_airline: 1,
+            ie_code_no: 1,
             custom_house: 1,
             all_documents: 1,
             cth_documents: 1,
@@ -950,6 +1053,9 @@ router.get(
                     { $eq: [`$$charge.${isApprovedField}`, true] },
                     { $ne: [`$$charge.${statusField}`, "Paid"] },
                     { $ne: [`$$charge.${statusField}`, "Rejected"] },
+                    ...(transactionType && transactionType !== "All" ? [
+                      { $eq: [{ $toLower: `$$charge.${transTypeField}` }, transactionType.toLowerCase()] }
+                    ] : [])
                   ],
                 },
               },
@@ -987,7 +1093,7 @@ router.get(
   "/api/get-payment-completed-jobs",
   applyUserIcdFilter,
   async (req, res) => {
-    const { page = 1, limit = 100, search = "", importer, year, branchId, category, startDate, endDate, workMode = 'Payment' } = req.query;
+    const { page = 1, limit = 100, search = "", importer, year, branchId, category, startDate, endDate, workMode = 'Payment', transactionType = 'All' } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
     const pageNumber = parseInt(page, 10);
@@ -1010,7 +1116,7 @@ router.get(
 
       const matchConditions = {
         $and: [
-          { status: { $in: [/pending/i, /Completed/i] } },
+          { status: { $in: ["pending", "Pending", "PENDING", "Completed", "completed", "COMPLETED"] } },
           { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] } } } }
         ],
       };
@@ -1076,6 +1182,14 @@ router.get(
         matchConditions.$and.push(buildSearchQuery(search.trim()));
       }
 
+      const transTypeField = 'payment_request_transaction_type';
+
+      if (transactionType && transactionType !== "All") {
+        matchConditions.$and.push({
+          [`charges.${transTypeField}`]: { $regex: new RegExp(`^${transactionType}$`, "i") },
+        });
+      }
+
       const pipeline = [
         { $match: matchConditions },
         {
@@ -1094,6 +1208,9 @@ router.get(
                           { $ne: [`$$charge.${filterField}`, "undefined"] },
                           { $ne: [`$$charge.${statusField}`, "Paid"] },
                           { $ne: [`$$charge.${statusField}`, "Rejected"] },
+                          ...(transactionType && transactionType !== "All" ? [
+                            { $eq: [{ $toLower: `$$charge.${transTypeField}` }, transactionType.toLowerCase()] }
+                          ] : [])
                         ],
                       },
                     },
@@ -1115,6 +1232,9 @@ router.get(
                           { $gt: [{ $strLenCP: `$$charge.${filterField}` }, 1] },
                           { $ne: [`$$charge.${filterField}`, "undefined"] },
                           { $eq: [`$$charge.${statusField}`, "Paid"] },
+                          ...(transactionType && transactionType !== "All" ? [
+                            { $eq: [{ $toLower: `$$charge.${transTypeField}` }, transactionType.toLowerCase()] }
+                          ] : [])
                         ],
                       },
                     },
@@ -1167,6 +1287,7 @@ router.get(
             year: 1,
             importer: 1,
             shipping_line_airline: 1,
+            ie_code_no: 1,
             custom_house: 1,
             gateway_igm_date: 1,
             discharge_date: 1,
@@ -1201,6 +1322,9 @@ router.get(
                     { $gt: [{ $strLenCP: `$$charge.${filterField}` }, 1] },
                     { $ne: [`$$charge.${filterField}`, "undefined"] },
                     { $eq: [`$$charge.${statusField}`, "Paid"] },
+                    ...(transactionType && transactionType !== "All" ? [
+                      { $eq: [{ $toLower: `$$charge.${transTypeField}` }, transactionType.toLowerCase()] }
+                    ] : [])
                   ],
                 },
               },
@@ -1390,7 +1514,64 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
       }
     }
 
-    res.status(200).json({ ...request, importer, attachments, isPurchaseBook });
+    let paymentRequestNo = null;
+    let purchaseBookNo = null;
+
+    if (isPurchaseBook) {
+      purchaseBookNo = request.entryNo || request.requestNo;
+      if (request.chargeRef) {
+        const pr = await PaymentRequestModel.findOne({ chargeRef: request.chargeRef }).select('requestNo').lean();
+        if (pr) {
+          paymentRequestNo = pr.requestNo;
+        }
+      }
+    } else {
+      paymentRequestNo = request.requestNo;
+      if (request.chargeRef) {
+        const pb = await PurchaseBookEntryModel.findOne({ chargeRef: request.chargeRef }).select('entryNo').lean();
+        if (pb) {
+          purchaseBookNo = pb.entryNo;
+        }
+      }
+    }
+
+    // Double check from job's charges if still missing
+    if (jobRef && (!paymentRequestNo || !purchaseBookNo)) {
+      try {
+        const job = await JobModel.findById(jobRef).select('charges').lean();
+        if (job && job.charges) {
+          let linkedCharge;
+          if (chargeRef) {
+            linkedCharge = job.charges.find(c => c._id && c._id.toString() === chargeRef);
+          }
+          if (!linkedCharge) {
+            linkedCharge = job.charges.find(c => 
+              (c.cost?.partyName?.toUpperCase() === request.paymentTo?.toUpperCase()) ||
+              (c.chargeHead?.toUpperCase() === request.againstBill?.toUpperCase())
+            );
+          }
+          if (linkedCharge) {
+            if (linkedCharge.purchase_book_no && !purchaseBookNo) {
+              purchaseBookNo = linkedCharge.purchase_book_no;
+            }
+            if (linkedCharge.payment_request_no && !paymentRequestNo) {
+              paymentRequestNo = linkedCharge.payment_request_no;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching linked job details for cross-reference:", err);
+      }
+    }
+
+    res.status(200).json({ 
+      ...request, 
+      importer, 
+      attachments, 
+      isPurchaseBook,
+      paymentRequestNo,
+      purchaseBookNo
+    });
   } catch (err) {
     console.error("Error fetching payment request details:", err);
     res.status(500).json({ message: "Internal server error" });
@@ -1750,6 +1931,7 @@ router.patch("/api/reject-billing-job/:id", async (req, res) => {
       {
         $set: {
           bill_document_sent_to_accounts: "",
+          billing_confirmation_date: "",
           billing_reject_remark: remark || "",
         },
       },
@@ -1874,6 +2056,33 @@ router.post("/api/add-general-job", async (req, res) => {
   } catch (err) {
     console.error("Error adding general job:", err);
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// PUT route to update Reason for Delay for a job
+router.put("/api/update-reason-for-delay", async (req, res) => {
+  try {
+    const { jobId, reason_for_delay } = req.body;
+    if (!jobId) {
+      return res.status(400).json({ success: false, message: "Job ID is required" });
+    }
+    const updatedJob = await JobModel.findByIdAndUpdate(
+      jobId,
+      { reason_for_delay: reason_for_delay !== undefined ? reason_for_delay.trim() : "" },
+      { new: true }
+    );
+    if (!updatedJob) {
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
+    return res.status(200).json({
+      success: true,
+      message: "Reason for delay updated successfully",
+      reason_for_delay: updatedJob.reason_for_delay || "",
+      job: updatedJob
+    });
+  } catch (err) {
+    console.error("Error updating reason for delay:", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
 

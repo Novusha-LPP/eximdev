@@ -1,6 +1,6 @@
 import {
     parse, isValid, isWithinInterval, getYear, getMonth, getQuarter, format,
-    startOfMonth, endOfMonth
+    startOfMonth, endOfMonth, startOfWeek, endOfWeek
 } from 'date-fns';
 
 export const getApiUrl = () => {
@@ -45,6 +45,13 @@ export const filterByTime = (items, filterType, dateRange, selectedMonth, select
             if (!selectedDay) return true;
             const itemDateStr = format(date, 'yyyy-MM-dd');
             return itemDateStr === selectedDay;
+        } else if (filterType === 'week') {
+            if (!selectedDay) return true;
+            const refDate = parse(selectedDay, 'yyyy-MM-dd', new Date());
+            if (!isValid(refDate)) return true;
+            const start = startOfWeek(refDate, { weekStartsOn: 1 });
+            const end = endOfWeek(refDate, { weekStartsOn: 1 });
+            return isWithinInterval(date, { start, end });
         } else if (filterType === 'date-range') {
             if (!dateRange.start || !dateRange.end) return true;
             const start = new Date(dateRange.start);
@@ -70,11 +77,20 @@ export const getTransportDates = (filterType, selectedDay, selectedYear, selecte
     if (filterType === 'day') {
         const dateObj = parse(selectedDay, 'yyyy-MM-dd', new Date());
         if (isValid(dateObj)) {
-            sd = format(startOfMonth(dateObj), 'yyyy-MM-dd');
-            ed = format(endOfMonth(dateObj), 'yyyy-MM-dd');
+            sd = format(dateObj, 'yyyy-MM-dd');
+            ed = format(dateObj, 'yyyy-MM-dd');
         } else {
-            sd = format(startOfMonth(new Date()), 'yyyy-MM-dd');
-            ed = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+            sd = format(new Date(), 'yyyy-MM-dd');
+            ed = format(new Date(), 'yyyy-MM-dd');
+        }
+    } else if (filterType === 'week') {
+        const dateObj = parse(selectedDay, 'yyyy-MM-dd', new Date());
+        if (isValid(dateObj)) {
+            sd = format(startOfWeek(dateObj, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+            ed = format(endOfWeek(dateObj, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+        } else {
+            sd = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+            ed = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
         }
     } else if (filterType === 'month') {
         sd = format(new Date(selectedYear, selectedMonth, 1), 'yyyy-MM-dd');

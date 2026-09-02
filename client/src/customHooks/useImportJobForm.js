@@ -10,6 +10,101 @@ import {
 import { set } from "date-fns";
 import { sanitizeContainerPayload } from "../utils/modeLogic";
 
+const getFormattedDateForRates = (dateInput) => {
+  if (!dateInput) dateInput = new Date();
+  if (dateInput instanceof Date) {
+    const day = String(dateInput.getDate()).padStart(2, '0');
+    const month = String(dateInput.getMonth() + 1).padStart(2, '0');
+    const year = dateInput.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+  if (typeof dateInput === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+      const [y, m, d] = dateInput.split('-');
+      return `${d}-${m}-${y}`;
+    }
+    if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(dateInput)) {
+      return dateInput.replace(/\//g, '-');
+    }
+  }
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
+const getUnitForCurrency = (currencyCode) => {
+  if (!currencyCode) return 1;
+  const code = String(currencyCode).toUpperCase().trim();
+  if (code === "JPY" || code === "KRW") return 100;
+  return 1;
+};
+
+const exrateCache = {};
+
+const fetchExrateForCurrency = async (currency, date) => {
+  if (!currency || currency.toUpperCase() === "INR") return 1;
+  const formattedDate = getFormattedDateForRates(date);
+  const cacheKey = `${currency}_${formattedDate}`;
+  
+  if (exrateCache[cacheKey]) {
+    return exrateCache[cacheKey];
+  }
+
+  if (!exrateCache[`promise_${cacheKey}`]) {
+    exrateCache[`promise_${cacheKey}`] = (async () => {
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${formattedDate}`
+        );
+        if (response.data.success && response.data.data?.exchange_rates) {
+          const rateObj = response.data.data.exchange_rates.find(
+            r => r.currency_code.toUpperCase() === currency.toUpperCase()
+          );
+          if (rateObj) {
+            return parseFloat(rateObj.import_rate) || 1;
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching exchange rate:", err);
+      }
+      
+      const currentDateFormatted = getFormattedDateForRates(new Date());
+      if (formattedDate !== currentDateFormatted) {
+        try {
+          const response = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${currentDateFormatted}`
+          );
+          if (response.data.success && response.data.data?.exchange_rates) {
+            const rateObj = response.data.data.exchange_rates.find(
+              r => r.currency_code.toUpperCase() === currency.toUpperCase()
+            );
+            if (rateObj) {
+              return parseFloat(rateObj.import_rate) || 1;
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching fallback exchange rate:", err);
+        }
+      }
+      return 1;
+    })();
+  }
+  
+  const result = await exrateCache[`promise_${cacheKey}`];
+  exrateCache[cacheKey] = result;
+  return result;
+};
+
+
 const useImportJobForm = () => {
   // Get the current date
   const currentDate = new Date();
@@ -43,6 +138,7 @@ const useImportJobForm = () => {
   // Existing states:
   // const [job_no, setJobNo] = useState("");
   const [custom_house, setCustomHouse] = useState("");
+  const [importer_reference_no, setImporterReferenceNo] = useState("");
   const [importer, setImporter] = useState("");
   const [importer_type, setImporterType] = useState("");
   const [commercial_tax_type, setCommercialTaxType] = useState("");
@@ -61,6 +157,8 @@ const useImportJobForm = () => {
   const [awb_bl_date, setAwbBlDate] = useState("");
   const [hawb_hbl_date, setHawb_hbl_date] = useState("");
   const [hawb_hbl_no, setHawb_hbl_no] = useState("");
+  const [vessel_flight, setVesselFlight] = useState("");
+  const [voyage_no, setVoyageNo] = useState("");
   const [vessel_berthing, setVesselberthing] = useState("");
   const [type_of_b_e, setTypeOfBE] = useState("");
   const [loading_port, setLoadingPort] = useState("");
@@ -80,6 +178,7 @@ const useImportJobForm = () => {
   const [insurance, setInsurance] = useState("");
   const [term_value, setTermValue] = useState("");
   const [cif_amount, setCifAmount] = useState("");
+  const [exrate, setExrate] = useState("");
   const [description, setDescription] = useState("");
   const [consignment_type, setConsignmentType] = useState("");
   const [isDraftDoc, setIsDraftDoc] = useState(false);
@@ -93,17 +192,22 @@ const useImportJobForm = () => {
       invoice_date: "",
       po_no: "",
       po_date: "",
+      po_details: [{ po_no: "", po_date: "" }],
       product_value: "",
       total_inv_value: "",
       inv_currency: "",
+      exchange_rate: "",
+      freight_exchange_rate: "",
+      insurance_exchange_rate: "",
+      misc_exchange_rate: "",
       toi: "CIF",
       freight: "",
       insurance: "",
       po_validation_error: "",
-      other_charges: "",
+      misc: "",
       freight_currency: "",
-      insurance_currency: "",
-      other_charges_currency: "INR",
+      insurance_currency: "INR",
+      misc_currency: "USD",
     },
   ]);
 
@@ -194,9 +298,9 @@ const useImportJobForm = () => {
 
   // For editing a single doc
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editValues, setEditValues] = useState({});
+  const [editIndex, setEditIndex] = useState(null);
+  const [editValues, setEditValues] = useState({ document_name: "", document_code: "" });
 
-  // For new doc from dropdown or user
   const [selectedDocument, setSelectedDocument] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
   const [newDocumentName, setNewDocumentName] = useState("");
@@ -220,8 +324,8 @@ const useImportJobForm = () => {
     agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
     discount: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
     loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-    freight: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-    insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+    freight: { currency: "", exchange_rate: 1, rate: 20, amount: 0, remark: "" },
+    insurance: { currency: "INR", exchange_rate: 1, rate: 1.125, amount: 0, remark: "" },
     addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
     revenue_deposit: { rate: 0, on: "Assessable" },
     landing_charge: { rate: 0 }
@@ -261,13 +365,13 @@ const useImportJobForm = () => {
       setOtherChargesDetails(prev => {
         const updated = { ...prev };
         let changed = false;
-        ["freight", "insurance"].forEach(key => {
+        ["freight"].forEach(key => {
           if (updated[key] && updated[key].currency !== inv_currency) {
             updated[key] = { ...updated[key], currency: inv_currency };
             changed = true;
           }
         });
-        ["miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
+        ["insurance", "miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
           if (updated[key] && updated[key].currency !== "INR") {
             updated[key] = { ...updated[key], currency: "INR" };
             changed = true;
@@ -283,8 +387,8 @@ const useImportJobForm = () => {
             ...newRows[0], 
             inv_currency: inv_currency,
             freight_currency: inv_currency,
-            insurance_currency: inv_currency,
-            other_charges_currency: "INR"
+            insurance_currency: "INR",
+            other_charges_currency: "USD"
           };
           return newRows;
         }
@@ -292,7 +396,150 @@ const useImportJobForm = () => {
       });
     }
   }, [inv_currency]);
-  //
+
+  // Handle automatic fetching of exchange rates for other_charges_details
+  useEffect(() => {
+    if (other_charges_details) {
+      const chargeKeys = ["miscellaneous", "agency", "discount", "loading", "freight", "insurance", "addl_charge"];
+      const fetchChargesRates = async () => {
+        let updated = false;
+        const newDetails = { ...other_charges_details };
+        const globalCurrency = inv_currency || "";
+
+        await Promise.all(chargeKeys.map(async (key) => {
+          const charge = newDetails[key] || {};
+          const currency = charge.currency;
+          let rate = parseFloat(charge.exchange_rate);
+
+          if (currency?.toUpperCase() === "INR") {
+            if (parseFloat(charge.exchange_rate) !== 1) {
+              newDetails[key] = { ...charge, exchange_rate: 1 };
+              updated = true;
+            }
+          } else if (currency && currency.toUpperCase() === globalCurrency.toUpperCase()) {
+            const globalRate = parseFloat(exrate);
+            if (globalRate && !isNaN(globalRate) && parseFloat(charge.exchange_rate) !== globalRate) {
+              newDetails[key] = { ...charge, exchange_rate: globalRate };
+              updated = true;
+            } else if (!rate || isNaN(rate)) {
+              newDetails[key] = { ...charge, exchange_rate: globalRate || 1 };
+              updated = true;
+            }
+          } else if (currency) {
+            if (!rate || isNaN(rate)) {
+              const invDate = invoice_details?.[0]?.invoice_date || invoice_date || "";
+              const fetchedRate = await fetchExrateForCurrency(currency, invDate);
+              newDetails[key] = { ...charge, exchange_rate: fetchedRate > 0 ? fetchedRate : 1 };
+              updated = true;
+            }
+          }
+        }));
+
+        if (updated) {
+          setOtherChargesDetails(newDetails);
+        }
+      };
+      fetchChargesRates();
+    }
+  }, [JSON.stringify(other_charges_details), exrate, inv_currency, invoice_date, invoice_details?.[0]?.invoice_date]);
+
+  // Recalculate HSS additional charge amount when CIF changes
+  useEffect(() => {
+    if (HSS === "Yes") {
+      let baseCifInr = 0;
+      if (invoice_details && invoice_details.length > 0) {
+        baseCifInr = invoice_details.reduce((sum, row) => {
+          const pv = parseFloat(row.product_value) || 0;
+          const pvEx = parseFloat(row.exchange_rate) || parseFloat(exrate) || 1;
+          const fr = parseFloat(row.freight) || 0;
+          const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(exrate) || 1;
+          const ins = parseFloat(row.insurance) || 0;
+          const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+          const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+          const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
+          
+          const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+          const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
+          const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
+          
+          return sum + (pvInr + frInr + insInr + othInr);
+        }, 0);
+      } else {
+        const totalCif = parseFloat(cif_amount || term_value) || 0;
+        const currentAmount = parseFloat(other_charges_details?.addl_charge?.amount) || 0;
+        const exrateVal = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+        const hssUnit = getUnitForCurrency(other_charges_details?.addl_charge?.currency);
+        baseCifInr = totalCif - ((currentAmount * exrateVal) / hssUnit);
+      }
+      if (baseCifInr < 0) baseCifInr = 0;
+
+      const rateNum = parseFloat(other_charges_details?.addl_charge?.rate) || 2;
+      const exrateVal = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+      const hssUnit = getUnitForCurrency(other_charges_details?.addl_charge?.currency);
+      const expectedAmount = ((baseCifInr * rateNum) / 100) / (exrateVal / hssUnit);
+      
+      setOtherChargesDetails(prev => {
+        const currentAmount = parseFloat(prev.addl_charge?.amount) || 0;
+        if (Math.abs(currentAmount - expectedAmount) > 0.01) {
+          return {
+            ...prev,
+            addl_charge: {
+              ...prev.addl_charge,
+              amount: expectedAmount > 0 ? expectedAmount.toFixed(2) : ""
+            }
+          };
+        }
+        return prev;
+      });
+    }
+  }, [HSS, JSON.stringify(invoice_details)]);
+
+  // Recalculate global CIF value when HSS status or HSS amount changes
+  useEffect(() => {
+    if (invoice_details && invoice_details.length > 0) {
+      let totalCifInr = 0;
+      invoice_details.forEach((row) => {
+        const pv = parseFloat(row.product_value) || 0;
+        const pvEx = parseFloat(row.exchange_rate) || parseFloat(exrate) || 1;
+        const fr = parseFloat(row.freight) || 0;
+        const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(exrate) || 1;
+        const ins = parseFloat(row.insurance) || 0;
+        const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+        const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+        const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
+        
+        const rowCif = ((pv * pvEx) / getUnitForCurrency(row.inv_currency)) + 
+                       ((fr * frEx) / getUnitForCurrency(row.freight_currency)) + 
+                       ((ins * insEx) / getUnitForCurrency(row.insurance_currency)) + 
+                       ((oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency));
+        totalCifInr += rowCif;
+      });
+
+      if (HSS === "Yes") {
+        const hssAmt = parseFloat(other_charges_details?.addl_charge?.amount) || 0;
+        const hssEx = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+        const hssUnit = getUnitForCurrency(other_charges_details?.addl_charge?.currency);
+        totalCifInr += (hssAmt * hssEx) / hssUnit;
+      }
+
+      const calculatedCifStr = totalCifInr.toFixed(2);
+      if (cif_amount !== calculatedCifStr) {
+        setCifAmount(calculatedCifStr);
+      }
+      if (term_value !== calculatedCifStr) {
+        setTermValue(calculatedCifStr);
+      }
+    }
+  }, [
+    JSON.stringify(invoice_details),
+    exrate,
+    inv_currency,
+    HSS,
+    other_charges_details?.addl_charge?.amount,
+    other_charges_details?.addl_charge?.exchange_rate
+  ]);
+
   const [description_details, setDescriptionDetails] = useState([
     {
       description: "",
@@ -343,6 +590,73 @@ const useImportJobForm = () => {
       ...updatedRows[rowIndex],
       [field]: value,
     };
+
+    if (field === "misc") {
+      updatedRows[rowIndex].other_charges = value;
+    }
+    if (field === "misc_currency") {
+      updatedRows[rowIndex].other_charges_currency = value;
+    }
+    if (field === "misc_exchange_rate") {
+      updatedRows[rowIndex].other_charges_exchange_rate = value;
+    }
+    if (field === "other_charges") {
+      updatedRows[rowIndex].misc = value;
+    }
+    if (field === "other_charges_currency") {
+      updatedRows[rowIndex].misc_currency = value;
+    }
+    if (field === "other_charges_exchange_rate") {
+      updatedRows[rowIndex].misc_exchange_rate = value;
+    }
+
+    if (["misc", "other_charges", "misc_currency", "other_charges_currency", "misc_exchange_rate", "other_charges_exchange_rate"].includes(field)) {
+      const totalMiscAmount = updatedRows.reduce((sum, r) => sum + (parseFloat(r.misc || r.other_charges) || 0), 0);
+      const currency = updatedRows[rowIndex].misc_currency || updatedRows[rowIndex].other_charges_currency || "USD";
+      const exchange_rate = updatedRows[rowIndex].misc_exchange_rate || updatedRows[rowIndex].other_charges_exchange_rate || "";
+      
+      const exrateVal = parseFloat(exchange_rate) || 1;
+      const unitVal = getUnitForCurrency(currency);
+      const amtInr = (totalMiscAmount * exrateVal) / unitVal;
+
+      let totalBaseValInr = updatedRows.reduce((sum, r) => {
+        const pv = parseFloat(r.product_value) || 0;
+        const pvEx = parseFloat(r.exchange_rate) || parseFloat(exrate) || 1;
+        const oth = parseFloat(r.misc || r.other_charges) || 0;
+        const othEx = parseFloat(r.misc_exchange_rate || r.other_charges_exchange_rate) || 1;
+        
+        const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+        const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency || r.other_charges_currency);
+        
+        return sum + (pvInr + othInr);
+      }, 0);
+
+      const calculatedRate = totalBaseValInr > 0 ? (amtInr / totalBaseValInr) * 100 : 0;
+      
+      setOtherChargesDetails(prev => ({
+        ...prev,
+        miscellaneous: {
+          ...prev.miscellaneous,
+          amount: totalMiscAmount > 0 ? totalMiscAmount.toFixed(2) : "",
+          currency: currency,
+          exchange_rate: exchange_rate,
+          rate: calculatedRate > 0 ? calculatedRate.toFixed(4) : "",
+        }
+      }));
+    }
+
+    if (field === "freight_currency" && invoice_details[rowIndex]?.freight_currency !== value) {
+      updatedRows[rowIndex].freight_exchange_rate = "";
+    }
+    if (field === "insurance_currency" && invoice_details[rowIndex]?.insurance_currency !== value) {
+      updatedRows[rowIndex].insurance_exchange_rate = "";
+    }
+    if (field === "misc_currency" && invoice_details[rowIndex]?.misc_currency !== value) {
+      updatedRows[rowIndex].misc_exchange_rate = "";
+    }
+    if (field === "other_charges_currency" && invoice_details[rowIndex]?.other_charges_currency !== value) {
+      updatedRows[rowIndex].other_charges_exchange_rate = "";
+    }
     // Auto-sync product_value (Invoice Value) to linked description row(s) amount in product tab
     if (field === "product_value") {
       const matchedInvoiceSr = String(rowIndex + 1);
@@ -361,47 +675,236 @@ const useImportJobForm = () => {
       setDescriptionDetails(updatedDescRows);
     }
 
-    // Validate PO fields if updating PO No or PO Date
-    if (field === "po_no" || field === "po_date") {
+    if (field === "po_details") {
+      if (Array.isArray(value) && value[0]) {
+        updatedRows[rowIndex].po_no = value[0].po_no || "";
+        updatedRows[rowIndex].po_date = value[0].po_date || "";
+        if (rowIndex === 0) {
+          setPoNo(value[0].po_no || "");
+          setPoDate(value[0].po_date || "");
+        }
+      }
+    }
+
+    // Validate PO fields if updating PO No or PO Date or PO Details
+    if (field === "po_no" || field === "po_date" || field === "po_details") {
       const currentRow = updatedRows[rowIndex];
-      const validationError = validatePoFields(currentRow.po_no, currentRow.po_date);
+      let validationError = "";
+      const poList = currentRow.po_details || [{ po_no: currentRow.po_no, po_date: currentRow.po_date }];
+      for (let i = 0; i < poList.length; i++) {
+        const err = validatePoFields(poList[i].po_no, poList[i].po_date);
+        if (err) {
+          validationError = err;
+          break;
+        }
+      }
       updatedRows[rowIndex].po_validation_error = validationError;
     }
 
-    // Auto-calculate freight and insurance if TOI is FOB
-    const toiValue = field === "toi" ? value : (updatedRows[rowIndex].toi || "CIF");
-    if (toiValue === "FOB") {
-      if (field === "product_value" || field === "toi") {
-        const pv = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
-        const calculatedFreight = pv * 0.20;
-        const calculatedInsurance = pv * 0.01125;
-        updatedRows[rowIndex].freight = calculatedFreight > 0 ? calculatedFreight.toFixed(2) : "";
-        updatedRows[rowIndex].insurance = calculatedInsurance > 0 ? calculatedInsurance.toFixed(2) : "";
+    if (field === "freight") {
+      updatedRows[rowIndex].is_freight_manual = true;
+    }
+    if (field === "insurance") {
+      updatedRows[rowIndex].is_insurance_manual = true;
+    }
+
+    const isFreightManual = updatedRows[rowIndex].is_freight_manual;
+    const isInsuranceManual = updatedRows[rowIndex].is_insurance_manual;
+
+    // Auto-calculate freight and insurance based on TOI
+    const rawToi = field === "toi" ? value : (updatedRows[rowIndex].toi || "CIF");
+    const toiValue = (rawToi === "CF" || rawToi === "C&F" || rawToi === "C & F") ? "C&F" : ((rawToi === "CI" || rawToi === "C&I" || rawToi === "C & I") ? "C&I" : rawToi);
+    const pv = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
+
+    const descriptionLength = description_details?.length || 0;
+    if (updatedRows.length === 1 && descriptionLength === 1) {
+      if (toiValue === "FOB") {
+        if (field === "product_value" || field === "toi") {
+          if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
+            updatedRows[rowIndex].freight = pv > 0 ? (pv * 0.20).toFixed(2) : "";
+          }
+          if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
+            updatedRows[rowIndex].insurance = pv > 0 ? (pv * 0.01125).toFixed(2) : "";
+          }
+        }
+      } else if (toiValue === "C&F" || toiValue === "CF") {
+        // C&F: auto-calculate insurance as 1.125% of invoice value
+        if (field === "product_value" || field === "toi") {
+          updatedRows[rowIndex].freight = "";
+          if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
+            updatedRows[rowIndex].insurance = pv > 0 ? (pv * 0.01125).toFixed(2) : "";
+          }
+        }
+      } else if (toiValue === "C&I" || toiValue === "CI") {
+        // C&I: auto-calculate freight as 20% of invoice value
+        if (field === "product_value" || field === "toi") {
+          if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
+            updatedRows[rowIndex].freight = pv > 0 ? (pv * 0.20).toFixed(2) : "";
+          }
+          updatedRows[rowIndex].insurance = "";
+        }
+      } else if (field === "toi") {
+        // CIF or other
+        updatedRows[rowIndex].freight = "";
+        updatedRows[rowIndex].insurance = "";
       }
-    } else if (field === "toi") {
-      updatedRows[rowIndex].freight = "";
-      updatedRows[rowIndex].insurance = "";
+    } else {
+      const otherVal = parseFloat(field === "other_charges" ? value : (updatedRows[rowIndex].other_charges || 0)) || 0;
+      
+      const invEx = parseFloat(field === "exchange_rate" ? value : (updatedRows[rowIndex].exchange_rate || exrate || 1)) || 1;
+      const othEx = parseFloat(field === "other_charges_exchange_rate" ? value : (updatedRows[rowIndex].other_charges_exchange_rate || 1)) || 1;
+      const otherInInv = (otherVal * othEx) / invEx;
+      const baseVal = pv + otherInInv;
+
+      const fRateVal = other_charges_details?.freight?.rate;
+      const fRate = (fRateVal === undefined || fRateVal === null || fRateVal === "" || isNaN(parseFloat(fRateVal))) ? 20 : parseFloat(fRateVal);
+
+      const iRateVal = other_charges_details?.insurance?.rate;
+      const iRate = (iRateVal === undefined || iRateVal === null || iRateVal === "" || isNaN(parseFloat(iRateVal))) ? 1.125 : parseFloat(iRateVal);
+
+      const calculateInsuranceValue = () => {
+        if (baseVal <= 0) return "";
+        const baseInsurance = baseVal * (iRate / 100);
+        const invCurr = field === "inv_currency" ? value : (updatedRows[rowIndex].inv_currency || "");
+        const insCurr = field === "insurance_currency" ? value : (updatedRows[rowIndex].insurance_currency || "INR");
+        const exRate = parseFloat(field === "exchange_rate" ? value : (updatedRows[rowIndex].exchange_rate || exrate || 1)) || 1;
+
+        if (insCurr === "INR" && invCurr !== "INR") {
+          return (baseInsurance * exRate).toFixed(2);
+        }
+        return baseInsurance.toFixed(2);
+      };
+
+      const triggerFields = ["product_value", "toi", "exchange_rate", "insurance_currency", "inv_currency", "other_charges", "misc", "other_charges_exchange_rate", "misc_exchange_rate", "other_charges_currency", "misc_currency"];
+
+      if (toiValue === "FOB") {
+        if (triggerFields.includes(field)) {
+          if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
+            updatedRows[rowIndex].freight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
+          }
+          if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
+            updatedRows[rowIndex].insurance = calculateInsuranceValue();
+          }
+        }
+      } else if (toiValue === "C&F" || toiValue === "CF") {
+        if (triggerFields.includes(field)) {
+          updatedRows[rowIndex].freight = "";
+          if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
+            updatedRows[rowIndex].insurance = calculateInsuranceValue();
+          }
+        }
+      } else if (toiValue === "C&I" || toiValue === "CI") {
+        if (triggerFields.includes(field)) {
+          if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
+            updatedRows[rowIndex].freight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
+          }
+          updatedRows[rowIndex].insurance = "";
+        }
+      } else if (field === "toi") {
+        updatedRows[rowIndex].freight = "";
+        updatedRows[rowIndex].insurance = "";
+      }
     }
 
     // Auto-calculate total_inv_value from contributing fields
-    const calcFields = ["product_value", "freight", "insurance", "other_charges", "toi"];
+    const calcFields = ["product_value", "freight", "insurance", "other_charges", "misc", "toi"];
     if (calcFields.includes(field)) {
       const row = updatedRows[rowIndex];
       const pv = parseFloat(field === "product_value" ? value : (row.product_value || 0)) || 0;
       const fr = parseFloat(field === "freight" ? value : (row.freight || 0)) || 0;
       const ins = parseFloat(field === "insurance" ? value : (row.insurance || 0)) || 0;
-      const oth = parseFloat(field === "other_charges" ? value : (row.other_charges || 0)) || 0;
+      const oth = parseFloat(field === "misc" ? value : (row.misc !== undefined ? row.misc : (field === "other_charges" ? value : (row.other_charges || 0)))) || 0;
       updatedRows[rowIndex].total_inv_value = (pv + fr + ins + oth).toFixed(2);
     }
 
     setInvoiceDetails(updatedRows);
 
-    // Sync global CIF value (term value) across all rows
+    // Sync global CIF value (term value) across all rows converted to INR
     const totalCif = updatedRows.reduce((sum, row) => sum + (parseFloat(row.total_inv_value) || 0), 0);
-    if (totalCif > 0) {
-      setTotalInvValue(String(totalCif.toFixed(2)));
-      setTermValue(String(totalCif.toFixed(2)));
-      setCifAmount(String(totalCif.toFixed(2)));
+    const totalProductVal = updatedRows.reduce((sum, row) => sum + (parseFloat(row.product_value) || 0), 0);
+    if (totalCif > 0 || totalProductVal > 0) {
+      setTotalInvValue(totalCif > 0 ? String(totalCif.toFixed(2)) : String(totalProductVal.toFixed(2)));
+      
+      const syncCifValue = async () => {
+        let totalCifInr = 0;
+        let updated = false;
+
+        const resolveRate = async (curr, existingRateStr, date) => {
+          let rate = parseFloat(existingRateStr);
+          const globalCurrency = inv_currency || "";
+          const globalRate = parseFloat(exrate);
+
+          if (!curr) return { rate: 1, updated: false };
+          if (curr.toUpperCase() === "INR") {
+            if (parseFloat(existingRateStr) !== 1) {
+              return { rate: 1, updated: true };
+            }
+            return { rate: 1, updated: false };
+          }
+          if (curr.toUpperCase() === globalCurrency.toUpperCase()) {
+            if (globalRate && !isNaN(globalRate) && parseFloat(existingRateStr) !== globalRate) {
+              return { rate: globalRate, updated: true };
+            } else if (!rate || isNaN(rate)) {
+              const fetchedRate = await fetchExrateForCurrency(curr, date || invoice_date || "");
+              const resolved = fetchedRate > 0 ? fetchedRate : (globalRate || 1);
+              return { rate: resolved, updated: true };
+            }
+          } else {
+            if (!rate || isNaN(rate)) {
+              const fetchedRate = await fetchExrateForCurrency(curr, date || invoice_date || "");
+              const resolved = fetchedRate > 0 ? fetchedRate : 1;
+              return { rate: resolved, updated: true };
+            }
+          }
+          return { rate: rate, updated: false };
+        };
+
+        const newRows = await Promise.all(updatedRows.map(async (row) => {
+          const date = row.invoice_date || invoice_date || "";
+          const resInv = await resolveRate(row.inv_currency, row.exchange_rate, date);
+          const resFr = await resolveRate(row.freight_currency, row.freight_exchange_rate, date);
+          const resIns = await resolveRate(row.insurance_currency, row.insurance_exchange_rate, date);
+          const resOth = await resolveRate(row.misc_currency || row.other_charges_currency, row.misc_exchange_rate || row.other_charges_exchange_rate, date);
+
+          if (resInv.updated || resFr.updated || resIns.updated || resOth.updated) {
+            updated = true;
+          }
+
+          const pv = parseFloat(row.product_value) || 0;
+          const fr = parseFloat(row.freight) || 0;
+          const ins = parseFloat(row.insurance) || 0;
+          const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+
+           const rowCif = ((pv * resInv.rate) / getUnitForCurrency(row.inv_currency)) + 
+                          ((fr * resFr.rate) / getUnitForCurrency(row.freight_currency)) + 
+                          ((ins * resIns.rate) / getUnitForCurrency(row.insurance_currency)) + 
+                          ((oth * resOth.rate) / getUnitForCurrency(row.misc_currency || row.other_charges_currency));
+           totalCifInr += rowCif;
+ 
+           return {
+             ...row,
+             exchange_rate: String(resInv.rate),
+             freight_exchange_rate: String(resFr.rate),
+             insurance_exchange_rate: String(resIns.rate),
+             misc_exchange_rate: String(resOth.rate),
+           };
+         }));
+ 
+         if (updated) {
+           setInvoiceDetails(newRows);
+         }
+ 
+         if (HSS === "Yes") {
+           const hssAmt = parseFloat(other_charges_details?.addl_charge?.amount) || 0;
+           const hssEx = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+           const hssUnit = getUnitForCurrency(other_charges_details?.addl_charge?.currency);
+           totalCifInr += (hssAmt * hssEx) / hssUnit;
+        }
+
+        setTermValue(String(totalCifInr.toFixed(2)));
+        setCifAmount(String(totalCifInr.toFixed(2)));
+      };
+      syncCifValue();
     } else if (field === "total_inv_value") {
       setTotalInvValue(value);
       setTermValue(value);
@@ -428,26 +931,34 @@ const useImportJobForm = () => {
      }
     
     // Auto-sync currency for all charge heads in other_charges_details when invoice currency changes
-    if (field === "inv_currency") {
+    if (field === "inv_currency" && invoice_details[rowIndex]?.inv_currency !== value) {
       updatedRows[rowIndex].freight_currency = value || "";
-      updatedRows[rowIndex].insurance_currency = value || "";
-      updatedRows[rowIndex].other_charges_currency = "INR";
+      updatedRows[rowIndex].insurance_currency = "INR";
+      updatedRows[rowIndex].misc_currency = "USD";
+      updatedRows[rowIndex].other_charges_currency = "USD";
+      updatedRows[rowIndex].exchange_rate = "";
+      updatedRows[rowIndex].freight_exchange_rate = "";
+      updatedRows[rowIndex].insurance_exchange_rate = "";
+      updatedRows[rowIndex].misc_exchange_rate = "";
+      updatedRows[rowIndex].other_charges_exchange_rate = "";
 
       setOtherChargesDetails(prev => {
         const updated = { ...prev };
-        ["freight", "insurance"].forEach(key => {
+        ["freight"].forEach(key => {
           if (updated[key]) {
             updated[key] = {
               ...updated[key],
-              currency: value || ""
+              currency: value || "",
+              exchange_rate: ""
             };
           }
         });
-        ["miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
+        ["insurance", "miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
           if (updated[key]) {
             updated[key] = {
               ...updated[key],
-              currency: "INR"
+              currency: "INR",
+              exchange_rate: 1
             };
           }
         });
@@ -461,7 +972,12 @@ const useImportJobForm = () => {
       if (field === "invoice_date") setInvoiceDate(value);
       if (field === "po_no") setPoNo(value);
       if (field === "po_date") setPoDate(value);
-      if (field === "inv_currency") setInvCurrency(value);
+      if (field === "inv_currency" && inv_currency !== value) {
+        setInvCurrency(value);
+        if (!in_bond_be_no || in_bond_be_no.trim().length === 0) {
+          setExrate("");
+        }
+      }
       if (field === "toi") setImportTerms(value);
       if (field === "freight") setFreight(value);
       if (field === "insurance") setInsurance(value);
@@ -476,17 +992,22 @@ const useImportJobForm = () => {
         invoice_date: "",
         po_no: "",
         po_date: "",
+        po_details: [{ po_no: "", po_date: "" }],
         product_value: "",
         total_inv_value: "",
         inv_currency: invoice_details[0]?.inv_currency || "",
+        exchange_rate: "",
+        freight_exchange_rate: "",
+        insurance_exchange_rate: "",
+        misc_exchange_rate: "",
         toi: "CIF",
         freight: "",
         insurance: "",
-        other_charges: "",
+        misc: "",
         po_validation_error: "",
         freight_currency: invoice_details[0]?.inv_currency || "",
-        insurance_currency: invoice_details[0]?.inv_currency || "",
-        other_charges_currency: "INR",
+        insurance_currency: "INR",
+        misc_currency: "USD",
       },
     ]);
   };
@@ -497,13 +1018,91 @@ const useImportJobForm = () => {
     setInvoiceDetails(updatedRows);
   };
 
+  const addInvoicePoDetail = (rowIndex) => {
+    const updated = [...invoice_details];
+    const row = updated[rowIndex];
+    const poList = Array.isArray(row.po_details) ? [...row.po_details] : [];
+    poList.push({ po_no: "", po_date: "" });
+    updated[rowIndex] = { ...row, po_details: poList };
+    setInvoiceDetails(updated);
+  };
+
+  const removeInvoicePoDetail = (rowIndex, poIndex) => {
+    const updated = [...invoice_details];
+    const row = { ...updated[rowIndex] };
+    const poList = Array.isArray(row.po_details) ? [...row.po_details] : [];
+    if (poList.length <= 1) return;
+    poList.splice(poIndex, 1);
+    row.po_details = poList;
+
+    if (poIndex === 0 && poList[0]) {
+      row.po_no = poList[0].po_no || "";
+      row.po_date = poList[0].po_date || "";
+      if (rowIndex === 0) {
+        setPoNo(poList[0].po_no || "");
+        setPoDate(poList[0].po_date || "");
+      }
+    }
+
+    // Validate PO fields for this row
+    let validationError = "";
+    for (let i = 0; i < poList.length; i++) {
+      const err = validatePoFields(poList[i].po_no, poList[i].po_date);
+      if (err) {
+        validationError = err;
+        break;
+      }
+    }
+    row.po_validation_error = validationError;
+
+    updated[rowIndex] = row;
+    setInvoiceDetails(updated);
+  };
+
+  const updateInvoicePoDetail = (rowIndex, poIndex, poField, value) => {
+    const updated = [...invoice_details];
+    const row = { ...updated[rowIndex] };
+    const poList = Array.isArray(row.po_details) ? [...row.po_details] : [];
+    if (poList[poIndex]) {
+      poList[poIndex] = { ...poList[poIndex], [poField]: value };
+    }
+    row.po_details = poList;
+
+    if (poIndex === 0) {
+      if (poField === "po_no") {
+        row.po_no = value;
+        if (rowIndex === 0) setPoNo(value);
+      } else if (poField === "po_date") {
+        row.po_date = value;
+        if (rowIndex === 0) setPoDate(value);
+      }
+    }
+
+    // Validate PO fields for this row
+    let validationError = "";
+    for (let i = 0; i < poList.length; i++) {
+      const err = validatePoFields(poList[i].po_no, poList[i].po_date);
+      if (err) {
+        validationError = err;
+        break;
+      }
+    }
+    row.po_validation_error = validationError;
+
+    updated[rowIndex] = row;
+    setInvoiceDetails(updated);
+  };
+
   const validateAllInvoiceRows = () => {
     const errors = [];
     invoice_details.forEach((row, index) => {
-      const poError = validatePoFields(row.po_no, row.po_date);
-      if (poError) {
-        errors.push(`Row ${index + 1}: ${poError}`);
-      }
+      const poList = row.po_details || [{ po_no: row.po_no, po_date: row.po_date }];
+      poList.forEach((po, poIndex) => {
+        const poError = validatePoFields(po.po_no, po.po_date);
+        if (poError) {
+          errors.push(`Row ${index + 1} (PO ${poIndex + 1}): ${poError}`);
+        }
+      });
     });
     return errors;
   };
@@ -623,6 +1222,8 @@ const useImportJobForm = () => {
     setHawb_hbl_date("");
     setAwbBlDate("");
     setVesselberthing("");
+    setVesselFlight("");
+    setVoyageNo("");
     setTypeOfBE("");
     setLoadingPort("");
     setGrossWeight("");
@@ -665,16 +1266,20 @@ const useImportJobForm = () => {
         invoice_date: "",
         po_no: "",
         po_date: "",
+        po_details: [{ po_no: "", po_date: "" }],
         product_value: "",
         total_inv_value: "",
         inv_currency: "",
+        exchange_rate: "",
+        freight_exchange_rate: "",
+        misc_exchange_rate: "",
         toi: "CIF",
         freight: "",
         insurance: "",
-        other_charges: "",
+        misc: "",
         freight_currency: "",
-        insurance_currency: "",
-        other_charges_currency: "INR",
+        insurance_currency: "INR",
+        misc_currency: "USD",
       },
     ]);
     setConsignmentType("");
@@ -758,6 +1363,13 @@ const useImportJobForm = () => {
     setIsEditMode(false);
     setEditJobId(null);
     setJobNumber("");
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+      setHasDraft(false);
+      setLastDraftSaved(null);
+    } catch (e) {
+      console.error("Error clearing draft storage in resetForm:", e);
+    }
   };
 
   const populateJobData = (job) => {
@@ -769,6 +1381,7 @@ const useImportJobForm = () => {
     
     if (job.year) setYear(job.year);
     if (job.custom_house) setCustomHouse(job.custom_house);
+    if (job.importer_reference_no) setImporterReferenceNo(job.importer_reference_no);
     if (job.importer) setImporter(job.importer);
     if (job.importer_type) setImporterType(job.importer_type);
     if (job.commercial_tax_type) setCommercialTaxType(job.commercial_tax_type);
@@ -782,6 +1395,8 @@ const useImportJobForm = () => {
     if (job.hawb_hbl_date) setHawb_hbl_date(job.hawb_hbl_date);
     if (job.awb_bl_date) setAwbBlDate(job.awb_bl_date);
     if (job.vessel_berthing) setVesselberthing(job.vessel_berthing);
+    if (job.vessel_flight) setVesselFlight(job.vessel_flight);
+    if (job.voyage_no) setVoyageNo(job.voyage_no);
     if (job.type_of_b_e) setTypeOfBE(job.type_of_b_e);
     if (job.loading_port) setLoadingPort(job.loading_port);
     if (job.gross_weight) setGrossWeight(job.gross_weight);
@@ -799,6 +1414,9 @@ const useImportJobForm = () => {
       setTermValue(job.total_inv_value || job.cifValue || job.cif_amount || "");
       setCifAmount(job.cif_amount || job.total_inv_value || job.cifValue || "");
     }
+    if (job.exrate) {
+      setExrate(job.exrate);
+    }
     if (job.consignment_type) setConsignmentType(job.consignment_type);
     if (job.description) setDescription(job.description);
     if (!job.description && job.description_details && job.description_details.length > 0) {
@@ -810,9 +1428,16 @@ const useImportJobForm = () => {
         ...inv,
         po_no: inv.po_no || "",
         po_date: inv.po_date || "",
+        po_details: inv.po_details && inv.po_details.length > 0
+          ? inv.po_details.map(p => ({ po_no: p.po_no || "", po_date: p.po_date || "" }))
+          : [{ po_no: inv.po_no || "", po_date: inv.po_date || "" }],
         freight_currency: inv.freight_currency || inv.inv_currency || "",
-        insurance_currency: inv.insurance_currency || inv.inv_currency || "",
-        other_charges_currency: inv.other_charges_currency || "INR",
+        insurance_currency: inv.insurance_currency || "INR",
+        misc_currency: inv.misc_currency || inv.other_charges_currency || "USD",
+        exchange_rate: inv.exchange_rate || "",
+        freight_exchange_rate: inv.freight_exchange_rate || "",
+        insurance_exchange_rate: inv.insurance_exchange_rate || "",
+        misc_exchange_rate: inv.misc_exchange_rate || inv.other_charges_exchange_rate || "",
       })));
     } else if (job.invoice_number || job.total_inv_value) {
       setInvoiceDetails([{
@@ -820,16 +1445,21 @@ const useImportJobForm = () => {
         invoice_date: job.invoice_date || "",
         po_no: job.po_no || "",
         po_date: job.po_date || "",
+        po_details: [{ po_no: job.po_no || "", po_date: job.po_date || "" }],
         product_value: job.product_value || job.total_inv_value || "",
         total_inv_value: job.total_inv_value || "",
         inv_currency: job.inv_currency || "",
         toi: job.import_terms || "CIF",
         freight: job.freight || "",
         insurance: job.insurance || "",
-        other_charges: job.other_charges || "",
+        misc: job.misc || job.other_charges || "",
         freight_currency: job.inv_currency || "",
-        insurance_currency: job.inv_currency || "",
-        other_charges_currency: "INR",
+        insurance_currency: "INR",
+        misc_currency: "USD",
+        exchange_rate: job.exrate || "",
+        freight_exchange_rate: job.exrate || "",
+        insurance_exchange_rate: "1",
+        misc_exchange_rate: "1",
       }]);
     }
     
@@ -950,7 +1580,6 @@ const useImportJobForm = () => {
         insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
         addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
         revenue_deposit: { rate: 0, on: "Assessable" },
-        landing_charge: { rate: 0 },
         ...job.other_charges_details,
         landing_charge: {
           rate: 0,
@@ -975,6 +1604,290 @@ const useImportJobForm = () => {
   //
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
 
+  // --- Draft Persistence ---
+  const DRAFT_KEY = "exim_import_job_creation_draft";
+  const [hasDraft, setHasDraft] = useState(false);
+  const [lastDraftSaved, setLastDraftSaved] = useState(null);
+
+  const saveDraft = (showToast = false) => {
+    if (isEditMode || editJobId) return;
+    try {
+      const serializableDocs = (cthDocuments || []).map(doc => ({
+        document_name: doc.document_name,
+        document_code: doc.document_code,
+        isDefault: doc.isDefault,
+        url: Array.isArray(doc.url)
+          ? doc.url.filter(u => typeof u === "string")
+          : []
+      }));
+
+      const draftPayload = {
+        updatedAt: new Date().toISOString(),
+        custom_house,
+        importer_reference_no,
+        importer,
+        importer_type,
+        commercial_tax_type,
+        importer_address,
+        importerURL,
+        shipping_line_airline,
+        branchSrNo,
+        adCode,
+        importer_address_details,
+        importer_city,
+        importer_state,
+        importer_postal_code,
+        importer_country,
+        supplier_exporter,
+        awb_bl_no,
+        awb_bl_date,
+        hawb_hbl_date,
+        hawb_hbl_no,
+        vessel_flight,
+        voyage_no,
+        vessel_berthing,
+        type_of_b_e,
+        loading_port,
+        gross_weight,
+        job_net_weight,
+        cth_no,
+        origin_country,
+        port_of_reporting,
+        total_inv_value,
+        inv_currency,
+        invoice_number,
+        invoice_date,
+        po_no,
+        po_date,
+        import_terms,
+        freight,
+        insurance,
+        term_value,
+        cif_amount,
+        exrate,
+        description,
+        description_details,
+        consignment_type,
+        isDraftDoc,
+        branch_id,
+        trade_type,
+        mode,
+        invoice_details,
+        container_nos,
+        fta_Benefit_date_time,
+        exBondValue,
+        cthDocuments: serializableDocs,
+        scheme,
+        in_bond_be_no,
+        in_bond_be_date,
+        in_bond_ooc_copies,
+        clearanceValue,
+        HSS,
+        sallerName,
+        bankName,
+        ie_code_no,
+        gst_no,
+        hss_address,
+        hss_address_details,
+        hss_branch_id,
+        hss_city,
+        hss_state,
+        hss_ie_code_no,
+        hss_postal_code,
+        hss_country,
+        hss_ad_code,
+        other_charges_details
+      };
+
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draftPayload));
+      setHasDraft(true);
+      setLastDraftSaved(draftPayload.updatedAt);
+      if (showToast) {
+        setSnackbar({
+          open: true,
+          message: "Job draft saved successfully!",
+          severity: "success"
+        });
+      }
+    } catch (err) {
+      console.error("Error saving draft to localStorage:", err);
+    }
+  };
+
+  const loadDraft = () => {
+    try {
+      const savedStr = localStorage.getItem(DRAFT_KEY);
+      if (!savedStr) return false;
+      const data = JSON.parse(savedStr);
+      if (!data || typeof data !== "object") return false;
+
+      if (data.custom_house !== undefined) setCustomHouse(data.custom_house);
+      if (data.importer_reference_no !== undefined) setImporterReferenceNo(data.importer_reference_no);
+      if (data.importer !== undefined) setImporter(data.importer);
+      if (data.importer_type !== undefined) setImporterType(data.importer_type);
+      if (data.commercial_tax_type !== undefined) setCommercialTaxType(data.commercial_tax_type);
+      if (data.importer_address !== undefined) setImporterAddress(data.importer_address);
+      if (data.importerURL !== undefined) setImporterURL(data.importerURL);
+      if (data.shipping_line_airline !== undefined) setShippingLineAirline(data.shipping_line_airline);
+      if (data.branchSrNo !== undefined) setBranchSrNo(data.branchSrNo);
+      if (data.adCode !== undefined) setAdCode(data.adCode);
+      if (data.importer_address_details !== undefined) setImporterAddressDetails(data.importer_address_details);
+      if (data.importer_city !== undefined) setImporterCity(data.importer_city);
+      if (data.importer_state !== undefined) setImporterState(data.importer_state);
+      if (data.importer_postal_code !== undefined) setImporterPostalCode(data.importer_postal_code);
+      if (data.importer_country !== undefined) setImporterCountry(data.importer_country);
+      if (data.supplier_exporter !== undefined) setSupplierExporter(data.supplier_exporter);
+      if (data.awb_bl_no !== undefined) setAwbBlNo(data.awb_bl_no);
+      if (data.awb_bl_date !== undefined) setAwbBlDate(data.awb_bl_date);
+      if (data.hawb_hbl_date !== undefined) setHawb_hbl_date(data.hawb_hbl_date);
+      if (data.hawb_hbl_no !== undefined) setHawb_hbl_no(data.hawb_hbl_no);
+      if (data.vessel_flight !== undefined) setVesselFlight(data.vessel_flight);
+      if (data.voyage_no !== undefined) setVoyageNo(data.voyage_no);
+      if (data.vessel_berthing !== undefined) setVesselberthing(data.vessel_berthing);
+      if (data.type_of_b_e !== undefined) setTypeOfBE(data.type_of_b_e);
+      if (data.loading_port !== undefined) setLoadingPort(data.loading_port);
+      if (data.gross_weight !== undefined) setGrossWeight(data.gross_weight);
+      if (data.job_net_weight !== undefined) setJob_net_weight(data.job_net_weight);
+      if (data.cth_no !== undefined) setCthNo(data.cth_no);
+      if (data.origin_country !== undefined) setOriginCountry(data.origin_country);
+      if (data.port_of_reporting !== undefined) setPortOfReporting(data.port_of_reporting);
+      if (data.total_inv_value !== undefined) setTotalInvValue(data.total_inv_value);
+      if (data.inv_currency !== undefined) setInvCurrency(data.inv_currency);
+      if (data.invoice_number !== undefined) setInvoiceNumber(data.invoice_number);
+      if (data.invoice_date !== undefined) setInvoiceDate(data.invoice_date);
+      if (data.po_no !== undefined) setPoNo(data.po_no);
+      if (data.po_date !== undefined) setPoDate(data.po_date);
+      if (data.import_terms !== undefined) setImportTerms(data.import_terms);
+      if (data.freight !== undefined) setFreight(data.freight);
+      if (data.insurance !== undefined) setInsurance(data.insurance);
+      if (data.term_value !== undefined) setTermValue(data.term_value);
+      if (data.cif_amount !== undefined) setCifAmount(data.cif_amount);
+      if (data.exrate !== undefined) setExrate(data.exrate);
+      if (data.description !== undefined) setDescription(data.description);
+      if (data.description_details && Array.isArray(data.description_details) && data.description_details.length > 0) {
+        setDescriptionDetails(data.description_details);
+      }
+      if (data.consignment_type !== undefined) setConsignmentType(data.consignment_type);
+      if (data.isDraftDoc !== undefined) setIsDraftDoc(data.isDraftDoc);
+      if (data.branch_id !== undefined) setBranchId(data.branch_id);
+      if (data.trade_type !== undefined) setTradeType(data.trade_type);
+      if (data.mode !== undefined) setMode(data.mode);
+      if (data.invoice_details && Array.isArray(data.invoice_details) && data.invoice_details.length > 0) {
+        setInvoiceDetails(data.invoice_details);
+      }
+      if (data.container_nos && Array.isArray(data.container_nos) && data.container_nos.length > 0) {
+        setContainerNos(data.container_nos);
+      }
+      if (data.fta_Benefit_date_time !== undefined) setFtaBenefitDateTime(data.fta_Benefit_date_time);
+      if (data.exBondValue !== undefined) setExBondValue(data.exBondValue);
+      if (data.cthDocuments && Array.isArray(data.cthDocuments) && data.cthDocuments.length > 0) {
+        setCthDocuments(data.cthDocuments);
+      }
+      if (data.scheme !== undefined) setScheme(data.scheme);
+      if (data.in_bond_be_no !== undefined) setBeNo(data.in_bond_be_no);
+      if (data.in_bond_be_date !== undefined) setBeDate(data.in_bond_be_date);
+      if (data.in_bond_ooc_copies !== undefined) setOocCopies(data.in_bond_ooc_copies);
+      if (data.clearanceValue !== undefined) setClearanceValue(data.clearanceValue);
+      if (data.HSS !== undefined) setHSS(data.HSS);
+      if (data.sallerName !== undefined) setSallerName(data.sallerName);
+      if (data.bankName !== undefined) setBankName(data.bankName);
+      if (data.ie_code_no !== undefined) setIeCodeNo(data.ie_code_no);
+      if (data.gst_no !== undefined) setGstNo(data.gst_no);
+      if (data.hss_address !== undefined) setHssAddress(data.hss_address);
+      if (data.hss_address_details !== undefined) setHssAddressDetails(data.hss_address_details);
+      if (data.hss_branch_id !== undefined) setHssBranchId(data.hss_branch_id);
+      if (data.hss_city !== undefined) setHssCity(data.hss_city);
+      if (data.hss_state !== undefined) setHssState(data.hss_state);
+      if (data.hss_ie_code_no !== undefined) setHssIeCodeNo(data.hss_ie_code_no);
+      if (data.hss_postal_code !== undefined) setHssPostalCode(data.hss_postal_code);
+      if (data.hss_country !== undefined) setHssCountry(data.hss_country);
+      if (data.hss_ad_code !== undefined) setHssAdCode(data.hss_ad_code);
+      if (data.other_charges_details !== undefined) setOtherChargesDetails(data.other_charges_details);
+
+      setHasDraft(true);
+      setLastDraftSaved(data.updatedAt);
+      return true;
+    } catch (err) {
+      console.error("Error loading draft from localStorage:", err);
+      return false;
+    }
+  };
+
+  const clearDraft = (resetState = true) => {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+      setHasDraft(false);
+      setLastDraftSaved(null);
+      if (resetState) {
+        resetForm();
+        formik.resetForm();
+        setSnackbar({
+          open: true,
+          message: "Draft cleared and form reset.",
+          severity: "info"
+        });
+      }
+    } catch (err) {
+      console.error("Error clearing draft:", err);
+    }
+  };
+
+  // Restore draft on initial mount if not in edit mode
+  useEffect(() => {
+    if (!isEditMode && !editJobId) {
+      try {
+        const savedStr = localStorage.getItem(DRAFT_KEY);
+        if (savedStr) {
+          setHasDraft(true);
+          const data = JSON.parse(savedStr);
+          if (data && data.updatedAt) {
+            setLastDraftSaved(data.updatedAt);
+          }
+          loadDraft();
+        }
+      } catch (err) {
+        console.error("Error checking draft on mount:", err);
+      }
+    }
+  }, [isEditMode, editJobId]);
+
+  // Debounced auto-save draft whenever form fields change (only when creating a job)
+  useEffect(() => {
+    if (isEditMode || editJobId) return;
+
+    const isFormDirty = Boolean(
+      branch_id || custom_house || importer_reference_no || importer || importer_type ||
+      commercial_tax_type || importer_address || shipping_line_airline || adCode ||
+      supplier_exporter || awb_bl_no || awb_bl_date || hawb_hbl_no || vessel_flight ||
+      voyage_no || type_of_b_e || loading_port || gross_weight || cth_no || origin_country ||
+      port_of_reporting || total_inv_value || invoice_number || description ||
+      (container_nos.length > 0 && (container_nos[0].container_number || container_nos[0].size)) ||
+      (invoice_details.length > 0 && (invoice_details[0].invoice_number || invoice_details[0].product_value))
+    );
+
+    if (!isFormDirty) return;
+
+    const timer = setTimeout(() => {
+      saveDraft(false);
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [
+    isEditMode, editJobId, custom_house, importer_reference_no, importer, importer_type,
+    commercial_tax_type, importer_address, importerURL, shipping_line_airline, branchSrNo,
+    adCode, importer_address_details, importer_city, importer_state, importer_postal_code,
+    importer_country, supplier_exporter, awb_bl_no, awb_bl_date, hawb_hbl_date, hawb_hbl_no,
+    vessel_flight, voyage_no, vessel_berthing, type_of_b_e, loading_port, gross_weight,
+    job_net_weight, cth_no, origin_country, port_of_reporting, total_inv_value, inv_currency,
+    invoice_number, invoice_date, po_no, po_date, import_terms, freight, insurance, term_value,
+    cif_amount, exrate, description, description_details, consignment_type, isDraftDoc,
+    branch_id, trade_type, mode, invoice_details, container_nos, fta_Benefit_date_time,
+    exBondValue, scheme, in_bond_be_no, in_bond_be_date, in_bond_ooc_copies, clearanceValue,
+    HSS, sallerName, bankName, ie_code_no, gst_no, hss_address, hss_address_details,
+    hss_branch_id, hss_city, hss_state, hss_ie_code_no, hss_postal_code, hss_country, hss_ad_code,
+    other_charges_details
+  ]);
+
   const formik = useFormik({
     initialValues: {
       all_documents: [],
@@ -988,6 +1901,69 @@ const useImportJobForm = () => {
             severity: "error"
           });
           return;
+        }
+
+        // --- HSS (HIGH SEA SALE) VALIDATION ---
+        if (HSS === "Yes") {
+          const addlCharge = other_charges_details?.addl_charge || {};
+          const addlRate = parseFloat(addlCharge.rate) || 0;
+          const addlAmount = parseFloat(addlCharge.amount) || 0;
+          const addlExrate = parseFloat(addlCharge.exchange_rate) || 1;
+          const addlAmountInr = (addlAmount * addlExrate) / getUnitForCurrency(addlCharge.currency);
+
+          // Base CIF excluding HSS
+          let baseCifInr = 0;
+          if (invoice_details && invoice_details.length > 0) {
+            baseCifInr = invoice_details.reduce((sum, row) => {
+              const pv = parseFloat(row.product_value) || 0;
+              const pvEx = parseFloat(row.exchange_rate) || parseFloat(exrate) || 1;
+              const fr = parseFloat(row.freight) || 0;
+              const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(exrate) || 1;
+              const ins = parseFloat(row.insurance) || 0;
+              const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+              const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+              const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
+              
+              const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+              const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
+              const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
+              const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
+              
+              return sum + (pvInr + frInr + insInr + othInr);
+            }, 0);
+          } else {
+            baseCifInr = (parseFloat(cif_amount || term_value) || 0) - addlAmountInr;
+          }
+          if (baseCifInr < 0) baseCifInr = 0;
+
+          const minAllowedAmountInr = baseCifInr * 0.02;
+
+          if (addlRate > 0 && addlRate < 2) {
+            setSnackbar({
+              open: true,
+              message: "High Sea Sale (HSS) is marked. Additional Charge (High Sea) Rate % cannot be less than 2%.",
+              severity: "error"
+            });
+            return;
+          }
+
+          if (addlAmountInr > 0 && baseCifInr > 0 && parseFloat(addlAmountInr.toFixed(2)) < parseFloat(minAllowedAmountInr.toFixed(2))) {
+            setSnackbar({
+              open: true,
+              message: `High Sea Sale (HSS) is marked. Additional Charge (High Sea) Amount (${addlAmountInr.toFixed(2)} INR) cannot be less than 2% of CIF (${minAllowedAmountInr.toFixed(2)} INR).`,
+              severity: "error"
+            });
+            return;
+          }
+
+          if (addlRate === 0 && addlAmount === 0) {
+            setSnackbar({
+              open: true,
+              message: "High Sea Sale (HSS) is marked. Additional Charge (High Sea) is required and must be minimum 2% of CIF.",
+              severity: "error"
+            });
+            return;
+          }
         }
 
         // --- PO VALIDATION ---
@@ -1015,11 +1991,42 @@ const useImportJobForm = () => {
           }
         }
 
+        // --- CTH / HS CODE VALIDATION ---
+        if (description_details) {
+          for (let i = 0; i < description_details.length; i++) {
+            const row = description_details[i];
+            if (row.cth_no) {
+              const clean = String(row.cth_no).trim();
+              if (clean && !/^\d{8,}$/.test(clean)) {
+                setSnackbar({
+                  open: true,
+                  message: `Row ${i + 1}: HS Code (CTH No) must be at least 8 digits long and contain only numbers.`,
+                  severity: "error"
+                });
+                return;
+              }
+            }
+          }
+        }
+
+        if (cth_no) {
+          const clean = String(cth_no).trim();
+          if (clean && !/^\d{8,}$/.test(clean)) {
+            setSnackbar({
+              open: true,
+              message: "Job-level CTH No must be at least 8 digits long and contain only numbers.",
+              severity: "error"
+            });
+            return;
+          }
+        }
+
         const payload = {
           ...values,
           year, // <-- MANDATORY for backend
           job_date,
           custom_house,
+          importer_reference_no,
           importer,
           importer_type,
           commercial_tax_type,
@@ -1051,6 +2058,8 @@ const useImportJobForm = () => {
           hawb_hbl_date,
           awb_bl_date,
           vessel_berthing,
+          vessel_flight,
+          voyage_no,
           type_of_b_e,
           loading_port,
           gross_weight,
@@ -1069,6 +2078,7 @@ const useImportJobForm = () => {
           import_terms,
           freight,
           insurance,
+          exrate,
           cifValue: term_value,
           cif_amount: cif_amount || term_value || "",
           description,
@@ -1178,9 +2188,10 @@ const useImportJobForm = () => {
 
   // Container handlers
   const handleAddContainer = () => {
+    const defaultSize = container_nos.length > 0 ? (container_nos[0]?.size || "") : "";
     const newContainer = sanitizeContainerPayload({
       container_number: "",
-      size: "",
+      size: defaultSize,
       seal_no: "",
       container_gross_weight: "",
       net_weight_as_per_PL_document: "",
@@ -1198,7 +2209,17 @@ const useImportJobForm = () => {
 
   const handleContainerChange = (index, field, value) => {
     const updatedContainers = [...container_nos];
+    const prevFirstSize = container_nos[0]?.size || "";
     updatedContainers[index][field] = value;
+
+    if (index === 0 && field === "size") {
+      for (let i = 1; i < updatedContainers.length; i++) {
+        if (!updatedContainers[i].size || updatedContainers[i].size === prevFirstSize) {
+          updatedContainers[i].size = value;
+        }
+      }
+    }
+
     setContainerNos(updatedContainers);
   };
 
@@ -1284,6 +2305,8 @@ const useImportJobForm = () => {
     setYear,
     custom_house,
     setCustomHouse,
+    importer_reference_no,
+    setImporterReferenceNo,
     importer,
     importerURL,
     setImporter,
@@ -1305,6 +2328,10 @@ const useImportJobForm = () => {
     vessel_berthing,
     setAwbBlDate,
     setVesselberthing,
+    vessel_flight,
+    setVesselFlight,
+    voyage_no,
+    setVoyageNo,
     type_of_b_e,
     setTypeOfBE,
     loading_port,
@@ -1420,6 +2447,9 @@ const useImportJobForm = () => {
     addInvoiceRow,
     updateInvoiceRow,
     removeInvoiceRow,
+    addInvoicePoDetail,
+    removeInvoicePoDetail,
+    updateInvoicePoDetail,
     import_terms,
     setImportTerms,
     freight,
@@ -1430,6 +2460,8 @@ const useImportJobForm = () => {
     setTermValue,
     cif_amount,
     setCifAmount,
+    exrate,
+    setExrate,
     isPoMandatory,
     validateAllInvoiceRows,
     validatePoFields,
@@ -1456,6 +2488,11 @@ const useImportJobForm = () => {
     setImporterPostalCode,
     importer_country,
     setImporterCountry,
+    hasDraft,
+    lastDraftSaved,
+    saveDraft,
+    loadDraft,
+    clearDraft,
   };
 };
 

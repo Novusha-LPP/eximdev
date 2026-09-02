@@ -12,6 +12,7 @@ import HolidayPolicy from '../../model/attendance/HolidayPolicy.js';
 import Shift from '../../model/attendance/Shift.js';
 import TeamModel from '../../model/teamModel.mjs';
 import moment from 'moment-timezone';
+import mongoose from 'mongoose';
 
 const CACHE_TTL_MS = 60 * 1000;
 const weekOffPolicyCache = { data: null, expiresAt: 0 };
@@ -92,9 +93,202 @@ class PolicyResolver {
   /**
    * Returns the resolved Shift for a user.
    * @param {Object} user 
+   * @param {string|Date} [date]
+   * @param {Date} [referenceTime]
    * @returns {Promise<Object|null>}
    */
-  static async resolveShift(user) {
+  static async resolveShift(user, date = null, referenceTime = null) {
+    const companyId = user.company_id?._id || user.company_id;
+    if (!companyId) return null;
+
+    let isRabs = false;
+    let autoShiftEnabled = false;
+    const Company = mongoose.model('Company');
+    const company = await Company.findById(companyId).lean();
+
+    if (user.company && /RABS/i.test(user.company)) {
+      isRabs = true;
+    } else if (company && /RABS/i.test(company.company_name)) {
+      isRabs = true;
+    }
+
+    if (isRabs && company?.attendance_config?.auto_shift_detection_enabled) {
+      autoShiftEnabled = true;
+    }
+
+    // Bypass dynamic routing if the user has an explicitly assigned/custom shift
+    if (isRabs && user?.work_pattern_override?.custom_shift === true) {
+      isRabs = false;
+      autoShiftEnabled = false;
+    }
+
+    let resolveDynamically = isRabs;
+
+    if (!resolveDynamically) {
+      const hasAssignedShift = user.shift_id || (Array.isArray(user.shift_ids) && user.shift_ids.filter(Boolean).length > 0);
+      if (!hasAssignedShift) {
+        const hasReferenceTime = !!referenceTime;
+        let hasPunches = false;
+        if (date) {
+          const AttendancePunch = mongoose.model('AttendancePunch');
+          const dateStr = typeof date === 'string' ? date : moment(date).format('YYYY-MM-DD');
+          const firstInPunch = await AttendancePunch.findOne({
+            employee_id: user._id,
+            punch_type: 'IN',
+            punch_date_str: dateStr
+          }).sort({ punch_time: 1 }).lean();
+          if (firstInPunch) {
+            hasPunches = true;
+          }
+        }
+        if (hasReferenceTime || hasPunches) {
+          resolveDynamically = true;
+        }
+      }
+    }
+
+    if (resolveDynamically) {
+      console.log(`[AutoShiftDetection] Executing shift resolution for user: ${user.username}. Auto Shift Detection flag: ${autoShiftEnabled}`);
+    } else {
+      console.log(`[AutoShiftDetection] Skipping shift resolution for user: ${user.username} (Using standard assigned shift logic).`);
+    }
+
+    if (resolveDynamically) {
+      const activeShifts = await Shift.find({ company_id: companyId, status: 'active' }).lean();
+
+      // Ensure the user's assigned shift(s) are also considered as candidates if active
+      const assignedShiftIds = [];
+      if (user.shift_id) assignedShiftIds.push(user.shift_id.toString());
+      if (Array.isArray(user.shift_ids)) {
+        user.shift_ids.forEach(id => {
+          if (id) assignedShiftIds.push((id._id || id).toString());
+        });
+      }
+      
+      for (const sId of assignedShiftIds) {
+        if (!activeShifts.some(s => s._id.toString() === sId)) {
+          const sObj = await Shift.findById(sId).lean();
+          if (sObj && sObj.status === 'active') {
+            activeShifts.push(sObj);
+          }
+        }
+      }
+
+      if (activeShifts.length > 0) {
+        let comparisonTime = referenceTime;
+        
+        if (!comparisonTime && date) {
+          const AttendancePunch = mongoose.model('AttendancePunch');
+          const dateStr = typeof date === 'string' ? date : moment(date).format('YYYY-MM-DD');
+          const firstInPunch = await AttendancePunch.findOne({
+            employee_id: user._id,
+            punch_type: 'IN',
+            punch_date_str: dateStr
+          }).sort({ punch_time: 1 }).lean();
+          
+          if (firstInPunch) {
+            comparisonTime = firstInPunch.punch_time;
+          }
+        }
+        
+        const tz = company?.timezone || 'Asia/Kolkata';
+        
+        if (!comparisonTime) {
+          const todayStr = moment().tz(tz).format('YYYY-MM-DD');
+          const targetDateStr = date ? (typeof date === 'string' ? date : moment(date).format('YYYY-MM-DD')) : todayStr;
+          
+          if (targetDateStr === todayStr) {
+            comparisonTime = new Date();
+          }
+        }
+        
+        if (comparisonTime) {
+          const targetMoment = moment(comparisonTime).tz(tz);
+          const targetMinutes = targetMoment.hours() * 60 + targetMoment.minutes();
+
+          if (autoShiftEnabled) {
+            // Auto Shift Detection logic based on detection windows
+            const matchingShifts = [];
+            for (const s of activeShifts) {
+              if (!s.detection_window_start || !s.detection_window_end) continue;
+              
+              const [sh, sm] = s.detection_window_start.split(':').map(Number);
+              const [eh, em] = s.detection_window_end.split(':').map(Number);
+              if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) continue;
+              
+              const startMin = sh * 60 + sm;
+              const endMin = eh * 60 + em;
+              
+              let inWindow = false;
+              if (startMin <= endMin) {
+                inWindow = targetMinutes >= startMin && targetMinutes <= endMin;
+              } else {
+                inWindow = targetMinutes >= startMin || targetMinutes <= endMin;
+              }
+              
+              if (inWindow) {
+                matchingShifts.push(s);
+              }
+            }
+
+            if (matchingShifts.length === 1) {
+              return await Shift.findById(matchingShifts[0]._id);
+            } else if (matchingShifts.length > 1) {
+              let bestShift = null;
+              let minDiff = Infinity;
+              for (const s of matchingShifts) {
+                if (!s.start_time) continue;
+                const [sh, sm] = s.start_time.split(':').map(Number);
+                if (isNaN(sh) || isNaN(sm)) continue;
+                
+                const startMin = sh * 60 + sm;
+                let diff = Math.abs(targetMinutes - startMin);
+                diff = Math.min(diff, 1440 - diff);
+                
+                if (diff < minDiff) {
+                  minDiff = diff;
+                  bestShift = s;
+                } else if (diff === minDiff) {
+                  const bestPriority = bestShift.priority ?? Infinity;
+                  const currentPriority = s.priority ?? Infinity;
+                  if (currentPriority < bestPriority) {
+                    bestShift = s;
+                  }
+                }
+              }
+              if (bestShift) {
+                return await Shift.findById(bestShift._id);
+              }
+            }
+            // Fall back to existing 24-hour flexible proximity matching if no windows match
+          }
+
+          // Existing 24-hour proximity matching
+          let closestShift = null;
+          let minDiff = Infinity;
+          
+          for (const s of activeShifts) {
+            if (!s.start_time) continue;
+            const [sh, sm] = s.start_time.split(':').map(Number);
+            if (isNaN(sh) || isNaN(sm)) continue;
+            
+            const shiftMinutes = sh * 60 + sm;
+            let diff = Math.abs(targetMinutes - shiftMinutes);
+            diff = Math.min(diff, 1440 - diff);
+            
+            if (diff < minDiff) {
+              minDiff = diff;
+              closestShift = s;
+            }
+          }
+          
+          if (closestShift) {
+            return await Shift.findById(closestShift._id);
+          }
+        }
+      }
+    }
+
     const assignedShiftIds = Array.isArray(user.shift_ids)
       ? user.shift_ids.map((id) => id?._id || id).filter(Boolean)
       : [];
@@ -109,9 +303,6 @@ class PolicyResolver {
       const shift = await Shift.findById(user.shift_id);
       if (shift && shift.status === 'active') return shift;
     }
-
-    const companyId = user.company_id?._id || user.company_id;
-    if (!companyId) return null;
 
     const shifts = await Shift.find({ company_id: companyId, status: 'active' });
 
@@ -182,7 +373,9 @@ class PolicyResolver {
    * @returns {{ isOff: boolean, isHalfDay: boolean }}
    */
   static resolveWeeklyOffStatus(date, weekOffPolicy, tz = 'Asia/Kolkata') {
-    const d = moment.tz(date, tz);
+    const d = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? moment.tz(date, 'YYYY-MM-DD', tz)
+      : moment.tz(date, tz);
     const dayOfWeek = d.day(); // 0=Sun … 6=Sat
 
     if (!weekOffPolicy) {
@@ -291,13 +484,20 @@ class PolicyResolver {
    * @param {Object|null} holidayPolicy
    * @returns {{ isHoliday: boolean, isOptional: boolean, name: string|null }}
    */
-  static resolveHolidayStatus(date, holidayPolicy) {
+  static resolveHolidayStatus(date, holidayPolicy, tz = 'Asia/Kolkata') {
     if (!holidayPolicy) return { isHoliday: false, isOptional: false, name: null };
 
-    const d = moment(date).format('YYYY-MM-DD');
-    const entry = (holidayPolicy.holidays || []).find(h =>
-      moment(h.holiday_date).format('YYYY-MM-DD') === d
-    );
+    const targetDateStr = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? date
+      : moment.tz(date, tz).format('YYYY-MM-DD');
+
+    const entry = (holidayPolicy.holidays || []).find(h => {
+      if (!h || !h.holiday_date) return false;
+      const hDateUtcStr = moment.utc(h.holiday_date).format('YYYY-MM-DD');
+      const hDateTzStr = moment.tz(h.holiday_date, tz).format('YYYY-MM-DD');
+      const hDateRawStr = typeof h.holiday_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(h.holiday_date) ? h.holiday_date : null;
+      return hDateUtcStr === targetDateStr || hDateTzStr === targetDateStr || hDateRawStr === targetDateStr;
+    });
 
     if (!entry) return { isHoliday: false, isOptional: false, name: null };
 

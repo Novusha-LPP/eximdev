@@ -4,6 +4,7 @@ import authApiKey from "../middleware/authApiKey.mjs";
 import CountryModel from "../model/countryModel.mjs";
 import CustomHouseModel from "../model/customHouseModel.mjs";
 import PortModel from "../model/portModel.mjs";
+import BranchModel from "../model/branchModel.mjs";
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ const router = express.Router();
  */
 router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
   try {
-    const { job_number } = req.query;
+    const { job_number, senderID } = req.query;
 
     if (!job_number) {
       return res.status(400).send({ error: "job_number is a required query parameter" });
@@ -28,7 +29,7 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
     }
 
     // Lookup country code
-    const countryDoc = await CountryModel.findOne({ name: job.origin_country || "" }).lean();
+    const countryDoc = await CountryModel.findOne({ name: (job.origin_country || "").trim().toUpperCase() }).lean();
     const countryCode = countryDoc ? countryDoc.code : "";
 
     // --- Validation Helpers ---
@@ -98,6 +99,25 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
       return "";
     };
 
+    // Helper to determine the package code
+    const getPackageCode = (j) => {
+      if (j.no_of_pkgs) {
+        const parts = String(j.no_of_pkgs).trim().split(/\s+/);
+        if (parts.length > 1) {
+          const lastPart = parts[parts.length - 1].toUpperCase();
+          if (/^[A-Z]{3}$/.test(lastPart)) {
+            return lastPart;
+          }
+        }
+      }
+      const unitUpper = String(j.unit || "").toUpperCase().trim();
+      const weightVolumeUoms = ["KGS", "MTS", "LTR", "LTS", "MTR", "MTRS", "TON", "TNS", "CFT", "CBM", "SQM"];
+      if (unitUpper && !weightVolumeUoms.includes(unitUpper)) {
+        return unitUpper;
+      }
+      return "PKG";
+    };
+
     // Lookup Custom House Code
     let resolvedCustomHouseCode = getVal(job.custom_house);
     if (resolvedCustomHouseCode) {
@@ -109,6 +129,21 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
       }).lean();
       if (chDoc) {
         resolvedCustomHouseCode = chDoc.code;
+      } else {
+        // Fallback: Check branches collection's ports list dynamically
+        const activeBranches = await BranchModel.find({ is_active: true }).lean();
+        for (const branch of activeBranches) {
+          if (branch.ports) {
+            const port = branch.ports.find(p => 
+              p.port_name.toLowerCase() === resolvedCustomHouseCode.toLowerCase() ||
+              p.port_code.toLowerCase() === resolvedCustomHouseCode.toLowerCase()
+            );
+            if (port) {
+              resolvedCustomHouseCode = port.port_code;
+              break;
+            }
+          }
+        }
       }
     }
 
@@ -133,6 +168,33 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
       }
     } 
 
+    // Fetch all active branch ICD ports from the database dynamically
+    const activeBranches = await BranchModel.find({ is_active: true }).lean();
+    const dbIcdPorts = [];
+    for (const b of activeBranches) {
+      if (b.ports) {
+        for (const p of b.ports) {
+          if (p.is_icd) {
+            dbIcdPorts.push(p);
+          }
+        }
+      }
+    }
+
+    const targetICDs = dbIcdPorts.length > 0
+      ? dbIcdPorts.map(p => p.port_code.toUpperCase())
+      : ["INSAU6", "INJKA6", "INSBI6", "INBRC6", "INVCN6"];
+
+    const targetNames = dbIcdPorts.length > 0
+      ? dbIcdPorts.map(p => p.port_name.toUpperCase())
+      : [
+          "ICD SANAND",
+          "ICD SACHANA",
+          "ICD KHODIYAR",
+          "ICD VARANAMA",
+          "ICD VIROCHANNAGR"
+        ];
+
     // Map fields according to user request
     const responseData = {
       CHADetails: {
@@ -156,7 +218,7 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
           }
           return validateChar(fy, 9, true, "Financial Year");
         })(),
-        "SenderID": validateChar("PROTRANS", 15, true, "SenderID")
+        "SenderID": validateChar(senderID || "SURAJAHD", 15, true, "SenderID")
       },
       BE_Details: {
         "Custom House Code": validateChar(resolvedCustomHouseCode, 6, true, "Custom House Code"),
@@ -188,9 +250,19 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
         "Commercial Tax RegistrationNo": validateChar(job.gst_no, 20, true, "Commercial Tax RegistrationNo"),
         "Class": validateChar("N", 1, true, "Class"),
         "Mode of Transport": (() => {
+          const rawCH = getVal(job.custom_house).toUpperCase();
+          const resolvedCH = getVal(resolvedCustomHouseCode).toUpperCase();
+          const isTargetICD = targetICDs.some(code => rawCH.includes(code) || resolvedCH.includes(code)) ||
+                              targetNames.some(name => rawCH.includes(name) || resolvedCH.includes(name));
+
           let mode = "";
-          if (job.mode === "SEA") mode = "S";
-          else if (job.mode === "AIR") mode = "A";
+          if (isTargetICD) {
+            mode = "L";
+          } else if (job.mode === "SEA") {
+            mode = "S";
+          } else if (job.mode === "AIR") {
+            mode = "A";
+          }
           return validateChar(mode, 1, true, "Mode of Transport");
         })(),
         "ImporterType": validateChar("P", 1, true, "ImporterType"),
@@ -200,7 +272,7 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
           return validateChar(hssVal === "YES" ? "Y" : "N", 1, true, "High sea sale flag");
         })(),
         "Port of Origin": validateChar(resolvedPortOfOriginCode, 6, true, "Port of Origin"),
-        "CHA Code": validateChar("NOVU", 15, true, "CHA Code"),
+        "CHA Code": validateChar("ABOFS1766LCH005", 15, true, "CHA Code"),
         "Country of Origin": validateChar(countryCode, 2, true, "Country of Origin"),
         "Country of Consignment": validateChar(countryCode, 2, true, "Country of Consignment"),
         "Port Of Shipment": validateChar(resolvedPortOfOriginCode, 6, true, "Port Of Shipment"),
@@ -214,7 +286,7 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
         "Ware house BE No": validateChar(job.in_bond_be_no, 7, false, "Ware house BE No"),
         "Ware house BE Date": validateDate(job.in_bond_be_date, false, "Ware house BE Date"),
         "No of packages released": validateNum(job.no_of_pkgs, 8, 0, false, "No of packages released"),
-        "Package Code": validateChar(job.unit, 3, false, "Package Code"),
+        "Package Code": validateChar(getPackageCode(job), 3, false, "Package Code"),
         "Gross Weight": validateNum(job.gross_weight, 12, 3, false, "Gross Weight"),
         "Unit of Measurement": validateChar(job.unit, 3, false, "Unit of Measurement"),
         "Payment method code": (() => {
@@ -226,8 +298,8 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
       },
       IGMS: [
         {
-          "IGM No.": validateNum(job.igm_no, 7, 0, true, "IGM No."),
-          "IGM Date": validateDate(job.igm_date, true, "IGM Date"),
+          "IGM No.": validateNum(job.igm_no, 7, 0, false, "IGM No."),
+          "IGM Date": validateDate(job.igm_date, false, "IGM Date"),
           "Inward Date": validateDate(job.vessel_berthing || job.discharge_date, true, "Inward Date"),
           "Gateway IGM Number": validateNum(job.gateway_igm, 7, 0, false, "Gateway IGM Number"),
           "Gateway IGM date": validateDate(job.gateway_igm_date, false, "Gateway IGM date"),
@@ -239,15 +311,15 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
           "Total No. Of Packages": validateNum(job.no_of_pkgs, 8, 0, true, "Total No. Of Packages"),
           "Gross Weight": validateNum(job.gross_weight, 9, 3, true, "Gross Weight"),
           "Unit Quantity Code": validateChar(job.unit, 3, true, "Unit Quantity Code"),
-          "Package Code": validateChar(job.unit, 3, true, "Package Code"),
-          "Marks And Numbers 1": validateChar(job.description || "AS PER BL", 4000, true, "Marks And Numbers 1"),
+          "Package Code": validateChar(getPackageCode(job), 3, true, "Package Code"),
+          "Marks And Numbers 1": validateChar("AS PER BL", 4000, true, "Marks And Numbers 1"),
           "Marks And Numbers 2": validateChar("", 40, false, "Marks And Numbers 2"),
           "Marks And Numbers 3": validateChar("", 40, false, "Marks And Numbers 3")
         }
       ],
       CONTAINER: (job.container_nos || []).map(container => ({
-        "IGM Number": validateNum(job.igm_no, 7, 0, true, "IGM Number"),
-        "IGM Date": validateDate(job.igm_date, true, "IGM Date"),
+        "IGM Number": validateNum(job.igm_no, 7, 0, false, "IGM Number"),
+        "IGM Date": validateDate(job.igm_date, false, "IGM Date"),
         "LCL.FCL": (() => {
           const type = getVal(job.consignment_type).toUpperCase();
           let code = "";
@@ -283,8 +355,8 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
     // If CONTAINER or SupportingDocumentList are empty, provide a template with empty/default values meeting mandatory requirements
     if (responseData.CONTAINER.length === 0) {
       responseData.CONTAINER.push({
-        "IGM Number": validateNum("", 7, 0, true),
-        "IGM Date": validateDate("", true),
+        "IGM Number": validateNum("", 7, 0, false),
+        "IGM Date": validateDate("", false),
         "LCL.FCL": validateChar("", 1, true),
         "Container Number": validateChar("", 11, true),
         "Seal Number": validateChar("", 10, true),

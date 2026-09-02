@@ -8,6 +8,7 @@ const allModules = [
   "Import - Operations",
   "Import - Add",
   "Import - Billing",
+  "Billing Confirmation",
   "Import Utility Tool",
   "Report",
   "Audit Trail",
@@ -20,8 +21,13 @@ const allModules = [
   "Export - Jobs",
   "Export - Operation",
   "Accounts",
+  "Billing Reports",
+  "RM Procurement SOP",
+  "Tyre Procurement SOP",
+  "Fleet Insurance SOP",
   "Employee Onboarding",
   "Employee KYC",
+  "HR",
   "Inward Register",
   "Outward Register",
   "Customer KYC",
@@ -44,7 +50,11 @@ const allModules = [
   "MasterDirectory",
   "Attendance",
   "Bill Cover",
-  "IT Helpdesk"
+  "IT Helpdesk",
+  "Karma Points",
+  "Tally Transactions",
+  "5S Audit",
+  "First Aid"
 ];
 
 // allowedModules: if provided, only these modules can be assigned (for HOD restriction)

@@ -1,0 +1,2131 @@
+{
+  "trueDuplicates": [],
+  "softDuplicates": [],
+  "syncDrift": [
+    {
+      "employeeId": "6672a2501aa931b68b091fe1",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 13,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69ce1466bef4ffa9297942eb"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fd1",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 9,
+      "storedPending": 1,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69cf4e61022d6d7c6d4c1103"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fb7",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 2,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d33f49ff166b746b2f21c8"
+    },
+    {
+      "employeeId": "69807755317a48004a06b79c",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 8.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d3748f5eff41f9a49130be"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fda",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 21.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d50908c8b8de4ee904a5f2"
+    },
+    {
+      "employeeId": "68525427fecca8549389c9a9",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 12,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d50949edd59dc5df44bab4"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fb6",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 22,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d50ce0c8b8de4ee904c746"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092004",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 3,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d5ee5f7d9972f13bebb731"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff4",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 14,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d5ff9231430ee96b67bd3d"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fce",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 6,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d6102631430ee96b68268a"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fd0",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 12.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d62b2731430ee96b69a80e"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fd7",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 18,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d632cf8a2ef1f9142523bf"
+    },
+    {
+      "employeeId": "6981c69dfd24d48e6c8597b0",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 4,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d735ecdf4d0326b799dcf7"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fd2",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 8,
+      "storedPending": 1,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d7afe2df4d0326b79d7ab5"
+    },
+    {
+      "employeeId": "695b844b427cdad46a210f1c",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 21,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d8592adf4d0326b79dd8f6"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fd8",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 9,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d9f001b23841e68b4b8750"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fc5",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 9,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d9f23bf22b9571a81c33e7"
+    },
+    {
+      "employeeId": "6852538cfecca8549389c9a4",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 11,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d9f6bab23841e68b4bf5e3"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fd4",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 6.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d9f7119c9b98d43b075781"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fd6",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 3,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69d9fe04d97d29d2ac2653ca"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fd9",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 4,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da014bb23841e68b4cdf92"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fc3",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 23,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da02b7d97d29d2ac269c25"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fdd",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 25,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da04669c9b98d43b082688"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fdb",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 7,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da048eb23841e68b4d3ea1"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fb9",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 9.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da04da9c9b98d43b082a68"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fe0",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 1,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da0522b23841e68b4d3fb9"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fe3",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 6,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da0575f22b9571a81d8c0a"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fe4",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 5,
+      "storedPending": 1,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da05959c9b98d43b082ec7"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fe5",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 28,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da05d6b23841e68b4d46b8"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fe6",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 20,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da05fb9c9b98d43b08337f"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fe9",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 7.5,
+      "storedPending": 1,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da0668d97d29d2ac26c705"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fea",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 3,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da069bf22b9571a81d98aa"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fef",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 18,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da07c99c9b98d43b083e24"
+    },
+    {
+      "employeeId": "689d89db7af30e39ccea2291",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 1,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da0945d97d29d2ac26e396"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff6",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 13,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da0983b23841e68b4d687e"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff7",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 15,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da09b9f22b9571a81dbad5"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff8",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 3.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da09da9c9b98d43b085669"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff9",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 2,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da09fff22b9571a81dbcc8"
+    },
+    {
+      "employeeId": "68525317fecca8549389c9a0",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 7,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da0a4ef22b9571a81dc21f"
+    },
+    {
+      "employeeId": "685258d1fecca8549389c9d6",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 4,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da0aa59c9b98d43b085f8e"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ffb",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 6,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da0ac2b23841e68b4d7546"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ffc",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 3,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da0afdf22b9571a81dd51a"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092001",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 11,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da0de1d97d29d2ac271981"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092005",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 40,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da0e66d97d29d2ac271bcf"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092007",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 2,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da0f1dd97d29d2ac272502"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092008",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 23,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da0f469c9b98d43b08aa0d"
+    },
+    {
+      "employeeId": "6979dc3c22f76fdf9865e200",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da0fecb23841e68b4dc38c"
+    },
+    {
+      "employeeId": "696f2427e1bae1f749fc64ac",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 7,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69da11389c9b98d43b08ba46"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091faf",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 1,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69de1fbfbd1a7aa798b20689"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fc7",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 3,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69df4d68b37f05820fce50fa"
+    },
+    {
+      "employeeId": "66bc6843cb637a5bb0b0ce04",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 17,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69df4fa7e129d28e1d636186"
+    },
+    {
+      "employeeId": "68b1594f02de992bfa6d446a",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 5.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69df576d2ba17917781cec58"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fcd",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 3,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69df97d6bd304c95cd1c796a"
+    },
+    {
+      "employeeId": "68ad512cd4e8150302c6efaf",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 2,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69df99836e3fe8b3f92cd59b"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b09200e",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 1,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69df9bbb6e3fe8b3f92cf290"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092014",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 4,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69e099806e3fe8b3f92eb62f"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fc1",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 7,
+      "storedPending": 1,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69e0ca82f7b0e5252f855176"
+    },
+    {
+      "employeeId": "673194be4e14f7f72db20944",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 1,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69e0cbad9c5f930799943aae"
+    },
+    {
+      "employeeId": "674d66dadf995f4492c15bb9",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 4,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69e0cc6a9c5f93079994442e"
+    },
+    {
+      "employeeId": "68a2e4db5df0a102c344629f",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 3,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69e0ccf4f7b0e5252f8564c3"
+    },
+    {
+      "employeeId": "68a2e4db5df0a102c344629f",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 1,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69e0cd0af7b0e5252f8565c6"
+    },
+    {
+      "employeeId": "68cbec5ce8c7877a02a5568b",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 2,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69e0cf68a67e6af94f0d9ad0"
+    },
+    {
+      "employeeId": "67d582340c097bb06e4b1021",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 4.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69e0d03ef7b0e5252f858baf"
+    },
+    {
+      "employeeId": "69a563a56cf7571d1230d559",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 2,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69e0d0be9c5f9307999472e9"
+    },
+    {
+      "employeeId": "696e39dae2e6cdb81b3357a0",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 8,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69e0da6df7b0e5252f861ae0"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fae",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 12,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69e0db7b9c5f930799950130"
+    },
+    {
+      "employeeId": "69609c79427cdad46a2b5fdb",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 16,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69e203859c5f930799993582"
+    },
+    {
+      "employeeId": "6852538cfecca8549389c9a4",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 1,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69e71eff0280c50560238455"
+    },
+    {
+      "employeeId": "69b92b443dc0a68e09882c15",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 11.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "69f3299b46f21e595afd15b3"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092006",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a38ec2d6660f902a77a62b1"
+    },
+    {
+      "employeeId": "696f7ae5e2e6cdb81b34f7ce",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 9.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a38ec2f48384a5ff5f01e68"
+    },
+    {
+      "employeeId": "68e89c7ba5d41da1befe6d0c",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a38ec305130edb9cc254b5f"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fee",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 2,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a3a16a548384a5ff5f57d33"
+    },
+    {
+      "employeeId": "6a059ab3d065f33262fa04fe",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 3,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a3cddd7845f66ec7110e37b"
+    },
+    {
+      "employeeId": "69819bc43079240b250f3710",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 9,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a3e5eec8a3d258faa755bac"
+    },
+    {
+      "employeeId": "69804d90317a48004a054770",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 0.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a45120558cd71b9143f753c"
+    },
+    {
+      "employeeId": "69804d90317a48004a054770",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 12,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a4512060f0806e541d813af"
+    },
+    {
+      "employeeId": "696f48d238045686a859f69d",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 4,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a45120d0dc1da54d41b272e"
+    },
+    {
+      "employeeId": "68ad50ffd4e8150302c6ef74",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 3,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a45121758cd71b9143f7f16"
+    },
+    {
+      "employeeId": "6a0af12ab3d7419155bed6b1",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 0.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a45f28352eb74f15d9b0082"
+    },
+    {
+      "employeeId": "6746cc4e05cbf32fba72e333",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 11.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a4625d5046c4b4731448866"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fca",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 8.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a4625d7d42a5aa9c3070d0f"
+    },
+    {
+      "employeeId": "69a5542d305fe7985ad33dd5",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a4625d9d42a5aa9c3070d28"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fbd",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 6,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a463a3b046c4b4731458905"
+    },
+    {
+      "employeeId": "6996f0274d307b060bec18eb",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 19.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a48f45d5c3b48b604fde870"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091123",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 10,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a48f4ee7c50fde9c3d2fcb8"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fc8",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 12.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a490a89887665bd4c6a7283"
+    },
+    {
+      "employeeId": "6921589119eeaf8656a8506b",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 1,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a4b7a6b5c3b48b6040ce5f2"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff2",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 2,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a4b7d187c50fde9c3e23815"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ffe",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 3.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a4b7d184287613053273986"
+    },
+    {
+      "employeeId": "6717a6210baca2a74a8a8bca",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a4d00f75f7684b92a169b2f"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fc6",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 6.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a4f3ba905f494559e3e319d"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fed",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 8.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a4f3baade84b43b782865c1"
+    },
+    {
+      "employeeId": "69804d6fdb43a20e654eb45c",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a4f3bb1de84b43b782865f8"
+    },
+    {
+      "employeeId": "6a01952661df5efb2d0de50c",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 6,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a4f3bb269d9ba9d1806218d"
+    },
+    {
+      "employeeId": "6a17e37b179dec27504955cb",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 4,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a4f3bb3adc9be420d7c480b"
+    },
+    {
+      "employeeId": "686caa3dd013cdff352cb649",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 18,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a50e56d917d1c3e6402a2a0"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fb7",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 4,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a50e56d472428bcf5f591d0"
+    },
+    {
+      "employeeId": "6690d3e770bd4bd1218f28bd",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 7.5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a54857a917d1c3e640a4d4d"
+    },
+    {
+      "employeeId": "692426afd2e28c3215bc914b",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 5,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a54857e472428bcf5fe9278"
+    },
+    {
+      "employeeId": "6a54c0995269e337df89640d",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 1,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a54c5e3aaba69027d89dd2a"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff3",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 7,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a54f36227fbb032e0c3dc39"
+    },
+    {
+      "employeeId": "6a56061fecf0e56955c85b51",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 16,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a561432ecf0e56955c91696"
+    },
+    {
+      "employeeId": "6937e569b367c7f6e9119342",
+      "year": 2026,
+      "leaveType": "casual",
+      "storedUsed": 20,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a561701ecf0e56955c93475"
+    },
+    {
+      "employeeId": "697315eb22f76fdf985a9588",
+      "year": 2026,
+      "leaveType": "casual",
+      "storedUsed": 6,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a5618b68298f86d96953f1d"
+    },
+    {
+      "employeeId": "69980bead5f7dccd1a63aff6",
+      "year": 2026,
+      "leaveType": "casual",
+      "storedUsed": 3,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a5618ff8298f86d9695407d"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092000",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 6,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a5761bbecf0e56955dd970e"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff1",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 4,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a58abbe858569bf132491d1"
+    },
+    {
+      "employeeId": "6a1d6c0a8eccfc5e170be7d3",
+      "year": 2026,
+      "leaveType": "lwp",
+      "storedUsed": 4,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a58abc0858569bf132491ed"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ffd",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 3,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a58d4410fc3ee85925ef6dc"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b09200d",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 24,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a58d441858569bf13298648"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092010",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 11,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a58d4420fc3ee85925ef6f9"
+    },
+    {
+      "employeeId": "667d476104773cd0c087a7d9",
+      "year": 2026,
+      "leaveType": "privilege",
+      "storedUsed": 6,
+      "storedPending": 0,
+      "actualApprovedSum": 0,
+      "actualPendingSum": 0,
+      "balanceDocId": "6a59ebf5858569bf132dab0c"
+    }
+  ],
+  "suspectedResets": [],
+  "postDeployAutoCreates": [
+    {
+      "employeeId": "69804d90317a48004a054770",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-01T13:11:33.842Z",
+      "openingBalance": 999,
+      "balanceDocId": "6a45120558cd71b9143f753c"
+    },
+    {
+      "employeeId": "69804d90317a48004a054770",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-01T13:11:34.756Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a4512060f0806e541d813af"
+    },
+    {
+      "employeeId": "696f48d238045686a859f69d",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-01T13:11:42.024Z",
+      "openingBalance": 999,
+      "balanceDocId": "6a45120d0dc1da54d41b272e"
+    },
+    {
+      "employeeId": "68ad50ffd4e8150302c6ef74",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-01T13:11:51.351Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a45121758cd71b9143f7f16"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fc4",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-01T13:18:16.418Z",
+      "openingBalance": 20,
+      "balanceDocId": "6a4513981ed65cfdd4c5fdb4"
+    },
+    {
+      "employeeId": "6a0af12ab3d7419155bed6b1",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-02T05:09:23.623Z",
+      "openingBalance": 999,
+      "balanceDocId": "6a45f28352eb74f15d9b0082"
+    },
+    {
+      "employeeId": "6746cc4e05cbf32fba72e333",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-02T08:48:21.799Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a4625d5046c4b4731448866"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fca",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-02T08:48:23.230Z",
+      "openingBalance": 39,
+      "balanceDocId": "6a4625d7d42a5aa9c3070d0f"
+    },
+    {
+      "employeeId": "69a5542d305fe7985ad33dd5",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-02T08:48:26.014Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a4625d9d42a5aa9c3070d28"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fbd",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-02T10:15:23.244Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a463a3b046c4b4731458905"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fe6",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T12:16:44.835Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47a82c2268cbee11afff69"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fda",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T12:19:11.392Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47a8bf5fffe7f92adfca59"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fc8",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T12:23:42.653Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47a9ce5fffe7f92adfd2b1"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff4",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T12:25:23.998Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47aa3379846b3236831f9c"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fd7",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T12:45:33.551Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47aeed2268cbee11b08e01"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fe1",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T12:54:42.426Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47b1125fffe7f92ae05dd1"
+    },
+    {
+      "employeeId": "6a3540026660f902a76f8c97",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T12:59:22.351Z",
+      "openingBalance": 100,
+      "balanceDocId": "6a47b22a79846b323683f158"
+    },
+    {
+      "employeeId": "69dc8828d97d29d2ac29db1f",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:07:38.066Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47b41a887665bd4c5770cd"
+    },
+    {
+      "employeeId": "689d89db7af30e39ccea2291",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:14:10.210Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47b5a27c50fde9c3c10596"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ffd",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:19:54.868Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47b6fa5c3b48b604ec0eb9"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fd9",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:26:01.340Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47b8697c50fde9c3c12646"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092006",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:28:08.810Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47b8e87c50fde9c3c12bc9"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fe9",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:29:35.447Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47b93f4287613053052b8e"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fe3",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:32:26.485Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47b9ea5c3b48b604ec405a"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fd2",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:33:04.195Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47ba107c50fde9c3c149ca"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092004",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:33:18.665Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47ba1e4287613053054e68"
+    },
+    {
+      "employeeId": "686caa3dd013cdff352cb649",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:37:39.910Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47bb235c3b48b604ec4dee"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fc3",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:44:37.027Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47bcc5887665bd4c581582"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fed",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:46:34.787Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47bd3a428761305305aaf0"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fe0",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:48:02.999Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47bd925c3b48b604ed0935"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff1",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:51:23.485Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47be5b428761305306351d"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff6",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:56:53.654Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47bfa55c3b48b604ee53aa"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fdb",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:57:21.372Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47bfc1887665bd4c59d224"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ffb",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T13:59:54.257Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47c05a887665bd4c59de13"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fdd",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T14:13:31.224Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47c38b5c3b48b604ee71e4"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff9",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T14:21:16.813Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47c55c887665bd4c59ea78"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fd4",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T14:23:34.749Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47c5e6887665bd4c59eb9c"
+    },
+    {
+      "employeeId": "69c4c64c0a2682acc2b03b64",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T14:33:00.078Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47c81c42876130530765d7"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fbd",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T14:33:22.471Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47c832887665bd4c59f202"
+    },
+    {
+      "employeeId": "69c4c7dd46442a39f6575851",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T14:35:18.002Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47c8a65c3b48b604ee87c4"
+    },
+    {
+      "employeeId": "69c4c5e0d933e5323276d0db",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T14:43:18.725Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47ca864287613053076d91"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ffc",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T15:30:44.194Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47d5a4887665bd4c5d30ab"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fef",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T16:04:12.123Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47dd7c42876130530a9de5"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092009",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-03T16:08:30.990Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a47de7e5c3b48b604f2086c"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fee",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T03:36:19.784Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a487fb3887665bd4c5dc47a"
+    },
+    {
+      "employeeId": "68525427fecca8549389c9a9",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T04:36:46.423Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a488dde42876130530bb2c3"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fd8",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T04:41:37.863Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a488f01887665bd4c5e6df0"
+    },
+    {
+      "employeeId": "667d476104773cd0c087a7d9",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T05:24:46.097Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a48991e887665bd4c5f4191"
+    },
+    {
+      "employeeId": "685258d1fecca8549389c9d6",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T06:49:02.616Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a48acde887665bd4c638990"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fb2",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T07:07:15.411Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a48b1237c50fde9c3cd2f27"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fdf",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T07:57:21.407Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a48bce1428761305311d894"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fe7",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T09:32:55.289Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a48d3475c3b48b604fb08bc"
+    },
+    {
+      "employeeId": "696e363ae1bae1f749fb8ea9",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T10:53:14.758Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a48e61a7c50fde9c3d1b0cc"
+    },
+    {
+      "employeeId": "6996f0274d307b060bec18eb",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T11:54:05.237Z",
+      "openingBalance": 999,
+      "balanceDocId": "6a48f45d5c3b48b604fde870"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091123",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-04T11:56:30.565Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a48f4ee7c50fde9c3d2fcb8"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff2",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T12:18:11.634Z",
+      "openingBalance": 100,
+      "balanceDocId": "6a48fa035c3b48b604fe48c1"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092003",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T12:25:26.374Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a48fbb67c50fde9c3d39cf7"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092005",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T12:25:37.151Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a48fbc15c3b48b604fe771f"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fe8",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T12:39:45.430Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a48ff11887665bd4c69dfc0"
+    },
+    {
+      "employeeId": "69c3b65dd933e5323266cc96",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-04T12:39:52.850Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a48ff18887665bd4c69e02b"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fc8",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-04T13:28:41.640Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a490a89887665bd4c6a7283"
+    },
+    {
+      "employeeId": "6921589119eeaf8656a8506b",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-06T09:50:35.049Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a4b7a6b5c3b48b6040ce5f2"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff2",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-06T10:02:00.187Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a4b7d187c50fde9c3e23815"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ffe",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-06T10:02:00.809Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a4b7d184287613053273986"
+    },
+    {
+      "employeeId": "6717a6210baca2a74a8a8bca",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-07T13:36:55.324Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a4d00f75f7684b92a169b2f"
+    },
+    {
+      "employeeId": "6a0af9ebb3d7419155bf2c04",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-08T06:37:34.923Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a4df02ea958d803834366f0"
+    },
+    {
+      "employeeId": "69c4c6aed933e5323276d646",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-08T12:16:17.120Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a4e3f916ad75f3bc0c7da92"
+    },
+    {
+      "employeeId": "69c4c79d46442a39f6575811",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-08T12:17:29.761Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a4e3fd9f02480d69f24dd4a"
+    },
+    {
+      "employeeId": "69c4c847d933e5323276dd24",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-08T12:43:44.354Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a4e46006ad75f3bc0c8579d"
+    },
+    {
+      "employeeId": "69c4c81a0a2682acc2b03e8e",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-09T02:33:23.083Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a4f0873de84b43b78247179"
+    },
+    {
+      "employeeId": "69c4c6d346442a39f65756d6",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-09T02:34:54.500Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a4f08ce69d9ba9d1802207b"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fc6",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-09T06:11:53.654Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a4f3ba905f494559e3e319d"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fed",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-09T06:11:54.755Z",
+      "openingBalance": 54.5,
+      "balanceDocId": "6a4f3baade84b43b782865c1"
+    },
+    {
+      "employeeId": "69804d6fdb43a20e654eb45c",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-09T06:12:01.329Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a4f3bb1de84b43b782865f8"
+    },
+    {
+      "employeeId": "6a01952661df5efb2d0de50c",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-09T06:12:02.411Z",
+      "openingBalance": 999,
+      "balanceDocId": "6a4f3bb269d9ba9d1806218d"
+    },
+    {
+      "employeeId": "6a17e37b179dec27504955cb",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-09T06:12:03.545Z",
+      "openingBalance": 24,
+      "balanceDocId": "6a4f3bb3adc9be420d7c480b"
+    },
+    {
+      "employeeId": "69c4c7000a2682acc2b03d59",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-09T06:55:31.479Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a4f45e3adc9be420d7d178d"
+    },
+    {
+      "employeeId": "69c4c6020a2682acc2b03a24",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-09T07:46:12.818Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a4f51c405f494559e400f2b"
+    },
+    {
+      "employeeId": "69980bead5f7dccd1a63aff6",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-09T07:49:08.156Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a4f5274adc9be420d7db7d9"
+    },
+    {
+      "employeeId": "6937e569b367c7f6e9119342",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-09T08:42:14.153Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a4f5ee669d9ba9d1807f6a9"
+    },
+    {
+      "employeeId": "68e89c7ba5d41da1befe6d0c",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-09T09:53:04.090Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a4f6f80900d51d2fceffeec"
+    },
+    {
+      "employeeId": "69804de8317a48004a05479a",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-09T09:53:25.172Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a4f6f95900d51d2fceffeed"
+    },
+    {
+      "employeeId": "697315eb22f76fdf985a9588",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-10T03:35:09.285Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a50686d69d9ba9d180bfb73"
+    },
+    {
+      "employeeId": "686caa3dd013cdff352cb649",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-10T12:28:29.108Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a50e56d917d1c3e6402a2a0"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091fb7",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-10T12:28:29.691Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a50e56d472428bcf5f591d0"
+    },
+    {
+      "employeeId": "6690d3e770bd4bd1218f28bd",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-13T06:28:10.071Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a54857a917d1c3e640a4d4d"
+    },
+    {
+      "employeeId": "692426afd2e28c3215bc914b",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-13T06:28:14.151Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a54857e472428bcf5fe9278"
+    },
+    {
+      "employeeId": "6a54c0995269e337df89640d",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-13T11:02:59.019Z",
+      "openingBalance": 50,
+      "balanceDocId": "6a54c5e3aaba69027d89dd2a"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff3",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-13T14:17:06.594Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a54f36227fbb032e0c3dc39"
+    },
+    {
+      "employeeId": "6a55df785944684e59113441",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-14T07:07:50.520Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a55e0464b6e6ccd07d2db93"
+    },
+    {
+      "employeeId": "69731593a443ec792c459a11",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-14T08:59:41.236Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a55fa7de147e3fd8a015d41"
+    },
+    {
+      "employeeId": "6a55e9535944684e5915653f",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-14T09:07:09.340Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a55fc3d4b6e6ccd07d8e7bb"
+    },
+    {
+      "employeeId": "6a55e6604b6e6ccd07d7dce2",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-14T09:21:55.895Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a55ffb3d644f5e9728c7e6b"
+    },
+    {
+      "employeeId": "6a55e4ab4b6e6ccd07d4442d",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-14T09:41:45.435Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a5604598298f86d96944d77"
+    },
+    {
+      "employeeId": "6a56061fecf0e56955c85b51",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-14T10:49:22.623Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a561432ecf0e56955c91696"
+    },
+    {
+      "employeeId": "6937e569b367c7f6e9119342",
+      "year": 2026,
+      "leaveType": "casual",
+      "createdAt": "2026-07-14T11:01:21.763Z",
+      "openingBalance": 29,
+      "balanceDocId": "6a561701ecf0e56955c93475"
+    },
+    {
+      "employeeId": "6a55ea2a5944684e5915700d",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-14T11:01:48.873Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a56171cecf0e56955c9361e"
+    },
+    {
+      "employeeId": "6a55ea2a5944684e5915700d",
+      "year": 2026,
+      "leaveType": "casual",
+      "createdAt": "2026-07-14T11:01:48.887Z",
+      "openingBalance": 12,
+      "balanceDocId": "6a56171cecf0e56955c93624"
+    },
+    {
+      "employeeId": "697315eb22f76fdf985a9588",
+      "year": 2026,
+      "leaveType": "casual",
+      "createdAt": "2026-07-14T11:08:38.379Z",
+      "openingBalance": 12,
+      "balanceDocId": "6a5618b68298f86d96953f1d"
+    },
+    {
+      "employeeId": "69980bead5f7dccd1a63aff6",
+      "year": 2026,
+      "leaveType": "casual",
+      "createdAt": "2026-07-14T11:09:51.356Z",
+      "openingBalance": 12,
+      "balanceDocId": "6a5618ff8298f86d9695407d"
+    },
+    {
+      "employeeId": "6a5621d58298f86d969581a3",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-14T12:02:02.926Z",
+      "openingBalance": 30,
+      "balanceDocId": "6a56253a8298f86d969598cd"
+    },
+    {
+      "employeeId": "6a55e82b5944684e59154dc9",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-14T12:46:06.236Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a562f8ed644f5e97290316c"
+    },
+    {
+      "employeeId": "6a55e7f75944684e59154975",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-14T13:56:04.147Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a563ff48298f86d9697081f"
+    },
+    {
+      "employeeId": "6a55e754e147e3fd8aff0267",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-14T13:56:32.523Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a5640108298f86d96970e2d"
+    },
+    {
+      "employeeId": "6a55e7d3e147e3fd8aff055f",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-14T14:14:50.388Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a56445a9994cccbfbae2a0f"
+    },
+    {
+      "employeeId": "69c4c6020a2682acc2b03a24",
+      "year": 2026,
+      "leaveType": "casual",
+      "createdAt": "2026-07-14T14:32:35.787Z",
+      "openingBalance": 12,
+      "balanceDocId": "6a564883ecf0e56955cddf0a"
+    },
+    {
+      "employeeId": "6a56061fecf0e56955c85b51",
+      "year": 2026,
+      "leaveType": "casual",
+      "createdAt": "2026-07-14T16:40:00.585Z",
+      "openingBalance": 12,
+      "balanceDocId": "6a5666608298f86d9697b6d9"
+    },
+    {
+      "employeeId": "6a55df785944684e59113441",
+      "year": 2026,
+      "leaveType": "casual",
+      "createdAt": "2026-07-14T17:26:00.553Z",
+      "openingBalance": 12,
+      "balanceDocId": "6a567128d644f5e972922648"
+    },
+    {
+      "employeeId": "6a5605caecf0e56955c85a85",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-15T04:46:51.915Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a5710bbecf0e56955cee712"
+    },
+    {
+      "employeeId": "6a5605caecf0e56955c85a85",
+      "year": 2026,
+      "leaveType": "casual",
+      "createdAt": "2026-07-15T04:46:51.934Z",
+      "openingBalance": 12,
+      "balanceDocId": "6a5710bbecf0e56955cee718"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092000",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-15T10:32:27.447Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a5761bbecf0e56955dd970e"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ff1",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-16T10:00:30.971Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a58abbe858569bf132491d1"
+    },
+    {
+      "employeeId": "6a1d6c0a8eccfc5e170be7d3",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-16T10:00:32.423Z",
+      "openingBalance": 999,
+      "balanceDocId": "6a58abc0858569bf132491ed"
+    },
+    {
+      "employeeId": "6a58ade7437e8628f53a81be",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-16T10:44:33.252Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a58b6110ca8e3caac9dea54"
+    },
+    {
+      "employeeId": "6a58ade7437e8628f53a81be",
+      "year": 2026,
+      "leaveType": "casual",
+      "createdAt": "2026-07-16T10:44:33.273Z",
+      "openingBalance": 12,
+      "balanceDocId": "6a58b6110ca8e3caac9dea5a"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b091ffd",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-16T12:53:21.117Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a58d4410fc3ee85925ef6dc"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b09200d",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-16T12:53:21.905Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a58d441858569bf13298648"
+    },
+    {
+      "employeeId": "6672a2501aa931b68b092010",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-16T12:53:22.940Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a58d4420fc3ee85925ef6f9"
+    },
+    {
+      "employeeId": "667d476104773cd0c087a7d9",
+      "year": 2026,
+      "leaveType": "privilege",
+      "createdAt": "2026-07-17T08:46:45.912Z",
+      "openingBalance": 25,
+      "balanceDocId": "6a59ebf5858569bf132dab0c"
+    },
+    {
+      "employeeId": "6a55e4ab4b6e6ccd07d4442d",
+      "year": 2026,
+      "leaveType": "casual",
+      "createdAt": "2026-07-18T02:24:14.499Z",
+      "openingBalance": 12,
+      "balanceDocId": "6a5ae3ce0ca8e3caaca84161"
+    },
+    {
+      "employeeId": "6a55e8714b6e6ccd07d7f33d",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-18T07:08:17.853Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a5b266101e4f0da6cbab979"
+    },
+    {
+      "employeeId": "6a55e8714b6e6ccd07d7f33d",
+      "year": 2026,
+      "leaveType": "casual",
+      "createdAt": "2026-07-18T07:08:17.872Z",
+      "openingBalance": 12,
+      "balanceDocId": "6a5b266101e4f0da6cbab97f"
+    },
+    {
+      "employeeId": "6a214b90b4d2a71c5d27397f",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-20T05:30:07.798Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a5db25fa90a2b0d59924e79"
+    },
+    {
+      "employeeId": "6a5606639994cccbfbaaf172",
+      "year": 2026,
+      "leaveType": "lwp",
+      "createdAt": "2026-07-20T08:15:37.477Z",
+      "openingBalance": 2000,
+      "balanceDocId": "6a5dd929eb4a9b2d8494ab71"
+    }
+  ]
+}

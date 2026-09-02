@@ -408,10 +408,14 @@ const attendanceAPI = {
   /**
    * Get leave balances for multiple employees
    */
-  getLeaveBalances: async (employeeIds) => {
+  getLeaveBalances: async (employeeIds, startDate, endDate) => {
     try {
       const response = await apiClient.get('/leave/balances-bulk', { 
-        params: { employee_ids: employeeIds.join(',') } 
+        params: { 
+          employee_ids: Array.isArray(employeeIds) ? employeeIds.join(',') : employeeIds,
+          startDate,
+          endDate
+        } 
       });
       return response.data;
     } catch (error) {
@@ -428,6 +432,30 @@ const attendanceAPI = {
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch organizations' };
+    }
+  },
+
+  /**
+   * Get count of pending regularization requests
+   */
+  getPendingCorrectionCount: async () => {
+    try {
+      const response = await apiClient.get('/attendance/correction-notifications/count');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to fetch pending correction count' };
+    }
+  },
+
+  /**
+   * Get count of pending leave requests assigned to the actor
+   */
+  getPendingLeavesCount: async () => {
+    try {
+      const response = await apiClient.get('/attendance/pending-leaves/count');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to fetch pending leaves count' };
     }
   }
 };

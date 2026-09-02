@@ -42,10 +42,37 @@ import SelectIcdCode from "./AssignRole/SelectIcdCode";
 import AssignDepartment from "./AssignRole/AssignDepartment";
 import UserDetails from "./AssignRole/UserDetails";
 import UserProfile from "../userProfile/UserProfile";
+import PayrollConfig from "./AssignRole/PayrollConfig";
 
 const { Title, Text } = Typography;
 const { Sider, Content } = Layout;
 const { Option } = Select;
+
+const PREDEFINED_CATEGORIES = [
+  'Management',
+  'Accountant',
+  'Dispatch',
+  'Helper',
+  'Housekeeping',
+  'HR',
+  'Maintenance',
+  'Operator',
+  'Pantry',
+  'Production',
+  'QC Inspection',
+  'Quality',
+  'SPOC',
+  'Tool',
+  'Security'
+];
+
+const isOperatorCategory = (category) => {
+  const lower = String(category || '').toLowerCase();
+  if (['management', 'hr', 'spoc', 'accountant'].includes(lower)) {
+    return false;
+  }
+  return true;
+};
 
 function HodManagement() {
     const { user } = useContext(UserContext);
@@ -68,6 +95,10 @@ function HodManagement() {
     const [teamToEdit, setTeamToEdit] = useState(null);
     const [hodModules, setHodModules] = useState([]); // HOD's assigned modules
     const [allUsers, setAllUsers] = useState([]); // All users for Admin to select HOD
+    const [customCategoryModalVisible, setCustomCategoryModalVisible] = useState(false);
+    const [customCategoryName, setCustomCategoryName] = useState('');
+    const [customCategoryIsOperator, setCustomCategoryIsOperator] = useState(false);
+    const [targetEmployeeId, setTargetEmployeeId] = useState(null);
 
     const [form] = Form.useForm();
     const [editForm] = Form.useForm();
@@ -296,6 +327,52 @@ function HodManagement() {
         }
     };
 
+    const handleToggleAttendanceAdmin = async (userId, checked) => {
+        try {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/attendance/allowed-admins/toggle`, {
+                target_user_id: userId,
+                is_admin: checked
+            });
+            if (res.data.success) {
+                message.success(res.data.message || "Updated permission successfully");
+                setTeamMembers(prev => prev.map(m => {
+                    const idStr = (m._id || m.userId)?.toString();
+                    if (idStr === userId?.toString()) {
+                        return { ...m, isAttendanceAllowedAdmin: checked };
+                    }
+                    return m;
+                }));
+            }
+        } catch (error) {
+            console.error("Error toggling attendance admin:", error);
+            message.error(error.response?.data?.message || "Failed to update permission");
+        }
+    };
+
+    const handleToggleOperatorStatus = async (userId, category, isOperatorVal) => {
+        const isOperator = isOperatorVal !== undefined ? isOperatorVal : isOperatorCategory(category);
+        try {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/payroll/config/toggle-operator`, {
+                employeeId: userId,
+                is_operator: isOperator,
+                category: category
+            });
+            if (res.data.success) {
+                message.success(res.data.message || "Updated employee category successfully");
+                setTeamMembers(prev => prev.map(m => {
+                    const idStr = (m._id || m.userId)?.toString();
+                    if (idStr === userId?.toString()) {
+                        return { ...m, is_operator: isOperator, category: category };
+                    }
+                    return m;
+                }));
+            }
+        } catch (error) {
+            console.error("Error toggling operator status:", error);
+            message.error(error.response?.data?.message || "Failed to update category");
+        }
+    };
+
     const handleViewProfile = (username) => {
         setProfileUser(username);
         setProfileModalVisible(true);
@@ -356,6 +433,47 @@ function HodManagement() {
                 return <Tag color="cyan">{dept}</Tag>;
             },
         },
+        ...(selectedTeam?.name?.toUpperCase() === 'RABS' ? [{
+            title: "Category",
+            key: "category",
+            render: (_, record) => {
+                const canEdit = user?.role === 'Admin' || user?.isAttendanceAllowedAdmin === true;
+                const currentVal = record.category || (record.is_operator === true ? "Operator" : "Management");
+
+                // Dynamically collect custom categories from team members list
+                const customCats = [...new Set(
+                    teamMembers
+                        .map(m => m.category)
+                        .filter(c => c && !PREDEFINED_CATEGORIES.includes(c))
+                )];
+                const categoriesList = [...PREDEFINED_CATEGORIES, ...customCats];
+
+                return (
+                    <Select
+                        value={currentVal}
+                        disabled={!canEdit}
+                        onChange={(val) => {
+                            if (val === "__CREATE_CUSTOM__") {
+                                setTargetEmployeeId(record._id || record.userId);
+                                setCustomCategoryName('');
+                                setCustomCategoryIsOperator(false);
+                                setCustomCategoryModalVisible(true);
+                            } else {
+                                handleToggleOperatorStatus(record._id || record.userId, val, isOperatorCategory(val));
+                            }
+                        }}
+                        style={{ width: 140 }}
+                    >
+                        {categoriesList.map(cat => (
+                            <Option key={cat} value={cat}>{cat}</Option>
+                        ))}
+                        <Option value="__CREATE_CUSTOM__" style={{ color: '#2563eb', fontWeight: 'bold', borderTop: '1px solid #f0f0f0' }}>
+                            + Custom Category
+                        </Option>
+                    </Select>
+                );
+            }
+        }] : []),
         {
             title: "Status",
             key: "status",
@@ -403,6 +521,51 @@ function HodManagement() {
         },
     ];
 
+    // HR panel: split into two groups
+    const hrNonAdmins = teamMembers.filter(m => !m.isAttendanceAllowedAdmin);
+    const hrAdmins = teamMembers.filter(m => m.isAttendanceAllowedAdmin === true);
+
+    const canSeeHRTab = (selectedTeam?.name?.toUpperCase() === 'RABS') &&
+        (user?.role === 'Admin' || user?.isAttendanceAllowedAdmin === true ||
+         String(user?.username || '').toLowerCase() === 'ajith_sivadasan');
+
+    const HRUserCard = ({ member, action }) => (
+        <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 14px', borderBottom: '1px solid #f0f0f0', transition: 'background 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = action === 'grant' ? '#f6ffed' : '#fff1f0'}
+        onMouseLeave={e => e.currentTarget.style.background = ''}
+        >
+            <Space>
+                <Avatar src={member.employee_photo} icon={<UserOutlined />} size={34}
+                    style={{ backgroundColor: action === 'grant' ? '#f0f5ff' : '#f6ffed',
+                        color: action === 'grant' ? '#1d4ed8' : '#389e0d', fontWeight: 700 }}
+                >
+                    {!member.employee_photo && (member.first_name || member.username || '?')[0].toUpperCase()}
+                </Avatar>
+                <div>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b', lineHeight: 1.3 }}>
+                        {member.first_name && member.last_name
+                            ? `${member.first_name} ${member.last_name}`
+                            : member.username}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#94a3b8' }}>{member.username}</div>
+                </div>
+            </Space>
+            <Button
+                size="small"
+                type={action === 'grant' ? 'primary' : 'default'}
+                danger={action === 'revoke'}
+                style={{ fontSize: 12, borderRadius: 6, fontWeight: 600,
+                    ...(action === 'grant' ? { background: '#52c41a', borderColor: '#52c41a', color: '#fff' } : {}) }}
+                onClick={() => handleToggleAttendanceAdmin(member._id || member.userId, action === 'grant')}
+            >
+                {action === 'grant' ? '→ Grant HR' : '✕ Revoke'}
+            </Button>
+        </div>
+    );
+
     const tabItems = [
         {
             key: "Members",
@@ -445,10 +608,92 @@ function HodManagement() {
                 </div>
             ),
         },
+        // Attendance HR tab — RABS only, only for authorized users
+        ...(canSeeHRTab ? [
+            {
+                key: "AttendanceAdmin",
+                label: <span style={{ color: '#52c41a', fontWeight: 600 }}>🛡️ Attendance HR</span>,
+                children: (
+                    <div style={{ padding: '16px 0' }}>
+                        {/* Header */}
+                        <div style={{
+                            marginBottom: 20, padding: '14px 18px',
+                            background: 'linear-gradient(135deg, #f6ffed 0%, #e6f7ff 100%)',
+                            border: '1px solid #b7eb8f', borderRadius: 10,
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                        }}>
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: 15, color: '#389e0d' }}>🛡️ RABS Attendance HR Management</div>
+                                <div style={{ fontSize: 12, color: '#595959', marginTop: 3 }}>
+                                    Grant or revoke Attendance HR Admin access. HR Admins can approve leaves,
+                                    manage attendance records, and access payroll data for all RABS employees.
+                                </div>
+                            </div>
+                            <div style={{ textAlign: 'center', marginLeft: 24, flexShrink: 0 }}>
+                                <div style={{ fontSize: 28, fontWeight: 800, color: '#52c41a', lineHeight: 1 }}>{hrAdmins.length}</div>
+                                <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>HR Admins active</div>
+                            </div>
+                        </div>
+
+                        {/* Two-panel layout */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+
+                            {/* LEFT — all RABS without HR access */}
+                            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                                <div style={{ padding: '12px 16px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div>
+                                        <div style={{ fontWeight: 700, fontSize: 13, color: '#374151' }}>RABS Employees</div>
+                                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Without HR access — click to grant</div>
+                                    </div>
+                                    <Tag style={{ margin: 0, borderRadius: 99, fontWeight: 700 }}>{hrNonAdmins.length} users</Tag>
+                                </div>
+                                <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+                                    {loadingMembers ? (
+                                        <div style={{ padding: 48, textAlign: 'center' }}><Spin /></div>
+                                    ) : hrNonAdmins.length === 0 ? (
+                                        <div style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                                            ✅ All employees have HR access
+                                        </div>
+                                    ) : hrNonAdmins.map(m => (
+                                        <HRUserCard key={m._id || m.userId || m.username} member={m} action="grant" />
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* RIGHT — current HR Admins */}
+                            <div style={{ border: '2px solid #b7eb8f', borderRadius: 10, overflow: 'hidden', background: '#fff', boxShadow: '0 1px 4px rgba(82,196,26,0.08)' }}>
+                                <div style={{ padding: '12px 16px', background: '#f6ffed', borderBottom: '1px solid #b7eb8f', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div>
+                                        <div style={{ fontWeight: 700, fontSize: 13, color: '#389e0d' }}>✅ Attendance HR Admins</div>
+                                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Active HR access — click to revoke</div>
+                                    </div>
+                                    <Tag color="green" style={{ margin: 0, borderRadius: 99, fontWeight: 700 }}>{hrAdmins.length} active</Tag>
+                                </div>
+                                <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+                                    {loadingMembers ? (
+                                        <div style={{ padding: 48, textAlign: 'center' }}><Spin /></div>
+                                    ) : hrAdmins.length === 0 ? (
+                                        <div style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                                            No HR admins assigned yet.<br />
+                                            <span style={{ fontSize: 11 }}>← Grant access from the left panel.</span>
+                                        </div>
+                                    ) : hrAdmins.map(m => (
+                                        <HRUserCard key={m._id || m.userId || m.username} member={m} action="revoke" />
+                                    ))}
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                ),
+            }
+        ] : []),
     ];
 
     // Add member-specific tabs when a member is selected
     if (selectedMember) {
+        const canManagePayroll = user?.role === "Admin" || user?.isAttendanceAllowedAdmin === true;
+
         tabItems.push(
             {
                 key: "Assign Module",
@@ -485,7 +730,18 @@ function HodManagement() {
                         />
                     </Card>
                 ),
-            }
+            },
+            ...(canManagePayroll ? [
+                {
+                    key: "Payroll Settings",
+                    label: `Payroll Settings (${selectedMember.username})`,
+                    children: (
+                        <Card bordered={false}>
+                            <PayrollConfig selectedUser={selectedMember} />
+                        </Card>
+                    ),
+                }
+            ] : [])
         );
     }
 
@@ -861,6 +1117,43 @@ function HodManagement() {
                 destroyOnClose
             >
                 {profileUser && <UserProfile username={profileUser} />}
+            </Modal>
+
+            {/* Custom Category Modal */}
+            <Modal
+                title="Create Custom Category"
+                open={customCategoryModalVisible}
+                onCancel={() => setCustomCategoryModalVisible(false)}
+                onOk={() => {
+                    if (!customCategoryName.trim()) {
+                        message.warning("Please enter a category name");
+                        return;
+                    }
+                    handleToggleOperatorStatus(targetEmployeeId, customCategoryName.trim(), customCategoryIsOperator);
+                    setCustomCategoryModalVisible(false);
+                }}
+            >
+                <div style={{ padding: '10px 0' }}>
+                    <div style={{ marginBottom: 15 }}>
+                        <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>Category Name</label>
+                        <Input
+                            placeholder="e.g. Packer, Supervisor"
+                            value={customCategoryName}
+                            onChange={e => setCustomCategoryName(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>Classification / Payroll Type</label>
+                        <Select
+                            value={customCategoryIsOperator ? "Operator" : "Management"}
+                            onChange={val => setCustomCategoryIsOperator(val === "Operator")}
+                            style={{ width: '100%' }}
+                        >
+                            <Option value="Management">Management (Monthly salary, No Overtime)</Option>
+                            <Option value="Operator">Operator (Daily wage, Overtime Eligible)</Option>
+                        </Select>
+                    </div>
+                </div>
             </Modal>
         </Layout>
     );

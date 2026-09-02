@@ -4,10 +4,14 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/employee-onboarding");
     case "Employee KYC":
       return navigate("/employee-kyc");
+    case "HR":
+      return navigate("/hr");
     case "Update Employee Data":
       return navigate("/update-employee-data");
     case "Import - DSR":
       return navigate("/import-dsr");
+    case "Billing Confirmation":
+      return navigate("/import-dsr", { state: { tabValue: 1, tabIndex: 3 } });
     case "Report":
       return navigate("/report");
     case "Audit Trail":
@@ -44,6 +48,18 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/outward-register");
     case "Accounts":
       return navigate("/accounts");
+    case "Tally Transactions":
+      return navigate("/tally-transactions");
+    case "Billing Reports":
+      return navigate("/billing-reports");
+    case "RM Procurement SOP":
+      return navigate("/rm-procurement");
+    case "Tyre Procurement SOP":
+      return navigate("/tyre-procurement");
+    case "Fleet Insurance SOP":
+      return navigate("/fleet-insurance");
+    case "Procurement & Insurance SOPs":
+      return navigate("/procurement-insurance-sops");
     case "Customer KYC":
       return navigate("/customer-kyc");
     case "Exit Feedback":
@@ -86,6 +102,14 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/attendance/dashboard");
     case "IT Helpdesk":
       return navigate("/it-helpdesk");
+    case "Karma Points":
+      return navigate("/karma-points");
+    case "Pricing Requests":
+      return navigate("/pricing-requests");
+    case "5S Audit":
+      return navigate("/audit-5s");
+    case "First Aid":
+      return navigate("/first-aid");
     default:
       return navigate("/home");
   }

@@ -8,7 +8,7 @@ import './AdminSettings.css';
 import './HolidayCalendar.css';
 
 // Allowed-admin usernames (must match backend list)
-const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
+const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza']);
 
 const HOLIDAY_TYPES = [
   { value: 'national', label: '🏛️ National', color: '#1a56db', bg: '#eef4ff' },
@@ -40,8 +40,9 @@ const HolidayPolicyManager = ({ user: userProp }) => {
   const { user: ctxUser } = useContext(UserContext);
   const user = userProp || ctxUser;  // prefer prop, fall back to context
   const username = (user?.username || '').toLowerCase();
-  const isAllowedAdmin = (user?.role === 'ADMIN' || user?.role === 'Admin') && ALLOWED_USERNAMES.has(username);
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'Admin';
+  const isDynamicAdmin = user?.isAttendanceAllowedAdmin === true;
+  const isAllowedAdmin = ((user?.role === 'ADMIN' || user?.role === 'Admin') && ALLOWED_USERNAMES.has(username)) || isDynamicAdmin;
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'Admin' || isDynamicAdmin;
 
   const [policies, setPolicies]           = useState([]);
   const [loading, setLoading]             = useState(true);
@@ -72,6 +73,7 @@ const HolidayPolicyManager = ({ user: userProp }) => {
   }, [filterYear]);
 
   const isOwnerOrUnowned = (policy) => {
+    if (isAllowedAdmin) return true;
     const creatorId = policy?.created_by?._id || policy?.created_by;
     const userId = user?._id?._id || user?._id;
     return !creatorId || String(creatorId) === String(userId);

@@ -12,7 +12,7 @@ export const printAuthorizationPDF = (row, subData) => {
   // --- Title ---
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('DGFT AUTHORIZATION UTILIZATION REPORT', pageWidth / 2, currentY, { align: 'center' });
+  doc.text('DGFT LICENSE REPORT', pageWidth / 2, currentY, { align: 'center' });
   currentY += 8;
 
   // --- Horizontal Line ---
@@ -50,8 +50,30 @@ export const printAuthorizationPDF = (row, subData) => {
   currentY += 5;
 
   drawGeneralInfoCell('Scheme Code', subData.scheme_code, margin, currentY);
-  drawGeneralInfoCell('Notification No', subData.notification_number, margin + (contentWidth / 2), currentY);
-  currentY += 8;
+
+  // --- Notification No with wrapping & indentation ---
+  const notifLabel = 'Notification No:';
+  const notifVal = String(subData.notification_number || '—');
+  doc.setFont('helvetica', 'bold');
+  const notifX = margin + (contentWidth / 2);
+  doc.text(notifLabel, notifX, currentY);
+
+  doc.setFont('helvetica', 'normal');
+  const valX = notifX + 35;
+  const maxValWidth = (pageWidth - margin) - valX; // 60mm
+
+  const notifLines = doc.splitTextToSize(notifVal, maxValWidth);
+  let notifY = currentY;
+  notifLines.forEach((line, index) => {
+    // If it's not the first line, add indentation (e.g., 4mm)
+    const indent = index > 0 ? 4 : 0;
+    doc.text(line, valX + indent, notifY);
+    if (index < notifLines.length - 1) {
+      notifY += 4; // Move to next line
+    }
+  });
+
+  currentY = Math.max(currentY, notifY) + 8;
 
   // --- Compliance & Documents ---
   doc.setFontSize(10);
@@ -74,8 +96,7 @@ export const printAuthorizationPDF = (row, subData) => {
   drawGeneralInfoCell('Bond Amount', subData.bond_amount, margin + (contentWidth / 2), currentY);
   currentY += 5;
 
-  drawGeneralInfoCell('Docs Recv Date', subData.documents_received_date, margin, currentY);
-  drawGeneralInfoCell('Docs Sent to ICD', subData.documents_send_to_icd, margin + (contentWidth / 2), currentY);
+  // Suppressed Docs Recv Date and Docs Sent to ICD per request. Display Sent to Accounts.
   currentY += 8;
 
   // --- Summary cards in a table-like structure ---
@@ -87,9 +108,13 @@ export const printAuthorizationPDF = (row, subData) => {
   const totalUtilizedUSD = (subData.import_details_array || []).reduce((sum, item) => sum + (parseFloat(item.total_utilized_usd) || 0), 0);
   const totalBalanceUSD = Math.max(0, totalLicensedUSD - totalUtilizedUSD);
 
+  const totalLicensedINR = (subData.import_details_array || []).reduce((sum, item) => sum + (parseFloat(item.value_rs) || 0), 0);
+  const totalUtilizedINR = (subData.import_details_array || []).reduce((sum, item) => sum + (parseFloat(item.total_utilized_inr) || 0), 0);
+  const totalBalanceINR = Math.max(0, totalLicensedINR - totalUtilizedINR);
+
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text('Summary Cards', margin, currentY);
+  doc.text('Summary Cards (Import)', margin, currentY);
   currentY += 4;
 
   doc.autoTable({
@@ -107,6 +132,12 @@ export const printAuthorizationPDF = (row, subData) => {
         `$${totalLicensedUSD.toLocaleString('en-US', { maximumFractionDigits: 2 })}`,
         `$${totalUtilizedUSD.toLocaleString('en-US', { maximumFractionDigits: 2 })}`,
         `$${totalBalanceUSD.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+      ],
+      [
+        'CIF Value (INR)',
+        `Rs. ${totalLicensedINR.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
+        `Rs. ${totalUtilizedINR.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
+        `Rs. ${totalBalanceINR.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
       ]
     ],
     theme: 'grid',
@@ -117,7 +148,7 @@ export const printAuthorizationPDF = (row, subData) => {
 
   currentY = doc.lastAutoTable.finalY + 8;
 
-  // --- Item Table ---
+  // --- Item Table (Import) ---
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text('Item Details (Import)', margin, currentY);
@@ -160,35 +191,93 @@ export const printAuthorizationPDF = (row, subData) => {
 
   currentY = doc.lastAutoTable.finalY + 8;
 
+  // --- Item Table (Export) ---
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Item Details (Export)', margin, currentY);
+  currentY += 4;
+
+  const exportBody = (subData.export_details_array || []).map((item, index) => {
+    const qtyVal = parseFloat(item.qty) || 0;
+    const usdVal = parseFloat(item.value_usd) || 0;
+    const inrVal = parseFloat(item.value_rs) || 0;
+    return [
+      index + 1,
+      item.hs_code || '—',
+      item.item_description || '—',
+      `${qtyVal.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit || ''}`,
+      `$${usdVal.toLocaleString('en-US', { maximumFractionDigits: 2 })}`,
+      `Rs. ${inrVal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+    ];
+  });
+
+  doc.autoTable({
+    startY: currentY,
+    head: [['Sr No', 'HS Code', 'Description', 'Export Qty', 'FOB USD', 'FOB Rs']],
+    body: exportBody.length > 0 ? exportBody : [['No export details found', '', '', '', '', '']],
+    theme: 'grid',
+    styles: { fontSize: 8, textColor: [0, 0, 0] },
+    headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
+    columnStyles: {
+      0: { cellWidth: 12 },
+      1: { cellWidth: 20 },
+      2: { cellWidth: 50 },
+      3: { halign: 'right' },
+      4: { halign: 'right' },
+      5: { halign: 'right' }
+    },
+    margin: { left: margin, right: margin }
+  });
+
+  currentY = doc.lastAutoTable.finalY + 8;
+
   // --- Utilization Transactions ---
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text('Utilization Transactions', margin, currentY);
   currentY += 4;
 
+  const formatDate = (val) => {
+    if (!val) return '—';
+    const str = String(val).trim();
+    if (str.includes('/')) return str;
+    try {
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        return `${dd}/${mm}/${yyyy}`;
+      }
+    } catch (e) {}
+    return str;
+  };
+
   const txBody = (subData.utilization_records || []).map((item, index) => {
     return [
       item.be_no || '—',
-      item.be_date || '—',
-      item.job_no || '—',
+      formatDate(item.be_date),
+      item.port || '—',
       `${(item.qty || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit || ''}`,
-      `$${(item.cif_usd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      `$${(item.cif_usd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      `Rs. ${(item.cif_inr || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     ];
   });
 
   doc.autoTable({
     startY: currentY,
-    head: [['BE No', 'BE Date', 'Job No', 'Qty Utilized', 'CIF USD']],
-    body: txBody.length > 0 ? txBody : [['No utilization records found', '', '', '', '']],
+    head: [['BE No', 'BE Date', 'Port No', 'Qty Utilized', 'CIF USD', 'CIF INR']],
+    body: txBody.length > 0 ? txBody : [['No utilization records found', '', '', '', '', '']],
     theme: 'grid',
     styles: { fontSize: 8, textColor: [0, 0, 0] },
     headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
     columnStyles: {
-      0: { cellWidth: 35 },
-      1: { cellWidth: 25 },
-      2: { cellWidth: 35 },
+      0: { cellWidth: 32 },
+      1: { cellWidth: 22 },
+      2: { cellWidth: 32 },
       3: { halign: 'right' },
-      4: { halign: 'right' }
+      4: { halign: 'right' },
+      5: { halign: 'right' }
     },
     margin: { left: margin, right: margin }
   });

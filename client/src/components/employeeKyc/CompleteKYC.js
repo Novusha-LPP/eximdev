@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect } from "react";
 import { useFormik } from "formik";
-import { MenuItem, TextField, IconButton } from "@mui/material";
+import { MenuItem, TextField, IconButton, Avatar } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import axios from "axios";
 import { UserContext } from "../../contexts/UserContext";
@@ -31,9 +31,37 @@ function CompleteKYC() {
   const { user: currentUser, setUser } = useContext(UserContext); // Rename context user to currentUser
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const [targetUser, setTargetUser] = useState(null); // The user being edited
-
+  
   // Determine which user data to use - prioritize fetched targetUser
   const user = targetUser || currentUser;
+
+  const selectMenuProps = {
+    MenuProps: {
+      PaperProps: {
+        sx: {
+          maxHeight: 250,
+        },
+      },
+    },
+  };
+
+  const [managers, setManagers] = useState([]);
+
+  // Fetch reporting managers
+  useEffect(() => {
+    const fetchManagers = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/hr/employees`);
+        // Filter out the employee being edited to prevent self-assignment
+        const currentUserId = user?._id;
+        const list = (res.data || []).filter(emp => emp._id !== currentUserId);
+        setManagers(list);
+      } catch (error) {
+        console.error("Error fetching managers:", error);
+      }
+    };
+    fetchManagers();
+  }, [user?._id]);
 
   useEffect(() => {
     // Determine the username to fetch: either from URL param or current logged-in user
@@ -77,10 +105,12 @@ function CompleteKYC() {
 
   const formik = useFormik({
     initialValues: {
+      employee_code: user?.employee_code || "",
       designation: user?.designation || "",
       company: user?.company || "",
       employment_type: user?.employment_type || "",
       department: user?.department || "",
+      hod_id: user?.hod_id?._id || user?.hod_id || "",
       joining_date: user?.joining_date || "",
       dob: user?.dob || "",
       permanent_address_line_1: user?.permanent_address_line_1 || "",
@@ -124,6 +154,12 @@ function CompleteKYC() {
       favorite_song: user?.favorite_song || "",
       marital_status: user?.marital_status || "",
       children_details: user?.children_details || [],
+      skill: user?.skill || "",
+      skills_secondary: user?.skills_secondary || "",
+      employee_photo: user?.employee_photo || "",
+      resume: user?.resume || "",
+      address_proof: user?.address_proof || "",
+      training_completed: user?.training_completed || "",
     },
     enableReinitialize: true,
     validationSchema: validationSchema,
@@ -313,7 +349,13 @@ function CompleteKYC() {
     <form onSubmit={formik.handleSubmit}>
       {/* Employee Header */}
       <div className="hr-compact-employee-header">
-        <div className="emp-avatar">{employee_name.charAt(0)}</div>
+        <div className="emp-avatar">
+          {user?.employee_photo ? (
+            <img src={user.employee_photo} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+          ) : (
+            employee_name.charAt(0)
+          )}
+        </div>
         <div className="emp-info">
           <span className="emp-name">{employee_name}</span>
           <span className="emp-detail">Email: {user.email}</span>
@@ -347,9 +389,12 @@ function CompleteKYC() {
                 <Field label="Designation">
                   <TextField size="small" variant="filled" fullWidth name="designation" value={formik.values.designation} onChange={formik.handleChange} error={formik.touched.designation && Boolean(formik.errors.designation)} helperText={formik.touched.designation && formik.errors.designation} className="hr-quick-input" placeholder="Enter designation" disabled={!isEditMode} />
                 </Field>
+                <Field label="Employee ID">
+                  <TextField size="small" variant="filled" fullWidth name="employee_code" value={formik.values.employee_code} onChange={formik.handleChange} error={formik.touched.employee_code && Boolean(formik.errors.employee_code)} helperText={formik.touched.employee_code && formik.errors.employee_code} className="hr-quick-input" placeholder="Enter Employee ID" disabled={!isEditMode || currentUser?.role !== "Admin"} />
+                </Field>
                 <div style={{ display: 'contents' }}>
                   <Field label="Company">
-                    <TextField select size="small" variant="filled" fullWidth name="company" value={formik.values.company} onChange={formik.handleChange} error={formik.touched.company && Boolean(formik.errors.company)} helperText={formik.touched.company && formik.errors.company} className="hr-quick-input" disabled={!isEditMode}>
+                    <TextField select size="small" variant="filled" fullWidth name="company" value={formik.values.company} onChange={formik.handleChange} error={formik.touched.company && Boolean(formik.errors.company)} helperText={formik.touched.company && formik.errors.company} className="hr-quick-input" disabled={!isEditMode} SelectProps={selectMenuProps}>
                       <MenuItem value="">Select Company</MenuItem>
                       <MenuItem value="Suraj Forwarders Private Limited">Suraj Forwarders Private Limited</MenuItem>
                       <MenuItem value="Suraj Forwarders & Shipping Agencies">Suraj Forwarders & Shipping Agencies</MenuItem>
@@ -364,7 +409,7 @@ function CompleteKYC() {
                     </TextField>
                   </Field>
                   <Field label="Employment Type">
-                    <TextField select size="small" variant="filled" fullWidth name="employment_type" value={formik.values.employment_type} onChange={formik.handleChange} error={formik.touched.employment_type && Boolean(formik.errors.employment_type)} helperText={formik.touched.employment_type && formik.errors.employment_type} className="hr-quick-input" disabled={!isEditMode}>
+                    <TextField select size="small" variant="filled" fullWidth name="employment_type" value={formik.values.employment_type} onChange={formik.handleChange} error={formik.touched.employment_type && Boolean(formik.errors.employment_type)} helperText={formik.touched.employment_type && formik.errors.employment_type} className="hr-quick-input" disabled={!isEditMode} SelectProps={selectMenuProps}>
                       <MenuItem value="">Select Type</MenuItem>
                       <MenuItem value="Internship">Internship</MenuItem>
                       <MenuItem value="Probation">Probation</MenuItem>
@@ -373,7 +418,7 @@ function CompleteKYC() {
                   </Field>
                 </div>
                 <Field label="Department">
-                  <TextField select size="small" variant="filled" fullWidth name="department" value={formik.values.department} onChange={formik.handleChange} error={formik.touched.department && Boolean(formik.errors.department)} helperText={formik.touched.department && formik.errors.department} className="hr-quick-input" disabled={!isEditMode}>
+                  <TextField select size="small" variant="filled" fullWidth name="department" value={formik.values.department} onChange={formik.handleChange} error={formik.touched.department && Boolean(formik.errors.department)} helperText={formik.touched.department && formik.errors.department} className="hr-quick-input" disabled={!isEditMode} SelectProps={selectMenuProps}>
                     <MenuItem value="">Select</MenuItem>
                     <MenuItem value="Import">Import</MenuItem>
                     <MenuItem value="Export">Export</MenuItem>
@@ -386,6 +431,29 @@ function CompleteKYC() {
                     <MenuItem value="Designing">Designing</MenuItem>
                     <MenuItem value="Sales & Marketing">Sales & Marketing</MenuItem>
                     <MenuItem value="HR Admin">HR Admin</MenuItem>
+                  </TextField>
+                </Field>
+                <Field label="Reporting Manager">
+                  <TextField 
+                    select 
+                    size="small" 
+                    variant="filled" 
+                    fullWidth 
+                    name="hod_id" 
+                    value={formik.values.hod_id} 
+                    onChange={formik.handleChange} 
+                    error={formik.touched.hod_id && Boolean(formik.errors.hod_id)} 
+                    helperText={formik.touched.hod_id && formik.errors.hod_id} 
+                    className="hr-quick-input" 
+                    disabled={!isEditMode}
+                    SelectProps={selectMenuProps}
+                  >
+                    <MenuItem value="">Select Reporting Manager</MenuItem>
+                    {managers.map((mgr) => (
+                      <MenuItem key={mgr._id} value={mgr._id}>
+                        {`${mgr.first_name || ""} ${mgr.last_name || ""}`.trim() || mgr.username} ({mgr.designation || "No Designation"})
+                      </MenuItem>
+                    ))}
                   </TextField>
                 </Field>
                 <Field label="Joining Date">
@@ -428,6 +496,32 @@ function CompleteKYC() {
                 <Field label="Highest Qualification">
                   <TextField size="small" variant="filled" fullWidth name="highest_qualification" value={formik.values.highest_qualification} onChange={formik.handleChange} error={formik.touched.highest_qualification && Boolean(formik.errors.highest_qualification)} helperText={formik.touched.highest_qualification && formik.errors.highest_qualification} className="hr-quick-input" placeholder="Enter qualification" disabled={!isEditMode} />
                 </Field>
+                <Field label="Profile Photo *">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                    {formik.values.employee_photo && (
+                      <Avatar src={formik.values.employee_photo} sx={{ width: 36, height: 36, border: '1px solid #ccc' }} />
+                    )}
+                    <FileUpload
+                      label="Upload Photo"
+                      onFilesUploaded={handleFilesUploaded("employee_photo")}
+                      bucketPath="kyc"
+                      singleFileOnly={true}
+                      acceptedFileTypes={["image/*"]}
+                      buttonSx={{ fontSize: '0.7rem', padding: '4px 12px', minWidth: 'auto' }}
+                      disabled={!isEditMode}
+                    />
+                    {formik.values.employee_photo && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <IconButton size="small" color="error" onClick={() => handleDeleteFile("employee_photo")} title="Delete photo" disabled={!isEditMode}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </div>
+                    )}
+                  </div>
+                  {formik.touched.employee_photo && formik.errors.employee_photo && (
+                    <div style={{ color: '#d32f2f', fontSize: '0.75rem', marginTop: '3px' }}>{formik.errors.employee_photo}</div>
+                  )}
+                </Field>
               </div>
               <div style={{ marginTop: '10px' }}>
                 <label className="hr-field-label">Marital Status</label>
@@ -464,7 +558,7 @@ function CompleteKYC() {
                   <TextField size="small" variant="filled" fullWidth name="permanent_address_area" value={formik.values.permanent_address_area} onChange={formik.handleChange} error={formik.touched.permanent_address_area && Boolean(formik.errors.permanent_address_area)} helperText={formik.touched.permanent_address_area && formik.errors.permanent_address_area} className="hr-quick-input" disabled={!isEditMode} />
                 </Field>
                 <Field label="State">
-                  <TextField select size="small" variant="filled" fullWidth name="permanent_address_state" value={formik.values.permanent_address_state} onChange={formik.handleChange} error={formik.touched.permanent_address_state && Boolean(formik.errors.permanent_address_state)} helperText={formik.touched.permanent_address_state && formik.errors.permanent_address_state} className="hr-quick-input" disabled={!isEditMode}>
+                  <TextField select size="small" variant="filled" fullWidth name="permanent_address_state" value={formik.values.permanent_address_state} onChange={formik.handleChange} error={formik.touched.permanent_address_state && Boolean(formik.errors.permanent_address_state)} helperText={formik.touched.permanent_address_state && formik.errors.permanent_address_state} className="hr-quick-input" disabled={!isEditMode} SelectProps={selectMenuProps}>
                     <MenuItem value="">Select</MenuItem>
                     {states?.map((state) => <MenuItem value={state} key={state}>{state}</MenuItem>)}
                   </TextField>
@@ -497,7 +591,7 @@ function CompleteKYC() {
                   <TextField size="small" variant="filled" fullWidth name="communication_address_area" value={formik.values.communication_address_area} onChange={formik.handleChange} error={formik.touched.communication_address_area && Boolean(formik.errors.communication_address_area)} helperText={formik.touched.communication_address_area && formik.errors.communication_address_area} className="hr-quick-input" disabled={!isEditMode} />
                 </Field>
                 <Field label="State">
-                  <TextField select size="small" variant="filled" fullWidth name="communication_address_state" value={formik.values.communication_address_state} onChange={formik.handleChange} error={formik.touched.communication_address_state && Boolean(formik.errors.communication_address_state)} helperText={formik.touched.communication_address_state && formik.errors.communication_address_state} className="hr-quick-input" disabled={!isEditMode}>
+                  <TextField select size="small" variant="filled" fullWidth name="communication_address_state" value={formik.values.communication_address_state} onChange={formik.handleChange} error={formik.touched.communication_address_state && Boolean(formik.errors.communication_address_state)} helperText={formik.touched.communication_address_state && formik.errors.communication_address_state} className="hr-quick-input" disabled={!isEditMode} SelectProps={selectMenuProps}>
                     <MenuItem value="">Select</MenuItem>
                     {states?.map((state) => <MenuItem value={state} key={state}>{state}</MenuItem>)}
                   </TextField>
@@ -565,6 +659,60 @@ function CompleteKYC() {
             </div>
           </div>
 
+          {/* Competency & Training */}
+          <div className="hr-compact-section">
+            <div className="hr-section-header">Competency & Training</div>
+            <div className="hr-section-body">
+              <div className="hr-compact-grid cols-1">
+                <Field label="Skills (Primary) *">
+                  <TextField 
+                    size="small" 
+                    variant="filled" 
+                    fullWidth 
+                    name="skill" 
+                    value={formik.values.skill} 
+                    onChange={formik.handleChange} 
+                    error={formik.touched.skill && Boolean(formik.errors.skill)} 
+                    helperText={formik.touched.skill && formik.errors.skill} 
+                    className="hr-quick-input" 
+                    placeholder="Enter primary skills" 
+                    disabled={!isEditMode} 
+                  />
+                </Field>
+                <Field label="Skills (Secondary)">
+                  <TextField 
+                    size="small" 
+                    variant="filled" 
+                    fullWidth 
+                    name="skills_secondary" 
+                    value={formik.values.skills_secondary} 
+                    onChange={formik.handleChange} 
+                    error={formik.touched.skills_secondary && Boolean(formik.errors.skills_secondary)} 
+                    helperText={formik.touched.skills_secondary && formik.errors.skills_secondary} 
+                    className="hr-quick-input" 
+                    placeholder="Enter secondary skills" 
+                    disabled={!isEditMode} 
+                  />
+                </Field>
+                <Field label="Training Completed">
+                  <TextField 
+                    size="small" 
+                    variant="filled" 
+                    fullWidth 
+                    name="training_completed" 
+                    value={formik.values.training_completed} 
+                    onChange={formik.handleChange} 
+                    error={formik.touched.training_completed && Boolean(formik.errors.training_completed)} 
+                    helperText={formik.touched.training_completed && formik.errors.training_completed} 
+                    className="hr-quick-input" 
+                    placeholder="List completed trainings" 
+                    disabled={!isEditMode} 
+                  />
+                </Field>
+              </div>
+            </div>
+          </div>
+
           {/* Family & Insurance */}
           <div className="hr-compact-section">
             <div className="hr-section-header">Family & Insurance</div>
@@ -609,6 +757,7 @@ function CompleteKYC() {
                         onChange={(e) => handleChildDetailChange(index, 'gender', e.target.value)}
                         disabled={!isEditMode}
                         className="hr-quick-input"
+                        SelectProps={selectMenuProps}
                       >
                         <MenuItem value="Boy">Boy</MenuItem>
                         <MenuItem value="Girl">Girl</MenuItem>
@@ -624,6 +773,7 @@ function CompleteKYC() {
                         onChange={(e) => handleChildDetailChange(index, 'age_group', e.target.value)}
                         disabled={!isEditMode}
                         className="hr-quick-input"
+                        SelectProps={selectMenuProps}
                       >
                         <MenuItem value="0-5 Years">0-5 Years</MenuItem>
                         <MenuItem value="6-12 Years">6-12 Years</MenuItem>
@@ -905,6 +1055,58 @@ function CompleteKYC() {
                   </div>
                   {formik.touched.license_back && formik.errors.license_back && (
                     <span className="hr-upload-error">{formik.errors.license_back}</span>
+                  )}
+                </div>
+
+                <div className="hr-upload-item">
+                  <span className="hr-upload-label">Resume</span>
+                  <div className="hr-upload-controls">
+                    <FileUpload
+                      label="Upload"
+                      onFilesUploaded={handleFilesUploaded("resume")}
+                      bucketPath="kyc"
+                      singleFileOnly={true}
+                      acceptedFileTypes={["image/*", ".pdf", ".doc", ".docx"]}
+                      buttonSx={{ fontSize: '0.7rem', padding: '4px 12px', minWidth: 'auto' }}
+                      disabled={!isEditMode}
+                    />
+                    {formik.values.resume && (
+                      <div className="hr-upload-actions">
+                        <a href={formik.values.resume} target="_blank" rel="noopener noreferrer" className="hr-view-link">View</a>
+                        <IconButton size="small" color="error" onClick={() => handleDeleteFile("resume")} title="Delete file" disabled={!isEditMode}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </div>
+                    )}
+                  </div>
+                  {formik.touched.resume && formik.errors.resume && (
+                    <span className="hr-upload-error">{formik.errors.resume}</span>
+                  )}
+                </div>
+
+                <div className="hr-upload-item">
+                  <span className="hr-upload-label">Address Proof</span>
+                  <div className="hr-upload-controls">
+                    <FileUpload
+                      label="Upload"
+                      onFilesUploaded={handleFilesUploaded("address_proof")}
+                      bucketPath="kyc"
+                      singleFileOnly={true}
+                      acceptedFileTypes={["image/*", ".pdf"]}
+                      buttonSx={{ fontSize: '0.7rem', padding: '4px 12px', minWidth: 'auto' }}
+                      disabled={!isEditMode}
+                    />
+                    {formik.values.address_proof && (
+                      <div className="hr-upload-actions">
+                        <a href={formik.values.address_proof} target="_blank" rel="noopener noreferrer" className="hr-view-link">View</a>
+                        <IconButton size="small" color="error" onClick={() => handleDeleteFile("address_proof")} title="Delete file" disabled={!isEditMode}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </div>
+                    )}
+                  </div>
+                  {formik.touched.address_proof && formik.errors.address_proof && (
+                    <span className="hr-upload-error">{formik.errors.address_proof}</span>
                   )}
                 </div>
               </div>

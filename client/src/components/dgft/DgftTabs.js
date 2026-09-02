@@ -4,6 +4,7 @@ import axios from "axios";
 import "./dgft.scss";
 import DgftRegisterList from "./DgftRegisterList";
 import AuthorizationRegistrationList from "./AuthorizationRegistrationList";
+import RodtepList from "./RodtepList";
 import { useParams, useNavigate } from "react-router-dom";
 
 // --- Clean Enterprise Styles ---
@@ -74,6 +75,7 @@ const s = {
 const TABS = [
   { label: "DGFT Register", key: "auth-reg" },
   { label: "License Register", key: "reg-format" },
+  { label: "ROADTEP details", key: "rodtep" },
 ];
 
 function DgftTabs() {
@@ -85,18 +87,26 @@ function DgftTabs() {
   const activeIdx = TABS.findIndex(t => t.key === activeTabKey);
   const validIdx = activeIdx === -1 ? 0 : activeIdx;
 
-  const [counts, setCounts] = useState({ "auth-reg": 0, "reg-format": 0 });
+  useEffect(() => {
+    if (!tab) {
+      navigate(`/dgft/${TABS[0].key}`, { replace: true });
+    }
+  }, [tab, navigate]);
+
+  const [counts, setCounts] = useState({ "auth-reg": 0, "reg-format": 0, "rodtep": 0 });
 
   const fetchCounts = useCallback(async () => {
     try {
       const api = process.env.REACT_APP_API_STRING;
-      const [res1, res2] = await Promise.all([
+      const [res1, res2, res3] = await Promise.all([
         axios.get(`${api}/get-dgft-registers`),
-        axios.get(`${api}/get-authorization-registrations`)
+        axios.get(`${api}/get-authorization-registrations`),
+        axios.get(`${api}/get-rodteps`)
       ]);
       setCounts({
         "auth-reg": res1.data.length,
-        "reg-format": res2.data.length
+        "reg-format": res2.data.length,
+        "rodtep": res3.data.length
       });
     } catch (err) {
       console.error("Error fetching DGFT counts:", err);
@@ -113,6 +123,10 @@ function DgftTabs() {
 
   const handleRegFormatCount = useCallback((c) => {
     setCounts(prev => ({ ...prev, "reg-format": c }));
+  }, []);
+
+  const handleRodtepCount = useCallback((c) => {
+    setCounts(prev => ({ ...prev, "rodtep": c }));
   }, []);
 
   return (
@@ -155,6 +169,11 @@ function DgftTabs() {
         {validIdx === 1 && (
           <AuthorizationRegistrationList
             onCountChange={handleRegFormatCount}
+          />
+        )}
+        {validIdx === 2 && (
+          <RodtepList
+            onCountChange={handleRodtepCount}
           />
         )}
       </div>

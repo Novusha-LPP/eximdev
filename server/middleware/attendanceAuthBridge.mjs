@@ -77,7 +77,7 @@ const attendanceAuthBridge = async (req, res, next) => {
     // fields (company_id, shift_id, department_id) are current.
     // This prevents stale JWT payloads from causing "Company not found" errors.
     const freshUser = await UserModel.findById(verified._id)
-      .select('_id username first_name last_name role company company_id department_id shift_id weekoff_policy_id holiday_policy_id attendance_settings current_status last_punch_date last_punch_type employment_type gender leave_settings')
+      .select('_id username first_name last_name role company company_id department_id shift_id shift_ids weekoff_policy_id holiday_policy_id attendance_settings current_status last_punch_date last_punch_type employment_type gender leave_settings isAttendanceAllowedAdmin is_operator category work_pattern_override')
       .lean();
 
     if (!freshUser) {
@@ -85,12 +85,17 @@ const attendanceAuthBridge = async (req, res, next) => {
     }
 
     const resolvedCompanyId = await resolveLegacyCompany(freshUser);
+    const finalCompanyId = resolvedCompanyId || freshUser.company_id;
+
+    if (!finalCompanyId) {
+      return res.status(403).json({ message: "Access Denied: No company assigned to this user." });
+    }
 
     // Map EXIM role to attendance role
     const userPlain = {
       ...freshUser,
       _id: freshUser._id,
-      company_id: resolvedCompanyId || freshUser.company_id,
+      company_id: finalCompanyId,
       role: mapRole(freshUser.role),
       name: freshUser.first_name ? `${freshUser.first_name} ${freshUser.last_name || ''}`.trim() : freshUser.username
     };
@@ -100,6 +105,7 @@ const attendanceAuthBridge = async (req, res, next) => {
     // Also run context for EXIM's audit trail compatibility
     context.run({ user: verified, req }, next);
   } catch (err) {
+    console.error("Attendance Auth Bridge error:", err);
     return res.status(403).json({ message: "Invalid Token" });
   }
 };

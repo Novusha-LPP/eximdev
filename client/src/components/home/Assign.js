@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
 import {
   Select,
@@ -13,6 +13,7 @@ import {
   Button,
   Segmented,
   Switch,
+  Transfer,
   message,
   Modal
 } from "antd";
@@ -29,8 +30,9 @@ import {
   InfoCircleOutlined,
   TeamOutlined
 } from "@ant-design/icons";
-
+import { UserContext } from "../../contexts/UserContext";
 import AssignModule from "./AssignModule";
+import AssignProcurementTabs from "./AssignProcurementTabs";
 import AssignRole from "./AssignRole/AssignRole";
 import ChangePasswordByAdmin from "./AssignRole/ChangePasswordByAdmin";
 import SelectIcdCode from "./AssignRole/SelectIcdCode";
@@ -40,12 +42,14 @@ import AssignBranch from "./AssignBranch";
 import ModuleUserList from "./ModuleUserList";
 import UserProfile from "../userProfile/UserProfile";
 import HodManagement from "./HodManagement";
+import PayrollConfig from "./AssignRole/PayrollConfig";
 
 const { Option } = Select;
 const { Title, Text } = Typography;
 const { Sider, Content } = Layout;
 
 function Assign() {
+  const { user: currentUser } = useContext(UserContext);
   const [activeUsers, setActiveUsers] = useState([]);
   const [inactiveUsers, setInactiveUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -55,8 +59,57 @@ function Assign() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusFilter, setStatusFilter] = useState("Active");
 
+  const canManagePayroll = currentUser?.role === "Admin" || currentUser?.isAttendanceAllowedAdmin === true;
+
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [profileUser, setProfileUser] = useState(null);
+  const [rabsMembers, setRabsMembers] = useState([]);
+  const [loadingRabs, setLoadingRabs] = useState(false);
+
+  const canManageAttendanceHR = currentUser?.role === "Admin" || currentUser?.isAttendanceAllowedAdmin === true;
+
+  const fetchRabsMembers = async () => {
+    setLoadingRabs(true);
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/teams/all`);
+      if (res.data.success) {
+        const rabsTeam = res.data.teams?.find(t => t.name?.toUpperCase() === 'RABS');
+        if (rabsTeam) {
+          setRabsMembers(rabsTeam.membersDetails || []);
+        } else {
+          setRabsMembers([]);
+          message.info('No RABS team found');
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching RABS members:", error);
+      message.error("Failed to load RABS team members");
+    } finally {
+      setLoadingRabs(false);
+    }
+  };
+
+  const handleToggleAttendanceAdmin = async (userId, checked) => {
+    try {
+      const res = await axios.post(`${process.env.REACT_APP_API_STRING}/attendance/allowed-admins/toggle`, {
+        target_user_id: userId,
+        is_admin: checked
+      });
+      if (res.data.success) {
+        message.success(res.data.message || "Updated permission successfully");
+        setRabsMembers(prev => prev.map(m => {
+          const idStr = (m._id || m.userId)?.toString();
+          if (idStr === userId?.toString()) {
+            return { ...m, isAttendanceAllowedAdmin: checked };
+          }
+          return m;
+        }));
+      }
+    } catch (error) {
+      console.error("Error toggling attendance admin:", error);
+      message.error(error.response?.data?.message || "Failed to update permission");
+    }
+  };
 
   useEffect(() => {
     async function getUsers() {
@@ -182,10 +235,20 @@ function Assign() {
       children: <AssignModule selectedUser={selectedUser} allowInactive={statusFilter === "Inactive"} />,
     },
     {
+      key: "Procurement Permissions",
+      label: "Procurement Permissions",
+      children: <AssignProcurementTabs selectedUser={selectedUser} />,
+    },
+    {
       key: "Assign Role",
       label: "Assign Role",
       children: <AssignRole selectedUser={selectedUser} allowInactive={statusFilter === "Inactive"} />,
     },
+    ...(canManagePayroll ? [{
+      key: "Payroll Settings",
+      label: "Payroll Settings",
+      children: <PayrollConfig selectedUser={selectedUser} />,
+    }] : []),
     {
       key: "Change Password",
       label: "Change Password",
@@ -225,12 +288,16 @@ function Assign() {
                 { label: 'User List', value: 'Users', icon: <UserOutlined /> },
                 { label: 'Bulk Manage', value: 'Bulk Manage', icon: <GroupOutlined /> },
                 { label: 'All Teams', value: 'All Teams', icon: <TeamOutlined /> },
+                ...(canManageAttendanceHR ? [{ label: 'RABS HR', value: 'RABS HR', icon: <SafetyCertificateOutlined /> }] : []),
               ]}
               value={viewMode}
               onChange={(val) => {
                 setViewMode(val);
                 if (val !== 'Users') {
                   setSelectedUser(null);
+                }
+                if (val === 'RABS HR') {
+                  fetchRabsMembers();
                 }
               }}
               style={{ marginBottom: 16 }}
@@ -326,9 +393,45 @@ function Assign() {
         </div>
       </Sider>
 
-      <Content style={{ padding: viewMode === 'All Teams' ? 0 : 24 }}>
+      <Content style={{ padding: (viewMode === 'All Teams' || viewMode === 'RABS HR') ? 0 : 24 }}>
         {viewMode === 'All Teams' ? (
           <HodManagement />
+        ) : viewMode === 'RABS HR' ? (
+          <Card bordered={false} style={{ margin: 24 }}>
+            <div style={{ marginBottom: 16 }}>
+              <Typography.Title level={5} style={{ margin: 0 }}>RABS — Manage Attendance HR Managers</Typography.Title>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Users moved to the right panel can manage attendance for all RABS team members.
+              </Typography.Text>
+            </div>
+            <Transfer
+              loading={loadingRabs}
+              dataSource={rabsMembers.map(m => ({
+                key: (m._id || m.userId)?.toString(),
+                title: m.first_name && m.last_name
+                  ? `${m.first_name} ${m.last_name} (${m.username})`
+                  : (m.username || ''),
+                description: m.department || m.role || '',
+              }))}
+              targetKeys={rabsMembers
+                .filter(m => m.isAttendanceAllowedAdmin === true)
+                .map(m => (m._id || m.userId)?.toString())
+                .filter(Boolean)}
+              titles={['All RABS Members', 'HR Managers']}
+              render={item => item.title}
+              onChange={async (nextTargetKeys, direction, movedKeys) => {
+                for (const movedKey of movedKeys) {
+                  const newIsAdmin = direction === 'right';
+                  await handleToggleAttendanceAdmin(movedKey, newIsAdmin);
+                }
+              }}
+              listStyle={{ width: '45%', minHeight: 350 }}
+              showSearch
+              filterOption={(inputValue, item) =>
+                item.title.toLowerCase().includes(inputValue.toLowerCase())
+              }
+            />
+          </Card>
         ) : viewMode === 'Bulk Manage' ? (
           <ModuleUserList />
         ) : selectedUser && userData ? (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { getTransportDates, TRANSPORT_BASE, TRANSPORT_HEADERS } from './reports-helper';
 
@@ -10,16 +10,15 @@ const ElockLrCompletedReport = ({
     dateRange,
     selectedDay
 }) => {
-    const [elockLrCompleted, setElockLrCompleted] = useState([]);
-    const [elockLrSummary, setElockLrSummary] = useState({});
+    const [closedLRs, setClosedLRs] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [elockDashFilterType, setElockDashFilterType] = useState('consignee'); // consignee | consignor
+    const [activeGroupTab, setActiveGroupTab] = useState('consignee'); // consignee | consignor | port
 
     useEffect(() => {
-        const fetchLr = async () => {
+        const fetchLrs = async () => {
             setLoading(true);
             try {
-                const { startDate: from, endDate: to } = getTransportDates(
+                const { startDate, endDate } = getTransportDates(
                     filterType,
                     selectedDay,
                     selectedYear,
@@ -27,110 +26,216 @@ const ElockLrCompletedReport = ({
                     selectedQuarter,
                     dateRange
                 );
-                if (!from || !to) {
-                    setLoading(false);
-                    return;
+                
+                const params = {};
+                if (startDate) params.startDate = startDate;
+                if (endDate) params.endDate = endDate;
+
+                // CR-005: Query the exact same live operational dispatch range data source
+                const dsStart = params.startDate ? new Date(params.startDate) : null;
+                const dsEnd = params.endDate ? new Date(params.endDate) : null;
+
+                if (dsStart && dsEnd && Math.round((dsEnd - dsStart) / (1000 * 60 * 60 * 24)) > 60) {
+                    let currentStart = new Date(dsStart);
+                    let combinedClosedLRs = [];
+                    while (currentStart <= dsEnd) {
+                        let currentEnd = new Date(currentStart);
+                        currentEnd.setDate(currentStart.getDate() + 50); // 50 days chunk
+                        if (currentEnd > dsEnd) currentEnd = new Date(dsEnd);
+
+                        const chunkParams = {
+                            ...params,
+                            startDate: currentStart.toISOString().slice(0, 10),
+                            endDate: currentEnd.toISOString().slice(0, 10)
+                        };
+                        const res = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
+                            params: chunkParams,
+                            headers: TRANSPORT_HEADERS,
+                            withCredentials: true
+                        });
+                        if (res.data && res.data.success && res.data.closedLRs) {
+                            combinedClosedLRs.push(...res.data.closedLRs);
+                        }
+
+                        currentStart = new Date(currentEnd);
+                        currentStart.setDate(currentStart.getDate() + 1);
+                    }
+                    setClosedLRs(combinedClosedLRs);
+                } else {
+                    const res = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
+                        params,
+                        headers: TRANSPORT_HEADERS,
+                        withCredentials: true
+                    });
+
+                    if (res.data && res.data.success) {
+                        setClosedLRs(res.data.closedLRs || []);
+                    } else {
+                        setClosedLRs([]);
+                    }
                 }
-                const urlLr = `${TRANSPORT_BASE}/api/client-elock-dashboard/lr-completed-count`;
-                const res = await axios.get(urlLr, {
-                    params: { from, to, filterType: elockDashFilterType },
-                    headers: TRANSPORT_HEADERS,
-                    withCredentials: true
-                });
-                const rawLr = res.data;
-                const innerLr = rawLr?.data ?? {};
-                const arrLr = Array.isArray(innerLr?.byParty) ? innerLr.byParty : [];
-                setElockLrCompleted(arrLr);
-                setElockLrSummary({
-                    totalCompletedCount: innerLr.totalCompletedCount ?? arrLr.length
-                });
             } catch (err) {
-                console.error('Error fetching elock lr completed:', err);
+                console.error('Error fetching operational dispatch range for completed LRs:', err);
+                setClosedLRs([]);
             } finally {
                 setLoading(false);
             }
         };
-        fetchLr();
-    }, [filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay, elockDashFilterType]);
+        fetchLrs();
+    }, [filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay]);
+
+    // Client-side grouping & calculations to ensure perfect sync and accuracy
+    const groupedData = useMemo(() => {
+        const groups = {};
+        closedLRs.forEach(lr => {
+            let key = '—';
+            if (activeGroupTab === 'consignee') {
+                key = lr.consignee || '—';
+            } else if (activeGroupTab === 'consignor') {
+                key = lr.consignor || '—';
+            } else if (activeGroupTab === 'port') {
+                key = lr.branch || '—';
+            }
+
+            const cleanKey = key.trim();
+            if (!groups[cleanKey]) {
+                groups[cleanKey] = 0;
+            }
+            groups[cleanKey]++;
+        });
+
+        return Object.entries(groups)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count);
+    }, [closedLRs, activeGroupTab]);
 
     if (loading) {
         return (
             <div className="nucleus-loading-container">
                 <div className="nucleus-loader"></div>
-                <div style={{ marginTop: '1rem', color: '#6b7280' }}>Loading report details...</div>
+                <div style={{ marginTop: '1.5rem', color: '#1e293b', fontWeight: 600 }}>Loading completed LRs report...</div>
             </div>
         );
     }
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Stats Card */}
-            <div className="nucleus-stats-card" style={{ borderLeft: '4px solid #10b981', background: 'linear-gradient(90deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.01) 100%)' }}>
-                <div className="stats-text" style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <div>Parties: <span className="highlight-val" style={{ color: '#10b981' }}>{Array.isArray(elockLrCompleted) ? elockLrCompleted.length : 0}</span></div>
-                    <div>Total LR Completed: <span className="highlight-val" style={{ color: '#3b82f6' }}>{elockLrSummary.totalCompletedCount ?? 0}</span></div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+                
+                .elock-lr-root {
+                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                }
+                
+                .stats-badge {
+                    display: inline-flex;
+                    padding: 6px 14px;
+                    border-radius: 999px;
+                    font-weight: 700;
+                    font-size: 12px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.03em;
+                }
+                
+                .stats-badge.primary {
+                    background: rgba(59, 130, 246, 0.1);
+                    color: #2563eb;
+                    border: 1px solid rgba(59, 130, 246, 0.2);
+                }
+
+                .stats-badge.success {
+                    background: rgba(16, 185, 129, 0.1);
+                    color: #059669;
+                    border: 1px solid rgba(16, 185, 129, 0.2);
+                }
+                
+                .group-tab-btn {
+                    padding: 8px 18px;
+                    border-radius: 10px;
+                    font-weight: 600;
+                    font-size: 13.5px;
+                    cursor: pointer;
+                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                    border: 1px solid #e2e8f0;
+                    background: #ffffff;
+                    color: #64748b;
+                }
+                
+                .group-tab-btn.active {
+                    background: rgba(16, 185, 129, 0.08);
+                    color: #059669;
+                    border-color: rgba(16, 185, 129, 0.3);
+                    font-weight: 700;
+                }
+                
+                .group-tab-btn:not(.active):hover {
+                    background: #f8fafc;
+                    color: #334155;
+                }
+            `}</style>
+
+            {/* Premium Stats Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }} className="elock-lr-root">
+                <div className="nucleus-stats-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '8px', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, transparent 100%)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                    <div style={{ fontSize: '12.5px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800 }}>Distinct Groups</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+                        <span style={{ fontSize: '38px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{groupedData.length}</span>
+                        <span className="stats-badge primary">Active</span>
+                    </div>
+                </div>
+
+                <div className="nucleus-stats-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '8px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, transparent 100%)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                    <div style={{ fontSize: '12.5px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800 }}>Total LR Completed</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+                        <span style={{ fontSize: '38px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{closedLRs.length}</span>
+                        <span className="stats-badge success">Completed</span>
+                    </div>
                 </div>
             </div>
 
-            {/* Custom filters */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>Filter by:</span>
-                {['consignee', 'consignor'].map(ft => (
+            {/* Grouping Selection Tabs */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }} className="elock-lr-root">
+                <span style={{ fontSize: '13.5px', color: '#475569', fontWeight: 700 }}>Group Breakdown:</span>
+                {[
+                    { id: 'consignee', label: '👤 Customer (Consignee)' },
+                    { id: 'consignor', label: '👤 Customer (Consignor)' },
+                    { id: 'port', label: '🏢 Port / Branch' }
+                ].map(tab => (
                     <button
-                        key={ft}
-                        onClick={() => setElockDashFilterType(ft)}
-                        style={{
-                            padding: '6px 16px',
-                            border: `1px solid ${elockDashFilterType === ft ? '#10b981' : '#e2e8f0'}`,
-                            borderRadius: '8px',
-                            background: elockDashFilterType === ft ? '#10b98110' : '#fff',
-                            color: elockDashFilterType === ft ? '#10b981' : '#64748b',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            textTransform: 'capitalize'
-                        }}
+                        key={tab.id}
+                        onClick={() => setActiveGroupTab(tab.id)}
+                        className={`group-tab-btn ${activeGroupTab === tab.id ? 'active' : ''}`}
                     >
-                        {ft}
+                        {tab.label}
                     </button>
                 ))}
             </div>
 
-            {/* Table */}
-            <div style={{ overflowX: 'auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            {/* Group Summary Table */}
+            <div className="nucleus-table-wrapper elock-lr-root">
+                <table className="nucleus-table">
                     <thead>
-                        <tr style={{ background: '#f8fafc' }}>
-                            {['#', 'Party Name', 'LR Completed Count'].map((h, i) => (
-                                <th
-                                    key={i}
-                                    style={{
-                                        padding: '11px 14px',
-                                        textAlign: i === 2 ? 'right' : 'left',
-                                        color: '#64748b',
-                                        fontWeight: 600,
-                                        borderBottom: '2px solid #e2e8f0',
-                                        whiteSpace: 'nowrap'
-                                    }}
-                                >
-                                    {h}
-                                </th>
-                            ))}
+                        <tr>
+                            <th style={{ width: '80px' }}>S.No</th>
+                            <th>{activeGroupTab === 'port' ? 'Port / Branch Name' : 'Customer Name'}</th>
+                            <th style={{ textAlign: 'right', width: '220px' }}>LR Completed Count</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {Array.isArray(elockLrCompleted) && elockLrCompleted.length > 0 ? (
-                            elockLrCompleted.map((row, i) => (
-                                <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
-                                    <td style={{ padding: '10px 14px', color: '#94a3b8' }}>{i + 1}</td>
-                                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>{row.partyName ?? row.party_name ?? row.consignee ?? row.consignor ?? row.name ?? '—'}</td>
-                                    <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#10b981', fontSize: '16px' }}>{row.count ?? row.completedCount ?? row.lr_completed_count ?? 0}</td>
+                        {groupedData.length > 0 ? (
+                            groupedData.map((row, idx) => (
+                                <tr key={idx}>
+                                    <td style={{ fontWeight: 600, color: '#64748b' }} className="mono-text">{idx + 1}</td>
+                                    <td style={{ fontWeight: 700, color: '#0f172a' }}>{row.name}</td>
+                                    <td style={{ paddingRight: '24px', textAlign: 'right', fontWeight: 900, color: '#059669', fontSize: '16.5px' }} className="mono-text">
+                                        {row.count}
+                                    </td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="3" style={{ textAlign: 'center', color: '#94a3b8', padding: '30px' }}>
-                                    No LR completed data found for the selected period.
+                                <td colSpan="3" style={{ textAlign: 'center', color: '#64748b', padding: '40px', fontWeight: 600 }}>
+                                    No completed trips/LRs found for the selected period.
                                 </td>
                             </tr>
                         )}

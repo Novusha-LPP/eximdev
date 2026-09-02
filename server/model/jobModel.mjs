@@ -77,14 +77,24 @@ const documentSchema = new mongoose.Schema({
   document_check_date: { type: String, trim: true },
 });
 
+const poDetailSchema = new mongoose.Schema(
+  {
+    po_no: { type: String, trim: true },
+    po_date: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
 const invoiceDetailsSchema = new mongoose.Schema(
   {
     invoice_number: { type: String, trim: true },
     invoice_date: { type: String, trim: true },
     po_no: { type: String, trim: true },
     po_date: { type: String, trim: true },
+    po_details: [poDetailSchema],
     product_value: { type: String, trim: true },
     other_charges: { type: String, trim: true },
+    misc: { type: String, trim: true },
     total_inv_value: { type: String, trim: true },
     inv_currency: { type: String, trim: true },
     toi: { type: String, trim: true },
@@ -93,6 +103,12 @@ const invoiceDetailsSchema = new mongoose.Schema(
     freight_currency: { type: String, trim: true },
     insurance_currency: { type: String, trim: true },
     other_charges_currency: { type: String, trim: true },
+    misc_currency: { type: String, trim: true },
+    exchange_rate: { type: String, trim: true },
+    freight_exchange_rate: { type: String, trim: true },
+    insurance_exchange_rate: { type: String, trim: true },
+    other_charges_exchange_rate: { type: String, trim: true },
+    misc_exchange_rate: { type: String, trim: true },
   },
   { _id: false }
 );
@@ -117,6 +133,8 @@ const descriptionDetailsSchema = new mongoose.Schema(
     utilized_unit: { type: String, trim: true },    // Unit for utilized quantity
     utilized_amount: { type: Number },               // CIF value utilized (in amount_currency)
     amount_currency: { type: String, trim: true, default: "USD" }, // Currency of utilized_amount (USD or INR)
+    rodtep: { type: String, trim: true }, // RODTEP scrip number utilized
+
 
     // ── New Product General Details & PMV / IGST Fields ──
     exim_code: { type: String, trim: true },
@@ -152,7 +170,66 @@ const descriptionDetailsSchema = new mongoose.Schema(
     igst_amount_inr: { type: String, trim: true },
     igst_amount_manual: { type: Boolean, default: false },
     comp_cess_percent: { type: String, trim: true },
-    comp_cess_amount: { type: String, trim: true }
+    comp_cess_amount: { type: String, trim: true },
+
+    // ── Notifications & Customs Duty Fields ──
+    bcd_notn: { type: String, trim: true },
+    bcd_sr_no: { type: String, trim: true },
+    bcd_rate: { type: String, trim: true },
+    bcd_specific_rate: { type: String, trim: true },
+    bcd_unit: { type: String, trim: true },
+    bcd_flag: { type: String, trim: true },
+    bcd_amount: { type: String, trim: true },
+
+    aidc_notn: { type: String, trim: true },
+    aidc_sr_no: { type: String, trim: true },
+    aidc_rate: { type: String, trim: true },
+    aidc_specific_rate: { type: String, trim: true },
+    aidc_unit: { type: String, trim: true },
+    aidc_amount: { type: String, trim: true },
+
+    sw_surcharge_notn: { type: String, trim: true },
+    sw_surcharge_sr_no: { type: String, trim: true },
+    sw_surcharge_rate: { type: String, trim: true },
+    sw_surcharge_foc: { type: String, trim: true, default: "No" },
+    sw_surcharge_amount: { type: String, trim: true },
+
+    igst_notn: { type: String, trim: true },
+    igst_sr_no: { type: String, trim: true },
+    igst_specific_rate: { type: String, trim: true },
+    igst_unit: { type: String, trim: true },
+    igst_type: { type: String, trim: true, default: "C - Customs" },
+
+    igst_exc_notn: { type: String, trim: true },
+    igst_exc_sr_no: { type: String, trim: true },
+    igst_exc_rate: { type: String, trim: true },
+    igst_exc_amount: { type: String, trim: true },
+
+    comp_cess_notn: { type: String, trim: true },
+    comp_cess_sr_no: { type: String, trim: true },
+    comp_cess_specific_rate: { type: String, trim: true },
+    comp_cess_unit: { type: String, trim: true },
+
+    comp_exc_notn: { type: String, trim: true },
+    comp_exc_sr_no: { type: String, trim: true },
+    comp_exc_rate: { type: String, trim: true },
+    comp_exc_specific_rate: { type: String, trim: true },
+    comp_exc_amount: { type: String, trim: true },
+
+    safeguard_notn: { type: String, trim: true },
+    safeguard_sr_no: { type: String, trim: true },
+    safeguard_rate: { type: String, trim: true },
+    safeguard_specific_rate: { type: String, trim: true },
+    safeguard_amount: { type: String, trim: true },
+
+    sapta_notn: { type: String, trim: true },
+    sapta_sr_no: { type: String, trim: true },
+    sapta_rate: { type: String, trim: true },
+    sapta_amount: { type: String, trim: true },
+
+    standard_uqc_qty: { type: String, trim: true },
+    standard_uqc_unit: { type: String, trim: true },
+    total_duty_amount: { type: String, trim: true }
   },
   { _id: false }
 );
@@ -305,6 +382,8 @@ const jobSchema = new mongoose.Schema({
   financial_year: { type: String, trim: true },
 
   custom_house: { type: String, trim: true },
+  importer_reference_no: { type: String, trim: true },
+  reason_for_delay: { type: String, trim: true },
   job_date: { type: String, trim: true },
   importer: { type: String, trim: true },
   importer_type: { type: String, trim: true },
@@ -485,6 +564,7 @@ const jobSchema = new mongoose.Schema({
   examinationPlanning: { type: Boolean },
   examination_planning_date: { type: String, trim: true },
   processed_be_attachment: [{ type: String }],
+  part_iii_duties: { type: Array, default: [] },
   ooc_copies: [{ type: String }],
   in_bond_ooc_copies: [{ type: String }],
   gate_pass_copies: [{ type: String }],
@@ -654,6 +734,7 @@ const jobSchema = new mongoose.Schema({
       remark: { type: String, trim: true }
     }
   ],
+  other_charges_details: { type: mongoose.Schema.Types.Mixed },
   // *******
   icd_cfs_invoice: { type: String, trim: true },
 
@@ -771,7 +852,9 @@ const jobSchema = new mongoose.Schema({
   ////////////////////////////////////////////////// accounts
 
   billing_completed_date: { type: String },
+  delivery_completed_date: { type: String, trim: true },
   bill_document_sent_to_accounts: { type: String, trim: true },
+  billing_confirmation_date: { type: String },
   billing_reject_reason: { type: String, trim: true },
   billing_reject_remark: { type: String, trim: true },
   icd_cfs_invoice_img: [{ type: String, trim: true }],
@@ -903,7 +986,6 @@ jobSchema.index({ job_no: 1, year: 1 });
 jobSchema.index({ awb_bl_no: 1, year: 1 });
 jobSchema.index({ be_no: 1, year: 1 });
 jobSchema.index({ supplier_exporter: 1, year: 1 });
-jobSchema.index({ importer: 1, year: 1 });
 
 // NEW: Full-text search index (100-500x faster than regex for text searches)
 // Supports searching across multiple fields simultaneously
@@ -924,7 +1006,52 @@ jobSchema.index({ year: 1, status: 1, "container_nos.detention_from": 1 });
 
 // NEW: Optimized indexes for Status Ranking and Sorting
 jobSchema.index({ year: 1, status_rank: 1, status_sort_date: 1 });
-jobSchema.index({ year: 1, detailed_status: 1 });
+
+// Indexes for Charge Lookups & Out of Charge Tracking (Atlas Query Profiler)
+jobSchema.index({ "charges._id": 1 });
+jobSchema.index({ mode: 1, be_no: 1, status: 1, out_of_charge: 1 });
+jobSchema.index({ "container_nos.container_number": 1, year: 1 });
+jobSchema.index({ "container_nos.container_number": 1, status: 1, year: 1 });
+jobSchema.index({ sequence_number: 1 });
+jobSchema.index({ hawb_hbl_no: 1 });
+jobSchema.index({ custom_house: 1, job_number: 1, year: 1 });
+jobSchema.index({ branch_id: 1, custom_house: 1, mode: 1, year: 1, bill_document_sent_to_accounts: 1, billing_confirmation_date: 1 });
+jobSchema.index({ branch_code: 1, custom_house: 1, mode: 1, year: 1, bill_document_sent_to_accounts: 1, billing_confirmation_date: 1 });
+jobSchema.index({ job_no: 1, updatedAt: 1 });
+jobSchema.index({ branch_id: 1, custom_house: 1, mode: 1, documentation_completed_date_time: 1, job_no: 1 });
+jobSchema.index({ year: 1, custom_house: 1, mode: 1, out_of_charge: 1, esanchit_completed_date_time: 1, gateway_igm_date: 1 });
+jobSchema.index({ "charges.payment_request_no": 1, year: 1, status: 1 });
+jobSchema.index({ "charges.purchase_book_no": 1, year: 1, status: 1 });
+jobSchema.index({ "container_nos.container_number": 1, custom_house: 1, mode: 1, year: 1 });
+jobSchema.index({ branch_code: 1, mode: 1, be_no: 1, out_of_charge: 1, status: 1 });
+jobSchema.index({ branch_code: 1, custom_house: 1, mode: 1, documentation_completed_date_time: 1, job_no: 1 });
+jobSchema.index({ isGeneralJob: 1, year: 1, createdAt: -1 });
+jobSchema.index({ branch_id: 1, year: 1, createdAt: -1 });
+jobSchema.index({ branch_code: 1, year: 1, createdAt: -1 });
+jobSchema.index({ year: 1, createdAt: -1 });
+jobSchema.index({ year: 1, detailed_status: 1, createdAt: -1 });
+jobSchema.index({ year: 1, detailed_status: 1, branch_code: 1 });
+jobSchema.index({ year: 1, detailed_status: 1, branch_id: 1 });
+jobSchema.index({ year: 1, detailed_status: 1, job_number: 1 });
+jobSchema.index({ status: 1, isCompleted: 1, isJobCanceled: 1, year: 1, createdAt: -1 });
+jobSchema.index({ year: 1, branch_code: 1, "charges.payment_request_no": 1 });
+jobSchema.index({ year: 1, branch_code: 1, "charges.purchase_book_no": 1 });
+jobSchema.index({ year: 1, branch_id: 1, "charges.payment_request_no": 1 });
+jobSchema.index({ year: 1, branch_id: 1, "charges.purchase_book_no": 1 });
+jobSchema.index({ year: 1, "charges.payment_request_no": 1, "charges.payment_request_is_approved": 1 });
+jobSchema.index({ year: 1, "charges.purchase_book_no": 1, "charges.purchase_book_is_approved": 1 });
+jobSchema.index({ year: 1, status: 1, be_no: 1 });
+jobSchema.index({ year: 1, status: 1, branch_code: 1 });
+jobSchema.index({ year: 1, status: 1, branch_id: 1 });
+jobSchema.index({ year: 1, status: 1, importer: 1 });
+jobSchema.index({ year: 1, status: 1, custom_house: 1 });
+jobSchema.index({ year: 1, status: 1, mode: 1 });
+jobSchema.index({ billing_completed_date: 1, branch_code: 1, mode: 1 });
+jobSchema.index({ billing_completed_date: 1, branch_id: 1, mode: 1 });
+jobSchema.index({ custom_house: 1, mode: 1, status: 1, year: 1 });
+jobSchema.index({ "containers._id": 1 });
+jobSchema.index({ "cth_documents.document_name": 1, custom_house: 1, mode: 1, out_of_charge: 1 });
+jobSchema.index({ billing_completed_date: 1, mode: 1, year: 1, bill_document_sent_to_accounts: 1, billing_confirmation_date: 1 });
 
 jobSchema.plugin(auditPlugin, { documentType: "Job" });
 

@@ -139,7 +139,11 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
       .map((container) => container.size)
       .join(",\n");
 
-    const inv_value = (item.cif_amount / parseInt(item.exrate)).toFixed(2);
+    let inv_value = item.total_inv_value;
+    if (!inv_value || inv_value === "NaN") {
+      const calcValue = parseFloat(item.cif_amount) / parseFloat(item.exrate);
+      inv_value = !isNaN(calcValue) ? calcValue.toFixed(2) : "";
+    }
     const invoice_value_and_unit_price = `${item.inv_currency} ${inv_value} | ${item.unit_price}`;
     const net_weight = item.container_nos?.reduce((sum, container) => {
       const weight = parseFloat(container.net_weight);

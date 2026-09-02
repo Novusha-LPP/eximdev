@@ -68,7 +68,7 @@ router.post('/api/be-details', async (req, res) => {
     }
 
     // If form data approach didn't work, try JSON approach
-    
+
     const jsonResponse = await axios.post(
       'https://foservices.icegate.gov.in/enquiry/publicEnquiries/BETrack_Ices_action_Public',
       {
@@ -122,7 +122,7 @@ router.post('/api/be-details', async (req, res) => {
       response: error.response?.data,
       status: error.response?.status
     });
-    
+
     if (error.response) {
       // Handle "No Record Found" in catch block too
       if (error.response.status === 400 && error.response.data) {
@@ -132,7 +132,7 @@ router.post('/api/be-details', async (req, res) => {
           details: error.response.data
         });
       }
-      
+
       res.status(error.response.status).json({
         success: false,
         error: `ICEGATE API error: ${error.response.status}`,
@@ -154,7 +154,7 @@ router.post('/api/be-details', async (req, res) => {
 
 router.post('/api/bl-tracking', async (req, res) => {
   try {
-    const { mawbNumber } = req.body;
+    const { mawbNumber, hawbNumber } = req.body;
 
     // Validate required fields
     if (!mawbNumber) {
@@ -176,6 +176,9 @@ router.post('/api/bl-tracking', async (req, res) => {
     // Step 1: Fetch BL Status - ALLOW 400 status
     const url1 = 'https://foservices.icegate.gov.in/enquiry/publicEnquiries/publicblstatus-action';
     const payload1 = { mawbNumber };
+    if (hawbNumber) {
+      payload1.hawbNumber = hawbNumber;
+    }
 
     const response1 = await axios.post(url1, payload1, {
       headers,
@@ -268,7 +271,7 @@ router.post('/api/bl-tracking', async (req, res) => {
           details: error.response.data
         });
       }
-      
+
       res.status(error.response.status).json({
         success: false,
         error: `ICEGATE API error: ${error.response.status}`,
@@ -328,7 +331,7 @@ router.post('/api/sea-cargo-tracking', async (req, res) => {
         } else {
           requestData = JSON.stringify({ location, masterBlNo });
         }
-        
+
         response1 = await axios.post(
           'https://foservices.icegate.gov.in/enquiry/enquiryatices/SeaIgmEnq',
           requestData,
@@ -448,7 +451,7 @@ router.post('/api/sea-igm-full-details', async (req, res) => {
     }
 
     // Step 3: Get Container Details
-    const url3 = 'https://foservices.icegate.gov.in/enquiry/publicEnquiries/SeaIgmContPublicDetails';
+    const url3 = 'https://foservices.icegate.gov.in/enquiry/quiries/SeaIgmContPublicDetails';
     let containerDetails = null;
     try {
       const response3 = await axios.post(url3, { lineNo, subLineNo, igmNo, location }, {
@@ -601,32 +604,32 @@ router.post('/api/air-console-full-details', async (req, res) => {
     };
 
     // Step 1: Get Master Console details
-    const masterRes = await axios.post('https://foservices.icegate.gov.in/enquiry/publicEnquiries/public-air-consol-master', 
-      { 
-        locationCode, 
+    const masterRes = await axios.post('https://foservices.icegate.gov.in/enquiry/publicEnquiries/public-air-consol-master',
+      {
+        locationCode,
         location: locationCode, // Alias just in case
         masterBlNumber,
-        isLoggedIn: false 
+        isLoggedIn: false
       }, { headers, timeout: 25000 });
-    
+
     const masterData = Array.isArray(masterRes.data) ? masterRes.data : [];
-    
+
     // Extract fileName from first master record if available
     const fileName = masterData.length > 0 ? masterData[0].fileName : null;
 
     // Step 2: Get House Console details (Pass fileName and internalFlag)
     let houseData = [];
     try {
-      const houseRes = await axios.post('https://foservices.icegate.gov.in/enquiry/publicEnquiries/public-air-consol-house', 
-        { 
-          locationCode, 
+      const houseRes = await axios.post('https://foservices.icegate.gov.in/enquiry/publicEnquiries/public-air-consol-house',
+        {
+          locationCode,
           location: locationCode, // Alias just in case
-          masterBlNumber, 
-          fileName: fileName || "", 
+          masterBlNumber,
+          fileName: fileName || "",
           internalFlag: false,
           isLoggedIn: false
         }, { headers, timeout: 25000 });
-      
+
       if (Array.isArray(houseRes.data)) {
         houseData = houseRes.data;
       }

@@ -343,6 +343,15 @@ const SeaCargoStatus = ({
           }));
         }
       }
+      // Only add gross_weight if valid
+      if (isValidValue(summary.grossWeight)) {
+        updateData.gross_weight = summary.grossWeight;
+      }
+
+      // Only add unit (UQC) if valid
+      if (isValidValue(summary.uqc)) {
+        updateData.unit = summary.uqc;
+      }
 
       // Check if we have any valid data to update
       if (Object.keys(updateData).length === 0) {

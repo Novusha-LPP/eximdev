@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import bcryptjs from "bcryptjs";
 import UserModel from "../model/userModel.mjs";
+import Company from "../model/attendance/Company.js";
 
 const router = express.Router();
 
@@ -51,9 +52,17 @@ router.get("/api/get-all-users", async (req, res) => {
     query.isActive = { $ne: false };
   }
 
-  const users = await UserModel.find(query).select(
-    "username role _id first_name last_name isActive modules department employee_code designation userAssets"
-  );
+  // Filter out drivers always, and dev_master in production
+  query.role = { $nin: ['driver', 'Driver'] };
+  if (process.env.NODE_ENV === 'production') {
+    query.username = { $ne: 'dev_master' };
+  }
+
+  const users = await UserModel.find(query)
+    .select(
+      "username role _id first_name last_name isActive deactivatedAt modules department employee_code designation userAssets isAttendanceAllowedAdmin is_operator category company company_id"
+    )
+    .populate("company_id", "company_name");
 
   res.send(users);
 });
@@ -108,7 +117,7 @@ router.post("/api/get-users-by-usernames", async (req, res) => {
       isActive: { $ne: false }
     })
     .select(
-      "username role _id first_name last_name isActive deactivatedAt modules employee_photo department employee_code mobile branch_id designation company current_status"
+      "username role _id first_name last_name isActive deactivatedAt modules employee_photo department employee_code mobile branch_id designation company current_status isAttendanceAllowedAdmin is_operator category"
     )
     .populate("branch_id", "branch_name branch_code");
 

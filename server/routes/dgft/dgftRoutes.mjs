@@ -3,9 +3,11 @@ import multer from "multer";
 import XLSX from "xlsx";
 import DgftRegisterModel from "../../model/dgftRegisterModel.mjs";
 import AuthorizationRegistrationModel from "../../model/authorizationRegistrationModel.mjs";
+import RodtepModel from "../../model/rodtepModel.mjs";
 import JobModel from "../../model/jobModel.mjs";
 import LicenseUtilizationModel from "../../model/licenseUtilizationModel.mjs";
 import { recalculateLicenseUtilization } from "../../services/licenseUtilizationService.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -26,7 +28,25 @@ router.get("/api/get-dgft-registers", async (req, res) => {
 // POST add DGFT register
 router.post("/api/add-dgft-register", async (req, res) => {
   try {
-    const record = await DgftRegisterModel.create(req.body);
+    const createData = { ...req.body };
+    // Quantity & Value Tracking can only be entered once payment is approved
+    if (createData.payment_status !== "Payment Approved") {
+      delete createData.export_details_array;
+      delete createData.import_details_array;
+      delete createData.qty_export;
+      delete createData.unit_export;
+      delete createData.export_value_fob_usd;
+      delete createData.export_value_rs;
+      delete createData.hs_code_export;
+      delete createData.item_description_export;
+      delete createData.qty_import;
+      delete createData.unit_import;
+      delete createData.import_value_fob_usd;
+      delete createData.import_value_rs;
+      delete createData.hs_code_import;
+      delete createData.item_description_import;
+    }
+    const record = await DgftRegisterModel.create(createData);
     res.status(201).json({ message: "Record added successfully", data: record });
   } catch (error) {
     console.error(error);
@@ -37,12 +57,43 @@ router.post("/api/add-dgft-register", async (req, res) => {
 // PUT update DGFT register
 router.put("/api/update-dgft-register/:id", async (req, res) => {
   try {
+    const existing = await DgftRegisterModel.findById(req.params.id);
+    if (!existing) return res.status(404).json({ message: "Record not found" });
+
+    const updateData = { ...req.body };
+    const isApproved = (updateData.payment_status || existing.payment_status) === "Payment Approved" || (updateData.job_status || existing.job_status) === "PAYMENT APPROVED" || (updateData.job_status || existing.job_status) === "APPROVED";
+
+    // If job_status is updated to PAYMENT APPROVED and payment_status is not explicitly set, sync payment_status
+    if (updateData.job_status === "PAYMENT APPROVED" && !updateData.payment_status && existing.payment_status !== "Payment Approved") {
+      updateData.payment_status = "Payment Approved";
+      if (!existing.payment_approved_at) {
+        updateData.payment_approved_at = new Date();
+      }
+    }
+
+    // If payment is not approved, protect and do not allow saving export/import items
+    if (!isApproved) {
+      delete updateData.export_details_array;
+      delete updateData.import_details_array;
+      delete updateData.qty_export;
+      delete updateData.unit_export;
+      delete updateData.export_value_fob_usd;
+      delete updateData.export_value_rs;
+      delete updateData.hs_code_export;
+      delete updateData.item_description_export;
+      delete updateData.qty_import;
+      delete updateData.unit_import;
+      delete updateData.import_value_fob_usd;
+      delete updateData.import_value_rs;
+      delete updateData.hs_code_import;
+      delete updateData.item_description_import;
+    }
+
     const updated = await DgftRegisterModel.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true }
     );
-    if (!updated) return res.status(404).json({ message: "Record not found" });
     res.status(200).json({ message: "Record updated successfully", data: updated });
   } catch (error) {
     console.error(error);
@@ -276,12 +327,12 @@ router.post(
         // Fallback for matter_closed_inv_date if still missing: "DATE" (exact match)
         if (!mapped.matter_closed_inv_date) {
           if (row["DATE"] !== undefined) {
-             mapped.matter_closed_inv_date = String(row["DATE"]);
+            mapped.matter_closed_inv_date = String(row["DATE"]);
           } else {
-             const fallbackDate = keysList.find(k => /^DATE$/i.test(k.trim()) && k.trim() !== "Date");
-             if (fallbackDate && row[fallbackDate] !== undefined) {
-               mapped.matter_closed_inv_date = String(row[fallbackDate]);
-             }
+            const fallbackDate = keysList.find(k => /^DATE$/i.test(k.trim()) && k.trim() !== "Date");
+            if (fallbackDate && row[fallbackDate] !== undefined) {
+              mapped.matter_closed_inv_date = String(row[fallbackDate]);
+            }
           }
         }
 
@@ -599,7 +650,7 @@ router.put("/api/update-authorization-registration/:id", async (req, res) => {
     if (!updated) return res.status(404).json({ message: "Record not found" });
 
     // Recalculate utilization using the newly saved quantities/values to refresh dynamic balances
-    await recalculateLicenseUtilization(updated.registration_no || updated.licence_no);
+    await recalculateLicenseUtilization(updated.registration_no || updated.licence_no || updated.job_no);
     const finalDoc = await AuthorizationRegistrationModel.findById(req.params.id);
 
     // Sync compliance details back to JobModel for any linked BE numbers
@@ -662,9 +713,19 @@ router.delete(
         return res.status(404).json({ message: "Record not found" });
 
       // Clean up associated utilization records
-      const authNo = deleted.registration_no || deleted.licence_no;
+      const authNo = deleted.registration_no || deleted.licence_no || deleted.job_no;
       if (authNo) {
-        await LicenseUtilizationModel.deleteMany({ authorization_no: authNo });
+        const cleanedNo = String(authNo).replace(/^LIC\//i, "").trim();
+        const searchNos = [authNo, cleanedNo];
+        if (deleted.registration_no) searchNos.push(deleted.registration_no);
+        if (deleted.licence_no) searchNos.push(deleted.licence_no);
+        if (deleted.job_no) {
+          searchNos.push(deleted.job_no);
+          searchNos.push(`LIC/${deleted.job_no}`);
+          searchNos.push(`lic/${deleted.job_no}`);
+        }
+        const uniqueSearchNos = [...new Set(searchNos.filter(n => n && n.trim() !== ""))];
+        await LicenseUtilizationModel.deleteMany({ authorization_no: { $in: uniqueSearchNos } });
       }
 
       res.status(200).json({ message: "Record deleted successfully" });
@@ -717,13 +778,16 @@ router.get("/api/get-authorization-by-no", async (req, res) => {
     if (!authorization_no) {
       return res.status(400).json({ message: "authorization_no query param is required" });
     }
+    const cleanedNo = String(authorization_no).replace(/^LIC\//i, "").trim();
     const record = await AuthorizationRegistrationModel.findOne({
       $or: [
         { registration_no: authorization_no },
         { licence_no: authorization_no },
+        { job_no: authorization_no },
+        { job_no: cleanedNo }
       ],
     })
-      .select("registration_no licence_no auth_date licence_date scheme_code iec_no import_details_array export_details_array party_name")
+      .select("registration_no licence_no auth_date licence_date scheme_code iec_no import_details_array export_details_array party_name job_no import_validity export_validity notification_number bg_number bg_amount bg_date bg_expiry_date bond_number bond_amount bond_date bond_expiry_date documents_received_date documents_send_to_icd documents_send_to_accounts accounts_billing_invoice_no accounts_billing_invoice_date")
       .lean();
 
     if (!record) {
@@ -741,20 +805,40 @@ router.get("/api/get-authorization-by-no", async (req, res) => {
 router.get("/api/get-authorizations-by-iec", async (req, res) => {
   try {
     const { iec_no } = req.query;
-    if (!iec_no) {
-      return res.status(400).json({ message: "iec_no query param is required" });
+    let query = {};
+    if (iec_no) {
+      if (typeof iec_no === "string" && iec_no.includes(",")) {
+        const list = iec_no.split(",").map((s) => s.trim()).filter(Boolean);
+        query = { iec_no: { $in: list } };
+      } else if (Array.isArray(iec_no)) {
+        query = { iec_no: { $in: iec_no } };
+      } else {
+        query = { iec_no };
+      }
     }
-    const records = await AuthorizationRegistrationModel.find({ iec_no })
-      .select("registration_no licence_no auth_date licence_date scheme_code party_name import_details_array")
+    const records = await AuthorizationRegistrationModel.find(query)
+      .select("registration_no licence_no auth_date licence_date scheme_code party_name import_details_array bond_number bond_amount bond_expiry_date job_no port_code job_status job_type category iec_no")
       .sort({ createdAt: -1 })
       .lean();
 
     // Map to a simple list format
     const list = records.map((r) => ({
+      _id: r._id,
       authorization_no: r.registration_no || r.licence_no || "",
+      licence_no: r.licence_no || r.registration_no || "",
       authorization_date: r.auth_date || r.licence_date || "",
+      licence_date: r.licence_date || r.auth_date || "",
+      auth_date: r.auth_date || r.licence_date || "",
       scheme_code: r.scheme_code || "",
       party_name: r.party_name || "",
+      iec_no: r.iec_no || "",
+      bond_number: r.bond_number || "",
+      bond_amount: r.bond_amount || "",
+      bond_expiry_date: r.bond_expiry_date || "",
+      job_no: r.job_no || "",
+      port_code: r.port_code || "",
+      job_status: r.job_status || "",
+      job_category: r.job_type || r.category || "",
       import_details_array: r.import_details_array || [],
     }));
 
@@ -772,10 +856,270 @@ router.get("/api/license-utilization/records", async (req, res) => {
     if (!authorization_no) {
       return res.status(400).json({ message: "authorization_no query param is required" });
     }
+    const cleanedNo = String(authorization_no).replace(/^LIC\//i, "").trim();
+    const auth = await AuthorizationRegistrationModel.findOne({
+      $or: [
+        { registration_no: authorization_no },
+        { licence_no: authorization_no },
+        { job_no: authorization_no },
+        { job_no: cleanedNo }
+      ]
+    }).lean();
+
+    const searchNos = [authorization_no, cleanedNo];
+    if (auth) {
+      if (auth.registration_no) searchNos.push(auth.registration_no);
+      if (auth.licence_no) searchNos.push(auth.licence_no);
+      if (auth.job_no) {
+        searchNos.push(auth.job_no);
+        searchNos.push(`LIC/${auth.job_no}`);
+        searchNos.push(`lic/${auth.job_no}`);
+      }
+    }
+    const uniqueSearchNos = [...new Set(searchNos.filter(n => n && n.trim() !== ""))];
+
     const records = await LicenseUtilizationModel.find({
-      authorization_no
+      authorization_no: { $in: uniqueSearchNos }
     }).sort({ created_at: -1 });
     res.status(200).json(records);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// ===================== RODTEP Details CRUD =====================
+
+// Helper to query all jobs utilizing a specific RODTEP certificate
+async function getRodtepUtilization(rodtepNo) {
+  const jobs = await JobModel.find({
+    "description_details.rodtep": rodtepNo
+  }).select("job_no ie_code_no exrate description_details").lean();
+
+  const utilizationList = [];
+  let totalUtilized = 0;
+
+  for (const job of jobs) {
+    const jobEx = parseFloat(job.exrate) || 84;
+    for (const row of job.description_details) {
+      if (row.rodtep === rodtepNo) {
+        const amt = parseFloat(row.amount) || 0;
+        const amtInr = row.amount_currency === "INR" ? amt : amt * jobEx;
+
+        utilizationList.push({
+          job_no: job.job_no,
+          ie_code_no: job.ie_code_no,
+          description: row.description || "—",
+          amount: amt,
+          currency: row.amount_currency || "USD",
+          amount_inr: Math.round(amtInr * 100) / 100
+        });
+        totalUtilized += amtInr;
+      }
+    }
+  }
+  return { utilizationList, totalUtilized };
+}
+
+// GET all RODTEP scrips (enriched with utilized & balance values)
+router.get("/api/get-rodteps", async (req, res) => {
+  try {
+    const data = await RodtepModel.find().sort({ createdAt: -1 }).lean();
+    const enriched = [];
+    for (const item of data) {
+      const { totalUtilized } = await getRodtepUtilization(item.rodtep);
+      enriched.push({
+        ...item,
+        utilized_amount: Math.round(totalUtilized * 100) / 100,
+        balance_amount: Math.max(0, Math.round((item.value_inr - totalUtilized) * 100) / 100)
+      });
+    }
+    res.status(200).json(enriched);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// POST add new RODTEP scrip (auto-calculates sr_no sequentially)
+router.post("/api/add-rodtep", async (req, res) => {
+  try {
+    const maxEntry = await RodtepModel.findOne().sort({ sr_no: -1 });
+    const nextSr = maxEntry && maxEntry.sr_no ? maxEntry.sr_no + 1 : 1;
+    req.body.sr_no = nextSr;
+
+    const record = await RodtepModel.create(req.body);
+    res.status(201).json({ message: "RODTEP record added successfully", data: record });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// PUT update RODTEP scrip details
+router.put("/api/update-rodtep/:id", async (req, res) => {
+  try {
+    const updated = await RodtepModel.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: "Record not found" });
+    res.status(200).json({ message: "RODTEP record updated successfully", data: updated });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// DELETE RODTEP scrip
+router.delete("/api/delete-rodtep/:id", async (req, res) => {
+  try {
+    const deleted = await RodtepModel.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "Record not found" });
+    res.status(200).json({ message: "RODTEP record deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// GET utilizing jobs for a specific RODTEP scrip
+router.get("/api/get-rodtep-utilization", async (req, res) => {
+  try {
+    const { rodtep } = req.query;
+    if (!rodtep) {
+      return res.status(400).json({ message: "rodtep query param is required" });
+    }
+    const { utilizationList } = await getRodtepUtilization(rodtep);
+    res.status(200).json(utilizationList);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// GET RODTEPs matching job IEC code
+router.get("/api/get-rodteps-by-iec", async (req, res) => {
+  try {
+    const { iec_no } = req.query;
+    if (!iec_no) {
+      return res.status(400).json({ message: "iec_no query param is required" });
+    }
+    const data = await RodtepModel.find({ iec_code: iec_no }).sort({ createdAt: -1 }).lean();
+    res.status(200).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// ===================== DGFT Payment Approval Workflow =====================
+
+// GET all DGFT records with a payment status (for approval tab)
+router.get("/api/get-dgft-payment-requests", async (req, res) => {
+  try {
+    const data = await DgftRegisterModel.find({
+      payment_status: { $exists: true, $ne: "" },
+    }).sort({ payment_requested_at: -1 });
+    res.status(200).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// GET all DGFT records where payment is approved
+router.get("/api/get-dgft-payment-approved", async (req, res) => {
+  try {
+    const data = await DgftRegisterModel.find({
+      $or: [
+        { payment_status: "Payment Approved" },
+        { job_status: "APPROVED" }
+      ]
+    }).sort({ createdAt: -1 });
+    res.status(200).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// PUT submit a payment request
+router.put("/api/dgft-request-payment/:id", authMiddleware, async (req, res) => {
+  try {
+    const record = await DgftRegisterModel.findById(req.params.id);
+    if (!record) return res.status(404).json({ message: "Record not found" });
+
+    const eftAmount = req.body.eft_amount || record.eft_amount;
+    if (!eftAmount || String(eftAmount).trim() === "") {
+      return res.status(400).json({ message: "EFT Amount is required to request payment" });
+    }
+
+    const requestedBy = req.user?.username || req.user?.first_name || req.body.requested_by || "Admin";
+
+    record.eft_amount = eftAmount;
+    record.payment_status = "Payment Requested";
+    record.job_status = "PAYMENT REQUESTED";
+    record.payment_requested_by = requestedBy;
+    record.payment_requested_at = new Date();
+    // Clear any previous rejection
+    record.payment_rejection_reason = "";
+    record.payment_approved_by = "";
+    record.payment_approved_at = null;
+
+    await record.save();
+    res.status(200).json({ message: "Payment request submitted", data: record });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// PUT approve a payment request
+router.put("/api/dgft-approve-payment/:id", authMiddleware, async (req, res) => {
+  try {
+    const record = await DgftRegisterModel.findById(req.params.id);
+    if (!record) return res.status(404).json({ message: "Record not found" });
+    if (record.payment_status !== "Payment Requested") {
+      return res.status(400).json({ message: "Only records with 'Payment Requested' status can be approved" });
+    }
+
+    const approvedBy = req.user?.username || req.user?.first_name || req.body.approved_by || "Admin";
+
+    record.payment_status = "Payment Approved";
+    record.job_status = "PAYMENT APPROVED";
+    record.payment_approved_by = approvedBy;
+    record.payment_approved_at = new Date();
+
+    await record.save();
+    res.status(200).json({ message: "Payment approved", data: record });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// PUT reject a payment request
+router.put("/api/dgft-reject-payment/:id", authMiddleware, async (req, res) => {
+  try {
+    const record = await DgftRegisterModel.findById(req.params.id);
+    if (!record) return res.status(404).json({ message: "Record not found" });
+    if (record.payment_status !== "Payment Requested") {
+      return res.status(400).json({ message: "Only records with 'Payment Requested' status can be rejected" });
+    }
+
+    const rejectedBy = req.user?.username || req.user?.first_name || req.body.rejected_by || "Admin";
+    const reason = req.body.reason || "";
+
+    record.payment_status = "Payment Rejected";
+    record.job_status = "DEFICIENT";
+    record.payment_approved_by = rejectedBy;
+    record.payment_approved_at = new Date();
+    record.payment_rejection_reason = reason;
+
+    await record.save();
+    res.status(200).json({ message: "Payment rejected", data: record });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });

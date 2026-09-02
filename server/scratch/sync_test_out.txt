@@ -1,0 +1,786 @@
+Connecting to MongoDB...
+Connected to MongoDB.
+Original Job status - be_no: "2207657", be_date: "2026-06-30", type_of_b_e: "Home"
+Temporarily clearing be_no, be_date, and type_of_b_e in DB...
+Generating test JWT token for user: rajan_aranamkatte (role: Admin)
+Calling sync endpoint for job number: AMD/IMP/SEA/02296/26-27...
+HTTP Response Status: 200
+Response Data: {
+  "success": true,
+  "message": "Job details successfully synchronized from IMEXCUBE.",
+  "changes": [
+    "be_no: none -> 2207657",
+    "be_date: none -> 2026-06-30",
+    "type_of_b_e: none -> Home"
+  ],
+  "updatedJob": {
+    "hss_address": {
+      "category": "",
+      "details": "",
+      "city": "",
+      "state": "",
+      "postal_code": "",
+      "country": "",
+      "ad_code": ""
+    },
+    "importer_address": {
+      "details": "Block No 414/1 & Survey No 420 Gokulpura Road Mirzapur ,  KATHLAL",
+      "city": "KATHLAL",
+      "state": "GUJARAT",
+      "postal_code": "387630",
+      "country": "India"
+    },
+    "_id": "6a3d0bba845f66ec71150605",
+    "job_date": "2026-06-25",
+    "year": "26-27",
+    "job_no": "02296",
+    "job_number": "AMD/IMP/SEA/02296/26-27",
+    "branch_id": "69abeeae0a6647027c4a09a8",
+    "branch_code": "AMD",
+    "trade_type": "IMP",
+    "mode": "SEA",
+    "sequence_number": 2296,
+    "financial_year": "26-27",
+    "custom_house": "ICD SANAND",
+    "importer": "MARUTI RECYCLING",
+    "importer_type": "P",
+    "commercial_tax_type": "G",
+    "supplier_exporter": "MRL TRADING FZC",
+    "invoice_number": "MRLFZC-033062026",
+    "invoice_date": "2026-06-20",
+    "po_no": "",
+    "po_date": "",
+    "awb_bl_no": "VASJEDSND085251",
+    "awb_bl_date": "2026-06-20",
+    "description": "ALUMINIUM SCRAP TRUMP AS PER ISRI",
+    "description_details": [
+      {
+        "description": "ALUMINIUM SCRAP TRUMP AS PER ISRI",
+        "cth_no": "76020010",
+        "clearance_under": "Full Duty",
+        "sr_no_invoice": "1",
+        "sr_no_lic": "",
+        "quantity": "35580",
+        "unit": "KGS",
+        "unit_price": "2.055",
+        "amount": "73116.9",
+        "foc_item": "No",
+        "license_no": "",
+        "license_date": "",
+        "license_sr": null,
+        "utilized_qty": null,
+        "utilized_unit": "",
+        "utilized_amount": null,
+        "amount_currency": "USD",
+        "exim_code": "",
+        "nfei_category": "",
+        "reward_item": false,
+        "str_code": "",
+        "end_use": "",
+        "district_of_origin": "",
+        "origin_state": "",
+        "pta_fta_code": "",
+        "alternate_qty": "",
+        "sqc_qty": "",
+        "sqc_unit": "",
+        "material_code": "",
+        "medicinal_plant": "",
+        "formulation": "",
+        "surface_material": "",
+        "lab_grown_diamond": "",
+        "per": "1",
+        "per_unit": "",
+        "pmv_currency": "INR",
+        "pmv_calc_method": "%AGE",
+        "pmv_calc_val": "",
+        "pmv_unit": "",
+        "pmv_rate": "",
+        "total_pmv": "",
+        "igst_payment_status": "",
+        "taxable_value_inr": "",
+        "taxable_value_manual": false,
+        "igst_rate": "",
+        "igst_amount_inr": "",
+        "igst_amount_manual": false,
+        "comp_cess_percent": "",
+        "comp_cess_amount": ""
+      }
+    ],
+    "invoice_details": [
+      {
+        "invoice_number": "MRLFZC-033062026",
+        "invoice_date": "2026-06-20",
+        "po_no": "",
+        "po_date": "",
+        "po_details": [
+          {
+            "po_no": "",
+            "po_date": ""
+          }
+        ],
+        "product_value": "73116.90",
+        "other_charges": "",
+        "total_inv_value": "73116.90",
+        "inv_currency": "USD",
+        "toi": "CIF",
+        "freight": "",
+        "insurance": "",
+        "freight_currency": "USD",
+        "insurance_currency": "INR",
+        "other_charges_currency": "USD",
+        "exchange_rate": "95.3",
+        "freight_exchange_rate": "95.3",
+        "insurance_exchange_rate": "1",
+        "other_charges_exchange_rate": "95.3"
+      },
+      {
+        "invoice_number": "MRLFZC033062026",
+        "invoice_date": "2026-06-20",
+        "product_value": "73116.9",
+        "inv_currency": "USD",
+        "toi": "CIF",
+        "freight": "",
+        "insurance": "",
+        "freight_currency": "",
+        "insurance_currency": "",
+        "po_details": []
+      }
+    ],
+    "hawb_hbl_no": "",
+    "hawb_hbl_date": "",
+    "in_bond_be_no": "",
+    "in_bond_be_date": "",
+    "type_of_b_e": "Home",
+    "gross_weight": "35580",
+    "job_net_weight": "35580",
+    "priorityJob": "Priority",
+    "hss": "No",
+    "saller_name": "",
+    "loading_port": "(SAJED) Jeddah",
+    "origin_country": "SAUDI ARABIA",
+    "port_of_reporting": "(INMUN1) Mundra Sea",
+    "shipping_line_airline": "GOODRICH MARITIME PRIVATE LIMITED",
+    "branchSrNo": "0",
+    "adCode": "6361458",
+    "bank_name": "Axis Bank Limited",
+    "hss_branch_id": "",
+    "hss_ie_code_no": "",
+    "isDraftDoc": false,
+    "fta_Benefit_date_time": "",
+    "exBondValue": "",
+    "scheme": "Full Duty",
+    "clearanceValue": "Full Duty",
+    "ie_code_no": "ABDFM8378H",
+    "gst_no": "24ABDFM8378H1ZY",
+    "isGeneralJob": false,
+    "container_nos": [
+      {
+        "container_number": "VMLU3903407",
+        "arrival_date": "2026-07-03T02:58",
+        "detention_from": "2026-07-17",
+        "size": "40",
+        "physical_weight": "21300",
+        "tare_weight": "3700",
+        "net_weight": "",
+        "container_gross_weight": "17720",
+        "actual_weight": "17600.00",
+        "transporter": "",
+        "weight_shortage": "-120.00",
+        "weight_excess": "-120.00",
+        "weighment_slip_images": [
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/weighment_slip_images/02296_20260703T064244.pdf"
+        ],
+        "container_pre_damage_images": [],
+        "container_images": [
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/container_images/WhatsApp Image 2026-07-03 at 12.09.22 PM-1783065814353.jpeg",
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/container_images/WhatsApp Image 2026-07-03 at 12.09.09 PM-1783065814726.jpeg",
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/container_images/WhatsApp Image 2026-07-03 at 12.09.04 PM-1783065815148.jpeg"
+        ],
+        "loose_material": [],
+        "examination_videos": [],
+        "do_revalidation_date": "",
+        "do_validity_upto_container_level": "2026-07-16",
+        "required_do_validity_upto": "",
+        "seal_number": [
+          "1393890"
+        ],
+        "wire_seal": [
+          "72465"
+        ],
+        "container_rail_out_date": "2026-07-02T12:38",
+        "by_road_movement_date": "",
+        "emptyContainerOffLoadDate": "",
+        "net_weight_as_per_PL_document": "17720",
+        "delivery_date": "",
+        "do_revalidation": [],
+        "_id": "6a4c9bc6d755ca9199b82049"
+      },
+      {
+        "container_number": "VMLU4226960",
+        "arrival_date": "2026-07-03T02:58",
+        "detention_from": "2026-07-17",
+        "size": "40",
+        "physical_weight": "21560",
+        "tare_weight": "3700",
+        "net_weight": "",
+        "container_gross_weight": "17860",
+        "actual_weight": "17860.00",
+        "transporter": "",
+        "weight_shortage": "0.00",
+        "weight_excess": "0.00",
+        "weighment_slip_images": [
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/weighment_slip_images/02296_20260703T064249.pdf"
+        ],
+        "container_pre_damage_images": [],
+        "container_images": [
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/container_images/WhatsApp Image 2026-07-03 at 12.11.03 PM-1783065889013.jpeg",
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/container_images/WhatsApp Image 2026-07-03 at 12.10.50 PM-1783065889379.jpeg",
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/container_images/WhatsApp Image 2026-07-03 at 12.10.40 PM-1783065889805.jpeg"
+        ],
+        "loose_material": [],
+        "examination_videos": [],
+        "do_revalidation_date": "",
+        "do_validity_upto_container_level": "2026-07-16",
+        "required_do_validity_upto": "",
+        "seal_number": [
+          "1393889"
+        ],
+        "wire_seal": [
+          "72451"
+        ],
+        "container_rail_out_date": "2026-07-02T12:38",
+        "by_road_movement_date": "",
+        "emptyContainerOffLoadDate": "",
+        "net_weight_as_per_PL_document": "17860",
+        "delivery_date": "",
+        "do_revalidation": [],
+        "_id": "6a4c9bc6d755ca9199b8204a"
+      }
+    ],
+    "lockBankDetails": false,
+    "is_checklist_aprroved": true,
+    "cif_amount": "6968040.57",
+    "consignment_type": "FCL",
+    "cth_no": "76020010",
+    "exrate": "95.3",
+    "inv_currency": "USD",
+    "vessel_berthing": "2026-06-30",
+    "vessel_flight": "X-PRESS KABRU",
+    "voyage_no": "26005E",
+    "total_inv_value": "73116.90",
+    "importerURL": "maruti_recycling",
+    "checklist": [
+      "https://exim-images-p1.s3.ap-south-1.amazonaws.com/checklist/AMD_IMP_SEA_02296_26-27-CheckList-1782391864094.pdf",
+      "https://exim-images-p1.s3.ap-south-1.amazonaws.com/checklist/AMD_IMP_SEA_02296_26-27-CheckList (1)-1782799927192.pdf",
+      "https://exim-images-p1.s3.ap-south-1.amazonaws.com/checklist/AMD_IMP_SEA_02296_26-27-CheckList (2)-1782804555054.pdf"
+    ],
+    "checkedDocs": [],
+    "status": "Pending",
+    "detailed_status": "Do completed and Delivery pending",
+    "status_rank": 2,
+    "processed_be_attachment": [
+      "https://exim-images-p1.s3.ap-south-1.amazonaws.com/processed_be_attachment/220765730062026INSAU6BE0300620261455.pdf"
+    ],
+    "ooc_copies": [
+      "https://exim-images-p1.s3.ap-south-1.amazonaws.com/ooc_copies/220765730062026INSAU6BE1030720262054.pdf"
+    ],
+    "in_bond_ooc_copies": [],
+    "gate_pass_copies": [
+      "https://exim-images-p1.s3.ap-south-1.amazonaws.com/gate_pass_copies/220765730062026INSAU6BE30030720262053.pdf"
+    ],
+    "remarks": "",
+    "free_time": 14,
+    "is_free_time_updated": true,
+    "penalty_by_us": false,
+    "penalty_by_importer": false,
+    "zero_penalty_as_per_bill_of_entry": false,
+    "shipping_line_insurance": [],
+    "utr": [],
+    "shipping_line_attachment": [],
+    "other_invoices_img": [],
+    "payment_method": "Deferred",
+    "do_documents": [],
+    "do_copies": [
+      "https://exim-images-p1.s3.ap-south-1.amazonaws.com/undefined/260707164750_0001-1783423693716.pdf"
+    ],
+    "shipping_line_invoice_imgs": [],
+    "other_charges_details": {
+      "is_single_for_all": true,
+      "miscellaneous": {
+        "currency": "INR",
+        "exchange_rate": 1,
+        "rate": 0,
+        "amount": 0,
+        "remark": ""
+      },
+      "agency": {
+        "currency": "INR",
+        "exchange_rate": 1,
+        "rate": 0,
+        "amount": 0,
+        "remark": ""
+      },
+      "discount": {
+        "currency": "INR",
+        "exchange_rate": 1,
+        "rate": 0,
+        "amount": 0,
+        "remark": ""
+      },
+      "loading": {
+        "currency": "INR",
+        "exchange_rate": 1,
+        "rate": 0,
+        "amount": 0,
+        "remark": ""
+      },
+      "freight": {
+        "currency": "USD",
+        "exchange_rate": 95.3,
+        "rate": 0,
+        "amount": 0,
+        "remark": ""
+      },
+      "insurance": {
+        "currency": "INR",
+        "exchange_rate": 1,
+        "rate": 0,
+        "amount": 0,
+        "remark": ""
+      },
+      "addl_charge": {
+        "currency": "INR",
+        "exchange_rate": 1,
+        "rate": 0,
+        "amount": 0,
+        "remark": ""
+      },
+      "revenue_deposit": {
+        "rate": 0,
+        "on": "Assessable"
+      },
+      "landing_charge": {
+        "rate": 0
+      }
+    },
+    "import_terms": "CIF",
+    "cifValue": "6968040.57",
+    "freight": "",
+    "insurance": "",
+    "is_obl_recieved": false,
+    "is_do_doc_recieved": false,
+    "is_do_doc_prepared": true,
+    "is_og_doc_recieved": false,
+    "custodian_gate_pass": [],
+    "concor_invoice_and_receipt_copy": [],
+    "thar_invoices": [],
+    "hasti_invoices": [],
+    "cth_documents": [
+      {
+        "document_name": "Commercial Invoice",
+        "document_code": "380000",
+        "url": [
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/cth-documents/Commercial Invoice/2296 INVO-1782390338765.pdf"
+        ],
+        "is_sent_to_esanchit": true,
+        "_id": "6a3d0bba845f66ec71150608",
+        "document_check_date": "2026-06-26T14:13",
+        "irn": "2026062600059728"
+      },
+      {
+        "document_name": "Packing List",
+        "document_code": "271000",
+        "url": [
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/cth-documents/Packing List/2296 PL-1782390341135.pdf"
+        ],
+        "is_sent_to_esanchit": true,
+        "_id": "6a3d0bba845f66ec71150609",
+        "document_check_date": "2026-06-26T14:13",
+        "irn": "2026062600059727"
+      },
+      {
+        "document_name": "Bill of Lading",
+        "document_code": "704000",
+        "url": [
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/cth-documents/Bill of Lading/2296 BL-1782390343632.pdf"
+        ],
+        "is_sent_to_esanchit": true,
+        "_id": "6a3d0bba845f66ec7115060a",
+        "document_check_date": "2026-06-26T14:13",
+        "irn": "2026062600059726"
+      },
+      {
+        "document_name": "Certificate of Origin",
+        "document_code": "861000",
+        "url": [
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/cth-documents/Certificate of Origin/2296 COO-1782390360552.pdf"
+        ],
+        "document_check_date": "2026-06-26T14:13",
+        "is_sent_to_esanchit": true,
+        "_id": "6a3d1e9bd42101c41e8a443a",
+        "irn": "2026062600059725"
+      },
+      {
+        "document_name": "Contract",
+        "document_code": "315000",
+        "url": [
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/cth-documents/Contract/2296 CONTRACT-1782390363133.pdf"
+        ],
+        "document_check_date": "2026-06-26T14:13",
+        "is_sent_to_esanchit": true,
+        "_id": "6a3d1e9bd42101c41e8a443b",
+        "irn": "2026062600059724"
+      },
+      {
+        "document_name": "Pre-Shipment Inspection Certificate",
+        "document_code": "856001",
+        "url": [
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/cth-documents/Pre-Shipment Inspection Certificate/2296 PSIC-1782390365611.pdf"
+        ],
+        "document_check_date": "2026-06-26T14:13",
+        "is_sent_to_esanchit": true,
+        "_id": "6a3d1e9bd42101c41e8a443c",
+        "irn": "2026062600059723"
+      },
+      {
+        "document_name": "Form 9 & Form 6",
+        "document_code": "0856001",
+        "url": [
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/cth-documents/Form 9 & Form 6/2296 FORM 6&9-1782390368548.pdf"
+        ],
+        "document_check_date": "2026-06-26T14:13",
+        "is_sent_to_esanchit": true,
+        "_id": "6a3d1e9bd42101c41e8a443d",
+        "irn": "2026062600059722"
+      },
+      {
+        "document_name": "Registration Document (SIMS/NFMIMS/PIMS)",
+        "document_code": "101000",
+        "url": [
+          "https://exim-images-p1.s3.ap-south-1.amazonaws.com/cth-documents/Registration Document (SIMS/NFMIMS/PIMS)/2296 MINES-1782390423919.pdf"
+        ],
+        "document_check_date": "2026-06-26T14:13",
+        "is_sent_to_esanchit": true,
+        "_id": "6a3d1e9bd42101c41e8a443e",
+        "irn": "2026062600059721"
+      }
+    ],
+    "all_documents": [
+      "https://exim-images-p1.s3.ap-south-1.amazonaws.com/all_documents/Final Set-1782385353186.pdf",
+      "https://exim-images-p1.s3.ap-south-1.amazonaws.com/all_documents/'VASJEDSND085251-1782385353831.pdf"
+    ],
+    "verified_checklist_upload": [],
+    "is_sent_to_submission": false,
+    "job_sticker_upload": [],
+    "icd_cfs_invoice_img": [],
+    "advanced_payment_done": false,
+    "imexcube_uploaded": true,
+    "createdAt": "2026-06-25T11:06:34.373Z",
+    "updatedAt": "2026-07-07T11:28:53.595Z",
+    "status_sort_date": "2026-07-07T11:25:00.000Z",
+    "do_shipping_line_invoice": [
+      {
+        "document_name": "Shipping Line Invoice",
+        "url": [],
+        "is_draft": false,
+        "is_final": false,
+        "document_check_date": "",
+        "document_check_status": false,
+        "_id": "6a44fcf850853137d3a5883d"
+      }
+    ],
+    "insurance_copy": [
+      {
+        "document_name": "Insurance",
+        "url": [],
+        "document_check_date": "",
+        "document_check_status": false,
+        "_id": "6a44fcf850853137d3a5883c"
+      }
+    ],
+    "security_deposit": [
+      {
+        "document_name": "Security Deposit",
+        "url": [],
+        "document_check_date": "",
+        "document_check_status": false,
+        "_id": "6a4ca7b20ac13269a48ec746"
+      }
+    ],
+    "do_queries": [],
+    "dsr_queries": [],
+    "misc_charges": [],
+    "account_fields": [],
+    "account_types": [],
+    "eSachitQueries": [],
+    "documents": [],
+    "documentationQueries": [],
+    "charges": [
+      {
+        "chargeHead": "GOODRICH MARITIME PRIVATE LIMITED",
+        "category": "Reimbursement",
+        "purchase_book_status": "Pending",
+        "payment_request_status": "Paid",
+        "isPurchaseBookMandatory": true,
+        "payment_request_is_approved": true,
+        "purchase_book_is_approved": false,
+        "isPostBilling": false,
+        "revenue": {
+          "basis": "Per B/E - Per Shp",
+          "qty": 1,
+          "unit": "",
+          "currency": "INR",
+          "rate": 172209,
+          "amount": 172209,
+          "amountINR": 172209,
+          "exchangeRate": 1,
+          "overrideAutoRate": false,
+          "isPosted": false,
+          "partyName": "MARUTI RECYCLING",
+          "partyType": "Customer",
+          "branchCode": "",
+          "url": [],
+          "url_draft": [
+            "https://exim-images-p1.s3.ap-south-1.amazonaws.com/charges/VASJEDSND085251 DRFT INV-1782906103247.pdf"
+          ],
+          "url_final": [],
+          "isGst": true,
+          "gstRate": 18,
+          "gstAmount": 0,
+          "basicAmount": 145939.83,
+          "isTds": false,
+          "tdsPercent": 0,
+          "tdsAmount": 0,
+          "tdsCategory": "94C",
+          "netPayable": 0
+        },
+        "cost": {
+          "basis": "Per B/E - Per Shp",
+          "qty": 1,
+          "unit": "",
+          "currency": "INR",
+          "rate": 172209,
+          "amount": 172209,
+          "amountINR": 172209,
+          "exchangeRate": 1,
+          "overrideAutoRate": false,
+          "isPosted": false,
+          "partyName": "GOODRICH MARITIME PRIVATE LIMITED",
+          "partyType": "Others",
+          "url": [],
+          "url_draft": [
+            "https://exim-images-p1.s3.ap-south-1.amazonaws.com/charges/VASJEDSND085251 DRFT INV-1782906103247.pdf"
+          ],
+          "url_final": [],
+          "isGst": true,
+          "gstRate": 18,
+          "gstAmount": 0,
+          "basicAmount": 145940,
+          "isTds": true,
+          "tdsPercent": 2,
+          "tdsAmount": 2919,
+          "tdsCategory": "94C",
+          "netPayable": 169290
+        },
+        "copyToCost": true,
+        "isHeader": false,
+        "sacHsn": "",
+        "createdBy": "686caa3dd013cdff352cb649",
+        "_id": "6a44fcf23fbe6dd4820a800d",
+        "createdAt": "2026-07-01T11:41:38.336Z",
+        "updatedAt": "2026-07-07T11:28:53.595Z",
+        "invoice_date": "",
+        "invoice_number": "VASJEDSND085251",
+        "purchase_book_no": "PB01/AMD/IMP/SEA/02296/26-27",
+        "payment_request_bank_from": "KOTAK BANK",
+        "payment_request_no": "R01/AMD/IMP/SEA/02296/26-27",
+        "payment_request_requested_by": "SRUTHI NAIR",
+        "payment_request_transaction_type": "NEFT",
+        "payment_request_approved_at": "2026-07-07T07:26:10.734Z",
+        "payment_request_approved_byFirst": "PREM",
+        "payment_request_approved_byLast": "CHAUDHARY",
+        "payment_request_receipt_url": "https://exim-images-p1.s3.ap-south-1.amazonaws.com/payment-receipts/aymentAdvice-GOODRICHMARITIMEPVTLTD-BP_001393-1783413277225.pdf",
+        "utrAddedAt": "2026-07-07T08:34:37.364Z",
+        "utrAddedBy": "PREM CHAUDHARY",
+        "utrNumber": "CMS1882614916002"
+      },
+      {
+        "chargeHead": "INSURANCE CHARGES-TATA AIG",
+        "category": "Margin",
+        "purchase_book_status": "",
+        "payment_request_status": "",
+        "isPurchaseBookMandatory": false,
+        "payment_request_is_approved": false,
+        "purchase_book_is_approved": false,
+        "isPostBilling": false,
+        "revenue": {
+          "basis": "Per B/E - Per Shp",
+          "qty": 1,
+          "unit": "",
+          "currency": "INR",
+          "rate": 1100,
+          "amount": 1100,
+          "amountINR": 1100,
+          "exchangeRate": 1,
+          "overrideAutoRate": false,
+          "isPosted": false,
+          "partyName": "MARUTI RECYCLING",
+          "partyType": "Customer",
+          "url": [
+            "https://exim-images-p1.s3.ap-south-1.amazonaws.com/charges/Policy-C004439067-1783419312011.pdf"
+          ],
+          "url_draft": [],
+          "url_final": [],
+          "isGst": true,
+          "gstRate": 18,
+          "gstAmount": 198,
+          "basicAmount": 1100,
+          "isTds": false,
+          "tdsPercent": 0,
+          "tdsAmount": 0,
+          "tdsCategory": "94C",
+          "netPayable": 1298
+        },
+        "cost": {
+          "basis": "Per B/E - Per Shp",
+          "qty": 1,
+          "unit": "",
+          "currency": "INR",
+          "rate": 0,
+          "amount": 0,
+          "amountINR": 0,
+          "exchangeRate": 1,
+          "overrideAutoRate": false,
+          "isPosted": false,
+          "partyType": "Vendor",
+          "url": [
+            "https://exim-images-p1.s3.ap-south-1.amazonaws.com/charges/Policy-C004439067-1783419312011.pdf"
+          ],
+          "url_draft": [],
+          "url_final": [],
+          "isGst": true,
+          "gstRate": 18,
+          "gstAmount": 0,
+          "basicAmount": 0,
+          "isTds": false,
+          "tdsPercent": 0,
+          "tdsAmount": 0,
+          "tdsCategory": "94C",
+          "netPayable": 0
+        },
+        "copyToCost": true,
+        "isHeader": false,
+        "sacHsn": "997135",
+        "createdBy": "686caa3dd013cdff352cb649",
+        "_id": "6a4cd1a7c37c4d52d3328e05",
+        "createdAt": "2026-07-07T10:15:03.864Z",
+        "updatedAt": "2026-07-07T11:28:53.595Z",
+        "invoice_date": "",
+        "invoice_number": ""
+      }
+    ],
+    "submissionQueries": [],
+    "row_color": "do-completed-delivery-pending",
+    "no_of_container": "2x40",
+    "container_count": "2",
+    "__v": 16,
+    "assessable_ammount": "6968041",
+    "assessment_date": "2026-06-30T14:54",
+    "bcd_ammount": "174201",
+    "be_date": "2026-06-30",
+    "be_filing_type": "Discharge",
+    "be_no": "2207657",
+    "bill_date": "",
+    "bill_document_sent_to_accounts": "",
+    "bill_no": "",
+    "client_remark": "",
+    "completed_operation_date": "2026-07-04T11:21",
+    "containers_arrived_on_same_date": false,
+    "discharge_date": "2026-06-29T00:00",
+    "doPlanning": true,
+    "do_completed": "2026-07-07T11:25:00.000Z",
+    "do_planning_date": "2026-07-07T11:55",
+    "do_revalidation": false,
+    "do_revalidation_date": "",
+    "do_revalidation_upto_job_level": "",
+    "do_validity_upto_job_level": "2026-07-16",
+    "document_received_date": "",
+    "documentation_completed_date_time": "2026-06-30T07:29:15.205Z",
+    "duty_paid_date": "2026-06-30T14:54",
+    "esanchit_completed_date_time": "2026-06-26T14:13",
+    "examinationPlanning": true,
+    "examination_planning_date": "2026-07-03T10:27",
+    "fine_amount": "0",
+    "firstCheck": "",
+    "gateway_igm": "1199522",
+    "gateway_igm_date": "2026-06-22T00:00",
+    "igm_date": "2026-06-29T00:00",
+    "igm_no": "4340360",
+    "igst_ammount": "1288739",
+    "intrest_ammount": "",
+    "is_checklist_aprroved_date": "2026-06-27T16:04",
+    "is_checklist_clicked": true,
+    "line_no": "28",
+    "nfims_date": "",
+    "nfims_no": "",
+    "nfmims_date": "",
+    "nfmims_reg_no": "",
+    "no_of_pkgs": "2 BLK",
+    "obl_telex_bl": "",
+    "out_of_charge": "2026-07-03",
+    "pcv_date": "2026-07-03",
+    "penalty_amount": "0",
+    "pims_date": "",
+    "pims_reg_no": "",
+    "sent_to_submission_date_time": "",
+    "sent_to_submission_user_name": "",
+    "sims_date": "",
+    "sims_no": "",
+    "sims_reg_no": "",
+    "submission_completed_date_time": "2026-06-30T16:45",
+    "sws_ammount": "17420.1",
+    "total_duty": "1480360",
+    "type_of_Do": "Factory",
+    "unit": "KGS",
+    "imexcube_last_action": "updated",
+    "imexcube_last_message": "Job Updated successful",
+    "imexcube_last_status_code": 201,
+    "imexcube_response": {
+      "success": true,
+      "message": "Job Created successful",
+      "data": [
+        {
+          "JobNo": "AMD/IMP/SEA/02296/26-27",
+          "Message": "Job Updated successful"
+        }
+      ],
+      "statusCode": 201,
+      "errors": null
+    },
+    "imexcube_uploaded_at": "2026-06-26T13:38:05.358Z",
+    "currency": "USD",
+    "shipping_line_bond_completed": "No",
+    "shipping_line_invoice_received": "No",
+    "shipping_line_kyc_completed": "No",
+    "cfs_name": "",
+    "concor_gate_pass_date": "",
+    "concor_gate_pass_validate_up_to": "",
+    "examination_date": "0",
+    "RMS": "Yes",
+    "billing_confirmation_date": "",
+    "do_doc_recieved_date": "",
+    "do_list": "CONTAINER CARE SERVICES / OCEAN EMPTY CONTAINER PARK",
+    "do_processed": "No",
+    "do_processed_date": "07/07/2026",
+    "icd_cfs_invoice": "",
+    "other_invoices": "No",
+    "other_invoices_date": "07/07/2026",
+    "payment_made": "No",
+    "payment_made_date": "07/07/2026",
+    "shipping_line_invoice": "No",
+    "shipping_line_invoice_date": "",
+    "do_doc_prepared_date": "2026-07-07T10:19:28.046Z",
+    "do_validity": "2026-07-16"
+  }
+}
+Disconnected from MongoDB.

@@ -15,14 +15,33 @@ export class AttendanceStatusResolver {
    * @returns {Object} Status resolution result
    */
   static resolveStatus(workData, shift, overrides = {}) {
-    const { hasLeave, isHoliday, isWeeklyOff, onDutyStatus } = overrides;
+    const { hasLeave, isHalfDayLeave, isHoliday, isWeeklyOff, onDutyStatus } = overrides;
 
-    // Step 1: Check overrides (highest priority)
-    if (hasLeave) {
+    // Step 1: Check overrides
+    if (onDutyStatus) {
+      return {
+        status: 'on_duty',
+        reason: 'On duty assignment',
+        is_operational_present: true,
+      };
+    }
+
+    if (hasLeave && !isHalfDayLeave) {
       return {
         status: 'leave',
         reason: 'Approved leave',
         is_operational_present: false,
+      };
+    }
+
+    if (hasLeave && isHalfDayLeave) {
+      const workedHours = workData?.total_work_hours || 0;
+      return {
+        status: 'half_day',
+        reason: workedHours > 0 
+          ? `Approved half-day leave with ${workedHours.toFixed(1)}h worked`
+          : 'Approved half-day leave',
+        is_operational_present: true,
       };
     }
 
@@ -39,14 +58,6 @@ export class AttendanceStatusResolver {
         status: 'weekly_off',
         reason: 'Weekly off',
         is_operational_present: false,
-      };
-    }
-
-    if (onDutyStatus) {
-      return {
-        status: 'on_duty',
-        reason: 'On duty assignment',
-        is_operational_present: true,
       };
     }
 
@@ -70,7 +81,7 @@ export class AttendanceStatusResolver {
       };
     }
 
-    // Full day hours achieved
+    // Full day hours achieved (8h standard working day)
     if (workData.total_work_hours >= (shift?.full_day_hours || 8)) {
       return {
         status: 'present',
@@ -79,7 +90,7 @@ export class AttendanceStatusResolver {
       };
     }
 
-    // Half day hours achieved
+    // Half day hours achieved (4h standard half day)
     if (workData.total_work_hours >= (shift?.half_day_hours || 4)) {
       return {
         status: 'half_day',
@@ -89,10 +100,10 @@ export class AttendanceStatusResolver {
     }
 
     // Below minimum
-    if (workData.total_work_hours < (shift?.minimum_hours || 3)) {
+    if (workData.total_work_hours < (shift?.minimum_hours || 4)) {
       return {
         status: 'absent',
-        reason: `Worked ${workData.total_work_hours}h < minimum ${shift?.minimum_hours || 3}h`,
+        reason: `Worked ${workData.total_work_hours}h < minimum ${shift?.minimum_hours || 4}h`,
         is_operational_present: false,
       };
     }

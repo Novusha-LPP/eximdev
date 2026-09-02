@@ -19,6 +19,7 @@ import {
   DialogContent,
   DialogActions,
   Snackbar,
+  Popover,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -30,30 +31,142 @@ import { TabContext } from "../import-do/ImportDO.js";
 import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ReceiptIcon from "@mui/icons-material/Receipt";
+import EditIcon from "@mui/icons-material/Edit";
+import toast from "react-hot-toast";
 import ContainerTrackButton from '../ContainerTrackButton';
 import CashVoucher from "./CashVoucher";
 import { downloadInvoiceAsPDF } from "../../utils/invoicePrint.js";
 import * as XLSX from "xlsx";
 
+const ReasonForDelayCell = ({ row, onSaveSuccess }) => {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState(row.reason_for_delay || "");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setReason(row.reason_for_delay || "");
+  }, [row.reason_for_delay]);
+
+  const handleSave = async (e) => {
+    if (e) e.stopPropagation();
+    try {
+      setLoading(true);
+      const res = await axios.put(`${process.env.REACT_APP_API_STRING}/api/update-reason-for-delay`, {
+        jobId: row._id,
+        reason_for_delay: reason,
+      });
+      if (res.data?.success) {
+        toast.success("Reason for delay updated successfully");
+        if (onSaveSuccess) {
+          onSaveSuccess(row._id, res.data.reason_for_delay);
+        }
+        setOpen(false);
+      }
+    } catch (err) {
+      console.error("Failed to update reason for delay:", err);
+      toast.error("Failed to update reason for delay");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }} onClick={(e) => e.stopPropagation()}>
+      <Typography
+        variant="body2"
+        sx={{
+          fontSize: "0.85rem",
+          color: row.reason_for_delay ? "#212529" : "#9e9e9e",
+          fontStyle: row.reason_for_delay ? "normal" : "italic",
+          maxWidth: "160px",
+          wordBreak: "break-word"
+        }}
+      >
+        {row.reason_for_delay || "No reason added"}
+      </Typography>
+      <IconButton
+        size="small"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(true);
+        }}
+        sx={{ color: "#1976d2", p: 0.3 }}
+        title="Edit Reason for Delay"
+      >
+        <EditIcon sx={{ fontSize: "16px" }} />
+      </IconButton>
+
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        onClick={(e) => e.stopPropagation()}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: "bold", fontSize: "1rem" }}>Reason for Delay</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+            Job No: {row.job_number || row.job_no} | Importer: {row.importer}
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            size="small"
+            variant="outlined"
+            label="Reason for Delay"
+            placeholder="Enter reason for delay..."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpen(false)} color="secondary" disabled={loading}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} variant="contained" color="primary" disabled={loading}>
+            {loading ? "Saving..." : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};
+
 function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } =
-    useSearchQuery();
+  const location = useLocation();
+  const urlSearch = new URLSearchParams(location.search).get("search");
+
+  const [searchQuery, setSearchQuery] = useState(
+    () => urlSearch || sessionStorage.getItem("ib_tab0_search") || ""
+  );
+  const [selectedImporter, setSelectedImporter] = useState(
+    () => sessionStorage.getItem("ib_tab0_importer") || ""
+  );
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(
+    () => sessionStorage.getItem("ib_tab0_unresolved") === "true"
+  );
+  const [page, setPage] = useState(
+    () => Number(sessionStorage.getItem("ib_tab0_page")) || 1
+  );
+
   const [years, setYears] = useState([]);
   const { user } = useContext(UserContext);
   const { selectedBranch, selectedCategory } = useContext(BranchContext);
-  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1); // Current page number
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
   const [loading, setLoading] = useState(false); // Loading state
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced search query
   const limit = 100; // Number of items per page
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [excelPopoverAnchor, setExcelPopoverAnchor] = useState(null);
   const navigate = useNavigate();
-  const location = useLocation();
   const [importers, setImporters] = useState("");
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedRowData, setSelectedRowData] = useState(null);
@@ -62,6 +175,34 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   const [rejectData, setRejectData] = useState({ remark: "" });
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const voucherRef = React.useRef();
+
+  // Persist filter states to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab0_search", searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab0_importer", selectedImporter || "");
+  }, [selectedImporter]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab0_unresolved", showUnresolvedOnly.toString());
+  }, [showUnresolvedOnly]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab0_page", page.toString());
+  }, [page]);
+
+  // Read URL query parameter for drill-down searching
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const urlSearchParam = params.get("search");
+    if (urlSearchParam !== null) {
+      setSearchQuery(urlSearchParam);
+      setDebouncedSearchQuery(urlSearchParam);
+      setPage(1);
+    }
+  }, [location.search]);
 
   console.log(currentTab, "tab");
 
@@ -140,7 +281,9 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
       selectedYearState,
       unresolvedOnly = false,
       selectedBranch = "all",
-      selectedCategory = "all"
+      selectedCategory = "all",
+      fromDateVal = "",
+      toDateVal = ""
     ) => {
       setLoading(true);
       try {
@@ -157,7 +300,9 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
               category: selectedCategory || "all", // ✅ Add category parameter
-              workMode
+              workMode,
+              fromDate: fromDateVal,
+              toDate: toDateVal
             },
           }
         );
@@ -183,7 +328,7 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState, workMode] // ✅ Add selectedYear as a dependency
+    [limit, selectedImporter, selectedYearState, workMode, fromDate, toDate] // ✅ Add selectedYear, fromDate, toDate as dependencies
   );
 
   // ✅ Fetch jobs when `selectedYear` changes
@@ -197,7 +342,9 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
         selectedYearState,
         showUnresolvedOnly,
         selectedBranch,
-        selectedCategory
+        selectedCategory,
+        "",
+        ""
       );
     }
   }, [
@@ -213,7 +360,12 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   ]);
 
   // Debounce search input to avoid excessive API calls
+  const isFirstSearch = React.useRef(true);
   useEffect(() => {
+    if (isFirstSearch.current) {
+      isFirstSearch.current = false;
+      return;
+    }
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
       setPage(1); // Reset to first page on new search
@@ -248,7 +400,9 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
             unresolvedOnly: showUnresolvedOnly.toString(),
             branchId: selectedBranch || "all",
             category: selectedCategory || "all",
-            workMode
+            workMode,
+            fromDate,
+            toDate
           },
         }
       );
@@ -259,12 +413,44 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
         return;
       }
 
+      // Sort jobs chronologically (ascending) by bill_document_sent_to_accounts
+      const sortedJobs = [...jobs].sort((a, b) => {
+        const valA = a.bill_document_sent_to_accounts;
+        const valB = b.bill_document_sent_to_accounts;
+        if (!valA && !valB) return 0;
+        if (!valA) return 1;
+        if (!valB) return -1;
+        const dateA = new Date(valA);
+        const dateB = new Date(valB);
+        return dateA - dateB;
+      });
+
       // Map to requested fields
-      const excelData = jobs.map((job) => ({
-        "Job Number": job.job_number || job.job_no || "",
-        "Importer Name": job.importer || "",
-        "BL Number": job.awb_bl_no || ""
-      }));
+      const excelData = sortedJobs.map((job) => {
+        const sentDateRaw = job.bill_document_sent_to_accounts;
+        let formattedSentDate = "-";
+        if (sentDateRaw) {
+          const date = new Date(sentDateRaw);
+          formattedSentDate = isNaN(date)
+            ? sentDateRaw
+            : date.toLocaleString("en-IN", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: true,
+              });
+        }
+
+        return {
+          "Job Number": job.job_number || job.job_no || "",
+          "Importer Name": job.importer || "",
+          "BL Number": job.awb_bl_no || "",
+          "Bill Doc Sent To Accounts": formattedSentDate,
+        };
+      });
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
       
@@ -272,7 +458,8 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
       const colWidths = [
         { wch: 25 }, // Job Number
         { wch: 35 }, // Importer Name
-        { wch: 25 }  // BL Number
+        { wch: 25 }, // BL Number
+        { wch: 30 }  // Bill Doc Sent To Accounts
       ];
       worksheet['!cols'] = colWidths;
 
@@ -365,7 +552,7 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
       setRejectDialogOpen(false);
       setRejectData({ remark: "" });
       setSelectedRowData(null);
-      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch, selectedCategory);
+      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch, selectedCategory, "", "");
     } catch (error) {
       console.error("Error rejecting job:", error);
       setSnackbar({ open: true, message: "Failed to reject job", severity: "error" });
@@ -505,7 +692,18 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
                   whiteSpace: "nowrap",
                 }}
               >
-                {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+                {job_number || job_no}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    handleCopy(event, job_number || job_no);
+                  }}
+                  style={{ color: "inherit" }}
+                >
+                  <ContentCopyIcon fontSize="inherit" />
+                </IconButton>
+                <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
                 {custom_house}
               </Link>
             ) : (
@@ -520,7 +718,18 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
                   whiteSpace: "nowrap",
                 }}
               >
-                {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+                {job_number || job_no}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    handleCopy(event, job_number || job_no);
+                  }}
+                  style={{ color: "inherit" }}
+                >
+                  <ContentCopyIcon fontSize="inherit" />
+                </IconButton>
+                <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
                 {custom_house}
               </div>
             );
@@ -610,6 +819,22 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
                 hour12: true,
               });
           },
+        },
+        {
+          accessorKey: "reason_for_delay",
+          header: "Reason for Delay",
+          enableSorting: false,
+          size: 220,
+          Cell: ({ cell }) => (
+            <ReasonForDelayCell
+              row={cell.row.original}
+              onSaveSuccess={(jobId, newReason) => {
+                setRows((prev) =>
+                  prev.map((r) => (r._id === jobId ? { ...r, reason_for_delay: newReason } : r))
+                );
+              }}
+            />
+          ),
         },
 
         {
@@ -723,119 +948,84 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
       <div
         style={{
           display: "flex",
-          justifyContent: "space-around",
-          alignItems: "flex-start",
+          flexDirection: "column",
+          gap: "16px",
           width: "100%",
+          padding: "8px 0",
         }}
       >
-        {/* Job Count Display */}
-        <Typography
-          variant="body1"
-          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
-        >
-          Job Count: {totalJobs}
-        </Typography>
-
-        <Autocomplete
-          sx={{ width: "300px", marginRight: "20px" }}
-          freeSolo
-          options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              fullWidth
-              label="Select Importer" // Placeholder text
-            />
-          )}
-        />
-
-        <TextField
-          select
-          size="small"
-          value={selectedYearState}
-          onChange={(e) => setSelectedYearState(e.target.value)}
-          sx={{ width: "200px", marginRight: "20px" }}
-        >
-          {years.map((year, index) => (
-            <MenuItem key={`year-${year}-${index}`} value={year}>
-              {year}
-            </MenuItem>
-          ))}
-        </TextField>
-
-        <TextField
-          placeholder="Search by Job No, Importer, or AWB/BL Number"
-          size="small"
-          variant="outlined"
-          value={searchQuery}
-          onChange={handleSearchInputChange}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton
-                  onClick={() => {
-                    setDebouncedSearchQuery(searchQuery);
-                    setPage(1);
-                  }}
-                >
-                  <SearchIcon />
-                </IconButton>
-              </InputAdornment>
-            ),
+        {/* Row 1 - Counts and Actions */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "16px",
           }}
-          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
-        />
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Button
-            variant="contained"
-            color="success"
-            size="small"
-            onClick={handleDownloadExcel}
-            sx={{
-              borderRadius: 3,
-              textTransform: "none",
-              fontWeight: 500,
-              fontSize: "0.875rem",
-              padding: "8px 20px",
-              boxShadow: "0 4px 12px rgba(46, 125, 50, 0.3)",
-              transition: "all 0.3s ease",
-              "&:hover": {
-                background: "#2e7d32",
-                boxShadow: "0 6px 16px rgba(46, 125, 50, 0.4)",
-                transform: "translateY(-1px)",
-              },
-              "&:active": {
-                transform: "translateY(0px)",
-              },
-            }}
+        >
+          <Typography
+            variant="body1"
+            sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
           >
-            Download Excel
-          </Button>
+            Job Count: {totalJobs}
+          </Typography>
 
-          <Box sx={{ position: "relative" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            <Box sx={{ position: "relative" }}>
+              <Button
+                variant={showUnresolvedOnly ? "contained" : "outlined"}
+                color="primary"
+                size="small"
+                onClick={() => {
+                  setShowUnresolvedOnly((prev) => !prev);
+                  setPage(1);
+                }}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: "none",
+                  fontWeight: 500,
+                  fontSize: "0.875rem",
+                  padding: "8px 20px",
+                }}
+              >
+                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+              </Button>
+              <Badge
+                badgeContent={unresolvedCount}
+                color="error"
+                overlap="circular"
+                anchorOrigin={{ vertical: "top", horizontal: "right" }}
+                sx={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  "& .MuiBadge-badge": {
+                    fontSize: "0.75rem",
+                    minWidth: "18px",
+                    height: "18px",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  },
+                }}
+              />
+            </Box>
+
             <Button
               variant="contained"
+              color="success"
               size="small"
-              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+              onClick={(e) => setExcelPopoverAnchor(e.currentTarget)}
               sx={{
                 borderRadius: 3,
                 textTransform: "none",
                 fontWeight: 500,
                 fontSize: "0.875rem",
                 padding: "8px 20px",
-                background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
-                color: "#ffffff",
-                border: "none",
-                boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+                boxShadow: "0 4px 12px rgba(46, 125, 50, 0.3)",
                 transition: "all 0.3s ease",
                 "&:hover": {
-                  background:
-                    "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
-                  boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+                  background: "#2e7d32",
+                  boxShadow: "0 6px 16px rgba(46, 125, 50, 0.4)",
                   transform: "translateY(-1px)",
                 },
                 "&:active": {
@@ -843,27 +1033,177 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
                 },
               }}
             >
-              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+              Download Excel
             </Button>
-            <Badge
-              badgeContent={unresolvedCount}
-              color="error"
-              overlap="circular"
-              anchorOrigin={{ vertical: "top", horizontal: "right" }}
+
+            <Popover
+              open={Boolean(excelPopoverAnchor)}
+              anchorEl={excelPopoverAnchor}
+              onClose={() => setExcelPopoverAnchor(null)}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'left',
+              }}
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'left',
+              }}
+              PaperProps={{
+                sx: {
+                  p: 3,
+                  width: '320px',
+                  mt: 1,
+                  borderRadius: 3,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2
+                }
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#1a237e', mb: 1 }}>
+                SELECT SENT FOR BILLING DATE RANGE
+              </Typography>
+              <TextField
+                type="date"
+                label="From Date"
+                size="small"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+              <TextField
+                type="date"
+                label="To Date"
+                size="small"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                <Button
+                  size="small"
+                  color="error"
+                  onClick={() => {
+                    setFromDate("");
+                    setToDate("");
+                  }}
+                  sx={{ textTransform: "none" }}
+                >
+                  Clear
+                </Button>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => setExcelPopoverAnchor(null)}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="success"
+                    onClick={() => {
+                      handleDownloadExcel();
+                      setExcelPopoverAnchor(null);
+                    }}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Download
+                  </Button>
+                </Box>
+              </Box>
+            </Popover>
+          </div>
+        </div>
+
+        {/* Row 2 - Filters */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: "16px",
+            alignItems: "end",
+          }}
+        >
+          <Autocomplete
+            size="small"
+            options={importerNames.map((option) => option.label)}
+            value={selectedImporter || ""}
+            onInputChange={(event, newValue) => {
+              setSelectedImporter(newValue);
+              setPage(1);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                label="Select Importer"
+                fullWidth
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "white",
+                  },
+                }}
+              />
+            )}
+          />
+          <TextField
+            select
+            size="small"
+            value={selectedYearState}
+            onChange={(e) => setSelectedYearState(e.target.value)}
+            label="Financial Year"
+            fullWidth
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
+            }}
+          >
+            {years.map((year, index) => (
+              <MenuItem key={`year-${year}-${index}`} value={year}>
+                {year}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <div style={{ minWidth: "220px" }}>
+            <TextField
+              placeholder="Search by Job No, Importer, or AWB/BL Number"
+              size="small"
+              variant="outlined"
+              fullWidth
+              value={searchQuery}
+              onChange={handleSearchInputChange}
+              label="Search"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => {
+                        setDebouncedSearchQuery(searchQuery);
+                        setPage(1);
+                      }}
+                      size="small"
+                    >
+                      <SearchIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
               sx={{
-                position: "absolute",
-                top: 4,
-                right: 4,
-                "& .MuiBadge-badge": {
-                  fontSize: "0.75rem",
-                  minWidth: "18px",
-                  height: "18px",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                "& .MuiOutlinedInput-root": {
+                  backgroundColor: "white",
                 },
               }}
             />
-          </Box>
-        </Box>
+          </div>
+        </div>
       </div>
     ),
   };

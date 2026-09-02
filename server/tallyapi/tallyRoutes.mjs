@@ -3,24 +3,342 @@ import JobModel from "../model/jobModel.mjs";
 import authApiKey from "../middleware/authApiKey.mjs";
 import PurchaseBookEntryModel from "../model/purchaseBookEntryModel.mjs";
 import PaymentRequestModel from "../model/paymentRequestModel.mjs";
+import TallyApiSyncLogModel from "../model/tallyApiSyncLogModel.mjs";
 
 const router = express.Router();
 
 router.get("/test", (req, res) => res.json({ status: "Tally API is connected and working!" }));
 
 /**
+ * Resolves a Tally job number or short bill reference (e.g., GIA/00001/26-27, GEA/0001/26-27, 
+ * GG/IA/0001/26-27, GH/EA/0001/26-27, GC/IA/0001/26-27, GB/IA/0001/26-27, FF/0001/26-27, 0001, 00001) 
+ * into an array of MongoDB $or query objects.
+ */
+const resolveJobNumberQuery = (jobNoInput) => {
+    if (!jobNoInput) return [{ _id: null }];
+    const rawJobNo = String(jobNoInput).trim();
+    if (!rawJobNo) return [{ _id: null }];
+
+    // Strip Purchase Book / Payment Request prefix if present e.g. PB/01/..., R1/01/..., PB/02/...
+    const cleanJobNo = rawJobNo.replace(/^(?:PB|R1|PB\d+|R\d+)\/\d+\//i, "").replace(/^(?:PB|R1|PB\d+|R\d+)\//i, "");
+
+    const conditions = [];
+
+    const exactFields = [
+        "job_no",
+        "job_number",
+        "jobNo",
+        "tally_club_ref_no",
+        "agency_bill_no",
+        "reimbursement_bill_no",
+        "tally_bill_no",
+        "enquiry_no",
+        "success_no",
+        "custom_job_no"
+    ];
+    exactFields.forEach((field) => {
+        conditions.push({ [field]: cleanJobNo });
+        if (cleanJobNo !== rawJobNo) {
+            conditions.push({ [field]: rawJobNo });
+        }
+    });
+
+    let seqNum = null;
+    let yearSuffix = null;
+    let prefixPart = "";
+
+    const slashParts = cleanJobNo.split("/").map(s => s.trim()).filter(Boolean);
+    
+    if (slashParts.length >= 2) {
+        const last = slashParts[slashParts.length - 1];
+        if (/^\d{2}-\d{2}$|^\d{4}-\d{4}$/.test(last)) {
+            yearSuffix = last;
+        }
+
+        // Loop backwards to find the sequence number before yearSuffix
+        for (let i = slashParts.length - 1; i >= 0; i--) {
+            const p = slashParts[i];
+            if (p !== yearSuffix && /^\d+$/.test(p)) {
+                seqNum = parseInt(p, 10);
+                break;
+            }
+        }
+        
+        prefixPart = slashParts[0].toUpperCase();
+        if (slashParts.length > 3 && (slashParts[1] === "IA" || slashParts[1] === "EA" || slashParts[1] === "IR" || slashParts[1] === "ER")) {
+            prefixPart = `${slashParts[0]}/${slashParts[1]}`.toUpperCase();
+        }
+    } else if (/^\d+$/.test(cleanJobNo)) {
+        seqNum = parseInt(cleanJobNo, 10);
+    } else {
+        const numMatch = cleanJobNo.match(/0*(\d+)/);
+        if (numMatch) {
+            seqNum = parseInt(numMatch[1], 10);
+        }
+    }
+
+    if (seqNum !== null && !isNaN(seqNum)) {
+        const padded4 = seqNum.toString().padStart(4, '0');
+        const padded5 = seqNum.toString().padStart(5, '0');
+
+        conditions.push({ sequence_number: seqNum });
+        conditions.push({ sequence_no: seqNum });
+        conditions.push({ job_no: seqNum.toString() });
+        conditions.push({ job_no: padded4 });
+        conditions.push({ job_no: padded5 });
+
+        let yearRegexPart = "";
+        if (yearSuffix) {
+            const shortYear = yearSuffix.slice(-5);
+            yearRegexPart = `.*${shortYear}`;
+        }
+
+        const flexRegex = new RegExp(`(?:^|/|-)0*${seqNum}(?:/|-|$)${yearRegexPart}`, "i");
+        conditions.push({ job_no: { $regex: flexRegex } });
+        conditions.push({ job_number: { $regex: flexRegex } });
+        conditions.push({ tally_club_ref_no: { $regex: flexRegex } });
+
+        if (prefixPart) {
+            let branchRegexStr = "";
+            if (prefixPart.startsWith("GH")) {
+                branchRegexStr = "^(HAZ|GH)";
+            } else if (prefixPart.startsWith("GG")) {
+                branchRegexStr = "^(GND|GAN|GG)";
+            } else if (prefixPart.startsWith("GC")) {
+                branchRegexStr = "^(COK|COC|GC)";
+            } else if (prefixPart.startsWith("GB")) {
+                branchRegexStr = "^(BAR|GB)";
+            } else if (prefixPart.startsWith("GE") || prefixPart.startsWith("GI") || prefixPart === "GIA" || prefixPart === "GEA") {
+                branchRegexStr = "^(AMD|AHM|G)";
+            } else if (prefixPart.startsWith("FF")) {
+                branchRegexStr = "^(FF|FF-)";
+            }
+
+            if (branchRegexStr) {
+                const branchSpecificRegex = new RegExp(`${branchRegexStr}.*(?:^|/|-)0*${seqNum}(?:/|-|$)${yearRegexPart}`, "i");
+                conditions.push({ job_no: { $regex: branchSpecificRegex } });
+                conditions.push({ job_number: { $regex: branchSpecificRegex } });
+            }
+        }
+    }
+
+    return conditions;
+};
+
+/**
+ * Scores a job matching a Tally query input to identify the best fit.
+ */
+const scoreJob = (job, queryInput) => {
+  if (!queryInput) return 0;
+  const rawQuery = String(queryInput).trim();
+  const cleanQuery = rawQuery.replace(/^(?:PB|R1|PB\d+|R\d+)\/\d+\//i, "").replace(/^(?:PB|R1|PB\d+|R\d+)\//i, "");
+  const queryUpper = cleanQuery.toUpperCase();
+  
+  // 1. Exact match check against primary job identifiers
+  const exactFields = [
+    job.job_number,
+    job.job_no,
+    job.jobNo,
+    job.tally_club_ref_no,
+    job.agency_bill_no,
+    job.reimbursement_bill_no,
+    job.tally_bill_no,
+    job.enquiry_no,
+    job.success_no,
+    job.custom_job_no
+  ].map(val => String(val || "").toUpperCase().trim()).filter(Boolean);
+
+  if (exactFields.includes(queryUpper) || exactFields.includes(rawQuery.toUpperCase())) {
+    return 1000; // Direct exact match
+  }
+
+  let score = 0;
+
+  // Split query into alphanumeric segments for token matching
+  const queryTokens = queryUpper.split(/[^A-Z0-9]/).filter(Boolean);
+
+  const jobNoStr = String(job.job_no || job.job_number || "").toUpperCase().trim();
+  const branchStr = String(job.branch_code || "").toUpperCase().trim();
+  const yearStr = String(job.year || "").toUpperCase().trim();
+  const modeStr = String(job.mode || "").toUpperCase().trim();
+  const tradeStr = String(job.trade_type || "").toUpperCase().trim();
+
+  // Extract sequence number from query
+  let querySeq = null;
+  for (let i = queryTokens.length - 1; i >= 0; i--) {
+    const token = queryTokens[i];
+    if (/^\d+$/.test(token) && !/^\d{2}-\d{2}$|^\d{4}-\d{4}$/.test(token)) {
+      querySeq = parseInt(token, 10);
+      break;
+    }
+  }
+
+  // A. Sequence number check
+  if (querySeq !== null) {
+    const jobSeq = job.sequence_number || job.sequence_no || parseInt(jobNoStr.replace(/\D/g, ''), 10);
+    if (jobSeq === querySeq) {
+      score += 100;
+    } else {
+      score -= 200; // Highly penalizing mismatch
+    }
+  }
+
+  // B. Year check
+  let hasYearInQuery = false;
+  let yearMatch = false;
+  for (const token of queryTokens) {
+    if (/^\d{2}-\d{2}$|^\d{4}-\d{4}$/.test(token) || (token.length === 2 && /^\d{2}$/.test(token) && queryUpper.includes("-" + token))) {
+      hasYearInQuery = true;
+    }
+  }
+  if (yearStr && queryUpper.includes(yearStr)) {
+    hasYearInQuery = true;
+    yearMatch = true;
+  }
+  if (hasYearInQuery) {
+    if (yearMatch) {
+      score += 150;
+    } else {
+      score -= 300; // Highly penalizing mismatch
+    }
+  }
+
+  // C. Mode check (AIR vs SEA)
+  let hasModeInQuery = false;
+  let modeMatch = false;
+  if (queryTokens.includes("AIR") || queryUpper.includes("AIR") || queryUpper.includes("GIA") || queryUpper.includes("GEA")) {
+    hasModeInQuery = true;
+    if (modeStr === "AIR") modeMatch = true;
+  }
+  if (queryTokens.includes("SEA") || queryUpper.includes("SEA") || queryUpper.includes("GIS") || queryUpper.includes("GES")) {
+    hasModeInQuery = true;
+    if (modeStr === "SEA") modeMatch = true;
+  }
+  if (hasModeInQuery) {
+    if (modeMatch) {
+      score += 100;
+    } else {
+      score -= 200;
+    }
+  }
+
+  // D. Branch check
+  let hasBranchInQuery = false;
+  let branchMatch = false;
+  if (branchStr) {
+    if (queryTokens.includes(branchStr) || queryUpper.includes(branchStr)) {
+      hasBranchInQuery = true;
+      branchMatch = true;
+    } else {
+      // Check for shorthand branch codes mapped in resolveJobNumberQuery
+      if (branchStr === "AMD" && (queryUpper.includes("GIA") || queryUpper.includes("GEA") || queryUpper.includes("GIS") || queryUpper.includes("GES") || queryUpper.startsWith("GI") || queryUpper.startsWith("GE"))) {
+        hasBranchInQuery = true;
+        branchMatch = true;
+      }
+      if ((branchStr === "GND" || branchStr === "GAN") && queryUpper.includes("GG")) {
+        hasBranchInQuery = true;
+        branchMatch = true;
+      }
+      if (branchStr === "HAZ" && queryUpper.includes("GH")) {
+        hasBranchInQuery = true;
+        branchMatch = true;
+      }
+      if ((branchStr === "COK" || branchStr === "COC") && queryUpper.includes("GC")) {
+        hasBranchInQuery = true;
+        branchMatch = true;
+      }
+      if (branchStr === "BAR" && queryUpper.includes("GB")) {
+        hasBranchInQuery = true;
+        branchMatch = true;
+      }
+    }
+  }
+  if (hasBranchInQuery) {
+    if (branchMatch) {
+      score += 100;
+    } else {
+      score -= 200;
+    }
+  }
+
+  // E. Trade type check (IMP vs EXP)
+  let hasTradeInQuery = false;
+  let tradeMatch = false;
+  if (queryTokens.includes("IMP") || queryTokens.includes("IMPORT") || queryUpper.includes("/IA/") || queryUpper.includes("/IR/") || queryUpper.includes("GIA")) {
+    hasTradeInQuery = true;
+    if (tradeStr === "IMP") tradeMatch = true;
+  }
+  if (queryTokens.includes("EXP") || queryTokens.includes("EXPORT") || queryUpper.includes("/EA/") || queryUpper.includes("/ER/") || queryUpper.includes("GEA")) {
+    hasTradeInQuery = true;
+    if (tradeStr === "EXP") tradeMatch = true;
+  }
+  if (hasTradeInQuery) {
+    if (tradeMatch) {
+      score += 50;
+    } else {
+      score -= 100;
+    }
+  }
+
+  return score;
+};
+
+/**
  * Internal helper to retrieve and format job data for Tally
  */
 const getJobDetailsInternal = async (job_number) => {
   if (!job_number) return null;
+  const cleanNo = String(job_number).trim().replace(/^(?:PB|R1|PB\d+|R\d+)\/\d+\//i, "").replace(/^(?:PB|R1|PB\d+|R\d+)\//i, "");
 
-  const job = await JobModel.findOne({ job_number }).lean();
-  if (!job) return null;
+  const conditions = resolveJobNumberQuery(job_number);
+  const matchingJobs = await JobModel.find({ $or: conditions }).limit(20).lean();
+  if (!matchingJobs || matchingJobs.length === 0) return null;
+
+  let job = matchingJobs[0];
+  if (matchingJobs.length > 1) {
+    const scoredJobs = matchingJobs.map(j => ({
+      job: j,
+      score: scoreJob(j, job_number)
+    })).sort((a, b) => b.score - a.score);
+    job = scoredJobs[0].job;
+  }
+
+  // Extract PO number(s) from top level or invoice details
+  const poNumbers = [];
+  if (job.po_no) {
+    poNumbers.push(job.po_no);
+  }
+  if (Array.isArray(job.invoice_details)) {
+    job.invoice_details.forEach(inv => {
+      if (inv.po_no) {
+        poNumbers.push(inv.po_no);
+      }
+      if (Array.isArray(inv.po_details)) {
+        inv.po_details.forEach(p => {
+          if (p.po_no) {
+            poNumbers.push(p.po_no);
+          }
+        });
+      }
+    });
+  }
+  const uniquePoNumbers = [...new Set(poNumbers.map(p => p.trim()).filter(Boolean))];
+  const customerRef = uniquePoNumbers.join(", ") || job.po_no || "";
 
   return {
     "Job Number": job.job_number,
     "Job Year": job.year,
-    "Job Type": job.type || `${job.trade_type || ""} ${job.mode || ""}`.trim(),
+    "Job Type": (() => {
+      const type = job.type || `${job.trade_type || ""} ${job.mode || ""}`.trim();
+      const typeUpper = type.toUpperCase();
+      if (typeUpper === "IMP AIR" || typeUpper === "IMP SEA" || typeUpper === "IMP") {
+        return "Import";
+      }
+      if (typeUpper === "EXP AIR" || typeUpper === "EXP SEA" || typeUpper === "EXP") {
+        return "Export";
+      }
+      return type;
+    })(),
     "Job Date": job.job_date,
     "ImporterExporter Name": job.importer || job.exporter || job.supplier_exporter,
     "Shipper Name": job.shipper || job.supplier_exporter,
@@ -62,7 +380,7 @@ const getJobDetailsInternal = async (job_number) => {
     "Consignment Type": job.consignment_type,
     "Vessel": job.vessel_flight,
     "Voyage": job.voyage_no,
-    "Customer Ref.": job.po_no,
+    "Customer Ref.": customerRef,
     "Invoice Number": job.invoice_number,
     "Inv Date": job.invoice_date,
     "Terms of Invoice": job.toi,
@@ -71,7 +389,11 @@ const getJobDetailsInternal = async (job_number) => {
     "Assess Value": job.assbl_value,
     "Total Duty": job.total_duty,
     "Branch": job.branch_code,
-    "Status": ""
+    "Status": "",
+    "ETA Date": job.eta_date || job.etaDate || "",
+    "Volume (CBM)": job.volume_cbm ? String(job.volume_cbm) : (job.volume ? String(job.volume) : (job.cbm ? String(job.cbm) : "")),
+    "IGM Number": job.igm_no || job.igm_number || job.igmNo || "",
+    "IGM Date": job.igm_date || job.igmDate || ""
   };
 };
 
@@ -217,14 +539,8 @@ const mapPurchaseEntryData = (data) => {
     placeOfSupply: data["Place of Supply"] || data.placeOfSupply,
     creditTerms: data["Credit Terms"] || data.creditTerms,
     descriptionOfServices: data["Description of Services"] || data.descriptionOfServices,
-    chargeHeading: (() => {
-      const heading = data["Charge Heading"] || data.chargeHeading;
-      const category = data["Charge Head Category"] || data.chargeHeadCategory || '';
-      if (category === 'Margin' && heading && !heading.endsWith(' - E')) {
-        return `${heading} - E`;
-      }
-      return heading;
-    })(),
+    revenueLedger: (data["Revenue Ledger"] || data["Revenue ledger"] || data.revenueLedger || data.revenue_ledger || '').replace(/\s*-\s*[EI]$/i, '').replace(/^NEW\s*-\s*/i, '').replace(/^NEW\s+/i, '').trim(),
+    chargeHeading: (data["Charge Heading"] || data.chargeHeading || '').replace(/\s*-\s*[EI]$/i, '').replace(/^NEW\s*-\s*/i, '').replace(/^NEW\s+/i, '').trim(),
     sac: data["SAC"] || data.sac,
     taxableValue: data["Taxable Value"] || data.taxableValue,
     gstPercent: data["GST%"] || data.gstPercent,
@@ -232,14 +548,32 @@ const mapPurchaseEntryData = (data) => {
     sgstAmt: data["SGST"] || data.sgstAmt,
     igstAmt: data["IGST"] || data.igstAmt,
     tds: data["TDS"] || data.tds,
-    total: data["Total"] || data.total,
+    total: data["Total"] || data.total || data["Taxable Value"] || data.taxableValue,
+    revenueAmount: Number(data["Revenue Amount"] || data.revenueAmount || data["Revenue Total"] || data.revenueTotal || 0),
+    revenueBasicAmount: Number(data["Revenue Basic Amount"] || data.revenueBasicAmount || 0),
+    revenueGstAmount: Number(data["Revenue GST Amount"] || data.revenueGstAmount || 0),
+    revenueCgst: Number(data["Revenue CGST"] || data.revenueCgst || 0),
+    revenueSgst: Number(data["Revenue SGST"] || data.revenueSgst || 0),
+    revenueIgst: Number(data["Revenue IGST"] || data.revenueIgst || 0),
+    revenueTotal: Number(data["Revenue Total"] || data.revenueTotal || data["Revenue Amount"] || data.revenueAmount || 0),
     chargeRef: data.chargeRef,
     jobRef: data.jobRef,
     chargeDescription: data["Charge Description"] || data.chargeDescription || '',
     chargeHeadCategory: data["Charge Head Category"] || data.chargeHeadCategory || '',
     tdsCategory: data["TDS Category"] || data.tdsCategory || '94C',
     status: data["Status"] || data.status || '',
-    attachments: data.attachments || []
+    attachments: data.attachments || [],
+    virtualBalanceTerminal: data["Virtual Balance Terminal"] || data["Virtual Balance"] || data.virtualBalanceTerminal || data.virtualBalance || '',
+    isMultiCharge: data.isMultiCharge !== undefined ? data.isMultiCharge : false,
+    chargeItems: Array.isArray(data.chargeItems) ? data.chargeItems : [],
+    chargeRefs: Array.isArray(data.chargeRefs) ? data.chargeRefs : [],
+    currency: data["Currency"] || data["Invoice Currency"] || data.currency || "INR",
+    currencyAmount: Number(data["Currency Amount"] || data["Foreign Currency Amount"] || data.currencyAmount || data.foreignCurrencyAmount || 0),
+    exchangeRate: Number(data["Exchange Rate"] || data.exchangeRate || 1),
+    etaDate: data["ETA Date"] || data.etaDate || '',
+    volumeCbm: data["Volume (CBM)"] || data["Volume"] || data.volumeCbm || '',
+    igmNo: data["IGM Number"] || data["IGM No"] || data.igmNo || '',
+    igmDate: data["IGM Date"] || data.igmDate || ''
   };
 };
 
@@ -250,6 +584,12 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
   try {
     const rawData = req.body;
     const data = mapPurchaseEntryData(rawData);
+
+    if (rawData.isMultiCharge && Array.isArray(rawData.chargeItems)) {
+      data.isMultiCharge = true;
+      data.chargeItems = rawData.chargeItems;
+      data.chargeRefs = rawData.chargeRefs || [];
+    }
 
     let isPostBilling = false;
     // Standardize jobNo to canonicalJobNo if possible before saving
@@ -299,7 +639,20 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
 
     if (!entry) throw new Error("Failed to generate a unique Entry No after multiple attempts.");
 
-    if (data.jobRef && data.chargeRef) {
+    if (data.isMultiCharge && Array.isArray(data.chargeRefs) && data.chargeRefs.length > 0 && data.jobRef) {
+      await JobModel.updateOne(
+        { _id: data.jobRef },
+        {
+          $set: {
+            "charges.$[elem].purchase_book_no": entry.entryNo,
+            "charges.$[elem].purchase_book_status": "Pending",
+            "charges.$[elem].purchase_book_requested_by": entry.requestedBy,
+            "charges.$[elem].isPostBilling": entry.isPostBilling
+          }
+        },
+        { arrayFilters: [{ "elem._id": { $in: data.chargeRefs } }] }
+      );
+    } else if (data.jobRef && data.chargeRef) {
       await JobModel.updateOne(
         { _id: data.jobRef, "charges._id": data.chargeRef },
         {
@@ -321,6 +674,18 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
     });
   } catch (error) {
     console.error("Tally Purchase Entry Storage Error:", error);
+    try {
+      await TallyApiSyncLogModel.create({
+        endpoint: "/purchase-entry",
+        requestType: "purchase",
+        jobNo: req.body["Job No"] || req.body.jobNo || "",
+        entryOrRequestNo: req.body["Entry No"] || req.body.entryNo || "",
+        errorMessage: error.message || "Unknown Error",
+        requestPayload: req.body
+      });
+    } catch (logErr) {
+      console.error("Failed to log API sync error:", logErr);
+    }
     res.status(500).send({ error: "Internal Server Error", details: error.message });
   }
 });
@@ -358,6 +723,51 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       }
     }
 
+    // Determine TDS rate & category & fetch charge object if available
+    let tdsPercent = 0;
+    let tdsCategory = entry.tdsCategory || '94C';
+    let matchedCharge = null;
+
+    if (entry.jobRef || entry.jobNo) {
+      try {
+        const query = entry.jobRef ? { _id: entry.jobRef } : { job_no: entry.jobNo };
+        const job = await JobModel.findOne(query).lean();
+        if (job && job.charges) {
+          if (entry.chargeRef) {
+            matchedCharge = job.charges.find(c => c._id?.toString() === entry.chargeRef);
+          }
+          if (!matchedCharge && entry.chargeHeading) {
+            const normH = entry.chargeHeading.trim().toLowerCase();
+            matchedCharge = job.charges.find(c => (c.chargeHead || c.name)?.trim().toLowerCase() === normH);
+          }
+          if (matchedCharge && matchedCharge.cost) {
+            tdsPercent = matchedCharge.cost.tdsPercent || 0;
+            if (matchedCharge.cost.tdsCategory) {
+              tdsCategory = matchedCharge.cost.tdsCategory;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching TDS/charge details for purchase entry:", err);
+      }
+    }
+
+    if (!tdsPercent && entry.tds && entry.taxableValue) {
+      const calculated = (entry.tds / entry.taxableValue) * 100;
+      tdsPercent = Math.round(calculated);
+    }
+
+    let tdsKey = "TDS ON CONTRACT 94C 1023";
+    if (tdsPercent === 2 || tdsCategory === '94C_2') {
+      tdsKey = "TDS ON CONTRACT 94C 1024";
+    }
+
+    // Determine revenue details (from entry or fallback to job charge)
+    let revObj = (matchedCharge && matchedCharge.revenue) ? matchedCharge.revenue : {};
+    let revenueAmount = (entry.revenueAmount !== undefined && entry.revenueAmount !== null && entry.revenueAmount !== 0)
+      ? Number(entry.revenueAmount)
+      : Number(revObj.amountINR || revObj.amount || revObj.totalAmount || (revObj.rate ? revObj.rate * (revObj.qty || 1) : 0));
+
     const formattedData = {
       "Entry No": entry.entryNo,
       "Entry Date": entry.entryDate,
@@ -377,20 +787,14 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       "CIN": entry.cin,
       "Place of Supply": entry.placeOfSupply,
       "Credit Terms": entry.creditTerms,
-      "Description of Services": entry.descriptionOfServices || "",
-      "Charge Heading": entry.chargeHeading || "",
-      "SAC": entry.sac,
-      "Taxable Value": entry.taxableValue,
-      "GST%": entry.gstPercent,
-      "CGST": entry.cgstAmt,
-      "SGST": entry.sgstAmt,
-      "IGST": entry.igstAmt,
-      "TDS": entry.tds,
-      "Total": entry.total,
-      "Charge Description": entry.chargeDescription || '',
-      "Charge Head Category": chargeCategory || '',
-      "TDS Category": entry.tdsCategory || '94C',
-      "Status": entry.status
+      "Status": entry.status,
+      "Currency": entry.currency || "INR",
+      "Currency Amount": entry.currencyAmount !== undefined && entry.currencyAmount !== null ? entry.currencyAmount : (entry.currency && entry.currency !== "INR" ? entry.taxableValue : ""),
+      "Exchange Rate": entry.exchangeRate !== undefined && entry.exchangeRate !== null ? entry.exchangeRate : (entry.currency && entry.currency !== "INR" ? 1 : ""),
+      "ETA Date": entry.etaDate || "",
+      "Volume (CBM)": entry.volumeCbm || "",
+      "IGM Number": entry.igmNo || "",
+      "IGM Date": entry.igmDate || ""
     };
 
     // Include Job Details
@@ -398,7 +802,150 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
     const jobDetails = await getJobDetailsInternal(job_number);
     if (jobDetails) {
       formattedData["Job Details"] = jobDetails;
+    } else {
+      formattedData["Job Details"] = [];
     }
+
+    // Include chargeItems array with cost & revenue details
+    formattedData["isMultiCharge"] = entry.isMultiCharge || false;
+    formattedData["chargeItems"] = (Array.isArray(entry.chargeItems) && entry.chargeItems.length > 0)
+      ? entry.chargeItems.map(item => {
+        const cat = item.category || item.chargeType || '';
+        const isReimbursement = (cat === 'Reimbursement');
+        const isMargin = (String(cat).toLowerCase() === 'margin');
+
+        let rawItemHead = item.chargeHead || item.chargeHeading || item.name || item.chargeName || (matchedCharge && (matchedCharge.name || matchedCharge.chargeHead || matchedCharge.chargeHeading || matchedCharge.particulars)) || entry.chargeHeading || entry.chargeDescription || (isReimbursement ? entry.supplierName : '') || '';
+        let itemHead = typeof rawItemHead === 'string'
+          ? rawItemHead.replace(/\s*-\s*[EI]$/i, '').replace(/^NEW\s*-\s*/i, '').replace(/^NEW\s+/i, '').trim()
+          : rawItemHead;
+
+        let itemDesc = item.descriptionOfServices || item.chargeDescription || '';
+        if (!itemDesc) {
+          if (isReimbursement) {
+            itemDesc = entry.supplierName ? `NEW - ${entry.supplierName}` : itemHead;
+          } else if (isMargin) {
+            itemDesc = itemHead;
+          } else {
+            itemDesc = entry.supplierName ? `NEW - ${entry.supplierName}` : itemHead;
+          }
+        }
+        if (isReimbursement && entry.supplierName && !itemDesc.startsWith('NEW - ')) {
+          itemDesc = `NEW - ${entry.supplierName}`;
+        }
+        let itemRevLedger = '';
+        if (isMargin && itemHead) {
+          itemDesc = itemHead.endsWith(' - E') ? itemHead : `${itemHead} - E`;
+          itemRevLedger = `${itemHead} - I`;
+        } else {
+          let rawRevLedger = item.revenueLedger || item.revenue_ledger || item.revenueHead || item.revenueHeading || '';
+          if (!rawRevLedger) {
+            itemRevLedger = itemDesc || itemHead;
+          } else {
+            itemRevLedger = rawRevLedger;
+          }
+        }
+
+        const itemTaxable = Number(item.taxableValue || item.costAmount || item.basicAmount || item.total || 0);
+        const itemTds = Number(item.tdsAmount || item.tds || 0);
+        const itemNet = (item.netPayable !== undefined && item.netPayable !== null && item.netPayable !== 0)
+          ? Number(item.netPayable)
+          : (itemTaxable - itemTds);
+
+        let itemTotal = Number(item.total || item.totalAmount || 0);
+        if (isReimbursement || isMargin) {
+          itemTotal = itemNet;
+        }
+
+        const itemRevAmt = (item.revenueAmount !== undefined && item.revenueAmount !== null && item.revenueAmount !== 0)
+          ? Number(item.revenueAmount)
+          : revenueAmount;
+
+        const itemCurrency = item.currency || item.costCurrency || item.chargeCurrency || entry.currency || "INR";
+        const itemCurrencyAmt = item.currencyAmount !== undefined && item.currencyAmount !== null && item.currencyAmount !== 0
+          ? Number(item.currencyAmount)
+          : (item.foreignCurrencyAmount !== undefined ? Number(item.foreignCurrencyAmount) : (itemCurrency !== "INR" ? itemTaxable : ""));
+        const itemExRate = item.exchangeRate !== undefined && item.exchangeRate !== null && item.exchangeRate !== 0
+          ? Number(item.exchangeRate)
+          : (entry.exchangeRate || (itemCurrency !== "INR" ? 1 : ""));
+
+        return {
+          "Charge Heading": itemHead,
+          "Description of Services": itemDesc,
+          "Revenue Ledger": itemRevLedger,
+          "Charge ID": item.chargeId || '',
+          "SAC": item.sac || '',
+          "Charge Head Category": cat,
+          "TDS Category": tdsKey,
+          [tdsKey]: itemTds,
+          "Taxable Value": itemTaxable.toFixed(2),
+          "GST%": isReimbursement ? "" : (item.gstRate || 0),
+          "CGST": isReimbursement ? "" : (item.cgst || 0),
+          "SGST": isReimbursement ? "" : (item.sgst || 0),
+          "IGST": isReimbursement ? "" : (item.igst || 0),
+          "Total": Math.round(itemTotal),
+          "Net Amount": Math.round(itemNet),
+          "Revenue Amount": itemRevAmt.toFixed(2),
+          "Supplier Inv No": item.invoiceNumber || entry.supplierInvNo || '',
+          "Supplier Inv Date": item.invoiceDate || entry.supplierInvDate || '',
+          "Currency": itemCurrency,
+          "Currency Amount": itemCurrencyAmt,
+          "Exchange Rate": itemExRate
+        };
+      })
+      : (() => {
+        const fallbackIsMargin = (String(chargeCategory).toLowerCase() === 'margin');
+        let rawFallbackHead = entry.chargeHeading || entry.chargeDescription || (matchedCharge && (matchedCharge.name || matchedCharge.chargeHead || matchedCharge.chargeHeading || matchedCharge.particulars)) || (chargeCategory === 'Reimbursement' ? entry.supplierName : '') || '';
+        let fallbackHead = typeof rawFallbackHead === 'string'
+          ? rawFallbackHead.replace(/\s*-\s*[EI]$/i, '').replace(/^NEW\s*-\s*/i, '').replace(/^NEW\s+/i, '').trim()
+          : rawFallbackHead;
+
+        let fallbackDesc = entry.descriptionOfServices || '';
+        if (!fallbackDesc) {
+          if (chargeCategory === 'Reimbursement') {
+            fallbackDesc = entry.supplierName ? `NEW - ${entry.supplierName}` : fallbackHead;
+          } else if (fallbackIsMargin) {
+            fallbackDesc = fallbackHead;
+          } else {
+            fallbackDesc = entry.supplierName ? `NEW - ${entry.supplierName}` : fallbackHead;
+          }
+        }
+        if (chargeCategory === 'Reimbursement' && entry.supplierName && !fallbackDesc.startsWith('NEW - ')) {
+          fallbackDesc = `NEW - ${entry.supplierName}`;
+        }
+        if (fallbackIsMargin && fallbackHead) {
+          fallbackDesc = fallbackHead.endsWith(' - E') ? fallbackHead : `${fallbackHead} - E`;
+          fallbackRevLedger = `${fallbackHead} - I`;
+        } else {
+          if (!fallbackRevLedger) {
+            fallbackRevLedger = fallbackDesc || fallbackHead;
+          }
+        }
+
+        return [{
+          "Charge Heading": fallbackHead,
+          "Description of Services": fallbackDesc,
+          "Revenue Ledger": fallbackRevLedger,
+          "Charge ID": entry.chargeRef || '',
+          "SAC": entry.sac || '',
+          "Charge Head Category": chargeCategory || '',
+          "TDS Category": tdsKey,
+          [tdsKey]: Number(entry.tds || 0),
+          "Taxable Value": Number(entry.taxableValue || 0).toFixed(2),
+          "GST%": (chargeCategory === 'Reimbursement') ? "" : (entry.gstPercent || 0),
+          "CGST": (chargeCategory === 'Reimbursement') ? "" : (entry.cgstAmt || 0),
+          "SGST": (chargeCategory === 'Reimbursement') ? "" : (entry.sgstAmt || 0),
+          "IGST": (chargeCategory === 'Reimbursement') ? "" : (entry.igstAmt || 0),
+          "Total": Math.round(entry.total || 0),
+          "Net Amount": Math.round(entry.netAmount || entry.total || 0),
+          "Revenue Amount": revenueAmount.toFixed(2),
+          "Supplier Inv No": entry.supplierInvNo || '',
+          "Supplier Inv Date": entry.supplierInvDate || '',
+          "Currency": entry.currency || "INR",
+          "Currency Amount": entry.currencyAmount !== undefined && entry.currencyAmount !== null ? entry.currencyAmount : (entry.currency && entry.currency !== "INR" ? entry.taxableValue : ""),
+          "Exchange Rate": entry.exchangeRate !== undefined && entry.exchangeRate !== null ? entry.exchangeRate : (entry.currency && entry.currency !== "INR" ? 1 : "")
+        }];
+      })();
+    formattedData["chargeRefs"] = entry.chargeRefs || (entry.chargeRef ? [entry.chargeRef] : []);
 
     res.status(200).json(formattedData);
 
@@ -551,6 +1098,18 @@ router.post("/payment-request", authApiKey, async (req, res) => {
     });
   } catch (error) {
     console.error("Tally Payment Request Storage Error:", error);
+    try {
+      await TallyApiSyncLogModel.create({
+        endpoint: "/payment-request",
+        requestType: "payment",
+        jobNo: req.body["Job No"] || req.body.jobNo || "",
+        entryOrRequestNo: req.body["Request No"] || req.body.requestNo || "",
+        errorMessage: error.message || "Unknown Error",
+        requestPayload: req.body
+      });
+    } catch (logErr) {
+      console.error("Failed to log API sync error:", logErr);
+    }
     res.status(500).send({ error: "Internal Server Error", details: error.message });
   }
 });
@@ -641,5 +1200,393 @@ router.post("/payment-request/status", authApiKey, async (req, res) => {
     res.status(500).send({ error: "Internal Server Error" });
   }
 });
+
+/**
+ * @api {get} /api/tally/stats Retrieve Tally Transaction Statistics
+ */
+router.get("/stats", authApiKey, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) dateFilter.createdAt.$gte = new Date(startDate);
+      if (endDate) dateFilter.createdAt.$lte = new Date(endDate);
+    }
+
+    // Aggregate purchase book entries by status
+    const pbAgg = await PurchaseBookEntryModel.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          imported: {
+            $sum: { $cond: [{ $in: ["$status", ["Paid", "Success"]] }, 1, 0] }
+          },
+          pending: {
+            $sum: { $cond: [{ $eq: ["$status", ""] }, 1, 0] }
+          },
+          rejected: {
+            $sum: { $cond: [{ $eq: ["$status", "Rejected"] }, 1, 0] }
+          }
+        }
+      }
+    ]);
+
+    // Aggregate payment requests by status
+    const prAgg = await PaymentRequestModel.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          imported: {
+            $sum: { $cond: [{ $in: ["$status", ["Paid", "Success"]] }, 1, 0] }
+          },
+          pending: {
+            $sum: { $cond: [{ $eq: ["$status", ""] }, 1, 0] }
+          },
+          rejected: {
+            $sum: { $cond: [{ $eq: ["$status", "Rejected"] }, 1, 0] }
+          }
+        }
+      }
+    ]);
+
+    const pb = pbAgg[0] || { total: 0, imported: 0, pending: 0, rejected: 0 };
+    const pr = prAgg[0] || { total: 0, imported: 0, pending: 0, rejected: 0 };
+
+    const failedSyncsTotal = await TallyApiSyncLogModel.countDocuments(dateFilter);
+
+    res.status(200).json({
+      purchaseBookEntries: {
+        total: pb.total,
+        imported: pb.imported,
+        notImported: pb.total - pb.imported,
+        pending: pb.pending,
+        rejected: pb.rejected,
+      },
+      paymentRequests: {
+        total: pr.total,
+        imported: pr.imported,
+        notImported: pr.total - pr.imported,
+        pending: pr.pending,
+        rejected: pr.rejected,
+      },
+      failedSyncs: {
+        total: failedSyncsTotal
+      }
+    });
+  } catch (error) {
+    console.error("Fetch Tally Stats Error:", error);
+    res.status(500).send({ error: "Internal Server Error" });
+  }
+});
+
+/**
+ * @api {get} /api/tally/transactions Retrieve Detailed Tally Transactions
+ */
+router.get("/transactions", authApiKey, async (req, res) => {
+  try {
+    const { startDate, endDate, status, type, page = 1, limit = 50 } = req.query;
+
+    const matchQuery = {};
+
+    if (startDate || endDate) {
+      matchQuery.createdAt = {};
+      if (startDate) matchQuery.createdAt.$gte = new Date(startDate);
+      if (endDate) matchQuery.createdAt.$lte = new Date(endDate);
+    }
+
+    if (status) {
+      const statusArray = status.split(",").map(s => {
+        const val = s.trim();
+        // Treat 'Pending' as empty string, since that's how it's stored for un-synced/pending items
+        if (val.toLowerCase() === "pending") return "";
+        return val;
+      });
+      matchQuery.status = { $in: statusArray };
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+
+    let purchaseData = { data: [], total: 0 };
+    let paymentData = { data: [], total: 0 };
+    let failedSyncData = { data: [], total: 0 };
+
+    if (!type || type === "purchase") {
+      purchaseData.total = await PurchaseBookEntryModel.countDocuments(matchQuery);
+      purchaseData.data = await PurchaseBookEntryModel.find(matchQuery)
+        .sort({ createdAt: -1 })
+        .skip(type === "purchase" ? skip : 0) // Paginate properly if only querying one type
+        .limit(type === "purchase" ? limitNum : 50)
+        .lean();
+    }
+
+    if (!type || type === "payment") {
+      paymentData.total = await PaymentRequestModel.countDocuments(matchQuery);
+      paymentData.data = await PaymentRequestModel.find(matchQuery)
+        .sort({ createdAt: -1 })
+        .skip(type === "payment" ? skip : 0)
+        .limit(type === "payment" ? limitNum : 50)
+        .lean();
+    }
+
+    if (!type || type === "failedSync") {
+      // For failed syncs, the status filter from purchase/payment doesn't apply directly.
+      // We'll just apply the date filter to them.
+      const failedQuery = { ...matchQuery };
+      delete failedQuery.status; 
+      
+      failedSyncData.total = await TallyApiSyncLogModel.countDocuments(failedQuery);
+      failedSyncData.data = await TallyApiSyncLogModel.find(failedQuery)
+        .sort({ createdAt: -1 })
+        .skip(type === "failedSync" ? skip : 0)
+        .limit(type === "failedSync" ? limitNum : 50)
+        .lean();
+    }
+
+    res.status(200).json({
+      filtersApplied: {
+        startDate, endDate, status, type, page, limit
+      },
+      purchaseBookEntries: {
+        totalMatches: purchaseData.total,
+        data: purchaseData.data
+      },
+      paymentRequests: {
+        totalMatches: paymentData.total,
+        data: paymentData.data
+      },
+      failedSyncs: {
+        totalMatches: failedSyncData.total,
+        data: failedSyncData.data
+      }
+    });
+
+  } catch (error) {
+    console.error("Fetch Tally Transactions Error:", error);
+    res.status(500).send({ error: "Internal Server Error" });
+  }
+});
+
+/**
+ * Automatically formats a single raw bill number from Tally (e.g. "0001", "1")
+ * into the official branch bill number for Import (e.g. GIA/00001/26-27, GG/IA/0001/26-27, GH/IA/0001/26-27).
+ */
+const formatTallyBillNumber = (rawBillNo, job = {}, fallbackType = "IMPORT", billCategory = "AGENCY") => {
+    if (!rawBillNo) return "";
+    const cleanBill = String(rawBillNo).trim();
+    if (!cleanBill) return "";
+
+    if (cleanBill.includes("/")) {
+        return cleanBill;
+    }
+
+    const seq = parseInt(cleanBill, 10);
+    if (isNaN(seq)) return cleanBill;
+
+    const jobNoStr = String(job.job_no || job.job_number || job.jobNo || "").toUpperCase();
+    const branchCode = String(job.branch_code || job.branch || "").toUpperCase();
+    const isImport = true;
+    const isReimb = billCategory === "REIMBURSEMENT" || billCategory === "REIMB" || billCategory === "ER" || billCategory === "IR";
+
+    let yearStr = job.year || job.financial_year || "";
+    if (!yearStr && jobNoStr.includes("/")) {
+        const parts = jobNoStr.split("/");
+        const lastPart = parts[parts.length - 1];
+        if (/^\d{2}-\d{2}$|^\d{4}-\d{4}$/.test(lastPart)) {
+            yearStr = lastPart;
+        }
+    }
+    if (!yearStr) {
+        yearStr = "26-27";
+    }
+
+    const isHazira = branchCode.includes("HAZ") || branchCode.includes("GH") || jobNoStr.startsWith("HAZ") || jobNoStr.includes("/HAZ/");
+    const isGandhidham = branchCode.includes("GND") || branchCode.includes("GAN") || branchCode.includes("GG") || jobNoStr.startsWith("GND") || jobNoStr.includes("/GND/");
+    const isCochin = branchCode.includes("COK") || branchCode.includes("COC") || branchCode.includes("GC") || jobNoStr.startsWith("COK") || jobNoStr.includes("/COK/");
+    const isBaroda = branchCode.includes("BAR") || branchCode.includes("GB") || jobNoStr.startsWith("BAR") || jobNoStr.includes("/BAR/");
+
+    if (isHazira) {
+        const prefix = isReimb ? "GH/IR" : "GH/IA";
+        return `${prefix}/${seq.toString().padStart(4, '0')}/${yearStr}`;
+    }
+
+    if (isGandhidham) {
+        const prefix = isReimb ? "GG/IR" : "GG/IA";
+        return `${prefix}/${seq.toString().padStart(4, '0')}/${yearStr}`;
+    }
+
+    if (isCochin) {
+        const prefix = isReimb ? "GC/IR" : "GC/IA";
+        return `${prefix}/${seq.toString().padStart(4, '0')}/${yearStr}`;
+    }
+
+    if (isBaroda) {
+        const prefix = isReimb ? "GB/IR" : "GB/IA";
+        return `${prefix}/${seq.toString().padStart(4, '0')}/${yearStr}`;
+    }
+
+    // Default: Ahmedabad
+    const prefix = isReimb ? "GIR" : "GIA";
+    return `${prefix}/${seq.toString().padStart(5, '0')}/${yearStr}`;
+};
+
+/**
+ * @api {post} /api/tally/billing-details Push/Update billing details from Tally for Import jobs
+ * Protected by authApiKey middleware (Header: x-api-key: <TALLY_KEY> or Authorization: Bearer <TALLY_KEY>)
+ */
+const updateImportBillingDetailsHandler = async (req, res) => {
+    try {
+        const {
+            job_no,
+            jobNo,
+            job_number,
+            bill_no,
+            billNo,
+            bill_number,
+            bill_date,
+            billDate,
+            bill_amount,
+            billAmount,
+            bill_doc,
+            billDoc,
+            agency_bill_no,
+            agencyBillNo,
+            agency_bill_date,
+            agencyBillDate,
+            agency_bill_amount,
+            agencyBillAmount,
+            agency_bill_doc,
+            agencyBillDoc,
+            reimbursement_bill_no,
+            reimbursementBillNo,
+            reimbursement_bill_date,
+            reimbursementBillDate,
+            reimbursement_bill_amount,
+            reimbursementBillAmount,
+            reimbursement_bill_doc,
+            reimbursementBillDoc
+        } = req.body;
+
+        const targetJobNo = (job_no || jobNo || job_number || "").trim();
+        if (!targetJobNo) {
+            return res.status(400).json({ error: "job_no is required in request body" });
+        }
+
+        const rawAgencyNo = bill_no || billNo || bill_number || agency_bill_no || agencyBillNo || "";
+        const rawAgencyDate = bill_date || billDate || agency_bill_date || agencyBillDate;
+        const rawAgencyAmt = (bill_amount ?? billAmount ?? agency_bill_amount ?? agencyBillAmount);
+        const rawAgencyDoc = bill_doc || billDoc || agency_bill_doc || agencyBillDoc || "";
+
+        const rawReimbNo = reimbursement_bill_no || reimbursementBillNo || "";
+        const rawReimbDate = reimbursement_bill_date || reimbursementBillDate;
+        const rawReimbAmt = (reimbursement_bill_amount ?? reimbursementBillAmount);
+        const rawReimbDoc = reimbursement_bill_doc || reimbursementBillDoc || "";
+
+        const conditions = resolveJobNumberQuery(targetJobNo);
+        const matchingJobs = await JobModel.find({ $or: conditions }).limit(20).lean();
+        if (!matchingJobs || matchingJobs.length === 0) {
+            return res.status(404).json({ error: `No Import job found with job_no '${targetJobNo}'` });
+        }
+
+        let doc = matchingJobs[0];
+        if (matchingJobs.length > 1) {
+            const scoredJobs = matchingJobs.map(j => ({
+                job: j,
+                score: scoreJob(j, targetJobNo)
+            })).sort((a, b) => b.score - a.score);
+            doc = scoredJobs[0].job;
+        }
+
+        const matchedJobNo = doc.job_no || doc.job_number || doc.jobNo || targetJobNo;
+
+        const agencyNo = formatTallyBillNumber(rawAgencyNo, doc, "IMPORT", "AGENCY");
+        const agencyDate = normalizeDate(rawAgencyDate);
+        const agencyAmt = (rawAgencyAmt !== undefined && rawAgencyAmt !== null && rawAgencyAmt !== "") ? Number(rawAgencyAmt) : undefined;
+        const agencyDoc = rawAgencyDoc;
+
+        const reimbNo = formatTallyBillNumber(rawReimbNo, doc, "IMPORT", "REIMBURSEMENT");
+        const reimbDate = normalizeDate(rawReimbDate);
+        const reimbAmt = (rawReimbAmt !== undefined && rawReimbAmt !== null && rawReimbAmt !== "") ? Number(rawReimbAmt) : undefined;
+        const reimbDoc = rawReimbDoc;
+
+        const existingBDetails = doc.billing_details || {};
+        const finalAgencyNo = agencyNo || existingBDetails.agency_bill_no || "";
+        const finalAgencyDate = agencyDate || existingBDetails.agency_bill_date || "";
+        const finalAgencyAmt = agencyAmt !== undefined ? agencyAmt : existingBDetails.agency_bill_amount;
+        const finalAgencyDoc = agencyDoc || existingBDetails.agency_bill_doc || "";
+
+        const finalReimbNo = reimbNo || existingBDetails.reimbursement_bill_no || "";
+        const finalReimbDate = reimbDate || existingBDetails.reimbursement_bill_date || "";
+        const finalReimbAmt = reimbAmt !== undefined ? reimbAmt : existingBDetails.reimbursement_bill_amount;
+        const finalReimbDoc = reimbDoc || existingBDetails.reimbursement_bill_doc || "";
+
+        const setObj = {};
+        if (finalAgencyNo) {
+            setObj["billing_details.agency_bill_no"] = finalAgencyNo;
+            setObj["agency_bill_no"] = finalAgencyNo;
+        }
+        if (finalAgencyDate) {
+            setObj["billing_details.agency_bill_date"] = finalAgencyDate;
+            setObj["agency_bill_date"] = finalAgencyDate;
+        }
+        if (finalAgencyAmt !== undefined) {
+            setObj["billing_details.agency_bill_amount"] = finalAgencyAmt;
+            setObj["agency_bill_amount"] = finalAgencyAmt;
+        }
+        if (finalAgencyDoc) {
+            setObj["billing_details.agency_bill_doc"] = finalAgencyDoc;
+            setObj["agency_bill_doc"] = finalAgencyDoc;
+        }
+
+        if (finalReimbNo) {
+            setObj["billing_details.reimbursement_bill_no"] = finalReimbNo;
+            setObj["reimbursement_bill_no"] = finalReimbNo;
+        }
+        if (finalReimbDate) {
+            setObj["billing_details.reimbursement_bill_date"] = finalReimbDate;
+            setObj["reimbursement_bill_date"] = finalReimbDate;
+        }
+        if (finalReimbAmt !== undefined) {
+            setObj["billing_details.reimbursement_bill_amount"] = finalReimbAmt;
+            setObj["reimbursement_bill_amount"] = finalReimbAmt;
+        }
+        if (finalReimbDoc) {
+            setObj["billing_details.reimbursement_bill_doc"] = finalReimbDoc;
+            setObj["reimbursement_bill_doc"] = finalReimbDoc;
+        }
+        setObj["updatedAt"] = new Date();
+
+        await JobModel.updateOne({ _id: doc._id }, { $set: setObj });
+
+        return res.status(200).json({
+            success: true,
+            message: "Billing details updated successfully by Tally API for IMPORT job",
+            job_no: matchedJobNo,
+            job_type: "IMPORT",
+            billing_details: {
+                agency_bill_no: finalAgencyNo,
+                agency_bill_date: finalAgencyDate,
+                agency_bill_amount: finalAgencyAmt !== undefined ? finalAgencyAmt : 0,
+                agency_bill_doc: finalAgencyDoc,
+                reimbursement_bill_no: finalReimbNo,
+                reimbursement_bill_date: finalReimbDate,
+                reimbursement_bill_amount: finalReimbAmt !== undefined ? finalReimbAmt : 0,
+                reimbursement_bill_doc: finalReimbDoc
+            }
+        });
+
+    } catch (error) {
+        console.error("POST Billing Details Error (Import):", error);
+        res.status(500).json({ error: "Internal Server Error updating billing details for Import job" });
+    }
+};
+
+router.post("/billing-details", authApiKey, updateImportBillingDetailsHandler);
+router.put("/billing-details", authApiKey, updateImportBillingDetailsHandler);
 
 export default router;

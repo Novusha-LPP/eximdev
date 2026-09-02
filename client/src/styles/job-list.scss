@@ -8,6 +8,52 @@
   }
 }
 
+.table-container {
+  .view-mode-toggle {
+    display: flex;
+    align-items: center;
+    background-color: #f1f5f9;
+    border-radius: 8px;
+    padding: 3px;
+    border: 1px solid #cbd5e1;
+
+    .toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        color: #1e293b;
+      }
+
+      &.active {
+        background-color: #ffffff;
+        color: #2563eb;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+    }
+  }
+
+  /* Shrink Mode Row Styling */
+  .shrink-row-clickable {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+      background-color: #f8fafc !important;
+    }
+  }
+}
+
 @media screen and (max-width: 992px) {
   .jobs-list-header {
     flex-direction: column;

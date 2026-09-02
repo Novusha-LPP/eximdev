@@ -6,7 +6,7 @@ import { FiPlus, FiEdit2, FiTrash2, FiArrowLeft, FiSave, FiList } from 'react-ic
 import { UserContext } from '../../../contexts/UserContext';
 import './AdminSettings.css';
 
-const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
+const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza']);
 
 const DAYS = [
   { label: 'Monday', value: 1 },
@@ -55,7 +55,7 @@ const formatActor = (actor) => {
 const WeekOffPolicyManager = () => {
   const { user } = useContext(UserContext);
   const username = (user?.username || '').toLowerCase();
-  const isAllowedAdmin = (user?.role === 'ADMIN' || user?.role === 'Admin') && ALLOWED_USERNAMES.has(username);
+  const isAllowedAdmin = ((user?.role === 'ADMIN' || user?.role === 'Admin') && ALLOWED_USERNAMES.has(username)) || user?.isAttendanceAllowedAdmin === true;
   const [view, setView] = useState('list'); // 'list' | 'form'
   const [policies, setPolicies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -279,13 +279,13 @@ const WeekOffPolicyManager = () => {
           <hr className="divider" />
 
           {/* Section: Types */}
-          <div className="form-group">
+          {/* <div className="form-group">
             <Radio.Group value={form.policy_type} onChange={e => setForm(f => ({ ...f, policy_type: e.target.value }))} className="policy-type-radios">
               {POLICY_TYPES.map(t => (
                 <Radio key={t.value} value={t.value} className="block-radio">{t.label}</Radio>
               ))}
             </Radio.Group>
-          </div>
+          </div> */}
 
           <hr className="divider" />
 

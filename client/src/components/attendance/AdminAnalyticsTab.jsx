@@ -24,17 +24,18 @@ const formatLeaveBadge = (leaveType) => {
 };
 
 const COLORS = {
-  present: '#36b60f',
-  late: '#b45309',
-  leave: '#1e40af',
-  absent: '#c02e2e',
-  half_day: '#ff9101'
+  present: '#10b981',
+  late: '#f59e0b',
+  leave: '#3b82f6',
+  absent: '#ef4444',
+  half_day: '#8b5cf6'
 };
 
 const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, onEndDateChange, companies = [], selectedCompanyId, onCompanyChange, isHOD = false, isAdmin = false }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
   const [groupBy, setGroupBy] = useState('none');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
@@ -45,6 +46,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
 
   useEffect(() => {
     setCurrentPage(1);
+    setStatusFilter('all');
   }, [data]);
 
   const openModal = (type) => {
@@ -81,6 +83,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
       inTime: emp?.inTime || emp?.first_in || emp?.firstIn || null,
       outTime: emp?.outTime || emp?.last_out || emp?.lastOut || null,
       lateMinutes: Number(emp?.lateMinutes ?? emp?.late_by_minutes ?? emp?.lateBy ?? 0),
+      shiftName: emp?.shiftName || emp?.shift_id?.shift_name || emp?.shift_name || null,
       leave: emp?.leave || null
     };
   });
@@ -128,7 +131,15 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
     return '';
   };
 
-  const sortedSummary = [...dailySummary].sort((a, b) => {
+  const filteredDailySummary = statusFilter === 'all'
+    ? dailySummary
+    : dailySummary.filter(e => {
+        if (statusFilter === 'present') return ['present', 'late', 'half_day'].includes(e.status);
+        if (statusFilter === 'leave') return ['leave', 'pending_leave'].includes(e.status);
+        return e.status === statusFilter;
+      });
+
+  const sortedSummary = [...filteredDailySummary].sort((a, b) => {
     if (groupBy !== 'none') {
       const groupA = groupValueFor(a);
       const groupB = groupValueFor(b);
@@ -139,9 +150,9 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
   });
 
   // Pagination Logic
-  const totalPages = Math.max(1, Math.ceil(dailySummary.length / itemsPerPage));
+  const totalPages = Math.max(1, Math.ceil(filteredDailySummary.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = dailySummary.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedData = filteredDailySummary.slice(startIndex, startIndex + itemsPerPage);
   const tableData = groupBy === 'none' ? paginatedData : sortedSummary;
 
   const handleMonthChange = (val) => {
@@ -176,19 +187,21 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                 />
             </div>
 
-            <div className="adb-company-filter-wrap">
-              <FiFilter className="adb-dp-icon" />
-              <select
-                className="adb-company-select"
-                value={groupBy}
-                onChange={(e) => setGroupBy(e.target.value)}
-              >
-                <option value="none">No Grouping</option>
-                <option value="organization">Group by Organization</option>
-                <option value="team">Group by Team</option>
-              </select>
-            </div>
-            {companies.length > 0 && (
+            {!isHOD && (
+              <div className="adb-company-filter-wrap">
+                <FiFilter className="adb-dp-icon" />
+                <select
+                  className="adb-company-select"
+                  value={groupBy}
+                  onChange={(e) => setGroupBy(e.target.value)}
+                >
+                  <option value="none">No Grouping</option>
+                  <option value="organization">Group by Organization</option>
+                  <option value="team">Group by Team</option>
+                </select>
+              </div>
+            )}
+            {!isHOD && companies.length > 0 && (
               <div className="adb-company-filter-wrap">
                 <FiUsers className="adb-dp-icon" />
                 <select 
@@ -203,27 +216,75 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                 </select>
               </div>
             )}
+            <div className="adb-company-filter-wrap">
+              <FiFilter className="adb-dp-icon" />
+              <select
+                className="adb-company-select"
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="all">All Statuses</option>
+                <option value="present">Present</option>
+                <option value="absent">Absent</option>
+                <option value="late">Late</option>
+                <option value="half_day">Half Day</option>
+                <option value="leave">Leave</option>
+              </select>
+            </div>
          </div>
       </div>
 
       <div className="adb-analytics-grid">
-        <div className="adb-ms-card clickable" onClick={() => openModal('present')}>
-            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(54, 182, 15, 0.1)', color: COLORS.present }}><FiUsers /></div>
+        <div 
+          className="adb-ms-card clickable" 
+          onClick={() => {
+            setStatusFilter(statusFilter === 'present' ? 'all' : 'present');
+            setCurrentPage(1);
+          }}
+          style={{
+            borderColor: statusFilter === 'present' ? COLORS.present : 'var(--border)',
+            boxShadow: statusFilter === 'present' ? `0 0 0 2px ${COLORS.present}33` : 'var(--shadow-sm)'
+          }}
+        >
+            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.present }}><FiUsers /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.present}</span>
                 <span className="adb-ms-lbl">Total Present</span>
             </div>
         </div>
 
-        <div className="adb-ms-card clickable" onClick={() => openModal('leave')}>
-            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(30, 64, 175, 0.1)', color: COLORS.leave }}><FiCalendar /></div>
+        <div 
+          className="adb-ms-card clickable" 
+          onClick={() => {
+            setStatusFilter(statusFilter === 'leave' ? 'all' : 'leave');
+            setCurrentPage(1);
+          }}
+          style={{
+            borderColor: statusFilter === 'leave' ? COLORS.leave : 'var(--border)',
+            boxShadow: statusFilter === 'leave' ? `0 0 0 2px ${COLORS.leave}33` : 'var(--shadow-sm)'
+          }}
+        >
+            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: COLORS.leave }}><FiCalendar /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.onLeave}</span>
                 <span className="adb-ms-lbl">On Leave</span>
             </div>
         </div>
-        <div className="adb-ms-card clickable" onClick={() => openModal('absent')}>
-            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(192, 46, 46, 0.1)', color: COLORS.absent }}><FiXCircle /></div>
+        <div 
+          className="adb-ms-card clickable" 
+          onClick={() => {
+            setStatusFilter(statusFilter === 'absent' ? 'all' : 'absent');
+            setCurrentPage(1);
+          }}
+          style={{
+            borderColor: statusFilter === 'absent' ? COLORS.absent : 'var(--border)',
+            boxShadow: statusFilter === 'absent' ? `0 0 0 2px ${COLORS.absent}33` : 'var(--shadow-sm)'
+          }}
+        >
+            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: COLORS.absent }}><FiXCircle /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.absent}</span>
                 <span className="adb-ms-lbl">Absent</span>
@@ -234,7 +295,14 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
       <div className="adb-dashboard-row">
         <div className="adb-summary-table-wrap">
             <div className="adb-table-header">
-              <h3 className="adb-card-title"><FiUsers /> Employee Daily Summary</h3>
+              <h3 className="adb-card-title">
+                <FiUsers /> {
+                  statusFilter === 'present' ? 'Total Present' :
+                  statusFilter === 'leave' ? 'On Leave' :
+                  statusFilter === 'absent' ? 'Absent' :
+                  'Employee Daily Summary'
+                }
+              </h3>
               <div className="adb-table-header-actions">
                 {groupBy === 'none' && dailySummary.length > itemsPerPage && (
                     <div className="adb-pagination-controls">
@@ -260,7 +328,17 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                       </div>
             </div>
             <table className="adb-summary-table">
-            <thead>
+              <colgroup>
+                <col style={{ width: '28%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '8%' }} />
+                <col style={{ width: '8%' }} />
+                <col style={{ width: '8%' }} />
+              </colgroup>
+              <thead>
                 <tr>
                 <th>Employee</th>
                       <th>Organization</th>
@@ -283,7 +361,8 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                   <div className="adb-td-user">
                     <div className="adb-user-avatar">{emp.name?.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}</div>
                     <div className="adb-user-info">
-                    <div className="adb-user-name">{emp.name}</div>
+                      <div className="adb-user-name">{emp.name}</div>
+                      {emp.shiftName && <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{emp.shiftName}</div>}
                     </div>
                   </div>
                   </td>
@@ -337,7 +416,8 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                     <div className="adb-td-user">
                       <div className="adb-user-avatar">{emp.name?.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}</div>
                       <div className="adb-user-info">
-                      <div className="adb-user-name">{emp.name}</div>
+                        <div className="adb-user-name">{emp.name}</div>
+                        {emp.shiftName && <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{emp.shiftName}</div>}
                       </div>
                     </div>
                     </td>
@@ -375,18 +455,23 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
 
         <div className="adb-side-content">
             <div className="adb-chart-card">
-                <h3 className="adb-card-title"><FiClock /> Attendance Distribution</h3>
+                <h3 className="adb-card-title">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FiClock /> Attendance Distribution
+                    </span>
+                </h3>
                 <div className="adb-chart-container">
                     {chartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={260}>
+                    <ResponsiveContainer width="100%" height={238}>
                         <PieChart>
                         <Pie
                             data={chartData}
-                            innerRadius={70}
-                            outerRadius={95}
-                            paddingAngle={8}
+                            innerRadius={62}
+                            outerRadius={84}
+                            paddingAngle={chartData.length > 1 ? 5 : 0}
                             dataKey="value"
                             stroke="none"
+                            cornerRadius={6}
                         >
                             {chartData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
@@ -396,6 +481,12 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                         />
                         <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                        <text x="50%" y="45%" textAnchor="middle" dominantBaseline="middle" style={{ fontSize: '24px', fontWeight: '800', fill: '#1e293b' }}>
+                            {dailySummary.length}
+                        </text>
+                        <text x="50%" y="55%" textAnchor="middle" dominantBaseline="middle" style={{ fontSize: '11px', fontWeight: '600', fill: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Total Staff
+                        </text>
                         </PieChart>
                     </ResponsiveContainer>
                     ) : (
@@ -419,7 +510,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                   <div key={emp.id} className="adb-leave-table-row">
                     <div className="adb-lr-name-wrap">
                       <div className="adb-lr-avatar">{emp.name?.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}</div>
-                      <div>
+                      <div className="adb-lr-info">
                         <div className="adb-lr-name">{emp.name}</div>
                         <div className="adb-lr-meta">{emp.leave?.type?.charAt(0).toUpperCase() + emp.leave?.type?.slice(1)}</div>
                       </div>

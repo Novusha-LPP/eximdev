@@ -6,6 +6,7 @@ import Dashboard from "./Dashboard";
 import "../../styles/import-dsr.scss";
 import { Alert, MenuItem, TextField, LinearProgress } from "@mui/material";
 import axios from "axios";
+import { useLocation } from "react-router-dom";
 import { SelectedYearContext } from "../../contexts/SelectedYearContext";
 import JobTabs from "./JobTabs";
 import ViewDSR from "./ViewDSR";
@@ -26,6 +27,13 @@ function ImportDSR() {
   const { a11yProps, CustomTabPanel } = useTabs();
   const { tabValue, setTabValue } = React.useContext(TabValueContext);
   const { user } = React.useContext(UserContext);
+  const location = useLocation();
+
+  React.useEffect(() => {
+    if (location.state?.tabValue !== undefined) {
+      setTabValue(location.state.tabValue);
+    }
+  }, [location.state, setTabValue]);
   const [selectedYear, setSelectedYear] = React.useState("");
   const [alt, setAlt] = React.useState(false);
   const [lastJobsDate, setLastJobsDate] = React.useState("");

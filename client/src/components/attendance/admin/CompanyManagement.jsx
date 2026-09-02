@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiPlus, FiEdit, FiTrash2, FiUsers, FiChevronDown, FiPlusCircle, FiSearch, FiClock, FiArrowRight, FiX, FiMapPin, FiGlobe, FiShield, FiUserPlus, FiSettings, FiCheck, FiMap } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiUsers, FiChevronDown, FiPlusCircle, FiSearch, FiClock, FiArrowRight, FiX, FiMapPin, FiGlobe, FiShield, FiUserPlus, FiSettings, FiCheck, FiMap, FiGrid, FiList } from 'react-icons/fi';
 import LocationPickerModal from '../common/LocationPickerModal';
 import LocationDirectorySelect from '../common/LocationDirectorySelect';
 import { Modal } from 'antd';
@@ -9,8 +9,12 @@ import UserMigrationModal from './UserMigrationModal';
 import axios from 'axios';
 import './CompanyManagement.css';
 
-const CompanyCard = ({ company, onEdit, onDelete, onMigrateUser, onViewHistory, users = [], expanded, onToggleExpand }) => {
+const CompanyCard = ({ company, onEdit, onDelete, onMigrateUser, onViewHistory, users = [], expanded, onToggleExpand, shifts = [], weekOffPolicies = [], holidayPolicies = [] }) => {
     const branchCount = Array.isArray(company.branch_ids) ? company.branch_ids.length : 0;
+    const activeShift = shifts.find(s => String(s._id) === String(company.shift_policy_id));
+    const activeWeekoff = weekOffPolicies.find(p => String(p._id) === String(company.weekoff_policy_id));
+    const activeHoliday = holidayPolicies.find(p => String(p._id) === String(company.holiday_policy_id));
+
     return (
         <div className="cm-card">
             <div className="cm-card-header">
@@ -27,7 +31,7 @@ const CompanyCard = ({ company, onEdit, onDelete, onMigrateUser, onViewHistory, 
             <div className="cm-card-body">
                 <div className="cm-stats-row">
                     <div className="cm-stat-item">
-                        <span className="cm-stat-label">Shift Policy</span>
+                        <span className="cm-stat-label">Shift Mode</span>
                         <span className="cm-stat-value cm-stat-tag">{company.shift_policy || 'fixed'}</span>
                     </div>
                     <div className="cm-stat-item" style={{ textAlign: 'center' }}>
@@ -39,6 +43,31 @@ const CompanyCard = ({ company, onEdit, onDelete, onMigrateUser, onViewHistory, 
                         <span className="cm-stat-value">{users.length}</span>
                     </div>
                 </div>
+
+                <div className="cm-card-policies">
+                    <div className="cm-card-policy-item">
+                        <span className="cm-policy-icon">🕐</span>
+                        <div className="cm-policy-detail">
+                            <span className="cm-policy-label">Default Shift</span>
+                            <span className="cm-policy-val">{activeShift ? `${activeShift.shift_name} (${activeShift.shift_code})` : 'Not Set'}</span>
+                        </div>
+                    </div>
+                    <div className="cm-card-policy-item">
+                        <span className="cm-policy-icon">📅</span>
+                        <div className="cm-policy-detail">
+                            <span className="cm-policy-label">Week-Off Policy</span>
+                            <span className="cm-policy-val">{activeWeekoff ? activeWeekoff.policy_name : 'Not Set'}</span>
+                        </div>
+                    </div>
+                    <div className="cm-card-policy-item">
+                        <span className="cm-policy-icon">🎉</span>
+                        <div className="cm-policy-detail">
+                            <span className="cm-policy-label">Holiday Policy</span>
+                            <span className="cm-policy-val">{activeHoliday ? activeHoliday.policy_name : 'Not Set'}</span>
+                        </div>
+                    </div>
+                </div>
+
                 {branchCount > 0 && (
                     <div className="cm-branch-tags">
                         {company.branch_ids.slice(0, 3).map((b) => (
@@ -84,6 +113,8 @@ const CompanyManagement = () => {
     const [users, setUsers] = useState([]);
     const [branches, setBranches] = useState([]);
     const [shifts, setShifts] = useState([]);
+    const [weekOffPolicies, setWeekOffPolicies] = useState([]);
+    const [holidayPolicies, setHolidayPolicies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [expandedCompany, setExpandedCompany] = useState(null);
     const [pickerModal, setPickerModal] = useState({ open: false, index: -1 });
@@ -93,31 +124,45 @@ const CompanyManagement = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [policyFilter, setPolicyFilter] = useState('all');
     const [activeTab, setActiveTab] = useState('basic');
+    const [viewMode, setViewMode] = useState('list');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
     const [form, setForm] = useState({
         company_name: '',
         company_code: '',
         shift_policy_id: '',
+        weekoff_policy_id: '',
+        holiday_policy_id: '',
+        propagate_to_employees: false,
         branch_ids: [],
         selected_user_ids: [],
         settings: { geo_fencing_enabled: false, allowed_locations: [] }
     });
     const [saving, setSaving] = useState(false);
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, policyFilter]);
+
     useEffect(() => { fetchData(); }, []);
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [cRes, uRes, branchRes, shiftRes] = await Promise.all([
+            const [cRes, uRes, branchRes, shiftRes, weekoffRes, holidayRes] = await Promise.all([
                 masterAPI.getCompanies(),
                 masterAPI.getUsers({ limit: 2000, all_companies: true, isActive: true }),
                 axios.get(`${process.env.REACT_APP_API_STRING}/admin/get-branches`, { withCredentials: true }),
-                masterAPI.getShifts({ all_companies: true })
+                masterAPI.getShifts({ all_companies: true }),
+                masterAPI.getWeekOffPolicies({ all_companies: true }),
+                masterAPI.getHolidayPolicies({ all_companies: true })
             ]);
             setCompanies(cRes?.data || []);
             setUsers(uRes?.data || []);
             setBranches(branchRes?.data || []);
             setShifts(shiftRes?.data || []);
+            setWeekOffPolicies(weekoffRes?.data || []);
+            setHolidayPolicies(holidayRes?.data || []);
         } catch (err) {
             toast.error("Failed to load company data");
         } finally {
@@ -180,6 +225,9 @@ const CompanyManagement = () => {
                 company_name: record.company_name,
                 company_code: record.company_code,
                 shift_policy_id: record.shift_policy_id || '',
+                weekoff_policy_id: record.weekoff_policy_id || '',
+                holiday_policy_id: record.holiday_policy_id || '',
+                propagate_to_employees: false,
                 branch_ids: (record.branch_ids || []).map((b) => b._id || b),
                 selected_user_ids: userIdsInCompany,
                 settings: {
@@ -191,6 +239,8 @@ const CompanyManagement = () => {
         } else {
             setForm({
                 company_name: '', company_code: '', shift_policy_id: '',
+                weekoff_policy_id: '', holiday_policy_id: '',
+                propagate_to_employees: false,
                 branch_ids: [], selected_user_ids: [],
                 settings: { geo_fencing_enabled: false, allowed_locations: [] }
             });
@@ -260,6 +310,7 @@ const CompanyManagement = () => {
         return nameMatch && policyMatch;
     });
     const totalAssignedUsers = companies.reduce((acc, c) => acc + getCompanyUsers(c._id).length, 0);
+    const paginatedCompanies = filteredCompanies.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     if (loading) return <div className="cm-loading">Loading Management Console...</div>;
 
@@ -276,9 +327,39 @@ const CompanyManagement = () => {
             </div>
 
             <div className="cm-overview-row">
-                <div className="cm-overview-card"><span>Total Organizations</span><strong>{companies.length}</strong></div>
-                <div className="cm-overview-card"><span>Total Assigned Users</span><strong>{totalAssignedUsers}</strong></div>
-                <div className="cm-overview-card"><span>Total Branches Linked</span><strong>{companies.reduce((acc, c) => acc + (c.branch_ids?.length || 0), 0)}</strong></div>
+                <div className="cm-overview-card">
+                    <div className="cm-overview-card-icon">
+                        <FiGlobe size={20} />
+                    </div>
+                    <span>Total Organizations</span>
+                    <strong>{companies.length}</strong>
+                    <div className="cm-overview-sub">
+                        <span className="cm-sub-dot"></span>
+                        {companies.filter(c => c.status === 'active' || !c.status).length} Active
+                    </div>
+                </div>
+                <div className="cm-overview-card">
+                    <div className="cm-overview-card-icon">
+                        <FiUsers size={20} />
+                    </div>
+                    <span>Total Assigned Users</span>
+                    <strong>{totalAssignedUsers}</strong>
+                    <div className="cm-overview-sub">
+                        <span className="cm-sub-dot"></span>
+                        Across all organizations
+                    </div>
+                </div>
+                <div className="cm-overview-card">
+                    <div className="cm-overview-card-icon">
+                        <FiMap size={20} />
+                    </div>
+                    <span>Total Branches Linked</span>
+                    <strong>{companies.reduce((acc, c) => acc + (c.branch_ids?.length || 0), 0)}</strong>
+                    <div className="cm-overview-sub">
+                        <span className="cm-sub-dot"></span>
+                        Linked to parent organizations
+                    </div>
+                </div>
             </div>
 
             <div className="cm-toolbar">
@@ -292,35 +373,173 @@ const CompanyManagement = () => {
                     <option value="rotational">Rotational Shift</option>
                     <option value="flexible">Flexible Shift</option>
                 </select>
+                <div className="cm-view-toggle">
+                    <button className={`cm-view-btn ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')} title="Grid View">
+                        <FiGrid size={16} />
+                    </button>
+                    <button className={`cm-view-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')} title="List View">
+                        <FiList size={16} />
+                    </button>
+                </div>
             </div>
 
-            <div className="cm-grid">
-                {filteredCompanies.map(c => (
-                    <CompanyCard
-                        key={c._id} company={c} users={getCompanyUsers(c._id)}
-                        expanded={expandedCompany === c._id}
-                        onToggleExpand={(id) => setExpandedCompany(expandedCompany === id ? null : id)}
-                        onEdit={openModal.bind(null, 'edit')}
-                        onDelete={handleDelete}
-                        onMigrateUser={(user) => setMigrationModal({ open: true, user })}
-                        onViewHistory={async (comp) => {
-                            setHistoryModal({ open: true, company: comp, logs: [], loading: true });
-                            try {
-                                const res = await masterAPI.getOrganizationMigrationHistory(comp._id);
-                                setHistoryModal(prev => ({ ...prev, logs: res?.data || [], loading: false }));
-                            } catch (err) {
-                                toast.error("Failed to fetch migration history");
-                                setHistoryModal(prev => ({ ...prev, loading: false }));
-                            }
-                        }}
-                    />
-                ))}
-            </div>
-
-            {filteredCompanies.length === 0 && (
+            {filteredCompanies.length === 0 ? (
                 <div className="cm-empty-state">
                     <h3>No organizations match your filters</h3>
                     <p>Try a different search term or shift policy, or create a new organization.</p>
+                </div>
+            ) : viewMode === 'list' ? (
+                <div className="cm-table-container">
+                    <table className="cm-org-table">
+                        <thead>
+                            <tr>
+                                <th>Organization</th>
+                                <th>Shift Mode</th>
+                                <th>Branches</th>
+                                <th>Total Users</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {paginatedCompanies.map(c => {
+                                const companyUsers = getCompanyUsers(c._id);
+                                const branchCount = Array.isArray(c.branch_ids) ? c.branch_ids.length : 0;
+                                const shiftMode = c.shift_policy || 'fixed';
+                                const status = c.status || 'active';
+                                return (
+                                    <tr key={c._id}>
+                                        <td>
+                                            <div className="cm-org-info">
+                                                <div className="cm-org-icon-container">
+                                                    <FiGlobe className="cm-org-icon" />
+                                                </div>
+                                                <div className="cm-org-text">
+                                                    <span className="cm-org-name">{c.company_name}</span>
+                                                    <span className="cm-org-code">{c.company_code}</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span className={`cm-shift-mode-tag ${shiftMode.toLowerCase()}`}>
+                                                {shiftMode.toUpperCase()}
+                                            </span>
+                                        </td>
+                                        <td className="cm-branch-count">{branchCount}</td>
+                                        <td>
+                                            <div className="cm-total-users">
+                                                <FiUsers size={14} />
+                                                <span>{companyUsers.length}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span className={`cm-status-tag ${status.toLowerCase()}`}>
+                                                <span className="status-dot"></span>
+                                                {status.charAt(0).toUpperCase() + status.slice(1)}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div className="cm-action-buttons">
+                                                <button type="button" className="cm-btn-circle" onClick={() => openModal('edit', c)} title="Edit Configuration">
+                                                    <FiEdit size={14} />
+                                                </button>
+                                                <button type="button" className="cm-btn-circle" onClick={async () => {
+                                                    setHistoryModal({ open: true, company: c, logs: [], loading: true });
+                                                    try {
+                                                        const res = await masterAPI.getOrganizationMigrationHistory(c._id);
+                                                        setHistoryModal(prev => ({ ...prev, logs: res?.data || [], loading: false }));
+                                                    } catch (err) {
+                                                        toast.error("Failed to fetch migration history");
+                                                        setHistoryModal(prev => ({ ...prev, loading: false }));
+                                                    }
+                                                }} title="Migration History">
+                                                    <FiClock size={14} />
+                                                </button>
+                                                <button type="button" className="cm-btn-circle delete" onClick={() => handleDelete(c._id)} title="Delete Company">
+                                                    <FiTrash2 size={14} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <div className="cm-grid">
+                    {paginatedCompanies.map(c => (
+                        <CompanyCard
+                            key={c._id} company={c} users={getCompanyUsers(c._id)}
+                            expanded={expandedCompany === c._id}
+                            onToggleExpand={(id) => setExpandedCompany(expandedCompany === id ? null : id)}
+                            onEdit={openModal.bind(null, 'edit')}
+                            onDelete={handleDelete}
+                            onMigrateUser={(user) => setMigrationModal({ open: true, user })}
+                            onViewHistory={async (comp) => {
+                                setHistoryModal({ open: true, company: comp, logs: [], loading: true });
+                                try {
+                                    const res = await masterAPI.getOrganizationMigrationHistory(comp._id);
+                                    setHistoryModal(prev => ({ ...prev, logs: res?.data || [], loading: false }));
+                                } catch (err) {
+                                    toast.error("Failed to fetch migration history");
+                                    setHistoryModal(prev => ({ ...prev, loading: false }));
+                                }
+                            }}
+                            shifts={shifts}
+                            weekOffPolicies={weekOffPolicies}
+                            holidayPolicies={holidayPolicies}
+                        />
+                    ))}
+                </div>
+            )}
+
+            {filteredCompanies.length > 0 && (
+                <div className="cm-pagination-row">
+                    <div className="cm-pagination-info">
+                        Showing {Math.min(filteredCompanies.length, (currentPage - 1) * pageSize + 1)} to {Math.min(filteredCompanies.length, currentPage * pageSize)} of {filteredCompanies.length} organizations
+                    </div>
+                    <div className="cm-pagination-controls">
+                        <button 
+                            type="button"
+                            className="cm-page-btn" 
+                            disabled={currentPage === 1} 
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                        >
+                            &lt;
+                        </button>
+                        {Array.from({ length: Math.ceil(filteredCompanies.length / pageSize) }).map((_, i) => (
+                            <button 
+                                type="button"
+                                key={i} 
+                                className={`cm-page-btn ${currentPage === i + 1 ? 'active' : ''}`}
+                                onClick={() => setCurrentPage(i + 1)}
+                            >
+                                {i + 1}
+                            </button>
+                        ))}
+                        <button 
+                            type="button"
+                            className="cm-page-btn" 
+                            disabled={currentPage === Math.ceil(filteredCompanies.length / pageSize) || Math.ceil(filteredCompanies.length / pageSize) <= 1} 
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                        >
+                            &gt;
+                        </button>
+                        <select 
+                            value={pageSize} 
+                            onChange={(e) => {
+                                setPageSize(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="cm-page-size-select"
+                        >
+                            <option value={5}>5 / page</option>
+                            <option value={10}>10 / page</option>
+                            <option value={20}>20 / page</option>
+                            <option value={50}>50 / page</option>
+                        </select>
+                    </div>
                 </div>
             )}
 
@@ -374,19 +593,52 @@ const CompanyManagement = () => {
                                                             onChange={e => setForm({ ...form, company_code: e.target.value.toUpperCase() })}
                                                             placeholder="e.g. ACME_IND" required />
                                                     </div>
-                                                </div>
-                                                <div className="cm-modal-column">
                                                     <div className="cm-form-group">
-                                                        <label>Shift Policy</label>
-                                                        <select value={form.shift_policy_id}
-                                                            onChange={e => setForm({ ...form, shift_policy_id: e.target.value })} required>
-                                                            <option value="">Select a Shift Policy...</option>
-                                                            {shifts.map(s => (
-                                                                <option key={s._id} value={s._id}>{s.shift_name} ({s.shift_code})</option>
+                                                        <label>Week-Off Policy</label>
+                                                        <select value={form.weekoff_policy_id}
+                                                            onChange={e => setForm({ ...form, weekoff_policy_id: e.target.value })}>
+                                                            <option value="">Select a Week-Off Policy...</option>
+                                                            {weekOffPolicies.map(p => (
+                                                                <option key={p._id} value={p._id}>{p.policy_name}</option>
                                                             ))}
                                                         </select>
                                                     </div>
                                                 </div>
+                                                <div className="cm-modal-column">
+                                                    <div className="cm-form-group">
+                                                        <label>Default Shift Policy</label>
+                                                        <select value={form.shift_policy_id}
+                                                            onChange={e => setForm({ ...form, shift_policy_id: e.target.value })}>
+                                                            <option value="">Select a Shift Policy...</option>
+                                                            {shifts
+                                                                .filter(s => String(s.shift_name || '').toLowerCase().trim() !== 'standard shift')
+                                                                .map(s => (
+                                                                    <option key={s._id} value={s._id}>{s.shift_name} ({s.shift_code})</option>
+                                                                ))
+                                                            }
+                                                        </select>
+                                                    </div>
+                                                    <div className="cm-form-group">
+                                                        <label>Holiday Policy</label>
+                                                        <select value={form.holiday_policy_id}
+                                                            onChange={e => setForm({ ...form, holiday_policy_id: e.target.value })}>
+                                                            <option value="">Select a Holiday Policy...</option>
+                                                            {holidayPolicies.map(p => (
+                                                                <option key={p._id} value={p._id}>{p.policy_name} ({p.year})</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="cm-propagate-section">
+                                                <label className="cm-checkbox-label">
+                                                    <input type="checkbox" checked={form.propagate_to_employees}
+                                                        onChange={e => setForm({ ...form, propagate_to_employees: e.target.checked })} />
+                                                    <span className="cm-checkbox-text">
+                                                        <strong>Propagate policies to all current employees</strong>
+                                                        <p>Apply these defaults to overwrite active configurations for all members in this organization.</p>
+                                                    </span>
+                                                </label>
                                             </div>
                                             <div className="cm-divider" />
                                             <div className="cm-form-group">

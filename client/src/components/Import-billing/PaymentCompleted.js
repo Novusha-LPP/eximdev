@@ -47,12 +47,33 @@ import { generatePurchaseBookPDF } from "../../utils/purchaseBookPrint.js";
 function PaymentCompleted({ workMode = "Payment" }) {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageTab0: currentPage, setCurrentPageTab0: setCurrentPage } = useSearchQuery();
+
+  const [searchQuery, setSearchQuery] = useState(
+    () => sessionStorage.getItem("ib_tab5_search") || ""
+  );
+  const [selectedImporter, setSelectedImporter] = useState(
+    () => sessionStorage.getItem("ib_tab5_importer") || ""
+  );
+  const [selectedTransactionType, setSelectedTransactionType] = useState(
+    () => sessionStorage.getItem("ib_tab5_txType") || "All"
+  );
+  const [dateFilterType, setDateFilterType] = useState(
+    () => sessionStorage.getItem("ib_tab5_dateFilterType") || "single"
+  );
+  const [completionStartDate, setCompletionStartDate] = useState(
+    () => sessionStorage.getItem("ib_tab5_startDate") || ""
+  );
+  const [completionEndDate, setCompletionEndDate] = useState(
+    () => sessionStorage.getItem("ib_tab5_endDate") || ""
+  );
+  const [page, setPage] = useState(
+    () => Number(sessionStorage.getItem("ib_tab5_page")) || 1
+  );
+
   const { user } = useContext(UserContext);
   const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1); // Current page number
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
   const [loading, setLoading] = useState(false); // Loading state
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced search query
@@ -63,11 +84,37 @@ function PaymentCompleted({ workMode = "Payment" }) {
   const [openDetailModal, setOpenDetailModal] = useState(false);
   const [selectedPaymentRequest, setSelectedPaymentRequest] = useState(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
-  const [completionStartDate, setCompletionStartDate] = useState("");
-  const [completionEndDate, setCompletionEndDate] = useState("");
-  const [dateFilterType, setDateFilterType] = useState("single"); // 'single', 'range', 'today', 'week', 'month', 'year'
   const [anchorEl, setAnchorEl] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
+
+  // Persist filter states to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab5_search", searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab5_importer", selectedImporter || "");
+  }, [selectedImporter]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab5_txType", selectedTransactionType || "All");
+  }, [selectedTransactionType]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab5_dateFilterType", dateFilterType);
+  }, [dateFilterType]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab5_startDate", completionStartDate || "");
+  }, [completionStartDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab5_endDate", completionEndDate || "");
+  }, [completionEndDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab5_page", page.toString());
+  }, [page]);
 
   const handleAdvancedClick = (event) => setAnchorEl(event.currentTarget);
   const handleAdvancedClose = () => setAnchorEl(null);
@@ -90,6 +137,7 @@ function PaymentCompleted({ workMode = "Payment" }) {
             category: selectedCategory || "all",
             startDate: start,
             endDate: end,
+            transactionType: selectedTransactionType,
             workMode,
           },
         }
@@ -380,7 +428,8 @@ function PaymentCompleted({ workMode = "Payment" }) {
       selectedBranch = "all",
       selectedCategory = "all",
       startDate = "",
-      endDate = ""
+      endDate = "",
+      transactionType = "All"
     ) => {
       setLoading(true);
       try {
@@ -394,10 +443,11 @@ function PaymentCompleted({ workMode = "Payment" }) {
               importer: selectedImporter?.trim() || "",
               year: selectedYearState || "",
               username: username || "",
-              branchId: selectedBranch || "all", // ✅ Add branchId parameter
-              category: selectedCategory || "all", // ✅ Add category parameter
+              branchId: selectedBranch || "all",
+              category: selectedCategory || "all",
               startDate,
               endDate,
+              transactionType,
               workMode
             },
           }
@@ -412,7 +462,6 @@ function PaymentCompleted({ workMode = "Payment" }) {
 
         setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage);
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching billing ready jobs:", error);
@@ -439,7 +488,7 @@ function PaymentCompleted({ workMode = "Payment" }) {
         selectedCategory,
         start,
         end,
-        workMode
+        selectedTransactionType
       );
     }
   }, [
@@ -452,11 +501,17 @@ function PaymentCompleted({ workMode = "Payment" }) {
     selectedBranch,
     selectedCategory,
     calculateDates,
+    selectedTransactionType,
     workMode
   ]);
 
   // Debounce search input to avoid excessive API calls
+  const isFirstSearch = React.useRef(true);
   useEffect(() => {
+    if (isFirstSearch.current) {
+      isFirstSearch.current = false;
+      return;
+    }
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
       setPage(1); // Reset to first page on new search
@@ -594,7 +649,17 @@ function PaymentCompleted({ workMode = "Payment" }) {
               }}
             >
               <div style={{ fontWeight: "700", marginBottom: "4px" }}>
-                {cell.row.original.job_number || job_no}
+                {cell.row.original.job_number || job_no}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    handleCopy(event, cell.row.original.job_number || job_no);
+                  }}
+                  style={{ color: "inherit", padding: "2px" }}
+                >
+                  <ContentCopyIcon fontSize="inherit" />
+                </IconButton>
               </div>
               <div style={{ fontSize: "0.75rem", opacity: 0.9 }}>
                 {type_of_b_e} | {consignment_type}
@@ -631,7 +696,14 @@ function PaymentCompleted({ workMode = "Payment" }) {
         enableSorting: false,
         size: 150,
         Cell: ({ cell }) => {
-          const { be_no, be_date, awb_bl_no } = cell.row.original;
+          const { be_no, be_date, awb_bl_no, charges, ie_code_no } = cell.row.original;
+          const hasCustomsDuty = charges && charges.some(c => 
+            c.chargeHead && (
+              c.chargeHead.toUpperCase() === "CUSTOMS DUTY" || 
+              c.chargeHead.toUpperCase() === "CUSTOM DUTY" ||
+              c.chargeHead.toUpperCase().includes("CUSTOMS DUTY")
+            )
+          );
           return (
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               <div style={{ fontSize: "11px", fontWeight: "bold", color: "#1a237e", display: "flex", alignItems: "center" }}>
@@ -664,6 +736,27 @@ function PaymentCompleted({ workMode = "Payment" }) {
                   </IconButton>
                 )}
               </div>
+              {hasCustomsDuty && (
+                <div style={{ 
+                  fontSize: "11px", 
+                  fontWeight: "bold", 
+                  color: "#d32f2f", 
+                  marginTop: "4px",
+                  padding: "2px 4px",
+                  backgroundColor: "#ffebee",
+                  borderRadius: "4px",
+                  width: "fit-content",
+                  display: "flex",
+                  alignItems: "center"
+                }}>
+                  IE CODE: {ie_code_no || "-"}
+                  {ie_code_no && (
+                    <IconButton size="small" onClick={(e) => handleCopy(e, ie_code_no)} sx={{ ml: 0.5, p: 0.2 }}>
+                      <ContentCopyIcon sx={{ fontSize: "10px" }} />
+                    </IconButton>
+                  )}
+                </div>
+              )}
             </div>
           );
         },
@@ -931,7 +1024,10 @@ function PaymentCompleted({ workMode = "Payment" }) {
           freeSolo
           options={importerNames.map((option) => option.label)}
           value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+          onInputChange={(event, newValue) => {
+            setSelectedImporter(newValue);
+            setPage(1);
+          }}
           renderInput={(params) => (
             <TextField
               {...params}
@@ -979,6 +1075,22 @@ function PaymentCompleted({ workMode = "Payment" }) {
           }}
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
+
+        <TextField 
+          select 
+          size="small" 
+          label="Transaction Type" 
+          value={selectedTransactionType} 
+          onChange={(e) => {
+            setSelectedTransactionType(e.target.value);
+            setPage(1);
+          }} 
+          sx={{ width: "180px", marginRight: "20px" }}
+        >
+          {["All", "NEFT", "CHEQUE", "CASH", "IMPS", "RTGS", "ONLINE", "DEMAND DRAFT", "ODEX"].map(type => (
+            <MenuItem key={type} value={type}>{type}</MenuItem>
+          ))}
+        </TextField>
 
         {/* Completion Date Filter */}
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', ml: 2 }}>
@@ -1154,15 +1266,27 @@ function PaymentCompleted({ workMode = "Payment" }) {
                   </Grid>
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">
-                      {selectedPaymentRequest.isPurchaseBook ? "Entry No" : "Request No"}
-                    </Typography>
+                    <Typography variant="caption" fontWeight="bold">Payment Request No</Typography>
                   </Grid>
                   <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.requestNo}</Typography>
-                    <IconButton size="small" onClick={(e) => handleCopy(e, selectedPaymentRequest.requestNo)} title="Copy No">
-                      <ContentCopyIcon sx={{ fontSize: '1rem' }} />
-                    </IconButton>
+                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.paymentRequestNo || "-"}</Typography>
+                    {selectedPaymentRequest.paymentRequestNo && (
+                      <IconButton size="small" onClick={(e) => handleCopy(e, selectedPaymentRequest.paymentRequestNo)} title="Copy PR No">
+                        <ContentCopyIcon sx={{ fontSize: '1rem' }} />
+                      </IconButton>
+                    )}
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Purchase Book No</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.purchaseBookNo || "-"}</Typography>
+                    {selectedPaymentRequest.purchaseBookNo && (
+                      <IconButton size="small" onClick={(e) => handleCopy(e, selectedPaymentRequest.purchaseBookNo)} title="Copy PB No">
+                        <ContentCopyIcon sx={{ fontSize: '1rem' }} />
+                      </IconButton>
+                    )}
                   </Grid>
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>

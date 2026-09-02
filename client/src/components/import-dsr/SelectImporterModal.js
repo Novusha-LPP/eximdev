@@ -49,11 +49,7 @@ export default function SelectImporterModal(props) {
   React.useEffect(() => {
     async function fetchBranches() {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_API_STRING}/admin/my-branches`, { 
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
+        const response = await axios.get(`${process.env.REACT_APP_API_STRING}/admin/my-branches`);
         setBranches(response.data);
         if (response.data.length > 0) {
           // Default to Ahmedabad Sea as requested
@@ -87,9 +83,13 @@ export default function SelectImporterModal(props) {
           // Filter importers based on user assignment if not Admin
           if (user && user.role !== 'Admin') {
             const assignedImporters = user.assigned_importer_name || [];
-            fetchedImporters = fetchedImporters.filter(item =>
-              assignedImporters.includes(item.importer)
-            );
+            const hasAllAccess = assignedImporters.some(imp => imp && imp.toUpperCase() === 'ALL');
+            if (!hasAllAccess) {
+              const lowerAssigned = new Set(assignedImporters.map(imp => (imp || '').trim().toLowerCase()));
+              fetchedImporters = fetchedImporters.filter(item =>
+                lowerAssigned.has((item.importer || '').trim().toLowerCase())
+              );
+            }
           }
 
           setImporters(fetchedImporters);
@@ -110,8 +110,9 @@ export default function SelectImporterModal(props) {
     const uniqueImporters = new Set();
     return importerData
       .filter((importer) => {
-        if (uniqueImporters.has(importer.importer)) return false;
-        uniqueImporters.add(importer.importer);
+        const key = (importer.importer || '').trim().toLowerCase();
+        if (uniqueImporters.has(key)) return false;
+        uniqueImporters.add(key);
         return true;
       })
       .map((importer, index) => ({
@@ -295,4 +296,4 @@ export default function SelectImporterModal(props) {
       </Modal>
     </div>
   );
-}
+}

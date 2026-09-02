@@ -134,11 +134,14 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 
   if (myTeams && myTeams.length > 0) {
     myTeams.forEach(team => {
-      if (team.memberIds) {
-        team.memberIds.forEach(m => visibleUserIds.push(new mongoose.Types.ObjectId(m.toString())));
-      }
-      if (team.managerId) {
-        visibleUserIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
+      const isManager = team.managerId?.toString() === userId?.toString();
+      if (isManager) {
+        if (team.memberIds) {
+          team.memberIds.forEach(m => visibleUserIds.push(new mongoose.Types.ObjectId(m.toString())));
+        }
+        if (team.managerId) {
+          visibleUserIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
+        }
       }
     });
   }
@@ -148,6 +151,7 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
   const orConditions = [
     { ownerId: { $in: uniqueUserIds } },
     { createdBy: { $in: uniqueUserIds } },
+    { stage: 'sales_visit' },
     { plannedVisits: { $elemMatch: { isCompleted: false, isCancelled: { $ne: true } } } }
   ];
 

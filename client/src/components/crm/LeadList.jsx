@@ -124,7 +124,7 @@ export default function LeadList() {
       const userId = user._id || user.id || '';
 
       const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/crm/teams`,
+        `${process.env.REACT_APP_API_STRING}/crm/teams?all=true`,
         {
           headers: {
             'Content-Type': 'application/json',

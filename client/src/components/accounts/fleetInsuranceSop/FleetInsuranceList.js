@@ -335,11 +335,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
 
     const isOldRenewed = String(row.renewed).toUpperCase() === "YES" ||
       row.renewalStatus === "Renewed" ||
-      Boolean(nDate) ||
-      Boolean(row.paymentUtr) ||
-      Boolean(row.paymentDate) ||
-      Boolean(row.renewalDate) ||
-      Boolean(row.renewedDate);
+      Boolean(row.paymentUtr);
 
     if (isMatchingNewPolicy && !isMatchingOldPolicy && !isMatchingRenewalDate) {
       // In the renewed policy cycle (e.g. August 2027), the policy expiring is nDate.
@@ -357,11 +353,11 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
     // Default or matching old policy cycle (e.g. August 2026):
     return {
       displayExpiry: pDate || nDate,
-      displayRenewalDate: isOldRenewed ? rDate : null,
+      displayRenewalDate: rDate || row.renewalDate || row.renewedDate || null,
       isRenewed: isOldRenewed,
       stageStatus: isOldRenewed ? { label: "Renewed", color: "success" } : getStageStatus(row),
       previousPremium: row.totalPolicyPremium || row.premiumAmount,
-      renewedPremium: isOldRenewed ? (row.newTotalPolicyPremium || row.newPremiumAmount || row.newPremium || row.totalPolicyPremium || row.premiumAmount) : null,
+      renewedPremium: isOldRenewed ? (row.newTotalPolicyPremium || row.newPremiumAmount || row.newPremium) : null,
     };
   };
 

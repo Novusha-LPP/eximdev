@@ -113,6 +113,7 @@ export default function CRMKanbanBoard() {
   const [selectedOppForRefer, setSelectedOppForRefer] = useState(null);
   const [targetReferTeamId, setTargetReferTeamId] = useState('');
   const [isReferringOpp, setIsReferringOpp] = useState(false);
+  const [allTeams, setAllTeams] = useState([]);
 
   const [filters, setFilters] = useState(() => {
     try {
@@ -323,6 +324,13 @@ export default function CRMKanbanBoard() {
 
   const fetchMyTeams = async (all = false) => {
     try {
+      const resAll = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/teams?all=true`,
+        getHeaders()
+      );
+      const fetchedAllTeams = resAll.data?.teams || resAll.data || [];
+      setAllTeams(fetchedAllTeams);
+
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/crm/teams/my-teams`,
         {
@@ -332,11 +340,7 @@ export default function CRMKanbanBoard() {
       );
       let fetchedTeams = res.data || [];
       if (fetchedTeams.length === 0) {
-        const resAll = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/crm/teams`,
-          getHeaders()
-        );
-        fetchedTeams = resAll.data?.teams || resAll.data || [];
+        fetchedTeams = fetchedAllTeams;
       }
       setTeams(fetchedTeams);
       if (!all && isRestricted && fetchedTeams.length > 0) {
@@ -1849,7 +1853,7 @@ export default function CRMKanbanBoard() {
                 style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '20px', fontSize: '0.9rem', background: '#fff' }}
               >
                 <option value="">-- Select Target Team --</option>
-                {teams.map(team => (
+                {(allTeams.length > 0 ? allTeams : teams).map(team => (
                   <option key={team._id} value={team._id}>{team.name || team.teamName}</option>
                 ))}
               </select>

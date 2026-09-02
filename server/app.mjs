@@ -756,7 +756,6 @@ app.use("/api/admin/job-migration", jobMigrationRouter);
 app.use("/api/admin/email", emailRoutes);
 
 app.use(userAssetsRoutes);
-<<<<<<< HEAD
 app.use(userAssetEquipmentRoutes);
 
 // Scorecard Module

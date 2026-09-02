@@ -1238,13 +1238,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       { key: 'col5', width: 18 }, // HalfDayLeaves / InTime
       { key: 'col6', width: 18 }, // FullDayLeaves / OutTime
       { key: 'col7', width: 18 }, // CompleteLeaves (Total PL Taken) / TotalHours
-      { key: 'col8', width: 14 }, // Week Off
-      { key: 'col9', width: 14 }, // Holiday
-      { key: 'col10', width: 6 },  // Spacer 1
-      { key: 'col11', width: 6 }, // Spacer 2
-      { key: 'col12', width: 28 }, // OpeningBalance / Late In/Out
-      { key: 'col13', width: 14 }, // PL Taken
-      { key: 'col14', width: 14 }, // LWP Taken
+      { key: 'col8', width: 14 }, // LWP Taken
+      { key: 'col9', width: 14 }, // Week Off
+      { key: 'col10', width: 14 }, // Holiday
+      { key: 'col11', width: 6 },  // Spacer 1
+      { key: 'col12', width: 6 }, // Spacer 2
+      { key: 'col13', width: 28 }, // OpeningBalance / Late In/Out
+      { key: 'col14', width: 14 }, // PL Taken
       { key: 'col15', width: 18 }, // Available Balance
       { key: 'col16', width: 18 }  // Avg Hours/Day
     ];
@@ -1270,11 +1270,11 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       hdLeaves: { bg: 'FFF5F3FF', fg: 'FF6D28D9' },
       fdLeaves: { bg: 'FFEEF2FF', fg: 'FF4338CA' },
       compLeaves: { bg: 'FFFAF5FF', fg: 'FF7E22CE' },
+      lwpTaken: { bg: 'FFFEF2F2', fg: 'FF991B1B' },
       weekOff: { bg: 'FFF8FAFC', fg: 'FF475569' },
       holiday: { bg: 'FFFEFCE8', fg: 'FFA16207' },
       openBal: { bg: 'FFFFFBEB', fg: 'FFB45309' },
       plTaken: { bg: 'FFFFF7ED', fg: 'FFC2410C' },
-      lwpTaken: { bg: 'FFFEF2F2', fg: 'FF991B1B' },
       availBal: { bg: 'FFF0FDF4', fg: 'FF15803D' },
       avgHours: { bg: 'FFF1F5F9', fg: 'FF334155' },
     };
@@ -1300,7 +1300,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
     // ── 2. Master Summary Table ──
     const openBalHeader = `${moment(startDate).isValid() ? moment(startDate).format('MMMM') : moment().format('MMMM')} Opening Balance`;
-    const COLS = ['Employee', 'Total Working Days', 'Present', 'Absent', 'Half Day PL', 'Full Day PL', 'Total PL Taken', 'Week Off', 'Holiday', '', '', openBalHeader, 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hours/Day'];
+    const COLS = ['Employee', 'Total Working Days', 'Present', 'Absent', 'Half Day PL', 'Full Day PL', 'Total PL Taken', 'LWP Taken', 'Week Off', 'Holiday', '', '', openBalHeader, 'PL Taken', 'Available Balance', 'Avg Hours/Day'];
     const sumHeaderRow = ws.addRow(COLS);
     sumHeaderRow.height = 26;
     styleHeader(sumHeaderRow, 'FF0F172A', 'FFFFFFFF');
@@ -1334,13 +1334,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         halfDayLeaves,
         fullDayLeaves,
         completeLeaves,
+        lwpT,
         weekOffCount,
         holidayCount,
         '',
         '',
         openB,
         plT,
-        lwpT,
         availB,
         e.avgHours || '—',
       ]);
@@ -1358,11 +1358,11 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         [5, METRIC_STYLES.hdLeaves],
         [6, METRIC_STYLES.fdLeaves],
         [7, METRIC_STYLES.compLeaves],
-        [8, METRIC_STYLES.weekOff],
-        [9, METRIC_STYLES.holiday],
-        [12, METRIC_STYLES.openBal],
-        [13, METRIC_STYLES.plTaken],
-        [14, METRIC_STYLES.lwpTaken],
+        [8, METRIC_STYLES.lwpTaken],
+        [9, METRIC_STYLES.weekOff],
+        [10, METRIC_STYLES.holiday],
+        [13, METRIC_STYLES.openBal],
+        [14, METRIC_STYLES.plTaken],
         [15, METRIC_STYLES.availBal],
       ];
 
@@ -1785,8 +1785,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       const openBalHeader = `${moment(start).isValid() ? moment(start).format('MMMM') : moment().format('MMMM')} Opening Balance`;
       const SUMMARY_HEADERS = [
         'Employee', 'Total Working Days', 'Present', 'Absent', 'Half Day PL',
-        'Full Day PL', 'Total PL Taken', 'Week Off', 'Holiday', '', '', openBalHeader, 'PL Taken',
-        'LWP Taken', 'Available Balance', 'Avg Hours/Day'
+        'Full Day PL', 'Total PL Taken', 'LWP Taken', 'Week Off', 'Holiday', '', '', openBalHeader, 'PL Taken',
+        'Available Balance', 'Avg Hours/Day'
       ];
 
       const STATUS_COLORS = {
@@ -1831,13 +1831,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
           getHalfDayLeaveCountForReport(e),
           getFullDayLeaveCountForReport(e),
           getLeaveCountForReport(e),
+          lwpTaken,
           getWeekOffCount(e),
           getHolidayCount(e),
           '',
           '',
           openingBalance,
           plTaken,
-          lwpTaken,
           availableBalance,
           e.avgHours || '0.0',
         ]);
@@ -1851,8 +1851,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
         [[2, STATUS_COLORS.totWorking], [3, STATUS_COLORS.present], [4, STATUS_COLORS.absent],
         [5, STATUS_COLORS.leaves], [6, STATUS_COLORS.leaves], [7, STATUS_COLORS.leaves],
-        [8, STATUS_COLORS.weekOff], [9, STATUS_COLORS.holiday],
-        [12, STATUS_COLORS.pending], [13, STATUS_COLORS.pending], [14, STATUS_COLORS.pending],
+        [8, STATUS_COLORS.pending],
+        [9, STATUS_COLORS.weekOff], [10, STATUS_COLORS.holiday],
+        [13, STATUS_COLORS.pending], [14, STATUS_COLORS.pending],
         [15, STATUS_COLORS.pending]]
           .forEach(([col, color]) => {
             const cell = row.getCell(col);
@@ -1880,13 +1881,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         allActiveEmps.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
         allActiveEmps.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
         roundLeave(allActiveEmps.reduce((s, e) => s + getLeaveCountForReport(e), 0)),
+        sumLeaveMetric(allActiveEmps, 'lwp_taken'),
         roundLeave(allActiveEmps.reduce((s, e) => s + getWeekOffCount(e), 0)),
         roundLeave(allActiveEmps.reduce((s, e) => s + getHolidayCount(e), 0)),
         '',
         '',
         sumLeaveMetric(allActiveEmps, 'opening_balance'),
         sumLeaveMetric(allActiveEmps, 'privilege_taken'),
-        sumLeaveMetric(allActiveEmps, 'lwp_taken'),
         sumLeaveMetric(allActiveEmps, 'available_balance'),
         (() => {
           const total = allActiveEmps.reduce((s, e) => s + parseFloat(e.avgHours || 0), 0);
@@ -1934,13 +1935,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             getHalfDayLeaveCountForReport(e),
             getFullDayLeaveCountForReport(e),
             getLeaveCountForReport(e),
+            lwpTaken,
             getWeekOffCount(e),
             getHolidayCount(e),
             '',
             '',
             openingBalance,
             plTaken,
-            lwpTaken,
             availableBalance,
             e.avgHours || '0.0',
           ]);
@@ -1954,8 +1955,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
           [[2, STATUS_COLORS.totWorking], [3, STATUS_COLORS.present], [4, STATUS_COLORS.absent],
           [5, STATUS_COLORS.leaves], [6, STATUS_COLORS.leaves], [7, STATUS_COLORS.leaves],
-          [8, STATUS_COLORS.weekOff], [9, STATUS_COLORS.holiday],
-          [12, STATUS_COLORS.pending], [13, STATUS_COLORS.pending], [14, STATUS_COLORS.pending],
+          [8, STATUS_COLORS.pending],
+          [9, STATUS_COLORS.weekOff], [10, STATUS_COLORS.holiday],
+          [13, STATUS_COLORS.pending], [14, STATUS_COLORS.pending],
           [15, STATUS_COLORS.pending]]
             .forEach(([col, color]) => {
               const cell = row.getCell(col);
@@ -1983,13 +1985,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
           activeEmps.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
           activeEmps.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
           roundLeave(activeEmps.reduce((s, e) => s + getLeaveCountForReport(e), 0)),
+          sumLeaveMetric(activeEmps, 'lwp_taken'),
           roundLeave(activeEmps.reduce((s, e) => s + getWeekOffCount(e), 0)),
           roundLeave(activeEmps.reduce((s, e) => s + getHolidayCount(e), 0)),
           '',
           '',
           sumLeaveMetric(activeEmps, 'opening_balance'),
           sumLeaveMetric(activeEmps, 'privilege_taken'),
-          sumLeaveMetric(activeEmps, 'lwp_taken'),
           sumLeaveMetric(activeEmps, 'available_balance'),
           (() => {
             const total = activeEmps.reduce((s, e) => s + parseFloat(e.avgHours || 0), 0);
@@ -2091,8 +2093,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       const openBalHeader = `${moment(start).isValid() ? moment(start).format('MMMM') : moment().format('MMMM')} Opening Balance`;
       const SUMMARY_HEADERS = [
         'Employee', 'Total Working Days', 'Present', 'Absent', 'Half Day PL',
-        'Full Day PL', 'Total PL Taken', 'Week Off', 'Holiday', '', '', openBalHeader, 'PL Taken',
-        'LWP Taken', 'Available Balance', 'Avg Hours/Day'
+        'Full Day PL', 'Total PL Taken', 'LWP Taken', 'Week Off', 'Holiday', '', '', openBalHeader, 'PL Taken',
+        'Available Balance', 'Avg Hours/Day'
       ];
 
       const STATUS_COLORS = {
@@ -2137,13 +2139,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
           getHalfDayLeaveCountForReport(e),
           getFullDayLeaveCountForReport(e),
           getLeaveCountForReport(e),
+          lwpTaken,
           getWeekOffCount(e),
           getHolidayCount(e),
           '',
           '',
           openingBalance,
           plTaken,
-          lwpTaken,
           availableBalance,
           e.avgHours || '0.0',
         ]);
@@ -2157,8 +2159,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
         [[2, STATUS_COLORS.totWorking], [3, STATUS_COLORS.present], [4, STATUS_COLORS.absent],
         [5, STATUS_COLORS.leaves], [6, STATUS_COLORS.leaves], [7, STATUS_COLORS.leaves],
-        [8, STATUS_COLORS.weekOff], [9, STATUS_COLORS.holiday],
-        [12, STATUS_COLORS.pending], [13, STATUS_COLORS.pending], [14, STATUS_COLORS.pending],
+        [8, STATUS_COLORS.pending],
+        [9, STATUS_COLORS.weekOff], [10, STATUS_COLORS.holiday],
+        [13, STATUS_COLORS.pending], [14, STATUS_COLORS.pending],
         [15, STATUS_COLORS.pending]]
           .forEach(([col, color]) => {
             const cell = row.getCell(col);
@@ -2186,13 +2189,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         allActiveEmps.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
         allActiveEmps.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
         roundLeave(allActiveEmps.reduce((s, e) => s + getLeaveCountForReport(e), 0)),
+        sumLeaveMetric(allActiveEmps, 'lwp_taken'),
         roundLeave(allActiveEmps.reduce((s, e) => s + getWeekOffCount(e), 0)),
         roundLeave(allActiveEmps.reduce((s, e) => s + getHolidayCount(e), 0)),
         '',
         '',
         sumLeaveMetric(allActiveEmps, 'opening_balance'),
         sumLeaveMetric(allActiveEmps, 'privilege_taken'),
-        sumLeaveMetric(allActiveEmps, 'lwp_taken'),
         sumLeaveMetric(allActiveEmps, 'available_balance'),
         (() => {
           const total = allActiveEmps.reduce((s, e) => s + parseFloat(e.avgHours || 0), 0);
@@ -2240,13 +2243,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             getHalfDayLeaveCountForReport(e),
             getFullDayLeaveCountForReport(e),
             getLeaveCountForReport(e),
+            lwpTaken,
             getWeekOffCount(e),
             getHolidayCount(e),
             '',
             '',
             openingBalance,
             plTaken,
-            lwpTaken,
             availableBalance,
             e.avgHours || '0.0',
           ]);
@@ -2260,8 +2263,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
           [[2, STATUS_COLORS.totWorking], [3, STATUS_COLORS.present], [4, STATUS_COLORS.absent],
           [5, STATUS_COLORS.leaves], [6, STATUS_COLORS.leaves], [7, STATUS_COLORS.leaves],
-          [8, STATUS_COLORS.weekOff], [9, STATUS_COLORS.holiday],
-          [12, STATUS_COLORS.pending], [13, STATUS_COLORS.pending], [14, STATUS_COLORS.pending],
+          [8, STATUS_COLORS.pending],
+          [9, STATUS_COLORS.weekOff], [10, STATUS_COLORS.holiday],
+          [13, STATUS_COLORS.pending], [14, STATUS_COLORS.pending],
           [15, STATUS_COLORS.pending]]
             .forEach(([col, color]) => {
               const cell = row.getCell(col);
@@ -2289,13 +2293,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
           activeEmps.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
           activeEmps.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
           roundLeave(activeEmps.reduce((s, e) => s + getLeaveCountForReport(e), 0)),
+          sumLeaveMetric(activeEmps, 'lwp_taken'),
           roundLeave(activeEmps.reduce((s, e) => s + getWeekOffCount(e), 0)),
           roundLeave(activeEmps.reduce((s, e) => s + getHolidayCount(e), 0)),
           '',
           '',
           sumLeaveMetric(activeEmps, 'opening_balance'),
           sumLeaveMetric(activeEmps, 'privilege_taken'),
-          sumLeaveMetric(activeEmps, 'lwp_taken'),
           sumLeaveMetric(activeEmps, 'available_balance'),
           (() => {
             const total = activeEmps.reduce((s, e) => s + parseFloat(e.avgHours || 0), 0);

@@ -18,6 +18,7 @@ import {
   isAirMode,
 } from "../../utils/modeLogic";
 import BLTrackingCell from "../../customHooks/BLTrackingCell";
+import { portReportingOptions } from "../MasterLists/MasterLists";
 
 function JobDetailsStaticData(props) {
   const [expanded, setExpanded] = useState(false);
@@ -1132,21 +1133,11 @@ function JobDetailsStaticData(props) {
                   );
                 }
                 if (key === "port_of_reporting") {
-                  const portReportingOptionsSet = [
-                    "(INMUN1) Mundra Sea",
-                    "(INNSA1) Nhava Sheva Sea",
-                    "(INPAV1) Pipavav",
-                    "(INPAV6) Pipavav (Victor) Port",
-                    "(INHZA1) Hazira",
-                    "(INAMD4) Ahmedabad"
-
-
-                  ];
                   return (
                     <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
                       <Autocomplete
                         freeSolo
-                        options={portReportingOptionsSet}
+                        options={portReportingOptions || []}
                         value={editFormData[key] || ""}
                         onInputChange={(event, newValue) => {
                           setEditFormData(prev => ({ ...prev, [key]: newValue }));

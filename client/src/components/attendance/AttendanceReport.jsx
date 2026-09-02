@@ -1357,13 +1357,13 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 { key: 'col5', width: 18 }, // HalfDayLeaves / InTime
                 { key: 'col6', width: 18 }, // FullDayLeaves / OutTime
                 { key: 'col7', width: 18 }, // CompleteLeaves (Total PL Taken) / TotalHours
-                { key: 'col8', width: 14 }, // Week Off
-                { key: 'col9', width: 14 }, // Holiday
-                { key: 'col10', width: 6 },  // Spacer 1
-                { key: 'col11', width: 6 }, // Spacer 2
-                { key: 'col12', width: 28 }, // OpeningBalance / Late In/Out
-                { key: 'col13', width: 14 }, // PL Taken
-                { key: 'col14', width: 14 }, // LWP Taken
+                { key: 'col8', width: 14 }, // LWP Taken
+                { key: 'col9', width: 14 }, // Week Off
+                { key: 'col10', width: 14 }, // Holiday
+                { key: 'col11', width: 6 },  // Spacer 1
+                { key: 'col12', width: 6 }, // Spacer 2
+                { key: 'col13', width: 28 }, // OpeningBalance / Late In/Out
+                { key: 'col14', width: 14 }, // PL Taken
                 { key: 'col15', width: 18 }, // Available Balance
                 { key: 'col16', width: 18 }  // Avg Hours/Day
             ];
@@ -1389,7 +1389,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
 
             // ── 2. Master Summary Table (All Employees) ───────────────────
             const openBalHeader = `${moment(startDate).isValid() ? moment(startDate).format('MMMM') : moment().format('MMMM')} Opening Balance`;
-            const COLS = ['Employee', 'Total Working Days', 'Present', 'Absent', 'Half Day PL', 'Full Day PL', 'Total PL Taken', 'Week Off', 'Holiday', '', '', openBalHeader, 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hours/Day'];
+            const COLS = ['Employee', 'Total Working Days', 'Present', 'Absent', 'Half Day PL', 'Full Day PL', 'Total PL Taken', 'LWP Taken', 'Week Off', 'Holiday', '', '', openBalHeader, 'PL Taken', 'Available Balance', 'Avg Hours/Day'];
             const sumHeaderRow = ws.addRow(COLS);
             sumHeaderRow.height = 26;
             styleHeader(sumHeaderRow, 'FF0F172A', 'FFFFFFFF');
@@ -1438,13 +1438,13 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                     halfDayLeaves,
                     fullDayLeaves,
                     completeLeaves,
+                    lwpT,
                     weekOffCount,
                     holidayCount,
                     '',
                     '',
                     openB,
                     plT,
-                    lwpT,
                     availB,
                     e.avgHours || '—',
                 ]);
@@ -1462,11 +1462,11 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                     [5, METRIC_STYLES.hdLeaves],
                     [6, METRIC_STYLES.fdLeaves],
                     [7, METRIC_STYLES.compLeaves],
-                    [8, METRIC_STYLES.weekOff],
-                    [9, METRIC_STYLES.holiday],
-                    [12, METRIC_STYLES.openBal],
-                    [13, METRIC_STYLES.plTaken],
-                    [14, METRIC_STYLES.lwpTaken],
+                    [8, METRIC_STYLES.lwpTaken],
+                    [9, METRIC_STYLES.weekOff],
+                    [10, METRIC_STYLES.holiday],
+                    [13, METRIC_STYLES.openBal],
+                    [14, METRIC_STYLES.plTaken],
                     [15, METRIC_STYLES.availBal],
                 ];
 

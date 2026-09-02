@@ -57,6 +57,9 @@ router.get(
             { job_no: { $regex: search, $options: "i" } },
             { importer: { $regex: search, $options: "i" } },
             { awb_bl_no: { $regex: search, $options: "i" } },
+            { "mbl_details.mbl_no": { $regex: search, $options: "i" } },
+            { hawb_hbl_no: { $regex: search, $options: "i" } },
+            { "hbl_details.hbl_no": { $regex: search, $options: "i" } },
             { shipping_line_airline: { $regex: search, $options: "i" } },
             { vessel_flight: { $regex: search, $options: "i" } },
             { voyage_no: { $regex: search, $options: "i" } },
@@ -226,7 +229,7 @@ router.get(
       // 🔍 **Step 1: Fetch Jobs After Applying Filters**
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "job_number job_no year port_of_reporting awb_bl_no shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type igm_no igm_date gateway_igm_date gateway_igm be_no be_date cth_documents checklist processed_be_attachment line_no advanced_payment_done advanced_payment_date free_time branch_code trade_type mode"
+          "job_number job_no year port_of_reporting awb_bl_no awb_bl_date hawb_hbl_no hawb_hbl_date mbl_details hbl_details shipping_line_airline custom_house obl_telex_bl importer importer_address vessel_flight voyage_no container_nos type_of_b_e consignment_type igm_no igm_date gateway_igm_date gateway_igm be_no be_date cth_documents checklist processed_be_attachment line_no advanced_payment_done advanced_payment_date free_time branch_code trade_type mode"
         )
         .lean();
 

@@ -187,14 +187,38 @@ router.post(
       }
 
       // ✅ Check for duplicate BL Number globally
-      if (awb_bl_no && awb_bl_no.length > 0) {
+      const allIncomingBls = [];
+      if (Array.isArray(req.body.mbl_details)) {
+        req.body.mbl_details.forEach(m => {
+          if (m?.mbl_no?.trim()) allIncomingBls.push(m.mbl_no.trim());
+        });
+      }
+      if (awb_bl_no && awb_bl_no.trim()) {
+        allIncomingBls.push(awb_bl_no.trim());
+      }
+      if (Array.isArray(req.body.hbl_details)) {
+        req.body.hbl_details.forEach(h => {
+          if (h?.hbl_no?.trim()) allIncomingBls.push(h.hbl_no.trim());
+        });
+      }
+      if (req.body.hawb_hbl_no && req.body.hawb_hbl_no.trim()) {
+        allIncomingBls.push(req.body.hawb_hbl_no.trim());
+      }
+
+      const uniqueIncomingBls = [...new Set(allIncomingBls)];
+      if (uniqueIncomingBls.length > 0) {
         const existingBl = await JobModel.findOne({
-          awb_bl_no,
+          $or: [
+            { awb_bl_no: { $in: uniqueIncomingBls } },
+            { hawb_hbl_no: { $in: uniqueIncomingBls } },
+            { "mbl_details.mbl_no": { $in: uniqueIncomingBls } },
+            { "hbl_details.hbl_no": { $in: uniqueIncomingBls } },
+          ],
         });
 
         if (existingBl) {
           return res.status(400).json({
-            message: `Duplicate BL number found globally: ${awb_bl_no}`,
+            message: `Duplicate BL number found globally: ${uniqueIncomingBls.join(", ")}`,
           });
         }
       }
@@ -332,6 +356,10 @@ router.post(
           po_date,
           awb_bl_no,
           awb_bl_date,
+          hawb_hbl_no,
+          hawb_hbl_date,
+          mbl_details: incomingMblDetails,
+          hbl_details: incomingHblDetails,
           bill_no,
           bill_date,
           no_of_pkgs,
@@ -347,6 +375,14 @@ router.post(
           hss_name,
           total_inv_value,
         } = sanitizedData;
+
+        const resolvedMblDetails = Array.isArray(incomingMblDetails) && incomingMblDetails.length > 0
+          ? incomingMblDetails
+          : (awb_bl_no ? [{ mbl_no: awb_bl_no, mbl_date: awb_bl_date || "" }] : undefined);
+
+        const resolvedHblDetails = Array.isArray(incomingHblDetails) && incomingHblDetails.length > 0
+          ? incomingHblDetails
+          : (hawb_hbl_no ? [{ hbl_no: hawb_hbl_no, hbl_date: hawb_hbl_date || "" }] : undefined);
 
         // Sanitize bill_date before using it
         const sanitizedBillDate =
@@ -418,41 +454,53 @@ router.post(
             }
           );
 
+          const vesselBerthingToUpdate =
+            vessel_berthing || existingJob.vessel_berthing;
+          const gateway_igm_dateUpdate =
+            gateway_igm_date || existingJob.gateway_igm_date;
+          const lineNoUpdate = line_no || existingJob.line_no;
+          const iceCodeUpdate = ie_code_no || existingJob.ie_code_no;
+
+          const updateFields = {
+            job_number,
+            branch_id: finalBranchId,
+            branch_code: finalBranchCode,
+            mode: finalMode,
+            sequence_number: seqNum,
+            financial_year,
+            vessel_berthing: vesselBerthingToUpdate,
+            gateway_igm_date: gateway_igm_dateUpdate,
+            line_no: lineNoUpdate,
+            ie_code_no: iceCodeUpdate,
+            container_nos: updatedContainers,
+            status:
+              existingJob.status === "Completed"
+                ? existingJob.status
+                : computeStatus(sanitizedBillDate),
+            be_no,
+            be_date,
+            invoice_number,
+            invoice_date,
+            po_no,
+            po_date,
+            awb_bl_no,
+            awb_bl_date,
+            bill_no,
+            bill_date,
+            no_of_pkgs,
+            gross_weight,
+            exrate,
+            cif_amount,
+            unit_price,
+          };
+
+          if (hawb_hbl_no !== undefined) updateFields.hawb_hbl_no = hawb_hbl_no;
+          if (hawb_hbl_date !== undefined) updateFields.hawb_hbl_date = hawb_hbl_date;
+          if (resolvedMblDetails) updateFields.mbl_details = resolvedMblDetails;
+          if (resolvedHblDetails) updateFields.hbl_details = resolvedHblDetails;
+
           const update = {
-            $set: {
-              ...sanitizedData,
-              ...(computedImporterURL ? { importerURL: computedImporterURL } : {}),
-              job_number,
-              branch_id: finalBranchId,
-              branch_code: finalBranchCode,
-              mode: finalMode,
-              sequence_number: seqNum,
-              financial_year,
-              vessel_berthing: vesselBerthingToUpdate,
-              gateway_igm_date: gateway_igm_dateUpdate,
-              line_no: lineNoUpdate,
-              ie_code_no: iceCodeUpdate,
-              container_nos: updatedContainers,
-              status:
-                existingJob.status === "Completed"
-                  ? existingJob.status
-                  : computeStatus(sanitizedBillDate),
-              be_no,
-              be_date,
-              invoice_number,
-              invoice_date,
-              po_no,
-              po_date,
-              awb_bl_no,
-              awb_bl_date,
-              bill_no,
-              bill_date,
-              no_of_pkgs,
-              gross_weight,
-              exrate,
-              cif_amount,
-              unit_price,
-            },
+            $set: updateFields,
           };
 
           bulkOperations.push({
@@ -463,20 +511,38 @@ router.post(
             },
           });
         } else {
+          // Apply selected branch and mode
+          const trade_type = sanitizedData.trade_type || "IMP";
+          const seqNum = parseInt(job_no, 10);
+          const paddedSeq = !isNaN(seqNum) ? seqNum.toString().padStart(5, "0") : "00000";
+          const financial_year = year || "24-25";
+          const finalBranchCode = branch_code || "AMD";
+          const finalMode = mode || "SEA";
+          const job_number = `${finalBranchCode}/${trade_type}/${finalMode}/${paddedSeq}/${financial_year}`;
+
+          const newJobFields = {
+            ...sanitizedData,
+            ...(computedImporterURL ? { importerURL: computedImporterURL } : {}),
+            job_number,
+            branch_id,
+            branch_code: finalBranchCode,
+            mode: finalMode,
+            sequence_number: seqNum,
+            financial_year,
+            vessel_berthing,
+            gateway_igm_date,
+            status: computeStatus(sanitizedBillDate),
+          };
+
+          if (resolvedMblDetails) {
+            newJobFields.mbl_details = resolvedMblDetails;
+          }
+          if (resolvedHblDetails) {
+            newJobFields.hbl_details = resolvedHblDetails;
+          }
+
           const update = {
-            $set: {
-              ...sanitizedData,
-              ...(computedImporterURL ? { importerURL: computedImporterURL } : {}),
-              job_number,
-              branch_id: finalBranchId,
-              branch_code: finalBranchCode,
-              mode: finalMode,
-              sequence_number: seqNum,
-              financial_year,
-              vessel_berthing: vesselBerthingToUpdate,
-              gateway_igm_date: gateway_igm_dateUpdate,
-              status: computeStatus(sanitizedBillDate),
-            },
+            $set: newJobFields,
           };
 
           bulkOperations.push({

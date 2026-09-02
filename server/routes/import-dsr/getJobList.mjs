@@ -141,7 +141,7 @@ const buildAllContainerDateExists = (field) => ({
 // ---------------- FIELD SELECTION ----------------
 
 const criticalFields = `
-  _id job_no job_number branch_id branch_code trade_type mode ie_code_no cth_no year importer custom_house importer_reference_no hawb_hbl_no awb_bl_no 
+  _id job_no job_number branch_id branch_code trade_type mode ie_code_no cth_no year importer custom_house importer_reference_no hawb_hbl_no awb_bl_no hawb_hbl_date awb_bl_date mbl_details hbl_details 
   container_nos vessel_berthing etd etd_date etdDate detailed_status be_no be_date type_of_Do billing_completed_date
   gateway_igm_date igm_date igm_no discharge_date shipping_line_airline do_doc_recieved_date 
   is_do_doc_recieved obl_recieved_date is_obl_recieved do_copies do_list status
@@ -196,6 +196,9 @@ const buildSearchQuery = (search) => {
     { selectedICD: { $regex: escapeRegex(cleanSearch), $options: "i" } },
     { custom_house: { $regex: escapeRegex(cleanSearch), $options: "i" } },
     { awb_bl_no: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { "mbl_details.mbl_no": { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { hawb_hbl_no: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { "hbl_details.hbl_no": { $regex: escapeRegex(cleanSearch), $options: "i" } },
     { vessel_berthing: { $regex: escapeRegex(cleanSearch), $options: "i" } },
     { gateway_igm_date: { $regex: escapeRegex(cleanSearch), $options: "i" } },
     { discharge_date: { $regex: escapeRegex(cleanSearch), $options: "i" } },
@@ -203,7 +206,6 @@ const buildSearchQuery = (search) => {
     { be_date: { $regex: escapeRegex(cleanSearch), $options: "i" } },
     { loading_port: { $regex: escapeRegex(cleanSearch), $options: "i" } },
     { port_of_reporting: { $regex: escapeRegex(cleanSearch), $options: "i" } },
-    { hawb_hbl_no: { $regex: escapeRegex(cleanSearch), $options: "i" } },
     {
       "container_nos.container_number": {
         $regex: escapeRegex(cleanSearch),

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useFormik } from "formik";
 import axios from "axios";
 import {
@@ -157,6 +157,72 @@ const useImportJobForm = () => {
   const [awb_bl_date, setAwbBlDate] = useState("");
   const [hawb_hbl_date, setHawb_hbl_date] = useState("");
   const [hawb_hbl_no, setHawb_hbl_no] = useState("");
+  const [mbl_details, setMblDetails] = useState([{ mbl_no: "", mbl_date: "" }]);
+  const [hbl_details, setHblDetails] = useState([{ hbl_no: "", hbl_date: "" }]);
+
+  const handleAddMbl = useCallback(() => {
+    setMblDetails((prev) => [...prev, { mbl_no: "", mbl_date: "" }]);
+  }, []);
+
+  const handleRemoveMbl = useCallback((index) => {
+    setMblDetails((prev) => {
+      if (prev.length <= 1) {
+        setAwbBlNo("");
+        setAwbBlDate("");
+        return [{ mbl_no: "", mbl_date: "" }];
+      }
+      const updated = prev.filter((_, i) => i !== index);
+      if (index === 0 && updated[0]) {
+        setAwbBlNo(updated[0].mbl_no || "");
+        setAwbBlDate(updated[0].mbl_date || "");
+      }
+      return updated;
+    });
+  }, []);
+
+  const handleMblChange = useCallback((index, field, value) => {
+    setMblDetails((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+    if (index === 0) {
+      if (field === "mbl_no") setAwbBlNo(value);
+      if (field === "mbl_date") setAwbBlDate(value);
+    }
+  }, []);
+
+  const handleAddHbl = useCallback(() => {
+    setHblDetails((prev) => [...prev, { hbl_no: "", hbl_date: "" }]);
+  }, []);
+
+  const handleRemoveHbl = useCallback((index) => {
+    setHblDetails((prev) => {
+      if (prev.length <= 1) {
+        setHawb_hbl_no("");
+        setHawb_hbl_date("");
+        return [{ hbl_no: "", hbl_date: "" }];
+      }
+      const updated = prev.filter((_, i) => i !== index);
+      if (index === 0 && updated[0]) {
+        setHawb_hbl_no(updated[0].hbl_no || "");
+        setHawb_hbl_date(updated[0].hbl_date || "");
+      }
+      return updated;
+    });
+  }, []);
+
+  const handleHblChange = useCallback((index, field, value) => {
+    setHblDetails((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+    if (index === 0) {
+      if (field === "hbl_no") setHawb_hbl_no(value);
+      if (field === "hbl_date") setHawb_hbl_date(value);
+    }
+  }, []);
   const [vessel_flight, setVesselFlight] = useState("");
   const [voyage_no, setVoyageNo] = useState("");
   const [vessel_berthing, setVesselberthing] = useState("");
@@ -1221,6 +1287,8 @@ const useImportJobForm = () => {
     setHawb_hbl_no("");
     setHawb_hbl_date("");
     setAwbBlDate("");
+    setMblDetails([{ mbl_no: "", mbl_date: "" }]);
+    setHblDetails([{ hbl_no: "", hbl_date: "" }]);
     setVesselberthing("");
     setVesselFlight("");
     setVoyageNo("");
@@ -1394,6 +1462,16 @@ const useImportJobForm = () => {
     if (job.hawb_hbl_no) setHawb_hbl_no(job.hawb_hbl_no);
     if (job.hawb_hbl_date) setHawb_hbl_date(job.hawb_hbl_date);
     if (job.awb_bl_date) setAwbBlDate(job.awb_bl_date);
+    if (Array.isArray(job.mbl_details) && job.mbl_details.length > 0) {
+      setMblDetails(job.mbl_details);
+    } else if (job.awb_bl_no) {
+      setMblDetails([{ mbl_no: job.awb_bl_no, mbl_date: job.awb_bl_date || "" }]);
+    }
+    if (Array.isArray(job.hbl_details) && job.hbl_details.length > 0) {
+      setHblDetails(job.hbl_details);
+    } else if (job.hawb_hbl_no) {
+      setHblDetails([{ hbl_no: job.hawb_hbl_no, hbl_date: job.hawb_hbl_date || "" }]);
+    }
     if (job.vessel_berthing) setVesselberthing(job.vessel_berthing);
     if (job.vessel_flight) setVesselFlight(job.vessel_flight);
     if (job.voyage_no) setVoyageNo(job.voyage_no);
@@ -1639,10 +1717,12 @@ const useImportJobForm = () => {
         importer_postal_code,
         importer_country,
         supplier_exporter,
-        awb_bl_no,
-        awb_bl_date,
-        hawb_hbl_date,
-        hawb_hbl_no,
+        awb_bl_no: mbl_details[0]?.mbl_no || awb_bl_no,
+        awb_bl_date: mbl_details[0]?.mbl_date || awb_bl_date,
+        hawb_hbl_date: hbl_details[0]?.hbl_date || hawb_hbl_date,
+        hawb_hbl_no: hbl_details[0]?.hbl_no || hawb_hbl_no,
+        mbl_details: mbl_details.filter((m) => m.mbl_no?.trim() || m.mbl_date?.trim()),
+        hbl_details: hbl_details.filter((h) => h.hbl_no?.trim() || h.hbl_date?.trim()),
         vessel_flight,
         voyage_no,
         vessel_berthing,
@@ -1741,6 +1821,8 @@ const useImportJobForm = () => {
       if (data.awb_bl_date !== undefined) setAwbBlDate(data.awb_bl_date);
       if (data.hawb_hbl_date !== undefined) setHawb_hbl_date(data.hawb_hbl_date);
       if (data.hawb_hbl_no !== undefined) setHawb_hbl_no(data.hawb_hbl_no);
+      if (Array.isArray(data.mbl_details) && data.mbl_details.length > 0) setMblDetails(data.mbl_details);
+      if (Array.isArray(data.hbl_details) && data.hbl_details.length > 0) setHblDetails(data.hbl_details);
       if (data.vessel_flight !== undefined) setVesselFlight(data.vessel_flight);
       if (data.voyage_no !== undefined) setVoyageNo(data.voyage_no);
       if (data.vessel_berthing !== undefined) setVesselberthing(data.vessel_berthing);
@@ -2053,10 +2135,12 @@ const useImportJobForm = () => {
           branchSrNo,
           adCode,
           supplier_exporter,
-          awb_bl_no,
-          hawb_hbl_no,
-          hawb_hbl_date,
-          awb_bl_date,
+          awb_bl_no: mbl_details?.[0]?.mbl_no || awb_bl_no,
+          awb_bl_date: mbl_details?.[0]?.mbl_date || awb_bl_date,
+          hawb_hbl_no: hbl_details?.[0]?.hbl_no || hawb_hbl_no,
+          hawb_hbl_date: hbl_details?.[0]?.hbl_date || hawb_hbl_date,
+          mbl_details: (mbl_details || []).filter((m) => m.mbl_no?.trim() || m.mbl_date?.trim()),
+          hbl_details: (hbl_details || []).filter((h) => h.hbl_no?.trim() || h.hbl_date?.trim()),
           vessel_berthing,
           vessel_flight,
           voyage_no,
@@ -2325,8 +2409,17 @@ const useImportJobForm = () => {
     setHawb_hbl_date,
     setAwbBlNo,
     awb_bl_date,
-    vessel_berthing,
     setAwbBlDate,
+    mbl_details,
+    setMblDetails,
+    handleAddMbl,
+    handleRemoveMbl,
+    handleMblChange,
+    hbl_details,
+    setHblDetails,
+    handleAddHbl,
+    handleRemoveHbl,
+    handleHblChange,
     setVesselberthing,
     vessel_flight,
     setVesselFlight,

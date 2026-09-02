@@ -14,6 +14,9 @@ const buildSearchQuery = (search) => ({
     { job_no: { $regex: search, $options: "i" } },
     { importer: { $regex: search, $options: "i" } },
     { awb_bl_no: { $regex: search, $options: "i" } },
+    { "mbl_details.mbl_no": { $regex: search, $options: "i" } },
+    { hawb_hbl_no: { $regex: search, $options: "i" } },
+    { "hbl_details.hbl_no": { $regex: search, $options: "i" } },
     { be_no: { $regex: search, $options: "i" } },
     { shipping_line_airline: { $regex: search, $options: "i" } },
     { custom_house: { $regex: search, $options: "i" } },
@@ -129,7 +132,7 @@ router.get(
       // **Step 3: Fetch jobs after applying filters**
       const jobs = await JobModel.find(baseQuery)
         .select(
-          "job_number job_no port_of_reporting year importer is_do_doc_recieved do_shipping_line_invoice awb_bl_no shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm checklist be_date processed_be_attachment line_no do_validity do_copies do_list ooc_copies in_bond_ooc_copies free_time mode branch_code trade_type status detailed_status row_color"
+          "job_number job_no port_of_reporting year importer is_do_doc_recieved do_shipping_line_invoice awb_bl_no awb_bl_date hawb_hbl_no hawb_hbl_date mbl_details hbl_details shipping_line_airline custom_house obl_telex_bl payment_made importer_address voyage_no be_no vessel_flight do_validity_upto_job_level container_nos do_Revalidation_Completed doPlanning documents cth_documents all_documents do_completed type_of_Do type_of_b_e consignment_type icd_code igm_no igm_date gateway_igm_date gateway_igm checklist be_date processed_be_attachment line_no do_validity do_copies do_list ooc_copies in_bond_ooc_copies free_time mode branch_code trade_type status detailed_status row_color"
         )
         .sort({ createdAt: -1 })
         .skip(skip)

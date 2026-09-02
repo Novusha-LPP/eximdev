@@ -17,6 +17,8 @@ router.post("/api/jobs/check-duplicate", authMiddleware, async (req, res) => {
       $or: [
         { awb_bl_no: blNumber },
         { hawb_hbl_no: blNumber },
+        { "mbl_details.mbl_no": blNumber },
+        { "hbl_details.hbl_no": blNumber },
       ]
     }).lean();
 

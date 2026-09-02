@@ -220,16 +220,24 @@ const ImportCreateJob = () => {
     awb_bl_no,
     setAwbBlNo,
     awb_bl_date,
+    mbl_details,
+    handleAddMbl,
+    handleRemoveMbl,
+    handleMblChange,
+    hawb_hbl_no,
+    setHawb_hbl_no,
+    hawb_hbl_date,
+    setHawb_hbl_date,
+    hbl_details,
+    handleAddHbl,
+    handleRemoveHbl,
+    handleHblChange,
     vessel_berthing,
     vessel_flight,
     setVesselFlight,
     voyage_no,
     setVoyageNo,
     setAwbBlDate,
-    hawb_hbl_no,
-    setHawb_hbl_no,
-    hawb_hbl_date,
-    setHawb_hbl_date,
     setVesselberthing,
     type_of_b_e,
     setTypeOfBE,
@@ -574,7 +582,8 @@ const ImportCreateJob = () => {
     "(INPAV6) Pipavav (Victor) Port",
     "(INHZA1) Hazira",
     "(INAMD4) Ahmedabad",
-    "(INCOK1) Cochin"
+    "(INCOK1) Cochin",
+    "(INIXY1) Kandla Port"
   ];
 
   const importerTypeOptions = [
@@ -1842,31 +1851,85 @@ const ImportCreateJob = () => {
                       />
                     </FormField>
 
-                    <FormField label={`${getAwbOrBlLabel(mode)} Number`}>
-                      <TextField
-                        value={awb_bl_no}
-                        onChange={(e) => setAwbBlNo(e.target.value)}
-                        variant="outlined"
-                        size="small"
-                        placeholder={`${getAwbOrBlLabel(mode)} No`}
-                        fullWidth
-                        onBlur={handleBlBlur}
-                        sx={compactInput}
-                      />
-                    </FormField>
+                    {/* Master BL / AWB fields in original UI style with inline add/remove */}
+                    {(mbl_details && mbl_details.length > 0 ? mbl_details : [{ mbl_no: awb_bl_no, mbl_date: awb_bl_date }]).map((mbl, idx, arr) => (
+                      <React.Fragment key={`mbl-${idx}`}>
+                        <FormField
+                          label={
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                              <span>{`${getAwbOrBlLabel(mode)} Number ${arr.length > 1 ? `#${idx + 1}` : ""}`}</span>
+                              {idx === 0 ? (
+                                <Typography
+                                  id="btn-add-bl"
+                                  data-testid="btn-add-bl"
+                                  component="span"
+                                  onClick={handleAddMbl}
+                                  sx={{
+                                    cursor: 'pointer',
+                                    color: 'primary.main',
+                                    fontWeight: 700,
+                                    fontSize: '0.65rem',
+                                    letterSpacing: 'normal',
+                                    textTransform: 'none',
+                                    '&:hover': { textDecoration: 'underline' }
+                                  }}
+                                >
+                                  + Add BL
+                                </Typography>
+                              ) : (
+                                <Typography
+                                  id={`btn-remove-bl-${idx}`}
+                                  data-testid={`btn-remove-bl-${idx}`}
+                                  component="span"
+                                  onClick={() => handleRemoveMbl(idx)}
+                                  sx={{
+                                    cursor: 'pointer',
+                                    color: 'error.main',
+                                    fontWeight: 700,
+                                    fontSize: '0.65rem',
+                                    letterSpacing: 'normal',
+                                    textTransform: 'none',
+                                    '&:hover': { textDecoration: 'underline' }
+                                  }}
+                                >
+                                  ✕ Remove
+                                </Typography>
+                              )}
+                            </Box>
+                          }
+                        >
+                          <TextField
+                            id={`mbl_no_${idx}`}
+                            name={`mbl_no_${idx}`}
+                            data-testid={`mbl_no_${idx}`}
+                            value={mbl.mbl_no || ""}
+                            onChange={(e) => handleMblChange(idx, "mbl_no", e.target.value.toUpperCase())}
+                            variant="outlined"
+                            size="small"
+                            placeholder={`${getAwbOrBlLabel(mode)} No`}
+                            fullWidth
+                            onBlur={handleBlBlur}
+                            sx={compactInput}
+                          />
+                        </FormField>
 
-                    <FormField label={`${getAwbOrBlLabel(mode)} Date`}>
-                      <TextField
-                        type="date"
-                        value={awb_bl_date}
-                        onChange={(e) => setAwbBlDate(e.target.value)}
-                        variant="outlined"
-                        size="small"
-                        fullWidth
-                        InputLabelProps={{ shrink: true }}
-                        sx={compactInput}
-                      />
-                    </FormField>
+                        <FormField label={`${getAwbOrBlLabel(mode)} Date ${arr.length > 1 ? `#${idx + 1}` : ""}`}>
+                          <TextField
+                            id={`mbl_date_${idx}`}
+                            name={`mbl_date_${idx}`}
+                            data-testid={`mbl_date_${idx}`}
+                            type="date"
+                            value={mbl.mbl_date || ""}
+                            onChange={(e) => handleMblChange(idx, "mbl_date", e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            InputLabelProps={{ shrink: true }}
+                            sx={compactInput}
+                          />
+                        </FormField>
+                      </React.Fragment>
+                    ))}
 
                     <FormField label="Type Of B/E">
                       <Autocomplete
@@ -1890,7 +1953,9 @@ const ImportCreateJob = () => {
                       <FormControlLabel
                         control={
                           <Checkbox
-                            checked={isCheckedHouse}
+                            id="checkbox-is-house-bl"
+                            data-testid="checkbox-is-house-bl"
+                            checked={Boolean(isCheckedHouse)}
                             onChange={(e) => setIsCheckedHouse(e.target.checked)}
                             color="primary"
                           />
@@ -1899,33 +1964,86 @@ const ImportCreateJob = () => {
                       />
                     </FormField>
 
-                    {isCheckedHouse && (
+                    {Boolean(isCheckedHouse) && (
                       <>
-                        <FormField label={`${getAwbOrBlLabel(mode).charAt(0)}AWB/H${getAwbOrBlLabel(mode).charAt(0)}BL No`}>
-                          <TextField
-                            value={hawb_hbl_no}
-                            onChange={(e) => setHawb_hbl_no(e.target.value)}
-                            variant="outlined"
-                            size="small"
-                            fullWidth
-                            onBlur={handleBlBlur}
-                            placeholder={`${getAwbOrBlLabel(mode).charAt(0)}AWB/H${getAwbOrBlLabel(mode).charAt(0)}BL No`}
-                            sx={compactInput}
-                          />
-                        </FormField>
+                        {(hbl_details && hbl_details.length > 0 ? hbl_details : [{ hbl_no: hawb_hbl_no, hbl_date: hawb_hbl_date }]).map((hbl, idx, arr) => (
+                          <React.Fragment key={`hbl-${idx}`}>
+                            <FormField
+                              label={
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                  <span>{`H${getAwbOrBlLabel(mode)} No ${arr.length > 1 ? `#${idx + 1}` : ""}`}</span>
+                                  {idx === 0 ? (
+                                    <Typography
+                                      id="btn-add-hbl"
+                                      data-testid="btn-add-hbl"
+                                      component="span"
+                                      onClick={handleAddHbl}
+                                      sx={{
+                                        cursor: 'pointer',
+                                        color: 'primary.main',
+                                        fontWeight: 700,
+                                        fontSize: '0.65rem',
+                                        letterSpacing: 'normal',
+                                        textTransform: 'none',
+                                        '&:hover': { textDecoration: 'underline' }
+                                      }}
+                                    >
+                                      + Add HBL
+                                    </Typography>
+                                  ) : (
+                                    <Typography
+                                      id={`btn-remove-hbl-${idx}`}
+                                      data-testid={`btn-remove-hbl-${idx}`}
+                                      component="span"
+                                      onClick={() => handleRemoveHbl(idx)}
+                                      sx={{
+                                        cursor: 'pointer',
+                                        color: 'error.main',
+                                        fontWeight: 700,
+                                        fontSize: '0.65rem',
+                                        letterSpacing: 'normal',
+                                        textTransform: 'none',
+                                        '&:hover': { textDecoration: 'underline' }
+                                      }}
+                                    >
+                                      ✕ Remove
+                                    </Typography>
+                                  )}
+                                </Box>
+                              }
+                            >
+                              <TextField
+                                id={`hbl_no_${idx}`}
+                                name={`hbl_no_${idx}`}
+                                data-testid={`hbl_no_${idx}`}
+                                value={hbl.hbl_no || ""}
+                                onChange={(e) => handleHblChange(idx, "hbl_no", e.target.value.toUpperCase())}
+                                variant="outlined"
+                                size="small"
+                                fullWidth
+                                onBlur={handleBlBlur}
+                                placeholder={`H${getAwbOrBlLabel(mode)} No`}
+                                sx={compactInput}
+                              />
+                            </FormField>
 
-                        <FormField label={`${getAwbOrBlLabel(mode).charAt(0)}AWB/H${getAwbOrBlLabel(mode).charAt(0)}BL Date`}>
-                          <TextField
-                            type="date"
-                            value={hawb_hbl_date}
-                            onChange={(e) => setHawb_hbl_date(e.target.value)}
-                            variant="outlined"
-                            size="small"
-                            fullWidth
-                            InputLabelProps={{ shrink: true }}
-                            sx={compactInput}
-                          />
-                        </FormField>
+                            <FormField label={`H${getAwbOrBlLabel(mode)} Date ${arr.length > 1 ? `#${idx + 1}` : ""}`}>
+                              <TextField
+                                id={`hbl_date_${idx}`}
+                                name={`hbl_date_${idx}`}
+                                data-testid={`hbl_date_${idx}`}
+                                type="date"
+                                value={hbl.hbl_date || ""}
+                                onChange={(e) => handleHblChange(idx, "hbl_date", e.target.value)}
+                                variant="outlined"
+                                size="small"
+                                fullWidth
+                                InputLabelProps={{ shrink: true }}
+                                sx={compactInput}
+                              />
+                            </FormField>
+                          </React.Fragment>
+                        ))}
                       </>
                     )}
 
@@ -3733,8 +3851,14 @@ const ImportCreateJob = () => {
             </Grid>
             <Grid item xs={12} md={4}>
               <Typography variant="overline" color="text.secondary" fontWeight={700}>Shipping</Typography>
-              <Typography variant="body2"><b>B/L No:</b> {awb_bl_no}</Typography>
-              <Typography variant="body2"><b>B/L Date:</b> {awb_bl_date}</Typography>
+              <Typography variant="body2">
+                <b>B/L No:</b> {(Array.isArray(mbl_details) && mbl_details.length > 0 ? mbl_details.map(m => m.mbl_no).filter(Boolean).join(", ") : awb_bl_no) || "N/A"}
+              </Typography>
+              {(Array.isArray(hbl_details) && hbl_details.some(h => h.hbl_no)) && (
+                <Typography variant="body2">
+                  <b>HBL No:</b> {hbl_details.map(h => h.hbl_no).filter(Boolean).join(", ")}
+                </Typography>
+              )}
               <Typography variant="body2"><b>{isAirMode(mode) ? "Flight" : "Vessel"}:</b> {vessel_flight || "N/A"}{voyage_no ? ` • Voy: ${voyage_no}` : ""}</Typography>
               <Typography variant="body2"><b>ETA Date:</b> {vessel_berthing || "N/A"}</Typography>
             </Grid>

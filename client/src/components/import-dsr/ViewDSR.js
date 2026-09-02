@@ -90,14 +90,46 @@ function ViewDSR() {
       header: "BL No",
       enableSorting: false,
       size: 200,
+      Cell: ({ cell, row }) => {
+        const { awb_bl_no, hawb_hbl_no, mbl_details, hbl_details } = row.original;
+        const mblList = Array.isArray(mbl_details) && mbl_details.length > 0
+          ? mbl_details.map(m => (typeof m === 'object' ? m?.mbl_no : m)).filter(Boolean)
+          : (awb_bl_no ? [awb_bl_no] : []);
+        const hblList = Array.isArray(hbl_details) && hbl_details.length > 0
+          ? hbl_details.map(h => (typeof h === 'object' ? h?.hbl_no : h)).filter(Boolean)
+          : (hawb_hbl_no ? [hawb_hbl_no] : []);
 
-      Cell: ({ cell }) => cell.getValue()?.toString(),
+        return (
+          <div>
+            {mblList.length > 0 && <div>{mblList.join(", ")}</div>}
+            {hblList.length > 0 && <div style={{ color: "#1e40af", fontSize: "11px", fontWeight: 500 }}>H: {hblList.join(", ")}</div>}
+            {mblList.length === 0 && hblList.length === 0 && "-"}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "awb_bl_date",
       header: "BL Date",
       enableSorting: false,
       size: 160,
+      Cell: ({ cell, row }) => {
+        const { awb_bl_date, hawb_hbl_date, mbl_details, hbl_details } = row.original;
+        const mblDates = Array.isArray(mbl_details) && mbl_details.length > 0
+          ? mbl_details.map(m => (typeof m === 'object' ? m?.mbl_date : "")).filter(Boolean)
+          : (awb_bl_date ? [awb_bl_date] : []);
+        const hblDates = Array.isArray(hbl_details) && hbl_details.length > 0
+          ? hbl_details.map(h => (typeof h === 'object' ? h?.hbl_date : "")).filter(Boolean)
+          : (hawb_hbl_date ? [hawb_hbl_date] : []);
+
+        return (
+          <div>
+            {mblDates.length > 0 && <div>{mblDates.join(", ")}</div>}
+            {hblDates.length > 0 && <div style={{ color: "#1e40af", fontSize: "11px" }}>H: {hblDates.join(", ")}</div>}
+            {mblDates.length === 0 && hblDates.length === 0 && "-"}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "commodity",

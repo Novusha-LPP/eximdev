@@ -15,6 +15,9 @@ const buildSearchQuery = (search) => ({
     { custom_house: { $regex: search, $options: "i" } },
     { consignment_type: { $regex: search, $options: "i" } },
     { awb_bl_no: { $regex: search, $options: "i" } },
+    { "mbl_details.mbl_no": { $regex: search, $options: "i" } },
+    { hawb_hbl_no: { $regex: search, $options: "i" } },
+    { "hbl_details.hbl_no": { $regex: search, $options: "i" } },
     { "container_nos.container_number": { $regex: search, $options: "i" } },
     { "container_nos.size": { $regex: search, $options: "i" } },
   ],
@@ -107,7 +110,7 @@ router.get("/api/get-documentation-completed-jobs", applyUserIcdFilter, async (r
     // Fetch jobs from the database
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob job_number job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents awb_bl_no awb_bl_date container_nos detailed_status status branch_code trade_type mode"
+        "priorityJob job_number job_no year importer type_of_b_e custom_house consignment_type gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents awb_bl_no awb_bl_date hawb_hbl_no hawb_hbl_date mbl_details hbl_details container_nos detailed_status status branch_code trade_type mode"
       )
       .lean();
 

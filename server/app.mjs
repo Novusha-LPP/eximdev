@@ -407,6 +407,8 @@ const numOfCPU = os.availableParallelism();
 // Export app for Testing
 export const app = express();
 
+app.set("trust proxy", 1);
+
 app.use(bodyParser.json({ limit: "100mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -454,7 +456,9 @@ app.use(
         "https://import.alvision.in",
         "https://test-frontend.alvision.in",
         "http://localhost:5173",
-        "https://export.alvision.in"
+        "https://export.alvision.in",
+        "https://feimport.alvision.in",
+        "https://testingimport.alvision.in"
       ];
 
       const isLocalIp = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|172\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin);

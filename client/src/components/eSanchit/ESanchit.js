@@ -435,12 +435,27 @@ function ESanchit() {
         size: 150,
         Cell: ({ cell, row }) => {
           const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
-          const { awb_bl_no, shipping_line_airline } = row.original;
+          const { awb_bl_no, awb_bl_date, hawb_hbl_no, hawb_hbl_date, mbl_details, hbl_details, shipping_line_airline } = row.original;
 
           if (isShrunk) {
+            const blParts = [];
+            if (Array.isArray(mbl_details) && mbl_details.length > 0) {
+              const mbls = mbl_details.map((m) => (typeof m === 'object' ? m?.mbl_no : m)).filter(Boolean).join(", ");
+              if (mbls) blParts.push(mbls);
+            } else if (awb_bl_no) {
+              blParts.push(awb_bl_no);
+            }
+            if (Array.isArray(hbl_details) && hbl_details.length > 0) {
+              const hbls = hbl_details.map((h) => (typeof h === 'object' ? h?.hbl_no : h)).filter(Boolean).join(", ");
+              if (hbls) blParts.push(`H: ${hbls}`);
+            } else if (hawb_hbl_no) {
+              blParts.push(`H: ${hawb_hbl_no}`);
+            }
+            const blDisplay = blParts.join(" | ") || "-";
+
             return (
               <div>
-                <span style={{ fontWeight: 600 }}>{awb_bl_no || "-"}</span>
+                <span style={{ fontWeight: 600 }}>{blDisplay}</span>
                 {shipping_line_airline && (
                   <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
                     {shipping_line_airline}
@@ -453,6 +468,11 @@ function ESanchit() {
           return (
             <BLTrackingCell
               blNumber={awb_bl_no}
+              hblNumber={hawb_hbl_no}
+              blDate={awb_bl_date}
+              hblDate={hawb_hbl_date}
+              mbl_details={mbl_details}
+              hbl_details={hbl_details}
               shippingLine={row.original.shipping_line_airline}
               customHouse={row.original.custom_house}
               container_nos={row.original.container_nos}

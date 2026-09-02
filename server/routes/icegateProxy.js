@@ -305,75 +305,49 @@ router.post('/api/sea-cargo-tracking', async (req, res) => {
       });
     }
 
-    // Try different content types
-    const contentTypes = [
-      'application/x-www-form-urlencoded',
-      'application/x-www-form-urlencoded; charset=UTF-8',
-      'application/json'
-    ];
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json, text/plain, */*',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Origin': 'https://foservices.icegate.gov.in',
+      'Referer': 'https://foservices.icegate.gov.in/#/public-enquiries'
+    };
 
-    let response1;
-    let lastError;
-
-    for (const contentType of contentTypes) {
-      try {
-        const headers = {
-          'Content-Type': contentType,
-          'Accept': 'application/json, text/plain, */*',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Origin': 'https://foservices.icegate.gov.in',
-          'Referer': 'https://foservices.icegate.gov.in/#/public-enquiries'
-        };
-
-        let requestData;
-        if (contentType.includes('x-www-form-urlencoded')) {
-          requestData = new URLSearchParams({ location, masterBlNo }).toString();
-        } else {
-          requestData = JSON.stringify({ location, masterBlNo });
-        }
-
-        response1 = await axios.post(
-          'https://foservices.icegate.gov.in/enquiry/enquiryatices/SeaIgmEnq',
-          requestData,
-          {
-            headers,
-            timeout: 30000,
-            validateStatus: (status) => true
-          }
-        );
-
-        // If we get a successful response, break the loop
-        if (response1.status === 200) {
-          break;
-        }
-      } catch (error) {
-        lastError = error;
-        continue;
+    const response1 = await axios.post(
+      'https://foservices.icegate.gov.in/enquiry/enquiryatices/SeaIgmEnq',
+      JSON.stringify({ location, masterBlNo }),
+      {
+        headers,
+        timeout: 30000,
+        validateStatus: (status) => true
       }
-    }
+    );
 
-    // If all content types failed
-    if (!response1 || response1.status !== 200) {
-      return res.status(415).json({
+    if (response1.status !== 200) {
+      return res.status(502).json({
         success: false,
-        error: 'All content type attempts failed',
-        lastError: lastError?.message
+        error: `ICEGate returned HTTP ${response1.status}`
       });
     }
 
-    // Handle empty response
-    if (!response1.data || (Array.isArray(response1.data) && response1.data.length === 0)) {
+    const rawData = response1.data;
+
+    // ICEGate returns a plain string "No details found" for unknown BL numbers
+    if (
+      !rawData ||
+      rawData === 'No details found' ||
+      (typeof rawData === 'string' && rawData.trim().toLowerCase().includes('no details')) ||
+      (Array.isArray(rawData) && rawData.length === 0)
+    ) {
       return res.json({
         success: true,
-        message: "No details found",
+        message: 'No details found',
         data: null
       });
     }
 
-    const summaryData = response1.data;
-    const firstRecord = summaryData[0];
+    const summaryData = Array.isArray(rawData) ? rawData : [rawData];
 
-    // Return just the summary for now to test
     res.json({
       success: true,
       data: {
@@ -390,6 +364,7 @@ router.post('/api/sea-cargo-tracking', async (req, res) => {
     });
   }
 });
+
 
 // ========================================
 // SEA IGM - Full Details Tracking Route (Multi-step)

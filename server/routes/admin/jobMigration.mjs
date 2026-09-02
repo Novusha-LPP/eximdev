@@ -29,6 +29,9 @@ router.get("/get-job", authMiddleware, adminOnly, async (req, res) => {
             $or: [
                 { job_number: query },
                 { awb_bl_no: query },
+                { "mbl_details.mbl_no": query },
+                { hawb_hbl_no: query },
+                { "hbl_details.hbl_no": query },
                 { be_no: query }
             ]
         }).lean();
@@ -179,16 +182,40 @@ router.post("/execute", authMiddleware, adminOnly, auditMiddleware("Job"), async
         }
 
         // Check if a job with the same BL number already exists in the target year
-        if (job.awb_bl_no) {
+        const allJobBls = [];
+        if (Array.isArray(job.mbl_details)) {
+            job.mbl_details.forEach(m => {
+                if (m?.mbl_no?.trim()) allJobBls.push(m.mbl_no.trim());
+            });
+        }
+        if (job.awb_bl_no && job.awb_bl_no.trim()) {
+            allJobBls.push(job.awb_bl_no.trim());
+        }
+        if (Array.isArray(job.hbl_details)) {
+            job.hbl_details.forEach(h => {
+                if (h?.hbl_no?.trim()) allJobBls.push(h.hbl_no.trim());
+            });
+        }
+        if (job.hawb_hbl_no && job.hawb_hbl_no.trim()) {
+            allJobBls.push(job.hawb_hbl_no.trim());
+        }
+
+        const uniqueJobBls = [...new Set(allJobBls)];
+        if (uniqueJobBls.length > 0) {
             const duplicateBL = await JobModel.findOne({
-                awb_bl_no: job.awb_bl_no,
+                $or: [
+                    { awb_bl_no: { $in: uniqueJobBls } },
+                    { hawb_hbl_no: { $in: uniqueJobBls } },
+                    { "mbl_details.mbl_no": { $in: uniqueJobBls } },
+                    { "hbl_details.hbl_no": { $in: uniqueJobBls } },
+                ],
                 year: targetYear,
                 _id: { $ne: jobId } // Exclude the job being migrated
             }).lean();
 
             if (duplicateBL) {
                 return res.status(400).json({ 
-                    message: `A job with the same BL/AWB number (${job.awb_bl_no}) already exists in the target year ${targetYear}. Duplicate migration is blocked.` 
+                    message: `A job with the same BL/AWB number (${uniqueJobBls.join(", ")}) already exists in the target year ${targetYear}. Duplicate migration is blocked.` 
                 });
             }
         }

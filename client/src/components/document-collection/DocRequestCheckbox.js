@@ -50,7 +50,7 @@ function DocRequestDialog({ open, onClose, job, onRequested }) {
         `${process.env.REACT_APP_API_STRING}/document-requests`,
         {
           job_number: job?.job_number || job?.job_no || "",
-          bl_no: job?.awb_bl_no || job?.bill_no || job?.bl_no || "",
+          bl_no: (Array.isArray(job?.mbl_details) && job.mbl_details.length > 0 ? job.mbl_details.map(m => (typeof m === 'object' ? m?.mbl_no : m)).filter(Boolean).join(", ") : job?.awb_bl_no) || (Array.isArray(job?.hbl_details) && job.hbl_details.length > 0 ? job.hbl_details.map(h => (typeof h === 'object' ? h?.hbl_no : h)).filter(Boolean).join(", ") : job?.hawb_hbl_no) || job?.bl_no || "",
           importer_name: job?.importer || job?.importer_name || "",
           year: job?.year || "",
           branch_code: job?.branch_code || "",

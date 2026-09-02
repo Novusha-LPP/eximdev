@@ -64,6 +64,7 @@ function JobDetailsStaticData(props) {
       reason_for_delay: props.data?.reason_for_delay || "",
       importer: props.data?.importer || "",
       awb_bl_no: props.data?.awb_bl_no || "",
+      awb_bl_date: props.data?.awb_bl_date || "",
       be_no: props.data?.be_no || "",
       status: props.data?.status || "",
       payment_method: props.data?.payment_method || "",
@@ -870,9 +871,11 @@ function JobDetailsStaticData(props) {
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>{getAwbOrBlLabel(props.data?.mode)} No: </span>
               <span style={{ ...valueStyle, display: "inline-block", verticalAlign: "top" }}>
-                {props.data.awb_bl_no ? (
+                {(props.data.awb_bl_no || (props.data.mbl_details && props.data.mbl_details.length > 0)) ? (
                   <BLTrackingCell
                     blNumber={props.data.awb_bl_no}
+                    blDate={props.data.awb_bl_date}
+                    mbl_details={props.data.mbl_details}
                     shippingLine={props.data.shipping_line_airline}
                     customHouse={props.data.custom_house}
                     container_nos={props.data.container_nos}
@@ -891,7 +894,11 @@ function JobDetailsStaticData(props) {
             </Col>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>{getAwbOrBlLabel(props.data?.mode)} Date: </span>
-              <span style={valueStyle}>{props.data.awb_bl_date}</span>
+              <span style={valueStyle}>
+                {Array.isArray(props.data.mbl_details) && props.data.mbl_details.length > 1
+                  ? props.data.mbl_details.map(m => m.mbl_date).filter(Boolean).join(", ") || props.data.awb_bl_date || "N/A"
+                  : props.data.awb_bl_date || "N/A"}
+              </span>
             </Col>
           </Row>
 
@@ -900,9 +907,11 @@ function JobDetailsStaticData(props) {
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>H{getAwbOrBlLabel(props.data?.mode)} No: </span>
               <span style={{ ...valueStyle, display: "inline-block", verticalAlign: "top" }}>
-                {props.data.hawb_hbl_no ? (
+                {(props.data.hawb_hbl_no || (props.data.hbl_details && props.data.hbl_details.length > 0)) ? (
                   <BLTrackingCell
                     hblNumber={props.data.hawb_hbl_no}
+                    hblDate={props.data.hawb_hbl_date}
+                    hbl_details={props.data.hbl_details}
                     shippingLine={props.data.shipping_line_airline}
                     customHouse={props.data.custom_house}
                     container_nos={props.data.container_nos}
@@ -921,7 +930,11 @@ function JobDetailsStaticData(props) {
             </Col>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>H{getAwbOrBlLabel(props.data?.mode)} Date: </span>
-              <span style={valueStyle}>{props.data.hawb_hbl_date}</span>
+              <span style={valueStyle}>
+                {Array.isArray(props.data.hbl_details) && props.data.hbl_details.length > 1
+                  ? props.data.hbl_details.map(h => h.hbl_date).filter(Boolean).join(", ") || props.data.hawb_hbl_date || "N/A"
+                  : props.data.hawb_hbl_date || "N/A"}
+              </span>
             </Col>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>IGM No: </span>

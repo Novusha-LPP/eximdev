@@ -366,7 +366,7 @@ function AllJobsList() {
           be_no: job.be_no || "",
           igm_no: job.igm_no || "",
           shipping_line: job.shipping_line_airline || "",
-          awb_bl_no: job.awb_bl_no || "",
+          awb_bl_no: (Array.isArray(job.mbl_details) && job.mbl_details.length > 0 ? job.mbl_details.map(m => (typeof m === 'object' ? m?.mbl_no : m)).filter(Boolean).join(", ") : job.awb_bl_no) || (Array.isArray(job.hbl_details) && job.hbl_details.length > 0 ? job.hbl_details.map(h => (typeof h === 'object' ? h?.hbl_no : h)).filter(Boolean).join(", ") : job.hawb_hbl_no) || "",
           container_no: containers,
           job_no: job.job_number || job.job_no || "",
         });
@@ -785,9 +785,24 @@ function AllJobsList() {
         const line_no = row.original.line_no || "N/A";
 
         if (isShrunk) {
+          const blParts = [];
+          if (Array.isArray(row.original.mbl_details) && row.original.mbl_details.length > 0) {
+            const mbls = row.original.mbl_details.map((m) => (typeof m === 'object' ? m?.mbl_no : m)).filter(Boolean).join(", ");
+            if (mbls) blParts.push(mbls);
+          } else if (row.original.awb_bl_no) {
+            blParts.push(row.original.awb_bl_no);
+          }
+          if (Array.isArray(row.original.hbl_details) && row.original.hbl_details.length > 0) {
+            const hbls = row.original.hbl_details.map((h) => (typeof h === 'object' ? h?.hbl_no : h)).filter(Boolean).join(", ");
+            if (hbls) blParts.push(`H: ${hbls}`);
+          } else if (row.original.hawb_hbl_no) {
+            blParts.push(`H: ${row.original.hawb_hbl_no}`);
+          }
+          const blDisplay = blParts.join(" | ") || "-";
+
           return (
             <div>
-              <span style={{ fontWeight: 600 }}>{row.original.awb_bl_no || "-"}</span>
+              <span style={{ fontWeight: 600 }}>{blDisplay}</span>
               {row.original.shipping_line_airline && (
                 <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
                   {row.original.shipping_line_airline}
@@ -802,10 +817,16 @@ function AllJobsList() {
             <BLTrackingCell
               blNumber={row.original.awb_bl_no}
               hblNumber={row.original?.hawb_hbl_no?.toString() || ""}
+              blDate={row.original.awb_bl_date}
+              hblDate={row.original.hawb_hbl_date}
+              mbl_details={row.original.mbl_details}
+              hbl_details={row.original.hbl_details}
               shippingLine={row.original.shipping_line_airline}
               customHouse={row.original?.custom_house || ""}
               container_nos={row.original.container_nos}
               jobId={row.original._id}
+              branch_code={row.original.branch_code || ""}
+              mode={row.original.mode || ""}
               portOfReporting={row.original.port_of_reporting}
               containerNos={row.original.container_nos}
               onCopy={handleCopy}

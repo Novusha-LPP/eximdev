@@ -14,6 +14,9 @@ const buildSearchQuery = (search) => ({
     { job_no: { $regex: search, $options: "i" } },
     { importer: { $regex: search, $options: "i" } },
     { awb_bl_no: { $regex: search, $options: "i" } },
+    { "mbl_details.mbl_no": { $regex: search, $options: "i" } },
+    { hawb_hbl_no: { $regex: search, $options: "i" } },
+    { "hbl_details.hbl_no": { $regex: search, $options: "i" } },
     { be_no: { $regex: search, $options: "i" } },
     { shipping_line_airline: { $regex: search, $options: "i" } },
     { custom_house: { $regex: search, $options: "i" } },
@@ -126,7 +129,7 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
     // **Step 2: Fetch jobs after applying filters**
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "job_number job_no year thar_invoices hasti_invoices icd_cfs_invoice_img importer awb_bl_no shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date type_of_b_e consignment_type ooc_copies concor_invoice_and_receipt_copy shipping_line_invoice_imgs detailed_status vessel_berthing container_nos dsr_queries do_shipping_line_invoice cth_documents mode branch_code trade_type do_completed do_validity do_copies"
+        "job_number job_no year thar_invoices hasti_invoices icd_cfs_invoice_img importer awb_bl_no awb_bl_date hawb_hbl_no hawb_hbl_date mbl_details hbl_details shipping_line_airline custom_house obl_telex_bl bill_document_sent_to_accounts delivery_date status bill_date type_of_b_e consignment_type ooc_copies concor_invoice_and_receipt_copy shipping_line_invoice_imgs detailed_status vessel_berthing container_nos dsr_queries do_shipping_line_invoice cth_documents mode branch_code trade_type do_completed do_validity do_copies"
       )
       .lean();
 

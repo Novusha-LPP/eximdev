@@ -398,6 +398,8 @@ function ExpandedJobDetails({
               <BLTrackingCell
                 blNumber={original.awb_bl_no || ""}
                 hblNumber={original.hawb_hbl_no || ""}
+                mbl_details={original.mbl_details}
+                hbl_details={original.hbl_details}
                 shippingLine={original.shipping_line_airline || ""}
                 customHouse={original.custom_house || ""}
                 container_nos={original.container_nos || []}

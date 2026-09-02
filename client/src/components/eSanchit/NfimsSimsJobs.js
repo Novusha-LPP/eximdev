@@ -185,6 +185,11 @@ function NfimsSimsJobs() {
             Cell: ({ cell }) => (
                 <BLTrackingCell
                     blNumber={cell.row.original.awb_bl_no}
+                    hblNumber={cell.row.original.hawb_hbl_no}
+                    blDate={cell.row.original.awb_bl_date}
+                    hblDate={cell.row.original.hawb_hbl_date}
+                    mbl_details={cell.row.original.mbl_details}
+                    hbl_details={cell.row.original.hbl_details}
                     shippingLine={cell.row.original.shipping_line_airline}
                     customHouse={cell.row.original.custom_house}
                     container_nos={cell.row.original.container_nos}

@@ -4,10 +4,12 @@ const router = express.Router();
 
 router.post("/api/logout", async (req, res) => {
   try {
+    const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https" || process.env.NODE_ENV === "production" || process.env.NODE_ENV === "server";
+
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: isHttps,
+      sameSite: isHttps ? "none" : "lax",
       path: "/",
     };
 

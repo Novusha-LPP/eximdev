@@ -23,6 +23,9 @@ const buildSearchQuery = (search) => {
       { consignment_type: { $regex: search, $options: "i" } },
       { type_of_b_e: { $regex: search, $options: "i" } },
       { awb_bl_no: { $regex: search, $options: "i" } },
+      { "mbl_details.mbl_no": { $regex: search, $options: "i" } },
+      { hawb_hbl_no: { $regex: search, $options: "i" } },
+      { "hbl_details.hbl_no": { $regex: search, $options: "i" } },
       { be_no: { $regex: search, $options: "i" } },
       { "charges.purchase_book_no": { $regex: search, $options: "i" } },
       { "charges.payment_request_no": { $regex: search, $options: "i" } },
@@ -276,7 +279,7 @@ router.get(
 
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer shipping_line_airline custom_house obl_telex_bl gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing branch_code trade_type mode charges agency_invoice_no reimbursement_invoice_no upload_agency_bill_img upload_reimbursement_bill_img bill_no bill_date"
+          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer shipping_line_airline custom_house obl_telex_bl gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no hawb_hbl_no hawb_hbl_date mbl_details hbl_details detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing branch_code trade_type mode charges agency_invoice_no reimbursement_invoice_no upload_agency_bill_img upload_reimbursement_bill_img bill_no bill_date"
         )
         .lean();
 
@@ -388,7 +391,7 @@ router.get(
 
       const allJobs = await JobModel.find(baseQuery)
         .select(
-          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer shipping_line_airline custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing do_shipping_line_invoice bill_date branch_code trade_type mode charges agency_invoice_no reimbursement_invoice_no upload_agency_bill_img upload_reimbursement_bill_img bill_no"
+          "priorityJob thar_invoices hasti_invoices icd_cfs_invoice_img eta bill_document_sent_to_accounts out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_no job_number job_no year importer shipping_line_airline custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no hawb_hbl_no hawb_hbl_date mbl_details hbl_details detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy vessel_berthing do_shipping_line_invoice bill_date branch_code trade_type mode charges agency_invoice_no reimbursement_invoice_no upload_agency_bill_img upload_reimbursement_bill_img bill_no"
         )
         .lean();
 
@@ -520,7 +523,7 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
 
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob _id eta out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_date be_no job_number job_no year importer shipping_line_airline custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date vessel_berthing branch_code trade_type mode charges agency_invoice_no reimbursement_invoice_no upload_agency_bill_img upload_reimbursement_bill_img bill_no bill_date"
+        "priorityJob _id eta out_of_charge delivery_date detailed_status esanchit_completed_date_time status be_date be_no job_number job_no year importer shipping_line_airline custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no hawb_hbl_no hawb_hbl_date mbl_details hbl_details detention_from container_nos ooc_copies icd_cfs_invoice_img shipping_line_invoice_imgs concor_invoice_and_receipt_copy billing_completed_date vessel_berthing branch_code trade_type mode charges agency_invoice_no reimbursement_invoice_no upload_agency_bill_img upload_reimbursement_bill_img bill_no bill_date"
       )
       .lean();
 
@@ -742,6 +745,10 @@ router.get(
             type_of_b_e: 1,
             awb_bl_date: 1,
             awb_bl_no: 1,
+            hawb_hbl_no: 1,
+            hawb_hbl_date: 1,
+            mbl_details: 1,
+            hbl_details: 1,
             detention_from: 1,
             container_nos: 1,
             ooc_copies: 1,
@@ -1040,6 +1047,11 @@ router.get(
             consignment_type: 1,
             type_of_b_e: 1,
             awb_bl_no: 1,
+            awb_bl_date: 1,
+            hawb_hbl_no: 1,
+            hawb_hbl_date: 1,
+            mbl_details: 1,
+            hbl_details: 1,
             container_nos: 1,
             charges: {
               $filter: {
@@ -1301,6 +1313,10 @@ router.get(
             type_of_b_e: 1,
             awb_bl_date: 1,
             awb_bl_no: 1,
+            hawb_hbl_no: 1,
+            hawb_hbl_date: 1,
+            mbl_details: 1,
+            hbl_details: 1,
             detention_from: 1,
             container_nos: 1,
             ooc_copies: 1,

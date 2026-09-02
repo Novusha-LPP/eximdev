@@ -83,7 +83,7 @@ router.post("/api/login", async (req, res) => {
         if (completion.hasCriticalMissing && user.role !== 'Admin') {
           const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
           const alreadyNotified = user.profile_manager_notified_at && user.profile_manager_notified_at > oneDayAgo;
-          
+
           if (!alreadyNotified) {
             const manager = user.hod_id || user.attendance_settings?.manager_id;
             if (manager && manager.email) {
@@ -114,12 +114,15 @@ router.post("/api/login", async (req, res) => {
           { expiresIn: "10h" }
         );
 
+        const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https" || process.env.NODE_ENV === "production" || process.env.NODE_ENV === "server";
+
         res.cookie("token", token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
+          secure: isHttps,
+          sameSite: isHttps ? "none" : "lax",
           maxAge: 10 * 60 * 60 * 1000, // 10 hours
         });
+
 
         return res.status(200).json(userResponse);
       } else {

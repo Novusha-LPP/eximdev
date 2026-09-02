@@ -696,7 +696,13 @@ function PaymentCompleted({ workMode = "Payment" }) {
         enableSorting: false,
         size: 150,
         Cell: ({ cell }) => {
-          const { be_no, be_date, awb_bl_no, charges, ie_code_no } = cell.row.original;
+          const { be_no, be_date, awb_bl_no, hawb_hbl_no, mbl_details, hbl_details, charges, ie_code_no } = cell.row.original;
+          const mblList = Array.isArray(mbl_details) && mbl_details.length > 0
+            ? mbl_details.map(m => (typeof m === 'object' ? m?.mbl_no : m)).filter(Boolean)
+            : (awb_bl_no ? [awb_bl_no] : []);
+          const hblList = Array.isArray(hbl_details) && hbl_details.length > 0
+            ? hbl_details.map(h => (typeof h === 'object' ? h?.hbl_no : h)).filter(Boolean)
+            : (hawb_hbl_no ? [hawb_hbl_no] : []);
           const hasCustomsDuty = charges && charges.some(c => 
             c.chargeHead && (
               c.chargeHead.toUpperCase() === "CUSTOMS DUTY" || 
@@ -729,13 +735,32 @@ function PaymentCompleted({ workMode = "Payment" }) {
                 display: "flex",
                 alignItems: "center"
               }}>
-                BL NO: {awb_bl_no || "-"}
-                {awb_bl_no && (
-                  <IconButton size="small" onClick={(e) => handleCopy(e, awb_bl_no)} sx={{ ml: 0.5, p: 0.2 }}>
+                BL NO: {mblList.join(", ") || "-"}
+                {mblList[0] && (
+                  <IconButton size="small" onClick={(e) => handleCopy(e, mblList.join(", "))} sx={{ ml: 0.5, p: 0.2 }}>
                     <ContentCopyIcon sx={{ fontSize: "10px" }} />
                   </IconButton>
                 )}
               </div>
+              {hblList.length > 0 && (
+                <div style={{
+                  fontSize: "11px",
+                  fontWeight: "bold",
+                  color: "#1565c0",
+                  marginTop: "2px",
+                  padding: "2px 4px",
+                  backgroundColor: "#e3f2fd",
+                  borderRadius: "4px",
+                  width: "fit-content",
+                  display: "flex",
+                  alignItems: "center"
+                }}>
+                  HBL NO: {hblList.join(", ")}
+                  <IconButton size="small" onClick={(e) => handleCopy(e, hblList.join(", "))} sx={{ ml: 0.5, p: 0.2 }}>
+                    <ContentCopyIcon sx={{ fontSize: "10px" }} />
+                  </IconButton>
+                </div>
+              )}
               {hasCustomsDuty && (
                 <div style={{ 
                   fontSize: "11px", 

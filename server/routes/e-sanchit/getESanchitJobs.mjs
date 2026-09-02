@@ -18,6 +18,9 @@ const buildSearchQuery = (search) => ({
     { consignment_type: { $regex: search, $options: "i" } },
     { type_of_b_e: { $regex: search, $options: "i" } },
     { awb_bl_no: { $regex: search, $options: "i" } },
+    { "mbl_details.mbl_no": { $regex: search, $options: "i" } },
+    { hawb_hbl_no: { $regex: search, $options: "i" } },
+    { "hbl_details.hbl_no": { $regex: search, $options: "i" } },
     { "container_nos.container_number": { $regex: search, $options: "i" } },
   ],
 });
@@ -110,7 +113,7 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
 
     const allJobs = await JobModel.find(baseQuery)
       .select(
-        "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no container_nos out_of_charge irn dsr_queries mode branch_code trade_type"
+        "priorityJob detailed_status esanchit_completed_date_time status out_of_charge be_no job_number job_no year importer custom_house gateway_igm_date discharge_date document_entry_completed documentationQueries eSachitQueries documents cth_documents all_documents consignment_type type_of_b_e awb_bl_date awb_bl_no hawb_hbl_no hawb_hbl_date mbl_details hbl_details container_nos out_of_charge irn dsr_queries mode branch_code trade_type"
       )
       .sort({ gateway_igm_date: 1 });
 

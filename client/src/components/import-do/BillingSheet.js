@@ -567,7 +567,20 @@ function BillingSheet() {
       size: 180,
       Cell: ({ cell, row }) => {
         const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
-        const bl = cell?.getValue()?.toString() || "-";
+        const blParts = [];
+        if (Array.isArray(row?.original?.mbl_details) && row.original.mbl_details.length > 0) {
+          const mbls = row.original.mbl_details.map((m) => (typeof m === 'object' ? m?.mbl_no : m)).filter(Boolean).join(", ");
+          if (mbls) blParts.push(mbls);
+        } else if (cell?.getValue()) {
+          blParts.push(cell.getValue().toString());
+        }
+        if (Array.isArray(row?.original?.hbl_details) && row.original.hbl_details.length > 0) {
+          const hbls = row.original.hbl_details.map((h) => (typeof h === 'object' ? h?.hbl_no : h)).filter(Boolean).join(", ");
+          if (hbls) blParts.push(`H: ${hbls}`);
+        } else if (row?.original?.hawb_hbl_no) {
+          blParts.push(`H: ${row.original.hawb_hbl_no}`);
+        }
+        const bl = blParts.join(" | ") || "-";
         return <span style={{ fontWeight: isShrunk ? 600 : 400 }}>{bl}</span>;
       }
     },

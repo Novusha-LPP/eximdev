@@ -390,10 +390,32 @@ function ClearanceCompleted({ workMode = "Payment" }) {
         enableSorting: false,
         size: 150,
         Cell: ({ cell }) => {
-          const { awb_bl_no, awb_bl_date } = cell.row.original; // Destructure properties here
+          const { awb_bl_no, awb_bl_date, hawb_hbl_no, hawb_hbl_date, mbl_details, hbl_details } = cell.row.original;
+          const mblList = Array.isArray(mbl_details) && mbl_details.length > 0
+            ? mbl_details.filter(m => (typeof m === 'object' ? m?.mbl_no : m))
+            : (awb_bl_no ? [{ mbl_no: awb_bl_no, mbl_date: awb_bl_date || "" }] : []);
+          const hblList = Array.isArray(hbl_details) && hbl_details.length > 0
+            ? hbl_details.filter(h => (typeof h === 'object' ? h?.hbl_no : h))
+            : (hawb_hbl_no ? [{ hbl_no: hawb_hbl_no, hbl_date: hawb_hbl_date || "" }] : []);
+
           return (
             <div>
-              {awb_bl_no} <br /> {awb_bl_date}
+              {mblList.map((m, i) => (
+                <div key={`mbl-${i}`} style={{ marginBottom: hblList.length > 0 ? "4px" : 0 }}>
+                  <span style={{ fontWeight: 600 }}>{typeof m === 'object' ? m.mbl_no : m}</span>
+                  {typeof m === 'object' && m.mbl_date && (
+                    <div style={{ fontSize: "11px", color: "#64748b" }}>{m.mbl_date}</div>
+                  )}
+                </div>
+              ))}
+              {hblList.map((h, i) => (
+                <div key={`hbl-${i}`} style={{ marginTop: "4px" }}>
+                  <span style={{ fontWeight: 500, color: "#1e40af" }}>H: {typeof h === 'object' ? h.hbl_no : h}</span>
+                  {typeof h === 'object' && h.hbl_date && (
+                    <div style={{ fontSize: "11px", color: "#64748b" }}>{h.hbl_date}</div>
+                  )}
+                </div>
+              ))}
             </div>
           );
         },

@@ -77,6 +77,22 @@ const documentSchema = new mongoose.Schema({
   document_check_date: { type: String, trim: true },
 });
 
+const mblDetailSchema = new mongoose.Schema(
+  {
+    mbl_no: { type: String, trim: true },
+    mbl_date: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
+const hblDetailSchema = new mongoose.Schema(
+  {
+    hbl_no: { type: String, trim: true },
+    hbl_date: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
 const poDetailSchema = new mongoose.Schema(
   {
     po_no: { type: String, trim: true },
@@ -395,11 +411,13 @@ const jobSchema = new mongoose.Schema({
   po_date: { type: String, trim: true },
   awb_bl_no: { type: String, trim: true },
   awb_bl_date: { type: String, trim: true },
+  mbl_details: [mblDetailSchema],
   description: { type: String, trim: true },
   description_details: [descriptionDetailsSchema],
   invoice_details: [invoiceDetailsSchema],
   hawb_hbl_no: { type: String, trim: true },
   hawb_hbl_date: { type: String, trim: true },
+  hbl_details: [hblDetailSchema],
   be_no: { type: String, trim: true },
   in_bond_be_no: { type: String, trim: true },
   be_date: { type: String, trim: true },
@@ -881,6 +899,68 @@ const jobSchema = new mongoose.Schema({
 jobSchema.pre("save", async function (next) {
   this.updatedAt = Date.now();
 
+  // Sync mbl_details <-> awb_bl_no/awb_bl_date bidirectionally
+  if (this.isModified("mbl_details")) {
+    if (Array.isArray(this.mbl_details) && this.mbl_details.length > 0) {
+      const firstMbl = this.mbl_details[0];
+      if (firstMbl && firstMbl.mbl_no) {
+        this.awb_bl_no = firstMbl.mbl_no;
+        this.awb_bl_date = firstMbl.mbl_date || this.awb_bl_date;
+      }
+    }
+  } else if (this.isModified("awb_bl_no") || this.isModified("awb_bl_date")) {
+    if (this.awb_bl_no) {
+      if (Array.isArray(this.mbl_details) && this.mbl_details.length > 0) {
+        this.mbl_details[0].mbl_no = this.awb_bl_no;
+        if (this.awb_bl_date !== undefined) this.mbl_details[0].mbl_date = this.awb_bl_date;
+      } else {
+        this.mbl_details = [{ mbl_no: this.awb_bl_no, mbl_date: this.awb_bl_date || "" }];
+      }
+    }
+  } else {
+    // Fallback sync for new documents or when one side is missing
+    if (Array.isArray(this.mbl_details) && this.mbl_details.length > 0) {
+      const firstMbl = this.mbl_details[0];
+      if (firstMbl && firstMbl.mbl_no && !this.awb_bl_no) {
+        this.awb_bl_no = firstMbl.mbl_no;
+        this.awb_bl_date = firstMbl.mbl_date || this.awb_bl_date;
+      }
+    } else if (this.awb_bl_no) {
+      this.mbl_details = [{ mbl_no: this.awb_bl_no, mbl_date: this.awb_bl_date || "" }];
+    }
+  }
+
+  // Sync hbl_details <-> hawb_hbl_no/hawb_hbl_date bidirectionally
+  if (this.isModified("hbl_details")) {
+    if (Array.isArray(this.hbl_details) && this.hbl_details.length > 0) {
+      const firstHbl = this.hbl_details[0];
+      if (firstHbl && firstHbl.hbl_no) {
+        this.hawb_hbl_no = firstHbl.hbl_no;
+        this.hawb_hbl_date = firstHbl.hbl_date || this.hawb_hbl_date;
+      }
+    }
+  } else if (this.isModified("hawb_hbl_no") || this.isModified("hawb_hbl_date")) {
+    if (this.hawb_hbl_no) {
+      if (Array.isArray(this.hbl_details) && this.hbl_details.length > 0) {
+        this.hbl_details[0].hbl_no = this.hawb_hbl_no;
+        if (this.hawb_hbl_date !== undefined) this.hbl_details[0].hbl_date = this.hawb_hbl_date;
+      } else {
+        this.hbl_details = [{ hbl_no: this.hawb_hbl_no, hbl_date: this.hawb_hbl_date || "" }];
+      }
+    }
+  } else {
+    // Fallback sync for new documents or when one side is missing
+    if (Array.isArray(this.hbl_details) && this.hbl_details.length > 0) {
+      const firstHbl = this.hbl_details[0];
+      if (firstHbl && firstHbl.hbl_no && !this.hawb_hbl_no) {
+        this.hawb_hbl_no = firstHbl.hbl_no;
+        this.hawb_hbl_date = firstHbl.hbl_date || this.hawb_hbl_date;
+      }
+    } else if (this.hawb_hbl_no) {
+      this.hbl_details = [{ hbl_no: this.hawb_hbl_no, hbl_date: this.hawb_hbl_date || "" }];
+    }
+  }
+
   // Automatically sync importerURL whenever the importer name is modified
   if (this.isModified('importer') && this.importer) {
     this.importerURL = this.importer
@@ -1014,6 +1094,8 @@ jobSchema.index({ "container_nos.container_number": 1, year: 1 });
 jobSchema.index({ "container_nos.container_number": 1, status: 1, year: 1 });
 jobSchema.index({ sequence_number: 1 });
 jobSchema.index({ hawb_hbl_no: 1 });
+jobSchema.index({ "mbl_details.mbl_no": 1 });
+jobSchema.index({ "hbl_details.hbl_no": 1 });
 jobSchema.index({ custom_house: 1, job_number: 1, year: 1 });
 jobSchema.index({ branch_id: 1, custom_house: 1, mode: 1, year: 1, bill_document_sent_to_accounts: 1, billing_confirmation_date: 1 });
 jobSchema.index({ branch_code: 1, custom_house: 1, mode: 1, year: 1, bill_document_sent_to_accounts: 1, billing_confirmation_date: 1 });

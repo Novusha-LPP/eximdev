@@ -462,9 +462,12 @@ function useFetchJobDetails(
       vessel_flight: "",
       voyage_no: "",
       vessel_berthing: "",
+      awb_bl_no: "",
+      awb_bl_date: "",
+      mbl_details: [{ mbl_no: "", mbl_date: "" }],
       hawb_hbl_no: "",
       hawb_hbl_date: "",
-      awb_bl_date: "",
+      hbl_details: [],
       gateway_igm_date: "",
       gateway_igm: "",
       igm_date: "",
@@ -730,10 +733,16 @@ function useFetchJobDetails(
             vessel_flight: values.vessel_flight,
             voyage_no: values.voyage_no,
             vessel_berthing: values.vessel_berthing,
-            hawb_hbl_no: values.hawb_hbl_no,
-            hawb_hbl_date: values.hawb_hbl_date,
-            awb_bl_no: values.awb_bl_no,
-            awb_bl_date: values.awb_bl_date,
+            awb_bl_no: values.mbl_details?.[0]?.mbl_no || values.awb_bl_no,
+            awb_bl_date: values.mbl_details?.[0]?.mbl_date || values.awb_bl_date,
+            mbl_details: Array.isArray(values.mbl_details) && values.mbl_details.length > 0
+              ? values.mbl_details.filter((m) => m.mbl_no?.trim() || m.mbl_date?.trim())
+              : (values.awb_bl_no ? [{ mbl_no: values.awb_bl_no, mbl_date: values.awb_bl_date || "" }] : []),
+            hawb_hbl_no: values.hbl_details?.[0]?.hbl_no || values.hawb_hbl_no,
+            hawb_hbl_date: values.hbl_details?.[0]?.hbl_date || values.hawb_hbl_date,
+            hbl_details: Array.isArray(values.hbl_details) && values.hbl_details.length > 0
+              ? values.hbl_details.filter((h) => h.hbl_no?.trim() || h.hbl_date?.trim())
+              : (values.hawb_hbl_no ? [{ hbl_no: values.hawb_hbl_no, hbl_date: values.hawb_hbl_date || "" }] : []),
             cth_no: values.description_details?.[0]?.cth_no || values.cth_no || "",
             free_time: values.free_time,
             status: values.status,
@@ -1327,6 +1336,12 @@ function useFetchJobDetails(
         hawb_hbl_no: safeValue(data.hawb_hbl_no),
         awb_bl_date: safeValue(data.awb_bl_date),
         awb_bl_no: safeValue(data.awb_bl_no),
+        mbl_details: Array.isArray(data.mbl_details) && data.mbl_details.length > 0
+          ? data.mbl_details
+          : (data.awb_bl_no ? [{ mbl_no: data.awb_bl_no, mbl_date: data.awb_bl_date || "" }] : [{ mbl_no: "", mbl_date: "" }]),
+        hbl_details: Array.isArray(data.hbl_details) && data.hbl_details.length > 0
+          ? data.hbl_details
+          : (data.hawb_hbl_no ? [{ hbl_no: data.hawb_hbl_no, hbl_date: data.hawb_hbl_date || "" }] : []),
         assessment_date: safeValue(data.assessment_date),
         examination_date: safeValue(data.examination_date),
         pcv_date: safeValue(data.pcv_date),

@@ -15,6 +15,9 @@ const buildSearchQuery = (search) => ({
     { custom_house: { $regex: search, $options: "i" } },
     { consignment_type: { $regex: search, $options: "i" } },
     { awb_bl_no: { $regex: search, $options: "i" } },
+    { "mbl_details.mbl_no": { $regex: search, $options: "i" } },
+    { hawb_hbl_no: { $regex: search, $options: "i" } },
+    { "hbl_details.hbl_no": { $regex: search, $options: "i" } },
     { "container_nos.container_number": { $regex: search, $options: "i" } },
   ],
 });
@@ -49,6 +52,9 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
           { job_no: { $regex: search, $options: "i" } },
           { importer: { $regex: search, $options: "i" } },
           { awb_bl_no: { $regex: search, $options: "i" } },
+          { "mbl_details.mbl_no": { $regex: search, $options: "i" } },
+          { hawb_hbl_no: { $regex: search, $options: "i" } },
+          { "hbl_details.hbl_no": { $regex: search, $options: "i" } },
           { icd_code: { $regex: search, $options: "i" } }, // 🔍 ICD code search
         ],
       }
@@ -143,7 +149,7 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "is_checklist_aprroved_date is_checklist_aprroved submission_completed_date_time be_filing_type priorityJob job_number job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents icd_code no_of_pkgs line_no gross_weight job_net_weight do_revalidation branch_code trade_type mode"
+        "is_checklist_aprroved_date is_checklist_aprroved submission_completed_date_time be_filing_type priorityJob job_number job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date hawb_hbl_no hawb_hbl_date mbl_details hbl_details importer container_nos cth_documents icd_code no_of_pkgs line_no gross_weight job_net_weight do_revalidation branch_code trade_type mode"
       )
       .lean();
 
@@ -230,6 +236,9 @@ router.get("/api/get-submission-completed-jobs", applyUserIcdFilter, async (req,
           { job_no: { $regex: search, $options: "i" } },
           { importer: { $regex: search, $options: "i" } },
           { awb_bl_no: { $regex: search, $options: "i" } },
+          { "mbl_details.mbl_no": { $regex: search, $options: "i" } },
+          { hawb_hbl_no: { $regex: search, $options: "i" } },
+          { "hbl_details.hbl_no": { $regex: search, $options: "i" } },
           { icd_code: { $regex: search, $options: "i" } }, // 🔍 ICD code search
           { be_no: { $regex: search, $options: "i" } }, // 🔍 BE number search
         ],
@@ -386,7 +395,7 @@ router.get("/api/get-submission-completed-jobs", applyUserIcdFilter, async (req,
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "submission_completed_date_time submission_completed_date_time be_no be_date is_checklist_aprroved_date is_checklist_aprroved be_filing_type priorityJob job_number job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date importer container_nos cth_documents icd_code no_of_pkgs line_no gross_weight job_net_weight do_revalidation branch_code trade_type mode"
+        "submission_completed_date_time submission_completed_date_time be_no be_date is_checklist_aprroved_date is_checklist_aprroved be_filing_type priorityJob job_number job_no year type_of_b_e consignment_type custom_house gateway_igm_date gateway_igm igm_no igm_date invoice_number invoice_date awb_bl_no awb_bl_date hawb_hbl_no hawb_hbl_date mbl_details hbl_details importer container_nos cth_documents icd_code no_of_pkgs line_no gross_weight job_net_weight do_revalidation branch_code trade_type mode"
       )
       .lean();
 

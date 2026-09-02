@@ -3416,28 +3416,171 @@ function JobDetails() {
                     Shipment Journey & Identifiers
                   </h6>
                   <Row>
-                    <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>{getAwbOrBlLabel(data?.mode)} Number</label>
-                      <TextField fullWidth size="small" variant="outlined" id="awb_bl_no" name="awb_bl_no" value={formik.values.awb_bl_no || ""}
-                        onChange={formik.handleChange} placeholder="Enter BL No" sx={compactInputSx} />
-                    </Col>
-                    <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>{getAwbOrBlLabel(data?.mode)} Date</label>
-                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="awb_bl_date" name="awb_bl_date"
-                        value={formik.values.awb_bl_date ? (formik.values.awb_bl_date.length === 10 ? `${formik.values.awb_bl_date}T00:00` : formik.values.awb_bl_date) : ""}
-                        onChange={formik.handleChange} sx={compactInputSx} />
-                    </Col>
-                    <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>H{getAwbOrBlLabel(data?.mode)} Number</label>
-                      <TextField fullWidth size="small" variant="outlined" id="hawb_hbl_no" name="hawb_hbl_no" value={formik.values.hawb_hbl_no || ""}
-                        onChange={formik.handleChange} placeholder="Enter HAWBL No" sx={compactInputSx} />
-                    </Col>
-                    <Col xs={12} md={3} lg={2} className="mb-3">
-                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>H{getAwbOrBlLabel(data?.mode)} Date</label>
-                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="hawb_hbl_date" name="hawb_hbl_date"
-                        value={formik.values.hawb_hbl_date ? (formik.values.hawb_hbl_date.length === 10 ? `${formik.values.hawb_hbl_date}T00:00` : formik.values.hawb_hbl_date) : ""}
-                        onChange={formik.handleChange} sx={compactInputSx} />
-                    </Col>
+                    {/* Master BL Rows */}
+                    {((Array.isArray(formik.values.mbl_details) && formik.values.mbl_details.length > 0)
+                      ? formik.values.mbl_details
+                      : [{ mbl_no: formik.values.awb_bl_no || "", mbl_date: formik.values.awb_bl_date || "" }]
+                    ).map((mbl, idx, arr) => (
+                      <React.Fragment key={`mbl-view-${idx}`}>
+                        <Col xs={12} md={3} lg={2} className="mb-3">
+                          <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
+                            <span>{getAwbOrBlLabel(data?.mode)} Number {arr.length > 1 ? `#${idx + 1}` : ""}</span>
+                            {idx === 0 ? (
+                              <span
+                                onClick={() => {
+                                  const current = Array.isArray(formik.values.mbl_details) && formik.values.mbl_details.length > 0
+                                    ? formik.values.mbl_details
+                                    : [{ mbl_no: formik.values.awb_bl_no || "", mbl_date: formik.values.awb_bl_date || "" }];
+                                  formik.setFieldValue("mbl_details", [...current, { mbl_no: "", mbl_date: "" }]);
+                                }}
+                                style={{ cursor: "pointer", fontSize: "0.75rem", color: "#1976d2", fontWeight: "600" }}
+                              >
+                                + Add BL
+                              </span>
+                            ) : (
+                              <span
+                                onClick={() => {
+                                  const current = Array.isArray(formik.values.mbl_details) && formik.values.mbl_details.length > 0
+                                    ? formik.values.mbl_details
+                                    : [{ mbl_no: formik.values.awb_bl_no || "", mbl_date: formik.values.awb_bl_date || "" }];
+                                  const updated = current.filter((_, i) => i !== idx);
+                                  formik.setFieldValue("mbl_details", updated);
+                                  if (idx === 0 && updated[0]) {
+                                    formik.setFieldValue("awb_bl_no", updated[0].mbl_no || "");
+                                    formik.setFieldValue("awb_bl_date", updated[0].mbl_date || "");
+                                  }
+                                }}
+                                style={{ cursor: "pointer", fontSize: "0.75rem", color: "#d32f2f", fontWeight: "600" }}
+                              >
+                                ✕ Remove
+                              </span>
+                            )}
+                          </label>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            variant="outlined"
+                            value={mbl.mbl_no || ""}
+                            onChange={(e) => {
+                              const val = e.target.value.toUpperCase();
+                              const current = Array.isArray(formik.values.mbl_details) && formik.values.mbl_details.length > 0
+                                ? [...formik.values.mbl_details]
+                                : [{ mbl_no: formik.values.awb_bl_no || "", mbl_date: formik.values.awb_bl_date || "" }];
+                              current[idx] = { ...current[idx], mbl_no: val };
+                              formik.setFieldValue("mbl_details", current);
+                              if (idx === 0) formik.setFieldValue("awb_bl_no", val);
+                            }}
+                            placeholder="Enter BL No"
+                            sx={compactInputSx}
+                          />
+                        </Col>
+                        <Col xs={12} md={3} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
+                            {getAwbOrBlLabel(data?.mode)} Date {arr.length > 1 ? `#${idx + 1}` : ""}
+                          </label>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            variant="outlined"
+                            type="datetime-local"
+                            value={mbl.mbl_date ? (mbl.mbl_date.length === 10 ? `${mbl.mbl_date}T00:00` : mbl.mbl_date) : ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const current = Array.isArray(formik.values.mbl_details) && formik.values.mbl_details.length > 0
+                                ? [...formik.values.mbl_details]
+                                : [{ mbl_no: formik.values.awb_bl_no || "", mbl_date: formik.values.awb_bl_date || "" }];
+                              current[idx] = { ...current[idx], mbl_date: val };
+                              formik.setFieldValue("mbl_details", current);
+                              if (idx === 0) formik.setFieldValue("awb_bl_date", val);
+                            }}
+                            sx={compactInputSx}
+                          />
+                        </Col>
+                      </React.Fragment>
+                    ))}
+
+                    {/* House BL Rows */}
+                    {((Array.isArray(formik.values.hbl_details) && formik.values.hbl_details.length > 0)
+                      ? formik.values.hbl_details
+                      : [{ hbl_no: formik.values.hawb_hbl_no || "", hbl_date: formik.values.hawb_hbl_date || "" }]
+                    ).map((hbl, idx, arr) => (
+                      <React.Fragment key={`hbl-view-${idx}`}>
+                        <Col xs={12} md={3} lg={2} className="mb-3">
+                          <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
+                            <span>H{getAwbOrBlLabel(data?.mode)} Number {arr.length > 1 ? `#${idx + 1}` : ""}</span>
+                            {idx === 0 ? (
+                              <span
+                                onClick={() => {
+                                  const current = Array.isArray(formik.values.hbl_details) && formik.values.hbl_details.length > 0
+                                    ? formik.values.hbl_details
+                                    : (formik.values.hawb_hbl_no ? [{ hbl_no: formik.values.hawb_hbl_no, hbl_date: formik.values.hawb_hbl_date || "" }] : []);
+                                  formik.setFieldValue("hbl_details", [...current, { hbl_no: "", hbl_date: "" }]);
+                                }}
+                                style={{ cursor: "pointer", fontSize: "0.75rem", color: "#1976d2", fontWeight: "600" }}
+                              >
+                                + Add HBL
+                              </span>
+                            ) : (
+                              <span
+                                onClick={() => {
+                                  const current = Array.isArray(formik.values.hbl_details) && formik.values.hbl_details.length > 0
+                                    ? formik.values.hbl_details
+                                    : (formik.values.hawb_hbl_no ? [{ hbl_no: formik.values.hawb_hbl_no, hbl_date: formik.values.hawb_hbl_date || "" }] : []);
+                                  const updated = current.filter((_, i) => i !== idx);
+                                  formik.setFieldValue("hbl_details", updated);
+                                  if (idx === 0) {
+                                    formik.setFieldValue("hawb_hbl_no", updated[0]?.hbl_no || "");
+                                    formik.setFieldValue("hawb_hbl_date", updated[0]?.hbl_date || "");
+                                  }
+                                }}
+                                style={{ cursor: "pointer", fontSize: "0.75rem", color: "#d32f2f", fontWeight: "600" }}
+                              >
+                                ✕ Remove
+                              </span>
+                            )}
+                          </label>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            variant="outlined"
+                            value={hbl.hbl_no || ""}
+                            onChange={(e) => {
+                              const val = e.target.value.toUpperCase();
+                              const current = Array.isArray(formik.values.hbl_details) && formik.values.hbl_details.length > 0
+                                ? [...formik.values.hbl_details]
+                                : (formik.values.hawb_hbl_no ? [{ hbl_no: formik.values.hawb_hbl_no, hbl_date: formik.values.hawb_hbl_date || "" }] : [{ hbl_no: "", hbl_date: "" }]);
+                              current[idx] = { ...current[idx], hbl_no: val };
+                              formik.setFieldValue("hbl_details", current);
+                              if (idx === 0) formik.setFieldValue("hawb_hbl_no", val);
+                            }}
+                            placeholder="Enter HAWBL No"
+                            sx={compactInputSx}
+                          />
+                        </Col>
+                        <Col xs={12} md={3} lg={2} className="mb-3">
+                          <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
+                            H{getAwbOrBlLabel(data?.mode)} Date {arr.length > 1 ? `#${idx + 1}` : ""}
+                          </label>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            variant="outlined"
+                            type="datetime-local"
+                            value={hbl.hbl_date ? (hbl.hbl_date.length === 10 ? `${hbl.hbl_date}T00:00` : hbl.hbl_date) : ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const current = Array.isArray(formik.values.hbl_details) && formik.values.hbl_details.length > 0
+                                ? [...formik.values.hbl_details]
+                                : (formik.values.hawb_hbl_no ? [{ hbl_no: formik.values.hawb_hbl_no, hbl_date: formik.values.hawb_hbl_date || "" }] : [{ hbl_no: "", hbl_date: "" }]);
+                              current[idx] = { ...current[idx], hbl_date: val };
+                              formik.setFieldValue("hbl_details", current);
+                              if (idx === 0) formik.setFieldValue("hawb_hbl_date", val);
+                            }}
+                            sx={compactInputSx}
+                          />
+                        </Col>
+                      </React.Fragment>
+                    ))}
                     <Col xs={12} md={3} lg={2} className="mb-3">
                       <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Gross Weight (KGS)</label>
                       <TextField fullWidth size="small" variant="outlined" id="gross_weight" name="gross_weight" value={formik.values.gross_weight || ""}

@@ -6,6 +6,9 @@ const buildSearchQuery = (search) => ({
     { importer: { $regex: search, $options: "i" } },
     { shipping_line_airline: { $regex: search, $options: "i" } },
     { awb_bl_no: { $regex: search, $options: "i" } },
+    { "mbl_details.mbl_no": { $regex: search, $options: "i" } },
+    { hawb_hbl_no: { $regex: search, $options: "i" } },
+    { "hbl_details.hbl_no": { $regex: search, $options: "i" } },
     { be_no: { $regex: search, $options: "i" } },
     { "container_nos.container_number": { $regex: search, $options: "i" } },
     { "container_nos.detention_from": { $regex: search, $options: "i" } },
@@ -103,7 +106,7 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
     // Fetch jobs based on the query
     const jobs = await JobModel.find(baseQuery)
       .select(
-        "status detailed_status job_number job_no custom_house importer shipping_line_airline awb_bl_no container_nos vessel_flight voyage_no port_of_reporting free_time type_of_b_e consignment_type year cth_documents checklist processed_be_attachment line_no _id mode branch_code trade_type"
+        "status detailed_status job_number job_no custom_house importer shipping_line_airline awb_bl_no awb_bl_date hawb_hbl_no hawb_hbl_date mbl_details hbl_details container_nos vessel_flight voyage_no port_of_reporting free_time type_of_b_e consignment_type year cth_documents checklist processed_be_attachment line_no _id mode branch_code trade_type"
       )
       .lean();
 

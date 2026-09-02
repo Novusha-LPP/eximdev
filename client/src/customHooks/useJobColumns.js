@@ -519,9 +519,26 @@ function useJobColumns(
           const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
 
           if (isShrunk) {
+            const original = row?.original;
+            let mbls = "";
+            if (Array.isArray(original?.mbl_details) && original.mbl_details.length > 0) {
+              mbls = original.mbl_details.map((m) => (typeof m === 'object' ? m?.mbl_no : m)).filter(Boolean).join(", ");
+            } else if (cell?.getValue()) {
+              mbls = cell.getValue().toString();
+            }
+
+            let hbls = "";
+            if (Array.isArray(original?.hbl_details) && original.hbl_details.length > 0) {
+              hbls = original.hbl_details.map((h) => (typeof h === 'object' ? h?.hbl_no : h)).filter(Boolean).join(", ");
+            } else if (original?.hawb_hbl_no) {
+              hbls = original.hawb_hbl_no;
+            }
+
+            const blDisplay = mbls && hbls ? `${mbls} | H: ${hbls}` : (mbls || (hbls ? `H: ${hbls}` : "-"));
+
             return (
               <div>
-                <span style={{ fontWeight: 600 }}>{cell?.getValue()?.toString() || "-"}</span>
+                <span style={{ fontWeight: 600 }}>{blDisplay}</span>
                 {row?.original?.shipping_line_airline && (
                   <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
                     {row.original.shipping_line_airline}
@@ -541,6 +558,10 @@ function useJobColumns(
               <BLTrackingCell
                 blNumber={cell?.getValue()?.toString() || ""}
                 hblNumber={row?.original?.hawb_hbl_no?.toString() || ""}
+                blDate={row?.original?.awb_bl_date || ""}
+                hblDate={row?.original?.hawb_hbl_date || ""}
+                mbl_details={row?.original?.mbl_details}
+                hbl_details={row?.original?.hbl_details}
                 shippingLine={row?.original?.shipping_line_airline || ""}
                 customHouse={row?.original?.custom_house || ""}
                 container_nos={row?.original?.container_nos || []}

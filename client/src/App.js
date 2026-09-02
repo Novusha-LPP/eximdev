@@ -78,7 +78,7 @@ function App() {
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <div className="App">
           <Routes>
-            
+
             <Route path="*" element={user ? <HomePage /> : <LoginPage />} />
           </Routes>
         </div>

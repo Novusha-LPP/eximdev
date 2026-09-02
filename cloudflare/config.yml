@@ -6,8 +6,14 @@ ingress:
   - hostname: test-frontend.alvision.in
     service: http://localhost:3000
 
+  - hostname: feimport.alvision.in
+    service: http://localhost:3000
+
   # Backend API
   - hostname: test-backend.alvision.in
+    service: http://localhost:9006
+
+  - hostname: testingimport.alvision.in
     service: http://localhost:9006
 
   # Catch-all

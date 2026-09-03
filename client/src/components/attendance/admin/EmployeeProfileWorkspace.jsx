@@ -1021,8 +1021,36 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
   const handleDownloadOrgReport = (orgName, items) => setExportModal({ open: true, orgName, items });
 
-  // ── Calculation helpers matching AttendanceReport.jsx standard ─────────────
   const roundLeave = (value) => Math.round(Number(value || 0) * 10) / 10;
+
+  const formatHoursMinutes = (val, fallback = '—') => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (!trimmed || trimmed === '—' || trimmed === '-') return fallback;
+      if (trimmed.includes('h') && trimmed.includes('m')) return trimmed;
+      if (trimmed.endsWith('h') && !trimmed.includes('m')) {
+        const parsedNum = parseFloat(trimmed);
+        if (!isNaN(parsedNum)) {
+          const totalMinutes = Math.round(parsedNum * 60);
+          const h = Math.floor(totalMinutes / 60);
+          const m = totalMinutes % 60;
+          return `${h}h ${m}m`;
+        }
+      }
+      const num = parseFloat(trimmed);
+      if (isNaN(num)) return trimmed;
+      val = num;
+    }
+    const num = Number(val);
+    if (isNaN(num)) return fallback;
+    if (num === 0) return '0h 0m';
+    if (num < 0) return fallback;
+    const totalMinutes = Math.round(num * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return `${h}h ${m}m`;
+  };
 
   const isPrivilegeLeave = (leaveType = '') => {
     const type = String(leaveType || '').toLowerCase();
@@ -1342,7 +1370,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         openB,
         plT,
         availB,
-        e.avgHours || '—',
+        formatHoursMinutes(e.avgHours),
       ]);
       sumValRow.height = 22;
 
@@ -1442,7 +1470,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         }
 
         if (workHours > 0 && workHours < 24) {
-          hoursStr = `${workHours.toFixed(1)} hrs`;
+          hoursStr = formatHoursMinutes(workHours);
           totalHoursSum += workHours;
         }
 
@@ -1568,7 +1596,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       const totEmpRow = ws.addRow([
         'Total Worked Hours',
         '', '', '', '', '',
-        `${totalHoursSum.toFixed(1)} hrs`,
+        formatHoursMinutes(totalHoursSum),
         ''
       ]);
       totEmpRow.height = 22;

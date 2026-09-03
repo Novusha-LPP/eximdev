@@ -52,6 +52,35 @@ const getCorrectionStatusMeta = (request = {}) => {
 
 const roundLeave = (value) => Math.round(Number(value || 0) * 10) / 10;
 
+const formatHoursMinutes = (val, fallback = '—') => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') {
+        const trimmed = val.trim();
+        if (!trimmed || trimmed === '—' || trimmed === '-') return fallback;
+        if (trimmed.includes('h') && trimmed.includes('m')) return trimmed;
+        if (trimmed.endsWith('h') && !trimmed.includes('m')) {
+            const parsedNum = parseFloat(trimmed);
+            if (!isNaN(parsedNum)) {
+                const totalMinutes = Math.round(parsedNum * 60);
+                const h = Math.floor(totalMinutes / 60);
+                const m = totalMinutes % 60;
+                return `${h}h ${m}m`;
+            }
+        }
+        const num = parseFloat(trimmed);
+        if (isNaN(num)) return trimmed;
+        val = num;
+    }
+    const num = Number(val);
+    if (isNaN(num)) return fallback;
+    if (num === 0) return '0h 0m';
+    if (num < 0) return fallback;
+    const totalMinutes = Math.round(num * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return `${h}h ${m}m`;
+};
+
 const isPrivilegeLeave = (leaveType = '') => {
     const type = String(leaveType || '').toLowerCase();
     return type === 'pl' || type.includes('privilege') || type.includes('earned') || type === 'el';
@@ -1446,7 +1475,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                     openB,
                     plT,
                     availB,
-                    e.avgHours || '—',
+                    formatHoursMinutes(e.avgHours),
                 ]);
                 sumValRow.height = 22;
 
@@ -1544,7 +1573,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                     }
 
                     if (workHours > 0 && workHours < 24) {
-                        hoursStr = `${workHours.toFixed(1)} hrs`;
+                        hoursStr = formatHoursMinutes(workHours);
                         totalHoursSum += workHours;
                     }
 
@@ -1671,7 +1700,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 const totEmpRow = ws.addRow([
                     'Total Worked Hours',
                     '', '', '', '', '',
-                    `${totalHoursSum.toFixed(1)} hrs`,
+                    formatHoursMinutes(totalHoursSum),
                     ''
                 ]);
                 totEmpRow.height = 22;
@@ -2086,7 +2115,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                             <td style={{ textAlign: 'center' }}><span className="ar-count" style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontWeight: 800 }}>{totWork}</span></td>
                                             <td>
                                                 <div className="ar-hours-wrap">
-                                                    <span className="ar-hours-val">{emp.avgHours} avg.</span>
+                                                    <span className="ar-hours-val">{formatHoursMinutes(emp.avgHours)} avg.</span>
                                                 </div>
                                             </td>
                                             <td style={{ textAlign: 'right' }}>

@@ -2027,9 +2027,19 @@ export const getBalancesBulk = async (req, res) => {
         }
 
         // 3. Compute leaves taken prior to startDate in current year to derive exact current period opening (Last Month Closing)
+        const isPrivilegeType = (type = '') => {
+            const t = String(type || '').toLowerCase();
+            return t.includes('privilege') || t.includes('earned') || t === 'pl' || t === 'el' || t.includes('casual') || t.includes('paid') || t === 'cl';
+        };
+
+        const periodEnd = endDate ? moment(endDate).tz('Asia/Kolkata').endOf('day').toDate() : moment(refDate).endOf('month').toDate();
+        const periodEndStr = endDate ? moment(endDate).tz('Asia/Kolkata').format('YYYY-MM-DD') : moment(refDate).endOf('month').format('YYYY-MM-DD');
+
         const priorLeavesMap = new Map();
+        const periodLeavesMap = new Map();
+
         if (moment(periodStart).isAfter(yearStart)) {
-            // A. Query LeaveApplication
+            // A. Query LeaveApplication for prior period
             const priorLeaves = await LeaveApplication.find({
                 employee_id: { $in: objIdArray },
                 approval_status: { $in: ['approved', 'pending', 'pending_hod', 'pending_shalini', 'pending_final', 'hod_approved_pending_admin', 'in_review'] },
@@ -2050,10 +2060,15 @@ export const getBalancesBulk = async (req, res) => {
                 }
 
                 const days = Number(app.total_days || (app.is_half_day ? 0.5 : 1));
-                const key = `${empIdStr}_${ltStr}`;
-                priorLeavesMap.set(key, (priorLeavesMap.get(key) || 0) + days);
-                priorLeavesMap.set(`${empIdStr}_privilege`, (priorLeavesMap.get(`${empIdStr}_privilege`) || 0) + days);
-                priorLeavesMap.set(`${empIdStr}_pl`, (priorLeavesMap.get(`${empIdStr}_pl`) || 0) + days);
+                if (isPrivilegeType(ltStr)) {
+                    const prev = priorLeavesMap.get(`${empIdStr}_privilege`) || 0;
+                    const updated = prev + days;
+                    priorLeavesMap.set(`${empIdStr}_privilege`, updated);
+                    priorLeavesMap.set(`${empIdStr}_pl`, updated);
+                } else {
+                    const key = `${empIdStr}_${ltStr}`;
+                    priorLeavesMap.set(key, (priorLeavesMap.get(key) || 0) + days);
+                }
             }
 
             // B. Also query AttendanceRecord for any daily leave records in prior period (excluding days worked as present)
@@ -2091,10 +2106,83 @@ export const getBalancesBulk = async (req, res) => {
             }
 
             for (const [empIdStr, attDays] of attDaysByEmp.entries()) {
-                const existingPl = priorLeavesMap.get(`${empIdStr}_pl`) || 0;
+                const existingPl = priorLeavesMap.get(`${empIdStr}_privilege`) || priorLeavesMap.get(`${empIdStr}_pl`) || 0;
                 if (attDays > existingPl) {
                     priorLeavesMap.set(`${empIdStr}_privilege`, attDays);
                     priorLeavesMap.set(`${empIdStr}_pl`, attDays);
+                }
+            }
+        }
+
+        // 4. Compute leaves taken within the requested period [periodStart, periodEnd]
+        if (startDate) {
+            const currentPeriodLeaves = await LeaveApplication.find({
+                employee_id: { $in: objIdArray },
+                approval_status: { $in: ['approved', 'pending', 'pending_hod', 'pending_shalini', 'pending_final', 'hod_approved_pending_admin', 'in_review'] },
+                $or: [
+                    { from_date: { $gte: periodStart, $lte: periodEnd } },
+                    { from_date_str: { $gte: periodStartStr, $lte: periodEndStr } },
+                    { to_date: { $gte: periodStart, $lte: periodEnd } },
+                    { to_date_str: { $gte: periodStartStr, $lte: periodEndStr } }
+                ]
+            }).lean();
+
+            for (const app of currentPeriodLeaves) {
+                const empIdStr = app.employee_id.toString();
+                const ltStr = String(app.leave_type || '').toLowerCase();
+
+                if (ltStr.includes('lwp') || ltStr.includes('without pay') || ltStr === 'lop' || ltStr.includes('unpaid')) {
+                    continue;
+                }
+
+                const days = Number(app.total_days || (app.is_half_day ? 0.5 : 1));
+                if (isPrivilegeType(ltStr)) {
+                    const prev = periodLeavesMap.get(`${empIdStr}_privilege`) || 0;
+                    const updated = prev + days;
+                    periodLeavesMap.set(`${empIdStr}_privilege`, updated);
+                    periodLeavesMap.set(`${empIdStr}_pl`, updated);
+                } else {
+                    const key = `${empIdStr}_${ltStr}`;
+                    periodLeavesMap.set(key, (periodLeavesMap.get(key) || 0) + days);
+                }
+            }
+
+            const currentAttendanceLeaves = await AttendanceRecord.find({
+                employee_id: { $in: objIdArray },
+                $and: [
+                    {
+                        $or: [
+                            { attendance_date: { $gte: periodStart, $lte: periodEnd } },
+                            { attendance_date_str: { $gte: periodStartStr, $lte: periodEndStr } }
+                        ]
+                    },
+                    {
+                        $or: [
+                            { status: 'leave' },
+                            { status: 'half_day', is_half_day: true },
+                            { is_on_leave: true, status: { $nin: ['present', 'late', 'weekly_off', 'holiday'] } }
+                        ]
+                    }
+                ]
+            }).lean();
+
+            const curAttDaysByEmp = new Map();
+            for (const rec of currentAttendanceLeaves) {
+                const wh = Number(rec.total_work_hours || 0);
+                if (wh >= 8 && ['present', 'late'].includes(String(rec.status || '').toLowerCase())) {
+                    continue;
+                }
+
+                const empIdStr = rec.employee_id.toString();
+                const dayVal = rec.is_half_day ? 0.5 : 1.0;
+                curAttDaysByEmp.set(empIdStr, (curAttDaysByEmp.get(empIdStr) || 0) + dayVal);
+            }
+
+            for (const [empIdStr, attDays] of curAttDaysByEmp.entries()) {
+                const existingPl = periodLeavesMap.get(`${empIdStr}_privilege`) || periodLeavesMap.get(`${empIdStr}_pl`) || 0;
+                if (attDays > existingPl) {
+                    periodLeavesMap.set(`${empIdStr}_privilege`, attDays);
+                    periodLeavesMap.set(`${empIdStr}_pl`, attDays);
                 }
             }
         }
@@ -2104,17 +2192,23 @@ export const getBalancesBulk = async (req, res) => {
             const ltStr = String(balance.leave_type || '').toLowerCase();
             const annualOpening = Number(balance.opening_balance || 0);
             
-            let priorLeaves = priorLeavesMap.get(`${empIdStr}_${ltStr}`);
-            if (priorLeaves === undefined) {
-                if (ltStr.includes('privilege') || ltStr.includes('earned') || ltStr === 'pl' || ltStr === 'el') {
-                    priorLeaves = priorLeavesMap.get(`${empIdStr}_privilege`) || priorLeavesMap.get(`${empIdStr}_pl`) || 0;
-                } else {
-                    priorLeaves = 0;
-                }
+            let priorLeaves = 0;
+            let periodUsed = 0;
+            if (isPrivilegeType(ltStr)) {
+                priorLeaves = priorLeavesMap.get(`${empIdStr}_privilege`) || priorLeavesMap.get(`${empIdStr}_pl`) || 0;
+                periodUsed = startDate
+                    ? (periodLeavesMap.get(`${empIdStr}_privilege`) || periodLeavesMap.get(`${empIdStr}_pl`) || 0)
+                    : Number(balance.used || 0);
+            } else {
+                priorLeaves = priorLeavesMap.get(`${empIdStr}_${ltStr}`) || 0;
+                periodUsed = startDate
+                    ? (periodLeavesMap.get(`${empIdStr}_${ltStr}`) || 0)
+                    : Number(balance.used || 0);
             }
 
             // Period Opening = Annual Quota minus leaves taken till the start of this month
             const periodOpening = Math.max(0, annualOpening - priorLeaves);
+            const periodClosing = Math.max(0, periodOpening - periodUsed);
 
             return {
                 employee_id: empIdStr,
@@ -2123,9 +2217,9 @@ export const getBalancesBulk = async (req, res) => {
                 annual_opening_balance: annualOpening,
                 prior_leaves_taken: priorLeaves,
                 opening_balance: periodOpening,
-                used: balance.used || 0,
+                used: periodUsed,
                 pending_approval: balance.pending_approval || 0,
-                closing_balance: Math.max(0, periodOpening - (balance.used || 0)),
+                closing_balance: periodClosing,
                 year: balance.year
             };
         });

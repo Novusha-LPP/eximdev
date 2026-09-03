@@ -13,6 +13,36 @@ import './AttendanceReports.css';
 
 // ── Helpers ──────────────────────────────────────────────
 const roundLeave = (v) => Math.round(Number(v || 0) * 10) / 10;
+
+const formatHoursMinutes = (val, fallback = '—') => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === '—' || trimmed === '-') return fallback;
+    if (trimmed.includes('h') && trimmed.includes('m')) return trimmed;
+    if (trimmed.endsWith('h') && !trimmed.includes('m')) {
+      const parsedNum = parseFloat(trimmed);
+      if (!isNaN(parsedNum)) {
+        const totalMinutes = Math.round(parsedNum * 60);
+        const h = Math.floor(totalMinutes / 60);
+        const m = totalMinutes % 60;
+        return `${h}h ${m}m`;
+      }
+    }
+    const num = parseFloat(trimmed);
+    if (isNaN(num)) return trimmed;
+    val = num;
+  }
+  const num = Number(val);
+  if (isNaN(num)) return fallback;
+  if (num === 0) return '0h 0m';
+  if (num < 0) return fallback;
+  const totalMinutes = Math.round(num * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h}h ${m}m`;
+};
+
 const isPrivilegeLeave = (t = '') => { const l = String(t || '').toLowerCase(); return l.includes('privilege') || l.includes('earned') || l === 'el' || l === 'pl'; };
 const isLwpLeave = (t = '') => { const l = String(t || '').toLowerCase(); return l.includes('lwp') || l.includes('without pay') || l.includes('unpaid') || l === 'lop'; };
 const isHalfDayLeave = (day) => {
@@ -528,27 +558,14 @@ const DailyLogTable = memo(({ history, shiftName, openingBalance }) => {
 
   const formatHours = (val) => {
     if (val === null || val === undefined) return '—';
-    if (!useHoursMinutes) {
-      return `${val.toFixed(1)}h`;
-    }
-    const h = Math.floor(val);
-    let m = Math.round((val - h) * 60);
-    let displayH = h;
-    if (m === 60) {
-      displayH += 1;
-      m = 0;
-    }
-    return `${displayH}h ${m}m`;
+    return formatHoursMinutes(val);
   };
 
   const getHoursMinutesText = (val) => {
-    const h = Math.floor(val);
-    let m = Math.round((val - h) * 60);
-    let displayH = h;
-    if (m === 60) {
-      displayH += 1;
-      m = 0;
-    }
+    const num = Number(val || 0);
+    const totalMinutes = Math.round(num * 60);
+    const displayH = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
     const parts = [];
     if (displayH > 0) parts.push(`${displayH} hour${displayH === 1 ? '' : 's'}`);
     if (m > 0 || displayH === 0) parts.push(`${m} minute${m === 1 ? '' : 's'}`);
@@ -556,14 +573,7 @@ const DailyLogTable = memo(({ history, shiftName, openingBalance }) => {
   };
 
   const getHoursMinutesCompact = (val) => {
-    const h = Math.floor(val);
-    let m = Math.round((val - h) * 60);
-    let displayH = h;
-    if (m === 60) {
-      displayH += 1;
-      m = 0;
-    }
-    return `${displayH}h ${m}m`;
+    return formatHoursMinutes(val);
   };
 
   return (
@@ -699,7 +709,7 @@ const DailyLogTable = memo(({ history, shiftName, openingBalance }) => {
                   </span>
                 </td>
                 <td style={{ fontWeight: 700, paddingTop: '4px' }}>
-                  {useHoursMinutes ? `${getHoursMinutesCompact(avgHours)}/day` : `${avgHours.toFixed(1)}h/day`}
+                  {`${formatHoursMinutes(avgHours)}/day`}
                 </td>
               </tr>
             </>
@@ -1298,7 +1308,7 @@ const AttendanceReports = () => {
             openB,
             plT,
             availB,
-            emp._avgHours ? emp._avgHours.toFixed(1) + 'h' : '0h'
+            formatHoursMinutes(emp._avgHours)
           ]);
           sumValRow.height = 22;
 
@@ -1390,7 +1400,7 @@ const AttendanceReports = () => {
               workHoursNum = computedDiff;
             }
             if (workHoursNum > 0 && workHoursNum < 24) {
-              wh = `${workHoursNum.toFixed(1)} hrs`;
+              wh = formatHoursMinutes(workHoursNum);
               empTotalHours += workHoursNum;
             }
 
@@ -1519,7 +1529,7 @@ const AttendanceReports = () => {
           const totEmpRow = ws.addRow([
             'Total Worked Hours',
             '', '', '', '', '',
-            `${empTotalHours.toFixed(1)} hrs`,
+            formatHoursMinutes(empTotalHours),
             ''
           ]);
           totEmpRow.height = 22;
@@ -1647,7 +1657,7 @@ const AttendanceReports = () => {
         roundLeave(emp._openingBalance),
         roundLeave(emp._plTaken),
         roundLeave(emp._availableBalance),
-        emp._avgHours ? emp._avgHours.toFixed(1) + 'h' : '0h'
+        formatHoursMinutes(emp._avgHours)
       ]);
       sumValRow.height = 22;
       sumValRow.getCell(1).font = { bold: true, name: 'Segoe UI', size: 10 };
@@ -1721,7 +1731,7 @@ const AttendanceReports = () => {
           workHoursNum = computedDiff;
         }
         if (workHoursNum > 0 && workHoursNum < 24) {
-          wh = workHoursNum.toFixed(1) + ' hrs';
+          wh = formatHoursMinutes(workHoursNum);
           empTotalHours += workHoursNum;
         }
 
@@ -1848,7 +1858,7 @@ const AttendanceReports = () => {
       const totRow = ws.addRow([
         'Total Worked Hours',
         '', '', '', '', '',
-        `${empTotalHours.toFixed(1)} hrs`,
+        formatHoursMinutes(empTotalHours),
         ''
       ]);
       totRow.height = 22;
@@ -2233,9 +2243,9 @@ const AttendanceReports = () => {
                 <FiClock size={20} />
               </div>
               <div className="atr-card-body">
-                <div className="atr-card-val">{stats.avgHoursPerDay}h</div>
+                <div className="atr-card-val">{formatHoursMinutes(stats.avgHoursPerDay)}</div>
                 <div className="atr-card-lbl">Avg Hours/Day</div>
-                <div className="atr-card-sub">across all employees</div>
+                <div className="atr-card-sub">{formatHoursMinutes(stats.totalHours)} total worked</div>
               </div>
             </div>
             <div className="atr-card green">
@@ -2338,8 +2348,8 @@ const AttendanceReports = () => {
                                     Export
                                   </button>
                                 ) : col.key === '_avgHours' ? (
-                                  <span className="atr-cell-pill atr-pill-hours">
-                                    {roundLeave(emp[col.key])}h
+                                  <span className="atr-cell-pill atr-pill-hours" title={`Total Worked: ${formatHoursMinutes(emp._totalWorkedHours)} across ${emp._daysWithHours || 0} days`}>
+                                    {formatHoursMinutes(emp[col.key])}
                                   </span>
                                 ) : (
                                   <span className={`atr-cell-pill ${col.cls || ''}`}>
@@ -2416,8 +2426,8 @@ const AttendanceReports = () => {
                           {col.isSpacer || col.key === 'action' ? (
                             ''
                           ) : col.key === '_avgHours' ? (
-                            <span className="atr-cell-pill atr-pill-hours total-pill">
-                              {roundLeave(grandTotals[col.key])}h
+                            <span className="atr-cell-pill atr-pill-hours total-pill" title={`Total Worked: ${formatHoursMinutes(stats.totalHours)}`}>
+                              {formatHoursMinutes(grandTotals[col.key])}
                             </span>
                           ) : (
                             <span className={`atr-cell-pill ${col.cls || ''} total-pill`}>

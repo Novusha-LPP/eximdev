@@ -102,7 +102,7 @@ function AppbarComponent(props) {
             color="inherit"
             aria-label="go back"
             edge="start"
-            onClick={() => window.history.back()}
+            onClick={() => navigate("/")}
             sx={{ mr: 1 }}
           >
             <ArrowBackIcon sx={{ color: "#000" }} />

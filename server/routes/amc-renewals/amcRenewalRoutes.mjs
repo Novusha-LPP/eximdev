@@ -89,10 +89,21 @@ router.post("/", async (req, res) => {
       });
     }
 
+    if (contactNo && contactNo.trim()) {
+      const digits = contactNo.replace(/\D/g, "");
+      if (digits.length !== 10) {
+        return res.status(422).json({
+          success: false,
+          message: "Contact number must be exactly 10 digits",
+        });
+      }
+    }
+
     const doc = new AmcRenewalModel({
       equipmentServiceName, vendorName, underAmc, contractNo, location,
       yearlyServices, startMonthDate, previousDateOfService, nextDueDate,
-      renewalDate, expireDate, contactPerson, contactNo,
+      renewalDate, expireDate, contactPerson,
+      contactNo: contactNo ? contactNo.replace(/\D/g, "").slice(0, 10) : "",
       status: status || "Active", remarks, documentUrl,
     });
 
@@ -109,6 +120,16 @@ router.put("/:id", validateId, async (req, res) => {
     const doc = await AmcRenewalModel.findById(req.params.id);
     if (!doc) return res.status(404).json({ success: false, message: "Record not found" });
 
+    if (req.body.contactNo !== undefined && req.body.contactNo !== null && req.body.contactNo.toString().trim() !== "") {
+      const digits = req.body.contactNo.toString().replace(/\D/g, "");
+      if (digits.length !== 10) {
+        return res.status(422).json({
+          success: false,
+          message: "Contact number must be exactly 10 digits",
+        });
+      }
+    }
+
     const allowed = [
       "equipmentServiceName", "vendorName", "underAmc", "contractNo", "location",
       "yearlyServices", "startMonthDate", "previousDateOfService", "nextDueDate",
@@ -116,7 +137,13 @@ router.put("/:id", validateId, async (req, res) => {
       "remarks", "documentUrl",
     ];
     allowed.forEach((k) => {
-      if (req.body[k] !== undefined) doc[k] = req.body[k];
+      if (req.body[k] !== undefined) {
+        if (k === "contactNo" && req.body[k]) {
+          doc[k] = req.body[k].toString().replace(/\D/g, "").slice(0, 10);
+        } else {
+          doc[k] = req.body[k];
+        }
+      }
     });
 
     await doc.save();

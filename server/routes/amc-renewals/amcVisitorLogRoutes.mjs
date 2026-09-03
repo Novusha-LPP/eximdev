@@ -66,8 +66,11 @@ router.get("/stats", async (_req, res) => {
 // ─── GET /api/amc-visitor/active/:mobileNo ─────────────────────────────────
 router.get("/active/:mobileNo", async (req, res) => {
   try {
+    const raw = req.params.mobileNo || "";
+    const cleanMobile = raw.replace(/\D/g, "").slice(-10);
+
     const activeLog = await AmcVisitorLogModel.findOne({
-      mobileNo: req.params.mobileNo,
+      mobileNo: cleanMobile,
       status: "Active",
     }).sort({ createdAt: -1 });
 
@@ -96,8 +99,16 @@ router.post("/check-in", async (req, res) => {
       });
     }
 
+    const cleanMobile = mobileNo.toString().replace(/\D/g, "");
+    if (cleanMobile.length !== 10) {
+      return res.status(422).json({
+        success: false,
+        message: "Mobile number must be exactly 10 digits",
+      });
+    }
+
     // Check if they already have an active check-in
-    const existing = await AmcVisitorLogModel.findOne({ mobileNo, status: "Active" });
+    const existing = await AmcVisitorLogModel.findOne({ mobileNo: cleanMobile, status: "Active" });
     if (existing) {
       return res.status(400).json({
         success: false,
@@ -108,7 +119,7 @@ router.post("/check-in", async (req, res) => {
     const log = new AmcVisitorLogModel({
       supplierCompany,
       technicianName,
-      mobileNo,
+      mobileNo: cleanMobile,
       purpose,
       amcCategory,
       departmentArea,
@@ -135,7 +146,15 @@ router.post("/check-out", async (req, res) => {
       });
     }
 
-    const activeLog = await AmcVisitorLogModel.findOne({ mobileNo, status: "Active" });
+    const cleanMobile = mobileNo.toString().replace(/\D/g, "").slice(-10);
+    if (cleanMobile.length !== 10) {
+      return res.status(422).json({
+        success: false,
+        message: "Mobile number must be exactly 10 digits",
+      });
+    }
+
+    const activeLog = await AmcVisitorLogModel.findOne({ mobileNo: cleanMobile, status: "Active" });
     if (!activeLog) {
       return res.status(404).json({
         success: false,
@@ -162,13 +181,29 @@ router.put("/logs/:id", validateId, async (req, res) => {
     const log = await AmcVisitorLogModel.findById(req.params.id);
     if (!log) return res.status(404).json({ success: false, message: "Log not found" });
 
+    if (req.body.mobileNo !== undefined && req.body.mobileNo !== null && req.body.mobileNo.toString().trim() !== "") {
+      const cleanMobile = req.body.mobileNo.toString().replace(/\D/g, "");
+      if (cleanMobile.length !== 10) {
+        return res.status(422).json({
+          success: false,
+          message: "Mobile number must be exactly 10 digits",
+        });
+      }
+    }
+
     const allowed = [
       "supplierCompany", "technicianName", "mobileNo", "purpose",
       "amcCategory", "departmentArea", "workStatus", "employeeApprovalName", "remarks",
       "status", "checkInTime", "checkOutTime"
     ];
     allowed.forEach((k) => {
-      if (req.body[k] !== undefined) log[k] = req.body[k];
+      if (req.body[k] !== undefined) {
+        if (k === "mobileNo" && req.body[k]) {
+          log[k] = req.body[k].toString().replace(/\D/g, "").slice(0, 10);
+        } else {
+          log[k] = req.body[k];
+        }
+      }
     });
 
     await log.save();

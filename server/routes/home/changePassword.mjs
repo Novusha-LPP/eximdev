@@ -8,7 +8,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const router = express.Router();
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const CLIENT_URI =
   process.env.NODE_ENV === "production"
@@ -97,9 +97,17 @@ router.post("/api/admin/change-password", auditMiddleware("User"), async (req, r
         `,
       };
 
-      const { error } = await resend.emails.send(mailOptions);
-      if (error) {
-        console.error("Failed to send password change email:", error.message);
+      if (resend) {
+        try {
+          const { error } = await resend.emails.send(mailOptions);
+          if (error) {
+            console.error("Failed to send password change email:", error.message);
+          }
+        } catch (mailErr) {
+          console.error("Failed to send password change email:", mailErr);
+        }
+      } else {
+        console.warn("RESEND_API_KEY is not configured; skipping password change email");
       }
     } else {
       console.warn("No email available for user:", targetUser.username);

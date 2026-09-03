@@ -10,7 +10,7 @@ import crypto from "crypto";
 dotenv.config();
 
 const router = express.Router();
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const CLIENT_URI =
   process.env.NODE_ENV === "production"
@@ -118,13 +118,17 @@ router.post("/api/onboard-employee", verifyToken, (req, res, next) => {
       `,
     };
 
-    try {
-      const { error } = await resend.emails.send(mailOptions);
-      if (error) {
-        console.error("Error sending onboarding email:", error);
+    if (resend) {
+      try {
+        const { error } = await resend.emails.send(mailOptions);
+        if (error) {
+          console.error("Error sending onboarding email:", error);
+        }
+      } catch (emailError) {
+        console.error("Error sending onboarding email:", emailError);
       }
-    } catch (emailError) {
-      console.error("Error sending onboarding email:", emailError);
+    } else {
+      console.warn("RESEND_API_KEY is not configured; skipping onboarding email");
     }
     res.status(201).send({ message: "User onboarded successfully" });
   } catch (error) {

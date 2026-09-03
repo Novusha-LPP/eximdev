@@ -89,6 +89,11 @@ export default function AmcPublicForm() {
 
   const handleCheckInChange = (e) => {
     const { name, value } = e.target;
+    if (name === "mobileNo") {
+      const numeric = value.replace(/\D/g, "").slice(0, 10);
+      setCheckInForm((prev) => ({ ...prev, mobileNo: numeric }));
+      return;
+    }
     setCheckInForm((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -102,6 +107,11 @@ export default function AmcPublicForm() {
     e.preventDefault();
     if (!checkInForm.supplierCompany || !checkInForm.technicianName || !checkInForm.mobileNo || !checkInForm.purpose || !checkInForm.amcCategory || !checkInForm.departmentArea) {
       toast.error("Please fill all mandatory fields");
+      return;
+    }
+
+    if (checkInForm.mobileNo.trim().length !== 10) {
+      toast.error("Mobile number must be exactly 10 digits");
       return;
     }
 
@@ -129,15 +139,15 @@ export default function AmcPublicForm() {
   // Search Active Log for Check-Out
   const handleSearchActiveLog = async (e) => {
     e.preventDefault();
-    if (!mobileSearch) {
-      toast.error("Please enter your mobile number");
+    if (!mobileSearch || mobileSearch.trim().length !== 10) {
+      toast.error("Please enter a valid 10-digit mobile number");
       return;
     }
 
     setSearching(true);
     setActiveLog(null);
     try {
-      const data = await amcVisitorAPI.getActiveByMobile(mobileSearch);
+      const data = await amcVisitorAPI.getActiveByMobile(mobileSearch.trim());
       if (data && data.success && data.data) {
         setActiveLog(data.data);
         toast.success("Check-in record found!");
@@ -266,7 +276,15 @@ export default function AmcPublicForm() {
                   required
                   fullWidth
                   variant="outlined"
-                  helperText="10 digit mobile number"
+                  inputProps={{ maxLength: 10, inputMode: "numeric", pattern: "[0-9]*" }}
+                  helperText={
+                    checkInForm.mobileNo.length > 0 && checkInForm.mobileNo.length < 10
+                      ? `${10 - checkInForm.mobileNo.length} more digit(s) required`
+                      : checkInForm.mobileNo.length === 10
+                      ? "✓ 10 digits"
+                      : "10-digit mobile number"
+                  }
+                  error={checkInForm.mobileNo.length > 0 && checkInForm.mobileNo.length < 10}
                 />
                 <TextField
                   label="Purpose of Visit"
@@ -343,9 +361,18 @@ export default function AmcPublicForm() {
                       label="Mobile Number"
                       type="tel"
                       value={mobileSearch}
-                      onChange={(e) => setMobileSearch(e.target.value)}
+                      onChange={(e) => setMobileSearch(e.target.value.replace(/\D/g, "").slice(0, 10))}
                       required
                       fullWidth
+                      inputProps={{ maxLength: 10, inputMode: "numeric", pattern: "[0-9]*" }}
+                      helperText={
+                        mobileSearch.length > 0 && mobileSearch.length < 10
+                          ? `${10 - mobileSearch.length} more digit(s) required`
+                          : mobileSearch.length === 10
+                          ? "✓ 10 digits"
+                          : "10-digit mobile number"
+                      }
+                      error={mobileSearch.length > 0 && mobileSearch.length < 10}
                     />
                     <Button
                       type="submit"

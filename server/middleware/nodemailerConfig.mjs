@@ -6,7 +6,7 @@ dotenv.config();
 
 const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
 
-const resend = new Resend(process.env.RESEND_API_KEY || "re_test_key");
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 let smtpTransporter = null;
 if (process.env.SMTP_SERVER && process.env.SMTP_USER && process.env.SMTP_PASS) {
@@ -45,18 +45,22 @@ export const sendEmail = async (options) => {
     }
   }
 
-  try {
-    const { data, error } = await resend.emails.send(mailOptions);
-    if (error) {
-      console.error("Resend error:", error);
-      throw error;
+  if (resend) {
+    try {
+      const { data, error } = await resend.emails.send(mailOptions);
+      if (error) {
+        console.error("Resend error:", error);
+        throw error;
+      }
+      console.log("Email sent:", data?.id);
+      return { data };
+    } catch (err) {
+      console.error("Email send failed:", err.message);
+      throw err;
     }
-    console.log("Email sent:", data?.id);
-    return { data };
-  } catch (err) {
-    console.error("Email send failed:", err.message);
-    throw err;
   }
+
+  throw new Error("No active email transport configured (SMTP or RESEND_API_KEY required)");
 };
 
 export const sendTestEmail = async (config, to) => {

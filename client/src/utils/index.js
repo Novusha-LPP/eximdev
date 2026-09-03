@@ -34,7 +34,7 @@ export function getScoreBadgeClass(score, weightage) {
 export function getStatusClass(status) {
   switch (status) {
     case "Approved": return "badge-success";
-    case "Submitted": return "badge-primary";
+    case "Submitted": return "badge-submitted";
     case "Draft": default: return "badge-secondary";
   }
 }

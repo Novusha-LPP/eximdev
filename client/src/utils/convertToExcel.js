@@ -215,7 +215,7 @@ export const convertToExcel = async (
         "INVOICE VALUE AND UNIT PRICE": invoice_value_and_unit_price,
         "BL NUMBER AND DATE": blNoAndDate,
         COMMODITY: item.description || '',
-        "NET WEIGHT": item.job_net_weight || net_weight || '',
+        "NET WEIGHT": item.job_net_weight || item.net_weight || '',
         PORT: `POL: ${cleanLoadingPort}\nPOD: ${cleanPortOfReporting}`,
         "ARRIVAL DATE": arrivalDates,
         "FREE TIME": item.free_time || '',

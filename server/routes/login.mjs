@@ -102,6 +102,7 @@ router.post("/api/login", async (req, res) => {
           }
         }
 
+        // Generate signed JWT authentication token containing essential user identity and claims
         const token = jwt.sign(
           {
             _id: user._id,
@@ -117,18 +118,21 @@ router.post("/api/login", async (req, res) => {
           { expiresIn: "10h" }
         );
 
-        // ✅ FIX 1: Cookie with sameSite: "none" + secure for cross-origin support
+        // Set httpOnly auth cookie:
+        // - In Development: sameSite 'lax' + secure false ensures local HTTP requests (localhost / 127.0.0.1) accept the cookie without browser rejection.
+        // - In Production: sameSite 'none' + secure true ensures cross-origin / HTTPS requests accept the cookie properly.
         res.cookie("token", token, {
           httpOnly: true,
-          secure: false, // set to true only in production with HTTPS
-          sameSite: "none", // ✅ allows cross-origin cookie sending
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
           maxAge: 10 * 60 * 60 * 1000,
         });
 
-        // ✅ FIX 2: Also return token in response body so frontend can use Authorization header
+        // Return user profile and token in the response payload:
+        // - Enables frontend Axios interceptors to store and send the token via 'Authorization: Bearer <token>' header as a resilient fallback.
         return res.status(200).json({
           ...userResponse,
-          token // ✅ frontend will store this and send as Bearer token
+          token
         });
       } else {
         return res.status(400).json({ message: "Username or password didn't match" });

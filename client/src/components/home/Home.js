@@ -177,24 +177,19 @@ function Home() {
 
   let sopsGrouped = false;
   const isRabsUser = user?.company && /RABS/i.test(user.company);
+
+  // Retrieve assigned modules from fetched user profile
   let userModulesList = data?.modules || [];
   let finalModulesList = [...userModulesList];
 
-  if (!finalModulesList.includes("AMC Suppliers Renewal")) {
-    finalModulesList.push("AMC Suppliers Renewal");
-  }
-  if (!finalModulesList.includes("AMC Visitor Logs")) {
-    finalModulesList.push("AMC Visitor Logs");
-  }
-  if (!finalModulesList.includes("Admin Equipment Checklist")) {
-    finalModulesList.push("Admin Equipment Checklist");
-  }
+  // Auto-include First Aid for RABS company users if not already present
   if (isRabsUser && !finalModulesList.includes("First Aid")) {
     finalModulesList.push("First Aid");
   }
 
+  // Group modules into their respective dashboard categories
   const categorizedModules = finalModulesList.reduce((acc, module) => {
-    // Restrict 5S Audit card to RABS Admin and HOD users only
+    // 1. Restrict 5S Audit card: Visible only to RABS Admin and HOD users
     if (module === "5S Audit") {
       const isRabs = user?.company && /RABS/i.test(user.company);
       const isAdminOrHod = user?.role === "Admin" || user?.role === "Head_of_Department" || user?.role === "HOD" || user?.isHOD;
@@ -203,7 +198,7 @@ function Home() {
       }
     }
 
-    // Restrict First Aid card to RABS Admin and HOD users only
+    // 2. Restrict First Aid card: Visible only to RABS Admin and HOD users
     if (module === "First Aid") {
       const isRabs = user?.company && /RABS/i.test(user.company);
       const isAdminOrHod = user?.role === "Admin" || user?.role === "Head_of_Department" || user?.role === "HOD" || user?.isHOD;
@@ -212,6 +207,7 @@ function Home() {
       }
     }
 
+    // 3. Group Procurement & Insurance SOPs into a single combined tile under Accounts
     if (["RM Procurement SOP", "Tyre Procurement SOP", "Fleet Insurance SOP"].includes(module)) {
       if (!sopsGrouped) {
         const category = "Accounts";
@@ -222,6 +218,7 @@ function Home() {
       return acc;
     }
 
+    // 4. If user has 'Accounts', ensure both Accounts and Pricing Requests tiles are available under Accounts category
     if (module === "Accounts") {
       const category = "Accounts";
       if (!acc[category]) acc[category] = [];
@@ -229,6 +226,8 @@ function Home() {
       if (!acc[category].includes("Pricing Requests")) acc[category].push("Pricing Requests");
       return acc;
     }
+
+    // 5. Default mapping: categorize module according to predefined moduleCategories map
     const category = moduleCategories[module] || "Uncategorized";
     if (!acc[category]) acc[category] = [];
     acc[category].push(module);

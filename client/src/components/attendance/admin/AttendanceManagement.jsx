@@ -95,7 +95,7 @@ const AttendanceManagement = () => {
         setDrawer({ open: true, type: 'edit', rec });
         setEditForm({
             _id: rec._id,
-            status: rec.status,
+            status: (rec.status === 'missed_punch' || rec.status === 'incomplete') ? 'incomplete' : rec.status,
             first_in: rec.first_in ? moment(rec.first_in).format('YYYY-MM-DDTHH:mm') : '',
             last_out: rec.last_out ? moment(rec.last_out).format('YYYY-MM-DDTHH:mm') : '',
             employee_id: rec.employee_id?._id || rec.id, // Ensure employee_id is passed
@@ -389,10 +389,13 @@ const AttendanceManagement = () => {
                                 <div className="am-field">
                                     <label>Status Override</label>
                                     <select className="am-field-ctrl" value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
+                                        <option value="incomplete">Miss Punch</option>
                                         <option value="present">Present</option>
                                         <option value="absent">Absent</option>
                                         <option value="half_day">Half Day</option>
                                         <option value="leave">Leave</option>
+                                        <option value="weekly_off">Weekly Off</option>
+                                        <option value="holiday">Holiday</option>
                                     </select>
                                 </div>
 

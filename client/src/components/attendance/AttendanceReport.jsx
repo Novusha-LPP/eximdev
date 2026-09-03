@@ -1016,7 +1016,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             attendance_date: overrideDate || rec.attendance_date,
             employee_id: selectedEmp.id,
             shift_id: defaultShiftId,
-            status: rec.status || 'present',
+            status: (rec.status === 'missed_punch' || rec.status === 'incomplete') ? 'incomplete' : (rec.status || 'present'),
             half_day_session: rec.half_day_session || 'first_half',
             first_in: rec.first_in ? moment(rec.first_in).format('YYYY-MM-DDTHH:mm') : '',
             last_out: rec.last_out ? moment(rec.last_out).format('YYYY-MM-DDTHH:mm') : '',
@@ -2549,6 +2549,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                         }));
                                     }}
                                 >
+                                    <option value="incomplete">Missed Punch (MP)</option>
                                     <option value="present">Present (P)</option>
                                     <option value="absent">Absent (A)</option>
                                     <option value="half_day">Half Day</option>

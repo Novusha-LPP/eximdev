@@ -659,7 +659,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       attendance_date: overrideDate || rec.attendance_date,
       employee_id: id,
       shift_id: defaultShiftId,
-      status: (!rec.status || rec.status === 'none') ? 'present' : rec.status,
+      status: (rec.status === 'missed_punch' || rec.status === 'incomplete') ? 'incomplete' : ((!rec.status || rec.status === 'none') ? 'present' : rec.status),
       half_day_session: rec.half_day_session || 'first_half',
       first_in: rec.first_in ? moment(rec.first_in).format('YYYY-MM-DDTHH:mm') : '',
       last_out: rec.last_out ? moment(rec.last_out).format('YYYY-MM-DDTHH:mm') : '',
@@ -3746,6 +3746,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                         }));
                       }}
                     >
+                      <option value="incomplete">Miss Punch</option>
                       <option value="present">Present</option>
                       <option value="absent">Absent</option>
                       <option value="half_day">Half Day</option>

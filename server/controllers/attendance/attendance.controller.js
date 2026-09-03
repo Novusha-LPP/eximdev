@@ -303,6 +303,7 @@ const normalizeAttendanceStatusInput = (status) => {
     if (!normalized) return normalized;
     if (normalized === 'pending_leave') return 'leave';
     if (normalized === 'weekoff') return 'weekly_off';
+    if (normalized === 'missed_punch') return 'incomplete';
     return normalized;
 };
 
@@ -2949,7 +2950,7 @@ export const updateAttendanceRecord = async (req, res) => {
         }
 
         // Sanity Check: Prevent extreme durations (e.g., 62 hours)
-        if (apply_time_correction && first_in && last_out) {
+        if (first_in && last_out) {
             const durationHours = moment(last_out).diff(moment(first_in), 'hours', true);
             if (durationHours > 20) {
                 return res.status(400).json({
@@ -3135,6 +3136,16 @@ export const updateAttendanceRecord = async (req, res) => {
             if (last_out !== undefined) {
                 record.last_out = last_out || null;
             }
+        } else if (!isStatusTimeUnchangedMode) {
+            // Standard edit modal (when no correction_mode is passed):
+            // When user enters new time (or modifies time), update it.
+            // If user did not change time, existing times remain as they are!
+            if (first_in !== undefined && first_in !== null && first_in !== '') {
+                record.first_in = first_in;
+            }
+            if (last_out !== undefined && last_out !== null && last_out !== '') {
+                record.last_out = last_out;
+            }
         }
         // For status_correction_time_unchanged mode, don't modify times
 
@@ -3154,10 +3165,6 @@ export const updateAttendanceRecord = async (req, res) => {
             record.last_out = null;
         }
 
-        if (!isStatusTimeUnchangedMode && workingStatuses.has(normalizedStatus) && (!record.first_in || !record.last_out)) {
-            return res.status(400).json({ message: 'Out-time is required for this status update' });
-        }
-
         if (remarks !== undefined) record.remarks = remarks || '';
         if (pendingLeave && allowOverride) {
             record.remarks = record.remarks
@@ -3171,6 +3178,13 @@ export const updateAttendanceRecord = async (req, res) => {
         normalizeManualCorrectionFlags(record);
         await recalculatePunctuality(record, employee, company);
         normalizeManualCorrectionFlags(record);
+
+        if (record.attendance_date) {
+            await ActiveSession.updateMany(
+                { employee_id: record.employee_id, session_date: record.attendance_date },
+                { $set: { session_status: 'completed', auto_marked_missed_punch: false } }
+            );
+        }
 
         await record.save();
         await syncUserTodayStatus(record, company);
@@ -3242,7 +3256,7 @@ export const createManualAdjustment = async (req, res) => {
         }
 
         // Sanity Check: Prevent extreme durations (e.g., 62 hours)
-        if (apply_time_correction && first_in && last_out) {
+        if (first_in && last_out) {
             const durationHours = moment(last_out).diff(moment(first_in), 'hours', true);
             if (durationHours > 20) {
                 return res.status(400).json({
@@ -3418,6 +3432,14 @@ export const createManualAdjustment = async (req, res) => {
             if (last_out !== undefined) {
                 record.last_out = last_out || null;
             }
+        } else if (!isStatusTimeUnchangedMode) {
+            // Standard modal edit (no correction_mode passed):
+            if (first_in !== undefined && first_in !== null && first_in !== '') {
+                record.first_in = first_in;
+            }
+            if (last_out !== undefined && last_out !== null && last_out !== '') {
+                record.last_out = last_out;
+            }
         }
         // For status_correction_time_unchanged mode, don't modify times
 
@@ -3437,10 +3459,6 @@ export const createManualAdjustment = async (req, res) => {
             record.last_out = null;
         }
 
-        if (!isStatusTimeUnchangedMode && workingStatuses.has(normalizedStatus) && (!record.first_in || !record.last_out)) {
-            return res.status(400).json({ message: 'Out-time is required for this status update' });
-        }
-
         if (remarks !== undefined) record.remarks = remarks || '';
         if (pendingLeave && allowOverride) {
             record.remarks = record.remarks
@@ -3450,9 +3468,18 @@ export const createManualAdjustment = async (req, res) => {
         record.processed_by = 'admin';
         record.processed_at = new Date();
 
+        // 5. Shared Calculation Logic
         normalizeManualCorrectionFlags(record);
         await recalculatePunctuality(record, employee, company);
         normalizeManualCorrectionFlags(record);
+
+        if (record.attendance_date) {
+            await ActiveSession.updateMany(
+                { employee_id: record.employee_id, session_date: record.attendance_date },
+                { $set: { session_status: 'completed', auto_marked_missed_punch: false } }
+            );
+        }
+
         await record.save();
         await syncUserTodayStatus(record, company);
 

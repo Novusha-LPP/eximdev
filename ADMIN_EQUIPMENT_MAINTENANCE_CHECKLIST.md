@@ -38,7 +38,7 @@ graph TD
 | **API Client** | [`client/src/api/equipmentChecklistAPI.js`](file:///c:/eximdev/client/src/api/equipmentChecklistAPI.js) | Axios client helper methods |
 | **React UI** | [`client/src/pages/AdminEquipmentChecklist.jsx`](file:///c:/eximdev/client/src/pages/AdminEquipmentChecklist.jsx) | Full dashboard, modal submission form, image previewer & detail viewer |
 | **Navigation** | [`client/src/utils/navigateToModule.js`](file:///c:/eximdev/client/src/utils/navigateToModule.js#L71) | Maps module name to route `/equipment-checklist` |
-| **Permissions** | [`client/src/pages/ProtectedRoute.js`](file:///c:/eximdev/client/src/pages/ProtectedRoute.js#L10) | Access control & route protection |
+| **Permissions** | [`client/src/pages/ProtectedRoute.js`](file:///c:/eximdev/client/src/pages/ProtectedRoute.js) | Access control & route protection (strictly requires Admin module assignment) |
 
 ---
 

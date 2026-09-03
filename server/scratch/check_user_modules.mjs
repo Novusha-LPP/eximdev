@@ -1,24 +1,24 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ path: './.env' });
+import UserModel from '../model/userModel.mjs';
 
 const uri = process.env.DEV_MONGODB_URI || process.env.PROD_MONGODB_URI || 'mongodb://localhost:27017/exim';
 await mongoose.connect(uri);
 
-const UserModel = mongoose.model('User', new mongoose.Schema({
-  username: String,
-  modules: Array,
-  role: String
-}, { collection: 'users' }));
-
 const users = await UserModel.find({
-  username: { $in: ['masood_raza', 'krupali_busa', 'suraj_rajan', 'almlcv', 'admin'] }
+  modules: {
+    $in: ['Supplier Scorecard', 'AMC Suppliers Renewal', 'AMC Visitor Logs', 'Admin Equipment Checklist']
+  }
+}).select('username role modules');
+
+console.log(`Users with AMC/Scorecard modules assigned (${users.length} users):`);
+users.forEach(u => {
+  const amcMods = (u.modules || []).filter(m => ['Supplier Scorecard', 'AMC Suppliers Renewal', 'AMC Visitor Logs', 'Admin Equipment Checklist'].includes(m));
+  console.log(`- ${u.username} (${u.role}): ${amcMods.join(', ')}`);
 });
 
-console.log(JSON.stringify(users.map(u => ({
-  username: u.username,
-  role: u.role,
-  modules: u.modules
-})), null, 2));
+const allUsers = await UserModel.find({}).select('username role modules');
+console.log(`Total users in system: ${allUsers.length}`);
 
 process.exit(0);

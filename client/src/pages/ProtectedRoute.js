@@ -5,10 +5,7 @@ import { UserContext } from "../contexts/UserContext";
 
 // Modules that are accessible to all users without explicit module assignment
 const PUBLIC_MODULES = [
-  "AMC Suppliers Renewal",
-  "AMC Visitor Logs",
-  "Admin Equipment Checklist",
-  "Audit Trail", // ✅ Added: accessible to all logged-in users
+  "Audit Trail", // ✅ Accessible to all logged-in users
 ];
 
 const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {

@@ -267,7 +267,7 @@ const findLeaveForDateLocal = (leaves, dayMomentLocal) => {
 
 const REPORT_USER_SELECT_FIELDS = '_id first_name last_name username designation company_id department_id branch_id weekoff_policy_id holiday_policy_id shift_id employee_code hod_id employment_type category';
 const REPORT_COMPANY_POPULATE = { path: 'company_id', select: 'company_name attendance_config' };
-const REPORT_ATTENDANCE_SELECT_FIELDS = 'employee_id attendance_date first_in last_out is_auto_punch_out status is_late late_by_minutes is_early_in early_in_minutes is_early_exit early_exit_minutes total_work_hours half_day_session shift_id';
+const REPORT_ATTENDANCE_SELECT_FIELDS = 'employee_id attendance_date first_in last_out is_auto_punch_out status is_late late_by_minutes is_early_in early_in_minutes is_early_exit early_exit_minutes total_work_hours net_work_hours half_day_session shift_id processed_by is_half_day is_regularized is_on_leave is_holiday is_weekly_off leave_application_id remarks';
 const REPORT_LEAVE_SELECT_FIELDS = 'employee_id leave_policy_id leave_type from_date to_date approval_status is_half_day is_start_half_day is_end_half_day half_day_session start_half_session end_half_session reason';
 
 const mapWithConcurrency = async (items, concurrency, mapper) => {
@@ -360,7 +360,9 @@ const getAttendanceThresholds = (employee) => {
 
 const normalizeAttendanceStatus = (record, employee) => {
     const status = String(record?.status || '').toLowerCase();
-    if (['leave', 'weekly_off', 'holiday'].includes(status)) return status;
+    const isManuallyProcessed = Boolean((record?.processed_by && !['system', 'cron'].includes(record.processed_by)) || record?.is_regularized);
+    if ((isManuallyProcessed || record?.processed_by === 'admin') && status) return status;
+    if (['leave', 'weekly_off', 'holiday', 'absent'].includes(status)) return status;
     if (!record?.first_in || !record?.last_out) return status;
 
     const computedHours = moment(record.last_out).diff(moment(record.first_in), 'hours', true);
@@ -394,6 +396,8 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
     let actualLeaves = 0;
     let actualHalfDay = 0;
     let actualMissedPunch = 0;
+    let actualWeekOff = 0;
+    let actualHoliday = 0;
     let actualTotalHours = 0;
     let actualDaysWithHours = 0;
 
@@ -439,8 +443,28 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         const hasWorkingPunches = recWorkHours >= 4 || (rec?.first_in && rec?.last_out && computedHours >= 4);
 
         const isToday = curr.isSame(moment().tz('Asia/Kolkata'), 'day');
+        const isManuallyProcessed = Boolean((rec?.processed_by && !['system', 'cron'].includes(rec.processed_by)) || rec?.is_regularized);
+        const isAdminProcessed = (isManuallyProcessed || rec?.processed_by === 'admin') && rec?.status;
 
-        if (hasWorkingPunches || (isToday && rec?.first_in && !['absent', 'incomplete'].includes(rec?.status))) {
+        if (isAdminProcessed) {
+            hStatus = String(rec.status).toLowerCase();
+            hSession = rec.half_day_session || leaveSession;
+
+            if (hStatus === 'present' || hStatus === 'late') actualPresent++;
+            else if (hStatus === 'half_day') actualHalfDay++;
+            else if (hStatus === 'absent') actualAbsent++;
+            else if (hStatus === 'leave') actualLeaves++;
+            else if (hStatus === 'weekly_off') actualWeekOff++;
+            else if (hStatus === 'holiday') actualHoliday++;
+
+            if (rec?.is_late) actualLate++;
+            if (rec?.is_early_in) actualEarlyIn++;
+            if (rec?.is_early_exit) actualEarlyOut++;
+            if (['present', 'late', 'half_day'].includes(hStatus) && recWorkHours > 0) {
+                actualTotalHours += recWorkHours;
+                actualDaysWithHours += (hStatus === 'half_day' ? 0.5 : 1);
+            }
+        } else if (hasWorkingPunches || (isToday && rec?.first_in && !['absent', 'incomplete'].includes(rec?.status))) {
             hStatus = normalizeAttendanceStatus(rec, emp);
             hSession = rec?.half_day_session || leaveSession;
 
@@ -483,8 +507,10 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             actualLeaves += 1;
         } else if (isHolidayDay) {
             hStatus = 'holiday';
+            actualHoliday++;
         } else if (isWeeklyOffDay) {
             hStatus = 'weekly_off';
+            actualWeekOff++;
         } else if (rec && rec.first_in && !rec.last_out) {
             hStatus = 'incomplete';
             actualMissedPunch++;
@@ -545,6 +571,9 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         earlyOut: actualEarlyOut,
         leaves: actualLeaves,
         halfDay: actualHalfDay,
+        weekOff: actualWeekOff,
+        holiday: actualHoliday,
+        totalWeekOffAndHoliday: actualWeekOff + actualHoliday,
         missedPunch: actualMissedPunch,
         avgHours: `${avgHoursH}h ${avgHoursM}m`,
         raw_total_hours: actualTotalHours,

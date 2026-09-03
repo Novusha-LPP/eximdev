@@ -83,7 +83,7 @@ router.post("/api/login", async (req, res) => {
         if (completion.hasCriticalMissing && user.role !== 'Admin') {
           const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
           const alreadyNotified = user.profile_manager_notified_at && user.profile_manager_notified_at > oneDayAgo;
-          
+
           if (!alreadyNotified) {
             const manager = user.hod_id || user.attendance_settings?.manager_id;
             if (manager && manager.email) {

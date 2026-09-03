@@ -194,80 +194,111 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
         </div>
 
         <form onSubmit={handleSubmit} className="modal-scroll" style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px', margin: 0 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Activity Type *</label>
-              <select
-                required
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
-              >
-                <option value="call">Call</option>
-                <option value="email">Email</option>
-                <option value="meeting">Meeting</option>
-                <option value="demo">Demo</option>
-                <option value="note">Note</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Outcome</label>
-              <select
-                value={formData.outcome}
-                onChange={(e) => setFormData({ ...formData, outcome: e.target.value })}
-                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
-              >
-                <option value="positive">Positive</option>
-                <option value="neutral">Neutral</option>
-                <option value="negative">Negative</option>
-              </select>
-            </div>
-          </div>
+          {(() => {
+            const currentType = (formData.type || 'call').toLowerCase();
+            const showOutcome = ['call', 'meeting', 'demo', 'visit'].includes(currentType);
+            const showDuration = ['call', 'meeting', 'demo', 'visit'].includes(currentType);
+            const showNextSteps = ['call', 'meeting', 'demo', 'visit'].includes(currentType);
+            const descLabel = currentType === 'note' ? 'Note Details' : currentType === 'email' ? 'Email Content / Summary' : currentType === 'visit' ? 'Meeting / Visit Agenda & Location' : 'Description';
+            const descPlaceholder = currentType === 'note' ? 'Write note here...' : currentType === 'email' ? 'Enter email summary...' : 'Add detailed notes about this activity...';
 
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Subject *</label>
-            <input
-              type="text"
-              required
-              value={formData.subject}
-              onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-              placeholder="e.g., Quarterly Business Review"
-              style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
-            />
-          </div>
+            return (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: showOutcome ? '1fr 1fr' : '1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Activity Type *</label>
+                    <select
+                      required
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                    >
+                      <option value="call">Call</option>
+                      <option value="meeting">Meeting</option>
+                      <option value="visit">Visit / On-site Visit</option>
+                      <option value="email">Email</option>
+                      <option value="note">Note</option>
+                      <option value="demo">Demo</option>
+                    </select>
+                  </div>
+                  {showOutcome && (
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Outcome</label>
+                      <select
+                        value={formData.outcome}
+                        onChange={(e) => setFormData({ ...formData, outcome: e.target.value })}
+                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                      >
+                        <option value="positive">Positive</option>
+                        <option value="neutral">Neutral</option>
+                        <option value="negative">Negative</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
 
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Description</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Add detailed notes about this activity..."
-              style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', minHeight: '80px', fontFamily: 'inherit' }}
-            />
-          </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Subject / Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.subject}
+                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                    placeholder={currentType === 'note' ? 'Note title' : 'e.g., Sales Visit / Product Inquiry Call'}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                  />
+                </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Duration (minutes)</label>
-              <input
-                type="number"
-                value={formData.duration}
-                onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                placeholder="e.g., 30"
-                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Activity Date & Time *</label>
-              <input
-                type="datetime-local"
-                required
-                value={formData.activityDate}
-                onChange={(e) => setFormData({ ...formData, activityDate: e.target.value })}
-                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', background: '#fff' }}
-              />
-            </div>
-          </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>{descLabel}</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder={descPlaceholder}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', minHeight: '80px', fontFamily: 'inherit' }}
+                  />
+                </div>
+
+                {showNextSteps && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Next Action Steps</label>
+                    <input
+                      type="text"
+                      value={formData.nextSteps || ''}
+                      onChange={(e) => setFormData({ ...formData, nextSteps: e.target.value })}
+                      placeholder="e.g., Send proposal by Friday"
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: showDuration ? '1fr 1fr' : '1fr', gap: '16px', marginBottom: '16px' }}>
+                  {showDuration && (
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Duration (minutes)</label>
+                      <input
+                        type="number"
+                        value={formData.duration}
+                        onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                        placeholder="e.g., 30"
+                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Activity Date & Time *</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={formData.activityDate}
+                      onChange={(e) => setFormData({ ...formData, activityDate: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', background: '#fff' }}
+                    />
+                  </div>
+                </div>
+              </>
+            );
+          })()}
 
           {/* Polymorphic Record Linker (Only if linkedId is not pre-specified) */}
           {!linkedId && (

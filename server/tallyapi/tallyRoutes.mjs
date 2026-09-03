@@ -912,6 +912,7 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
         if (chargeCategory === 'Reimbursement' && entry.supplierName && !fallbackDesc.startsWith('NEW - ')) {
           fallbackDesc = `NEW - ${entry.supplierName}`;
         }
+        let fallbackRevLedger = '';
         if (fallbackIsMargin && fallbackHead) {
           fallbackDesc = fallbackHead.endsWith(' - E') ? fallbackHead : `${fallbackHead} - E`;
           fallbackRevLedger = `${fallbackHead} - I`;

@@ -50,6 +50,208 @@ const getCorrectionStatusMeta = (request = {}) => {
     return { label: 'Pending', className: 'pending' };
 };
 
+const roundLeave = (value) => Math.round(Number(value || 0) * 10) / 10;
+
+const isPrivilegeLeave = (leaveType = '') => {
+    const type = String(leaveType || '').toLowerCase();
+    return type === 'pl' || type.includes('privilege') || type.includes('earned') || type === 'el';
+};
+
+const isLwpLeave = (leaveType = '') => {
+    const type = String(leaveType || '').toLowerCase();
+    return type === 'lwp' || type.includes('without pay') || type.includes('unpaid') || type === 'lop';
+};
+
+const isHalfDayLeave = (day) => {
+    if (day?.is_half_day_leave || day?.isHalfDayLeave) return true;
+    const s = String(day?.status || '').toLowerCase();
+    const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
+    let workHours = 0;
+    if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
+        workHours = Number(day.total_work_hours);
+    } else if (day?.first_in && day?.last_out) {
+        workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
+    }
+    if (day?.is_half_day && (lt || s === 'leave' || workHours < 4)) return true;
+    if (s === 'half_day' && (lt || workHours < 4)) return true;
+    return false;
+};
+
+const getActualHalfDays = (employee) => {
+    if (!Array.isArray(employee?.history) || employee.history.length === 0) return Number(employee?.halfDay || 0);
+
+    return employee.history.filter((day) => {
+        const s = String(day?.status || '').toLowerCase();
+        if (s === 'none' || s === '' || s === 'future') return false;
+        if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday' || s === 'leave') return false;
+        if (isHalfDayLeave(day)) return false;
+
+        let workHours = 0;
+        if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
+            workHours = Number(day.total_work_hours);
+        } else if (day?.first_in && day?.last_out) {
+            workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
+        }
+
+        if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && !day?.is_half_day && s !== 'half_day') return false;
+        if (s === 'half_day' || day?.is_half_day) return true;
+
+        if (workHours >= 8) return false;
+        if (workHours >= 4) return true;
+        return false;
+    }).length;
+};
+
+const getPresentDaysForReport = (employee) => {
+    const actualHalfDays = getActualHalfDays(employee);
+    if (!Array.isArray(employee?.history) || employee.history.length === 0) {
+        return roundLeave(Number(employee?.present || 0) + (actualHalfDays * 0.5));
+    }
+    const fullPresent = employee.history.filter((day) => {
+        const s = String(day?.status || '').toLowerCase();
+        if (s === 'none' || s === '' || s === 'future') return false;
+        if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday' || s === 'leave') return false;
+        if (isHalfDayLeave(day)) return false;
+
+        let workHours = 0;
+        if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
+            workHours = Number(day.total_work_hours);
+        } else if (day?.first_in && day?.last_out) {
+            workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
+        }
+
+        if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && !day?.is_half_day && s !== 'half_day') return true;
+        if (s === 'half_day' || day?.is_half_day) return false;
+        if (workHours >= 8) return true;
+        if (workHours >= 4) return false; // Half day
+        return false;
+    }).length;
+    return roundLeave(fullPresent + (actualHalfDays * 0.5));
+};
+
+const getHalfDayLeaveCountForReport = (employee) => {
+    if (!Array.isArray(employee?.history) || employee.history.length === 0) return 0;
+    return employee.history.filter((day) => isHalfDayLeave(day)).length;
+};
+
+const getFullDayLeaveCountForReport = (employee) => {
+    if (!Array.isArray(employee?.history) || employee.history.length === 0) return Number(employee?.leaves || 0);
+
+    return employee.history.filter((day) => {
+        const s = String(day?.status || '').toLowerCase();
+        const isHalfLeave = isHalfDayLeave(day);
+        return (s === 'leave' || s === 'pending_leave') && !isHalfLeave;
+    }).length;
+};
+
+const getAbsentDaysForReport = (employee) => {
+    const actualHalfDays = getActualHalfDays(employee);
+    if (!Array.isArray(employee?.history) || employee.history.length === 0) {
+        return roundLeave(Number(employee?.absent || 0) + (actualHalfDays * 0.5));
+    }
+    const fullAbsent = employee.history.filter((day) => {
+        const s = String(day?.status || '').toLowerCase();
+        const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
+        const isHalfLeave = isHalfDayLeave(day);
+
+        // If future date or status is 'none', it is NOT absent
+        if (s === 'none' || s === '' || s === 'future') return false;
+        if (day?.date && moment(day.date).isAfter(moment().endOf('day'))) return false;
+
+        if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday') return false;
+        if (s === 'leave' || s === 'pending_leave' || isHalfLeave || lt) return false;
+
+        let workHours = 0;
+        if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
+            workHours = Number(day.total_work_hours);
+        } else if (day?.first_in && day?.last_out) {
+            workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
+        }
+
+        if (workHours >= 4) return false;
+        if (s === 'present' || s === 'late' || s === 'present_late' || s === 'half_day' || s === 'on_duty') return false;
+        return s === 'absent' || (!s && workHours < 4);
+    }).length;
+    return roundLeave(fullAbsent + (actualHalfDays * 0.5));
+};
+
+const getWeekOffCount = (employee) => {
+    if (!Array.isArray(employee?.history) || employee.history.length === 0) return Number(employee?.weekOff || 0);
+    return employee.history.filter((d) => {
+        const s = String(d?.status || '').toLowerCase();
+        return s === 'weekly_off' || s === 'weekoff' || s === 'off';
+    }).length;
+};
+
+const getHolidayCount = (employee) => {
+    if (!Array.isArray(employee?.history) || employee.history.length === 0) return Number(employee?.holiday || 0);
+    return employee.history.filter((d) => {
+        const s = String(d?.status || '').toLowerCase();
+        return s === 'holiday';
+    }).length;
+};
+
+const getTotalWeekOffAndHoliday = (employee) => {
+    return getWeekOffCount(employee) + getHolidayCount(employee);
+};
+
+const getLeaveCountForReport = (employee) => {
+    const halfDayLeaves = getHalfDayLeaveCountForReport(employee);
+    const fullDayLeaves = getFullDayLeaveCountForReport(employee);
+    return roundLeave(fullDayLeaves + (halfDayLeaves * 0.5));
+};
+
+const calculateEmployeeLeaveBreakdown = (employee, reportMetricsById = null) => {
+    const metrics = reportMetricsById ? (reportMetricsById.get(employee?.id || employee?._id) || {}) : employee;
+    const openingBalance = roundLeave(Number(metrics?.opening_balance || employee?.opening_balance || 0));
+    const completeLeaves = getLeaveCountForReport(employee);
+
+    if (!Array.isArray(employee?.history) || employee.history.length === 0) {
+        const plTaken = roundLeave(Math.min(openingBalance, completeLeaves));
+        const lwpTaken = roundLeave(Math.max(0, completeLeaves - openingBalance));
+        const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
+        return { openingBalance, plTaken, lwpTaken, availableBalance };
+    }
+
+    let explicitLwp = 0;
+    let explicitPl = 0;
+
+    employee.history.forEach((day) => {
+        const s = String(day?.status || '').toLowerCase();
+        const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
+        const isHalfLeave = isHalfDayLeave(day);
+
+        if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday') return;
+
+        if (isHalfLeave || (s === 'half_day' && lt)) {
+            if (isLwpLeave(lt)) {
+                explicitLwp += 0.5;
+            } else {
+                explicitPl += 0.5;
+            }
+        } else if (s === 'leave' || s === 'pending_leave') {
+            if (isLwpLeave(lt)) {
+                explicitLwp += 1.0;
+            } else {
+                explicitPl += 1.0;
+            }
+        }
+    });
+
+    const plTaken = roundLeave(Math.min(openingBalance, explicitPl));
+    const lwpTaken = roundLeave(explicitLwp + Math.max(0, explicitPl - openingBalance));
+    const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
+
+    return { openingBalance, plTaken, lwpTaken, availableBalance };
+};
+
+const getTotalWorkingDays = (employee, reportMetricsById = null) => {
+    const presentDays = getPresentDaysForReport(employee);
+    const { plTaken } = calculateEmployeeLeaveBreakdown(employee, reportMetricsById);
+    const holidayCount = getHolidayCount(employee);
+    const weekOffCount = getWeekOffCount(employee);
+    return roundLeave(presentDays + plTaken + holidayCount + weekOffCount);
+};
 
 const getCalendarStatusClass = (status = '') => {
     const normalized = String(status || '').toLowerCase();
@@ -672,48 +874,6 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         return m.format('YYYY-MM-DDTHH:mm');
     };
 
-    const applyStatusModeTimes = (form, statusValue, shiftIdValue) => {
-        const statusNormalized = String(statusValue || '').toLowerCase();
-        const selectedShift = assignedShiftOptions.find((s) => String(s._id) === String(shiftIdValue)) || assignedShiftOptions[0] || null;
-
-        if (statusNormalized === 'absent' || statusNormalized === 'leave' || statusNormalized === 'weekly_off' || statusNormalized === 'holiday') {
-            return { ...form, status: statusNormalized, first_in: '', last_out: '' };
-        }
-
-        const startTime = selectedShift?.start_time || '10:00';
-        const endTime = selectedShift?.end_time || '19:00';
-        const firstInValue = toEditDateTime(form.attendance_date, startTime);
-        let lastOutValue = toEditDateTime(form.attendance_date, endTime);
-
-        // Midnight Shift Handling: If end time is objectively before start time, it belongs to next day
-        if (moment(lastOutValue).isBefore(moment(firstInValue))) {
-            lastOutValue = moment(lastOutValue).add(1, 'day').format('YYYY-MM-DDTHH:mm');
-        }
-
-        return {
-            ...form,
-            status: statusNormalized || 'present',
-            half_day_session: null,
-            first_in: firstInValue,
-            last_out: lastOutValue
-        };
-    };
-
-    useEffect(() => {
-        if (!editingId || !shouldForceStatusCorrection || editForm.correction_mode !== 'time_correction') return;
-
-        setAutoSwitchHintShown(true);
-        setEditForm((prev) => {
-            const nextMode = {
-                ...prev,
-                correction_mode: 'status_correction',
-                apply_status_correction: true,
-                apply_time_correction: true
-            };
-            return applyStatusModeTimes(nextMode, nextMode.status || 'present', nextMode.shift_id);
-        });
-    }, [editingId, shouldForceStatusCorrection, editForm.correction_mode]);
-
     const handleApplyFullMonthPresence = async (e) => {
         e.preventDefault();
         if (!selectedEmp) return;
@@ -754,18 +914,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     };
 
     const saveEdit = async () => {
-        const mode = String(editForm.correction_mode || '').toLowerCase();
-
-        // Validation for Time Correction
-        if (mode === 'time_correction') {
-            if (!editForm.shift_id) {
-                toast.error('Please assign shift policy to this user');
-                return;
-            }
-            if (!editForm.first_in || !editForm.last_out) {
-                toast.error('Please provide both Punch-In and Punch-Out times');
-                return;
-            }
+        if (editForm.first_in && editForm.last_out) {
             if (moment(editForm.last_out).isBefore(moment(editForm.first_in))) {
                 toast.error('Punch-Out cannot be before Punch-In');
                 return;
@@ -780,9 +929,9 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         setSaving(true);
         const payload = {
             ...editForm,
-                    status: editForm.status === 'pending_leave' ? 'leave' : editForm.status,
-            apply_status_correction: mode === 'status_correction',
-            apply_time_correction: mode === 'time_correction'
+            status: editForm.status === 'pending_leave' ? 'leave' : editForm.status,
+            first_in: editForm.first_in || null,
+            last_out: editForm.last_out || null
         };
 
         try {
@@ -799,31 +948,13 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             fetchReport();
         } catch (err) {
             const apiErrorCode = err?.error || err?.code || err?.response?.data?.error || err?.response?.data?.code;
-            const apiMessage = err?.message || err?.response?.data?.message || '';
-            const apiMessageLower = String(apiMessage).toLowerCase();
+            const apiMessage = err?.message || err?.response?.data?.message || 'Update failed';
 
             if (apiErrorCode === 'PENDING_LEAVE_ACTION_REQUIRED') {
                 toast.error(apiMessage || 'Pending leave exists for this date. Approve, reject, or withdraw it before adjusting attendance.');
                 return;
             }
-
-            const shouldAutoSwitchToTimeUnchanged =
-                apiErrorCode === 'CONFLICT_STATUS_TIME_CORRECTION' ||
-                (apiMessageLower.includes('time correction is not applicable') && apiMessageLower.includes('status'));
-
-            if (shouldAutoSwitchToTimeUnchanged) {
-                setAutoSwitchHintShown(true);
-                setEditForm((prev) => ({
-                    ...prev,
-                    correction_mode: 'status_correction_time_unchanged',
-                    apply_status_correction: true,
-                    apply_time_correction: false
-                }));
-                toast.info('Switched to Status Correction (Time Unchanged). Please verify and save again.');
-                return;
-            }
-
-            toast.error(apiMessage || 'Update failed');
+            toast.error(apiMessage);
         }
         finally { setSaving(false); }
     };
@@ -849,30 +980,20 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     };
 
     const startEdit = (rec, overrideDate = null) => {
-        const employee = profileData?.employee || {};
         const recordShiftId = rec.shift_id?._id || rec.shift_id || '';
         const defaultShiftId = recordShiftId || assignedShiftOptions?.[0]?._id || '';
-
-        const hasPunchIn = Boolean(rec.first_in);
-        const defaultCorrectionMode = hasPunchIn ? 'time_correction' : 'status_correction';
 
         const baseForm = {
             attendance_date: overrideDate || rec.attendance_date,
             employee_id: selectedEmp.id,
-            correction_mode: defaultCorrectionMode,
-            apply_status_correction: defaultCorrectionMode === 'status_correction',
-            apply_time_correction: defaultCorrectionMode === 'time_correction',
             shift_id: defaultShiftId,
             status: rec.status || 'present',
             half_day_session: rec.half_day_session || 'first_half',
-            first_in: rec.first_in ? moment(rec.first_in).format('YYYY-MM-DDTHH:mm') :
-                (rec._id ? '' : toEditDateTime(rec.attendance_date, assignedShiftOptions?.[0]?.start_time || '10:00')),
-            last_out: rec.last_out ? moment(rec.last_out).format('YYYY-MM-DDTHH:mm') :
-                (rec._id ? '' : toEditDateTime(rec.attendance_date, assignedShiftOptions?.[0]?.end_time || '19:00')),
+            first_in: rec.first_in ? moment(rec.first_in).format('YYYY-MM-DDTHH:mm') : '',
+            last_out: rec.last_out ? moment(rec.last_out).format('YYYY-MM-DDTHH:mm') : '',
             remarks: rec.remarks || ''
         };
         setEditingId(rec._id || 'new');
-        setHasInitialPunchIn(hasPunchIn);
         setEditForm(baseForm);
     };
 
@@ -928,13 +1049,15 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             return false;
         };
 
-        // Full days present (count of >= 8h or marked present/late, strictly without fractional 0.5 for half days)
+        // Full days present (count of >= 8h or marked present/late, plus 0.5 per half day)
         const getPresentDaysForReport = (employee) => {
+            const actualHalfDays = getActualHalfDays(employee);
             if (!Array.isArray(employee.history) || employee.history.length === 0) {
-                return Number(employee.present || 0);
+                return roundLeave(Number(employee.present || 0) + (actualHalfDays * 0.5));
             }
-            return employee.history.filter((day) => {
+            const fullPresent = employee.history.filter((day) => {
                 const s = String(day?.status || '').toLowerCase();
+                if (s === 'none' || s === '' || s === 'future') return false;
                 if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday' || s === 'leave') return false;
                 if (isHalfDayLeave(day)) return false;
 
@@ -945,10 +1068,13 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                     workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
                 }
 
+                if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && !day?.is_half_day && s !== 'half_day') return true;
+                if (s === 'half_day' || day?.is_half_day) return false;
                 if (workHours >= 8) return true;
                 if (workHours >= 4) return false; // Half day
-                return (s === 'present' || s === 'late' || s === 'present_late') && workHours === 0 && !day?.first_in;
+                return false;
             }).length;
+            return roundLeave(fullPresent + (actualHalfDays * 0.5));
         };
 
         const getActualHalfDays = (employee) => {
@@ -956,8 +1082,12 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
 
             return employee.history.filter((day) => {
                 const s = String(day?.status || '').toLowerCase();
+                if (s === 'none' || s === '' || s === 'future') return false;
                 if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday' || s === 'leave') return false;
                 if (isHalfDayLeave(day)) return false;
+
+                if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && !day?.is_half_day && s !== 'half_day') return false;
+                if (s === 'half_day' || day?.is_half_day) return true;
 
                 let workHours = 0;
                 if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
@@ -987,13 +1117,20 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             }).length;
         };
 
-        // Absent days (unauthorized/unexcused absence with <4h worked and NO approved leave)
+        // Absent days (unauthorized/unexcused absence with <4h worked and NO approved leave + 0.5 per half day)
         const getAbsentDaysForReport = (employee) => {
-            if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.absent || 0);
-            return employee.history.filter((day) => {
+            const actualHalfDays = getActualHalfDays(employee);
+            if (!Array.isArray(employee.history) || employee.history.length === 0) {
+                return roundLeave(Number(employee.absent || 0) + (actualHalfDays * 0.5));
+            }
+            const fullAbsent = employee.history.filter((day) => {
                 const s = String(day?.status || '').toLowerCase();
                 const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
                 const isHalfLeave = isHalfDayLeave(day);
+
+                // If future date or status is 'none', it is NOT absent
+                if (s === 'none' || s === '' || s === 'future') return false;
+                if (day?.date && moment(day.date).isAfter(moment().endOf('day'))) return false;
 
                 if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday') return false;
                 if (s === 'leave' || s === 'pending_leave' || isHalfLeave || lt) return false;
@@ -1006,9 +1143,38 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 }
 
                 if (workHours >= 4) return false;
-                if ((s === 'present' || s === 'late' || s === 'present_late') && workHours === 0 && !day?.first_in) return false;
-                return true;
+                if (s === 'present' || s === 'late' || s === 'present_late' || s === 'half_day' || s === 'on_duty') return false;
+                return s === 'absent' || (!s && workHours < 4);
             }).length;
+            return roundLeave(fullAbsent + (actualHalfDays * 0.5));
+        };
+
+        const getWeekOffCount = (employee) => {
+            if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.weekOff || 0);
+            return employee.history.filter((d) => {
+                const s = String(d?.status || '').toLowerCase();
+                return s === 'weekly_off' || s === 'weekoff' || s === 'off';
+            }).length;
+        };
+
+        const getHolidayCount = (employee) => {
+            if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.holiday || 0);
+            return employee.history.filter((d) => {
+                const s = String(d?.status || '').toLowerCase();
+                return s === 'holiday';
+            }).length;
+        };
+
+        const getTotalWeekOffAndHoliday = (employee) => {
+            return getWeekOffCount(employee) + getHolidayCount(employee);
+        };
+
+        const getTotalWorkingDays = (employee) => {
+            const presentDays = getPresentDaysForReport(employee);
+            const { plTaken } = calculateEmployeeLeaveBreakdown(employee);
+            const holidayCount = getHolidayCount(employee);
+            const weekOffCount = getWeekOffCount(employee);
+            return roundLeave(presentDays + plTaken + holidayCount + weekOffCount);
         };
 
         // Complete leaves = sum of [Full Day Leaves] + (0.5 * [Half Day Leaves])
@@ -1098,10 +1264,16 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             if (isHalfLeave) {
                 return `Half Day (${leaveCode})`;
             }
+            if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && !day?.is_half_day && statusLower !== 'half_day') {
+                return 'Present';
+            }
+            if (statusLower === 'half_day' || day?.is_half_day) {
+                return 'Half Day';
+            }
             if (workHours >= 8 || (workHours === 0 && !day?.first_in && (statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late'))) {
                 return 'Present';
             }
-            if (workHours >= 4 || statusLower === 'half_day') {
+            if (workHours >= 4) {
                 return 'Half Day';
             }
             if (statusLower === 'incomplete' || statusLower === 'missed_punch') return 'Missed Punch';
@@ -1148,7 +1320,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         } else {
             // Default: organization-wise
             processedFiltered.forEach(e => {
-                const co = e.company_name?.trim() || 'Unassigned';
+                const rawCo = (e.company_name || '').trim();
+                const co = (!rawCo || rawCo === '---' || rawCo === '—' || rawCo === '--' || rawCo === '-') ? 'Unassigned' : rawCo;
                 if (!byGroup[co]) byGroup[co] = [];
                 byGroup[co].push(e);
             });
@@ -1158,10 +1331,12 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         const METRIC_STYLES = {
             present:     { bg: 'FFECFDF5', fg: 'FF047857', bd: 'FFA7F3D0' },
             absent:      { bg: 'FFFEF2F2', fg: 'FFB91C1C', bd: 'FFFECACA' },
-            halfDay:     { bg: 'FFEFF6FF', fg: 'FF1D4ED8', bd: 'FFBFDBFE' },
+            totWorking:  { bg: 'FFF0FDF4', fg: 'FF166534', bd: 'FFBBF7D0' },
             hdLeaves:    { bg: 'FFF5F3FF', fg: 'FF6D28D9', bd: 'FFDDD6FE' },
             fdLeaves:    { bg: 'FFEEF2FF', fg: 'FF4338CA', bd: 'FFC7D2FE' },
             compLeaves:  { bg: 'FFFAF5FF', fg: 'FF7E22CE', bd: 'FFE9D5FF' },
+            weekOff:     { bg: 'FFF8FAFC', fg: 'FF475569', bd: 'FFE2E8F0' },
+            holiday:     { bg: 'FFFEFCE8', fg: 'FFA16207', bd: 'FFFEF08A' },
             openBal:     { bg: 'FFFFFBEB', fg: 'FFB45309', bd: 'FFFDE68A' },
             plTaken:     { bg: 'FFFFF7ED', fg: 'FFC2410C', bd: 'FFFED7AA' },
             lwpTaken:    { bg: 'FFFEF2F2', fg: 'FF991B1B', bd: 'FFFECACA' },
@@ -1176,25 +1351,29 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             // Set column properties/widths
             ws.columns = [
                 { key: 'col1', width: 28 }, // Employee/Date
-                { key: 'col2', width: 13 }, // Present/Day
-                { key: 'col3', width: 30 }, // Absent/Shift
-                { key: 'col4', width: 17 }, // HalfDay/Status
+                { key: 'col2', width: 20 }, // Total Working Days
+                { key: 'col3', width: 13 }, // Present/Day
+                { key: 'col4', width: 13 }, // Absent/Shift
                 { key: 'col5', width: 18 }, // HalfDayLeaves / InTime
                 { key: 'col6', width: 18 }, // FullDayLeaves / OutTime
-                { key: 'col7', width: 18 }, // CompleteLeaves / TotalHours
-                { key: 'col8', width: 28 }, // OpeningBalance / Late In/Out
-                { key: 'col9', width: 14 }, // PL Taken
-                { key: 'col10', width: 14 }, // LWP Taken
-                { key: 'col11', width: 18 }, // Available Balance
-                { key: 'col12', width: 18 }  // Avg Hours/Day
+                { key: 'col7', width: 18 }, // CompleteLeaves (Total PL Taken) / TotalHours
+                { key: 'col8', width: 14 }, // LWP Taken
+                { key: 'col9', width: 14 }, // Week Off
+                { key: 'col10', width: 14 }, // Holiday
+                { key: 'col11', width: 6 },  // Spacer 1
+                { key: 'col12', width: 6 }, // Spacer 2
+                { key: 'col13', width: 28 }, // OpeningBalance / Late In/Out
+                { key: 'col14', width: 14 }, // PL Taken
+                { key: 'col15', width: 18 }, // Available Balance
+                { key: 'col16', width: 18 }  // Avg Hours/Day
             ];
 
             // ── 1. Master Title Block at Top of Sheet ───────────────────────
             const r1 = ws.addRow([`${groupName.toUpperCase()} — ATTENDANCE & LEAVE REGISTER`]);
             const r2 = ws.addRow([`Period: ${moment(startDate).format('DD MMM YYYY')} to ${moment(endDate).format('DD MMM YYYY')}   |   Generated on: ${moment().format('DD-MMM-YYYY HH:mm')}   |   Staff Count: ${employees.length}`]);
             
-            ws.mergeCells(r1.number, 1, r1.number, 12);
-            ws.mergeCells(r2.number, 1, r2.number, 12);
+            ws.mergeCells(r1.number, 1, r1.number, 16);
+            ws.mergeCells(r2.number, 1, r2.number, 16);
 
             r1.height = 30;
             r1.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
@@ -1209,12 +1388,13 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             ws.addRow([]); // Blank spacer
 
             // ── 2. Master Summary Table (All Employees) ───────────────────
-            const COLS = ['Employee', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hours/Day'];
+            const openBalHeader = `${moment(startDate).isValid() ? moment(startDate).format('MMMM') : moment().format('MMMM')} Opening Balance`;
+            const COLS = ['Employee', 'Total Working Days', 'Present', 'Absent', 'Half Day PL', 'Full Day PL', 'Total PL Taken', 'LWP Taken', 'Week Off', 'Holiday', '', '', openBalHeader, 'PL Taken', 'Available Balance', 'Avg Hours/Day'];
             const sumHeaderRow = ws.addRow(COLS);
             sumHeaderRow.height = 26;
             styleHeader(sumHeaderRow, 'FF0F172A', 'FFFFFFFF');
 
-            let grandPresent = 0, grandAbsent = 0, grandHalfDay = 0;
+            let grandPresent = 0, grandAbsent = 0, grandWeekOff = 0, grandHoliday = 0, grandTotalWorkingDays = 0;
             let grandHdLeaves = 0, grandFdLeaves = 0, grandCompLeaves = 0;
             let grandOpenBal = 0, grandPlTaken = 0, grandLwpTaken = 0, grandAvailBal = 0;
 
@@ -1222,7 +1402,9 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 const { openingBalance, plTaken, lwpTaken, availableBalance } = calculateEmployeeLeaveBreakdown(e);
                 const presentDays = getPresentDaysForReport(e);
                 const absentDays = getAbsentDaysForReport(e);
-                const actualHalfDays = getActualHalfDays(e);
+                const weekOffCount = getWeekOffCount(e);
+                const holidayCount = getHolidayCount(e);
+                const totalWorkingDays = getTotalWorkingDays(e);
                 const halfDayLeaves = getHalfDayLeaveCountForReport(e);
                 const fullDayLeaves = getFullDayLeaveCountForReport(e);
                 const completeLeaves = getLeaveCountForReport(e);
@@ -1234,7 +1416,9 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
 
                 grandPresent += presentDays;
                 grandAbsent += absentDays;
-                grandHalfDay += actualHalfDays;
+                grandWeekOff += weekOffCount;
+                grandHoliday += holidayCount;
+                grandTotalWorkingDays += totalWorkingDays;
                 grandHdLeaves += halfDayLeaves;
                 grandFdLeaves += fullDayLeaves;
                 grandCompLeaves += completeLeaves;
@@ -1248,15 +1432,19 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
 
                 const sumValRow = ws.addRow([
                     e.name,
+                    totalWorkingDays,
                     presentDays,
                     absentDays,
-                    actualHalfDays,
                     halfDayLeaves,
                     fullDayLeaves,
                     completeLeaves,
+                    lwpT,
+                    weekOffCount,
+                    holidayCount,
+                    '',
+                    '',
                     openB,
                     plT,
-                    lwpT,
                     availB,
                     e.avgHours || '—',
                 ]);
@@ -1268,16 +1456,18 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 nameCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
 
                 const metricConfigs = [
-                    [2, METRIC_STYLES.present],
-                    [3, METRIC_STYLES.absent],
-                    [4, METRIC_STYLES.halfDay],
+                    [2, METRIC_STYLES.totWorking],
+                    [3, METRIC_STYLES.present],
+                    [4, METRIC_STYLES.absent],
                     [5, METRIC_STYLES.hdLeaves],
                     [6, METRIC_STYLES.fdLeaves],
                     [7, METRIC_STYLES.compLeaves],
-                    [8, METRIC_STYLES.openBal],
-                    [9, METRIC_STYLES.plTaken],
-                    [10, METRIC_STYLES.lwpTaken],
-                    [11, METRIC_STYLES.availBal],
+                    [8, METRIC_STYLES.lwpTaken],
+                    [9, METRIC_STYLES.weekOff],
+                    [10, METRIC_STYLES.holiday],
+                    [13, METRIC_STYLES.openBal],
+                    [14, METRIC_STYLES.plTaken],
+                    [15, METRIC_STYLES.availBal],
                 ];
 
                 metricConfigs.forEach(([col, style]) => {
@@ -1287,7 +1477,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                     cell.alignment = { horizontal: 'center', vertical: 'middle' };
                 });
 
-                const avgCell = sumValRow.getCell(12);
+                const avgCell = sumValRow.getCell(16);
                 avgCell.font = { name: 'Segoe UI', size: 10, color: { argb: METRIC_STYLES.avgHours.fg } };
                 avgCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: METRIC_STYLES.avgHours.bg } };
                 avgCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -1341,8 +1531,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                             : 'GENERAL SHIFT 09:00-17:30';
                     }
 
-                    const inStr = day.first_in ? moment(day.first_in).tz('Asia/Kolkata').format('h:mm A') : '';
-                    const outStr = day.last_out ? moment(day.last_out).tz('Asia/Kolkata').format('h:mm A') : '';
+                    const inStr = day.first_in ? moment(day.first_in).format('h:mm A') : '';
+                    const outStr = day.last_out ? moment(day.last_out).format('h:mm A') : '';
 
                     let hoursStr = '';
                     let workHours = 0;
@@ -1387,9 +1577,13 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                         } else {
                             statusLabel = 'LWP';
                         }
+                    } else if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && !day?.is_half_day && statusLower !== 'half_day') {
+                        statusLabel = 'Present';
+                    } else if (statusLower === 'half_day' || day?.is_half_day) {
+                        statusLabel = 'Half Day';
                     } else if (workHours >= 8 || (workHours === 0 && !day?.first_in && (statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late'))) {
                         statusLabel = 'Present';
-                    } else if (workHours >= 4 || statusLower === 'half_day') {
+                    } else if (workHours >= 4) {
                         statusLabel = 'Half Day';
                     } else if (statusLower === 'incomplete' || statusLower === 'missed_punch') {
                         statusLabel = 'Missed Punch';
@@ -1808,17 +2002,23 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                         <th>Employee</th>
                                         <th>In/Out</th>
                                         <th>Correction</th>
-                                        <th style={{ textAlign: 'center' }}>P</th>
-                                        <th style={{ textAlign: 'center' }}>A</th>
-                                        <th style={{ textAlign: 'center' }}>L</th>
-                                        <th style={{ textAlign: 'center' }}>HD</th>
-                                        <th style={{ textAlign: 'center' }}>LV</th>
+                                        <th style={{ textAlign: 'center' }} title="Present Days">P</th>
+                                        <th style={{ textAlign: 'center' }} title="Absent Days (including 0.5 per half day)">A</th>
+                                        <th style={{ textAlign: 'center' }} title="Late Count">L</th>
+                                        <th style={{ textAlign: 'center' }} title="Leave Count">LV</th>
+                                        <th style={{ textAlign: 'center' }} title="Total Week Off and Holiday">WO+HD</th>
+                                        <th style={{ textAlign: 'center' }} title="Total Working Days (Present + PL + Holiday + Week Off)">Tot Work</th>
                                         <th>Work Hrs</th>
                                         <th style={{ textAlign: 'right' }}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filtered.length > 0 ? filtered.map(emp => (
+                                    {filtered.length > 0 ? filtered.map(emp => {
+                                        const pCount = getPresentDaysForReport(emp);
+                                        const aCount = getAbsentDaysForReport(emp);
+                                        const woHdCount = getTotalWeekOffAndHoliday(emp);
+                                        const totWork = getTotalWorkingDays(emp);
+                                        return (
                                         <tr key={emp.id} className="ar-row">
                                             <td onClick={() => openDrawer(emp, 'attendance')}>
                                                 <div className="ar-emp-cell">
@@ -1878,11 +2078,12 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                                     View
                                                 </button>
                                             </td>
-                                            <td style={{ textAlign: 'center' }}><span className="ar-count ar-c-green">{emp.present}</span></td>
-                                            <td style={{ textAlign: 'center' }}><span className="ar-count ar-c-red">{emp.absent}</span></td>
+                                            <td style={{ textAlign: 'center' }}><span className="ar-count ar-c-green">{pCount}</span></td>
+                                            <td style={{ textAlign: 'center' }}><span className="ar-count ar-c-red">{aCount}</span></td>
                                             <td style={{ textAlign: 'center' }}><span className="ar-count ar-c-amber">{emp.late}</span></td>
-                                            <td style={{ textAlign: 'center' }}><span className="ar-count ar-c-blue">{emp.halfDay || 0}</span></td>
                                             <td style={{ textAlign: 'center' }}><span className="ar-count ar-c-purple">{emp.leaves || 0}</span></td>
+                                            <td style={{ textAlign: 'center' }}><span className="ar-count" style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>{woHdCount}</span></td>
+                                            <td style={{ textAlign: 'center' }}><span className="ar-count" style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontWeight: 800 }}>{totWork}</span></td>
                                             <td>
                                                 <div className="ar-hours-wrap">
                                                     <span className="ar-hours-val">{emp.avgHours} avg.</span>
@@ -1901,8 +2102,9 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                                 </div>
                                             </td>
                                         </tr>
-                                    )) : (
-                                        <tr><td colSpan={10} className="ar-empty-row">No data found for the selected range.</td></tr>
+                                    );
+                                    }) : (
+                                        <tr><td colSpan={11} className="ar-empty-row">No data found for the selected range.</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -2304,194 +2506,77 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                 ℹ️ <strong>No punch-in found:</strong> Time Correction and Status Correction (Time Unchanged) are disabled. Use Status Correction.
                             </div>
                         )} */}
-                        <div style={{ display: 'flex', gap: '16px', marginBottom: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: isTimeCorrectionDisabled ? '#ccc' : '#334155', opacity: isTimeCorrectionDisabled ? 0.5 : 1, cursor: isTimeCorrectionDisabled ? 'not-allowed' : 'pointer' }} title={!hasInitialPunchIn ? 'Not available when no punch-in exists for this date' : isNonWorkingStatus(editForm.status) ? 'Not applicable for non-working statuses' : ''}>
-                                <input
-                                    type="radio"
-                                    name="correction_mode"
-                                    disabled={isTimeCorrectionDisabled}
-                                    checked={editForm.correction_mode === 'time_correction'}
-                                    onChange={() => setEditForm((prev) => ({ ...prev, correction_mode: 'time_correction', apply_status_correction: false, apply_time_correction: true }))}
-                                />
-                                Time Correction
-                            </label>
-                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: '#334155' }}>
-                                <input
-                                    type="radio"
-                                    name="correction_mode"
-                                    checked={editForm.correction_mode === 'status_correction'}
-                                    onChange={() => {
-                                        setEditForm((prev) => {
-                                            const nextMode = {
-                                                ...prev,
-                                                correction_mode: 'status_correction',
-                                                apply_status_correction: true,
-                                                   apply_time_correction: false
-                                            };
-                                            return applyStatusModeTimes(nextMode, nextMode.status || 'present', nextMode.shift_id);
-                                        });
-                                    }}
-                                />
-                                Status Correction
-                            </label>
-                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: !hasInitialPunchIn ? '#ccc' : '#334155', opacity: !hasInitialPunchIn ? 0.5 : 1, cursor: !hasInitialPunchIn ? 'not-allowed' : 'pointer' }} title={!hasInitialPunchIn ? 'Not available when no punch-in exists for this date' : ''}>
-                                <input
-                                    type="radio"
-                                    name="correction_mode"
-                                    disabled={!hasInitialPunchIn}
-                                    checked={editForm.correction_mode === 'status_correction_time_unchanged'}
-                                    onChange={() => setEditForm((prev) => ({
-                                        ...prev,
-                                        correction_mode: 'status_correction_time_unchanged',
-                                        apply_status_correction: true,
-                                        apply_time_correction: false
-                                    }))}
-                                />
-                                Status Correction (Time Unchanged)
-                            </label>
-                        </div>
-                        {autoSwitchHintShown && (
-                            <div className="ar-alert-box" style={{ backgroundColor: '#e0f7f4', color: '#0d5d5a', padding: '10px', borderRadius: '4px', fontSize: '13px', marginBottom: '15px', border: '1px solid #80dedb' }}>
-                                ℹ️ <strong>Auto-switched mode:</strong> Time correction is not applicable for holidays/leaves/week off. Switched to Status Correction (Time Unchanged).
-                            </div>
-                        )}
                         <div className="ar-edit-grid">
-                            {editForm.correction_mode === 'status_correction' || editForm.correction_mode === 'status_correction_time_unchanged' ? (
-                                <>
-                                    <div className="ar-edit-field">
-                                        <label>Status</label>
-                                        <select
-                                            value={editForm.status}
-                                            onChange={e => {
-                                                const nextStatus = e.target.value;
-                                                // Auto-switch to time-unchanged mode if selecting non-working status
-                                                if (isNonWorkingStatus(nextStatus) && editForm.correction_mode !== 'status_correction_time_unchanged') {
-                                                    setAutoSwitchHintShown(true);
-                                                    setEditForm((prev) => ({
-                                                        ...prev,
-                                                        status: nextStatus,
-                                                        correction_mode: 'status_correction_time_unchanged',
-                                                        apply_status_correction: true,
-                                                        apply_time_correction: false,
-                                                        first_in: '',
-                                                        last_out: '',
-                                                        half_day_session: nextStatus === 'half_day' ? (prev.half_day_session || 'first_half') : null
-                                                    }));
-                                                } else {
-                                                    setAutoSwitchHintShown(false);
-                                                    setEditForm((prev) => {
-                                                        if (prev.correction_mode === 'status_correction_time_unchanged') {
-                                                            return {
-                                                                ...prev,
-                                                                status: nextStatus,
-                                                                half_day_session: nextStatus === 'half_day' ? (prev.half_day_session || 'first_half') : null
-                                                            };
-                                                        }
-                                                        return applyStatusModeTimes({ ...prev }, nextStatus, prev.shift_id);
-                                                    });
-                                                }
-                                            }}
-                                        >
-                                            <option value="present">Present (P)</option>
-                                            <option value="absent">Absent (A)</option>
-                                            <option value="half_day">Half Day</option>
-                                            <option value="leave">Leave</option>
-                                            <option value="weekly_off">Weekly Off</option>
-                                            <option value="holiday">Holiday</option>
-                                        </select>
-                                    </div>
-                                    {editForm.status === 'half_day' && (
-                                        <div className="ar-edit-field">
-                                            <label>Half Day Session</label>
-                                            <select
-                                                value={editForm.half_day_session || 'first_half'}
-                                                onChange={(e) => setEditForm((prev) => ({ ...prev, half_day_session: e.target.value }))}
-                                            >
-                                                <option value="first_half">First Half</option>
-                                                <option value="second_half">Second Half</option>
-                                            </select>
-                                        </div>
-                                    )}
-                                    <div className="ar-edit-field">
-                                        <label>Assigned Shift</label>
-                                        <select
-                                            value={editForm.shift_id || ''}
-                                            onChange={(e) => {
-                                                const nextShiftId = e.target.value;
-                                                setEditForm((prev) => {
-                                                    const next = { ...prev, shift_id: nextShiftId };
-                                                    if (prev.correction_mode === 'status_correction') {
-                                                        return applyStatusModeTimes(next, next.status, nextShiftId);
-                                                    }
-                                                    return next;
-                                                });
-                                            }}
-                                        >
-                                            {assignedShiftOptions.map((s) => (
-                                                <option key={s._id} value={s._id}>
-                                                    {s.shift_name || 'Shift'} ({s.start_time || '--:--'} - {s.end_time || '--:--'})
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="ar-edit-field">
-                                        <label>Official In-Time</label>
-                                        <input
-                                            type="datetime-local"
-                                            value={editForm.first_in || ''}
-                                            onChange={e => {
-                                                setEditForm((prev) => {
-                                                    const next = { ...prev, first_in: e.target.value };
-                                                    // Auto-derive status based on work hours
-                                                    const workHours = calculateWorkHours(next.first_in, next.last_out);
-                                                    if (workHours >= 8) {
-                                                        next.status = 'present';
-                                                    } else if (workHours >= 4) {
-                                                        next.status = 'half_day';
-                                                    } else if (workHours > 0) {
-                                                        next.status = 'incomplete';
-                                                    }
-                                                    return next;
-                                                });
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="ar-edit-field">
-                                        <label>Official Out-Time</label>
-                                        <input
-                                            type="datetime-local"
-                                            value={editForm.last_out || ''}
-                                            onChange={e => {
-                                                setEditForm((prev) => {
-                                                    const next = { ...prev, last_out: e.target.value };
-                                                    // Auto-derive status based on work hours
-                                                    const workHours = calculateWorkHours(next.first_in, next.last_out);
-                                                    if (workHours >= 8) {
-                                                        next.status = 'present';
-                                                    } else if (workHours >= 4) {
-                                                        next.status = 'half_day';
-                                                    } else if (workHours > 0) {
-                                                        next.status = 'incomplete';
-                                                    }
-                                                    return next;
-                                                });
-                                            }}
-                                        />
-                                    </div>
-                                    <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: '#666', marginTop: '8px' }}>
-                                        💡 <strong>Time Correction Mode:</strong> Status is auto-derived from work hours. Provide both in-time and out-time for accurate status calculation.
-                                    </div>
-                                </>
+                            <div className="ar-edit-field">
+                                <label>Status</label>
+                                <select
+                                    value={editForm.status}
+                                    onChange={e => {
+                                        const nextStatus = e.target.value;
+                                        setEditForm((prev) => ({
+                                            ...prev,
+                                            status: nextStatus,
+                                            half_day_session: nextStatus === 'half_day' ? (prev.half_day_session || 'first_half') : null
+                                        }));
+                                    }}
+                                >
+                                    <option value="present">Present (P)</option>
+                                    <option value="absent">Absent (A)</option>
+                                    <option value="half_day">Half Day</option>
+                                    <option value="leave">Leave</option>
+                                    <option value="weekly_off">Weekly Off</option>
+                                    <option value="holiday">Holiday</option>
+                                </select>
+                            </div>
+                            <div className="ar-edit-field">
+                                <label>Assigned Shift</label>
+                                <select
+                                    value={editForm.shift_id || ''}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, shift_id: e.target.value }))}
+                                >
+                                    <option value="">Select Shift</option>
+                                    {assignedShiftOptions.map((s) => (
+                                        <option key={s._id} value={s._id}>
+                                            {s.shift_name || 'Shift'} ({s.start_time || '--:--'} - {s.end_time || '--:--'})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            {editForm.status === 'half_day' && (
+                                <div className="ar-edit-field" style={{ gridColumn: '1 / -1' }}>
+                                    <label>Half Day Session</label>
+                                    <select
+                                        value={editForm.half_day_session || 'first_half'}
+                                        onChange={(e) => setEditForm((prev) => ({ ...prev, half_day_session: e.target.value }))}
+                                    >
+                                        <option value="first_half">First Half</option>
+                                        <option value="second_half">Second Half</option>
+                                    </select>
+                                </div>
                             )}
+                            <div className="ar-edit-field">
+                                <label>Official In-Time (Punch-In)</label>
+                                <input
+                                    type="datetime-local"
+                                    value={editForm.first_in || ''}
+                                    onChange={e => setEditForm(prev => ({ ...prev, first_in: e.target.value }))}
+                                />
+                            </div>
+                            <div className="ar-edit-field">
+                                <label>Official Out-Time (Punch-Out)</label>
+                                <input
+                                    type="datetime-local"
+                                    value={editForm.last_out || ''}
+                                    onChange={e => setEditForm(prev => ({ ...prev, last_out: e.target.value }))}
+                                />
+                            </div>
                         </div>
-                        <div className="ar-edit-field" style={{ marginTop: '15px' }}><label>Administrative Remarks</label>
+                        <div className="ar-edit-field" style={{ marginTop: '15px' }}>
+                            <label>Administrative Remarks</label>
                             <textarea placeholder="Reason for change..." value={editForm.remarks} onChange={e => setEditForm({ ...editForm, remarks: e.target.value })} />
                         </div>
                         <div className="ar-edit-actions">
-                            <button className="ar-cancel" onClick={() => { setEditingId(null); setAutoSwitchHintShown(false); }}>Discard</button>
+                            <button className="ar-cancel" onClick={() => setEditingId(null)}>Discard</button>
                             <button className="ar-save" onClick={saveEdit} disabled={saving}>{saving ? 'Processing...' : 'Verify & Save'}</button>
                         </div>
                     </div>

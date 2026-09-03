@@ -16,7 +16,8 @@ function Stage2PRGeneration({ formData, handleChange, formatDateValue }) {
                      (Number(formData.odPremium) > 0) || 
                      (Number(formData.totalPolicyPremium) > 0) ||
                      (Number(formData.newPremiumAmount) > 0) ||
-                     (Number(formData.premiumAmount) > 0);
+                     (Number(formData.premiumAmount) > 0) ||
+                     (Number(formData.premium) > 0);
   if (!hasPremium) missingFields.push("Premium Amount (OD / Total Policy Premium)");
 
   const isMandatoryFilled = missingFields.length === 0;

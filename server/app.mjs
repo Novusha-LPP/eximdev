@@ -437,7 +437,7 @@ app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin || origin === "null") return callback(null, true);
-      
+
       const allowedOrigins = [
         "http://eximdev.s3-website.ap-south-1.amazonaws.com",
         "http://localhost:3000",

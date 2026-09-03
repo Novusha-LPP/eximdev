@@ -567,15 +567,7 @@ const ImportCreateJob = () => {
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL", "TQ", "SIL"];
   const beTypeOptions = ["Home", "In-Bond", "Ex-Bond", "SEZ"];
-  const portReportingOptionsSet = [
-    "(INMUN1) Mundra Sea",
-    "(INNSA1) Nhava Sheva Sea",
-    "(INPAV1) Pipavav",
-    "(INPAV6) Pipavav (Victor) Port",
-    "(INHZA1) Hazira",
-    "(INAMD4) Ahmedabad",
-    "(INCOK1) Cochin"
-  ];
+  const portReportingOptionsSet = portReportingOptions || [];
 
   const importerTypeOptions = [
     { value: 'G', label: 'Government Departments (Central & State)' },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useContext, memo } from 'react';
 import {
   FiCalendar, FiDownload, FiRefreshCw, FiSearch,
   FiChevronRight, FiChevronLeft, FiUsers, FiAlertCircle,
@@ -30,11 +30,15 @@ const isHalfDayLeave = (day) => {
   return false;
 };
 
-// Full days present (count of >= 8h or marked present/late, strictly without fractional 0.5 for half days)
+// Full days present (count of >= 8h or marked present/late, plus 0.5 for half days)
 const getPresentDaysForReport = (emp) => {
-  if (!Array.isArray(emp.history) || emp.history.length === 0) return Number(emp.present || 0);
-  return emp.history.filter((d) => {
+  const actualHalfDays = getActualHalfDays(emp);
+  if (!Array.isArray(emp.history) || emp.history.length === 0) {
+    return roundLeave(Number(emp.present || 0) + (actualHalfDays * 0.5));
+  }
+  const fullPresent = emp.history.filter((d) => {
     const s = String(d?.status || '').toLowerCase();
+    if (s === 'none' || s === '' || s === 'future') return false;
     if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday' || s === 'leave') return false;
     if (isHalfDayLeave(d)) return false;
 
@@ -45,10 +49,13 @@ const getPresentDaysForReport = (emp) => {
       workHours = moment(d.last_out).diff(moment(d.first_in), 'hours', true);
     }
 
+    if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && !d?.is_half_day && s !== 'half_day') return true;
+    if (s === 'half_day' || d?.is_half_day) return false;
     if (workHours >= 8) return true;
     if (workHours >= 4) return false; // Half day
-    return (s === 'present' || s === 'late' || s === 'present_late') && workHours === 0 && !d?.first_in;
+    return false;
   }).length;
+  return roundLeave(fullPresent + (actualHalfDays * 0.5));
 };
 
 // Half day worked count (worked 4h-8h without taking leave from quota)
@@ -56,8 +63,12 @@ const getActualHalfDays = (emp) => {
   if (!Array.isArray(emp.history) || emp.history.length === 0) return Number(emp.halfDay || 0);
   return emp.history.filter((d) => {
     const s = String(d?.status || '').toLowerCase();
+    if (s === 'none' || s === '' || s === 'future') return false;
     if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday' || s === 'leave') return false;
     if (isHalfDayLeave(d)) return false;
+
+    if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && !d?.is_half_day && s !== 'half_day') return false;
+    if (s === 'half_day' || d?.is_half_day) return true;
 
     let workHours = 0;
     if (d?.total_work_hours !== null && d?.total_work_hours !== undefined && Number(d.total_work_hours) > 0) {
@@ -86,13 +97,20 @@ const getFullDayLeaveCount = (emp) => {
   }).length;
 };
 
-// Absent days (unauthorized/unexcused absence with <4h worked and NO approved leave)
+// Absent days (unauthorized/unexcused absence with <4h worked and NO approved leave + 0.5 per half day)
 const getAbsentDaysForReport = (emp) => {
-  if (!Array.isArray(emp.history) || emp.history.length === 0) return Number(emp.absent || 0);
-  return emp.history.filter((d) => {
+  const actualHalfDays = getActualHalfDays(emp);
+  if (!Array.isArray(emp.history) || emp.history.length === 0) {
+    return roundLeave(Number(emp.absent || 0) + (actualHalfDays * 0.5));
+  }
+  const fullAbsent = emp.history.filter((d) => {
     const s = String(d?.status || '').toLowerCase();
     const lt = String(d?.leaveType || d?.leave_type || d?.leaveReason || '').trim();
     const isHalfLeave = isHalfDayLeave(d);
+
+    // If future date or status is 'none', it is NOT absent
+    if (s === 'none' || s === '' || s === 'future') return false;
+    if (d?.date && moment(d.date).isAfter(moment().endOf('day'))) return false;
 
     // If it is weekly off or holiday, it is not absent
     if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday') return false;
@@ -108,9 +126,38 @@ const getAbsentDaysForReport = (emp) => {
     }
 
     if (workHours >= 4) return false;
-    if ((s === 'present' || s === 'late' || s === 'present_late') && workHours === 0 && !d?.first_in) return false;
-    return true;
+    if (s === 'present' || s === 'late' || s === 'present_late' || s === 'half_day' || s === 'on_duty') return false;
+    return s === 'absent' || (!s && workHours < 4);
   }).length;
+  return roundLeave(fullAbsent + (actualHalfDays * 0.5));
+};
+
+const getWeekOffCount = (emp) => {
+  if (!Array.isArray(emp.history) || emp.history.length === 0) return Number(emp.weekOff || 0);
+  return emp.history.filter((d) => {
+    const s = String(d?.status || '').toLowerCase();
+    return s === 'weekly_off' || s === 'weekoff' || s === 'off';
+  }).length;
+};
+
+const getHolidayCount = (emp) => {
+  if (!Array.isArray(emp.history) || emp.history.length === 0) return Number(emp.holiday || 0);
+  return emp.history.filter((d) => {
+    const s = String(d?.status || '').toLowerCase();
+    return s === 'holiday';
+  }).length;
+};
+
+const getTotalWeekOffAndHoliday = (emp) => {
+  return getWeekOffCount(emp) + getHolidayCount(emp);
+};
+
+const getTotalWorkingDays = (emp) => {
+  const presentDays = getPresentDaysForReport(emp);
+  const { plTaken } = calculateEmployeeLeaveBreakdown(emp);
+  const holidayCount = getHolidayCount(emp);
+  const weekOffCount = getWeekOffCount(emp);
+  return roundLeave(presentDays + plTaken + holidayCount + weekOffCount);
 };
 
 // Complete leaves = sum of [Full Day Leaves] + (0.5 * [Half Day Leaves])
@@ -202,8 +249,14 @@ const formatLeaveStatusLabel = (log, workHours = 0) => {
   if (isHalfLeave) {
     return `Half Day (${leaveCode})`;
   }
+  if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && !log?.is_half_day && statusLower !== 'half_day') {
+    return 'Present';
+  }
+  if (statusLower === 'half_day' || log?.is_half_day) {
+    return 'Half Day';
+  }
   if (workHours >= 8 || (workHours === 0 && !log?.first_in && (statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late'))) return 'Present';
-  if (workHours >= 4 || statusLower === 'half_day') {
+  if (workHours >= 4) {
     return 'Half Day';
   }
   if (statusLower === 'incomplete' || statusLower === 'missed_punch') return 'Missed Punch';
@@ -317,8 +370,51 @@ const Skeleton = () => (
   </div>
 );
 
-// ── Daily Log Sub-Table ──────────────────────────────────
-const DailyLogTable = React.memo(({ history, shiftName, openingBalance = 0 }) => {
+// Calculate accurate worked hours and days with hours for an employee
+const calculateEmployeeWorkStats = (emp) => {
+  let totalHours = 0;
+  let daysWithHours = 0;
+
+  if (Array.isArray(emp?.history) && emp.history.length > 0) {
+    emp.history.forEach(day => {
+      let workHoursNum = 0;
+      if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
+        workHoursNum = Number(day.total_work_hours);
+      } else if (day?.first_in && day?.last_out) {
+        const diff = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
+        if (diff > 0 && diff < 24) workHoursNum = diff;
+      }
+      if (workHoursNum > 0 && workHoursNum < 24) {
+        totalHours += workHoursNum;
+        const statusLower = String(day?.status || '').toLowerCase();
+        const isHalf = statusLower === 'half_day' || isHalfDayLeave(day);
+        daysWithHours += isHalf ? 0.5 : 1;
+      }
+    });
+  } else if (emp?.raw_total_hours !== undefined && emp?.raw_total_present_days !== undefined && Number(emp?.raw_total_present_days) > 0) {
+    totalHours = Number(emp.raw_total_hours || 0);
+    daysWithHours = Number(emp.raw_total_present_days || 0);
+  } else if (typeof emp?.avgHours === 'string' && emp.avgHours.includes('h')) {
+    const match = emp.avgHours.match(/(\d+)\s*h(?:\s*(\d+)\s*m)?/);
+    if (match) {
+      const h = parseInt(match[1], 10) || 0;
+      const m = parseInt(match[2], 10) || 0;
+      const dec = h + (m / 60);
+      const present = Number(emp.present || 0);
+      totalHours = dec * present;
+      daysWithHours = present;
+    }
+  }
+
+  const avgHours = daysWithHours > 0 ? (totalHours / daysWithHours) : 0;
+  return {
+    totalWorkedHours: roundLeave(totalHours),
+    daysWithHours,
+    avgHours: roundLeave(avgHours),
+  };
+};
+
+const DailyLogTable = memo(({ history, shiftName, openingBalance }) => {
   const [showPopup, setShowPopup] = useState(false);
   const [useHoursMinutes, setUseHoursMinutes] = useState(true);
   const sorted = useMemo(() =>
@@ -326,18 +422,27 @@ const DailyLogTable = React.memo(({ history, shiftName, openingBalance = 0 }) =>
     [history]
   );
 
-  const enrichedHistory = useMemo(() => {
+  const { enrichedHistory, totalHours, daysWithHours } = useMemo(() => {
     let runningPl = Number(openingBalance || 0);
-    return sorted.map((log) => {
+    let totHours = 0;
+    let daysH = 0;
+
+    const list = sorted.map((log) => {
       let workHours = null;
       let workHoursNum = 0;
       if (log?.total_work_hours !== null && log?.total_work_hours !== undefined && Number(log.total_work_hours) > 0) {
         workHoursNum = Number(log.total_work_hours);
       } else if (log?.first_in && log?.last_out) {
         const diff = moment(log.last_out).diff(moment(log.first_in), 'hours', true);
-        if (diff >= 0 && diff < 24) workHoursNum = diff;
+        if (diff > 0 && diff < 24) workHoursNum = diff;
       }
-      if (workHoursNum > 0) workHours = workHoursNum;
+      if (workHoursNum > 0 && workHoursNum < 24) {
+        workHours = workHoursNum;
+        totHours += workHoursNum;
+        const statusLower = String(log?.status || '').toLowerCase();
+        const isHalf = statusLower === 'half_day' || isHalfDayLeave(log);
+        daysH += isHalf ? 0.5 : 1;
+      }
 
       const statusLower = String(log?.status || '').toLowerCase();
       const leaveType = String(log?.leaveType || log?.leave_type || log?.leave?.leave_type || log?.leaveReason || '').trim();
@@ -370,9 +475,13 @@ const DailyLogTable = React.memo(({ history, shiftName, openingBalance = 0 }) =>
         } else {
           allocatedStatus = 'LWP';
         }
+      } else if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && !log?.is_half_day && statusLower !== 'half_day') {
+        allocatedStatus = 'Present';
+      } else if (statusLower === 'half_day' || log?.is_half_day) {
+        allocatedStatus = 'Half Day';
       } else if (workHoursNum >= 8 || (workHoursNum === 0 && !log?.first_in && (statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late'))) {
         allocatedStatus = 'Present';
-      } else if (workHoursNum >= 4 || statusLower === 'half_day') {
+      } else if (workHoursNum >= 4) {
         allocatedStatus = 'Half Day';
       } else if (statusLower === 'incomplete' || statusLower === 'missed_punch') {
         allocatedStatus = 'Missed Punch';
@@ -387,10 +496,9 @@ const DailyLogTable = React.memo(({ history, shiftName, openingBalance = 0 }) =>
         statusLabel: allocatedStatus
       };
     });
-  }, [sorted, openingBalance]);
 
-  let totalHours = 0;
-  let daysWithHours = 0;
+    return { enrichedHistory: list, totalHours: totHours, daysWithHours: daysH };
+  }, [sorted, openingBalance]);
 
   const renderStatusBadge = (log) => {
     const text = log.statusLabel || formatLeaveStatusLabel(log, log.workHoursNum || 0);
@@ -498,13 +606,7 @@ const DailyLogTable = React.memo(({ history, shiftName, openingBalance = 0 }) =>
           const et = log.shift_id?.end_time || '';
           const shiftStr = sn ? (st && et ? `${sn} ${st}-${et}` : sn) : (st && et ? `${st}-${et}` : '—');
           const fdt = (v) => v ? moment(v).format('h:mm A') : '—';
-          let wh = log.workHoursNum > 0 ? log.workHoursNum : null;
-          if (wh !== null) {
-            totalHours += wh;
-            const statusLower = String(log.status || '').toLowerCase();
-            const isHalf = statusLower === 'half_day' || statusLower === 'leave';
-            daysWithHours += isHalf ? 0.5 : 1;
-          }
+          const wh = log.workHours !== null && log.workHours !== undefined ? log.workHours : null;
           return (
             <tr key={idx} className={idx % 2 === 1 ? 'log-even' : ''}>
               <td>{dt.format('DD-MM-YYYY')}</td>
@@ -851,16 +953,21 @@ const AttendanceReports = () => {
       const counts = getStatusCounts(emp.history);
       const present = getPresentDaysForReport(emp);
       const absent = getAbsentDaysForReport(emp);
-      const halfDay = getActualHalfDays(emp);
       const leaves = getLeaveCountForReport(emp);
       const halfDayLeaves = getHalfDayLeaveCount(emp);
       const fullDayLeaves = getFullDayLeaveCount(emp);
       const { openingBalance, plTaken, lwpTaken, availableBalance } = calculateEmployeeLeaveBreakdown(emp);
+      const weekOff = getWeekOffCount(emp);
+      const holiday = getHolidayCount(emp);
+      const totalWeekOffAndHoliday = getTotalWeekOffAndHoliday(emp);
+      const totalWorkingDays = getTotalWorkingDays(emp);
+      const { totalWorkedHours, daysWithHours, avgHours } = calculateEmployeeWorkStats(emp);
       return {
         ...emp,
         _present: present,
         _absent: absent,
-        _halfDay: halfDay,
+        _totalWeekOffAndHoliday: totalWeekOffAndHoliday,
+        _totalWorkingDays: totalWorkingDays,
         _leaves: leaves,
         _halfDayLeaves: halfDayLeaves,
         _fullDayLeaves: fullDayLeaves,
@@ -868,10 +975,12 @@ const AttendanceReports = () => {
         _plTaken: plTaken,
         _lwpTaken: lwpTaken,
         _availableBalance: availableBalance,
-        _weeklyOff: counts.weekly_off,
-        _holiday: counts.holiday,
+        _weeklyOff: weekOff,
+        _holiday: holiday,
         _late: counts.late,
-        _avgHours: parseFloat(emp.avgHours || 0),
+        _totalWorkedHours: totalWorkedHours,
+        _daysWithHours: daysWithHours,
+        _avgHours: avgHours,
         _statusCounts: counts,
       };
     });
@@ -972,7 +1081,9 @@ const AttendanceReports = () => {
 
   // ── Aggregate stats ────────────────────────────────────
   const stats = useMemo(() => {
-    const s = { total: processedData.length, present: 0, absent: 0, leaves: 0, halfDay: 0, weeklyOff: 0, holiday: 0, late: 0, totalHours: 0 };
+    const s = { total: processedData.length, present: 0, absent: 0, leaves: 0, halfDay: 0, weeklyOff: 0, holiday: 0, late: 0, totalHours: 0, totalDaysWithHours: 0 };
+    let empsWithHours = 0;
+    let sumEmpAvgHours = 0;
     processedData.forEach(e => {
       s.present += e._present;
       s.absent += e._absent;
@@ -981,10 +1092,15 @@ const AttendanceReports = () => {
       s.weeklyOff += e._weeklyOff;
       s.holiday += e._holiday;
       s.late += e._late;
-      s.totalHours += e._avgHours;
+      s.totalHours += Number(e._totalWorkedHours || 0);
+      s.totalDaysWithHours += Number(e._daysWithHours || 0);
+      if (e._avgHours > 0) {
+        empsWithHours++;
+        sumEmpAvgHours += e._avgHours;
+      }
     });
     s.avgAttendance = s.total > 0 && (s.present + s.absent + s.leaves) > 0 ? roundLeave((s.present / (s.present + s.absent + s.leaves)) * 100) : 0;
-    s.avgHoursPerDay = s.total > 0 ? roundLeave(s.totalHours / s.total) : 0;
+    s.avgHoursPerDay = s.totalDaysWithHours > 0 ? roundLeave(s.totalHours / s.totalDaysWithHours) : (empsWithHours > 0 ? roundLeave(sumEmpAvgHours / empsWithHours) : 0);
     return s;
   }, [processedData]);
 
@@ -1042,7 +1158,8 @@ const AttendanceReports = () => {
       } else {
         // Default: organization-wise
         processedData.forEach(e => {
-          const co = (e.company_name || '').trim() || 'Unassigned';
+          const rawCo = (e.company_name || '').trim();
+          const co = (!rawCo || rawCo === '---' || rawCo === '—' || rawCo === '--' || rawCo === '-') ? 'Unassigned' : rawCo;
           if (!byGroup[co]) byGroup[co] = [];
           byGroup[co].push(e);
         });
@@ -1069,10 +1186,12 @@ const AttendanceReports = () => {
       const METRIC_STYLES = {
         present:     { bg: 'FFECFDF5', fg: 'FF047857', bd: 'FFA7F3D0' },
         absent:      { bg: 'FFFEF2F2', fg: 'FFB91C1C', bd: 'FFFECACA' },
-        halfDay:     { bg: 'FFEFF6FF', fg: 'FF1D4ED8', bd: 'FFBFDBFE' },
+        totWorking:  { bg: 'FFF0FDF4', fg: 'FF166534', bd: 'FFBBF7D0' },
         hdLeaves:    { bg: 'FFF5F3FF', fg: 'FF6D28D9', bd: 'FFDDD6FE' },
         fdLeaves:    { bg: 'FFEEF2FF', fg: 'FF4338CA', bd: 'FFC7D2FE' },
         compLeaves:  { bg: 'FFFAF5FF', fg: 'FF7E22CE', bd: 'FFE9D5FF' },
+        weekOff:     { bg: 'FFF8FAFC', fg: 'FF475569', bd: 'FFE2E8F0' },
+        holiday:     { bg: 'FFFEFCE8', fg: 'FFA16207', bd: 'FFFEF08A' },
         openBal:     { bg: 'FFFFFBEB', fg: 'FFB45309', bd: 'FFFDE68A' },
         plTaken:     { bg: 'FFFFF7ED', fg: 'FFC2410C', bd: 'FFFED7AA' },
         lwpTaken:    { bg: 'FFFEF2F2', fg: 'FF991B1B', bd: 'FFFECACA' },
@@ -1087,25 +1206,29 @@ const AttendanceReports = () => {
         // Set column properties/widths
         ws.columns = [
           { key: 'col1', width: 28 }, // Employee/Date
-          { key: 'col2', width: 13 }, // Present/Day
-          { key: 'col3', width: 30 }, // Absent/Shift
-          { key: 'col4', width: 17 }, // HalfDay/Status
+          { key: 'col2', width: 20 }, // Total Working Days
+          { key: 'col3', width: 13 }, // Present/Day
+          { key: 'col4', width: 13 }, // Absent/Shift
           { key: 'col5', width: 18 }, // HalfDayLeaves / InTime
           { key: 'col6', width: 18 }, // FullDayLeaves / OutTime
-          { key: 'col7', width: 18 }, // CompleteLeaves / TotalHours
-          { key: 'col8', width: 28 }, // OpeningBalance / Late In/Out
-          { key: 'col9', width: 14 }, // PL Taken
-          { key: 'col10', width: 14 }, // LWP Taken
-          { key: 'col11', width: 18 }, // Available Balance
-          { key: 'col12', width: 18 }  // Avg Hours/Day
+          { key: 'col7', width: 18 }, // CompleteLeaves (Total PL Taken) / TotalHours
+          { key: 'col8', width: 14 }, // LWP Taken
+          { key: 'col9', width: 14 }, // Week Off
+          { key: 'col10', width: 14 }, // Holiday
+          { key: 'col11', width: 6 },  // Spacer 1
+          { key: 'col12', width: 6 }, // Spacer 2
+          { key: 'col13', width: 28 }, // OpeningBalance / Late In/Out
+          { key: 'col14', width: 14 }, // PL Taken
+          { key: 'col15', width: 18 }, // Available Balance
+          { key: 'col16', width: 18 }  // Avg Hours/Day
         ];
 
         // ── 1. Master Title Block at Top of Sheet ───────────────────────
         const r1 = ws.addRow([`${groupName.toUpperCase()} — ATTENDANCE & LEAVE REGISTER`]);
         const r2 = ws.addRow([`Period: ${moment(startDate).format('DD MMM YYYY')} to ${moment(endDate).format('DD MMM YYYY')}   |   Generated on: ${moment().format('DD-MMM-YYYY HH:mm')}   |   Staff Count: ${employees.length}`]);
         
-        ws.mergeCells(r1.number, 1, r1.number, 12);
-        ws.mergeCells(r2.number, 1, r2.number, 12);
+        ws.mergeCells(r1.number, 1, r1.number, 16);
+        ws.mergeCells(r2.number, 1, r2.number, 16);
 
         r1.height = 30;
         r1.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }; // Midnight slate
@@ -1120,12 +1243,13 @@ const AttendanceReports = () => {
         ws.addRow([]); // Blank spacer
 
         // ── 2. Master Summary Table (All Employees) ───────────────────
-        const COLS = ['Employee', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hours/Day'];
+        const openBalHeader = `${moment(startDate).isValid() ? moment(startDate).format('MMMM') : moment().format('MMMM')} Opening Balance`;
+        const COLS = ['Employee', 'Total Working Days', 'Present', 'Absent', 'Half Day PL', 'Full Day PL', 'Total PL Taken', 'LWP Taken', 'Week Off', 'Holiday', '', '', openBalHeader, 'PL Taken', 'Available Balance', 'Avg Hours/Day'];
         const sumHeaderRow = ws.addRow(COLS);
         sumHeaderRow.height = 26;
         styleHeader(sumHeaderRow, 'FF0F172A', 'FFFFFFFF');
 
-        let grandPresent = 0, grandAbsent = 0, grandHalfDay = 0;
+        let grandPresent = 0, grandAbsent = 0, grandWeekOff = 0, grandHoliday = 0, grandTotalWorkingDays = 0;
         let grandHdLeaves = 0, grandFdLeaves = 0, grandCompLeaves = 0;
         let grandOpenBal = 0, grandPlTaken = 0, grandLwpTaken = 0, grandAvailBal = 0;
         let grandTotalHours = 0, grandPresentDays = 0;
@@ -1139,10 +1263,15 @@ const AttendanceReports = () => {
           const plT = roundLeave(emp._plTaken);
           const lwpT = roundLeave(emp._lwpTaken);
           const availB = roundLeave(emp._availableBalance);
+          const workingDays = roundLeave(emp._totalWorkingDays);
+          const weeklyOff = roundLeave(emp._weeklyOff);
+          const holiday = roundLeave(emp._holiday);
 
           grandPresent += Number(emp._present || 0);
           grandAbsent += Number(emp._absent || 0);
-          grandHalfDay += Number(emp._halfDay || 0);
+          grandWeekOff += Number(weeklyOff || 0);
+          grandHoliday += Number(holiday || 0);
+          grandTotalWorkingDays += Number(workingDays || 0);
           grandHdLeaves += Number(emp._halfDayLeaves || 0);
           grandFdLeaves += Number(emp._fullDayLeaves || 0);
           grandCompLeaves += Number(emp._leaves || 0);
@@ -1150,20 +1279,24 @@ const AttendanceReports = () => {
           grandPlTaken += plT;
           grandLwpTaken += lwpT;
           grandAvailBal += availB;
-          grandTotalHours += Number(emp.raw_total_hours || 0);
-          grandPresentDays += Number(emp.raw_total_present_days || 0);
+          grandTotalHours += Number(emp._totalWorkedHours || emp.raw_total_hours || 0);
+          grandPresentDays += Number(emp._daysWithHours || emp.raw_total_present_days || 0);
 
           const sumValRow = ws.addRow([
             empName,
+            workingDays,
             emp._present,
             emp._absent,
-            emp._halfDay,
             emp._halfDayLeaves,
             emp._fullDayLeaves,
             emp._leaves,
+            lwpT,
+            weeklyOff,
+            holiday,
+            '',
+            '',
             openB,
             plT,
-            lwpT,
             availB,
             emp._avgHours ? emp._avgHours.toFixed(1) + 'h' : '0h'
           ]);
@@ -1177,16 +1310,18 @@ const AttendanceReports = () => {
 
           // Metric cells with soft tinted backgrounds & rich colored numbers
           const metricConfigs = [
-            [2, METRIC_STYLES.present],
-            [3, METRIC_STYLES.absent],
-            [4, METRIC_STYLES.halfDay],
+            [2, METRIC_STYLES.totWorking],
+            [3, METRIC_STYLES.present],
+            [4, METRIC_STYLES.absent],
             [5, METRIC_STYLES.hdLeaves],
             [6, METRIC_STYLES.fdLeaves],
             [7, METRIC_STYLES.compLeaves],
-            [8, METRIC_STYLES.openBal],
-            [9, METRIC_STYLES.plTaken],
-            [10, METRIC_STYLES.lwpTaken],
-            [11, METRIC_STYLES.availBal],
+            [8, METRIC_STYLES.lwpTaken],
+            [9, METRIC_STYLES.weekOff],
+            [10, METRIC_STYLES.holiday],
+            [13, METRIC_STYLES.openBal],
+            [14, METRIC_STYLES.plTaken],
+            [15, METRIC_STYLES.availBal],
           ];
 
           metricConfigs.forEach(([col, style]) => {
@@ -1197,9 +1332,10 @@ const AttendanceReports = () => {
           });
 
           // Avg hours cell
-          const avgCell = sumValRow.getCell(12);
+          const avgCell = sumValRow.getCell(16);
           avgCell.font = { name: 'Segoe UI', size: 10, color: { argb: METRIC_STYLES.avgHours.fg } };
           avgCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: METRIC_STYLES.avgHours.bg } };
+          avgCell.alignment = { horizontal: 'center', vertical: 'middle' };
           avgCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
           // Borders for all cells in the row
@@ -1254,10 +1390,11 @@ const AttendanceReports = () => {
               workHoursNum = computedDiff;
             }
             if (workHoursNum > 0 && workHoursNum < 24) {
-              wh = workHoursNum.toFixed(1) + ' hrs';
+              wh = `${workHoursNum.toFixed(1)} hrs`;
               empTotalHours += workHoursNum;
             }
 
+            const dt = moment(log.date);
             const statusLower = String(log?.status || '').toLowerCase();
             const leaveType = String(log?.leaveType || log?.leave_type || log?.leave?.leave_type || log?.leaveReason || '').trim();
             const isHalfLeave = isHalfDayLeave(log);
@@ -1288,9 +1425,13 @@ const AttendanceReports = () => {
               } else {
                 statusLabel = 'LWP';
               }
+            } else if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && !log?.is_half_day && statusLower !== 'half_day') {
+              statusLabel = 'Present';
+            } else if (statusLower === 'half_day' || log?.is_half_day) {
+              statusLabel = 'Half Day';
             } else if (workHoursNum >= 8 || (workHoursNum === 0 && !log?.first_in && (statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late'))) {
               statusLabel = 'Present';
-            } else if (workHoursNum >= 4 || statusLower === 'half_day') {
+            } else if (workHoursNum >= 4) {
               statusLabel = 'Half Day';
             } else if (statusLower === 'incomplete' || statusLower === 'missed_punch') {
               statusLabel = 'Missed Punch';
@@ -1315,8 +1456,8 @@ const AttendanceReports = () => {
             const logRowBg = isLogOdd ? 'FFF8FAFC' : 'FFFFFFFF';
 
             const dayRow = ws.addRow([
-              moment(log.date).format('DD-MM-YYYY'),
-              moment(log.date).format('ddd'),
+              dt.format('DD-MM-YYYY'),
+              dt.format('ddd'),
               shiftStr,
               statusLabel,
               fdt(log.first_in),
@@ -1401,7 +1542,7 @@ const AttendanceReports = () => {
       });
 
       const buffer = await wb.xlsx.writeBuffer();
-      const fileName = `Attendance_Report_${moment(startDate).format('MMM_YYYY')}.xlsx`;
+      const fileName = `AttendanceReport_${startDate}_to_${endDate}.xlsx`;
       saveAs(new Blob([buffer], { type: 'application/octet-stream' }), fileName);
       toast.dismiss(lt);
       toast.success(`Report exported: ${fileName}`);
@@ -1447,8 +1588,8 @@ const AttendanceReports = () => {
       const r1 = ws.addRow([`${empName.toUpperCase()} — ATTENDANCE & LEAVE REPORT`]);
       const r2 = ws.addRow([`Period: ${moment(startDate).format('DD MMM YYYY')} to ${moment(endDate).format('DD MMM YYYY')}   |   Generated on: ${moment().format('DD-MMM-YYYY HH:mm')}`]);
 
-      ws.mergeCells(r1.number, 1, r1.number, 12);
-      ws.mergeCells(r2.number, 1, r2.number, 12);
+      ws.mergeCells(r1.number, 1, r1.number, 16);
+      ws.mergeCells(r2.number, 1, r2.number, 16);
 
       r1.height = 28;
       r1.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
@@ -1463,21 +1604,26 @@ const AttendanceReports = () => {
       ws.addRow([]); // Spacer
 
       // Summary Headers (Row 4)
-      const COLS = ['Employee', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hours/Day'];
+      const openBalHeader = `${moment(startDate).isValid() ? moment(startDate).format('MMMM') : moment().format('MMMM')} Opening Balance`;
+      const COLS = ['Employee', 'Total Working Days', 'Present', 'Absent', 'Half Day PL', 'Full Day PL', 'Total PL Taken', 'LWP Taken', 'Week Off', 'Holiday', '', '', openBalHeader, 'PL Taken', 'Available Balance', 'Avg Hours/Day'];
       
       ws.columns = [
         { key: 'col1', width: 28 },
-        { key: 'col2', width: 13 },
-        { key: 'col3', width: 30 },
-        { key: 'col4', width: 17 },
+        { key: 'col2', width: 20 },
+        { key: 'col3', width: 13 },
+        { key: 'col4', width: 13 },
         { key: 'col5', width: 18 },
         { key: 'col6', width: 18 },
         { key: 'col7', width: 18 },
-        { key: 'col8', width: 28 },
+        { key: 'col8', width: 14 },
         { key: 'col9', width: 14 },
         { key: 'col10', width: 14 },
-        { key: 'col11', width: 18 },
-        { key: 'col12', width: 18 }
+        { key: 'col11', width: 6 },
+        { key: 'col12', width: 6 },
+        { key: 'col13', width: 28 },
+        { key: 'col14', width: 14 },
+        { key: 'col15', width: 18 },
+        { key: 'col16', width: 18 }
       ];
 
       const sumHeaderRow = ws.addRow(COLS);
@@ -1487,15 +1633,19 @@ const AttendanceReports = () => {
       // Summary Values (Row 5)
       const sumValRow = ws.addRow([
         empName,
+        roundLeave(emp._totalWorkingDays),
         emp._present,
         emp._absent,
-        emp._halfDay,
         emp._halfDayLeaves,
         emp._fullDayLeaves,
         emp._leaves,
+        roundLeave(emp._lwpTaken),
+        roundLeave(emp._weeklyOff),
+        roundLeave(emp._holiday),
+        '',
+        '',
         roundLeave(emp._openingBalance),
         roundLeave(emp._plTaken),
-        roundLeave(emp._lwpTaken),
         roundLeave(emp._availableBalance),
         emp._avgHours ? emp._avgHours.toFixed(1) + 'h' : '0h'
       ]);
@@ -1506,10 +1656,12 @@ const AttendanceReports = () => {
       const METRIC_STYLES = {
         present:     { bg: 'FFECFDF5', fg: 'FF047857' },
         absent:      { bg: 'FFFEF2F2', fg: 'FFB91C1C' },
-        halfDay:     { bg: 'FFEFF6FF', fg: 'FF1D4ED8' },
+        totWorking:  { bg: 'FFF0FDF4', fg: 'FF166534' },
         hdLeaves:    { bg: 'FFF5F3FF', fg: 'FF6D28D9' },
         fdLeaves:    { bg: 'FFEEF2FF', fg: 'FF4338CA' },
         compLeaves:  { bg: 'FFFAF5FF', fg: 'FF7E22CE' },
+        weekOff:     { bg: 'FFF8FAFC', fg: 'FF475569' },
+        holiday:     { bg: 'FFFEFCE8', fg: 'FFA16207' },
         openBal:     { bg: 'FFFFFBEB', fg: 'FFB45309' },
         plTaken:     { bg: 'FFFFF7ED', fg: 'FFC2410C' },
         lwpTaken:    { bg: 'FFFEF2F2', fg: 'FF991B1B' },
@@ -1517,18 +1669,20 @@ const AttendanceReports = () => {
         avgHours:    { bg: 'FFF1F5F9', fg: 'FF334155' },
       };
 
-      [[2, METRIC_STYLES.present], [3, METRIC_STYLES.absent], [4, METRIC_STYLES.halfDay],
+      [[2, METRIC_STYLES.totWorking], [3, METRIC_STYLES.present], [4, METRIC_STYLES.absent],
        [5, METRIC_STYLES.hdLeaves], [6, METRIC_STYLES.fdLeaves], [7, METRIC_STYLES.compLeaves],
-       [8, METRIC_STYLES.openBal], [9, METRIC_STYLES.plTaken], [10, METRIC_STYLES.lwpTaken],
-       [11, METRIC_STYLES.availBal]]
+       [8, METRIC_STYLES.lwpTaken],
+       [9, METRIC_STYLES.weekOff], [10, METRIC_STYLES.holiday],
+       [13, METRIC_STYLES.openBal], [14, METRIC_STYLES.plTaken],
+       [15, METRIC_STYLES.availBal]]
       .forEach(([col, style]) => {
         const cell = sumValRow.getCell(col);
         cell.font = { bold: true, color: { argb: style.fg }, name: 'Segoe UI', size: 10 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: style.bg } };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
-      sumValRow.getCell(12).alignment = { horizontal: 'center', vertical: 'middle' };
-      sumValRow.getCell(12).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: METRIC_STYLES.avgHours.bg } };
+      sumValRow.getCell(16).alignment = { horizontal: 'center', vertical: 'middle' };
+      sumValRow.getCell(16).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: METRIC_STYLES.avgHours.bg } };
 
       sumValRow.eachCell(cell => {
         cell.border = {
@@ -1601,9 +1755,13 @@ const AttendanceReports = () => {
           } else {
             statusLabel = 'LWP';
           }
+        } else if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && !log?.is_half_day && statusLower !== 'half_day') {
+          statusLabel = 'Present';
+        } else if (statusLower === 'half_day' || log?.is_half_day) {
+          statusLabel = 'Half Day';
         } else if (workHoursNum >= 8 || (workHoursNum === 0 && !log?.first_in && (statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late'))) {
           statusLabel = 'Present';
-        } else if (workHoursNum >= 4 || statusLower === 'half_day') {
+        } else if (workHoursNum >= 4) {
           statusLabel = 'Half Day';
         } else if (statusLower === 'incomplete' || statusLower === 'missed_punch') {
           statusLabel = 'Missed Punch';
@@ -1719,17 +1877,23 @@ const AttendanceReports = () => {
   };
 
   // ── Column definitions ─────────────────────────────────
+  const currentMonthName = moment(startDate).isValid() ? moment(startDate).format('MMMM') : moment().format('MMMM');
+
   const columns = [
     { key: 'name', label: 'Employee', sortable: true },
+    { key: '_totalWorkingDays', label: 'Total Working Days', sortable: true, center: true, cls: 'atr-pill-total-work' },
     { key: '_present', label: 'Present', sortable: true, center: true, cls: 'atr-pill-present' },
     { key: '_absent', label: 'Absent', sortable: true, center: true, cls: 'atr-pill-absent' },
-    { key: '_halfDay', label: 'Half Day', sortable: true, center: true, cls: 'atr-pill-halfday' },
-    { key: '_halfDayLeaves', label: 'Half Day Leaves', sortable: true, center: true, cls: 'atr-pill-hdleaves' },
-    { key: '_fullDayLeaves', label: 'Full Day Leaves', sortable: true, center: true, cls: 'atr-pill-fdleaves' },
-    { key: '_leaves', label: 'Complete Leaves', sortable: true, center: true, cls: 'atr-pill-complete' },
-    { key: '_openingBalance', label: 'Opening Balance', sortable: true, center: true, cls: 'atr-pill-opening' },
-    { key: '_plTaken', label: 'PL Taken', sortable: true, center: true, cls: 'atr-pill-pltaken' },
+    { key: '_halfDayLeaves', label: 'Half Day PL', sortable: true, center: true, cls: 'atr-pill-hdleaves' },
+    { key: '_fullDayLeaves', label: 'Full Day PL', sortable: true, center: true, cls: 'atr-pill-fdleaves' },
+    { key: '_leaves', label: 'Total PL Taken', sortable: true, center: true, cls: 'atr-pill-complete' },
     { key: '_lwpTaken', label: 'LWP Taken', sortable: true, center: true, cls: 'atr-pill-lwptaken' },
+    { key: '_weeklyOff', label: 'Week Off', sortable: true, center: true, cls: 'atr-pill-weekoff' },
+    { key: '_holiday', label: 'Holiday', sortable: true, center: true, cls: 'atr-pill-holiday' },
+    { key: '_spacer1', label: '', sortable: false, center: true, isSpacer: true },
+    { key: '_spacer2', label: '', sortable: false, center: true, isSpacer: true },
+    { key: '_openingBalance', label: `${currentMonthName} Opening Balance`, sortable: true, center: true, cls: 'atr-pill-opening' },
+    { key: '_plTaken', label: 'PL Taken', sortable: true, center: true, cls: 'atr-pill-pltaken' },
     { key: '_availableBalance', label: 'Available Balance', sortable: true, center: true, cls: 'atr-pill-avail' },
     { key: '_avgHours', label: 'Avg Hours/Day', sortable: true, center: true, cls: 'atr-pill-hours' },
     { key: 'action', label: 'Action', sortable: false, center: true },
@@ -1737,9 +1901,25 @@ const AttendanceReports = () => {
 
   // ── Grand totals ───────────────────────────────────────
   const grandTotals = useMemo(() => {
-    const t = { _present: 0, _absent: 0, _halfDay: 0, _halfDayLeaves: 0, _fullDayLeaves: 0, _leaves: 0, _openingBalance: 0, _plTaken: 0, _lwpTaken: 0, _availableBalance: 0, _avgHours: 0 };
-    processedData.forEach(e => { Object.keys(t).forEach(k => { t[k] += Number(e[k] || 0); }); });
-    if (processedData.length > 0) t._avgHours = roundLeave(t._avgHours / processedData.length);
+    const t = { _totalWorkingDays: 0, _present: 0, _absent: 0, _halfDayLeaves: 0, _fullDayLeaves: 0, _leaves: 0, _lwpTaken: 0, _weeklyOff: 0, _holiday: 0, _openingBalance: 0, _plTaken: 0, _availableBalance: 0, _avgHours: 0 };
+    let totH = 0;
+    let totD = 0;
+    let empsWithH = 0;
+    let sumAvgH = 0;
+    processedData.forEach(e => {
+      Object.keys(t).forEach(k => {
+        if (k !== '_avgHours') {
+          t[k] += Number(e[k] || 0);
+        }
+      });
+      totH += Number(e._totalWorkedHours || 0);
+      totD += Number(e._daysWithHours || 0);
+      if (e._avgHours > 0) {
+        empsWithH++;
+        sumAvgH += e._avgHours;
+      }
+    });
+    t._avgHours = totD > 0 ? roundLeave(totH / totD) : (empsWithH > 0 ? roundLeave(sumAvgH / empsWithH) : 0);
     return t;
   }, [processedData]);
 
@@ -2105,7 +2285,7 @@ const AttendanceReports = () => {
                       {columns.map(col => (
                         <th
                           key={col.key}
-                          className={`${col.sortable ? 'sortable' : ''} ${sortKey === col.key ? 'sorted' : ''} ${col.center ? 'center' : ''}`}
+                          className={`${col.sortable ? 'sortable' : ''} ${sortKey === col.key ? 'sorted' : ''} ${col.center ? 'center' : ''} ${col.isSpacer ? 'atr-col-spacer' : ''}`}
                           onClick={() => col.sortable && handleSort(col.key)}
                         >
                           {col.label}
@@ -2142,8 +2322,10 @@ const AttendanceReports = () => {
                               </div>
                             </td>
                             {columns.slice(1).map(col => (
-                              <td key={col.key} className={col.center ? 'center' : ''}>
-                                {col.key === 'action' ? (
+                              <td key={col.key} className={`${col.center ? 'center' : ''} ${col.isSpacer ? 'atr-col-spacer' : ''}`}>
+                                {col.isSpacer ? (
+                                  null
+                                ) : col.key === 'action' ? (
                                   <button
                                     className="atr-btn atr-btn-export-row"
                                     onClick={(e) => {
@@ -2230,8 +2412,8 @@ const AttendanceReports = () => {
                       <td></td>
                       <td style={{ textAlign: 'left', fontWeight: 800 }}>Total ({processedData.length} employees)</td>
                       {columns.slice(1).map(col => (
-                        <td key={col.key} className="center">
-                          {col.key === 'action' ? (
+                        <td key={col.key} className={`center ${col.isSpacer ? 'atr-col-spacer' : ''}`}>
+                          {col.isSpacer || col.key === 'action' ? (
                             ''
                           ) : col.key === '_avgHours' ? (
                             <span className="atr-cell-pill atr-pill-hours total-pill">

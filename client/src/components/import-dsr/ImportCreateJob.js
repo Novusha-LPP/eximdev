@@ -458,11 +458,11 @@ const ImportCreateJob = () => {
 
   const handleCthInputChange = (event, newInputValue, rowIndex) => {
     updateDescriptionRow(rowIndex, "cth_no", newInputValue);
-    
+
     if (cthTimeoutRef.current[rowIndex]) {
       clearTimeout(cthTimeoutRef.current[rowIndex]);
     }
-    
+
     if (newInputValue && newInputValue.length >= 4) {
       cthTimeoutRef.current[rowIndex] = setTimeout(() => {
         fetchCthOptions(newInputValue, rowIndex);
@@ -520,8 +520,8 @@ const ImportCreateJob = () => {
 
     // Check for missing PO fields if mandatory for this importer
     if (isPoMandatory) {
-      const isPoMissing = invoice_details.some(row => 
-        !row.po_details || row.po_details.length === 0 || 
+      const isPoMissing = invoice_details.some(row =>
+        !row.po_details || row.po_details.length === 0 ||
         row.po_details.some(po => !po.po_no?.trim() || !po.po_date?.trim())
       );
       if (isPoMissing) {
@@ -2020,10 +2020,10 @@ const ImportCreateJob = () => {
                       </FormField>
                     )}
 
-                         </Grid>
+                  </Grid>
                 </SectionCard>
               </Grid>
-              </Grid>
+            </Grid>
 
             {/* Document Side Bar - Restored to right side with Modern Styling */}
             <Grid item xs={12} md={3} sx={{ position: { md: 'sticky' }, top: 20 }}>
@@ -2434,7 +2434,7 @@ const ImportCreateJob = () => {
                                           value={row.freight || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
                                           sx={compactInput}
-                                          disabled={row.toi !== "FOB"}
+                                          disabled={row.toi !== "FOB" && row.toi !== "C&I" && row.toi !== "CI"}
                                         />
                                         <Autocomplete
                                           freeSolo
@@ -2443,7 +2443,7 @@ const ImportCreateJob = () => {
                                           value={row.freight_currency || ""}
                                           onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue)}
                                           onChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue || "")}
-                                          disabled={row.toi !== "FOB"}
+                                          disabled={row.toi !== "FOB" && row.toi !== "C&I" && row.toi !== "CI"}
                                           renderInput={(params) => (
                                             <TextField
                                               {...params}
@@ -2462,7 +2462,7 @@ const ImportCreateJob = () => {
                                           placeholder="Fr. Ex Rate"
                                           value={row.freight_exchange_rate || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "freight_exchange_rate", e.target.value)}
-                                          disabled={row.toi !== "FOB"}
+                                          disabled={row.toi !== "FOB" && row.toi !== "C&I" && row.toi !== "CI"}
                                           sx={compactInput}
                                         />
                                       )}
@@ -2478,7 +2478,7 @@ const ImportCreateJob = () => {
                                           value={row.insurance || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
                                           sx={compactInput}
-                                          disabled={row.toi !== "FOB"}
+                                          disabled={row.toi !== "FOB" && row.toi !== "C&F" && row.toi !== "CF"}
                                         />
                                         <Autocomplete
                                           freeSolo
@@ -2487,7 +2487,7 @@ const ImportCreateJob = () => {
                                           value={row.insurance_currency || ""}
                                           onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue)}
                                           onChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue || "")}
-                                          disabled={row.toi !== "FOB"}
+                                          disabled={row.toi !== "FOB" && row.toi !== "C&F" && row.toi !== "CF"}
                                           renderInput={(params) => (
                                             <TextField
                                               {...params}
@@ -2506,7 +2506,7 @@ const ImportCreateJob = () => {
                                           placeholder="Ins. Ex Rate"
                                           value={row.insurance_exchange_rate || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "insurance_exchange_rate", e.target.value)}
-                                          disabled={row.toi !== "FOB"}
+                                          disabled={row.toi !== "FOB" && row.toi !== "C&F" && row.toi !== "CF"}
                                           sx={compactInput}
                                         />
                                       )}
@@ -2615,7 +2615,7 @@ const ImportCreateJob = () => {
                       </div>
                       {invoice_details?.map((invRow, idx) => {
                         const invVal = parseFloat(invRow.product_value) || 0;
-                        const prodSum = description_details?.reduce((sum, dRow) => 
+                        const prodSum = description_details?.reduce((sum, dRow) =>
                           (dRow.sr_no_invoice === String(idx + 1) || (!dRow.sr_no_invoice && idx === 0)) ? sum + (parseFloat(dRow.amount) || 0) : sum, 0
                         ) || 0;
                         const hasMismatch = (invVal > 0 || prodSum > 0) && Math.abs(invVal - prodSum) > 0.01;
@@ -2832,35 +2832,35 @@ const ImportCreateJob = () => {
                                           }
                                         });
                                       } else if (row.id === "miscellaneous") {
-                                         const amtNum = parseFloat(val) || 0;
-                                         const exrateVal = parseFloat(other_charges_details?.miscellaneous?.exchange_rate) || 1;
-                                         const hssUnit = getUnitForCurrency(other_charges_details?.miscellaneous?.currency || "USD");
-                                         const amtInr = (amtNum * exrateVal) / hssUnit;
-                                         let totalBaseValInr = 0;
-                                         if (invoice_details && invoice_details.length > 0) {
-                                           totalBaseValInr = invoice_details.reduce((sum, r) => {
-                                             const pv = parseFloat(r.product_value) || 0;
-                                             const pvEx = parseFloat(r.exchange_rate) || parseFloat(exrate) || 1;
-                                             const oth = parseFloat(r.misc || r.other_charges) || 0;
-                                             const othEx = parseFloat(r.misc_exchange_rate || r.other_charges_exchange_rate) || 1;
-                                             const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
-                                             const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency || r.other_charges_currency);
-                                             return sum + (pvInr + othInr);
-                                           }, 0);
-                                         }
-                                         const calculatedRate = totalBaseValInr > 0 ? (amtInr / totalBaseValInr) * 100 : 0;
-                                         setOtherChargesDetails({
-                                           ...other_charges_details,
-                                           miscellaneous: {
-                                             ...other_charges_details.miscellaneous,
-                                             amount: val,
-                                             rate: calculatedRate > 0 ? calculatedRate.toFixed(4) : ""
-                                           }
-                                         });
-                                         if (invoice_details && invoice_details.length > 0) {
-                                           updateInvoiceRow(0, "misc", val);
-                                         }
-                                       } else {
+                                        const amtNum = parseFloat(val) || 0;
+                                        const exrateVal = parseFloat(other_charges_details?.miscellaneous?.exchange_rate) || 1;
+                                        const hssUnit = getUnitForCurrency(other_charges_details?.miscellaneous?.currency || "USD");
+                                        const amtInr = (amtNum * exrateVal) / hssUnit;
+                                        let totalBaseValInr = 0;
+                                        if (invoice_details && invoice_details.length > 0) {
+                                          totalBaseValInr = invoice_details.reduce((sum, r) => {
+                                            const pv = parseFloat(r.product_value) || 0;
+                                            const pvEx = parseFloat(r.exchange_rate) || parseFloat(exrate) || 1;
+                                            const oth = parseFloat(r.misc || r.other_charges) || 0;
+                                            const othEx = parseFloat(r.misc_exchange_rate || r.other_charges_exchange_rate) || 1;
+                                            const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+                                            const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency || r.other_charges_currency);
+                                            return sum + (pvInr + othInr);
+                                          }, 0);
+                                        }
+                                        const calculatedRate = totalBaseValInr > 0 ? (amtInr / totalBaseValInr) * 100 : 0;
+                                        setOtherChargesDetails({
+                                          ...other_charges_details,
+                                          miscellaneous: {
+                                            ...other_charges_details.miscellaneous,
+                                            amount: val,
+                                            rate: calculatedRate > 0 ? calculatedRate.toFixed(4) : ""
+                                          }
+                                        });
+                                        if (invoice_details && invoice_details.length > 0) {
+                                          updateInvoiceRow(0, "misc", val);
+                                        }
+                                      } else {
                                         setOtherChargesDetails({
                                           ...other_charges_details,
                                           [row.id]: { ...other_charges_details[row.id], amount: e.target.value }
@@ -2930,21 +2930,21 @@ const ImportCreateJob = () => {
                             />
                             <Typography variant="caption">% on</Typography>
                             <Autocomplete
-                               options={["Assessable", "Duty", "Total"]}
-                               value={other_charges_details?.revenue_deposit?.on || "Assessable"}
-                               onChange={(event, newValue) => setOtherChargesDetails({
-                                 ...other_charges_details,
-                                 revenue_deposit: { ...other_charges_details.revenue_deposit, on: newValue || "Assessable" }
-                               })}
-                               renderInput={(params) => (
-                                 <TextField
-                                   {...params}
-                                   variant="outlined"
-                                   size="small"
-                                   sx={{ ...compactInput, width: '130px' }}
-                                 />
-                               )}
-                             />
+                              options={["Assessable", "Duty", "Total"]}
+                              value={other_charges_details?.revenue_deposit?.on || "Assessable"}
+                              onChange={(event, newValue) => setOtherChargesDetails({
+                                ...other_charges_details,
+                                revenue_deposit: { ...other_charges_details.revenue_deposit, on: newValue || "Assessable" }
+                              })}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  variant="outlined"
+                                  size="small"
+                                  sx={{ ...compactInput, width: '130px' }}
+                                />
+                              )}
+                            />
                           </Box>
                         </Grid>
                         <Grid item xs={12} md={6}>
@@ -2995,23 +2995,23 @@ const ImportCreateJob = () => {
                       {!shouldHideField('size', mode) && (
                         <Grid item xs={12} md={2}>
                           <Autocomplete
-                             freeSolo
-                             disabled={isLCL}
-                             options={CONTAINER_TYPE_OPTIONS}
-                             value={container.size || ""}
-                             onInputChange={(event, newValue) => handleContainerChange(index, "size", newValue || "")}
-                             onChange={(event, newValue) => handleContainerChange(index, "size", newValue || "")}
-                             renderInput={(params) => (
-                               <TextField
-                                 {...params}
-                                 variant="outlined"
-                                 size="small"
-                                 label="Size / Type"
-                                 fullWidth
-                                 sx={compactInput}
-                               />
-                             )}
-                           />
+                            freeSolo
+                            disabled={isLCL}
+                            options={CONTAINER_TYPE_OPTIONS}
+                            value={container.size || ""}
+                            onInputChange={(event, newValue) => handleContainerChange(index, "size", newValue || "")}
+                            onChange={(event, newValue) => handleContainerChange(index, "size", newValue || "")}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                variant="outlined"
+                                size="small"
+                                label="Size / Type"
+                                fullWidth
+                                sx={compactInput}
+                              />
+                            )}
+                          />
                         </Grid>
                       )}
                       {!shouldHideField('seal_no', mode) && (
@@ -3537,20 +3537,20 @@ const ImportCreateJob = () => {
                     </tbody>
                   </table>
                 </div>
-                  {invoice_details?.map((invRow, idx) => {
-                    const invVal = parseFloat(invRow.product_value) || 0;
-                    const prodSum = description_details?.reduce((sum, dRow) => 
-                      (dRow.sr_no_invoice === String(idx + 1) || (!dRow.sr_no_invoice && idx === 0)) ? sum + (parseFloat(dRow.amount) || 0) : sum, 0
-                    ) || 0;
-                    const hasMismatch = (invVal > 0 || prodSum > 0) && Math.abs(invVal - prodSum) > 0.01;
-                    if (!hasMismatch) return null;
-                    return (
-                      <div key={idx} style={{ marginTop: '8px', padding: '8px 12px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '4px', color: '#b45309', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>⚠️</span>
-                        <span><strong>Note:</strong> Invoice Sr No. {idx + 1} Value ({invVal.toFixed(2)}) and Product Details Amount ({prodSum.toFixed(2)}) do not match!</span>
-                      </div>
-                    );
-                  })}
+                {invoice_details?.map((invRow, idx) => {
+                  const invVal = parseFloat(invRow.product_value) || 0;
+                  const prodSum = description_details?.reduce((sum, dRow) =>
+                    (dRow.sr_no_invoice === String(idx + 1) || (!dRow.sr_no_invoice && idx === 0)) ? sum + (parseFloat(dRow.amount) || 0) : sum, 0
+                  ) || 0;
+                  const hasMismatch = (invVal > 0 || prodSum > 0) && Math.abs(invVal - prodSum) > 0.01;
+                  if (!hasMismatch) return null;
+                  return (
+                    <div key={idx} style={{ marginTop: '8px', padding: '8px 12px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '4px', color: '#b45309', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>⚠️</span>
+                      <span><strong>Note:</strong> Invoice Sr No. {idx + 1} Value ({invVal.toFixed(2)}) and Product Details Amount ({prodSum.toFixed(2)}) do not match!</span>
+                    </div>
+                  );
+                })}
               </Paper>
             </Grid>
 

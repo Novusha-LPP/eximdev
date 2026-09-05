@@ -378,6 +378,75 @@ const normalizeAttendanceStatus = (record, employee) => {
     return 'absent';
 };
 
+const applySandwichRuleToHistory = (history) => {
+    if (!Array.isArray(history) || history.length === 0) return history;
+
+    const isNonWorking = (day) => {
+        if (!day) return false;
+        const s = String(day.status || '').toLowerCase();
+        return s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday' || Boolean(day.is_weekly_off || day.is_holiday);
+    };
+
+    const isFullDayAbsence = (day) => {
+        if (!day) return false;
+        const s = String(day.status || '').toLowerCase();
+        if (s === 'none' || !s || s === 'future') return false;
+
+        const isHalf = Boolean(
+            day.is_half_day ||
+            day.is_half_day_leave ||
+            s === 'half_day' ||
+            String(day.session || day.half_day_session || '').trim().length > 0
+        );
+        if (isHalf) return false;
+
+        const workHours = Number(day.total_work_hours || 0);
+        if (workHours >= 4 || Boolean(day.first_in && day.last_out && workHours >= 4)) return false;
+        if (['present', 'late', 'present_late', 'on_duty'].includes(s)) return false;
+
+        if (s === 'leave' || s === 'pending_leave' || s === 'absent') return true;
+
+        return false;
+    };
+
+    let i = 0;
+    while (i < history.length) {
+        if (isNonWorking(history[i])) {
+            const startBlock = i;
+            while (i < history.length && isNonWorking(history[i])) {
+                i++;
+            }
+            const endBlock = i - 1;
+
+            const leftIndex = startBlock - 1;
+            const rightIndex = endBlock + 1;
+
+            const hasLeft = leftIndex >= 0;
+            const hasRight = rightIndex < history.length;
+
+            const leftIsAbsent = hasLeft && isFullDayAbsence(history[leftIndex]);
+            const rightIsAbsent = hasRight && isFullDayAbsence(history[rightIndex]);
+
+            if (hasLeft && hasRight && leftIsAbsent && rightIsAbsent) {
+                for (let k = startBlock; k <= endBlock; k++) {
+                    const originalStatus = history[k].status;
+                    history[k].status = 'leave';
+                    history[k].leaveType = 'LWP';
+                    history[k].leave_type = 'LWP';
+                    history[k].is_sandwiched = true;
+                    history[k].is_weekly_off = false;
+                    history[k].is_holiday = false;
+                    history[k].original_status = originalStatus;
+                }
+            }
+        } else {
+            i++;
+        }
+    }
+
+    return history;
+};
+
 const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLeaves, extraFields = {}, policyResolveOptions = {}) => {
     const recordsByDay = new Map(records.map((record) => [dateKeyUTC(record.attendance_date), record]));
     const policyByYear = new Map();
@@ -579,6 +648,15 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             shift_id: rec?.shift_id || null
         });
         curr.add(1, 'day');
+    }
+
+    applySandwichRuleToHistory(compactHistory);
+    for (const item of compactHistory) {
+        if (item.is_sandwiched) {
+            if (item.original_status === 'weekly_off') actualWeekOff = Math.max(0, actualWeekOff - 1);
+            else if (item.original_status === 'holiday') actualHoliday = Math.max(0, actualHoliday - 1);
+            actualLeaves += 1;
+        }
     }
 
     const avgHoursValue = actualDaysWithHours > 0 ? (actualTotalHours / actualDaysWithHours) : 0;

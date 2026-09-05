@@ -1101,7 +1101,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       if (workHours >= 4) return false;
       return false;
     }).length;
-    return roundLeave(fullPresent + (actualHalfDays * 0.5));
+    const halfDayLeaves = employee.history.filter((day) => isHalfDayLeave(day)).length;
+    return roundLeave(fullPresent + (actualHalfDays * 0.5) + (halfDayLeaves * 0.5));
   };
 
   const getActualHalfDays = (employee) => {
@@ -1129,19 +1130,31 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     }).length;
   };
 
+  const isHalfDayPlLeaveForReport = (day) => {
+    if (!isHalfDayLeave(day)) return false;
+    const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
+    return !isLwpLeave(lt);
+  };
+
+  const isFullDayPlLeaveForReport = (day) => {
+    const s = String(day?.status || '').toLowerCase();
+    const isHalfLeave = isHalfDayLeave(day);
+    if ((s !== 'leave' && s !== 'pending_leave') || isHalfLeave) return false;
+    const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
+    return !isLwpLeave(lt);
+  };
+
   const getHalfDayLeaveCountForReport = (employee) => {
     if (!Array.isArray(employee.history) || employee.history.length === 0) return 0;
-    return employee.history.filter((day) => isHalfDayLeave(day)).length;
+    return employee.history.filter((day) => isHalfDayPlLeaveForReport(day)).length;
   };
 
   const getFullDayLeaveCountForReport = (employee) => {
-    if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.leaves || 0);
+    if (!Array.isArray(employee.history) || employee.history.length === 0) {
+      return roundLeave(Math.max(0, Number(employee.leaves || 0) - Number(employee.lwp_taken || 0)));
+    }
 
-    return employee.history.filter((day) => {
-      const s = String(day?.status || '').toLowerCase();
-      const isHalfLeave = isHalfDayLeave(day);
-      return (s === 'leave' || s === 'pending_leave') && !isHalfLeave;
-    }).length;
+    return employee.history.filter((day) => isFullDayPlLeaveForReport(day)).length;
   };
 
   const getAbsentDaysForReport = (employee) => {
@@ -1215,8 +1228,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     const completeLeaves = getLeaveCountForReport(employee);
 
     if (!Array.isArray(employee.history) || employee.history.length === 0) {
-      const plTaken = roundLeave(Math.min(openingBalance, completeLeaves));
-      const lwpTaken = roundLeave(Math.max(0, completeLeaves - openingBalance));
+      // Without history, completeLeaves already counts only PL (excludes LWP)
+      const plTaken = roundLeave(completeLeaves);
+      const lwpTaken = 0;
       const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
       return { openingBalance, plTaken, lwpTaken, availableBalance };
     }
@@ -1246,8 +1260,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       }
     });
 
-    const plTaken = roundLeave(Math.min(openingBalance, explicitPl));
-    const lwpTaken = roundLeave(explicitLwp + Math.max(0, explicitPl - openingBalance));
+    // Simple math: PL in PL column, LWP in LWP column (half day = 0.5, full day = 1.0)
+    const plTaken = roundLeave(explicitPl);
+    const lwpTaken = roundLeave(explicitLwp);
     const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
 
     return { openingBalance, plTaken, lwpTaken, availableBalance };

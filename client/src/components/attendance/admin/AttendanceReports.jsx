@@ -85,12 +85,8 @@ const getPresentDaysForReport = (emp) => {
     if (workHours >= 4) return false; // Half day
     return false;
   }).length;
-  const halfDayLeavesWorked = emp.history.filter((d) => {
-    if (!isHalfDayLeave(d)) return false;
-    const workHours = Number(d?.total_work_hours || 0);
-    return workHours > 0 || Boolean(d?.first_in);
-  }).length;
-  return roundLeave(fullPresent + (actualHalfDays * 0.5) + (halfDayLeavesWorked * 0.5));
+  const halfDayLeaves = emp.history.filter((d) => isHalfDayLeave(d)).length;
+  return roundLeave(fullPresent + (actualHalfDays * 0.5) + (halfDayLeaves * 0.5));
 };
 
 // Half day worked count (worked 4h-8h without taking leave from quota)
@@ -118,18 +114,30 @@ const getActualHalfDays = (emp) => {
   }).length;
 };
 
+const isHalfDayPlLeave = (d) => {
+  if (!isHalfDayLeave(d)) return false;
+  const lt = String(d?.leaveType || d?.leave_type || d?.leaveReason || '').trim();
+  return !isLwpLeave(lt);
+};
+
+const isFullDayPlLeave = (d) => {
+  const s = String(d?.status || '').toLowerCase();
+  const isHalfLeave = isHalfDayLeave(d);
+  if ((s !== 'leave' && s !== 'pending_leave') || isHalfLeave) return false;
+  const lt = String(d?.leaveType || d?.leave_type || d?.leaveReason || '').trim();
+  return !isLwpLeave(lt);
+};
+
 const getHalfDayLeaveCount = (emp) => {
   if (!Array.isArray(emp.history) || emp.history.length === 0) return 0;
-  return emp.history.filter((d) => isHalfDayLeave(d)).length;
+  return emp.history.filter((d) => isHalfDayPlLeave(d)).length;
 };
 
 const getFullDayLeaveCount = (emp) => {
-  if (!Array.isArray(emp.history) || emp.history.length === 0) return Number(emp.leaves || 0);
-  return emp.history.filter((d) => {
-    const s = String(d?.status || '').toLowerCase();
-    const isHalfLeave = isHalfDayLeave(d);
-    return (s === 'leave' || s === 'pending_leave') && !isHalfLeave;
-  }).length;
+  if (!Array.isArray(emp.history) || emp.history.length === 0) {
+    return roundLeave(Math.max(0, Number(emp.leaves || 0) - Number(emp.lwp_taken || 0)));
+  }
+  return emp.history.filter((d) => isFullDayPlLeave(d)).length;
 };
 
 // Absent days (unauthorized/unexcused absence with <4h worked and NO approved leave + 0.5 per half day)
@@ -208,8 +216,9 @@ const calculateEmployeeLeaveBreakdown = (emp) => {
   const completeLeaves = getLeaveCountForReport(emp);
 
   if (!Array.isArray(emp.history) || emp.history.length === 0) {
-    const plTaken = roundLeave(Math.min(openingBalance, completeLeaves));
-    const lwpTaken = roundLeave(Math.max(0, completeLeaves - openingBalance));
+    // Without history, completeLeaves already counts only PL (excludes LWP)
+    const plTaken = roundLeave(completeLeaves);
+    const lwpTaken = 0;
     const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
     return { openingBalance, plTaken, lwpTaken, availableBalance };
   }
@@ -239,8 +248,9 @@ const calculateEmployeeLeaveBreakdown = (emp) => {
     }
   });
 
-  const plTaken = roundLeave(Math.min(openingBalance, explicitPl));
-  const lwpTaken = roundLeave(explicitLwp + Math.max(0, explicitPl - openingBalance));
+  // Simple math: PL in PL column, LWP in LWP column (half day = 0.5, full day = 1.0)
+  const plTaken = roundLeave(explicitPl);
+  const lwpTaken = roundLeave(explicitLwp);
   const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
 
   return { openingBalance, plTaken, lwpTaken, availableBalance };
@@ -1103,7 +1113,7 @@ const AttendanceReports = () => {
       s.present += e._present;
       s.absent += e._absent;
       s.leaves += e._leaves;
-      s.halfDay += e._halfDay;
+      s.halfDay += Number(e._halfDayLeaves || e._halfDay || 0);
       s.weeklyOff += e._weeklyOff;
       s.holiday += e._holiday;
       s.late += e._late;

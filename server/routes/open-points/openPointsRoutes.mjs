@@ -7,6 +7,7 @@ import TeamModel from "../../model/teamModel.mjs";
 import mongoose from "mongoose";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import { syncOpenPointStatusToMRM } from "../../services/mrmOpenPointsSyncService.mjs";
 
 const router = express.Router();
 
@@ -493,6 +494,11 @@ router.put("/api/open-points/points/:pointId", authMiddleware, auditMiddleware("
         });
 
         await point.save();
+
+        // Reverse sync hook: If point originated from MRM, sync status back
+        if (point.originModule === 'MRM') {
+            syncOpenPointStatusToMRM(point).catch(err => console.error("Safe sync error:", err));
+        }
 
         // Return updated point
         res.json(point);

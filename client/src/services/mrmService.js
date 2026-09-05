@@ -74,9 +74,14 @@ export const deleteMRMItem = async (id) => {
     }
 };
 
-export const bulkDeleteMRMItems = async (month, year, userId) => {
+export const bulkDeleteMRMItems = async (monthOrObj, year, userId) => {
     try {
-        const params = { month, year, userId };
+        let params;
+        if (typeof monthOrObj === 'object' && monthOrObj !== null) {
+            params = monthOrObj;
+        } else {
+            params = { month: monthOrObj, year, userId };
+        }
         const response = await axios.delete(`${API_URL}-bulk/delete`, { params, ...getHeaders() });
         return response.data;
     } catch (error) {
@@ -112,3 +117,111 @@ export const fetchMRMUsers = async () => {
         throw error;
     }
 };
+
+// Fetch dashboard submissions summary
+export const fetchMRMDashboard = async (month, year) => {
+    try {
+        const params = { month, year };
+        const response = await axios.get(`${API_URL}/dashboard`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Submit MRM for approval (triggers completeness validation)
+export const submitMRM = async (data) => {
+    try {
+        const response = await axios.post(`${API_URL}/submit`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Approve MRM and lock month (Suraj/Admin only)
+export const approveMRM = async (data) => {
+    try {
+        const response = await axios.post(`${API_URL}/approve`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Request revision on MRM (Suraj/Admin only)
+export const requestMRMRevision = async (data) => {
+    try {
+        const response = await axios.post(`${API_URL}/request-revision`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Reopen an approved/locked month (Suraj/Admin only)
+export const reopenMRM = async (data) => {
+    try {
+        const response = await axios.post(`${API_URL}/reopen`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Fetch executive approval queue (Suraj/Admin only)
+export const fetchApprovalQueue = async (year = null) => {
+    try {
+        const params = {};
+        if (year) params.year = year;
+        const response = await axios.get(`${API_URL}/approval-queue`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Fetch annual rollup and forecasts (Approved months only)
+export const fetchAnnualRollup = async ({ year, userId, forecastMethod = 'best_worst' }) => {
+    try {
+        const params = { year, forecastMethod };
+        if (userId) params.userId = userId;
+        const response = await axios.get(`${API_URL}/annual-rollup`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Fetch recurring issues analysis
+export const fetchRecurringIssues = async (year = null) => {
+    try {
+        const params = {};
+        if (year) params.year = year;
+        const response = await axios.get(`${API_URL}/recurring-issues`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Fetch Open Points tagged with MRM origin
+export const fetchMRMOpenPoints = async (filterParams = {}) => {
+    try {
+        const response = await axios.get(`${API_URL}/open-points`, { params: filterParams, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Update Objective Configuration (Aggregation, Optimization, Tolerance, Baseline & Macro References)
+export const updateObjectiveConfig = async (data) => {
+    try {
+        const response = await axios.put(`${API_URL}/objective/config`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+

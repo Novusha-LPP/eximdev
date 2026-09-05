@@ -20,6 +20,18 @@ const mrmItemSchema = new mongoose.Schema({
     seq: { type: Number, default: 0 },
     isTitleRow: { type: Boolean, default: false },
     bgColor: { type: String, default: '#ffffff' },
+    openPointId: { type: mongoose.Schema.Types.ObjectId, ref: 'OpenPoint', default: null },
+    tileName: { type: String, default: '' },
+    lastYearBaseline: { type: Number, default: null },
+    lastYearBaselineMetric: { type: String, default: '' },
+    macroReferences: [{
+        label: { type: String },
+        value: { type: Number },
+        unit: { type: String }
+    }],
+    aggregationType: { type: String, enum: ['Sum', 'Average', 'Latest'], default: 'Sum' },
+    optimizationDirection: { type: String, enum: ['Higher', 'Lower'], default: 'Higher' },
+    toleranceBand: { type: Number, default: 5 },
 }, { timestamps: true });
 
 // Compound index to ensure uniqueness if needed, or just for querying

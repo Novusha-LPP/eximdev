@@ -260,6 +260,7 @@ import uploadFileRoutes from "./routes/upload/uploadFile.mjs";
 // Project Nucleus
 import nucleusReports from "./routes/project-nucleus/nucleusReports.mjs";
 import invoicingNucleusRoutes from "./routes/project-nucleus/invoicingNucleusRoutes.mjs";
+import importPendingProductivityRoutes from "./routes/project-nucleus/importPendingProductivityRoutes.mjs";
 import { seedDefaultInvoicingData, initInvoicingCronScheduler } from "./services/invoicing/invoicingSyncService.mjs";
 import clientQueryRoutes from "./routes/clientQueryRoutes.mjs";
 
@@ -710,6 +711,7 @@ app.use(uploadFileRoutes);
 // Project Nucleus
 app.use("/api/project-nucleus", nucleusReports);
 app.use("/api/project-nucleus/invoicing", invoicingNucleusRoutes);
+app.use("/api/project-nucleus/import-pending", importPendingProductivityRoutes);
 
 // KPI Module
 app.use(kpiRoutes);

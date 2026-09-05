@@ -85,7 +85,12 @@ const getPresentDaysForReport = (emp) => {
     if (workHours >= 4) return false; // Half day
     return false;
   }).length;
-  return roundLeave(fullPresent + (actualHalfDays * 0.5));
+  const halfDayLeavesWorked = emp.history.filter((d) => {
+    if (!isHalfDayLeave(d)) return false;
+    const workHours = Number(d?.total_work_hours || 0);
+    return workHours > 0 || Boolean(d?.first_in);
+  }).length;
+  return roundLeave(fullPresent + (actualHalfDays * 0.5) + (halfDayLeavesWorked * 0.5));
 };
 
 // Half day worked count (worked 4h-8h without taking leave from quota)

@@ -155,7 +155,12 @@ const getPresentDaysForReport = (employee) => {
         if (workHours >= 4) return false; // Half day
         return false;
     }).length;
-    return roundLeave(fullPresent + (actualHalfDays * 0.5));
+    const halfDayLeavesWorked = employee.history.filter((day) => {
+        if (!isHalfDayLeave(day)) return false;
+        const workHours = Number(day?.total_work_hours || 0);
+        return workHours > 0 || Boolean(day?.first_in);
+    }).length;
+    return roundLeave(fullPresent + (actualHalfDays * 0.5) + (halfDayLeavesWorked * 0.5));
 };
 
 const getHalfDayLeaveCountForReport = (employee) => {

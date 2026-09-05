@@ -654,3 +654,340 @@ export const exportNucleusReportToExcel = async ({
         throw err;
     }
 };
+
+/**
+ * Excel Exporter for Import Pending Job Productivity & Invoicing Monitoring Dashboard
+ */
+export const exportImportPendingProductivityExcel = async ({
+    dashboardData = {},
+    monthData = [],
+    filterMeta = {}
+}) => {
+    try {
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'AlVision Exim Intelligence';
+        workbook.lastModifiedBy = 'AlVision Exim Intelligence';
+        workbook.created = new Date();
+        workbook.modified = new Date();
+
+        const historyDays = dashboardData.historyDays || [];
+        const branchBreakdown = dashboardData.branchBreakdown || [];
+        const branchTotals = dashboardData.branchTotals || null;
+        const queryMonitoring = dashboardData.queryMonitoring || {};
+        const activeExceptions = dashboardData.activeExceptions || [];
+
+        // ══════════════════════════════════════════════════════════════════════
+        // SHEET 1: DAILY MONITORING & INVOICE PRODUCTIVITY (Section 1)
+        // ══════════════════════════════════════════════════════════════════════
+        const wsDaily = workbook.addWorksheet('Daily Productivity', {
+            views: [{ state: 'frozen', ySplit: 5 }]
+        });
+
+        const dailyHeaders = [
+            'Date', 'Day Status', 'Opening Pending', 'New Jobs', 'Total Workload',
+            'Invoiced Today', '3-Month Avg Target', 'Shortfall', 'Closing Pending',
+            'Queries Pending', 'RAG Status', 'Exception / Reason', 'Justification / Notes'
+        ];
+
+        addSheetHeader({
+            worksheet: wsDaily,
+            title: 'ALVISION EXIM — IMPORT PENDING JOB INVOICE PRODUCTIVITY MONITORING',
+            subtitle: 'DAILY MONITORING DASHBOARD (3-MONTH ROLLING DAILY AVERAGE BENCHMARK)',
+            filterMeta,
+            totalCols: dailyHeaders.length,
+            lastColLetter: 'M'
+        });
+
+        wsDaily.addRow(dailyHeaders);
+        const dailyHeaderRow = wsDaily.getRow(5);
+        styleHeaderRow(dailyHeaderRow, 'FF0F172A'); // Slate Navy
+
+        wsDaily.autoFilter = {
+            from: { row: 5, column: 1 },
+            to: { row: 5 + Math.max(historyDays.length, 1), column: dailyHeaders.length }
+        };
+
+        historyDays.forEach((row, idx) => {
+            const isEven = idx % 2 === 0;
+            const rowData = [
+                row.date || '—',
+                row.isOffDay ? `OFF (${row.offDayReason || 'Holiday'})` : 'WORKING DAY',
+                row.openingPending || 0,
+                row.newJobs || 0,
+                row.totalWorkload || 0,
+                row.invoicedToday || 0,
+                row.benchmarkTarget || 35,
+                row.shortfall || 0,
+                row.closingPending || 0,
+                row.queriesPending || 0,
+                row.ragStatus || 'GREEN',
+                row.exceptionReason || 'Target achieved',
+                row.justification || '—'
+            ];
+
+            wsDaily.addRow(rowData);
+            const r = wsDaily.getRow(6 + idx);
+            r.height = 20;
+            r.eachCell((cell, colNum) => {
+                const align = [1, 2, 11].includes(colNum) ? 'center' : ([12, 13].includes(colNum) ? 'left' : 'right');
+                styleDataCell(cell, isEven, align, [3, 4, 5, 6, 7, 8, 9, 10].includes(colNum), '#,##0');
+
+                // RAG status highlight
+                if (colNum === 11) {
+                    cell.font = { name: 'Segoe UI', size: 9.5, bold: true };
+                    if (row.ragStatus === 'GREEN') cell.font.color = { argb: 'FF16A34A' };
+                    else if (row.ragStatus === 'YELLOW') cell.font.color = { argb: 'FFD97706' };
+                    else if (row.ragStatus === 'RED') cell.font.color = { argb: 'FFDC2626' };
+                }
+            });
+        });
+
+        autoFitColumns(wsDaily, 14, 35);
+
+        // ══════════════════════════════════════════════════════════════════════
+        // SHEET 2: BRANCH-WISE PENDING JOBS RECONCILIATION (Section 6)
+        // ══════════════════════════════════════════════════════════════════════
+        const wsBranch = workbook.addWorksheet('Branch Reconciliation', {
+            views: [{ state: 'frozen', ySplit: 5 }]
+        });
+
+        const branchHeaders = [
+            'Branch Name', 'Branch Code', 'Opening Pending', 'New Jobs', 'Invoiced Today',
+            'Closing Pending', 'Queries Pending', 'RAG Status', 'Exception Status'
+        ];
+
+        addSheetHeader({
+            worksheet: wsBranch,
+            title: 'ALVISION EXIM — BRANCH-WISE PENDING JOBS RECONCILIATION',
+            subtitle: '5-BRANCH RECONCILIATION RECONCILING TO OVERALL DASHBOARD KPI',
+            filterMeta,
+            totalCols: branchHeaders.length,
+            lastColLetter: 'I'
+        });
+
+        wsBranch.addRow(branchHeaders);
+        const branchHeaderRow = wsBranch.getRow(5);
+        styleHeaderRow(branchHeaderRow, 'FF1E40AF'); // Royal Blue
+
+        branchBreakdown.forEach((b, idx) => {
+            const isEven = idx % 2 === 0;
+            wsBranch.addRow([
+                b.branch || '—',
+                b.code || '—',
+                b.openingPending || 0,
+                b.newJobs || 0,
+                b.invoiced || 0,
+                b.closingPending || 0,
+                b.queriesPending || 0,
+                b.ragStatus || 'GREEN',
+                b.exception || '—'
+            ]);
+            const r = wsBranch.getRow(6 + idx);
+            r.height = 20;
+            r.eachCell((cell, colNum) => {
+                const align = [1, 9].includes(colNum) ? 'left' : ([2, 8].includes(colNum) ? 'center' : 'right');
+                styleDataCell(cell, isEven, align, [3, 4, 5, 6, 7].includes(colNum), '#,##0');
+                if (colNum === 8) {
+                    cell.font = { name: 'Segoe UI', size: 9.5, bold: true };
+                    if (b.ragStatus === 'GREEN') cell.font.color = { argb: 'FF16A34A' };
+                    else if (b.ragStatus === 'YELLOW') cell.font.color = { argb: 'FFD97706' };
+                    else if (b.ragStatus === 'RED') cell.font.color = { argb: 'FFDC2626' };
+                }
+            });
+        });
+
+        // Add Total Row
+        if (branchTotals) {
+            wsBranch.addRow([
+                'TOTAL',
+                'ALL',
+                branchTotals.openingPending || 0,
+                branchTotals.newJobs || 0,
+                branchTotals.invoiced || 0,
+                branchTotals.closingPending || 0,
+                branchTotals.queriesPending || 0,
+                branchTotals.ragStatus || 'GREEN',
+                'Reconciled with Daily KPI'
+            ]);
+            const totalRow = wsBranch.getRow(6 + branchBreakdown.length);
+            totalRow.height = 24;
+            totalRow.eachCell((cell, colNum) => {
+                cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+                cell.border = {
+                    top: { style: 'medium', color: { argb: 'FF0F172A' } },
+                    bottom: { style: 'double', color: { argb: 'FF0F172A' } }
+                };
+                cell.alignment = { horizontal: [1, 9].includes(colNum) ? 'left' : ([2, 8].includes(colNum) ? 'center' : 'right'), vertical: 'middle' };
+                if ([3, 4, 5, 6, 7].includes(colNum)) cell.numFmt = '#,##0';
+            });
+        }
+
+        autoFitColumns(wsBranch, 14, 30);
+
+        // ══════════════════════════════════════════════════════════════════════
+        // SHEET 3: QUERY MONITORING (Section 5)
+        // ══════════════════════════════════════════════════════════════════════
+        const wsQuery = workbook.addWorksheet('Query Monitoring', {
+            views: [{ state: 'frozen', ySplit: 5 }]
+        });
+
+        const queryHeaders = [
+            'Date', 'Opening Queries', 'New Queries', 'Queries Resolved',
+            'Closing Queries', 'Query Status', 'Continuity Equation'
+        ];
+
+        addSheetHeader({
+            worksheet: wsQuery,
+            title: 'ALVISION EXIM — IMPORT PENDING QUERIES PIPELINE',
+            subtitle: 'TRACKING QUERIES PREVENTING JOBS FROM BEING INVOICED',
+            filterMeta,
+            totalCols: queryHeaders.length,
+            lastColLetter: 'G'
+        });
+
+        wsQuery.addRow(queryHeaders);
+        const queryHeaderRow = wsQuery.getRow(5);
+        styleHeaderRow(queryHeaderRow, 'FF7C3AED'); // Purple
+
+        wsQuery.addRow([
+            queryMonitoring.date || dashboardData.formattedDate || '—',
+            queryMonitoring.openingQueries || 0,
+            queryMonitoring.newQueries || 0,
+            queryMonitoring.queriesResolved || 0,
+            queryMonitoring.closingQueries || 0,
+            queryMonitoring.queryStatus || 'Pending – Review',
+            queryMonitoring.equation || 'Closing = Opening + New - Resolved'
+        ]);
+
+        const qr = wsQuery.getRow(6);
+        qr.height = 24;
+        qr.eachCell((cell, colNum) => {
+            const align = [1, 6].includes(colNum) ? 'center' : (colNum === 7 ? 'left' : 'right');
+            styleDataCell(cell, false, align, [2, 3, 4, 5].includes(colNum), '#,##0');
+            if (colNum === 6) {
+                cell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FFDC2626' } };
+            }
+        });
+
+        autoFitColumns(wsQuery, 16, 40);
+
+        // ══════════════════════════════════════════════════════════════════════
+        // SHEET 4: MONTH-WISE KPI CARDS & PROJECTION (Section 11 & Section 8)
+        // ══════════════════════════════════════════════════════════════════════
+        const wsMonth = workbook.addWorksheet('Monthly Projections', {
+            views: [{ state: 'frozen', ySplit: 5 }]
+        });
+
+        const monthHeaders = [
+            'Month', 'Year', 'Month Type', 'Invoices Completed', 'Working Days Completed',
+            'Daily Average', 'Total Working Days', 'Projected Month-End',
+            '3-Month Benchmark', 'Variance vs Benchmark', 'Performance Status'
+        ];
+
+        addSheetHeader({
+            worksheet: wsMonth,
+            title: 'ALVISION EXIM — MONTH-WISE INVOICE PERFORMANCE & PROJECTIONS',
+            subtitle: 'CURRENT MONTH PROJECTIONS AND HISTORICAL MONTH-END ACTUALS',
+            filterMeta,
+            totalCols: monthHeaders.length,
+            lastColLetter: 'K'
+        });
+
+        wsMonth.addRow(monthHeaders);
+        const monthHeaderRow = wsMonth.getRow(5);
+        styleHeaderRow(monthHeaderRow, 'FF059669'); // Emerald Green
+
+        monthData.forEach((m, idx) => {
+            const isEven = idx % 2 === 0;
+            wsMonth.addRow([
+                m.month || '—',
+                m.year || '—',
+                m.isCurrent ? 'Current Month (Projected)' : 'Completed Month (Actual)',
+                m.invoicesCompleted || 0,
+                m.workingDaysCompleted || 0,
+                m.dailyAvg || 0,
+                m.totalWorkingDays || 0,
+                m.projectedMonthEnd || 0,
+                m.threeMonthBenchmark || 35,
+                m.varianceVsBenchmark || 0,
+                m.status || 'GREEN'
+            ]);
+
+            const r = wsMonth.getRow(6 + idx);
+            r.height = 20;
+            r.eachCell((cell, colNum) => {
+                const align = [1, 2, 3, 11].includes(colNum) ? 'center' : 'right';
+                styleDataCell(cell, isEven, align, [4, 5, 7, 8, 9, 10].includes(colNum), '#,##0');
+                if (colNum === 6) cell.numFmt = '0.0';
+                if (colNum === 10) {
+                    if (m.varianceVsBenchmark >= 0) cell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF16A34A' } };
+                    else cell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FFDC2626' } };
+                }
+            });
+        });
+
+        autoFitColumns(wsMonth, 14, 32);
+
+        // ══════════════════════════════════════════════════════════════════════
+        // SHEET 5: ACTIVE EXCEPTIONS & TRIGGERS (Section 4)
+        // ══════════════════════════════════════════════════════════════════════
+        if (activeExceptions.length > 0) {
+            const wsEx = workbook.addWorksheet('Active Exceptions', {
+                views: [{ state: 'frozen', ySplit: 5 }]
+            });
+
+            const exHeaders = ['Exception Type', 'Severity', 'Trigger Condition', 'Shortfall / Jobs', 'Required Action', 'Justified Status'];
+
+            addSheetHeader({
+                worksheet: wsEx,
+                title: 'ALVISION EXIM — ACTIVE EXCEPTIONS & ESCALATIONS',
+                subtitle: 'ACTIONABLE OPERATIONAL EXCEPTIONS (PRODUCTIVITY, BACKLOG & AGEING)',
+                filterMeta,
+                totalCols: exHeaders.length,
+                lastColLetter: 'F'
+            });
+
+            wsEx.addRow(exHeaders);
+            const exHeaderRow = wsEx.getRow(5);
+            styleHeaderRow(exHeaderRow, 'FFB91C1C'); // Red Header
+
+            activeExceptions.forEach((ex, idx) => {
+                const isEven = idx % 2 === 0;
+                wsEx.addRow([
+                    ex.type || '—',
+                    ex.severity || 'WARNING',
+                    ex.trigger || '—',
+                    ex.shortfall || 0,
+                    ex.action || '—',
+                    ex.isJustified ? 'YES (Justified)' : 'PENDING ACTION'
+                ]);
+
+                const r = wsEx.getRow(6 + idx);
+                r.height = 20;
+                r.eachCell((cell, colNum) => {
+                    const align = [1, 2, 6].includes(colNum) ? 'center' : ([4].includes(colNum) ? 'right' : 'left');
+                    styleDataCell(cell, isEven, align, colNum === 4, '#,##0');
+                    if (colNum === 2) {
+                        cell.font = { name: 'Segoe UI', size: 9.5, bold: true };
+                        if (ex.severity === 'CRITICAL') cell.font.color = { argb: 'FFDC2626' };
+                        else if (ex.severity === 'WARNING') cell.font.color = { argb: 'FFD97706' };
+                    }
+                });
+            });
+
+            autoFitColumns(wsEx, 14, 35);
+        }
+
+        // Generate workbook buffer and trigger download
+        const buffer = await workbook.xlsx.writeBuffer();
+        const dateStamp = (dashboardData.date || new Date().toISOString().slice(0, 10));
+        const fileName = `Import_Pending_Job_Productivity_Monitoring_${dateStamp}.xlsx`;
+        saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName);
+        return true;
+    } catch (err) {
+        console.error('Error generating productivity Excel report:', err);
+        throw err;
+    }
+};
+

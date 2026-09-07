@@ -369,6 +369,7 @@ import customHouseRoutes from "./routes/master-directory/customHouseRoutes.mjs";
 import cfsRoutes from "./routes/master-directory/cfsRoutes.mjs";
 import transporterRoutes from "./routes/master-directory/transporterRoutes.mjs";
 import emptyOffLocationRoutes from "./routes/master-directory/emptyOffLocationRoutes.mjs";
+import notificationRoutes from "./routes/master-directory/notificationRoutes.mjs";
 
 // Tally API
 import tallyRoutes from "./tallyapi/tallyRoutes.mjs";
@@ -751,6 +752,7 @@ app.use("/api", cfsRoutes);
 app.use("/api", transporterRoutes);
 app.use("/api", generalOrgRoutes);
 app.use("/api", emptyOffLocationRoutes);
+app.use(notificationRoutes);
 
 
 // Tally API

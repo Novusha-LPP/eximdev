@@ -22,6 +22,7 @@ import {
   handleWeightAsPerDocumentChange,
   handleGrossWeightAsPerDocumentChange,
   handleActualWeightChange,
+  validateTareWeight,
 } from "../../utils/handleTareWeightChange";
 import Checkbox from "@mui/material/Checkbox";
 import { UserContext } from "../../contexts/UserContext";
@@ -1269,18 +1270,31 @@ function ViewOperationsJob() {
                             <Col xs={12} md={2}>
                               <div className="job-detail-input-container">
                                 <strong>Tare Weight:&nbsp;</strong>
-                                <TextField
-                                  fullWidth
-                                  size="small"
-                                  margin="normal"
-                                  variant="outlined"
-                                  id={`tare_weight_${index}`}
-                                  name={`container_nos[${index}].tare_weight`}
-                                  value={container.tare_weight}
-                                  onChange={(e) =>
-                                    handleTareWeightChange(e, index, formik)
-                                  }
-                                />
+                                {(() => {
+                                  const tareError = validateTareWeight(
+                                    container.size,
+                                    container.tare_weight
+                                  );
+                                  return (
+                                    <TextField
+                                      fullWidth
+                                      size="small"
+                                      margin="normal"
+                                      variant="outlined"
+                                      id={`tare_weight_${index}`}
+                                      name={`container_nos[${index}].tare_weight`}
+                                      value={container.tare_weight ?? ""}
+                                      onChange={(e) =>
+                                        handleTareWeightChange(e, index, formik)
+                                      }
+                                      error={Boolean(tareError)}
+                                      helperText={tareError || ""}
+                                      FormHelperTextProps={{
+                                        sx: { fontSize: "0.75rem", mx: 0, fontWeight: 500 },
+                                      }}
+                                    />
+                                  );
+                                })()}
                               </div>
                             </Col>
                             <Col xs={12} md={2}>
@@ -1558,28 +1572,40 @@ function ViewOperationsJob() {
 
           <Row style={{ margin: "20px 0" }}>
             <Col>
-              <Button
-                type="submit"
-                variant="contained"
-                sx={{
-                  position: "fixed",
-                  bottom: 40,
-                  right: 40,
-                  zIndex: 1000,
-                  backgroundColor: "#000",
-                  color: "#fff",
-                  "&:hover": {
-                    backgroundColor: "#333",
-                  },
-                  padding: "12px 32px",
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-                  borderRadius: "8px"
-                }}
-              >
-                Submit
-              </Button>
+              {(() => {
+                const hasTareWeightErrors = formik.values.container_nos?.some((c) =>
+                  Boolean(validateTareWeight(c?.size, c?.tare_weight))
+                );
+                return (
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    disabled={hasTareWeightErrors}
+                    sx={{
+                      position: "fixed",
+                      bottom: 40,
+                      right: 40,
+                      zIndex: 1000,
+                      backgroundColor: hasTareWeightErrors ? "#9ca3af" : "#000",
+                      color: "#fff",
+                      "&:hover": {
+                        backgroundColor: hasTareWeightErrors ? "#9ca3af" : "#333",
+                      },
+                      "&.Mui-disabled": {
+                        backgroundColor: "#9ca3af",
+                        color: "#f3f4f6",
+                      },
+                      padding: "12px 32px",
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                      borderRadius: "8px",
+                    }}
+                  >
+                    Submit
+                  </Button>
+                );
+              })()}
             </Col>
           </Row>
         </form>

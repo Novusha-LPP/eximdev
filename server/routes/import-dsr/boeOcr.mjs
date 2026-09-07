@@ -1,6 +1,7 @@
 import express from "express";
 import multer from "multer";
 import logger from "../../logger.js";
+import { harvestPartIIIDuties } from "../../services/notificationHarvestService.mjs";
 
 const router = express.Router();
 const upload = multer({
@@ -69,6 +70,17 @@ router.post("/api/import-dsr/boe-ocr", upload.single("file"), async (req, res) =
       return res.status(ocrRes.status || 502).json({
         status: "error",
         message: ocrData?.message || ocrData?.detail || `BOE OCR Server responded with status ${ocrRes.status}`
+      });
+    }
+
+    // Asynchronously harvest Part-III duties into Section B, C, D master directories
+    if (ocrData && ocrData.status === "success" && ocrData.data?.PartIIIDuties) {
+      harvestPartIIIDuties({
+        partIIIDuties: ocrData.data.PartIIIDuties,
+        jobNo: req.body?.jobNo || "",
+        boeNo: ocrData.data?.be_no || req.body?.beNo || ""
+      }).catch((err) => {
+        logger.error("Background notification harvesting failed:", err);
       });
     }
 

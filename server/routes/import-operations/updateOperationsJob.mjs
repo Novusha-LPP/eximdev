@@ -71,6 +71,33 @@ router.patch("/api/update-operations-job/:branch_code/:trade_type/:mode/:year/:j
           });
         }
       }
+
+      // TARE WEIGHT VALIDATION: 20ft >= 2100 KG, 40ft >= 3600 KG (empty values acceptable)
+      for (const container of updateData.container_nos) {
+        const tare = container.tare_weight;
+        if (tare !== undefined && tare !== null && String(tare).trim() !== "") {
+          const tareNum = parseFloat(tare);
+          const sizeStr = String(container.size || "").trim().toLowerCase();
+          if (isNaN(tareNum)) {
+            return res.status(400).json({
+              message: `Invalid tare weight specified for container ${container.container_number || ""}`,
+              error: "Validation error"
+            });
+          }
+          if ((sizeStr.startsWith("20") || sizeStr.includes("20")) && tareNum < 2100) {
+            return res.status(400).json({
+              message: `Tare weight for 20 feet container (${container.container_number || ""}) cannot be less than 2100 KG`,
+              error: "Validation error"
+            });
+          }
+          if ((sizeStr.startsWith("40") || sizeStr.includes("40")) && tareNum < 3600) {
+            return res.status(400).json({
+              message: `Tare weight for 40 feet container (${container.container_number || ""}) cannot be less than 3600 KG`,
+              error: "Validation error"
+            });
+          }
+        }
+      }
     }
 
     // Apply the requested update first

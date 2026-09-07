@@ -265,7 +265,7 @@ const findLeaveForDateLocal = (leaves, dayMomentLocal) => {
     });
 };
 
-const REPORT_USER_SELECT_FIELDS = '_id first_name last_name username designation company_id department_id branch_id weekoff_policy_id holiday_policy_id shift_id employee_code hod_id employment_type category';
+const REPORT_USER_SELECT_FIELDS = '_id first_name last_name username designation company_id department_id branch_id weekoff_policy_id holiday_policy_id shift_id employee_code hod_id employment_type category date_of_joining joining_date';
 const REPORT_COMPANY_POPULATE = { path: 'company_id', select: 'company_name attendance_config' };
 const REPORT_ATTENDANCE_SELECT_FIELDS = 'employee_id attendance_date first_in last_out is_auto_punch_out status is_late late_by_minutes is_early_in early_in_minutes is_early_exit early_exit_minutes total_work_hours net_work_hours half_day_session shift_id processed_by is_half_day is_regularized is_on_leave is_holiday is_weekly_off leave_application_id remarks';
 const REPORT_LEAVE_SELECT_FIELDS = 'employee_id leave_policy_id leave_type from_date to_date approval_status is_half_day is_start_half_day is_end_half_day half_day_session start_half_session end_half_session reason';
@@ -351,11 +351,12 @@ const buildPendingLeaveConflict = (leave, attendanceDate, tz = 'Asia/Kolkata') =
     };
 };
 
-const getAttendanceThresholds = (employee) => {
+const getAttendanceThresholds = (employee, record = null) => {
+    const shift = (record?.shift_id && record.shift_id.full_day_hours) ? record.shift_id : employee?.shift_id;
     const companyConfig = employee?.company_id?.attendance_config || {};
     return {
-        fullDayThreshold: Number(employee?.shift_id?.full_day_hours || companyConfig.full_day_threshold_hours || 8),
-        halfDayThreshold: Number(employee?.shift_id?.half_day_hours || companyConfig.half_day_threshold_hours || 4)
+        fullDayThreshold: Number(shift?.full_day_hours || companyConfig.full_day_threshold_hours || 8),
+        halfDayThreshold: Number(shift?.half_day_hours || companyConfig.half_day_threshold_hours || 4)
     };
 };
 
@@ -370,11 +371,80 @@ const normalizeAttendanceStatus = (record, employee) => {
     const totalWorkHours = Number(
         (record.total_work_hours && record.total_work_hours > 0) ? record.total_work_hours : (computedHours > 0 ? computedHours : 0)
     );
-    const { fullDayThreshold, halfDayThreshold } = getAttendanceThresholds(employee);
+    const { fullDayThreshold, halfDayThreshold } = getAttendanceThresholds(employee, record);
 
-    if (totalWorkHours >= fullDayThreshold) return 'present';
+    if (totalWorkHours >= fullDayThreshold || totalWorkHours >= 8.0) return 'present';
     if (totalWorkHours >= halfDayThreshold) return 'half_day';
     return 'absent';
+};
+
+const applySandwichRuleToHistory = (history) => {
+    if (!Array.isArray(history) || history.length === 0) return history;
+
+    const isNonWorking = (day) => {
+        if (!day) return false;
+        const s = String(day.status || '').toLowerCase();
+        return s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday' || Boolean(day.is_weekly_off || day.is_holiday);
+    };
+
+    const isFullDayAbsence = (day) => {
+        if (!day) return false;
+        const s = String(day.status || '').toLowerCase();
+        if (s === 'none' || !s || s === 'future') return false;
+
+        const isHalf = Boolean(
+            day.is_half_day ||
+            day.is_half_day_leave ||
+            s === 'half_day' ||
+            String(day.session || day.half_day_session || '').trim().length > 0
+        );
+        if (isHalf) return false;
+
+        const workHours = Number(day.total_work_hours || 0);
+        if (workHours >= 4 || Boolean(day.first_in && day.last_out && workHours >= 4)) return false;
+        if (['present', 'late', 'present_late', 'on_duty'].includes(s)) return false;
+
+        if (s === 'leave' || s === 'pending_leave' || s === 'absent') return true;
+
+        return false;
+    };
+
+    let i = 0;
+    while (i < history.length) {
+        if (isNonWorking(history[i])) {
+            const startBlock = i;
+            while (i < history.length && isNonWorking(history[i])) {
+                i++;
+            }
+            const endBlock = i - 1;
+
+            const leftIndex = startBlock - 1;
+            const rightIndex = endBlock + 1;
+
+            const hasLeft = leftIndex >= 0;
+            const hasRight = rightIndex < history.length;
+
+            const leftIsAbsent = hasLeft && isFullDayAbsence(history[leftIndex]);
+            const rightIsAbsent = hasRight && isFullDayAbsence(history[rightIndex]);
+
+            if (hasLeft && hasRight && leftIsAbsent && rightIsAbsent) {
+                for (let k = startBlock; k <= endBlock; k++) {
+                    const originalStatus = history[k].status;
+                    history[k].status = 'leave';
+                    history[k].leaveType = 'LWP';
+                    history[k].leave_type = 'LWP';
+                    history[k].is_sandwiched = true;
+                    history[k].is_weekly_off = false;
+                    history[k].is_holiday = false;
+                    history[k].original_status = originalStatus;
+                }
+            }
+        } else {
+            i++;
+        }
+    }
+
+    return history;
 };
 
 const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLeaves, extraFields = {}, policyResolveOptions = {}) => {
@@ -403,12 +473,41 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
     let actualDaysWithHours = 0;
 
     const compactHistory = [];
+    const rawJoinDate = emp.joining_date || emp.date_of_joining;
+    const parsedJoin = rawJoinDate ? moment(rawJoinDate, ['YYYY-MM-DD', 'DD-MM-YYYY', 'YYYY/MM/DD', 'DD/MM/YYYY', 'YY-MM-DD', moment.ISO_8601]) : null;
+    const joinMoment = parsedJoin && parsedJoin.isValid() ? parsedJoin.tz('Asia/Kolkata').startOf('day') : null;
+
     let curr = moment(startDate).tz('Asia/Kolkata').startOf('day');
     const stop = moment(endDate).tz('Asia/Kolkata').endOf('day');
 
     while (curr.isSameOrBefore(stop, 'day')) {
         const dayStr = curr.format('YYYY-MM-DD');
         const rec = recordsByDay.get(dayStr);
+
+        // If date is before joining date, do not mark as absent/weekoff/holiday
+        if (joinMoment && curr.isBefore(joinMoment, 'day')) {
+            compactHistory.push({
+                date: dayStr,
+                status: 'none',
+                session: null,
+                leaveType: null,
+                leaveStatus: null,
+                leaveReason: null,
+                is_half_day: false,
+                is_half_day_leave: false,
+                first_in: null,
+                last_out: null,
+                total_work_hours: null,
+                net_work_hours: null,
+                is_late: false,
+                late_by_minutes: 0,
+                is_early_exit: false,
+                early_exit_minutes: 0,
+                shift_id: null
+            });
+            curr.add(1, 'day');
+            continue;
+        }
 
         let hStatus = 'absent';
         let hSession = null;
@@ -549,6 +648,15 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             shift_id: rec?.shift_id || null
         });
         curr.add(1, 'day');
+    }
+
+    applySandwichRuleToHistory(compactHistory);
+    for (const item of compactHistory) {
+        if (item.is_sandwiched) {
+            if (item.original_status === 'weekly_off') actualWeekOff = Math.max(0, actualWeekOff - 1);
+            else if (item.original_status === 'holiday') actualHoliday = Math.max(0, actualHoliday - 1);
+            actualLeaves += 1;
+        }
     }
 
     const avgHoursValue = actualDaysWithHours > 0 ? (actualTotalHours / actualDaysWithHours) : 0;
@@ -2501,13 +2609,24 @@ export const getAdminAttendanceReport = async (req, res) => {
             userQuery.department_id = departmentId;
         }
 
-        const employees = await User.find(userQuery)
+        const rawEmployees = await User.find(userQuery)
             .select(REPORT_USER_SELECT_FIELDS)
             .populate(REPORT_COMPANY_POPULATE)
-            .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
+            .populate({ path: 'shift_id', select: 'shift_name start_time end_time full_day_hours half_day_hours' })
             .populate({ path: 'department_id', select: 'department_name' })
             .populate({ path: 'hod_id', select: 'first_name last_name username' })
             .lean();
+
+        // Exclude employees who joined strictly after the requested report period
+        const reportEndMoment = moment(endDate).tz('Asia/Kolkata').endOf('day');
+        const employees = rawEmployees.filter(emp => {
+            const rawJoin = emp.joining_date || emp.date_of_joining;
+            if (rawJoin) {
+                const jm = moment(rawJoin, ['YYYY-MM-DD', 'DD-MM-YYYY', 'YYYY/MM/DD', 'DD/MM/YYYY', 'YY-MM-DD', moment.ISO_8601]);
+                if (jm.isValid() && jm.tz('Asia/Kolkata').startOf('day').isAfter(reportEndMoment)) return false;
+            }
+            return true;
+        });
 
         if (employees.length === 0) {
             return res.json({ success: true, data: [] });
@@ -2551,7 +2670,7 @@ export const getAdminAttendanceReport = async (req, res) => {
                 attendance_date: { $gte: start, $lte: end }
             })
                 .select(REPORT_ATTENDANCE_SELECT_FIELDS)
-                .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
+                .populate({ path: 'shift_id', select: 'shift_name start_time end_time full_day_hours half_day_hours' })
                 .lean(),
             LeaveApplication.find({
                 employee_id: { $in: employeeIds },
@@ -2659,13 +2778,24 @@ export const getTeamAttendanceReport = async (req, res) => {
             role: { $nin: ['driver', 'Driver'] }
         };
         empQuery.username = { $ne: 'dev_master' };
-        const employees = await User.find(empQuery)
+        const rawEmployees = await User.find(empQuery)
             .select(REPORT_USER_SELECT_FIELDS)
             .populate(REPORT_COMPANY_POPULATE)
-            .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
+            .populate({ path: 'shift_id', select: 'shift_name start_time end_time full_day_hours half_day_hours' })
             .populate({ path: 'department_id', select: 'department_name' })
             .populate({ path: 'hod_id', select: 'first_name last_name username' })
             .lean();
+
+        // Exclude employees who joined strictly after the requested report period
+        const reportEndMomentTeam = moment(endDate).tz('Asia/Kolkata').endOf('day');
+        const employees = rawEmployees.filter(emp => {
+            const rawJoin = emp.joining_date || emp.date_of_joining;
+            if (rawJoin) {
+                const jm = moment(rawJoin, ['YYYY-MM-DD', 'DD-MM-YYYY', 'YYYY/MM/DD', 'DD/MM/YYYY', 'YY-MM-DD', moment.ISO_8601]);
+                if (jm.isValid() && jm.tz('Asia/Kolkata').startOf('day').isAfter(reportEndMomentTeam)) return false;
+            }
+            return true;
+        });
 
         if (employees.length === 0) {
             return res.json({ success: true, data: [] });
@@ -2696,7 +2826,7 @@ export const getTeamAttendanceReport = async (req, res) => {
                 attendance_date: { $gte: start, $lte: end }
             })
                 .select(REPORT_ATTENDANCE_SELECT_FIELDS)
-                .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
+                .populate({ path: 'shift_id', select: 'shift_name start_time end_time full_day_hours half_day_hours' })
                 .lean(),
             LeaveApplication.find({
                 employee_id: { $in: employeeIds },

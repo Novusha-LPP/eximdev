@@ -155,22 +155,35 @@ const getPresentDaysForReport = (employee) => {
         if (workHours >= 4) return false; // Half day
         return false;
     }).length;
-    return roundLeave(fullPresent + (actualHalfDays * 0.5));
+    const halfDayLeaves = employee.history.filter((day) => isHalfDayLeave(day)).length;
+    return roundLeave(fullPresent + (actualHalfDays * 0.5) + (halfDayLeaves * 0.5));
+};
+
+const isHalfDayPlLeaveForReport = (day) => {
+    if (!isHalfDayLeave(day)) return false;
+    const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
+    return !isLwpLeave(lt);
+};
+
+const isFullDayPlLeaveForReport = (day) => {
+    const s = String(day?.status || '').toLowerCase();
+    const isHalfLeave = isHalfDayLeave(day);
+    if ((s !== 'leave' && s !== 'pending_leave') || isHalfLeave) return false;
+    const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
+    return !isLwpLeave(lt);
 };
 
 const getHalfDayLeaveCountForReport = (employee) => {
     if (!Array.isArray(employee?.history) || employee.history.length === 0) return 0;
-    return employee.history.filter((day) => isHalfDayLeave(day)).length;
+    return employee.history.filter((day) => isHalfDayPlLeaveForReport(day)).length;
 };
 
 const getFullDayLeaveCountForReport = (employee) => {
-    if (!Array.isArray(employee?.history) || employee.history.length === 0) return Number(employee?.leaves || 0);
+    if (!Array.isArray(employee?.history) || employee.history.length === 0) {
+        return roundLeave(Math.max(0, Number(employee?.leaves || 0) - Number(employee?.lwp_taken || 0)));
+    }
 
-    return employee.history.filter((day) => {
-        const s = String(day?.status || '').toLowerCase();
-        const isHalfLeave = isHalfDayLeave(day);
-        return (s === 'leave' || s === 'pending_leave') && !isHalfLeave;
-    }).length;
+    return employee.history.filter((day) => isFullDayPlLeaveForReport(day)).length;
 };
 
 const getAbsentDaysForReport = (employee) => {
@@ -236,8 +249,9 @@ const calculateEmployeeLeaveBreakdown = (employee, reportMetricsById = null) => 
     const completeLeaves = getLeaveCountForReport(employee);
 
     if (!Array.isArray(employee?.history) || employee.history.length === 0) {
-        const plTaken = roundLeave(Math.min(openingBalance, completeLeaves));
-        const lwpTaken = roundLeave(Math.max(0, completeLeaves - openingBalance));
+        // Without history, completeLeaves already counts only PL (excludes LWP)
+        const plTaken = roundLeave(completeLeaves);
+        const lwpTaken = 0;
         const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
         return { openingBalance, plTaken, lwpTaken, availableBalance };
     }
@@ -267,8 +281,9 @@ const calculateEmployeeLeaveBreakdown = (employee, reportMetricsById = null) => 
         }
     });
 
-    const plTaken = roundLeave(Math.min(openingBalance, explicitPl));
-    const lwpTaken = roundLeave(explicitLwp + Math.max(0, explicitPl - openingBalance));
+    // Simple math: PL in PL column, LWP in LWP column (half day = 0.5, full day = 1.0)
+    const plTaken = roundLeave(explicitPl);
+    const lwpTaken = roundLeave(explicitLwp);
     const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
 
     return { openingBalance, plTaken, lwpTaken, availableBalance };
@@ -280,6 +295,75 @@ const getTotalWorkingDays = (employee, reportMetricsById = null) => {
     const holidayCount = getHolidayCount(employee);
     const weekOffCount = getWeekOffCount(employee);
     return roundLeave(presentDays + plTaken + holidayCount + weekOffCount);
+};
+
+const applySandwichRuleToHistory = (history) => {
+    if (!Array.isArray(history) || history.length === 0) return [];
+    const sorted = [...history].sort((a, b) => (a.date || a.attendance_date_str || '').localeCompare(b.date || b.attendance_date_str || ''));
+
+    const isNonWorking = (day) => {
+        if (!day) return false;
+        const s = String(day.status || '').toLowerCase();
+        return s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday' || Boolean(day.is_weekly_off || day.is_holiday);
+    };
+
+    const isFullDayAbsence = (day) => {
+        if (!day) return false;
+        const s = String(day.status || '').toLowerCase();
+        if (s === 'none' || !s || s === 'future') return false;
+        const isHalf = Boolean(
+            day.is_half_day ||
+            day.is_half_day_leave ||
+            day.isHalfDayLeave ||
+            s === 'half_day' ||
+            String(day.session || day.half_day_session || '').trim().length > 0
+        );
+        if (isHalf) return false;
+        let workHours = Number(day.total_work_hours || 0);
+        if (workHours >= 4 || Boolean(day.first_in && day.last_out && workHours >= 4)) return false;
+        if (['present', 'late', 'present_late', 'on_duty'].includes(s)) return false;
+        if (s === 'leave' || s === 'pending_leave' || s === 'absent') return true;
+        return false;
+    };
+
+    const result = sorted.map(d => ({ ...d }));
+
+    let i = 0;
+    while (i < result.length) {
+        if (isNonWorking(result[i])) {
+            const startBlock = i;
+            while (i < result.length && isNonWorking(result[i])) {
+                i++;
+            }
+            const endBlock = i - 1;
+
+            const leftIndex = startBlock - 1;
+            const rightIndex = endBlock + 1;
+
+            const hasLeft = leftIndex >= 0;
+            const hasRight = rightIndex < result.length;
+
+            const leftIsAbsent = hasLeft && isFullDayAbsence(result[leftIndex]);
+            const rightIsAbsent = hasRight && isFullDayAbsence(result[rightIndex]);
+
+            if (hasLeft && hasRight && leftIsAbsent && rightIsAbsent) {
+                for (let k = startBlock; k <= endBlock; k++) {
+                    const originalStatus = result[k].status;
+                    result[k].status = 'leave';
+                    result[k].leaveType = 'LWP';
+                    result[k].leave_type = 'LWP';
+                    result[k].is_sandwiched = true;
+                    result[k].isSandwiched = true;
+                    result[k].is_weekly_off = false;
+                    result[k].is_holiday = false;
+                    result[k].original_status = originalStatus;
+                }
+            }
+        } else {
+            i++;
+        }
+    }
+    return result;
 };
 
 const getCalendarStatusClass = (status = '') => {
@@ -625,7 +709,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             }
             
             let data = r?.data || [];
-            
+            data = data.map(e => ({ ...e, history: applySandwichRuleToHistory(e.history) }));
+
             // If we have dashboard data, store it for the daily summary tab
             if (dashR?.success && dashR?.data?.dailySummary) {
                 setDashboardData(dashR.data);
@@ -1103,7 +1188,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 if (workHours >= 4) return false; // Half day
                 return false;
             }).length;
-            return roundLeave(fullPresent + (actualHalfDays * 0.5));
+            const halfDayLeaves = employee.history.filter((day) => isHalfDayLeave(day)).length;
+            return roundLeave(fullPresent + (actualHalfDays * 0.5) + (halfDayLeaves * 0.5));
         };
 
         const getActualHalfDays = (employee) => {
@@ -1131,19 +1217,31 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             }).length;
         };
 
+        const isHalfDayPlLeaveInner = (day) => {
+            if (!isHalfDayLeave(day)) return false;
+            const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
+            return !isLwpLeave(lt);
+        };
+
+        const isFullDayPlLeaveInner = (day) => {
+            const s = String(day?.status || '').toLowerCase();
+            const isHalfLeave = isHalfDayLeave(day);
+            if ((s !== 'leave' && s !== 'pending_leave') || isHalfLeave) return false;
+            const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
+            return !isLwpLeave(lt);
+        };
+
         const getHalfDayLeaveCountForReport = (employee) => {
             if (!Array.isArray(employee.history) || employee.history.length === 0) return 0;
-            return employee.history.filter((day) => isHalfDayLeave(day)).length;
+            return employee.history.filter((day) => isHalfDayPlLeaveInner(day)).length;
         };
 
         const getFullDayLeaveCountForReport = (employee) => {
-            if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.leaves || 0);
+            if (!Array.isArray(employee.history) || employee.history.length === 0) {
+                return roundLeave(Math.max(0, Number(employee.leaves || 0) - Number(employee.lwp_taken || 0)));
+            }
 
-            return employee.history.filter((day) => {
-                const s = String(day?.status || '').toLowerCase();
-                const isHalfLeave = isHalfDayLeave(day);
-                return (s === 'leave' || s === 'pending_leave') && !isHalfLeave;
-            }).length;
+            return employee.history.filter((day) => isFullDayPlLeaveInner(day)).length;
         };
 
         // Absent days (unauthorized/unexcused absence with <4h worked and NO approved leave + 0.5 per half day)
@@ -1220,8 +1318,9 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             const completeLeaves = getLeaveCountForReport(employee);
 
             if (!Array.isArray(employee.history) || employee.history.length === 0) {
-                const plTaken = roundLeave(Math.min(openingBalance, completeLeaves));
-                const lwpTaken = roundLeave(Math.max(0, completeLeaves - openingBalance));
+                // Without history, completeLeaves already counts only PL (excludes LWP)
+                const plTaken = roundLeave(completeLeaves);
+                const lwpTaken = 0;
                 const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
                 return { openingBalance, plTaken, lwpTaken, availableBalance };
             }
@@ -1251,8 +1350,9 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 }
             });
 
-            const plTaken = roundLeave(Math.min(openingBalance, explicitPl));
-            const lwpTaken = roundLeave(explicitLwp + Math.max(0, explicitPl - openingBalance));
+            // Simple math: PL in PL column, LWP in LWP column (half day = 0.5, full day = 1.0)
+            const plTaken = roundLeave(explicitPl);
+            const lwpTaken = roundLeave(explicitLwp);
             const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
 
             return { openingBalance, plTaken, lwpTaken, availableBalance };
@@ -1272,6 +1372,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         );
 
         const formatLeaveStatusLabel = (day, workHours = 0) => {
+            if (day?.is_sandwiched || day?.isSandwiched) return 'Sandwich (LWP)';
             const statusLower = String(day?.status || '').toLowerCase();
             const leaveType = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
             const lLower = leaveType.toLowerCase();

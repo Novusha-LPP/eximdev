@@ -36,7 +36,24 @@ const pointSchema = new mongoose.Schema({
         changed_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         timestamp: { type: Date, default: Date.now },
         remarks: String
-    }]
+    }],
+
+    // Originating Context for external integrations (MRM, etc.)
+    originModule: { 
+        type: String, 
+        enum: ['MRM', 'CRM', 'MANUAL', null], 
+        default: null, 
+        index: true 
+    },
+    originContext: {
+        mrmItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'MRMItem', index: true },
+        personId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+        personName: { type: String },
+        tile: { type: String },
+        objective: { type: String },
+        month: { type: String },
+        year: { type: Number }
+    }
 });
 
 pointSchema.plugin(auditPlugin, { documentType: "OpenPoint" });

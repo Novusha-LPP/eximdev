@@ -2032,6 +2032,11 @@ export const getBalancesBulk = async (req, res) => {
             return t.includes('privilege') || t.includes('earned') || t === 'pl' || t === 'el' || t.includes('casual') || t.includes('paid') || t === 'cl';
         };
 
+        const isLwpType = (type = '') => {
+            const t = String(type || '').toLowerCase();
+            return t.includes('lwp') || t.includes('without pay') || t === 'lop' || t.includes('unpaid');
+        };
+
         const periodEnd = endDate ? moment(endDate).tz('Asia/Kolkata').endOf('day').toDate() : moment(refDate).endOf('month').toDate();
         const periodEndStr = endDate ? moment(endDate).tz('Asia/Kolkata').format('YYYY-MM-DD') : moment(refDate).endOf('month').format('YYYY-MM-DD');
 
@@ -2055,7 +2060,7 @@ export const getBalancesBulk = async (req, res) => {
                 const empIdStr = app.employee_id.toString();
                 const ltStr = String(app.leave_type || '').toLowerCase();
 
-                if (ltStr.includes('lwp') || ltStr.includes('without pay') || ltStr === 'lop' || ltStr.includes('unpaid')) {
+                if (isLwpType(ltStr)) {
                     continue;
                 }
 
@@ -2089,7 +2094,7 @@ export const getBalancesBulk = async (req, res) => {
                         ]
                     }
                 ]
-            }).lean();
+            }).populate({ path: 'leave_application_id', select: 'leave_type approval_status' }).lean();
 
             // Track leave days per employee and avoid double counting with LeaveApplication
             const attDaysByEmp = new Map();
@@ -2097,6 +2102,18 @@ export const getBalancesBulk = async (req, res) => {
                 // If the employee actually worked >= 8 hours, it is not an unworked leave
                 const wh = Number(rec.total_work_hours || 0);
                 if (wh >= 8 && ['present', 'late'].includes(String(rec.status || '').toLowerCase())) {
+                    continue;
+                }
+
+                // If linked to an LWP application or remarked as LWP, do NOT count as privilege leave
+                if (rec.leave_application_id) {
+                    const appType = String(rec.leave_application_id.leave_type || '').toLowerCase();
+                    if (isLwpType(appType)) {
+                        continue;
+                    }
+                }
+                const rem = String(rec.remarks || '').toLowerCase();
+                if (isLwpType(rem)) {
                     continue;
                 }
 
@@ -2131,7 +2148,7 @@ export const getBalancesBulk = async (req, res) => {
                 const empIdStr = app.employee_id.toString();
                 const ltStr = String(app.leave_type || '').toLowerCase();
 
-                if (ltStr.includes('lwp') || ltStr.includes('without pay') || ltStr === 'lop' || ltStr.includes('unpaid')) {
+                if (isLwpType(ltStr)) {
                     continue;
                 }
 
@@ -2164,12 +2181,23 @@ export const getBalancesBulk = async (req, res) => {
                         ]
                     }
                 ]
-            }).lean();
+            }).populate({ path: 'leave_application_id', select: 'leave_type approval_status' }).lean();
 
             const curAttDaysByEmp = new Map();
             for (const rec of currentAttendanceLeaves) {
                 const wh = Number(rec.total_work_hours || 0);
                 if (wh >= 8 && ['present', 'late'].includes(String(rec.status || '').toLowerCase())) {
+                    continue;
+                }
+
+                if (rec.leave_application_id) {
+                    const appType = String(rec.leave_application_id.leave_type || '').toLowerCase();
+                    if (isLwpType(appType)) {
+                        continue;
+                    }
+                }
+                const rem = String(rec.remarks || '').toLowerCase();
+                if (isLwpType(rem)) {
                     continue;
                 }
 

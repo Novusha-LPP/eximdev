@@ -8,6 +8,27 @@ const mrmMetadataSchema = new mongoose.Schema({
     meetingDate: { type: Date },
     reviewDate: { type: Date },
     meetingDone: { type: Boolean, default: false },
+    status: { 
+        type: String, 
+        enum: ['Draft', 'Submitted', 'Approved', 'RevisionRequested'], 
+        default: 'Draft', 
+        index: true 
+    },
+    submittedAt: { type: Date },
+    submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    approvedAt: { type: Date },
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    isLocked: { type: Boolean, default: false },
+    revisionHistory: [{
+        comment: { type: String, required: true },
+        requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        requestedAt: { type: Date, default: Date.now }
+    }],
+    reopenHistory: [{
+        reason: { type: String, required: true },
+        reopenedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        reopenedAt: { type: Date, default: Date.now }
+    }],
 }, { timestamps: true });
 
 // Ensure one entry per user-month-year

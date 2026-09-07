@@ -242,7 +242,7 @@ import feedback from "./routes/feedbackRoutes.js";
 
 //scrapper
 import cron from "node-cron";
-import { scrapeAndSaveCurrencyRates } from "./services/currencyRateScraper.js";
+// import { scrapeAndSaveCurrencyRates } from "./services/currencyRateScraper.js";
 import ActiveSession from "./model/attendance/ActiveSession.js";
 import AttendanceRecord from "./model/attendance/AttendanceRecord.js";
 import Opportunity from "./model/crm/Opportunity.mjs";
@@ -866,14 +866,13 @@ if (!disableCluster && cluster.isPrimary) {
           cron.schedule(
             "1 0 * * *",
             async () => {
-              console.log(
-                "🕐 Running scheduled currency rate scraper at 12:01 AM..."
-              );
+              console.log('Running scheduled currency rate scraper via Export API at 12:01 AM...');
               try {
-                const result = await scrapeAndSaveCurrencyRates();
-                console.log("✅ Scheduled scrape completed:", result);
+                const { default: axios } = await import('axios');
+                const res = await axios.post('https://eximbot.alvision.in/export/api/currency-rates/scrape', {}, { timeout: 30000 });
+                console.log('Scheduled scrape completed via Export API:', res.data);
               } catch (error) {
-                console.error("❌ Scheduled scrape failed:", error);
+                console.error('Scheduled scrape via Export API failed:', error.message);
               }
             },
             {

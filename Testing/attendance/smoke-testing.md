@@ -51,6 +51,18 @@ Smoke testing performs a rapid check on critical pathways in the Attendance modu
 ### 5. Payroll & Compensation Smoke Check
 - [ ] Payroll tab loads employee payroll summaries
 
+#### BUG-SMK-002: Payroll Module Fails to Display any Calculated Salary or Payslip Entries (Module Blocker)
+- **Sub-Module:** Payroll & Compensation
+- **Severity:** Blocker
+- **Status:** Open
+- **Description:** Navigating to Payroll Entries, Payslip Generator, and Bank Transfer views renders empty states across the entire Payroll section despite active employee salary master setups.
+- **Steps to Reproduce:**
+  1. Add/configure employee salary details.
+  2. Navigate to `PAYROLL` -> `Payroll Entries`, `Payslip Generator`, and `Bank Transfer`.
+  3. Observe that no entries are displayed in any view.
+- **Expected Result:** Payroll sub-modules should render calculated employee salary summaries, payslips, and transfer lists.
+- **Actual Result:** Zero entries displayed across all Payroll views ("No Entries Found", "No Calculated Payslips Found", "No Transfers Found").
+
 ---
 
 ### 6. Dashboards & Approvals Smoke Check
@@ -73,5 +85,5 @@ Smoke testing performs a rapid check on critical pathways in the Attendance modu
 
 | Bug ID | Sub-Module | Critical Issue | Severity | Status | Reported Date |
 | --- | --- | --- | --- | --- | --- |
-| | | | | | |
+| BUG-SMK-002 | Payroll & Compensation | No entries displayed across entire Payroll module (Payroll Entries, Payslips, Bank Transfer) | Blocker | Open | 2026-08-27 |
 

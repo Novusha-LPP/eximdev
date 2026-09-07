@@ -1,17 +1,40 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
-import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
 router.post("/api/unassign-modules", authMiddleware, async (req, res) => {
-  const { modules, username } = req.body;
-  const user = await UserModel.findOne({ username });
-  if (!user) return res.status(404).json({ message: "User not found" });
-  user.modules = user.modules.filter((module) => !modules.includes(module));
-  await user.save();
-  res.json({ message: "success" });
+  try {
+    const { modules, username } = req.body;
+    if (!username) {
+      return res.status(400).json({ success: false, message: "Username is required" });
+    }
+
+    const moduleList = Array.isArray(modules) ? modules : (modules ? [modules] : []);
+    if (moduleList.length === 0) {
+      return res.json({ success: true, message: "No modules provided" });
+    }
+
+    const updatedUser = await UserModel.findOneAndUpdate(
+      { username },
+      { $pullAll: { modules: moduleList } },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    return res.json({
+      success: true,
+      message: `Removed ${moduleList.length} module(s) successfully`,
+      modules: updatedUser.modules,
+    });
+  } catch (error) {
+    console.error("Error unassigning modules:", error);
+    return res.status(500).json({ success: false, message: error.message || "Failed to unassign modules" });
+  }
 });
 
 export default router;

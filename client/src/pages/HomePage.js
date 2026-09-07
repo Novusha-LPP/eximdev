@@ -664,7 +664,14 @@ function HomePageContent() {
               /> */}
 
               {/* IT Helpdesk Module */}
-              <Route path="/it-helpdesk/*" element={<ItHelpdeskPage />} />
+              <Route
+                path="/it-helpdesk/*"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <ItHelpdeskPage />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Exit Feedback */}
               <Route

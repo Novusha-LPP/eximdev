@@ -1,49 +1,35 @@
 // src/components/it-helpdesk/AuditLogs.js
 import React, { useState, useEffect, useContext, createContext, useCallback, useMemo, useRef } from "react";
 import {
-  Box,
   Button,
   Card,
-  CardContent,
   Grid,
-  IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  Tab,
-  TableRow,
-  TextField,
   Typography,
   CircularProgress,
   Chip,
-  Select,
-  MenuItem,
-  InputAdornment,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Tabs,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import FilterListIcon from "@mui/icons-material/FilterList";
-import DownloadIcon from "@mui/icons-material/Download";
-import HistoryIcon from "@mui/icons-material/History";
-import WarningIcon from "@mui/icons-material/Warning";
-import RefreshIcon from "@mui/icons-material/Refresh";
+import {
+  Search,
+  Download,
+  RefreshCw,
+  ChevronLeft,
+  SlidersHorizontal,
+  RotateCcw,
+  Eye,
+} from "lucide-react";
+import "../../styles/scorecard.scss";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { toast } from "react-hot-toast";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import axios from "axios";
-import Tooltip from "@mui/material/Tooltip";
 import { debounce } from "lodash";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate } from "react-router-dom";
-import VisibilityIcon from "@mui/icons-material/Visibility";
 import * as XLSX from 'xlsx'; // Add this import for Excel export
 
 // ✅ FIX 1: Create axios instance WITHOUT hardcoded token in headers
@@ -672,186 +658,223 @@ const AuditLogsComponent = () => {
 
   useEffect(() => { return () => { handleSearch.cancel(); }; }, [handleSearch]);
 
+  const getActionBadgeClass = (action) => {
+    const act = String(action || "").toUpperCase();
+    if (act.includes("CREATE") || act.includes("INSERT") || act.includes("LOGIN")) return "badge-excellent";
+    if (act.includes("UPDATE") || act.includes("EDIT")) return "badge-primary";
+    if (act.includes("DELETE") || act.includes("PURGE") || act.includes("ERROR")) return "badge-danger";
+    if (act.includes("EXPORT") || act.includes("DOWNLOAD")) return "badge-warning";
+    return "badge-secondary";
+  };
+
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box>
-        <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-          <Box display="flex" alignItems="center" gap={2}>
-            <Tooltip title="Back">
-              <IconButton
-                onClick={handleBack}
-                sx={{
-                  mr: 1,
-                  bgcolor: "white",
-                  border: "1px solid",
-                  borderColor: "primary.main",
-                  color: "primary.main",
-                  "&:hover": { bgcolor: "primary.light", color: "primary.dark" }
-                }}
-              >
-                <ArrowBackIcon sx={{ color: "primary.main" }} />
-              </IconButton>
-            </Tooltip>
-            <HistoryIcon color="primary" />
-            <Box display="flex" alignItems="center" gap={1}>
-              <Typography variant="h5" fontWeight={700}>Audit Logs</Typography>
-              {error && (
-                <Tooltip title={error}>
-                  <Chip label="API Error" color="error" size="small" variant="outlined" />
-                </Tooltip>
-              )}
-              {newLogsCount > 0 && <Chip label={newLogsCount} color="primary" size="small" sx={{ ml: 1 }} />}
-            </Box>
-            {lastUpdated && (
-              <Typography variant="body2" color="text.secondary">Last updated: {formatDate(lastUpdated)}</Typography>
-            )}
-          </Box>
-          <Box display="flex" gap={1}>
-            {/* <Button variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefreshLogs} disabled={loading || isRefreshing}>
-              {isRefreshing ? "Refreshing..." : "Refresh"}
-            </Button> */}
-            {/* <Button
-              variant="contained"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={loading}
-            >
-              {filterModule ? `Delete "${filterModule}" Logs` : 'Delete All Logs'}
-            </Button> */}
-          </Box>
-        </Box>
-
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-          <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
-            <Tab label="All Logs" value="all" />
-            {/* <Tab label="Recent (7 days)" value="recent" /> */}
-            {/* <Tab label="Errors" value="errors" /> */}
-            {/* <Tab label="Warnings" value="warnings" /> */}
-          </Tabs>
-        </Box>
+      <div className="scorecard-container">
+        {/* Topbar */}
+        <div className="topbar">
+          <div className="topbar-left">
+            <button className="back-btn" onClick={handleBack} title="Back to IT Helpdesk">
+              <ChevronLeft size={20} />
+            </button>
+            <div>
+              <div className="page-title">Audit Logs & Trail</div>
+              <div className="page-subtitle">Real-time system activity, change logs, and access security monitoring</div>
+            </div>
+          </div>
+          <div className="topbar-actions">
+            <button className="btn btn-secondary" onClick={handleRefreshLogs} disabled={loading || isRefreshing}>
+              <RefreshCw size={15} /> {isRefreshing ? "Refreshing..." : "Refresh"}
+            </button>
+            <button className="btn btn-secondary" onClick={() => setShowFilterModal(true)}>
+              <SlidersHorizontal size={15} /> Date Filters
+            </button>
+            <button className="btn btn-primary" onClick={handleExportLogs} disabled={exportLoading}>
+              <Download size={15} /> {exportLoading ? "Exporting..." : "Export Excel"}
+            </button>
+          </div>
+        </div>
 
         {error && (
-          <Card sx={{ mb: 2 }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" gap={2}>
-                <Typography color="warning.main" variant="body1"><WarningIcon /></Typography>
-                <Box flexGrow={1}>
-                  <Typography color="error" variant="body1" fontWeight={500}>
-                    {error}
-                    {loading && <Box component="span" sx={{ ml: 1 }}><CircularProgress size={16} color="inherit" />{" Reconnecting..."}</Box>}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Unable to fetch audit logs from the server. Please try again later or contact your administrator.
-                  </Typography>
-                </Box>
-                <Button variant="outlined" size="small" onClick={() => { setError(null); fetchAuditLogs(); }} startIcon={<RefreshIcon />} disabled={loading}>
-                  {loading ? "Connecting..." : "Retry"}
-                </Button>
-              </Box>
-            </CardContent>
-          </Card>
+          <div className="card mb-16" style={{ borderLeft: "4px solid #ef4444", background: "#fef2f2" }}>
+            <div className="card-body" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontWeight: 600, color: "#b91c1c" }}>Audit Log Connection Error</div>
+                <div style={{ fontSize: 13, color: "#7f1d1d" }}>{error}</div>
+              </div>
+              <button className="btn btn-secondary" onClick={() => { setError(null); fetchAuditLogs(); }} disabled={loading}>
+                Retry Connection
+              </button>
+            </div>
+          </div>
         )}
 
-        <Card sx={{ mb: 2 }}>
-          <CardContent>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} md={3}>
-                <TextField label="Search" size="small" fullWidth onChange={(e) => handleSearch(e.target.value)}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }} />
-              </Grid>
-              {/* <Grid item xs={12} md={2}>
-                <TextField label="User" size="small" fullWidth value={filterUser} onChange={(e) => setFilterUser(e.target.value)} />
-              </Grid> */}
-              <Grid item xs={12} md={2}>
-                {/* <Select size="small" fullWidth value={filterModule}
-                  onChange={(e) => handleModuleFilterChange(e.target.value)} displayEmpty>
-                  <MenuItem value="">All Modules</MenuItem>
-                  {Object.values(MODULES).map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                </Select> */}
-              </Grid>
-              <Grid item xs={12} md={2}>
-                {/* <Select size="small" fullWidth value={filterAction} onChange={(e) => setFilterAction(e.target.value)} displayEmpty>
-                  <MenuItem value="">All Actions</MenuItem>
-                  <MenuItem value="CREATE">Create</MenuItem>
-                  <MenuItem value="UPDATE">Update</MenuItem>
-                  <MenuItem value="DELETE">Delete</MenuItem>
-                </Select> */}
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <Box display="flex" gap={1}>
-                  <Button variant="outlined" startIcon={<FilterListIcon />} onClick={() => setShowFilterModal(true)} fullWidth>Filters</Button>
-                  <Button variant="contained" startIcon={<DownloadIcon />} onClick={handleExportLogs} fullWidth disabled={exportLoading}>
-                    {exportLoading ? <CircularProgress size={20} /> : "Export"}
-                  </Button>
-                </Box>
-              </Grid>
-            </Grid>
-            <Box mt={1}>
-              <Typography variant="body2" color="text.secondary">Showing {filteredLogs.length} of {auditLogs.length} logs</Typography>
-            </Box>
-          </CardContent>
-        </Card>
+        {/* KPI Metrics */}
+        <div className="card mb-16">
+          <div className="card-body">
+            <div className="stat-grid">
+              <div className="stat-card">
+                <div className="stat-val">{auditLogs.length}</div>
+                <div className="stat-lbl">Total Log Entries</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#10b981" }}>
+                  {auditLogs.filter(l => String(l.action || "").toUpperCase().includes("CREATE") || String(l.action || "").toUpperCase().includes("INSERT")).length}
+                </div>
+                <div className="stat-lbl">Create Actions</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#3b82f6" }}>
+                  {auditLogs.filter(l => String(l.action || "").toUpperCase().includes("UPDATE")).length}
+                </div>
+                <div className="stat-lbl">Update Actions</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#ef4444" }}>
+                  {auditLogs.filter(l => String(l.action || "").toUpperCase().includes("DELETE")).length}
+                </div>
+                <div className="stat-lbl">Delete Actions</div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent>
+        {/* Filters Card */}
+        <div className="card mb-16">
+          <div className="card-body">
+            <div className="form-grid" style={{ gridTemplateColumns: "2fr 1fr 1fr auto", alignItems: "flex-end" }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Search Logs</label>
+                <div style={{ position: "relative" }}>
+                  <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--color-text-muted)" }} />
+                  <input
+                    type="text"
+                    className="form-input"
+                    style={{ paddingLeft: 32 }}
+                    placeholder="Search by user, action, module, details, IP..."
+                    onChange={(e) => handleSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Module</label>
+                <select
+                  className="form-select"
+                  value={filterModule}
+                  onChange={(e) => handleModuleFilterChange(e.target.value)}
+                >
+                  <option value="">All Modules</option>
+                  {Object.values(MODULES).map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Action</label>
+                <select
+                  className="form-select"
+                  value={filterAction}
+                  onChange={(e) => setFilterAction(e.target.value)}
+                >
+                  <option value="">All Actions</option>
+                  <option value="CREATE">CREATE</option>
+                  <option value="UPDATE">UPDATE</option>
+                  <option value="DELETE">DELETE</option>
+                  <option value="EXPORT">EXPORT</option>
+                  <option value="LOGIN">LOGIN</option>
+                </select>
+              </div>
+              {(filterModule || filterAction || searchTerm || dateRange.startDate || dateRange.endDate) && (
+                <div style={{ alignSelf: "flex-end" }}>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setFilterModule("");
+                      setFilterAction("");
+                      setSearchTerm("");
+                      setDateRange({ startDate: null, endDate: null });
+                    }}
+                    title="Reset Filters"
+                  >
+                    <RotateCcw size={14} /> Reset
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Audit Log Table */}
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <div className="card-title">Audit Log Entries</div>
+              <div className="card-subtitle">Showing {filteredLogs.length} of {auditLogs.length} records</div>
+            </div>
+          </div>
+          <div className="card-body" style={{ padding: 0 }}>
             {loading ? (
-              <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+              <div style={{ textAlign: "center", padding: "40px", color: "var(--color-text-muted)" }}>
+                Loading audit logs...
+              </div>
             ) : (
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Timestamp</TableCell>
-                      <TableCell>User</TableCell>
-                      <TableCell>Action</TableCell>
-                      <TableCell>Module</TableCell>
-                      <TableCell>Details</TableCell>
-                      <TableCell align="right">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Timestamp</th>
+                      <th>User</th>
+                      <th>Action</th>
+                      <th>Module</th>
+                      <th>Details</th>
+                      <th style={{ textAlign: "right" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {filteredLogs.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} align="center">
-                          <Typography variant="body2" color="text.secondary">
-                            {auditLogs.length === 0 ? "No audit logs available" : "No logs found matching the criteria"}
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: "center", padding: "30px", color: "var(--color-text-muted)" }}>
+                          {auditLogs.length === 0 ? "No audit logs recorded yet." : "No logs matching current filter."}
+                        </td>
+                      </tr>
                     ) : (
-                      filteredLogs.map(log => (
-                        <TableRow key={log.id} hover>
-                          <TableCell><Typography variant="body2">{formatDate(log.timestamp)}</Typography></TableCell>
-                          <TableCell>{log.user}</TableCell>
-                          <TableCell>{log.action}</TableCell>
-                          <TableCell><Chip label={log.module} color={getModuleColor(log.module)} size="small" /></TableCell>
-                          <TableCell><Typography variant="body2" noWrap sx={{ maxWidth: 300 }}>{log.details}</Typography></TableCell>
-                          <TableCell align="right">
-                            <Tooltip title="View Details">
-                              <IconButton size="small" onClick={() => handleViewDetails(log)}>
-                                <VisibilityIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete Log">
-                              {/* <IconButton
-                                size="small"
-                                onClick={() => handleDeleteSingleLog(log.id)}
-                                sx={{ color: 'error.main', ml: 0.5 }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton> */}
-                            </Tooltip>
-                          </TableCell>
-                        </TableRow>
+                      filteredLogs.map((log) => (
+                        <tr key={log.id || log._id}>
+                          <td style={{ fontSize: 13, color: "var(--color-text-muted)" }}>
+                            {formatDate(log.timestamp)}
+                          </td>
+                          <td style={{ fontWeight: 600 }}>{log.user}</td>
+                          <td>
+                            <span className={`score-badge ${getActionBadgeClass(log.action)}`}>
+                              {log.action}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="score-badge badge-primary">{log.module}</span>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: 13, maxWidth: 350, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {log.details}
+                            </div>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: "4px 8px" }}
+                              onClick={() => handleViewDetails(log)}
+                              title="View Log Details"
+                            >
+                              <Eye size={13} /> Details
+                            </button>
+                          </td>
+                        </tr>
                       ))
                     )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                  </tbody>
+                </table>
+              </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={showDeleteConfirm} onClose={() => !deleteLoading && setShowDeleteConfirm(false)} maxWidth="xs" fullWidth>
@@ -921,7 +944,7 @@ const AuditLogsComponent = () => {
             </>
           )}
         </Dialog>
-      </Box>
+      </div>
     </LocalizationProvider>
   );
 };

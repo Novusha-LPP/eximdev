@@ -4,40 +4,29 @@ import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
 import axios from "axios";
-import * as XLSX from "xlsx"; // Import XLSX for Excel export
+import * as XLSX from "xlsx";
 import {
-  Box,
   Button,
-  Card,
-  CardContent,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Grid,
-  IconButton,
   MenuItem,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
-  CircularProgress,
-  Tooltip,
-  InputAdornment
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import Inventory2Icon from "@mui/icons-material/Inventory2";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import SearchIcon from "@mui/icons-material/Search";
-import DownloadIcon from "@mui/icons-material/Download"; // Added DownloadIcon
+import {
+  Search,
+  Download,
+  Plus,
+  Edit2,
+  Trash2,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import "../../styles/scorecard.scss";
 
 const ASSET_TYPES = ["Desktop", "Laptop", "Printer", "Network Device", "Software", "Phone", "SIM Card", "Rack", "Cable"];
 const STATUSES = ["Available", "Assigned", "In Repair", "Repair", "Retired", "Lost", "Active", "Inactive", "Damaged", "Spare", "Expired", "Suspended"];
@@ -554,31 +543,6 @@ export default function AssetManagement() {
   }, [filteredData, users, logCreate]);
   // ----------------------------------
 
-  const statusColor = (s) => {
-    switch (String(s || "").toLowerCase()) {
-      case "available":
-        return "success";
-      case "assigned":
-        return "info";
-      case "in repair":
-      case "repair":
-        return "warning";
-      case "retired":
-      case "spare":
-        return "default";
-      case "lost":
-      case "expired":
-      case "damaged":
-        return "error";
-      case "active":
-        return "success";
-      case "suspended":
-        return "warning";
-      default:
-        return "default";
-    }
-  };
-
   const requiredFieldsForType = getRequiredFieldsForType(form.asset_type);
   const canSave = true;
   const requiredHint = requiredFieldsForType.map((field) => FIELD_LABELS[field]).join(", ");
@@ -607,90 +571,126 @@ export default function AssetManagement() {
     });
   };
 
-  return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Box display="flex" alignItems="center" gap={1}>
-          <Tooltip title="Back">
-            <IconButton
-              onClick={handleBack}
-              sx={{
-                mr: 1,
-                bgcolor: "white",
-                border: "1px solid",
-                borderColor: "primary.main",
-                color: "primary.main",
-                "&:hover": { bgcolor: "primary.main", color: "white" }
-              }}
-            >
-              <ArrowBackIcon sx={{ color: "primary.main" }} />
-            </IconButton>
-          </Tooltip>
-          <Inventory2Icon color="primary" />
-          <Typography variant="h5" fontWeight={700}>
-            Asset Management
-          </Typography>
-        </Box>
-        <Box display="flex" gap={1}>
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => fetchData(pagination.page)}>
-            Refresh
-          </Button>
-          {/* Added Export Button */}
-          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportAllToExcel}>
-            Export Excel
-          </Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
-            Add Asset
-          </Button>
-        </Box>
-      </Box>
+  const getStatusBadgeClass = (s) => {
+    switch (String(s || "").toLowerCase()) {
+      case "available":
+      case "active":
+        return "badge-excellent";
+      case "assigned":
+        return "badge-good";
+      case "in repair":
+      case "repair":
+      case "suspended":
+        return "badge-warning";
+      case "lost":
+      case "expired":
+      case "damaged":
+      case "retired":
+        return "badge-danger";
+      case "spare":
+      case "inactive":
+      default:
+        return "badge-secondary";
+    }
+  };
 
-      <Card>
-        <CardContent>
-          <Grid container spacing={2} mb={2} alignItems="center">
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Search Assets"
-                size="small"
-                fullWidth
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                select
-                label="Asset Type"
-                size="small"
-                fullWidth
+  return (
+    <div className="scorecard-container">
+      {/* Topbar */}
+      <div className="topbar">
+        <div className="topbar-left">
+          <button className="back-btn" onClick={handleBack} title="Back to IT Helpdesk">
+            <ChevronLeft size={20} />
+          </button>
+          <div>
+            <div className="page-title">Asset Management</div>
+            <div className="page-subtitle">Track, assign, and manage enterprise hardware, laptops, and IT infrastructure</div>
+          </div>
+        </div>
+        <div className="topbar-actions">
+          <button className="btn btn-secondary" onClick={() => fetchData(pagination.page)}>
+            <RefreshCw size={15} /> Refresh
+          </button>
+          <button className="btn btn-secondary" onClick={handleExportAllToExcel}>
+            <Download size={15} /> Export Excel
+          </button>
+          <button className="btn btn-primary" onClick={() => handleOpen()}>
+            <Plus size={15} /> Add Asset
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Stats */}
+      <div className="card mb-16">
+        <div className="card-body">
+          <div className="stat-grid">
+            <div className="stat-card">
+              <div className="stat-val">{pagination.total || data.length}</div>
+              <div className="stat-lbl">Total Assets</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-val" style={{ color: "#10b981" }}>
+                {data.filter(a => ["available", "active"].includes(String(a.status || "").toLowerCase())).length}
+              </div>
+              <div className="stat-lbl">Available / Active</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-val" style={{ color: "#3b82f6" }}>
+                {data.filter(a => ["assigned"].includes(String(a.status || "").toLowerCase())).length}
+              </div>
+              <div className="stat-lbl">Assigned Assets</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-val" style={{ color: "#f59e0b" }}>
+                {data.filter(a => ["in repair", "repair", "damaged", "suspended"].includes(String(a.status || "").toLowerCase())).length}
+              </div>
+              <div className="stat-lbl">In Repair / Damaged</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters Card */}
+      <div className="card mb-16">
+        <div className="card-body">
+          <div className="form-grid" style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr", alignItems: "flex-end" }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Search Assets</label>
+              <div style={{ position: "relative" }}>
+                <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--color-text-muted)" }} />
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{ paddingLeft: 32 }}
+                  placeholder="Search by tag, model, serial, assignee..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Asset Type</label>
+              <select
+                className="form-select"
                 value={filters.type}
                 onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value, status: "" }))}
               >
-                <MenuItem value="">All Types</MenuItem>
+                <option value="">All Types</option>
                 {ASSET_TYPES.map((t) => (
-                  <MenuItem key={t} value={t}>
+                  <option key={t} value={t}>
                     {t}
-                  </MenuItem>
+                  </option>
                 ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                select
-                label="Status"
-                size="small"
-                fullWidth
+              </select>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Status</label>
+              <select
+                className="form-select"
                 value={filters.status}
                 onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
               >
-                <MenuItem value="">All Statuses</MenuItem>
+                <option value="">All Statuses</option>
                 {(filters.type === "SIM Card"
                   ? ["Available", "Assigned", "Active", "Inactive"]
                   : filters.type === "Printer"
@@ -707,130 +707,139 @@ export default function AssetManagement() {
                               ? ["Available", "Assigned", "In Repair", "Retired"]
                               : STATUSES
                 ).map((s) => (
-                  <MenuItem key={s} value={s}>
+                  <option key={s} value={s}>
                     {s}
-                  </MenuItem>
+                  </option>
                 ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                select
-                label="Department"
-                size="small"
-                fullWidth
+              </select>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Department</label>
+              <select
+                className="form-select"
                 value={filters.department || ""}
                 onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))}
               >
-                <MenuItem value="">All Departments</MenuItem>
+                <option value="">All Departments</option>
                 {DEPARTMENTS.map((dept) => (
-                  <MenuItem key={dept} value={dept}>
+                  <option key={dept} value={dept}>
                     {dept}
-                  </MenuItem>
+                  </option>
                 ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              {/* <Button
-                variant="contained"
-                fullWidth
-                onClick={() => fetchData(1)}
-              >
-                Apply Filters
-              </Button> */}
-            </Grid>
-          </Grid>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
 
+      {/* Assets Table */}
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <div className="card-title">Assets Directory</div>
+            <div className="card-subtitle">Showing {filteredData.length} records</div>
+          </div>
+        </div>
+        <div className="card-body" style={{ padding: 0 }}>
           {loading ? (
-            <Box display="flex" justifyContent="center" py={4}>
-              <CircularProgress />
-            </Box>
+            <div style={{ textAlign: "center", padding: "40px", color: "var(--color-text-muted)" }}>
+              Loading assets...
+            </div>
           ) : (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Asset Tag</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Manufacturer</TableCell>
-                    <TableCell>Assigned To</TableCell>
-                    <TableCell>Department</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Location</TableCell>
-                    <TableCell align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Asset Tag</th>
+                    <th>Type</th>
+                    <th>Manufacturer / Model</th>
+                    <th>Assigned To</th>
+                    <th>Department</th>
+                    <th>Status</th>
+                    <th>Location</th>
+                    <th style={{ textAlign: "right" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {filteredData.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} align="center">
-                        <Typography variant="body2" color="text.secondary">
-                          No assets found
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: "center", padding: "30px", color: "var(--color-text-muted)" }}>
+                        No assets found matching the criteria.
+                      </td>
+                    </tr>
                   ) : (
                     filteredData.map((a) => (
-                      <TableRow key={a._id} hover>
-                        <TableCell>{a.asset_tag}</TableCell>
-                        <TableCell>{a.asset_type}</TableCell>
-                        <TableCell>{a.manufacturer || "—"}</TableCell>
-                        <TableCell>
-                          {getAssignedToName(a.assigned_to)}
-                        </TableCell>
-                        <TableCell>
-                          {a.department || "—"}
-                        </TableCell>
-                        <TableCell>
-                          <Chip label={a.status} color={statusColor(a.status)} size="small" />
-                        </TableCell>
-                        <TableCell>{a.location || "—"}</TableCell>
-                        <TableCell align="right">
-                          <Tooltip title="Edit">
-                            <IconButton size="small" onClick={() => handleOpen(a)}>
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete">
-                            <IconButton size="small" color="error" onClick={(e) => handleDelete(e, a._id)}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
+                      <tr key={a._id}>
+                        <td style={{ fontWeight: 600, color: "var(--color-primary)" }}>{a.asset_tag}</td>
+                        <td>
+                          <span className="score-badge badge-primary">{a.asset_type}</span>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 500 }}>{a.manufacturer || "—"}</div>
+                          {a.model && <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>{a.model}</div>}
+                        </td>
+                        <td>{getAssignedToName(a.assigned_to)}</td>
+                        <td>{a.department || "—"}</td>
+                        <td>
+                          <span className={`score-badge ${getStatusBadgeClass(a.status)}`}>
+                            {a.status}
+                          </span>
+                        </td>
+                        <td>{a.location || "—"}</td>
+                        <td style={{ textAlign: "right" }}>
+                          <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: "4px 8px" }}
+                              onClick={() => handleOpen(a)}
+                              title="Edit Asset"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              className="btn btn-danger"
+                              style={{ padding: "4px 8px" }}
+                              onClick={(e) => handleDelete(e, a._id)}
+                              title="Delete Asset"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
                     ))
                   )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                </tbody>
+              </table>
+            </div>
           )}
 
-          <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
-            <Typography variant="caption" color="text.secondary">
-              Total: {pagination.total}
-            </Typography>
-            <Box display="flex" gap={1}>
-              <Button
-                size="small"
+          {/* Pagination Footer */}
+          <div className="pagination-bar">
+            <div className="pagination-info">
+              Total {pagination.total} records (Page {pagination.page} of {Math.max(1, Math.ceil(pagination.total / pagination.limit))})
+            </div>
+            <div className="pagination-controls">
+              <button
+                className="btn btn-secondary"
                 disabled={pagination.page <= 1}
                 onClick={() => fetchData(pagination.page - 1)}
+                style={{ padding: "4px 10px", fontSize: 12 }}
               >
-                Prev
-              </Button>
-              <Typography variant="caption" sx={{ alignSelf: "center" }}>
-                Page {pagination.page}
-              </Typography>
-              <Button
-                size="small"
+                <ChevronLeft size={14} /> Prev
+              </button>
+              <button
+                className="btn btn-secondary"
                 disabled={pagination.page * pagination.limit >= pagination.total}
                 onClick={() => fetchData(pagination.page + 1)}
+                style={{ padding: "4px 10px", fontSize: 12 }}
               >
-                Next
-              </Button>
-            </Box>
-          </Box>
-        </CardContent>
-      </Card>
+                Next <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <Dialog open={showModal} onClose={() => setShowModal(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editId ? "Edit Asset" : "New Asset"}</DialogTitle>
@@ -2073,6 +2082,6 @@ export default function AssetManagement() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </div>
   );
 }

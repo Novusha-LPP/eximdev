@@ -1,16 +1,6 @@
-import axios from "axios";
+import authAPI from "./authAPI";
 
-let apiBaseURL = process.env.REACT_APP_API_STRING || "http://0.0.0.0:9006";
-
-if (apiBaseURL.includes("0.0.0.0") && typeof window !== "undefined" && window.location.hostname !== "0.0.0.0") {
-  apiBaseURL = `http://${window.location.hostname}:9006`;
-}
-
-const api = axios.create({
-  baseURL: apiBaseURL,
-  withCredentials: true,
-  headers: { "Content-Type": "application/json" },
-});
+const api = authAPI;
 
 export const equipmentChecklistAPI = {
   // Submit new checklist
@@ -24,6 +14,10 @@ export const equipmentChecklistAPI = {
   // Get details of a single checklist
   getById: (id) =>
     api.get(`/equipment-checklist/${id}`).then((r) => r.data),
+
+  // Update existing checklist
+  update: (id, payload) =>
+    api.put(`/equipment-checklist/${id}`, payload).then((r) => r.data),
 
   // Delete checklist record
   remove: (id) =>

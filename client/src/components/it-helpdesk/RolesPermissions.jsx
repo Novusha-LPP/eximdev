@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
   Box,
   Button,
@@ -359,112 +361,248 @@ export default function RolesPermissions() {
     fetchData();
   }, []);
 
+  const navigate = useNavigate();
+
   return (
-    <Box>
-      <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+    <Box sx={{ p: { xs: 1.5, md: 2.5 }, maxWidth: "1600px", margin: "0 auto" }}>
+      {/* Header & Actions Bar */}
+      <Box
+        sx={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 2,
+          mb: 3,
+          pb: 2.5,
+          borderBottom: "1px solid #e2e8f0",
+        }}
+      >
         <Box display="flex" alignItems="center" gap={2}>
-          <SecurityIcon color="primary" />
-          <Typography variant="h5" fontWeight={700}>
-            Roles & Permissions
-          </Typography>
+          <Button
+            onClick={() => navigate("/it-helpdesk")}
+            startIcon={<ArrowBackIcon />}
+            sx={{
+              borderRadius: "10px",
+              textTransform: "none",
+              fontWeight: 600,
+              color: "#475569",
+              bgcolor: "#f1f5f9",
+              px: 2,
+              py: 0.8,
+              border: "1px solid #e2e8f0",
+              "&:hover": { bgcolor: "#e2e8f0", color: "#1e293b", borderColor: "#cbd5e1" },
+              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+              transition: "all 0.2s ease",
+            }}
+          >
+            Back
+          </Button>
+
+          <Box display="flex" alignItems="center" gap={1.5}>
+            <Box
+              sx={{
+                width: 44,
+                height: 44,
+                borderRadius: "12px",
+                background: "linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)",
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 4px 12px rgba(79, 70, 229, 0.3)",
+              }}
+            >
+              <SecurityIcon fontSize="medium" />
+            </Box>
+            <Box>
+              <Typography variant="h5" fontWeight={800} color="#0f172a" lineHeight={1.2}>
+                Roles & Permissions
+              </Typography>
+              <Typography variant="caption" color="#64748b" fontWeight={500}>
+                Define access levels, module roles and granular permissions
+              </Typography>
+            </Box>
+          </Box>
         </Box>
-        <Box sx={{ maxWidth: 320, width: "100%" }}>
+
+        <Box display="flex" alignItems="center" gap={1.5}>
           <TextField
-            label="Search Roles"
+            placeholder="Search roles or descriptions..."
             size="small"
-            fullWidth
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon />
+                  <SearchIcon fontSize="small" sx={{ color: "#94a3b8" }} />
                 </InputAdornment>
               ),
             }}
+            sx={{
+              width: { xs: "100%", sm: 260 },
+              "& .MuiOutlinedInput-root": {
+                borderRadius: "10px",
+                bgcolor: "#ffffff",
+                "&:hover": { bgcolor: "#ffffff" },
+                "&.Mui-focused": { bgcolor: "#ffffff" },
+              },
+            }}
           />
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenModal()}
+            sx={{
+              borderRadius: "10px",
+              textTransform: "none",
+              fontWeight: 700,
+              px: 2.5,
+              py: 0.9,
+              background: "linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)",
+              color: "#ffffff",
+              boxShadow: "0 4px 14px rgba(79, 70, 229, 0.35)",
+              "&:hover": {
+                background: "linear-gradient(135deg, #4338ca 0%, #312e81 100%)",
+                transform: "translateY(-1px)",
+                boxShadow: "0 6px 18px rgba(79, 70, 229, 0.4)",
+              },
+              transition: "all 0.2s ease",
+            }}
+          >
+            Create New Role
+          </Button>
         </Box>
       </Box>
 
       {/* Roles Grid */}
       <Box mb={2}>
-        <Grid container spacing={2}>
-          {filteredRoles.map(role => (
+        <Grid container spacing={2.5}>
+          {filteredRoles.map((role) => (
             <Grid item xs={12} md={6} lg={4} key={role.id}>
-              <Card sx={{ 
-                height: "100%",
-                border: "1px solid #e0e0e0",
-                position: "relative"
-              }}>
-                <CardContent>
-                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+              <Card
+                sx={{
+                  height: "100%",
+                  borderRadius: "14px",
+                  border: "1px solid #e2e8f0",
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
+                  position: "relative",
+                  transition: "all 0.2s ease",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  "&:hover": {
+                    transform: "translateY(-3px)",
+                    boxShadow: "0 10px 25px -5px rgba(0,0,0,0.08)",
+                  },
+                }}
+              >
+                <CardContent sx={{ p: 2.5 }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
                     <Box>
-                      <Typography variant="subtitle1" fontWeight={600}>
+                      <Typography variant="h6" fontWeight={700} color="#0f172a" fontSize="1.05rem">
                         {role.name}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="#64748b" sx={{ mt: 0.5 }}>
                         {role.description}
                       </Typography>
                     </Box>
                     {role.is_predefined && (
-                      <Chip 
-                        label="Predefined" 
-                        color="primary" 
-                        size="small" 
-                        variant="outlined"
+                      <Chip
+                        label="Predefined"
+                        size="small"
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: "0.72rem",
+                          bgcolor: "#e0e7ff",
+                          color: "#4338ca",
+                          border: "1px solid #c7d2fe",
+                        }}
                       />
                     )}
                   </Box>
-                  
-                  <Box mt={2}>
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Permissions by Category:</strong>
+
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      borderRadius: "10px",
+                      bgcolor: "#f8fafc",
+                      border: "1px solid #f1f5f9",
+                      mt: 2,
+                    }}
+                  >
+                    <Typography variant="caption" fontWeight={700} color="#475569" textTransform="uppercase" letterSpacing="0.05em">
+                      Permissions Breakdown:
                     </Typography>
-                    {PERMISSION_CATEGORIES.map(category => {
-                      const count = getPermissionCount(role.id, category.id);
-                      const total = category.permissions.length;
-                      if (count === 0) return null;
-                      
-                      return (
-                        <Box key={category.id} display="flex" justifyContent="space-between" mb={0.5}>
-                          <Typography variant="body2" color="text.secondary">
-                            {category.name}:
-                          </Typography>
-                          <Typography variant="body2">
-                            {count}/{total}
-                          </Typography>
-                        </Box>
-                      );
-                    })}
+                    <Box sx={{ mt: 1 }}>
+                      {PERMISSION_CATEGORIES.map((category) => {
+                        const count = getPermissionCount(role.id, category.id);
+                        const total = category.permissions.length;
+                        if (count === 0) return null;
+
+                        return (
+                          <Box key={category.id} display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                            <Typography variant="body2" color="#64748b" fontSize="0.82rem">
+                              {category.name}
+                            </Typography>
+                            <Chip
+                              label={`${count}/${total}`}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                bgcolor: count === total ? "#f0fdf4" : "#f1f5f9",
+                                color: count === total ? "#16a34a" : "#475569",
+                                border: `1px solid ${count === total ? "#bbf7d0" : "#e2e8f0"}`,
+                              }}
+                            />
+                          </Box>
+                        );
+                      })}
+                    </Box>
                   </Box>
 
-                  <Box mt={2} display="flex" justifyContent="space-between" alignItems="center">
-                    <Typography variant="body2" color="text.secondary">
-                      Users: <strong>{role.user_count || 0}</strong>
+                  <Box mt={2.5} pt={1.5} borderTop="1px solid #f1f5f9" display="flex" justifyContent="space-between" alignItems="center">
+                    <Typography variant="caption" color="#64748b" fontWeight={600}>
+                      Users: <strong style={{ color: "#0f172a" }}>{role.user_count || 0}</strong>
                     </Typography>
                     {role.created_date && (
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="caption" color="#94a3b8">
                         Created: {role.created_date}
                       </Typography>
                     )}
                   </Box>
 
-                  <Box display="flex" justifyContent="flex-end" gap={1} mt={2}>
-                    <Tooltip title="Edit">
-                      <IconButton 
-                        size="small" 
+                  <Box display="flex" justifyContent="flex-end" gap={1} mt={1.5}>
+                    <Tooltip title="Edit Role">
+                      <IconButton
+                        size="small"
                         onClick={() => handleOpenModal(role)}
                         disabled={role.is_predefined}
+                        sx={{
+                          borderRadius: "8px",
+                          bgcolor: "#eff6ff",
+                          color: "#2563eb",
+                          "&:hover": { bgcolor: "#dbeafe" },
+                          "&.Mui-disabled": { opacity: 0.4, bgcolor: "transparent" },
+                        }}
                       >
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton 
-                        size="small" 
-                        color="error" 
+                    <Tooltip title="Delete Role">
+                      <IconButton
+                        size="small"
                         onClick={() => handleDeleteRole(role.id)}
                         disabled={role.is_predefined}
+                        sx={{
+                          borderRadius: "8px",
+                          bgcolor: "#fff1f2",
+                          color: "#e11d48",
+                          "&:hover": { bgcolor: "#ffe4e6" },
+                          "&.Mui-disabled": { opacity: 0.4, bgcolor: "transparent" },
+                        }}
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -475,18 +613,6 @@ export default function RolesPermissions() {
             </Grid>
           ))}
         </Grid>
-      </Box>
-
-      {/* Add New Role Button */}
-      <Box display="flex" justifyContent="center" mt={2}>
-        <Button 
-          variant="contained" 
-          startIcon={<AddIcon />} 
-          onClick={() => handleOpenModal()}
-          sx={{ minWidth: 200 }}
-        >
-          Create New Role
-        </Button>
       </Box>
 
       {/* Add/Edit Role Modal */}

@@ -189,7 +189,7 @@ export default function ScorecardList() {
                   onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
                 >
                   <option value="">All Statuses</option>
-                  {["Draft", "Submitted", "Approved"].map((s) => <option key={s}>{s}</option>)}
+                  {["Draft", "Submitted"].map((s) => <option key={s}>{s}</option>)}
                 </select>
               </div>
               <div className="form-field">

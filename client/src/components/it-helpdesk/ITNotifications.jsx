@@ -1,239 +1,518 @@
-import React, { useState, useEffect } from "react";
-import {
-  Box, Typography, Card, CardContent, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Chip, CircularProgress, Alert,
-  Select, MenuItem, FormControl, InputLabel, Grid, IconButton, Tooltip,
-  TextField, InputAdornment, Button
-} from "@mui/material";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  Search,
+  Download,
+  Bell,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
-import NotificationsIcon from "@mui/icons-material/Notifications";
-import EventIcon from "@mui/icons-material/Event";
-import WarningIcon from "@mui/icons-material/Warning";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import ErrorIcon from "@mui/icons-material/Error";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import SearchIcon from "@mui/icons-material/Search";
-import DownloadIcon from "@mui/icons-material/Download";
+import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
+import "../../styles/scorecard.scss";
 
-// Dynamically compute status based on days until expiry
 function computeStatus(dateStr) {
-  if (!dateStr) return "Unknown";
+  if (!dateStr) return { status: "Unknown", diffDays: 0, cls: "badge-secondary" };
   const expiry = new Date(dateStr);
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return "Expired";
-  if (diffDays <= 30) return "Expiring Soon";
-  return "Upcoming";
+  if (diffDays < 0) return { status: "Expired", diffDays, cls: "badge-danger" };
+  if (diffDays <= 30) return { status: "Expiring Soon", diffDays, cls: "badge-warning" };
+  return { status: "Upcoming", diffDays, cls: "badge-excellent" };
 }
 
-function getStatusChip(status) {
-  switch (status) {
-    case "Expired":
-      return <Chip icon={<ErrorIcon />} label={status} size="small" color="error" />;
-    case "Expiring Soon":
-      return <Chip icon={<WarningIcon />} label={status} size="small" color="warning" />;
-    case "Upcoming":
-      return <Chip icon={<CheckCircleIcon />} label={status} size="small" color="success" />;
-    default:
-      return <Chip label={status} size="small" />;
-  }
-}
+const fmtDate = (d) => {
+  if (!d) return "—";
+  const dt = new Date(d);
+  if (isNaN(dt)) return "—";
+  return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+};
 
 export default function ITNotifications() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [alerts, setAlerts] = useState([]);
-  const [filterStatus, setFilterStatus] = useState(""); // empty = show all
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterType, setFilterType] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [assetsRes, contractsRes, licensesRes] = await Promise.all([
-          itHelpdeskAPI.assets.getAll(),
-          itHelpdeskAPI.contracts.getAll(),
-          itHelpdeskAPI.licenses.getAll()
-        ]);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [assetsRes, contractsRes, licensesRes] = await Promise.all([
+        itHelpdeskAPI.assets.getAll(),
+        itHelpdeskAPI.contracts.getAll(),
+        itHelpdeskAPI.licenses.getAll(),
+      ]);
 
-        const warrantyAlerts = (assetsRes.data || [])
-          .filter(a => a.warranty_expiry)
-          .map(a => ({
+      const warrantyAlerts = (assetsRes.data || [])
+        .filter((a) => a.warranty_expiry)
+        .map((a) => {
+          const comp = computeStatus(a.warranty_expiry);
+          return {
             type: "Warranty Expiry",
-            item: a.asset_tag || a.asset_name,
+            item: a.asset_tag || a.asset_name || "Hardware Asset",
+            details: `${a.asset_type || "Device"} - ${a.manufacturer || ""} ${a.model || ""}`.trim(),
             date: a.warranty_expiry,
-            status: computeStatus(a.warranty_expiry)
-          }));
+            status: comp.status,
+            diffDays: comp.diffDays,
+            cls: comp.cls,
+          };
+        });
 
-        const contractAlerts = (contractsRes.data || [])
-          .filter(c => c.end_date)
-          .map(c => ({
+      const contractAlerts = (contractsRes.data || [])
+        .filter((c) => c.end_date)
+        .map((c) => {
+          const comp = computeStatus(c.end_date);
+          return {
             type: "Contract Renewal",
-            item: c.contract_number || c.contract_name,
+            item: c.contract_number || c.contract_name || "AMC Contract",
+            details: c.vendor_name || c.vendor?.name || "Maintenance Partner",
             date: c.end_date,
-            status: computeStatus(c.end_date)
-          }));
+            status: comp.status,
+            diffDays: comp.diffDays,
+            cls: comp.cls,
+          };
+        });
 
-        const licenseAlerts = (licensesRes.data || [])
-          .filter(l => l.expiry_date)
-          .map(l => ({
+      const licenseAlerts = (licensesRes.data || [])
+        .filter((l) => l.expiry_date)
+        .map((l) => {
+          const comp = computeStatus(l.expiry_date);
+          return {
             type: "License Expiry",
-            item: l.software_name || l.license_name,
+            item: l.software_name || l.license_name || "Software License",
+            details: `Key: ${l.license_code || "N/A"} - Assigned: ${l.assigned_to || "Unassigned"}`,
             date: l.expiry_date,
-            status: computeStatus(l.expiry_date)
-          }));
+            status: comp.status,
+            diffDays: comp.diffDays,
+            cls: comp.cls,
+          };
+        });
 
-        setAlerts([...warrantyAlerts, ...contractAlerts, ...licenseAlerts]);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+      const allAlerts = [...warrantyAlerts, ...contractAlerts, ...licenseAlerts].sort(
+        (a, b) => new Date(a.date) - new Date(b.date)
+      );
+
+      setAlerts(allAlerts);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load notifications & expiry alerts");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Filter alerts by search term and status
-  const filteredAlerts = alerts.filter(a => {
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Filter alerts by search term, status, and alert type
+  const filteredAlerts = alerts.filter((a) => {
     const matchesStatus = !filterStatus || a.status === filterStatus;
-    const matchesSearch = !searchTerm ||
-      a.item.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.type.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesSearch;
+    const matchesType = !filterType || a.type === filterType;
+    const term = searchTerm.toLowerCase();
+    const matchesSearch =
+      !searchTerm ||
+      a.item.toLowerCase().includes(term) ||
+      a.type.toLowerCase().includes(term) ||
+      (a.details || "").toLowerCase().includes(term);
+
+    return matchesStatus && matchesType && matchesSearch;
   });
 
-  // Function to export data to Excel
+  // KPI counts
+  const totalCount = alerts.length;
+  const expiringCount = alerts.filter((a) => a.status === "Expiring Soon").length;
+  const expiredCount = alerts.filter((a) => a.status === "Expired").length;
+  const upcomingCount = alerts.filter((a) => a.status === "Upcoming").length;
+
+  // Pagination calculation
+  const totalPages = Math.max(1, Math.ceil(filteredAlerts.length / limit));
+  const displayedRows = filteredAlerts.slice((page - 1) * limit, page * limit);
+
   const exportToExcel = () => {
-    // Create a worksheet from the filtered alerts
-    const worksheet = XLSX.utils.json_to_sheet(filteredAlerts.map(alert => ({
-      "Alert Type": alert.type,
-      "Item": alert.item,
-      "Expiry Date": new Date(alert.date).toLocaleDateString(),
-      "Status": alert.status
-    })));
+    if (!filteredAlerts || filteredAlerts.length === 0) {
+      toast.error("No alerts to export");
+      return;
+    }
+    try {
+      const excelData = filteredAlerts.map((alert, index) => ({
+        "Sr. No.": index + 1,
+        "Alert Type": alert.type,
+        "Item / Subject": alert.item,
+        "Details": alert.details || "—",
+        "Expiry / Renewal Date": new Date(alert.date).toLocaleDateString("en-IN"),
+        "Days Remaining": alert.diffDays < 0 ? `${Math.abs(alert.diffDays)} days overdue` : `${alert.diffDays} days left`,
+        "Status": alert.status,
+      }));
 
-    // Create a workbook and add the worksheet
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Alerts");
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      XLSX.utils.book_append_sheet(wb, ws, "Expiry Alerts");
 
-    // Generate Excel file and download
-    XLSX.writeFile(workbook, "IT_Notifications.xlsx");
+      const date = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `IT_Notifications_Alerts_${date}.xlsx`);
+      toast.success("Expiry notifications exported to Excel");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export Excel");
+    }
+  };
+
+  const getTypeBadge = (type) => {
+    switch (type) {
+      case "Warranty Expiry":
+        return <span className="score-badge badge-primary">{type}</span>;
+      case "Contract Renewal":
+        return <span className="score-badge badge-warning">{type}</span>;
+      case "License Expiry":
+        return <span className="score-badge badge-good">{type}</span>;
+      default:
+        return <span className="score-badge badge-secondary">{type}</span>;
+    }
   };
 
   return (
-    <Box>
-      <Box display="flex" alignItems="center" gap={1} mb={3}>
-        <Tooltip title="Back">
-          <IconButton
+    <>
+      {/* ── Topbar ─────────────────────────────────────────────────── */}
+      <div className="topbar">
+        <div className="topbar-left">
+          <button
+            className="btn btn-icon"
             onClick={() => navigate("/it-helpdesk")}
-            sx={{
-              mr: 1,
-              bgcolor: "white",
-              border: "1px solid",
-              borderColor: "primary.main",
-              color: "primary.main",
-              "&:hover": { bgcolor: "primary.light", color: "primary.dark" }
+            title="Back to IT Helpdesk"
+            style={{
+              border: "1px solid #e2e8f0",
+              background: "white",
+              borderRadius: "50%",
+              width: 36,
+              height: 36,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              fontSize: 18,
+              fontWeight: "bold",
+              color: "#334155",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              transition: "all 0.2s ease",
             }}
           >
-            <ArrowBackIcon sx={{ color: "primary.main" }} />
-          </IconButton>
-        </Tooltip>
-        <NotificationsIcon color="primary" />
-        <Typography variant="h5" fontWeight={700}>Notifications & Alerts</Typography>
-        {filteredAlerts.length > 0 && (
-          <Tooltip title="Export to Excel">
-            <IconButton
-              onClick={exportToExcel}
-              sx={{
-                ml: "auto",
-                bgcolor: "white",
-                border: "1px solid",
-                borderColor: "primary.main",
-                color: "primary.main",
-                "&:hover": { bgcolor: "primary.light", color: "primary.dark" }
+            ←
+          </button>
+          <div>
+            <div className="topbar-title">Expiry Notifications &amp; System Alerts</div>
+            <div className="topbar-breadcrumb" style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+              Proactive Monitoring of Hardware Warranties, AMC Renewals &amp; Software License Expirations
+            </div>
+          </div>
+        </div>
+
+        <div className="topbar-right" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={exportToExcel}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "13px",
+              padding: "7px 16px",
+              borderRadius: "8px",
+              fontWeight: 600,
+            }}
+          >
+            <Download size={15} /> Export Excel
+          </button>
+        </div>
+      </div>
+
+      <div className="page-body">
+        {/* ── KPI Summary Cards ─────────────────────────────────────── */}
+        <div className="card mb-16">
+          <div className="card-body">
+            <div className="stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "10px" }}>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#0f172a" }}>
+                  {totalCount}
+                </div>
+                <div className="stat-lbl">Total Alerts</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#f59e0b" }}>
+                  {expiringCount}
+                </div>
+                <div className="stat-lbl">Expiring in 30 Days</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#ef4444" }}>
+                  {expiredCount}
+                </div>
+                <div className="stat-lbl">Overdue / Expired</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#10b981" }}>
+                  {upcomingCount}
+                </div>
+                <div className="stat-lbl">Upcoming Safe</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Filters Card ──────────────────────────────────────────── */}
+        <div className="card mb-16">
+          <div className="card-body">
+            <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "12px", alignItems: "flex-end" }}>
+              <div className="form-field">
+                <label>Search Alerts</label>
+                <div style={{ position: "relative" }}>
+                  <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+                  <input
+                    type="text"
+                    placeholder="Search asset, contract, license…"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{ paddingLeft: "32px" }}
+                  />
+                </div>
+              </div>
+
+              <div className="form-field">
+                <label>Alert Category</label>
+                <select
+                  value={filterType}
+                  onChange={(e) => {
+                    setFilterType(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All Categories</option>
+                  <option value="Warranty Expiry">Hardware Warranty</option>
+                  <option value="Contract Renewal">AMC Contract Renewal</option>
+                  <option value="License Expiry">Software License Expiry</option>
+                </select>
+              </div>
+
+              <div className="form-field">
+                <label>Urgency Status</label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => {
+                    setFilterStatus(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All Statuses</option>
+                  <option value="Expiring Soon">Expiring Soon (&lt; 30 days)</option>
+                  <option value="Expired">Expired / Overdue</option>
+                  <option value="Upcoming">Upcoming</option>
+                </select>
+              </div>
+
+              <div className="form-field">
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setFilterType("");
+                    setFilterStatus("");
+                    setPage(1);
+                  }}
+                  style={{
+                    height: "38px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 600,
+                    color: "#0f172a",
+                  }}
+                >
+                  Clear Filters
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Table Card ────────────────────────────────────────────── */}
+        <div className="card">
+          <div
+            className="card-header"
+            style={{
+              padding: "10px 16px",
+              background: "linear-gradient(to right, #f8fafc, #ffffff)",
+              borderBottom: "1px solid #e2e8f0",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div className="card-title" style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+              <Bell size={17} color="#ea580c" /> Active Expiry Queue
+            </div>
+
+            <span style={{ fontSize: "12px", color: "#64748b", background: "#f1f5f9", padding: "4px 10px", borderRadius: "12px", fontWeight: 600 }}>
+              Showing {displayedRows.length} of {filteredAlerts.length} items
+            </span>
+          </div>
+
+          <div className="card-body" style={{ padding: 0 }}>
+            {loading ? (
+              <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
+                Scanning warranties and renewals...
+              </div>
+            ) : (
+              <div className="table-wrap">
+                <table style={{ width: "100%" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 44, textAlign: "center" }}>#</th>
+                      <th style={{ minWidth: 140 }}>Alert Type</th>
+                      <th style={{ minWidth: 160 }}>Item / Asset / Subject</th>
+                      <th style={{ minWidth: 180 }}>Specification / Vendor Details</th>
+                      <th style={{ minWidth: 120 }}>Expiry Date</th>
+                      <th style={{ minWidth: 130 }}>Timeline</th>
+                      <th style={{ minWidth: 110, textAlign: "center" }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: "center", padding: "36px 16px", color: "#16a34a" }}>
+                          🎉 No pending expiry alerts matching criteria!
+                        </td>
+                      </tr>
+                    ) : (
+                      displayedRows.map((alert, idx) => (
+                        <tr key={idx} style={{ background: idx % 2 === 0 ? "#ffffff" : "#fcfdfd" }}>
+                          <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>
+                            {(page - 1) * limit + idx + 1}
+                          </td>
+                          <td>{getTypeBadge(alert.type)}</td>
+                          <td className="fw-600" style={{ color: "#0f172a" }}>
+                            {alert.item}
+                          </td>
+                          <td style={{ color: "#475569", fontSize: "12.5px" }}>
+                            {alert.details || "—"}
+                          </td>
+                          <td style={{ color: "#334155", fontSize: "13px" }}>
+                            {fmtDate(alert.date)}
+                          </td>
+                          <td style={{ fontSize: "12.5px" }}>
+                            {alert.diffDays < 0 ? (
+                              <span style={{ color: "#dc2626", fontWeight: 600 }}>
+                                {Math.abs(alert.diffDays)} days overdue
+                              </span>
+                            ) : alert.diffDays === 0 ? (
+                              <span style={{ color: "#d97706", fontWeight: 700 }}>
+                                Expires Today!
+                              </span>
+                            ) : (
+                              <span style={{ color: alert.diffDays <= 30 ? "#d97706" : "#475569", fontWeight: alert.diffDays <= 30 ? 600 : 400 }}>
+                                {alert.diffDays} days remaining
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: "center" }}>
+                            <span className={`score-badge ${alert.cls}`}>
+                              {alert.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* ── Pagination Footer ─────────────────────────────────── */}
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "12px",
+                borderTop: "1px solid #e2e8f0",
+                padding: "12px 16px",
+                background: "#fafbfc",
               }}
             >
-              <DownloadIcon />
-            </IconButton>
-          </Tooltip>
-        )}
-      </Box>
-
-      {/* Filters and Search Bar */}
-      <Grid container spacing={2} sx={{ mb: 2 }} alignItems="center">
-        <Grid item xs={12} sm={6} md={4}>
-          <TextField
-            label="Search Alerts"
-            size="small"
-            fullWidth
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <FormControl size="small" fullWidth>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={filterStatus}
-              label="Status"
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <MenuItem value="">All Statuses</MenuItem>
-              <MenuItem value="Upcoming">Upcoming</MenuItem>
-              <MenuItem value="Expiring Soon">Expiring Soon</MenuItem>
-              <MenuItem value="Expired">Expired</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-      </Grid>
-
-      {loading ? (
-        <Box display="flex" justifyContent="center" py={4}>
-          <CircularProgress />
-        </Box>
-      ) : filteredAlerts.length === 0 ? (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          No alerts found{filterStatus ? ` with status "${filterStatus}"` : ""}
-        </Alert>
-      ) : (
-        <Card>
-          <CardContent>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Alert Type</TableCell>
-                    <TableCell>Item</TableCell>
-                    <TableCell>Expiry Date</TableCell>
-                    <TableCell>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredAlerts.map((a, i) => (
-                    <TableRow key={i}>
-                      <TableCell>
-                        <Chip icon={<EventIcon />} label={a.type} size="small" color="warning" />
-                      </TableCell>
-                      <TableCell>{a.item}</TableCell>
-                      <TableCell>{new Date(a.date).toLocaleDateString()}</TableCell>
-                      <TableCell>{getStatusChip(a.status)}</TableCell>
-                    </TableRow>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>Show</span>
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    background: "#ffffff",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {[10, 20, 50].map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
                   ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
-        </Card>
-      )}
-    </Box>
+                </select>
+                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>entries per page</span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  style={{
+                    padding: "5px 10px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    opacity: page <= 1 ? 0.5 : 1,
+                  }}
+                >
+                  <ChevronLeft size={14} /> Prev
+                </button>
+                <span style={{ fontSize: "13px", color: "#475569", fontWeight: 600, padding: "0 8px" }}>
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  style={{
+                    padding: "5px 10px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    opacity: page >= totalPages ? 0.5 : 1,
+                  }}
+                >
+                  Next <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

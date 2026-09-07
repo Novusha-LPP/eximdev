@@ -60,7 +60,18 @@ function App() {
   return (
     <UserContext.Provider value={{ user, setUser }}>
       <AuditLogProvider>
-        <Toaster position="top-right" reverseOrder={false} />
+        <Toaster
+          position="top-right"
+          reverseOrder={false}
+          containerStyle={{
+            zIndex: 99999999,
+          }}
+          toastOptions={{
+            style: {
+              zIndex: 99999999,
+            },
+          }}
+        />
         <LocalizationProvider dateAdapter={AdapterDateFns}>
           <div className="App">
             <Routes>

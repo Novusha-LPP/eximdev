@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Button,
@@ -9,13 +10,17 @@ import {
   Typography,
   Divider,
   Stack,
+  Tooltip,
+  IconButton,
 } from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EmailIcon from "@mui/icons-material/Email";
 import SendIcon from "@mui/icons-material/Send";
 import { toast } from "react-hot-toast";
 import emailAPI from "../../api/emailAPI";
 
 export default function EmailConfiguration() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState({
     from_email: "support@alvision.in",
     to_email: "",
@@ -78,7 +83,22 @@ export default function EmailConfiguration() {
     <Box p={3}>
       <Card sx={{ maxWidth: 600, margin: "0 auto", boxShadow: 3 }}>
         <CardContent>
-          <Box display="flex" alignItems="center" gap={1.5} mb={2}>
+          <Box display="flex" alignItems="center" gap={1} mb={2}>
+            <Tooltip title="Back">
+              <IconButton
+                onClick={() => navigate("/it-helpdesk")}
+                sx={{
+                  mr: 1,
+                  bgcolor: "white",
+                  border: "1px solid",
+                  borderColor: "primary.main",
+                  color: "primary.main",
+                  "&:hover": { bgcolor: "primary.main", color: "white" },
+                }}
+              >
+                <ArrowBackIcon />
+              </IconButton>
+            </Tooltip>
             <EmailIcon color="primary" />
             <Typography variant="h5" fontWeight={700}>
               Compose Email

@@ -1,149 +1,151 @@
 import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
-  Container,
-  Grid,
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  CircularProgress,
-  Alert,
-  Tooltip,
-  IconButton,
-  Divider,
-} from "@mui/material";
-import { Link } from "react-router-dom";
-import AssignmentIcon from "@mui/icons-material/Assignment";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import PendingIcon from "@mui/icons-material/Pending";
-import Inventory2Icon from "@mui/icons-material/Inventory2";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import BarChartIcon from "@mui/icons-material/BarChart";
-import BuildIcon from "@mui/icons-material/Build";
-import StorageIcon from "@mui/icons-material/Storage";
-import PeopleIcon from "@mui/icons-material/People";
-import CategoryIcon from "@mui/icons-material/Category";
-import NotificationsIcon from "@mui/icons-material/Notifications";
-
-import SecurityIcon from "@mui/icons-material/Security";
-import HistoryIcon from "@mui/icons-material/History";
-import EmailIcon from "@mui/icons-material/Email";
-import SettingsIcon from "@mui/icons-material/Settings";
+  RefreshCw,
+  Boxes,
+  Laptop,
+  Ticket,
+  Wrench,
+  Users,
+  HardDrive,
+  Key,
+  BarChart3,
+  Bell,
+  ShieldCheck,
+  Settings,
+  ArrowRight,
+  Plus,
+  AlertTriangle,
+} from "lucide-react";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
+import "../../styles/scorecard.scss";
 
-const StatCard = ({ title, value, icon, color, sub, to }) => (
-  <Card
-    sx={{
-      height: "100%",
-      borderLeft: `4px solid ${color}`,
-      transition: "transform 0.18s ease-in-out, box-shadow 0.18s ease-in-out",
-      "&:hover": { transform: "translateY(-3px)", boxShadow: 6 },
-    }}
-  >
-    <CardContent>
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-        <Box
-          sx={{
-            width: 44,
-            height: 44,
-            borderRadius: 2,
-            backgroundColor: `${color}22`,
-            color,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {icon}
-        </Box>
-        {to && (
-          <IconButton component={Link} to={to} size="small">
-            <BarChartIcon fontSize="small" />
-          </IconButton>
-        )}
-      </Box>
-      <Typography sx={{ mt: 1.5 }} variant="h4" fontWeight={700} color="text.primary">
-        {value}
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        {title}
-      </Typography>
-      {sub && (
-        <Typography variant="caption" color="text.secondary">
-          {sub}
-        </Typography>
-      )}
-    </CardContent>
-  </Card>
-);
+const getAssetStatusBadgeClass = (status) => {
+  switch (status) {
+    case "Available":
+      return "badge-excellent";
+    case "Assigned":
+      return "badge-good";
+    case "In Repair":
+      return "badge-warning";
+    case "Retired":
+    case "Lost":
+      return "badge-danger";
+    default:
+      return "badge-secondary";
+  }
+};
 
-const BigCard = ({ title, value, icon, color, sub, children, action }) => (
-  <Card sx={{ height: "100%", borderTop: `3px solid ${color}` }}>
-    <CardContent>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-        <Typography variant="h6" fontWeight={600}>
-          {title}
-        </Typography>
-        {action}
-      </Box>
-      <Box display="flex" alignItems="center" gap={1.5} mb={2}>
-        <Box
-          sx={{
-            width: 48,
-            height: 48,
-            borderRadius: 2,
-            backgroundColor: `${color}22`,
-            color,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {icon}
-        </Box>
-        <Box>
-          <Typography variant="h4" fontWeight={700} lineHeight={1.1}>
-            {value}
-          </Typography>
-          {sub && <Typography variant="caption" color="text.secondary">{sub}</Typography>}
-        </Box>
-      </Box>
-      <Divider sx={{ mb: 1.5 }} />
-      <Box maxHeight={320} sx={{ overflowY: "auto" }}>
-        {children}
-      </Box>
-    </CardContent>
-  </Card>
-);
+const getTicketStatusBadgeClass = (status) => {
+  switch (status) {
+    case "Closed":
+    case "Resolved":
+      return "badge-excellent";
+    case "In Progress":
+      return "badge-good";
+    case "Pending":
+      return "badge-warning";
+    case "New":
+    case "Open":
+      return "badge-danger";
+    default:
+      return "badge-secondary";
+  }
+};
 
-const ChipColor = { Available: "success", Assigned: "info", "In Repair": "warning", Retired: "default", Lost: "error" };
+const getPriorityBadgeClass = (priority) => {
+  switch (priority) {
+    case "High":
+    case "Urgent":
+    case "Critical":
+      return "badge-danger";
+    case "Medium":
+      return "badge-warning";
+    case "Low":
+      return "badge-good";
+    default:
+      return "badge-secondary";
+  }
+};
 
-const rowLink = (id, label) => (
-  <Tooltip title={label} arrow>
-    <Typography
-      component={Link}
-      to="/it-helpdesk"
-      sx={{
-        color: "primary.main",
-        textDecoration: "none",
-        fontWeight: 500,
-        "&:hover": { textDecoration: "underline" },
-      }}
-    >
-      {label}
-    </Typography>
-  </Tooltip>
-);
+const MODULES = [
+  {
+    title: "Asset Management",
+    desc: "Computers, Laptops, Printers & Peripherals",
+    icon: Laptop,
+    to: "/it-helpdesk/assets",
+    color: "#059669",
+    bgColor: "#ecfdf5",
+  },
+  {
+    title: "Helpdesk & Tickets",
+    desc: "Raise, Assign & Track IT Support Tickets",
+    icon: Wrench,
+    to: "/it-helpdesk/tickets",
+    color: "#2563eb",
+    bgColor: "#eff6ff",
+  },
+  {
+    title: "Vendors & AMC",
+    desc: "Supplier & AMC Contract Tracking",
+    icon: Users,
+    to: "/it-helpdesk/vendors",
+    color: "#7c3aed",
+    bgColor: "#f5f3ff",
+  },
+  {
+    title: "Inventory & Spares",
+    desc: "Stock, Spare Parts & Components",
+    icon: HardDrive,
+    to: "/it-helpdesk/inventory",
+    color: "#db2777",
+    bgColor: "#fdf2f8",
+  },
+  {
+    title: "License Management",
+    desc: "Software & SaaS Subscriptions",
+    icon: Key,
+    to: "/it-helpdesk/licenses",
+    color: "#0284c7",
+    bgColor: "#f0f9ff",
+  },
+  {
+    title: "Reports & Analytics",
+    desc: "Asset & Ticket Operational Reports",
+    icon: BarChart3,
+    to: "/it-helpdesk/reports",
+    color: "#0d9488",
+    bgColor: "#f0fdfa",
+  },
+  {
+    title: "Notifications",
+    desc: "Warranty, AMC & License Expiry Alerts",
+    icon: Bell,
+    to: "/it-helpdesk/notifications",
+    color: "#ea580c",
+    bgColor: "#fff7ed",
+  },
+  {
+    title: "Audit Logs",
+    desc: "System Activity Tracking & Security Logs",
+    icon: ShieldCheck,
+    to: "/it-helpdesk/administration/audit",
+    color: "#d97706",
+    bgColor: "#fffbeb",
+  },
+  {
+    title: "System Settings",
+    desc: "Helpdesk Config & Mail Setup",
+    icon: Settings,
+    to: "/it-helpdesk/administration/settings",
+    color: "#475569",
+    bgColor: "#f1f5f9",
+  },
+];
 
-export default function ITHelpdeskHome() {
+export default function ITHHelpdeskHome() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [stats, setStats] = useState({
@@ -157,7 +159,7 @@ export default function ITHelpdeskHome() {
     ticketPending: 0,
     ticketResolved: 0,
     ticketClosed: 0,
-    ticketOpen: 0
+    ticketOpen: 0,
   });
   const [recentAssets, setRecentAssets] = useState([]);
   const [recentTickets, setRecentTickets] = useState([]);
@@ -169,40 +171,26 @@ export default function ITHelpdeskHome() {
     setLoading(true);
     setError("");
     try {
-      // Log dashboard access
-      logRead("dashboard-view", "Accessed IT Helpdesk Dashboard", "info");
-      
-      console.log("Starting fetch of IT Helpdesk data...");
+      if (typeof logRead === "function") {
+        logRead("dashboard-view", "Accessed IT Helpdesk Dashboard", "info");
+      }
 
-      const [assetsRes, ticketsRes, ticketStatsRes, assetStatsRes] = await Promise.all([
-        itHelpdeskAPI.assets.getAll({ limit: 5 }),
-        itHelpdeskAPI.tickets.getAll({ limit: 5 }),
-        itHelpdeskAPI.tickets.getStats(),
-        itHelpdeskAPI.assets.getStats(),
-      ]);
+      const [assetsRes, ticketsRes, ticketStatsRes, assetStatsRes] =
+        await Promise.all([
+          itHelpdeskAPI.assets.getAll({ limit: 5 }),
+          itHelpdeskAPI.tickets.getAll({ limit: 5 }),
+          itHelpdeskAPI.tickets.getStats(),
+          itHelpdeskAPI.assets.getStats(),
+        ]);
 
-      console.log("Raw API Responses:", {
-        assetsRes: JSON.stringify(assetsRes).substring(0, 200),
-        ticketsRes: JSON.stringify(ticketsRes).substring(0, 200),
-        ticketStatsRes: JSON.stringify(ticketStatsRes),
-        assetStatsRes: JSON.stringify(assetStatsRes)
-      });
-
-      // Extract data from responses
       const assetData = assetsRes?.data || [];
       const ticketData = ticketsRes?.data || [];
-
-      // Extract stats - handle both direct and nested data
       const ticketStats = ticketStatsRes?.data || ticketStatsRes || {};
       const assetStats = assetStatsRes?.data || assetStatsRes || {};
-
-      console.log("Extracted ticket stats:", ticketStats);
-      console.log("Extracted asset stats:", assetStats);
 
       setRecentAssets(assetData);
       setRecentTickets(ticketData);
 
-      // Extract all ticket status counts
       const newCount = ticketStats?.newCount || 0;
       const assignedCount = ticketStats?.assigned || 0;
       const inProgressCount = ticketStats?.inProgress || 0;
@@ -225,63 +213,28 @@ export default function ITHelpdeskHome() {
         ticketOpen: openTickets,
       };
 
-      console.log("Final calculated stats:", updatedStats);
       setStats(updatedStats);
-
     } catch (e) {
-      console.error("Failed to load dashboard data:", e.message, e);
-      setError(`Error: ${e.message}`);
-      
-      // Log error
-      logCreate("dashboard-error", `Failed to load dashboard data: ${e.message}`, "error");
+      console.error("Failed to load dashboard data:", e?.message, e);
+      const errorMsg = e?.response?.data?.message || e?.message || "Failed to load dashboard";
+      setError(errorMsg);
 
-      // Create dummy data if API fails
+      if (typeof logCreate === "function") {
+        logCreate("dashboard-error", `Failed to load dashboard data: ${e?.message}`, "error");
+      }
+
+      // Sample fallback data if API returns an error
       const dummyAssets = [
-        {
-          _id: "1",
-          asset_tag: "1023456",
-          asset_type: "Desktop",
-          status: "Available"
-        },
-        {
-          _id: "2",
-          asset_tag: "LAP-2026-001",
-          asset_type: "Laptop",
-          status: "Available"
-        },
-        {
-          _id: "3",
-          asset_tag: "AST-2026-001",
-          asset_type: "Desktop",
-          status: "Retired"
-        },
-        {
-          _id: "4",
-          asset_tag: "455443",
-          asset_type: "Laptop",
-          status: "Available"
-        },
-        {
-          _id: "5",
-          asset_tag: "RACK-0001234",
-          asset_type: "Rack",
-          status: "Available"
-        }
+        { _id: "1", asset_tag: "1023456", asset_type: "Desktop", status: "Available" },
+        { _id: "2", asset_tag: "LAP-2026-001", asset_type: "Laptop", status: "Available" },
+        { _id: "3", asset_tag: "AST-2026-001", asset_type: "Desktop", status: "Retired" },
+        { _id: "4", asset_tag: "455443", asset_type: "Laptop", status: "Available" },
+        { _id: "5", asset_tag: "RACK-0001234", asset_type: "Rack", status: "Available" },
       ];
 
       const dummyTickets = [
-        {
-          _id: "1",
-          ticket_id: "TK-20260617-0001",
-          priority: "Medium",
-          status: "Open"
-        },
-        {
-          _id: "2",
-          ticket_id: "TK-20260612-0003",
-          priority: "Medium",
-          status: "Open"
-        }
+        { _id: "1", ticket_id: "TK-20260617-0001", priority: "Medium", status: "Open" },
+        { _id: "2", ticket_id: "TK-20260612-0003", priority: "Medium", status: "Open" },
       ];
 
       setRecentAssets(dummyAssets);
@@ -297,10 +250,8 @@ export default function ITHelpdeskHome() {
         ticketPending: 0,
         ticketResolved: 0,
         ticketClosed: 0,
-        ticketOpen: 4
+        ticketOpen: 4,
       });
-
-      console.log("Dashboard dummy data loaded due to API error");
     } finally {
       setLoading(false);
     }
@@ -313,284 +264,673 @@ export default function ITHelpdeskHome() {
   // Listen for ticket data updates from other components
   useEffect(() => {
     const handleRefresh = () => {
-      console.log("📢 Ticket data updated - refreshing home page...");
       fetchData();
     };
-
     window.addEventListener("ticketDataUpdated", handleRefresh);
     return () => window.removeEventListener("ticketDataUpdated", handleRefresh);
   }, []);
 
-  if (loading)
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="70vh">
-        <Box textAlign="center">
-          <CircularProgress />
-          <Typography variant="h6" mt={2}>Loading dashboard data...</Typography>
-        </Box>
-      </Box>
-    );
+  const totalTickets = (stats.ticketOpen || 0) + (stats.ticketClosed || 0);
+  const retiredLostCount = Math.max(
+    (stats.total || 0) - (stats.available || 0) - (stats.assigned || 0) - (stats.inRepair || 0),
+    0
+  );
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" fontWeight={700}>
-          IT Helpdesk Dashboard
-        </Typography>
-        <Tooltip title="Refresh">
-          <IconButton onClick={fetchData} color="primary">
-            <RefreshIcon />
-          </IconButton>
-        </Tooltip>
-      </Box>
+    <>
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .it-module-card {
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .it-module-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.08);
+          border-color: #cbd5e1;
+        }
+        .it-module-card:hover .it-module-arrow {
+          transform: translateX(3px);
+          color: #4f46e5;
+        }
+      `}</style>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3, display: "flex", alignItems: "center", gap: 1 }}>
-          <Typography variant="body2" sx={{ flex: 1 }}>
-            {error}
-          </Typography>
-          <Typography variant="caption" color="inherit">
-            (Showing sample data)
-          </Typography>
-        </Alert>
-      )}
-
-      {/* Ticket Status Cards */}
-      <Grid container spacing={3} mb={3}>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard title="New Tickets" value={stats.ticketNew || 0} icon={<AssignmentIcon />} color="#d32f2f" />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard title="Assigned" value={stats.ticketAssigned || 0} icon={<AssignmentIcon />} color="#1976d2" />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard title="In Progress" value={stats.ticketInProgress || 0} icon={<AssignmentIcon />} color="#f57c00" />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard title="Pending" value={stats.ticketPending || 0} icon={<PendingIcon />} color="#0097a7" />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard title="Closed" value={stats.ticketClosed || 0} icon={<CheckCircleIcon />} color="#388e3c" />
-        </Grid>
-      </Grid>
-
-      {/* Asset Status Summary */}
-      <Grid container spacing={3} mb={3}>
-        <Grid item xs={12} md={4}>
-          <Card sx={{ height: "100%" }}>
-            <CardContent>
-              <Typography variant="h6" fontWeight={600} gutterBottom>
-                Asset Status Summary
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Box display="flex" flexDirection="column" gap={1.5}>
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2">Available</Typography>
-                  <Chip label={stats.available} color="success" size="small" />
-                </Box>
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2">Assigned</Typography>
-                  <Chip label={stats.assigned} color="info" size="small" />
-                </Box>
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2">In Repair</Typography>
-                  <Chip label={stats.inRepair} color="warning" size="small" />
-                </Box>
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2">Retired / Lost</Typography>
-                  <Chip label={Math.max(stats.total - stats.available - stats.assigned - stats.inRepair, 0)} color="default" size="small" />
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Recent Assets */}
-        <Grid item xs={12} md={4}>
-          <BigCard
-            title="Recent Assets"
-            value={stats.total}
-            icon={<Inventory2Icon />}
-            color="#2e7d32"
-            sub="Total"
-            action={<IconButton component={Link} to="/it-helpdesk" size="small"><BarChartIcon fontSize="small" /></IconButton>}
+      {/* ── Topbar ─────────────────────────────────────────────────── */}
+      <div className="topbar">
+        <div className="topbar-left">
+          <button
+            className="btn btn-icon"
+            onClick={() => navigate("/")}
+            title="Back to Home"
+            style={{
+              border: "1px solid #e2e8f0",
+              background: "white",
+              borderRadius: "50%",
+              width: 36,
+              height: 36,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              fontSize: 18,
+              fontWeight: "bold",
+              color: "#334155",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              transition: "all 0.2s ease",
+            }}
           >
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Asset Tag</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {recentAssets.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3} align="center" size="small">
-                        <Typography variant="body2" color="text.secondary">No assets yet</Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    recentAssets.map((a) => (
-                      <TableRow key={a._id} hover>
-                        <TableCell>{rowLink(a.asset_tag, a.asset_tag)}</TableCell>
-                        <TableCell>{a.asset_type}</TableCell>
-                        <TableCell>
-                          <Chip label={a.status} color={ChipColor[a.status] || "default"} size="small" />
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </BigCard>
-        </Grid>
-
-        {/* Recent Tickets */}
-        <Grid item xs={12} md={4}>
-          <BigCard
-            title="Recent Tickets"
-            value={stats.ticketOpen + stats.ticketClosed}
-            icon={<AssignmentIcon />}
-            color="#1565c0"
-            sub="Total"
-            action={<IconButton component={Link} to="/it-helpdesk" size="small"><BarChartIcon fontSize="small" /></IconButton>}
+            ←
+          </button>
+          <div>
+            <div className="topbar-title">IT Helpdesk Dashboard</div>
+            <div className="topbar-breadcrumb" style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+              IT Asset Tracking, Support Tickets &amp; Infrastructure Operations
+            </div>
+          </div>
+        </div>
+        <div className="topbar-right" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <Link
+            to="/it-helpdesk/tickets"
+            className="btn btn-primary"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              textDecoration: "none",
+              fontSize: "13px",
+              padding: "7px 16px",
+              borderRadius: "8px",
+              fontWeight: 600,
+            }}
           >
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Ticket ID</TableCell>
-                    <TableCell>Priority</TableCell>
-                    <TableCell>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {recentTickets.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3} align="center" size="small">
-                        <Typography variant="body2" color="text.secondary">No tickets yet</Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    recentTickets.map((t) => (
-                      <TableRow key={t._id} hover>
-                        <TableCell>{rowLink(t._id, t.ticket_id)}</TableCell>
-                        <TableCell>{t.priority}</TableCell>
-                        <TableCell>
-                          <Chip label={t.status} color={t.status === "Closed" ? "success" : t.status === "Resolved" ? "info" : t.status === "New" ? "error" : "default"} size="small" />
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </BigCard>
-        </Grid>
-      </Grid>
+            <Plus size={15} /> Raise Ticket
+          </Link>
+          <button
+            type="button"
+            className="btn"
+            onClick={fetchData}
+            disabled={loading}
+            title="Refresh Dashboard"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "#ffffff",
+              border: "1px solid #cbd5e1",
+              color: "#0f172a",
+              fontWeight: 600,
+              fontSize: "13px",
+              padding: "7px 14px",
+              borderRadius: "8px",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+            }}
+          >
+            <RefreshCw
+              size={15}
+              style={{
+                animation: loading ? "spin 1s linear infinite" : "none",
+                color: "#4f46e5",
+              }}
+            />
+            Refresh
+          </button>
+        </div>
+      </div>
 
-      {/* Analytics & Link Cards */}
-      <Typography variant="h6" fontWeight={600} gutterBottom>
-        Modules
-      </Typography>
-      <Grid container spacing={3}>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <Card component={Link} to="/it-helpdesk/assets" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
-            <CardContent sx={{ textAlign: "center" }}>
-              <Inventory2Icon sx={{ fontSize: 36, color: "#2e7d32", mb: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600}>Asset Management</Typography>
-              <Typography variant="caption" color="text.secondary">Computers · Laptops · Printers · More</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <Card component={Link} to="/it-helpdesk/tickets" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
-            <CardContent sx={{ textAlign: "center" }}>
-              <BuildIcon sx={{ fontSize: 36, color: "#1565c0", mb: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600}>Helpdesk</Typography>
-              <Typography variant="caption" color="text.secondary">Raise / Assign / Track Tickets</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        {/* <Grid item xs={12} sm={6} md={4} lg={2}>
-          <Card component={Link} to="/it-helpdesk/ticket-management" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
-            <CardContent sx={{ textAlign: "center" }}>
-              <AssignmentIcon sx={{ fontSize: 36, color: "#c62828", mb: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600}>Ticket Management</Typography>
-              <Typography variant="caption" color="text.secondary">Manage & Update Tickets</Typography>
-            </CardContent>
-          </Card>
-        </Grid> */}
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <Card component={Link} to="/it-helpdesk/vendors" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
-            <CardContent sx={{ textAlign: "center" }}>
-              <PeopleIcon sx={{ fontSize: 36, color: "#6a1b9a", mb: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600}>Vendors</Typography>
-              <Typography variant="caption" color="text.secondary">Supplier & AMC Tracking</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+      <div className="page-body">
+        {/* ── Optional Error Notice ───────────────────────────────────── */}
+        {error && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              background: "#fef2f2",
+              border: "1px solid #fee2e2",
+              borderRadius: "8px",
+              padding: "10px 16px",
+              marginBottom: "14px",
+              color: "#991b1b",
+              fontSize: "13px",
+            }}
+          >
+            <AlertTriangle size={16} color="#ef4444" />
+            <span style={{ flex: 1 }}>{error} (Displaying cached/sample metrics)</span>
+          </div>
+        )}
 
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <Card component={Link} to="/it-helpdesk/inventory" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
-            <CardContent sx={{ textAlign: "center" }}>
-              <StorageIcon sx={{ fontSize: 36, color: "#ad1457", mb: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600}>Inventory</Typography>
-              <Typography variant="caption" color="text.secondary">Stock Management</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <Card component={Link} to="/it-helpdesk/licenses" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
-            <CardContent sx={{ textAlign: "center" }}>
-              <BarChartIcon sx={{ fontSize: 36, color: "#0277bd", mb: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600}>Licenses</Typography>
-              <Typography variant="caption" color="text.secondary">Software Licenses</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <Card component={Link} to="/it-helpdesk/reports" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
-            <CardContent sx={{ textAlign: "center" }}>
-              <BarChartIcon sx={{ fontSize: 36, color: "#0891b2", mb: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600}>Reports</Typography>
-              <Typography variant="caption" color="text.secondary">Asset & Ticket Reports</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <Card component={Link} to="/it-helpdesk/notifications" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
-            <CardContent sx={{ textAlign: "center" }}>
-              <NotificationsIcon sx={{ fontSize: 36, color: "#ea580c", mb: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600}>Notifications</Typography>
-              <Typography variant="caption" color="text.secondary">Expiry Alerts</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+        {/* ── Top Stats Grid (Ticket KPIs) ────────────────────────────── */}
+        <div className="card mb-16">
+          <div className="card-body">
+            <div className="stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "10px" }}>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#0f172a" }}>
+                  {totalTickets}
+                </div>
+                <div className="stat-lbl">Total Tickets</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#ef4444" }}>
+                  {stats.ticketNew || 0}
+                </div>
+                <div className="stat-lbl">New Tickets</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#3b82f6" }}>
+                  {stats.ticketAssigned || 0}
+                </div>
+                <div className="stat-lbl">Assigned</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#f59e0b" }}>
+                  {stats.ticketInProgress || 0}
+                </div>
+                <div className="stat-lbl">In Progress</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#8b5cf6" }}>
+                  {stats.ticketPending || 0}
+                </div>
+                <div className="stat-lbl">Pending</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#10b981" }}>
+                  {stats.ticketClosed || 0}
+                </div>
+                <div className="stat-lbl">Closed</div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <Card component={Link} to="/it-helpdesk/administration/audit" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
-            <CardContent sx={{ textAlign: "center" }}>
-              <HistoryIcon sx={{ fontSize: 36, color: "#f57c00", mb: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600}>Audit Logs</Typography>
-              <Typography variant="caption" color="text.secondary">System activity tracking</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+        {/* ── Middle Row (Asset Summary, Recent Assets, Recent Tickets) ── */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+            gap: "14px",
+            marginBottom: "16px",
+          }}
+        >
+          {/* Card 1: Asset Status Breakdown */}
+          <div className="card" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+            <div
+              className="card-header"
+              style={{
+                padding: "10px 16px",
+                background: "linear-gradient(to right, #f8fafc, #ffffff)",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div
+                className="card-title"
+                style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}
+              >
+                <Boxes size={17} color="#10b981" /> Asset Status Summary
+              </div>
+              <span
+                style={{
+                  fontSize: "11.5px",
+                  fontWeight: 600,
+                  color: "#475569",
+                  background: "#f1f5f9",
+                  padding: "2px 8px",
+                  borderRadius: "12px",
+                  border: "1px solid #e2e8f0",
+                }}
+              >
+                {stats.total} Total Devices
+              </span>
+            </div>
 
-        {/* <Grid item xs={12} sm={6} md={4} lg={2}>
-           <Card component={Link} to="/it-helpdesk/administration/settings" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
-             <CardContent sx={{ textAlign: "center" }}>
-               <SettingsIcon sx={{ fontSize: 36, color: "#5d4037", mb: 1 }} />
-               <Typography variant="subtitle1" fontWeight={600}>System Settings</Typography>
-               <Typography variant="caption" color="text.secondary">System configuration</Typography>
-             </CardContent>
-           </Card>
-         </Grid> */}
-      </Grid>
-    </Container>
+            <div
+              className="card-body"
+              style={{
+                padding: "14px 16px",
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                gap: "12px",
+              }}
+            >
+              {/* Visual Multi-Segment Bar */}
+              <div>
+                <div
+                  style={{
+                    height: "8px",
+                    width: "100%",
+                    background: "#f1f5f9",
+                    borderRadius: "4px",
+                    overflow: "hidden",
+                    display: "flex",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${stats.total > 0 ? (stats.available / stats.total) * 100 : 0}%`,
+                      background: "#10b981",
+                      transition: "width 0.4s ease",
+                    }}
+                    title={`Available: ${stats.available}`}
+                  />
+                  <div
+                    style={{
+                      width: `${stats.total > 0 ? (stats.assigned / stats.total) * 100 : 0}%`,
+                      background: "#3b82f6",
+                      transition: "width 0.4s ease",
+                    }}
+                    title={`Assigned: ${stats.assigned}`}
+                  />
+                  <div
+                    style={{
+                      width: `${stats.total > 0 ? (stats.inRepair / stats.total) * 100 : 0}%`,
+                      background: "#f59e0b",
+                      transition: "width 0.4s ease",
+                    }}
+                    title={`In Repair: ${stats.inRepair}`}
+                  />
+                  <div
+                    style={{
+                      width: `${stats.total > 0 ? (retiredLostCount / stats.total) * 100 : 0}%`,
+                      background: "#94a3b8",
+                      transition: "width 0.4s ease",
+                    }}
+                    title={`Retired / Lost: ${retiredLostCount}`}
+                  />
+                </div>
+
+                {/* Status breakdown items */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "6px 10px",
+                      background: "#f8fafc",
+                      borderRadius: "6px",
+                      border: "1px solid #f1f5f9",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981" }} />
+                      <span style={{ fontSize: "13px", fontWeight: 600, color: "#1e293b" }}>Available</span>
+                    </div>
+                    <span className="score-badge badge-excellent" style={{ minWidth: "32px", padding: "2px 8px", fontSize: "11.5px" }}>
+                      {stats.available}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "6px 10px",
+                      background: "#f8fafc",
+                      borderRadius: "6px",
+                      border: "1px solid #f1f5f9",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3b82f6" }} />
+                      <span style={{ fontSize: "13px", fontWeight: 600, color: "#1e293b" }}>Assigned</span>
+                    </div>
+                    <span className="score-badge badge-good" style={{ minWidth: "32px", padding: "2px 8px", fontSize: "11.5px" }}>
+                      {stats.assigned}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "6px 10px",
+                      background: "#f8fafc",
+                      borderRadius: "6px",
+                      border: "1px solid #f1f5f9",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#f59e0b" }} />
+                      <span style={{ fontSize: "13px", fontWeight: 600, color: "#1e293b" }}>In Repair</span>
+                    </div>
+                    <span className="score-badge badge-warning" style={{ minWidth: "32px", padding: "2px 8px", fontSize: "11.5px" }}>
+                      {stats.inRepair}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "6px 10px",
+                      background: "#f8fafc",
+                      borderRadius: "6px",
+                      border: "1px solid #f1f5f9",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#94a3b8" }} />
+                      <span style={{ fontSize: "13px", fontWeight: 600, color: "#1e293b" }}>Retired / Lost</span>
+                    </div>
+                    <span className="score-badge badge-secondary" style={{ minWidth: "32px", padding: "2px 8px", fontSize: "11.5px" }}>
+                      {retiredLostCount}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <Link
+                to="/it-helpdesk/assets"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  fontSize: "12.5px",
+                  fontWeight: 600,
+                  color: "#4f46e5",
+                  textDecoration: "none",
+                  padding: "6px",
+                  borderRadius: "6px",
+                  background: "#f5f3ff",
+                  border: "1px solid #ede9fe",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                Manage Hardware Assets <ArrowRight size={13} />
+              </Link>
+            </div>
+          </div>
+
+          {/* Card 2: Recent Assets Table */}
+          <div className="card" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+            <div
+              className="card-header"
+              style={{
+                padding: "10px 16px",
+                background: "linear-gradient(to right, #f8fafc, #ffffff)",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div
+                className="card-title"
+                style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}
+              >
+                <Laptop size={17} color="#059669" /> Recent Assets
+              </div>
+              <Link
+                to="/it-helpdesk/assets"
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "#4f46e5",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "3px",
+                }}
+              >
+                View All <ArrowRight size={13} />
+              </Link>
+            </div>
+
+            <div className="card-body" style={{ padding: 0, flex: 1, overflowX: "auto" }}>
+              <div className="table-wrap">
+                <table style={{ width: "100%" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                        Asset Tag
+                      </th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                        Type
+                      </th>
+                      <th style={{ padding: "8px 12px", textAlign: "center", fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentAssets.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} style={{ padding: "28px 16px", textAlign: "center", color: "#94a3b8", fontSize: "13px" }}>
+                          No assets recorded yet
+                        </td>
+                      </tr>
+                    ) : (
+                      recentAssets.map((a, idx) => (
+                        <tr
+                          key={a._id || idx}
+                          style={{
+                            borderBottom: "1px solid #f1f5f9",
+                            background: idx % 2 === 0 ? "#ffffff" : "#fcfdfd",
+                          }}
+                        >
+                          <td style={{ padding: "8px 12px", fontWeight: 600 }}>
+                            <Link
+                              to="/it-helpdesk/assets"
+                              style={{ color: "#4f46e5", textDecoration: "none" }}
+                              title={a.asset_tag}
+                            >
+                              {a.asset_tag}
+                            </Link>
+                          </td>
+                          <td style={{ padding: "8px 12px", color: "#475569", fontSize: "13px" }}>
+                            {a.asset_type || "—"}
+                          </td>
+                          <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                            <span className={`score-badge ${getAssetStatusBadgeClass(a.status)}`}>
+                              {a.status || "Available"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Recent Tickets Table */}
+          <div className="card" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+            <div
+              className="card-header"
+              style={{
+                padding: "10px 16px",
+                background: "linear-gradient(to right, #f8fafc, #ffffff)",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div
+                className="card-title"
+                style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}
+              >
+                <Ticket size={17} color="#2563eb" /> Recent Tickets
+              </div>
+              <Link
+                to="/it-helpdesk/tickets"
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "#4f46e5",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "3px",
+                }}
+              >
+                View All <ArrowRight size={13} />
+              </Link>
+            </div>
+
+            <div className="card-body" style={{ padding: 0, flex: 1, overflowX: "auto" }}>
+              <div className="table-wrap">
+                <table style={{ width: "100%" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                        Ticket ID
+                      </th>
+                      <th style={{ padding: "8px 12px", textAlign: "center", fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                        Priority
+                      </th>
+                      <th style={{ padding: "8px 12px", textAlign: "center", fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentTickets.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} style={{ padding: "28px 16px", textAlign: "center", color: "#94a3b8", fontSize: "13px" }}>
+                          No tickets recorded yet
+                        </td>
+                      </tr>
+                    ) : (
+                      recentTickets.map((t, idx) => (
+                        <tr
+                          key={t._id || idx}
+                          style={{
+                            borderBottom: "1px solid #f1f5f9",
+                            background: idx % 2 === 0 ? "#ffffff" : "#fcfdfd",
+                          }}
+                        >
+                          <td style={{ padding: "8px 12px", fontWeight: 600 }}>
+                            <Link
+                              to="/it-helpdesk/tickets"
+                              style={{ color: "#4f46e5", textDecoration: "none" }}
+                              title={t.ticket_id}
+                            >
+                              {t.ticket_id}
+                            </Link>
+                          </td>
+                          <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                            <span className={`score-badge ${getPriorityBadgeClass(t.priority)}`}>
+                              {t.priority || "Medium"}
+                            </span>
+                          </td>
+                          <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                            <span className={`score-badge ${getTicketStatusBadgeClass(t.status)}`}>
+                              {t.status || "New"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Bottom Section: Modules Grid ────────────────────────────── */}
+        <div style={{ marginTop: "24px", marginBottom: "12px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#0f172a" }}>
+                🗂️ IT Helpdesk Modules &amp; Tools
+              </h3>
+              <p style={{ margin: "3px 0 0", fontSize: "12.5px", color: "#64748b" }}>
+                Quick navigation to IT hardware, ticketing queues, inventory, licensing, and administration
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
+            gap: "14px",
+            marginBottom: "28px",
+          }}
+        >
+          {MODULES.map((mod) => {
+            const IconComponent = mod.icon;
+            return (
+              <Link
+                key={mod.title}
+                to={mod.to}
+                className="it-module-card"
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "14px",
+                  padding: "16px 18px",
+                  background: "#ffffff",
+                  borderRadius: "12px",
+                  border: "1px solid #e2e8f0",
+                  textDecoration: "none",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
+                  cursor: "pointer",
+                }}
+              >
+                <div
+                  style={{
+                    width: "44px",
+                    height: "44px",
+                    borderRadius: "10px",
+                    background: mod.bgColor,
+                    color: mod.color,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <IconComponent size={22} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: "14.5px",
+                      fontWeight: 700,
+                      color: "#0f172a",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span>{mod.title}</span>
+                    <ArrowRight size={14} className="it-module-arrow" style={{ color: "#94a3b8", transition: "all 0.2s ease" }} />
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#64748b",
+                      marginTop: "4px",
+                      lineHeight: "1.4",
+                    }}
+                  >
+                    {mod.desc}
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </>
   );
 }

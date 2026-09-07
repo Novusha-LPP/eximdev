@@ -1,49 +1,19 @@
 import React, { useState, useEffect, useCallback, useContext } from "react";
-import {
-  Box,
-  Typography,
-  Paper,
-  Button,
-  Grid,
-  Card,
-  CardContent,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Divider,
-  Tooltip,
-} from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Eye,
+  Edit2,
   Trash2,
-  Calendar,
-  Search,
   CheckCircle,
   AlertTriangle,
-  Users,
   Upload,
   X,
 } from "lucide-react";
 import { equipmentChecklistAPI } from "../api/equipmentChecklistAPI";
 import { UserContext } from "../contexts/UserContext";
 import toast from "react-hot-toast";
-
-// ✅ Cloudinary configuration REMOVED. Using Base64 instead.
+import "../styles/scorecard.scss";
 
 const EQUIPMENT_ITEMS = [
   { name: "Washroom", functionalChecks: ["OK", "Not OK"] },
@@ -53,22 +23,69 @@ const EQUIPMENT_ITEMS = [
   { name: "Fire Extinguisher", functionalChecks: ["OK", "Not OK"] },
 ];
 
+const fmtDate = (d) => {
+  if (!d) return "—";
+  const dt = new Date(d);
+  if (isNaN(dt)) return "—";
+  return dt.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const fmtDateTime = (d) => {
+  if (!d) return "—";
+  const dt = new Date(d);
+  if (isNaN(dt)) return "—";
+  return dt.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+const getConditionBadgeClass = (condition) => {
+  if (condition === "Good") return "badge-excellent";
+  if (condition === "Fair") return "badge-good";
+  if (condition === "Poor") return "badge-danger";
+  return "badge-secondary";
+};
+
 export default function AdminEquipmentChecklist() {
+  const navigate = useNavigate();
   const { user } = useContext(UserContext);
 
   const [logs, setLogs] = useState([]);
-  const [totalLogs, setTotalLogs] = useState(0);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10 });
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState(""); // "All", "OK", "Repairs"
   const [loading, setLoading] = useState(false);
 
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  // Statistics
+  const [stats, setStats] = useState({
+    totalCount: 0,
+    allOkCount: 0,
+    repairsCount: 0,
+  });
+
+  const [modalMode, setModalMode] = useState("add"); // "add" | "edit"
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editLogId, setEditLogId] = useState(null);
+
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState("");
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTargetLog, setDeleteTargetLog] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [checkedBy, setCheckedBy] = useState(user?.username || "");
   const [checklistDate, setChecklistDate] = useState(
@@ -78,59 +95,154 @@ export default function AdminEquipmentChecklist() {
     EQUIPMENT_ITEMS.map((item) => ({
       equipmentName: item.name,
       assetId: "",
-      location: "",
+      location: "First Floor",
       condition: "Good",
       cleaningDone: "Yes",
       functionalCheck: item.functionalChecks[0],
       repairRequired: "No",
       amcVendor: "",
       remarks: "",
-      image: null, // ✅ Changed to null
+      image: null,
     }))
   );
 
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await equipmentChecklistAPI.getAll({
-        search: searchQuery,
-        page: page + 1,
-        limit: rowsPerPage,
-      });
-      if (res && res.success) {
-        setLogs(res.data);
-        setTotalLogs(res.total);
+  const fetchLogs = useCallback(
+    async (page = 1, limit = pagination.limit) => {
+      setLoading(true);
+      try {
+        const res = await equipmentChecklistAPI.getAll({
+          search: searchQuery,
+          page,
+          limit,
+        });
+        if (res && res.success) {
+          const list = res.data || [];
+          const total = res.total || list.length;
+          setLogs(list);
+          setPagination({ total, page, limit });
+
+          // Compute KPI counts
+          const repairs = list.filter((l) =>
+            l.items.some((i) => i.repairRequired === "Yes")
+          ).length;
+          const allOk = list.length - repairs;
+
+          setStats({
+            totalCount: total,
+            allOkCount: allOk >= 0 ? allOk : 0,
+            repairsCount: repairs,
+          });
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to load equipment checklist history");
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to load equipment checklist history");
-    } finally {
-      setLoading(false);
-    }
-  }, [searchQuery, page, rowsPerPage]);
+    },
+    [searchQuery, pagination.limit]
+  );
 
   useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+    fetchLogs(1, pagination.limit);
+  }, [searchQuery]);
+
+  const handleLimitChange = (e) => {
+    const newLimit = parseInt(e.target.value, 10);
+    setPagination((prev) => ({ ...prev, limit: newLimit, page: 1 }));
+    fetchLogs(1, newLimit);
+  };
+
+  const handlePageChange = (newPage) => {
+    const totalPages = Math.ceil(pagination.total / pagination.limit) || 1;
+    if (newPage < 1 || newPage > totalPages) return;
+    setPagination((prev) => ({ ...prev, page: newPage }));
+    fetchLogs(newPage, pagination.limit);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(pagination.total / (pagination.limit || 10)));
+
+  const getPageNumbers = () => {
+    const total = totalPages;
+    const current = pagination.page;
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    if (current <= 4) {
+      return [1, 2, 3, 4, 5, "...", total];
+    }
+    if (current >= total - 3) {
+      return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+    }
+    return [1, "...", current - 1, current, current + 1, "...", total];
+  };
 
   const handleOpenAddDialog = () => {
+    setModalMode("add");
+    setEditLogId(null);
     setCheckedBy(user?.username || "");
     setChecklistDate(new Date().toISOString().substring(0, 10));
     setFormItems(
       EQUIPMENT_ITEMS.map((item) => ({
         equipmentName: item.name,
         assetId: "",
-        location: "",
+        location: "First Floor",
         condition: "Good",
         cleaningDone: "Yes",
         functionalCheck: item.functionalChecks[0],
         repairRequired: "No",
         amcVendor: "",
         remarks: "",
-        image: null, // ✅ Reset to null
+        image: null,
       }))
     );
-    setAddDialogOpen(true);
+    setDialogOpen(true);
+  };
+
+  const handleOpenEditDialog = (log) => {
+    setModalMode("edit");
+    setEditLogId(log._id);
+    setCheckedBy(log.checkedBy || user?.username || "");
+    if (log.date) {
+      setChecklistDate(new Date(log.date).toISOString().substring(0, 10));
+    } else {
+      setChecklistDate(new Date().toISOString().substring(0, 10));
+    }
+
+    // Merge existing items with default equipment list
+    const itemsMap = new Map((log.items || []).map((i) => [i.equipmentName, i]));
+    const mergedItems = EQUIPMENT_ITEMS.map((item) => {
+      const existing = itemsMap.get(item.name);
+      if (existing) {
+        return {
+          equipmentName: existing.equipmentName,
+          assetId: existing.assetId || "",
+          location: existing.location || "First Floor",
+          condition: existing.condition || "Good",
+          cleaningDone: existing.cleaningDone || "Yes",
+          functionalCheck: existing.functionalCheck || item.functionalChecks[0],
+          repairRequired: existing.repairRequired || "No",
+          amcVendor: existing.amcVendor || "",
+          remarks: existing.remarks || "",
+          image: existing.image || null,
+        };
+      }
+      return {
+        equipmentName: item.name,
+        assetId: "",
+        location: "First Floor",
+        condition: "Good",
+        cleaningDone: "Yes",
+        functionalCheck: item.functionalChecks[0],
+        repairRequired: "No",
+        amcVendor: "",
+        remarks: "",
+        image: null,
+      };
+    });
+
+    setFormItems(mergedItems);
+    setDialogOpen(true);
   };
 
   const handleItemChange = (index, field, value) => {
@@ -141,7 +253,7 @@ export default function AdminEquipmentChecklist() {
     });
   };
 
-  // ✅ NEW: Convert Image to Base64 using Vanilla JS (No Cloudinary/Backend needed)
+  // Convert Image to Base64
   const handleImageUpload = (index, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -149,18 +261,17 @@ export default function AdminEquipmentChecklist() {
     const reader = new FileReader();
     reader.onloadend = () => {
       if (reader.result) {
-        // Save the Base64 string to the form state
         handleItemChange(index, "image", reader.result);
         toast.success("Image added successfully!");
       }
     };
     reader.readAsDataURL(file);
-    e.target.value = ""; // Reset input to allow re-uploading same file
+    e.target.value = "";
   };
 
   const handleOpenImagePreview = (imageUrl) => {
     if (!imageUrl) {
-      toast.error("No image uploaded for this washroom!");
+      toast.error("No image uploaded for this item!");
       return;
     }
     setPreviewImageUrl(imageUrl);
@@ -169,39 +280,75 @@ export default function AdminEquipmentChecklist() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!checkedBy) {
+    if (!checkedBy.trim()) {
       toast.error("Please enter who checked the equipment");
       return;
     }
 
+    setSubmitting(true);
     try {
-      const res = await equipmentChecklistAPI.create({
-        checkedBy,
-        date: new Date(checklistDate),
-        items: formItems,
-      });
-      if (res && res.success) {
-        toast.success("Maintenance Checklist Submitted!");
-        setAddDialogOpen(false);
-        fetchLogs();
+      if (modalMode === "edit" && editLogId) {
+        const res = await equipmentChecklistAPI.update(editLogId, {
+          checkedBy: checkedBy.trim(),
+          date: new Date(checklistDate),
+          items: formItems,
+        });
+        if (res && res.success) {
+          toast.success("Maintenance Checklist Updated Successfully!");
+          setDialogOpen(false);
+          fetchLogs(pagination.page);
+        } else {
+          toast.error(res?.message || "Failed to update checklist");
+        }
+      } else {
+        const res = await equipmentChecklistAPI.create({
+          checkedBy: checkedBy.trim(),
+          date: new Date(checklistDate),
+          items: formItems,
+        });
+        if (res && res.success) {
+          toast.success("Maintenance Checklist Submitted!");
+          setDialogOpen(false);
+          fetchLogs(pagination.page);
+        } else {
+          toast.error(res?.message || "Failed to submit checklist");
+        }
       }
     } catch (error) {
       console.error(error);
-      toast.error("Failed to submit checklist");
+      const errMsg =
+        error?.response?.data?.message ||
+        (modalMode === "edit"
+          ? "Failed to update checklist"
+          : "Failed to submit checklist");
+      toast.error(errMsg);
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this checklist entry?")) return;
+  const handleRequestDelete = (e, log) => {
+    e.stopPropagation();
+    setDeleteTargetLog(log);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTargetLog?._id) return;
+    setDeleting(true);
     try {
-      const res = await equipmentChecklistAPI.remove(id);
+      const res = await equipmentChecklistAPI.remove(deleteTargetLog._id);
       if (res && res.success) {
-        toast.success("Entry deleted");
-        fetchLogs();
+        toast.success("Checklist entry deleted successfully");
+        fetchLogs(pagination.page);
       }
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete checklist entry");
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+      setDeleteTargetLog(null);
     }
   };
 
@@ -210,507 +357,1366 @@ export default function AdminEquipmentChecklist() {
     setViewDialogOpen(true);
   };
 
-  const getFirstImage = (logItems) => {
-    const itemWithImage = logItems.find(item => item.image);
-    return itemWithImage?.image || null;
-  };
+  // Filter logs by repair status if selected
+  const displayedLogs = logs.filter((log) => {
+    if (!statusFilter) return true;
+    const hasRepair = log.items.some((item) => item.repairRequired === "Yes");
+    if (statusFilter === "OK") return !hasRepair;
+    if (statusFilter === "Repairs") return hasRepair;
+    return true;
+  });
 
   return (
-    <Box sx={{ p: 3, maxWidth: "1600px", margin: "0 auto" }}>
-      {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 4 }}>
-        <Box>
-          <Typography variant="h4" fontWeight="bold" sx={{ color: "#1e293b", mb: 1 }}>
-            Admin Equipment Maintenance Checklist
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
-            Review functional checks, cleaning statuses, and maintenance history of core facility equipment.
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<Plus size={18} />}
-          onClick={handleOpenAddDialog}
-          sx={{ backgroundColor: "#0f766e", "&:hover": { backgroundColor: "#0d9488" } }}
-        >
-          Add New Checklist
-        </Button>
-      </Box>
-
-      {/* Main Container */}
-      <Paper elevation={0} sx={{ p: 3, border: "1px solid #f1f5f9", borderRadius: "12px" }}>
-        <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
-          <TextField
-            placeholder="Search by Checker name or Equipment..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setPage(0);
+    <>
+      {/* ── Topbar ─────────────────────────────────────────────────── */}
+      <div className="topbar">
+        <div className="topbar-left">
+          <button
+            className="btn btn-icon"
+            onClick={() => navigate("/")}
+            title="Back"
+            style={{
+              border: "1px solid #e2e8f0",
+              background: "white",
+              borderRadius: "50%",
+              width: 36,
+              height: 36,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              fontSize: 18,
+              fontWeight: "bold",
+              color: "#334155",
             }}
-            size="small"
-            sx={{ flexGrow: 1 }}
-            InputProps={{
-              startAdornment: <Search size={18} style={{ marginRight: 8, color: "#64748b" }} />,
-            }}
-          />
-          <Button
-            variant="outlined"
-            onClick={() => setSearchQuery("")}
-            sx={{ borderColor: "#cbd5e1", color: "#475569" }}
           >
-            Reset
-          </Button>
-        </Box>
+            ←
+          </button>
+          <div>
+            <div className="topbar-title">Admin Equipment Maintenance Checklist</div>
+          </div>
+        </div>
+        <div className="topbar-right">
+          <button
+            className="btn btn-primary"
+            onClick={handleOpenAddDialog}
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+          >
+            <Plus size={16} /> Add New Checklist
+          </button>
+        </div>
+      </div>
 
-        <TableContainer>
-          <Table>
-            <TableHead sx={{ backgroundColor: "#f8fafc" }}>
-              <TableRow>
-                <TableCell fontWeight="bold">Checklist Date</TableCell>
-                <TableCell fontWeight="bold">Checked By</TableCell>
-                <TableCell fontWeight="bold">Total Equipment</TableCell>
-                <TableCell fontWeight="bold">Repairs Required</TableCell>
-                <TableCell fontWeight="bold">Created At</TableCell>
-                <TableCell fontWeight="bold" align="center">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {logs.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4, color: "#64748b" }}>
-                    No checklist records found. Click 'Add New Checklist' to create one.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                logs.map((log) => {
-                  const repairCount = log.items.filter((item) => item.repairRequired === "Yes").length;
-                  const firstImg = getFirstImage(log.items);
+      <div className="page-body">
+        {/* ── Stats Summary Cards ────────────────────────────────────── */}
+        <div className="card mb-16">
+          <div className="card-body">
+            <div className="stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#4f46e5" }}>
+                  {stats.totalCount}
+                </div>
+                <div className="stat-lbl">Total Submissions</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#10b981" }}>
+                  {stats.allOkCount}
+                </div>
+                <div className="stat-lbl">All OK Checklists</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#f59e0b" }}>
+                  {stats.repairsCount}
+                </div>
+                <div className="stat-lbl">Repairs Required</div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-                  return (
-                    <TableRow key={log._id} hover>
-                      <TableCell>{new Date(log.date).toLocaleDateString()}</TableCell>
-                      <TableCell>{log.checkedBy}</TableCell>
-                      <TableCell>{log.items.length}</TableCell>
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        {/* ── Filters Bar ────────────────────────────────────────────── */}
+        <div className="card mb-16">
+          <div className="card-body">
+            <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+              <div className="form-field" style={{ flex: 2 }}>
+                <label>Search</label>
+                <input
+                  type="text"
+                  placeholder="Search by Checker name, equipment, asset ID…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <div className="form-field">
+                <label>Repair Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="">All Statuses</option>
+                  <option value="OK">All OK</option>
+                  <option value="Repairs">Repairs Required</option>
+                </select>
+              </div>
+              <div className="form-field">
+                <label style={{ visibility: "hidden" }}>Action</label>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setStatusFilter("");
+                  }}
+                  style={{
+                    height: "38px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxSizing: "border-box",
+                    color: "#0f172a",
+                    fontWeight: 600,
+                  }}
+                >
+                  Clear Filters
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Table Card ─────────────────────────────────────────────── */}
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">📋 Equipment Maintenance Checklist History</div>
+          </div>
+          <div className="table-wrap">
+            {loading ? (
+              <div className="card-body text-muted">Loading…</div>
+            ) : displayedLogs.length === 0 ? (
+              <div className="card-body text-muted text-center" style={{ padding: "40px 0" }}>
+                No checklist records found. Click 'Add New Checklist' to create one.
+              </div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: 44, textAlign: "center", whiteSpace: "nowrap" }}>Srno</th>
+                    <th style={{ minWidth: 120, whiteSpace: "nowrap" }}>Checklist Date</th>
+                    <th style={{ minWidth: 160, whiteSpace: "nowrap" }}>Checked By</th>
+                    <th style={{ textAlign: "center", whiteSpace: "nowrap", cursor: "default" }}>Total Equipment</th>
+                    <th style={{ textAlign: "center", whiteSpace: "nowrap", cursor: "default" }}>Maintenance Status</th>
+                    <th style={{ whiteSpace: "nowrap" }}>Created At</th>
+                    <th style={{ width: 115, textAlign: "center", whiteSpace: "nowrap" }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedLogs.map((log, idx) => {
+                    const repairCount = log.items.filter((item) => item.repairRequired === "Yes").length;
+
+                    return (
+                      <tr key={log._id}>
+                        <td className="text-muted" style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                          {(pagination.page - 1) * pagination.limit + idx + 1}
+                        </td>
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          {fmtDate(log.date)}
+                        </td>
+                        <td className="fw-600" style={{ minWidth: 160 }}>
+                          {log.checkedBy}
+                        </td>
+                        <td style={{ textAlign: "center", whiteSpace: "nowrap", cursor: "default", fontWeight: 600, color: "#334155" }}>
+                          {log.items.length}
+                        </td>
+                        <td style={{ textAlign: "center", whiteSpace: "nowrap", cursor: "default" }}>
                           {repairCount > 0 ? (
-                            <>
-                              <AlertTriangle size={16} color="#d97706" />
-                              <Typography variant="body2" color="warning.main" fontWeight="bold">
-                                {repairCount} Equipment(s)
-                              </Typography>
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle size={16} color="#16a34a" />
-                              <Typography variant="body2" color="success.main">
-                                All OK
-                              </Typography>
-                            </>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>{new Date(log.createdAt).toLocaleString()}</TableCell>
-
-                      <TableCell align="center">
-                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
-                          <Tooltip title={firstImg ? "View Image" : "No Image Uploaded"}>
-                            <span>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleOpenImagePreview(firstImg)}
-                                sx={{ color: firstImg ? "#7c3aed" : "#9e9e9e" }}
-                                disabled={!firstImg}
-                              >
-                                <Eye size={16} />
-                              </IconButton>
+                            <span style={{ color: "#d97706", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                              <AlertTriangle size={15} color="#d97706" /> {repairCount} Equipment(s)
                             </span>
-                          </Tooltip>
+                          ) : (
+                            <span style={{ color: "#16a34a", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                              <CheckCircle size={15} color="#16a34a" /> All OK
+                            </span>
+                          )}
+                        </td>
+                        <td className="text-muted" style={{ whiteSpace: "nowrap" }}>
+                          {fmtDateTime(log.createdAt)}
+                        </td>
+                        <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                          <div style={{ display: "inline-flex", gap: "6px", alignItems: "center", justifyContent: "center" }}>
+                            {/* 1. View Details (Eye) */}
+                            <button
+                              type="button"
+                              className="btn btn-icon btn-info"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewDetails(log);
+                              }}
+                              title="View Details"
+                              style={{ width: "28px", height: "28px" }}
+                            >
+                              <Eye size={14} color="#0284c7" />
+                            </button>
 
-                          <IconButton size="small" onClick={() => handleDelete(log._id)} color="error">
-                            <Trash2 size={16} />
-                          </IconButton>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                            {/* 2. Edit Record (Edit2) */}
+                            <button
+                              type="button"
+                              className="btn btn-icon btn-primary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditDialog(log);
+                              }}
+                              title="Edit Checklist"
+                              style={{
+                                width: "28px",
+                                height: "28px",
+                                background: "rgba(79, 70, 229, 0.1)",
+                                border: "none",
+                              }}
+                            >
+                              <Edit2 size={14} color="#4f46e5" />
+                            </button>
 
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          component="div"
-          count={totalLogs}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={(e, newPage) => setPage(newPage)}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
+                            {/* 3. Delete Record (Trash2) */}
+                            <button
+                              type="button"
+                              className="btn btn-icon btn-danger"
+                              onClick={(e) => handleRequestDelete(e, log)}
+                              title="Delete Checklist"
+                              style={{ width: "28px", height: "28px" }}
+                            >
+                              <Trash2 size={14} color="#dc2626" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* ── Pagination Footer ───────────────────────────────────── */}
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "12px",
+              borderTop: "1px solid #e2e8f0",
+              padding: "12px 16px",
+              background: "#fafbfc",
+            }}
+          >
+            {/* Left side: Rows per page selector + Showing entries count */}
+            <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+              <div style={{ display: "center", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>
+                  Show
+                </span>
+                <select
+                  value={pagination.limit}
+                  onChange={handleLimitChange}
+                  style={{
+                    padding: "4px 10px",
+                    height: "32px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    background: "white",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    color: "#1e293b",
+                    cursor: "pointer",
+                    outline: "none",
+                  }}
+                >
+                  {[5, 10, 25, 50].map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>
+                  entries per page
+                </span>
+              </div>
+
+              <span style={{ fontSize: "13px", color: "#64748b" }}>
+                {pagination.total === 0 ? (
+                  "Showing 0 entries"
+                ) : (
+                  <>
+                    Showing <b style={{ color: "#0f172a" }}>{(pagination.page - 1) * pagination.limit + 1}</b> to{" "}
+                    <b style={{ color: "#0f172a" }}>
+                      {Math.min(pagination.page * pagination.limit, pagination.total)}
+                    </b>{" "}
+                    of <b style={{ color: "#0f172a" }}>{pagination.total}</b> entries
+                  </>
+                )}
+              </span>
+            </div>
+
+            {/* Right side: Page navigation */}
+            {totalPages > 1 && (
+              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  disabled={pagination.page <= 1}
+                  onClick={() => handlePageChange(pagination.page - 1)}
+                  style={{
+                    height: "32px",
+                    padding: "0 10px",
+                    border: "1px solid #cbd5e1",
+                    background: pagination.page <= 1 ? "#f1f5f9" : "white",
+                    color: pagination.page <= 1 ? "#94a3b8" : "#334155",
+                    cursor: pagination.page <= 1 ? "not-allowed" : "pointer",
+                    borderRadius: "6px",
+                    fontWeight: 600,
+                    fontSize: "12.5px",
+                  }}
+                >
+                  ‹ Prev
+                </button>
+
+                {getPageNumbers().map((item, idx) =>
+                  item === "..." ? (
+                    <span
+                      key={`ellipsis-${idx}`}
+                      style={{ padding: "0 6px", color: "#94a3b8", fontWeight: 600, userSelect: "none" }}
+                    >
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => handlePageChange(item)}
+                      style={{
+                        minWidth: "32px",
+                        height: "32px",
+                        padding: "0 8px",
+                        border: item === pagination.page ? "1px solid #4f46e5" : "1px solid #cbd5e1",
+                        background: item === pagination.page ? "#4f46e5" : "white",
+                        color: item === pagination.page ? "white" : "#334155",
+                        fontWeight: item === pagination.page ? 700 : 500,
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        boxShadow:
+                          item === pagination.page ? "0 1px 3px rgba(79, 70, 229, 0.3)" : "none",
+                      }}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  disabled={pagination.page >= totalPages}
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                  style={{
+                    height: "32px",
+                    padding: "0 10px",
+                    border: "1px solid #cbd5e1",
+                    background: pagination.page >= totalPages ? "#f1f5f9" : "white",
+                    color: pagination.page >= totalPages ? "#94a3b8" : "#334155",
+                    cursor: pagination.page >= totalPages ? "not-allowed" : "pointer",
+                    borderRadius: "6px",
+                    fontWeight: 600,
+                    fontSize: "12.5px",
+                  }}
+                >
+                  Next ›
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── View Details Modal ─────────────────────────────────────── */}
+      {viewDialogOpen && selectedLog && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(15, 23, 42, 0.6)",
+            backdropFilter: "blur(5px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "20px",
           }}
-        />
-      </Paper>
+          onClick={() => setViewDialogOpen(false)}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: "18px",
+              width: "96vw",
+              maxWidth: 1650,
+              maxHeight: "94vh",
+              boxShadow: "0 25px 70px -15px rgba(15, 23, 42, 0.35)",
+              overflow: "hidden",
+              border: "1px solid #e2e8f0",
+              display: "flex",
+              flexDirection: "column",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: "16px 28px",
+                background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: "8px",
+                    background: "rgba(56, 189, 248, 0.15)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Eye size={18} color="#38bdf8" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#ffffff" }}>
+                    Equipment Maintenance Checklist Details
+                  </h3>
+                  <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "2px" }}>
+                    Inspection Record — {fmtDate(selectedLog.date)}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewDialogOpen(false)}
+                style={{
+                  border: "none",
+                  background: "rgba(255, 255, 255, 0.1)",
+                  width: 32,
+                  height: 32,
+                  borderRadius: "8px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 16,
+                  cursor: "pointer",
+                  color: "#e2e8f0",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+                }}
+              >
+                ✕
+              </button>
+            </div>
 
-      {/* Add Dialog */}
-      <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} fullWidth maxWidth="lg">
-        <DialogTitle sx={{ fontWeight: "bold" }}>New Admin Equipment Maintenance Checklist</DialogTitle>
-        <DialogContent dividers>
-          <Box sx={{ display: "flex", gap: 3, mb: 3 }}>
-            <TextField
-              label="Checked By"
-              value={checkedBy}
-              onChange={(e) => setCheckedBy(e.target.value)}
-              required
-              fullWidth
-              size="small"
-            />
-            <TextField
-              label="Date"
-              type="date"
-              value={checklistDate}
-              onChange={(e) => setChecklistDate(e.target.value)}
-              required
-              fullWidth
-              size="small"
-            />
-          </Box>
+            {/* Modal Body */}
+            <div style={{ padding: "18px 24px", overflowY: "auto", flexGrow: 1, display: "flex", flexDirection: "column", gap: "16px" }}>
+              {/* Compact 4-Card Metadata Strip */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "12px",
+                }}
+              >
+                <div style={{ background: "#f8fafc", padding: "10px 16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>📅 Checklist Date</div>
+                  <div style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", marginTop: "3px" }}>{fmtDate(selectedLog.date)}</div>
+                </div>
 
-          <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: "60vh" }}>
-            <Table stickyHeader size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell fontWeight="bold">Sr. No</TableCell>
-                  <TableCell fontWeight="bold">Equipment Name</TableCell>
-                  <TableCell fontWeight="bold">Asset ID</TableCell>
-                  <TableCell fontWeight="bold">Location</TableCell>
-                  <TableCell fontWeight="bold" sx={{ minWidth: 100 }}>Condition</TableCell>
-                  <TableCell fontWeight="bold">Cleaning Done</TableCell>
-                  <TableCell fontWeight="bold" sx={{ minWidth: 130 }}>Functional Check</TableCell>
-                  <TableCell fontWeight="bold">Repair Req.</TableCell>
-                  <TableCell fontWeight="bold">AMC Vendor</TableCell>
-                  <TableCell fontWeight="bold" sx={{ minWidth: 300 }}>Remarks & Image</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {formItems.map((item, idx) => {
-                  const matchingConf = EQUIPMENT_ITEMS.find((c) => c.name === item.equipmentName);
+                <div style={{ background: "#f8fafc", padding: "10px 16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>👤 Checked By</div>
+                  <div style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", marginTop: "3px", wordBreak: "break-word" }}>{selectedLog.checkedBy}</div>
+                </div>
 
-                  return (
-                    <TableRow key={item.equipmentName}>
-                      <TableCell>{idx + 1}</TableCell>
-                      <TableCell sx={{ fontWeight: "bold" }}>{item.equipmentName}</TableCell>
-                      <TableCell>
-                        <TextField
-                          value={item.assetId}
-                          onChange={(e) => handleItemChange(idx, "assetId", e.target.value)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <FormControl size="small" fullWidth>
-                          <Select
-                            value={item.location}
-                            onChange={(e) => handleItemChange(idx, "location", e.target.value)}
+                <div style={{ background: "#f8fafc", padding: "10px 16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>🏢 Equipment Scope</div>
+                  <div style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", marginTop: "3px" }}>{selectedLog.items.length} Items Inspected</div>
+                </div>
+
+                <div style={{ background: "#f8fafc", padding: "10px 16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>🚦 Overall Status</div>
+                  <div style={{ marginTop: "4px" }}>
+                    {selectedLog.items.filter((i) => i.repairRequired === "Yes").length > 0 ? (
+                      <span style={{ color: "#d97706", fontWeight: 700, fontSize: "13px", display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                        <AlertTriangle size={15} color="#d97706" /> {selectedLog.items.filter((i) => i.repairRequired === "Yes").length} Device(s) Need Repair
+                      </span>
+                    ) : (
+                      <span style={{ color: "#16a34a", fontWeight: 700, fontSize: "13px", display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                        <CheckCircle size={15} color="#16a34a" /> All Equipment OK
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Items Breakdown Wide Table */}
+              <div
+                className="table-wrap"
+                style={{
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                  overflowX: "auto",
+                  maxHeight: "56vh",
+                }}
+              >
+                <table style={{ width: "100%" }}>
+                  <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc" }}>
+                    <tr>
+                      <th style={{ width: 36, textAlign: "center", whiteSpace: "nowrap", padding: "8px 6px" }}>#</th>
+                      <th style={{ minWidth: 135, whiteSpace: "nowrap", padding: "8px 8px" }}>Equipment Name</th>
+                      <th style={{ minWidth: 85, whiteSpace: "nowrap", padding: "8px 8px" }}>Asset ID</th>
+                      <th style={{ minWidth: 105, whiteSpace: "nowrap", padding: "8px 8px" }}>Location</th>
+                      <th style={{ minWidth: 80, textAlign: "center", whiteSpace: "nowrap", padding: "8px 6px" }}>Condition</th>
+                      <th style={{ minWidth: 75, textAlign: "center", whiteSpace: "nowrap", padding: "8px 6px" }}>Cleaning</th>
+                      <th style={{ minWidth: 85, textAlign: "center", whiteSpace: "nowrap", padding: "8px 6px" }}>Functionality</th>
+                      <th style={{ minWidth: 80, textAlign: "center", whiteSpace: "nowrap", padding: "8px 6px" }}>Repair Req.</th>
+                      <th style={{ minWidth: 150, padding: "8px 8px" }}>AMC Vendor</th>
+                      <th style={{ minWidth: 230, padding: "8px 8px" }}>Remarks & Notes</th>
+                      <th style={{ width: 55, textAlign: "center", whiteSpace: "nowrap", padding: "8px 6px" }}>Photo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedLog.items.map((item, idx) => (
+                      <tr
+                        key={item.equipmentName}
+                        style={{
+                          backgroundColor: item.repairRequired === "Yes" ? "#fffbeb" : idx % 2 === 0 ? "#ffffff" : "#fafbfc",
+                        }}
+                      >
+                        <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600, verticalAlign: "middle" }}>{idx + 1}</td>
+                        <td className="fw-600" style={{ color: "#0f172a", verticalAlign: "middle" }}>{item.equipmentName}</td>
+                        <td style={{ color: "#475569", verticalAlign: "middle" }}>{item.assetId || "—"}</td>
+                        <td style={{ verticalAlign: "middle" }}>{item.location || "—"}</td>
+                        <td style={{ textAlign: "center", verticalAlign: "middle" }}>
+                          <span className={`score-badge ${getConditionBadgeClass(item.condition)}`}>
+                            {item.condition || "—"}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "center", verticalAlign: "middle" }}>
+                          <span
+                            className={`score-badge ${
+                              item.cleaningDone === "Yes" ? "badge-excellent" : "badge-warning"
+                            }`}
                           >
-                            <MenuItem value="First Floor">First Floor</MenuItem>
-                            <MenuItem value="Second Floor">Second Floor</MenuItem>
-                          </Select>
-                        </FormControl>
-                      </TableCell>
-                      <TableCell>
-                        <FormControl size="small" fullWidth>
-                          <Select
-                            value={item.condition}
-                            onChange={(e) => handleItemChange(idx, "condition", e.target.value)}
+                            {item.cleaningDone || "—"}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "center", verticalAlign: "middle" }}>
+                          <span
+                            className={`score-badge ${
+                              item.functionalCheck === "OK" ? "badge-excellent" : "badge-danger"
+                            }`}
                           >
-                            <MenuItem value="Good">Good</MenuItem>
-                            <MenuItem value="Fair">Fair</MenuItem>
-                            <MenuItem value="Poor">Poor</MenuItem>
-                          </Select>
-                        </FormControl>
-                      </TableCell>
-                      <TableCell>
-                        <FormControl size="small" fullWidth>
-                          <Select
-                            value={item.cleaningDone}
-                            onChange={(e) => handleItemChange(idx, "cleaningDone", e.target.value)}
+                            {item.functionalCheck || "—"}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "center", verticalAlign: "middle" }}>
+                          <span
+                            className={`score-badge ${
+                              item.repairRequired === "Yes" ? "badge-danger" : "badge-excellent"
+                            }`}
                           >
-                            <MenuItem value="Yes">Yes</MenuItem>
-                            <MenuItem value="No">No</MenuItem>
-                          </Select>
-                        </FormControl>
-                      </TableCell>
-                      <TableCell>
-                        <FormControl size="small" fullWidth>
-                          <Select
-                            value={item.functionalCheck}
-                            onChange={(e) => handleItemChange(idx, "functionalCheck", e.target.value)}
-                          >
-                            {matchingConf?.functionalChecks.map((chk) => (
-                              <MenuItem key={chk} value={chk}>
-                                {chk}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      </TableCell>
-                      <TableCell>
-                        <FormControl size="small" fullWidth>
-                          <Select
-                            value={item.repairRequired}
-                            onChange={(e) => handleItemChange(idx, "repairRequired", e.target.value)}
-                          >
-                            <MenuItem value="Yes">Yes</MenuItem>
-                            <MenuItem value="No">No</MenuItem>
-                          </Select>
-                        </FormControl>
-                      </TableCell>
-                      <TableCell>
-                        <TextField
-                          value={item.amcVendor}
-                          onChange={(e) => handleItemChange(idx, "amcVendor", e.target.value)}
-                          size="small"
-                        />
-                      </TableCell>
+                            {item.repairRequired || "—"}
+                          </span>
+                        </td>
+                        <td style={{ color: "#334155", fontSize: "13px", lineHeight: 1.45, wordBreak: "break-word", whiteSpace: "pre-wrap", verticalAlign: "middle" }}>
+                          {item.amcVendor || "—"}
+                        </td>
+                        <td style={{ fontSize: "13px", color: "#334155", lineHeight: 1.45, wordBreak: "break-word", whiteSpace: "pre-wrap", verticalAlign: "middle" }}>
+                          {item.remarks ? (
+                            <div
+                              style={{
+                                background: "#f8fafc",
+                                border: "1px solid #e2e8f0",
+                                borderRadius: "6px",
+                                padding: "6px 10px",
+                                wordBreak: "break-word",
+                                whiteSpace: "pre-wrap",
+                              }}
+                            >
+                              {item.remarks}
+                            </div>
+                          ) : (
+                            <span style={{ color: "#cbd5e1" }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ textAlign: "center", verticalAlign: "middle" }}>
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt="Inspection thumbnail"
+                              onClick={() => handleOpenImagePreview(item.image)}
+                              title="Click to preview full photo"
+                              style={{
+                                width: "38px",
+                                height: "38px",
+                                objectFit: "cover",
+                                borderRadius: "7px",
+                                border: "1.5px solid #6366f1",
+                                cursor: "pointer",
+                                boxShadow: "0 1px 4px rgba(99, 102, 241, 0.2)",
+                                transition: "transform 0.15s ease",
+                              }}
+                              onMouseOver={(e) => (e.currentTarget.style.transform = "scale(1.08)")}
+                              onMouseOut={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                            />
+                          ) : (
+                            <span style={{ color: "#cbd5e1", fontSize: "12px" }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-                      {/* Remarks & Image Side-by-Side Column */}
-                      <TableCell sx={{ verticalAlign: 'top' }}>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                          <TextField
-                            value={item.remarks}
-                            onChange={(e) => handleItemChange(idx, "remarks", e.target.value)}
-                            size="small"
-                            sx={{ flex: 1, minWidth: "120px" }}
-                            multiline
-                            maxRows={3}
-                          />
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: "14px 28px",
+                borderTop: "1px solid #f1f5f9",
+                background: "#fafbfc",
+                display: "flex",
+                justifyContent: "flex-end",
+                alignItems: "center",
+                flexShrink: 0,
+              }}
+            >
+              <button
+                className="btn"
+                style={{
+                  fontSize: "13.5px",
+                  padding: "8px 24px",
+                  fontWeight: 600,
+                  color: "#334155",
+                }}
+                onClick={() => setViewDialogOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-                          {/* Image Upload for all equipment items */}
-                          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+      {/* ── Add / Edit Checklist Modal ───────────────────────────────── */}
+      {dialogOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+          onClick={() => setDialogOpen(false)}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: "18px",
+              width: "96vw",
+              maxWidth: 1650,
+              boxShadow: "0 25px 70px -15px rgba(15, 23, 42, 0.35)",
+              overflow: "hidden",
+              border: "1px solid #e2e8f0",
+              maxHeight: "94vh",
+              display: "flex",
+              flexDirection: "column",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: "16px 28px",
+                background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: "8px",
+                    background: modalMode === "edit" ? "rgba(79, 70, 229, 0.2)" : "rgba(16, 185, 129, 0.2)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {modalMode === "edit" ? <Edit2 size={18} color="#818cf8" /> : <Plus size={18} color="#34d399" />}
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#ffffff" }}>
+                    {modalMode === "edit"
+                      ? "Edit Admin Equipment Maintenance Checklist"
+                      : "New Admin Equipment Maintenance Checklist"}
+                  </h3>
+                  <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "2px" }}>
+                    {modalMode === "edit" ? "Modify inspection line-items and remarks" : "Submit routine facilities inspection"}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDialogOpen(false)}
+                style={{
+                  border: "none",
+                  background: "rgba(255, 255, 255, 0.1)",
+                  width: 32,
+                  height: 32,
+                  borderRadius: "8px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 16,
+                  cursor: "pointer",
+                  color: "#e2e8f0",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+                }}
+              >
+                ✕
+              </button>
+            </div>
 
+            {/* Modal Body */}
+            <div style={{ padding: "18px 24px", overflowY: "auto", flexGrow: 1, display: "flex", flexDirection: "column", gap: "16px" }}>
+              {/* Header Info Section */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "18px",
+                  background: "#f8fafc",
+                  padding: "14px 20px",
+                  borderRadius: "12px",
+                  border: "1px solid #e2e8f0",
+                }}
+              >
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 700, color: "#475569", marginBottom: "6px", display: "block", textTransform: "uppercase" }}>
+                    👤 Checked By *
+                  </label>
+                  <input
+                    type="text"
+                    value={checkedBy}
+                    onChange={(e) => setCheckedBy(e.target.value)}
+                    placeholder="Enter inspector / auditor name"
+                    required
+                    style={{
+                      width: "100%",
+                      height: "38px",
+                      padding: "0 12px",
+                      borderRadius: "8px",
+                      border: "1px solid #cbd5e1",
+                      background: "#ffffff",
+                      fontSize: "13.5px",
+                      fontWeight: 500,
+                      color: "#0f172a",
+                      outline: "none",
+                      boxSizing: "border-box",
+                      transition: "all 0.15s ease",
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 700, color: "#475569", marginBottom: "6px", display: "block", textTransform: "uppercase" }}>
+                    📅 Inspection Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={checklistDate}
+                    onChange={(e) => setChecklistDate(e.target.value)}
+                    required
+                    style={{
+                      width: "100%",
+                      height: "38px",
+                      padding: "0 12px",
+                      borderRadius: "8px",
+                      border: "1px solid #cbd5e1",
+                      background: "#ffffff",
+                      fontSize: "13.5px",
+                      fontWeight: 500,
+                      color: "#0f172a",
+                      outline: "none",
+                      boxSizing: "border-box",
+                      transition: "all 0.15s ease",
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Items Breakdown Table */}
+              <div
+                className="table-wrap"
+                style={{
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                  overflowX: "auto",
+                  maxHeight: "56vh",
+                }}
+              >
+                <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+                  <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc" }}>
+                    <tr>
+                      <th style={{ width: 36, textAlign: "center", whiteSpace: "nowrap", padding: "10px 8px" }}>#</th>
+                      <th style={{ minWidth: 140, whiteSpace: "nowrap", padding: "10px 10px" }}>Equipment Name</th>
+                      <th style={{ minWidth: 95, whiteSpace: "nowrap", padding: "10px 8px" }}>Asset ID</th>
+                      <th style={{ minWidth: 120, whiteSpace: "nowrap", padding: "10px 8px" }}>Location</th>
+                      <th style={{ minWidth: 90, textAlign: "center", whiteSpace: "nowrap", padding: "10px 8px" }}>Condition</th>
+                      <th style={{ minWidth: 80, textAlign: "center", whiteSpace: "nowrap", padding: "10px 8px" }}>Cleaning</th>
+                      <th style={{ minWidth: 90, textAlign: "center", whiteSpace: "nowrap", padding: "10px 8px" }}>Functional</th>
+                      <th style={{ minWidth: 90, textAlign: "center", whiteSpace: "nowrap", padding: "10px 8px" }}>Repair Req.</th>
+                      <th style={{ minWidth: 160, padding: "10px 8px" }}>AMC Vendor</th>
+                      <th style={{ minWidth: 240, padding: "10px 10px" }}>Remarks & Notes</th>
+                      <th style={{ width: 65, textAlign: "center", whiteSpace: "nowrap", padding: "10px 8px" }}>Photo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formItems.map((item, idx) => {
+                      const matchingConf = EQUIPMENT_ITEMS.find((c) => c.name === item.equipmentName);
+
+                      const selectChevron = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center`;
+
+                      const inputBaseStyle = {
+                        width: "100%",
+                        height: "36px",
+                        padding: "0 10px",
+                        borderRadius: "6px",
+                        border: "1px solid #cbd5e1",
+                        background: "#ffffff",
+                        fontSize: "13px",
+                        color: "#0f172a",
+                        outline: "none",
+                        boxSizing: "border-box",
+                        transition: "all 0.15s ease",
+                      };
+
+                      const selectBaseStyle = {
+                        width: "100%",
+                        height: "36px",
+                        padding: "0 24px 0 10px",
+                        borderRadius: "6px",
+                        border: "1px solid #cbd5e1",
+                        background: `#ffffff ${selectChevron}`,
+                        appearance: "none",
+                        WebkitAppearance: "none",
+                        fontSize: "13px",
+                        fontWeight: 500,
+                        color: "#1e293b",
+                        outline: "none",
+                        cursor: "pointer",
+                        boxSizing: "border-box",
+                        transition: "all 0.15s ease",
+                      };
+
+                      const textareaBaseStyle = {
+                        width: "100%",
+                        minHeight: "44px",
+                        padding: "6px 8px",
+                        borderRadius: "6px",
+                        border: "1px solid #cbd5e1",
+                        background: "#ffffff",
+                        fontSize: "12.5px",
+                        lineHeight: "1.4",
+                        color: "#0f172a",
+                        outline: "none",
+                        boxSizing: "border-box",
+                        resize: "vertical",
+                        fontFamily: "inherit",
+                        wordBreak: "break-word",
+                        whiteSpace: "pre-wrap",
+                        transition: "all 0.15s ease",
+                      };
+
+                      return (
+                        <tr
+                          key={item.equipmentName}
+                          style={{
+                            backgroundColor: item.repairRequired === "Yes" ? "#fffbeb" : idx % 2 === 0 ? "#ffffff" : "#fcfdfd",
+                          }}
+                        >
+                          <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600, padding: "8px 8px", verticalAlign: "middle" }}>{idx + 1}</td>
+                          <td className="fw-600" style={{ color: "#0f172a", whiteSpace: "nowrap", padding: "8px 10px", verticalAlign: "middle" }}>
+                            {item.equipmentName}
+                          </td>
+                          <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
+                            <input
+                              type="text"
+                              value={item.assetId}
+                              onChange={(e) => handleItemChange(idx, "assetId", e.target.value)}
+                              placeholder="Asset ID"
+                              style={inputBaseStyle}
+                            />
+                          </td>
+                          <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
+                            <select
+                              value={item.location}
+                              onChange={(e) => handleItemChange(idx, "location", e.target.value)}
+                              style={selectBaseStyle}
+                            >
+                              <option value="First Floor">First Floor</option>
+                              <option value="Second Floor">Second Floor</option>
+                              <option value="Ground Floor">Ground Floor</option>
+                              <option value="Server Room">Server Room</option>
+                              <option value="Entire Premises">Entire Premises</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
+                            <select
+                              value={item.condition}
+                              onChange={(e) => handleItemChange(idx, "condition", e.target.value)}
+                              style={selectBaseStyle}
+                            >
+                              <option value="Good">Good</option>
+                              <option value="Fair">Fair</option>
+                              <option value="Poor">Poor</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
+                            <select
+                              value={item.cleaningDone}
+                              onChange={(e) => handleItemChange(idx, "cleaningDone", e.target.value)}
+                              style={selectBaseStyle}
+                            >
+                              <option value="Yes">Yes</option>
+                              <option value="No">No</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
+                            <select
+                              value={item.functionalCheck}
+                              onChange={(e) => handleItemChange(idx, "functionalCheck", e.target.value)}
+                              style={selectBaseStyle}
+                            >
+                              {matchingConf?.functionalChecks.map((chk) => (
+                                <option key={chk} value={chk}>
+                                  {chk}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
+                            <select
+                              value={item.repairRequired}
+                              onChange={(e) => handleItemChange(idx, "repairRequired", e.target.value)}
+                              style={{
+                                ...selectBaseStyle,
+                                color: item.repairRequired === "Yes" ? "#dc2626" : "#1e293b",
+                                fontWeight: item.repairRequired === "Yes" ? 700 : 500,
+                              }}
+                            >
+                              <option value="No">No</option>
+                              <option value="Yes">Yes</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
+                            <textarea
+                              rows={2}
+                              value={item.amcVendor}
+                              onChange={(e) => handleItemChange(idx, "amcVendor", e.target.value)}
+                              placeholder="Vendor details…"
+                              style={textareaBaseStyle}
+                            />
+                          </td>
+                          <td style={{ padding: "8px 8px", verticalAlign: "middle" }}>
+                            <textarea
+                              rows={2}
+                              value={item.remarks}
+                              onChange={(e) => handleItemChange(idx, "remarks", e.target.value)}
+                              placeholder="Notes & observations…"
+                              style={textareaBaseStyle}
+                            />
+                          </td>
+                          <td style={{ textAlign: "center", padding: "8px 6px", verticalAlign: "middle" }}>
                             {!item.image ? (
-                              <Button
-                                variant="outlined"
-                                component="label"
-                                size="small"
-                                startIcon={<Upload size={14} />}
+                              <label
+                                title="Upload Inspection Photo"
+                                style={{
+                                  width: "36px",
+                                  height: "36px",
+                                  background: "#f8fafc",
+                                  border: "1px dashed #cbd5e1",
+                                  color: "#64748b",
+                                  borderRadius: "6px",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: "pointer",
+                                  margin: 0,
+                                  userSelect: "none",
+                                  transition: "all 0.15s ease",
+                                }}
+                                onMouseOver={(e) => {
+                                  e.currentTarget.style.background = "#eff6ff";
+                                  e.currentTarget.style.borderColor = "#3b82f6";
+                                  e.currentTarget.style.color = "#3b82f6";
+                                }}
+                                onMouseOut={(e) => {
+                                  e.currentTarget.style.background = "#f8fafc";
+                                  e.currentTarget.style.borderColor = "#cbd5e1";
+                                  e.currentTarget.style.color = "#64748b";
+                                }}
                               >
-                                Upload
+                                <Upload size={15} />
                                 <input
                                   type="file"
                                   hidden
                                   accept="image/*"
                                   onChange={(e) => handleImageUpload(idx, e)}
                                 />
-                              </Button>
+                              </label>
                             ) : (
-                              <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                                <Button
-                                  variant="outlined"
-                                  component="label"
-                                  size="small"
-                                  color="warning"
-                                  startIcon={<Upload size={14} />}
-                                >
-                                  Change
-                                  <input
-                                    type="file"
-                                    hidden
-                                    accept="image/*"
-                                    onChange={(e) => handleImageUpload(idx, e)}
-                                  />
-                                </Button>
-                                <Button
-                                  variant="outlined"
-                                  size="small"
-                                  color="error"
-                                  onClick={() => handleItemChange(idx, "image", null)}
-                                  startIcon={<X size={14} />}
-                                >
-                                  Remove
-                                </Button>
-                              </Box>
-                            )}
-
-                            {/* Eye icon to preview the uploaded image in Add Dialog */}
-                            {item.image && (
-                              <IconButton
-                                size="small"
-                                sx={{ color: "#7c3aed" }}
-                                onClick={() => handleOpenImagePreview(item.image)}
-                                title="Preview Image"
+                              <div
+                                style={{
+                                  position: "relative",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  margin: "0 auto",
+                                }}
                               >
-                                <Eye size={18} />
-                              </IconButton>
+                                <img
+                                  src={item.image}
+                                  alt="Inspection thumbnail"
+                                  onClick={() => handleOpenImagePreview(item.image)}
+                                  title="Click to preview photo"
+                                  style={{
+                                    width: "36px",
+                                    height: "36px",
+                                    objectFit: "cover",
+                                    borderRadius: "6px",
+                                    border: "1px solid #cbd5e1",
+                                    cursor: "pointer",
+                                    transition: "transform 0.15s ease",
+                                  }}
+                                  onMouseOver={(e) => {
+                                    e.currentTarget.style.transform = "scale(1.08)";
+                                  }}
+                                  onMouseOut={(e) => {
+                                    e.currentTarget.style.transform = "scale(1)";
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleItemChange(idx, "image", null);
+                                  }}
+                                  title="Remove photo"
+                                  style={{
+                                    position: "absolute",
+                                    top: "-5px",
+                                    right: "-5px",
+                                    width: "16px",
+                                    height: "16px",
+                                    borderRadius: "50%",
+                                    background: "#ef4444",
+                                    border: "1.5px solid #ffffff",
+                                    color: "#ffffff",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor: "pointer",
+                                    padding: 0,
+                                    zIndex: 2,
+                                  }}
+                                >
+                                  <X size={11} strokeWidth={3} />
+                                </button>
+                              </div>
                             )}
-                          </Box>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSubmit} sx={{ backgroundColor: "#0f766e", "&:hover": { backgroundColor: "#0d9488" } }}>
-            Submit Checklist
-          </Button>
-        </DialogActions>
-      </Dialog>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-      {/* View Details Dialog */}
-      <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} fullWidth maxWidth="lg">
-        <DialogTitle sx={{ fontWeight: "bold" }}>Equipment Checklist Details</DialogTitle>
-        <DialogContent dividers>
-          {selectedLog && (
-            <Box>
-              <Grid container spacing={3} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={4}>
-                  <Card variant="outlined">
-                    <CardContent sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-                      <Calendar size={24} color="#0f766e" />
-                      <Box>
-                        <Typography variant="caption" color="textSecondary">
-                          Date Checked
-                        </Typography>
-                        <Typography variant="body1" fontWeight="bold">
-                          {new Date(selectedLog.date).toLocaleDateString()}
-                        </Typography>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Card variant="outlined">
-                    <CardContent sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-                      <Users size={24} color="#0f766e" />
-                      <Box>
-                        <Typography variant="caption" color="textSecondary">
-                          Checked By
-                        </Typography>
-                        <Typography variant="body1" fontWeight="bold">
-                          {selectedLog.checkedBy}
-                        </Typography>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Card variant="outlined">
-                    <CardContent sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-                      <AlertTriangle size={24} color="#b91c1c" />
-                      <Box>
-                        <Typography variant="caption" color="textSecondary">
-                          Repairs Required
-                        </Typography>
-                        <Typography variant="body1" fontWeight="bold" color="error.main">
-                          {selectedLog.items.filter((item) => item.repairRequired === "Yes").length} Device(s)
-                        </Typography>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: "16px 24px",
+                borderTop: "1px solid #f1f5f9",
+                background: "#fafbfc",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+                flexShrink: 0,
+              }}
+            >
+              <button className="btn" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleSubmit}
+                disabled={submitting}
+              >
+                {submitting
+                  ? "Saving…"
+                  : modalMode === "edit"
+                  ? "Update Checklist"
+                  : "Submit Checklist"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-              <Divider sx={{ my: 2 }} />
-
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                  <TableHead sx={{ backgroundColor: "#f8fafc" }}>
-                    <TableRow>
-                      <TableCell fontWeight="bold">Sr. No</TableCell>
-                      <TableCell fontWeight="bold">Equipment Name</TableCell>
-                      <TableCell fontWeight="bold">Asset ID</TableCell>
-                      <TableCell fontWeight="bold">Location</TableCell>
-                      <TableCell fontWeight="bold">Condition</TableCell>
-                      <TableCell fontWeight="bold">Cleaning Done</TableCell>
-                      <TableCell fontWeight="bold">Functional Check</TableCell>
-                      <TableCell fontWeight="bold">Repair Req.</TableCell>
-                      <TableCell fontWeight="bold">AMC Vendor</TableCell>
-                      <TableCell fontWeight="bold">Remarks</TableCell>
-                      <TableCell fontWeight="bold" align="center">Image</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {selectedLog.items.map((item, idx) => (
-                      <TableRow key={item.equipmentName} sx={item.repairRequired === "Yes" ? { backgroundColor: "#fffbeb" } : {}}>
-                        <TableCell>{idx + 1}</TableCell>
-                        <TableCell sx={{ fontWeight: "bold" }}>{item.equipmentName}</TableCell>
-                        <TableCell>{item.assetId || "—"}</TableCell>
-                        <TableCell>{item.location || "—"}</TableCell>
-                        <TableCell>{item.condition || "—"}</TableCell>
-                        <TableCell>{item.cleaningDone || "—"}</TableCell>
-                        <TableCell>{item.functionalCheck || "—"}</TableCell>
-                        <TableCell sx={{ color: item.repairRequired === "Yes" ? "error.main" : "text.primary", fontWeight: item.repairRequired === "Yes" ? "bold" : "normal" }}>
-                          {item.repairRequired || "—"}
-                        </TableCell>
-                        <TableCell>{item.amcVendor || "—"}</TableCell>
-                        <TableCell>{item.remarks || "—"}</TableCell>
-
-                        <TableCell align="center">
-                          <Tooltip title={item.image ? "View Image" : "No Image Uploaded"}>
-                            <span>
-                              <IconButton
-                                size="small"
-                                sx={{ color: item.image ? "#7c3aed" : "#9e9e9e" }}
-                                onClick={() => handleOpenImagePreview(item.image)}
-                                disabled={!item.image}
-                              >
-                                <Eye size={16} />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button variant="outlined" onClick={() => setViewDialogOpen(false)}>
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Full Screen Image Preview Dialog */}
-      <Dialog
-        open={imagePreviewOpen}
-        onClose={() => setImagePreviewOpen(false)}
-        maxWidth="lg"
-        fullWidth
-      >
-        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Typography variant="h6" fontWeight="bold">Image Preview</Typography>
-          <IconButton onClick={() => setImagePreviewOpen(false)} color="error">
-            <X size={20} />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent dividers sx={{ display: "flex", justifyContent: "center", backgroundColor: "#f8fafc" }}>
-          {previewImageUrl && (
+      {/* ── Fullscreen Image Preview Modal ─────────────────────────── */}
+      {imagePreviewOpen && previewImageUrl && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+          }}
+          onClick={() => setImagePreviewOpen(false)}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: "16px",
+              padding: "16px",
+              maxWidth: "90vw",
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              position: "relative",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                width: "100%",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "12px",
+              }}
+            >
+              <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                Equipment Inspection Photo Preview
+              </h4>
+              <button
+                type="button"
+                onClick={() => setImagePreviewOpen(false)}
+                style={{
+                  border: "none",
+                  background: "rgba(15, 23, 42, 0.08)",
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "15px",
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                  color: "#0f172a",
+                  transition: "all 0.15s ease",
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = "rgba(15, 23, 42, 0.16)";
+                  e.currentTarget.style.color = "#000000";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = "rgba(15, 23, 42, 0.08)";
+                  e.currentTarget.style.color = "#0f172a";
+                }}
+              >
+                ✕
+              </button>
+            </div>
             <img
               src={previewImageUrl}
-              alt="Washroom Preview"
+              alt="Equipment Preview"
               style={{
-                maxWidth: "100%",
-                maxHeight: "75vh",
-                height: "auto",
+                maxWidth: "85vw",
+                maxHeight: "78vh",
                 objectFit: "contain",
-                borderRadius: "8px"
+                borderRadius: "8px",
               }}
             />
-          )}
-        </DialogContent>
-      </Dialog>
-    </Box>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirmation Delete Modal ───────────────────────────────── */}
+      {deleteDialogOpen && deleteTargetLog && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(15, 23, 42, 0.65)",
+            backdropFilter: "blur(5px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10002,
+            padding: "20px",
+          }}
+          onClick={() => {
+            if (!deleting) setDeleteDialogOpen(false);
+          }}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: "16px",
+              width: "420px",
+              maxWidth: "92vw",
+              boxShadow: "0 25px 60px -15px rgba(15, 23, 42, 0.35)",
+              overflow: "hidden",
+              border: "1px solid #e2e8f0",
+              display: "flex",
+              flexDirection: "column",
+              textAlign: "center",
+              padding: "26px 24px 22px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Warning Icon Badge */}
+            <div
+              style={{
+                width: "56px",
+                height: "56px",
+                borderRadius: "50%",
+                background: "#fef2f2",
+                border: "1px solid #fee2e2",
+                color: "#ef4444",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto",
+              }}
+            >
+              <Trash2 size={26} color="#ef4444" />
+            </div>
+
+            <h3 style={{ margin: "16px 0 6px", fontSize: "18px", fontWeight: 700, color: "#0f172a" }}>
+              Delete Checklist Entry?
+            </h3>
+
+            <p style={{ margin: "0 0 22px", fontSize: "13.5px", color: "#64748b", lineHeight: 1.5 }}>
+              Are you sure you want to delete the inspection record for{" "}
+              <b style={{ color: "#0f172a" }}>{fmtDate(deleteTargetLog.date)}</b> by{" "}
+              <b style={{ color: "#0f172a" }}>{deleteTargetLog.checkedBy}</b>? This action cannot be undone.
+            </p>
+
+            <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+              <button
+                type="button"
+                className="btn"
+                style={{
+                  flex: 1,
+                  height: "40px",
+                  fontSize: "13.5px",
+                  fontWeight: 600,
+                  color: "#475569",
+                  borderRadius: "8px",
+                  border: "1px solid #cbd5e1",
+                  background: "#ffffff",
+                  cursor: "pointer",
+                }}
+                disabled={deleting}
+                onClick={() => setDeleteDialogOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                style={{
+                  flex: 1,
+                  height: "40px",
+                  fontSize: "13.5px",
+                  fontWeight: 600,
+                  borderRadius: "8px",
+                  background: "#ef4444",
+                  borderColor: "#ef4444",
+                  color: "#ffffff",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  cursor: "pointer",
+                }}
+                disabled={deleting}
+                onClick={handleConfirmDelete}
+              >
+                {deleting ? (
+                  "Deleting…"
+                ) : (
+                  <>
+                    <Trash2 size={15} /> Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

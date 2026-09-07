@@ -80,6 +80,33 @@ router.post("/", async (req, res) => {
   }
 });
 
+// ─── PUT /api/equipment-checklist/:id ───────────────────────────────────────
+router.put("/:id", async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(422).json({ success: false, message: "Invalid ID" });
+    }
+    const { checkedBy, date, items } = req.body;
+    const updateData = {};
+    if (checkedBy !== undefined) updateData.checkedBy = checkedBy;
+    if (date !== undefined) updateData.date = new Date(date);
+    if (items !== undefined && Array.isArray(items)) updateData.items = items;
+
+    const log = await AdminEquipmentChecklist.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+    if (!log) {
+      return res.status(404).json({ success: false, message: "Checklist not found" });
+    }
+    res.json({ success: true, data: log, message: "Checklist updated successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 // ─── DELETE /api/equipment-checklist/:id ────────────────────────────────────
 router.delete("/:id", async (req, res) => {
   try {

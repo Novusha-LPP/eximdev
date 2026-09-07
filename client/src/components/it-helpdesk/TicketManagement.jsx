@@ -17,6 +17,20 @@ import AttachmentUpload from "./AttachmentUpload";
 import TicketDetailDrawer from "./TicketDetailDrawer";
 import * as XLSX from "xlsx";
 import {
+  Search,
+  Download,
+  Plus,
+  Edit2,
+  Trash2,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  History,
+  RotateCcw,
+} from "lucide-react";
+import "../../styles/scorecard.scss";
+import {
   Box,
   Button,
   Card,
@@ -40,8 +54,7 @@ import {
   Typography,
   CircularProgress,
   Tooltip,
-  Tabs,
-  Tab,
+  Avatar,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ConfirmationNumberIcon from "@mui/icons-material/ConfirmationNumber";
@@ -63,11 +76,53 @@ import BusinessCenterIcon from "@mui/icons-material/BusinessCenter";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import DownloadIcon from "@mui/icons-material/Download";
 import ManageHistoryIcon from "@mui/icons-material/ManageHistory";
+import CloseIcon from "@mui/icons-material/Close";
+import SendIcon from "@mui/icons-material/Send";
+import SaveIcon from "@mui/icons-material/Save";
+import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import PersonIcon from "@mui/icons-material/Person";
+import CategoryIcon from "@mui/icons-material/Category";
+import PriorityHighIcon from "@mui/icons-material/PriorityHigh";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import DescriptionIcon from "@mui/icons-material/Description";
+import FiberNewIcon from "@mui/icons-material/FiberNew";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import ClearIcon from "@mui/icons-material/Clear";
+import SearchOffIcon from "@mui/icons-material/SearchOff";
+import AutorenewIcon from "@mui/icons-material/Autorenew";
+import NavigateBeforeIcon from "@mui/icons-material/NavigateBefore";
+import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 
 const TICKET_CATEGORIES = ["Hardware", "Software", "Network", "Access", "Other"];
 const TICKET_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 const TICKET_STATUSES = ["Open", "In Progress", "Closed"];
 const USERS_FETCH_LIMIT = 200;
+
+const PRIORITY_CONFIG = {
+  Low: { color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0", dot: "#22c55e" },
+  Medium: { color: "#d97706", bg: "#fffbeb", border: "#fde68a", dot: "#f59e0b" },
+  High: { color: "#ea580c", bg: "#fff7ed", border: "#fed7aa", dot: "#f97316" },
+  Critical: { color: "#dc2626", bg: "#fef2f2", border: "#fecaca", dot: "#ef4444" },
+};
+
+const STATUS_CONFIG = {
+  New: { color: "#0284c7", bg: "#f0f9ff", border: "#bae6fd", dot: "#0ea5e9" },
+  Open: { color: "#dc2626", bg: "#fef2f2", border: "#fecaca", dot: "#ef4444" },
+  "In Progress": { color: "#d97706", bg: "#fffbeb", border: "#fde68a", dot: "#f59e0b" },
+  Pending: { color: "#d97706", bg: "#fffbeb", border: "#fde68a", dot: "#f59e0b" },
+  Assigned: { color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe", dot: "#3b82f6" },
+  Closed: { color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0", dot: "#22c55e" },
+  Resolved: { color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0", dot: "#22c55e" },
+};
+
+const formatFileSize = (bytes) => {
+  if (!bytes) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+};
 
 const EMPTY_FORM = {
   title: "",
@@ -104,6 +159,46 @@ export default function TicketManagement() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [detailTicketId, setDetailTicketId] = useState(null);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = React.useRef(null);
+
+  const handleFilesSelected = (newFiles) => {
+    if (!newFiles || newFiles.length === 0) return;
+    const fileArray = Array.from(newFiles);
+    setForm((prev) => ({
+      ...prev,
+      files: [...(prev.files || []), ...fileArray],
+    }));
+  };
+
+  const handleRemoveFile = (indexToRemove) => {
+    setForm((prev) => ({
+      ...prev,
+      files: (prev.files || []).filter((_, i) => i !== indexToRemove),
+    }));
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesSelected(e.dataTransfer.files);
+    }
+  };
 
   // New state for additional modules
   const [activeTab, setActiveTab] = useState("raise-ticket");
@@ -425,273 +520,401 @@ export default function TicketManagement() {
   };
 
   return (
-    <Box>
-      {/* Tabs for different modules */}
-      <Box sx={{ borderBottom: 1, borderColor: "divider", display: "flex", alignItems: "center" }} mb={2}>
-        <Button onClick={() => navigate("/it-helpdesk")} sx={{ mr: 2, ml: 1 }} startIcon={<ArrowBackIcon />}>
-          Back
-        </Button>
-        <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} aria-label="helpdesk-tabs">
-          {/* <Tab label="Raise Ticket" value="raise-ticket" />
-          <Tab label="Assign Ticket" value="assign-ticket" />
-          <Tab label="Priority Management" value="priority-management" />
-          <Tab label="SLA Tracking" value="sla-tracking" />
-          <Tab label="Incident Management" value="incident-management" />
-          <Tab label="Service Requests" value="service-requests" />
-          <Tab label="Ticket Workflow" value="ticket-workflow" />
-          <Tab label="Email Notifications" value="email-notifications" />
-          <Tab label="Ticket Escalation" value="ticket-escalation" />
-          <Tab label="Attachment Upload" value="attachment-upload" /> */}
-        </Tabs>
-      </Box>
+    <div className="scorecard-container">
+      {/* Topbar */}
+      <div className="topbar">
+        <div className="topbar-left">
+          <button className="back-btn" onClick={() => navigate("/it-helpdesk")} title="Back to IT Helpdesk">
+            <ChevronLeft size={20} />
+          </button>
+          <div>
+            <div className="page-title">Helpdesk & Tickets</div>
+            <div className="page-subtitle">Overview, filter and track all IT support tickets with real-time status</div>
+          </div>
+        </div>
+        <div className="topbar-actions">
+          <button className="btn btn-secondary" onClick={() => fetchData(pagination.page)}>
+            <RefreshCw size={15} /> Refresh
+          </button>
+          <button className="btn btn-secondary" onClick={handleExportAllToExcel}>
+            <Download size={15} /> Export Excel
+          </button>
+          <button className="btn btn-primary" onClick={() => handleOpen()}>
+            <Plus size={15} /> Raise Ticket
+          </button>
+        </div>
+      </div>
 
       {/* Tab Content */}
-      <Box mt={2}>
+      <div>
         {activeTab === "raise-ticket" && (
-          <Box>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-              <Box display="flex" alignItems="center" gap={1}>
-                <ConfirmationNumberIcon color="primary" />
-                <Typography variant="h5" fontWeight={700}>
-                  Tickets Management
-                </Typography>
-              </Box>
-              <Box display="flex" gap={1}>
-                <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportAllToExcel}>
-                  Export Excel
-                </Button>
-                <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => fetchData(pagination.page)}>
-                  Refresh
-                </Button>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
-                  Raise Ticket
-                </Button>
-              </Box>
-            </Box>
+          <div>
+            {/* KPI Metric Cards */}
+            <div className="card mb-16">
+              <div className="card-body">
+                <div className="stat-grid">
+                  <div className="stat-card">
+                    <div className="stat-val">{stats?.total || pagination.total || data.length}</div>
+                    <div className="stat-lbl">Total Tickets</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-val" style={{ color: "#3b82f6" }}>
+                      {stats?.newCount || data.filter(t => (t.status || "").toLowerCase() === "new").length}
+                    </div>
+                    <div className="stat-lbl">New Tickets</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-val" style={{ color: "#f59e0b" }}>
+                      {(stats?.inProgress || 0) + (stats?.assigned || 0) || data.filter(t => ["in progress", "assigned", "open", "pending"].includes((t.status || "").toLowerCase())).length}
+                    </div>
+                    <div className="stat-lbl">In Progress / Assigned</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-val" style={{ color: "#10b981" }}>
+                      {(stats?.closed || 0) + (stats?.resolved || 0) || data.filter(t => ["closed", "resolved"].includes((t.status || "").toLowerCase())).length}
+                    </div>
+                    <div className="stat-lbl">Closed / Resolved</div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-            {stats && (
-              <Grid container spacing={2} mb={3}>
-                <Grid item xs={6} sm={3}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h4" fontWeight={700}>
-                        {stats.total}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Total Tickets
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h4" fontWeight={700}>
-                        {stats.newCount}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        New
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h4" fontWeight={700}>
-                        {stats.inProgress + stats.assigned}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        In Progress
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h4" fontWeight={700}>
-                        {stats.closed}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Closed
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
-            )}
-
-            <Card>
-              <CardContent>
-                <Grid container spacing={2} mb={2}>
-                  <Grid item xs={12} md={3}>
-                    <TextField
-                      select
-                      label="Status"
-                      size="small"
-                      fullWidth
+            {/* Filter & Search Controls */}
+            <div className="card mb-16">
+              <div className="card-body">
+                <div className="form-grid" style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr auto", alignItems: "flex-end" }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Search Tickets</label>
+                    <div style={{ position: "relative" }}>
+                      <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--color-text-muted)" }} />
+                      <input
+                        type="text"
+                        className="form-input"
+                        style={{ paddingLeft: 32 }}
+                        placeholder="Search by ticket ID, title, description, or user..."
+                        value={filters.search}
+                        onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Status</label>
+                    <select
+                      className="form-select"
                       value={filters.status}
                       onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
                     >
-                      <MenuItem value="">All Statuses</MenuItem>
+                      <option value="">All Statuses</option>
                       {TICKET_STATUSES.map((s) => (
-                        <MenuItem key={s} value={s}>
-                          {s}
-                        </MenuItem>
+                        <option key={s} value={s}>{s}</option>
                       ))}
-                    </TextField>
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <TextField
-                      select
-                      label="Category"
-                      size="small"
-                      fullWidth
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Category</label>
+                    <select
+                      className="form-select"
                       value={filters.category}
                       onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))}
                     >
-                      <MenuItem value="">All Categories</MenuItem>
+                      <option value="">All Categories</option>
                       {TICKET_CATEGORIES.map((c) => (
-                        <MenuItem key={c} value={c}>
-                          {c}
-                        </MenuItem>
+                        <option key={c} value={c}>{c}</option>
                       ))}
-                    </TextField>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      label="Search Title / ID"
-                      size="small"
-                      fullWidth
-                      value={filters.search}
-                      onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <SearchIcon />
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                  </Grid>
-                </Grid>
- 
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Priority</label>
+                    <select
+                      className="form-select"
+                      value={filters.priority || ""}
+                      onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))}
+                    >
+                      <option value="">All Priorities</option>
+                      {TICKET_PRIORITIES.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {(filters.status || filters.category || filters.priority || filters.search) && (
+                    <div style={{ alignSelf: "flex-end" }}>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => setFilters({ status: "", category: "", priority: "", search: "" })}
+                        title="Reset Filters"
+                      >
+                        <RotateCcw size={14} /> Reset
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Main Data Table */}
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <div className="card-title">Support Tickets</div>
+                  <div className="card-subtitle">Showing {data.length} of {pagination.total || data.length} tickets</div>
+                </div>
+              </div>
+              <div className="card-body" style={{ padding: 0 }}>
                 {loading ? (
-                  <Box display="flex" justifyContent="center" py={4}>
-                    <CircularProgress />
-                  </Box>
+                  <div style={{ textAlign: "center", padding: "40px", color: "var(--color-text-muted)" }}>
+                    Loading tickets...
+                  </div>
                 ) : (
-                  <TableContainer>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Ticket ID</TableCell>
-                          <TableCell>Category</TableCell>
-                          <TableCell>Priority</TableCell>
-                          <TableCell>Status</TableCell>
-                          <TableCell>Assigned To</TableCell>
-                          <TableCell align="right">Actions</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Ticket ID</th>
+                          <th>Category & Summary</th>
+                          <th>Priority</th>
+                          <th>Status</th>
+                          <th>Assigned To</th>
+                          <th>Created Date</th>
+                          <th style={{ textAlign: "right" }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
                         {data.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={6} align="center">
-                              <Typography variant="body2" color="text.secondary">
-                                No tickets found
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
+                          <tr>
+                            <td colSpan={7} style={{ textAlign: "center", padding: "30px", color: "var(--color-text-muted)" }}>
+                              No tickets found matching the criteria.
+                            </td>
+                          </tr>
                         ) : (
-                          data.map((t) => (
-                            <TableRow key={t._id} hover>
-                              <TableCell>{t.ticket_id || t._id}</TableCell>
-                              <TableCell>{t.category}</TableCell>
- 
-                              <TableCell>
-                                <Chip label={t.priority} color={priorityColor(t.priority)} size="small" />
-                              </TableCell>
-                              <TableCell>
-                                <Chip label={t.status} color={statusColor(t.status)} size="small" />
-                              </TableCell>
-                              <TableCell>
-                                {t.assigned_to?.username || t.assigned_to?.first_name || "Vikash"}
-                              </TableCell>
-                              <TableCell align="right">
-                                <Tooltip title="Manage Status / History">
-                                  <IconButton size="small" color="secondary" onClick={() => {
-                                    setDetailTicketId(t._id);
-                                    setDrawerOpen(true);
-                                  }}>
-                                    <ManageHistoryIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                                {t.attachments && t.attachments.length > 0 && (
-                                  <Tooltip title="View Attachment">
-                                    <IconButton size="small" color="primary" onClick={() => {
-                                      window.open(t.attachments[0].file_url, '_blank');
+                          data.map((t) => {
+                            const assignedName = t.assigned_to?.username || t.assigned_to?.first_name || "Vikash";
+                            const getPriorityBadge = (p) => {
+                              const val = String(p || "").toLowerCase();
+                              if (val === "critical") return "badge-danger";
+                              if (val === "high") return "badge-warning";
+                              if (val === "medium") return "badge-primary";
+                              return "badge-secondary";
+                            };
+                            const getStatusBadge = (s) => {
+                              const val = String(s || "").toLowerCase();
+                              if (val === "closed" || val === "resolved") return "badge-excellent";
+                              if (val === "in progress" || val === "assigned" || val === "pending") return "badge-warning";
+                              if (val === "new" || val === "open") return "badge-primary";
+                              return "badge-secondary";
+                            };
+
+                            return (
+                              <tr key={t._id}>
+                                <td>
+                                  <span
+                                    className="score-badge badge-primary"
+                                    style={{ cursor: "pointer", fontFamily: "monospace", fontWeight: 700 }}
+                                    onClick={() => {
+                                      setDetailTicketId(t._id);
+                                      setDrawerOpen(true);
+                                    }}
+                                    title="Click to view history and workflow"
+                                  >
+                                    {t.ticket_id || t._id}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div style={{ fontWeight: 600 }}>{t.category || "General"}</div>
+                                  {t.description && (
+                                    <div style={{ fontSize: 12, color: "var(--color-text-muted)", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                      {t.description}
+                                    </div>
+                                  )}
+                                </td>
+                                <td>
+                                  <span className={`score-badge ${getPriorityBadge(t.priority)}`}>
+                                    {t.priority || "Medium"}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className={`score-badge ${getStatusBadge(t.status)}`}>
+                                    {t.status || "New"}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <div style={{
+                                      width: 26,
+                                      height: 26,
+                                      borderRadius: "50%",
+                                      background: "#e0e7ff",
+                                      color: "#3b82f6",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      fontSize: 11,
+                                      fontWeight: 700
                                     }}>
-                                      <VisibilityIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                )}
-                                <Tooltip title="Edit">
-                                  <IconButton size="small" onClick={() => handleOpen(t)}>
-                                    <EditIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                                <Tooltip title="Delete">
-                                  <IconButton size="small" color="error" onClick={(e) => handleDelete(e, t._id)}>
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                              </TableCell>
-                            </TableRow>
-                          ))
+                                      {assignedName.charAt(0).toUpperCase()}
+                                    </div>
+                                    <span style={{ fontWeight: 500 }}>{assignedName}</span>
+                                  </div>
+                                </td>
+                                <td style={{ fontSize: 13, color: "var(--color-text-muted)" }}>
+                                  {t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—"}
+                                </td>
+                                <td style={{ textAlign: "right" }}>
+                                  <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
+                                    <button
+                                      className="btn btn-secondary"
+                                      style={{ padding: "4px 8px" }}
+                                      onClick={() => {
+                                        setDetailTicketId(t._id);
+                                        setDrawerOpen(true);
+                                      }}
+                                      title="Manage Status & History"
+                                    >
+                                      <History size={13} />
+                                    </button>
+                                    {t.attachments && t.attachments.length > 0 && (
+                                      <button
+                                        className="btn btn-secondary"
+                                        style={{ padding: "4px 8px" }}
+                                        onClick={() => window.open(t.attachments[0].file_url, "_blank")}
+                                        title="View Attachment"
+                                      >
+                                        <Eye size={13} />
+                                      </button>
+                                    )}
+                                    <button
+                                      className="btn btn-secondary"
+                                      style={{ padding: "4px 8px" }}
+                                      onClick={() => handleOpen(t)}
+                                      title="Edit Ticket"
+                                    >
+                                      <Edit2 size={13} />
+                                    </button>
+                                    <button
+                                      className="btn btn-danger"
+                                      style={{ padding: "4px 8px" }}
+                                      onClick={(e) => handleDelete(e, t._id)}
+                                      title="Delete Ticket"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
                         )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                      </tbody>
+                    </table>
+                  </div>
                 )}
 
-                <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
-                  <Typography variant="caption" color="text.secondary">
-                    Total: {pagination.total}
-                  </Typography>
-                  <Box display="flex" gap={1}>
-                    <Button
-                      size="small"
+                {/* Pagination Footer */}
+                <div className="pagination-bar">
+                  <div className="pagination-info">
+                    Showing {data.length} of {pagination.total || data.length} tickets (Page {pagination.page} of {Math.max(1, Math.ceil((pagination.total || 1) / pagination.limit))})
+                  </div>
+                  <div className="pagination-controls">
+                    <button
+                      className="btn btn-secondary"
                       disabled={pagination.page <= 1}
                       onClick={() => fetchData(pagination.page - 1)}
+                      style={{ padding: "4px 10px", fontSize: 12 }}
                     >
-                      Prev
-                    </Button>
-                    <Typography variant="caption" sx={{ alignSelf: "center" }}>
-                      Page {pagination.page}
-                    </Typography>
-                    <Button
-                      size="small"
+                      <ChevronLeft size={14} /> Prev
+                    </button>
+                    <button
+                      className="btn btn-secondary"
                       disabled={pagination.page * pagination.limit >= pagination.total}
                       onClick={() => fetchData(pagination.page + 1)}
+                      style={{ padding: "4px 10px", fontSize: 12 }}
                     >
-                      Next
-                    </Button>
+                      Next <ChevronRight size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Enhanced Raise/Edit Ticket Modal */}
+            <Dialog
+              open={showModal}
+              onClose={() => setShowModal(false)}
+              maxWidth="md"
+              fullWidth
+              PaperProps={{
+                sx: {
+                  borderRadius: 3.5,
+                  overflow: "hidden",
+                  boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+                },
+              }}
+              BackdropProps={{
+                sx: {
+                  backdropFilter: "blur(4px)",
+                  backgroundColor: "rgba(15, 23, 42, 0.5)",
+                },
+              }}
+            >
+              {/* Header */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  px: 3,
+                  py: 2.2,
+                  background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+                  borderBottom: "1px solid #e2e8f0",
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={1.75}>
+                  <Box
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 2.5,
+                      background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                      color: "white",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)",
+                    }}
+                  >
+                    <ConfirmationNumberIcon fontSize="medium" />
+                  </Box>
+                  <Box>
+                    <Typography variant="h6" fontWeight={700} color="text.primary" lineHeight={1.2}>
+                      {editId ? "Edit Support Ticket" : "Raise Support Ticket"}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {editId ? "Update existing ticket details and attachments" : "Fill in the details below to request IT assistance"}
+                    </Typography>
                   </Box>
                 </Box>
-              </CardContent>
-            </Card>
+                <IconButton
+                  onClick={() => setShowModal(false)}
+                  size="small"
+                  sx={{
+                    color: "text.secondary",
+                    "&:hover": { bgcolor: "#e2e8f0", color: "text.primary" },
+                  }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
 
-            <Dialog open={showModal} onClose={() => setShowModal(false)} maxWidth="sm" fullWidth>
-              <DialogTitle>{editId ? "Edit Ticket" : "Raise Ticket"}</DialogTitle>
-              <DialogContent>
-                <Grid container spacing={2} sx={{ mt: 0.5 }}>
-                  {/* Debug: Log users data when form is rendered */}
-                  {console.log("Form rendering with users:", users)}
-                  {/* Title removed per request, auto-generated */}
+              {/* Form Content */}
+              <DialogContent sx={{ p: 3 }}>
+                <Grid container spacing={2.5}>
+                  {/* Description */}
                   <Grid item xs={12}>
+                    <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ mb: 0.75, display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <DescriptionIcon fontSize="small" color="primary" />
+                      Issue Description <span style={{ color: "#dc2626" }}>*</span>
+                    </Typography>
                     <TextField
-                      label="Description"
+                      placeholder="Please describe the issue, symptoms, or request with as much detail as possible..."
                       size="small"
                       fullWidth
                       multiline
@@ -699,17 +922,31 @@ export default function TicketManagement() {
                       required
                       value={form.description}
                       onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: 2,
+                          bgcolor: "#fafafa",
+                          "&:hover": { bgcolor: "#ffffff" },
+                          "&.Mui-focused": { bgcolor: "#ffffff" },
+                        },
+                      }}
                     />
                   </Grid>
-                  <Grid item xs={6}>
+
+                  {/* Category */}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ mb: 0.75, display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <CategoryIcon fontSize="small" color="primary" />
+                      Category <span style={{ color: "#dc2626" }}>*</span>
+                    </Typography>
                     <TextField
                       select
-                      label="Category"
                       size="small"
                       fullWidth
                       required
                       value={form.category}
                       onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
                     >
                       {TICKET_CATEGORIES.map((c) => (
                         <MenuItem key={c} value={c}>
@@ -718,37 +955,68 @@ export default function TicketManagement() {
                       ))}
                     </TextField>
                   </Grid>
-                  <Grid item xs={6}>
+
+                  {/* Priority */}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ mb: 0.75, display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <PriorityHighIcon fontSize="small" color="warning" />
+                      Priority (Optional)
+                    </Typography>
                     <TextField
                       select
-                      label="Priority (Optional)"
                       size="small"
                       fullWidth
-                      value={form.priority}
+                      value={form.priority || ""}
                       onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
                     >
-                      <MenuItem value=""><em>Not specified</em></MenuItem>
-                      {TICKET_PRIORITIES.map((p) => (
-                        <MenuItem key={p} value={p}>
-                          {p}
-                        </MenuItem>
-                      ))}
+                      <MenuItem value="">
+                        <Typography variant="body2" color="text.secondary">
+                          <em>Not specified</em>
+                        </Typography>
+                      </MenuItem>
+                      {TICKET_PRIORITIES.map((p) => {
+                        const cfg = PRIORITY_CONFIG[p] || {};
+                        return (
+                          <MenuItem key={p} value={p}>
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <Box
+                                sx={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: "50%",
+                                  bgcolor: cfg.dot || "#94a3b8",
+                                }}
+                              />
+                              <Typography variant="body2" fontWeight={500}>
+                                {p}
+                              </Typography>
+                            </Box>
+                          </MenuItem>
+                        );
+                      })}
                     </TextField>
                   </Grid>
-                  <Grid item xs={6}>
+
+                  {/* Assigned To */}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ mb: 0.75, display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <PersonIcon fontSize="small" color="primary" />
+                      Assigned To
+                    </Typography>
                     {isAdmin ? (
                       <TextField
                         select
-                        label="Assigned To"
                         size="small"
                         fullWidth
                         value={form.assigned_to || ""}
                         onChange={(e) =>
-                          setForm(f => ({
+                          setForm((f) => ({
                             ...f,
-                            assigned_to: e.target.value
+                            assigned_to: e.target.value,
                           }))
                         }
+                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
                       >
                         <MenuItem value="">Select User</MenuItem>
                         {form.assigned_to === "Vikash" && <MenuItem value="Vikash">Vikash</MenuItem>}
@@ -759,40 +1027,52 @@ export default function TicketManagement() {
                             </MenuItem>
                           ))
                         ) : (
-                          !form.assigned_to === "Vikash" && <MenuItem disabled>No Users Found</MenuItem>
+                          form.assigned_to !== "Vikash" && <MenuItem disabled>No Users Found</MenuItem>
                         )}
                       </TextField>
                     ) : (
                       <TextField
                         select
-                        label="Assigned To"
                         size="small"
                         fullWidth
                         disabled
                         value={form.assigned_to || "Vikash"}
                         helperText="Default IT Assignee"
+                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
                       >
                         <MenuItem value={form.assigned_to || "Vikash"}>
-                          {form.assigned_to === "Vikash" ? "Vikash" : (
-                            users?.find(u => u._id === form.assigned_to)?.username || "Vikash"
-                          )}
+                          {form.assigned_to === "Vikash"
+                            ? "Vikash"
+                            : users?.find((u) => u._id === form.assigned_to)?.username || "Vikash"}
                         </MenuItem>
                       </TextField>
                     )}
                   </Grid>
-                  <Grid item xs={6}>
+
+                  {/* Department */}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ mb: 0.75, display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <BusinessIcon fontSize="small" color="primary" />
+                      Department <span style={{ color: "#dc2626" }}>*</span>
+                    </Typography>
                     <TextField
-                      label="Department"
+                      placeholder="e.g. Accounts, Import, Operations"
                       size="small"
                       fullWidth
                       required
                       value={form.department}
                       onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
                     />
                   </Grid>
-                  <Grid item xs={6}>
+
+                  {/* SLA Due Date */}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ mb: 0.75, display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <CalendarMonthIcon fontSize="small" color="primary" />
+                      SLA Due Date <span style={{ color: "#dc2626" }}>*</span>
+                    </Typography>
                     <TextField
-                      label="SLA Due Date"
                       type="date"
                       size="small"
                       required
@@ -801,59 +1081,190 @@ export default function TicketManagement() {
                       value={
                         form.sla_due_date
                           ? form.sla_due_date.substring(0, 10)
-                          : (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`; })()
+                          : (() => {
+                              const n = new Date();
+                              return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+                            })()
                       }
                       disabled={!editId}
                       helperText={!editId ? "Auto-set to today's date" : undefined}
                       onChange={(e) =>
                         setForm((prev) => ({
                           ...prev,
-                          sla_due_date: e.target.value
+                          sla_due_date: e.target.value,
                         }))
                       }
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
                     />
                   </Grid>
-                  <Grid item xs={6}>
-                    {/* Status is read-only in this form — can only be changed by Admin via Manage Status in the ticket drawer */}
-                    <TextField
-                      label="Status"
-                      size="small"
-                      fullWidth
-                      value={editId ? (form.status || "New") : "New"}
-                      disabled
-                      helperText={editId ? "Use 'Manage Status' to change status" : "New tickets always start as New"}
-                    />
+
+                  {/* Status */}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ mb: 0.75, display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <CheckCircleOutlineIcon fontSize="small" color="success" />
+                      Initial Status
+                    </Typography>
+                    <Box
+                      sx={{
+                        p: 1.1,
+                        border: "1px solid #e2e8f0",
+                        borderRadius: 2,
+                        bgcolor: "#f8fafc",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Chip
+                        label={editId ? form.status || "New" : "New"}
+                        size="small"
+                        color="info"
+                        sx={{ fontWeight: 600 }}
+                      />
+                      <Typography variant="caption" color="text.secondary">
+                        {editId ? "Managed via Ticket Drawer" : "Starts automatically as New"}
+                      </Typography>
+                    </Box>
                   </Grid>
+
+                  {/* Attachments Section */}
                   <Grid item xs={12}>
-                    <Typography variant="caption" color="textSecondary" sx={{ mb: 1, display: 'block' }}>
+                    <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ mb: 0.75, display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <UploadFileIcon fontSize="small" color="primary" />
                       Attachments (Optional)
                     </Typography>
+
+                    {/* Hidden Native File Input */}
                     <input
+                      ref={fileInputRef}
                       type="file"
                       multiple
-                      onChange={(e) => setForm(f => ({ ...f, files: Array.from(e.target.files) }))}
-                      style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                      accept=".png,.jpg,.jpeg"
+                      onChange={(e) => handleFilesSelected(e.target.files)}
+                      style={{ display: "none" }}
                     />
+
+                    {/* Modern Dropzone Area */}
+                    <Box
+                      onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      sx={{
+                        border: isDragging ? "2px dashed #2563eb" : "2px dashed #cbd5e1",
+                        borderRadius: 2.5,
+                        p: 2.5,
+                        textAlign: "center",
+                        bgcolor: isDragging ? "#eff6ff" : "#f8fafc",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease-in-out",
+                        "&:hover": {
+                          borderColor: "primary.main",
+                          bgcolor: "#f0f7ff",
+                        },
+                      }}
+                    >
+                      <CloudUploadIcon sx={{ fontSize: 36, color: isDragging ? "primary.main" : "#94a3b8", mb: 0.5 }} />
+                      <Typography variant="body2" fontWeight={600} color="text.primary">
+                        Click to upload or drag & drop screenshots / files
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Supported: PNG, JPG, JPEG (Max 10MB each)
+                      </Typography>
+                    </Box>
+
+                    {/* Attached Files Preview List */}
+                    {form.files && form.files.length > 0 && (
+                      <Box sx={{ mt: 1.5, display: "flex", flexDirection: "column", gap: 1 }}>
+                        {form.files.map((file, idx) => (
+                          <Box
+                            key={idx}
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              p: 1.2,
+                              borderRadius: 2,
+                              border: "1px solid #e2e8f0",
+                              bgcolor: "#ffffff",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                            }}
+                          >
+                            <Box display="flex" alignItems="center" gap={1.2} sx={{ minWidth: 0 }}>
+                              <InsertDriveFileIcon color="primary" fontSize="small" />
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="body2" fontWeight={500} noWrap sx={{ maxWidth: 320 }}>
+                                  {file.name}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {formatFileSize(file.size)}
+                                </Typography>
+                              </Box>
+                            </Box>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveFile(idx);
+                              }}
+                              title="Remove file"
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
                   </Grid>
-                  {/* <Grid item xs={12}>
-              <TextField
-                label="Resolution Notes"
-                size="small"
-                fullWidth
-                multiline
-                minRows={2}
-                value={form.resolution_notes}
-                onChange={(e) => setForm((f) => ({ ...f, resolution_notes: e.target.value }))}
-              />
-            </Grid> */}
                 </Grid>
               </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setShowModal(false)} disabled={saving}>
+
+              {/* Actions */}
+              <DialogActions
+                sx={{
+                  px: 3,
+                  py: 2,
+                  borderTop: "1px solid #e2e8f0",
+                  bgcolor: "#fafbfc",
+                  display: "flex",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Button
+                  onClick={() => setShowModal(false)}
+                  disabled={saving}
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: "none",
+                    fontWeight: 600,
+                    px: 2.5,
+                    borderColor: "#cbd5e1",
+                    color: "text.secondary",
+                    "&:hover": { borderColor: "#94a3b8", bgcolor: "#f1f5f9" },
+                  }}
+                >
                   Cancel
                 </Button>
-                <Button onClick={handleSave} variant="contained" disabled={saving}>
-                  {saving ? "Saving..." : "Save"}
+                <Button
+                  onClick={handleSave}
+                  variant="contained"
+                  disabled={saving}
+                  startIcon={saving ? <CircularProgress size={16} color="inherit" /> : editId ? <SaveIcon /> : <SendIcon />}
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: "none",
+                    fontWeight: 600,
+                    px: 3,
+                    background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                    boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
+                    "&:hover": {
+                      background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
+                    },
+                  }}
+                >
+                  {saving ? "Saving..." : editId ? "Update Ticket" : "Raise Ticket"}
                 </Button>
               </DialogActions>
             </Dialog>
@@ -866,7 +1277,7 @@ export default function TicketManagement() {
               users={users}
               isAdmin={isAdmin}
             />
-          </Box>
+          </div>
         )}
 
         {/* Assign Ticket Tab */}
@@ -1311,7 +1722,7 @@ export default function TicketManagement() {
             </Card>
           </Box>
         )}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }

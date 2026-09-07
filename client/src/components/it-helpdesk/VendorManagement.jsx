@@ -1,73 +1,48 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Typography,
-  CircularProgress,
-  IconButton,
-  Tooltip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  MenuItem,
-  InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  Snackbar,
-  Alert
-} from "@mui/material";
-
+  Search,
+  Download,
+  Plus,
+  Edit2,
+  Trash2,
+  X,
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
-import SearchIcon from "@mui/icons-material/Search";
-import DownloadIcon from "@mui/icons-material/Download";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-// Import XLSX for Excel export
+import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
+import "../../styles/scorecard.scss";
 
-// Constants
 const VENDOR_TYPES = [
   "Transporter",
   "CHA",
   "Shipping Line",
   "Supplier",
   "Service Provider",
-  "Other"
+  "Other",
 ];
 
 const STATUS_OPTIONS = ["Active", "Inactive"];
 
 const EMPTY_FORM = {
   name: "",
-  type: "Other",
+  type: "Supplier",
   gst_number: "",
   pan_number: "",
   contact_person: "",
   mobile_number: "",
   email: "",
-  status: "Active"
+  status: "Active",
 };
 
 export default function VendorManagement() {
   const navigate = useNavigate();
   const { logCreate, logRead, logUpdate, logDelete } = useModuleAuditLogs("Vendor");
 
-  // State
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -75,90 +50,102 @@ export default function VendorManagement() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [searchTerm, setSearchTerm] = useState("");
-  const [page, setPage] = useState(0);
-  const [rowsPerPage] = useState(15);
-  const [notification, setNotification] = useState({
-    open: false,
-    message: "",
-    severity: "info"
-  });
+  const [selectedType, setSelectedType] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
-  // Memoized filtered data
-  const filteredData = data.filter(item => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      if (typeof logRead === "function") {
+        logRead("vendor-list-view", "Fetched vendor records", "info");
+      }
+      const res = await itHelpdeskAPI.vendors.getAll();
+      const vendors = res.data || res;
+      setData(Array.isArray(vendors) ? vendors : []);
+    } catch (err) {
+      if (typeof logCreate === "function") {
+        logCreate(err.message, "Vendor fetch failed", "error");
+      }
+      toast.error("Failed to fetch vendors");
+      setData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [logCreate, logRead]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Filtered data
+  const filteredData = data.filter((item) => {
     const term = searchTerm.toLowerCase();
-    return (
+    const matchesSearch =
+      !searchTerm ||
       (item.name || "").toLowerCase().includes(term) ||
       (item.gst_number || "").toLowerCase().includes(term) ||
       (item.pan_number || "").toLowerCase().includes(term) ||
       (item.contact_person || "").toLowerCase().includes(term) ||
       (item.mobile_number || "").toLowerCase().includes(term) ||
-      (item.email || "").toLowerCase().includes(term)
-    );
+      (item.email || "").toLowerCase().includes(term);
+
+    const matchesType = !selectedType || item.type === selectedType;
+    const matchesStatus = !selectedStatus || item.status === selectedStatus;
+
+    return matchesSearch && matchesType && matchesStatus;
   });
 
-  // Handlers
-  const handleBack = useCallback(() => {
-    navigate("/it-helpdesk");
-  }, [navigate]);
+  // KPI counts
+  const totalCount = data.length;
+  const activeCount = data.filter((d) => d.status === "Active").length;
+  const inactiveCount = totalCount - activeCount;
+  const supplierCount = data.filter((d) => d.type === "Supplier" || d.type === "Service Provider").length;
 
-  const handleNotification = useCallback((message, severity = "info") => {
-    setNotification({ open: true, message, severity });
-  }, []);
+  // Pagination calculation
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / limit));
+  const displayedRows = filteredData.slice((page - 1) * limit, page * limit);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await itHelpdeskAPI.vendors.getAll();
-      const vendors = res.data || res;
-      setData(Array.isArray(vendors) ? vendors : []);
-    } catch (err) {
-      logCreate(err.message, "Vendor fetch failed");
-      handleNotification("Failed to fetch vendors", "error");
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [logCreate, handleNotification]);
-
-  useEffect(() => {
-    fetchData();
-    return () => {
-      // Cleanup if needed
-    };
-  }, [fetchData]);
-
-  const handleOpen = useCallback((record = null) => {
+  const handleOpen = (record = null) => {
     if (record) {
       setEditId(record._id);
       setForm({
         name: record.name || "",
-        type: record.type || "Other",
+        type: record.type || "Supplier",
         gst_number: record.gst_number || "",
         pan_number: record.pan_number || "",
         contact_person: record.contact_person || "",
         mobile_number: record.mobile_number || "",
         email: record.email || "",
-        status: record.status || "Active"
+        status: record.status || "Active",
       });
     } else {
       setEditId(null);
       setForm({ ...EMPTY_FORM });
-      logRead("vendor-creation-intent", "Opened vendor creation form", "info");
+      if (typeof logRead === "function") {
+        logRead("vendor-creation-intent", "Opened vendor creation form", "info");
+      }
     }
     setShowModal(true);
-  }, [logRead]);
+  };
 
-  const handleSave = async () => {
-    // Validation
+  const handleSave = async (e) => {
+    if (e) e.preventDefault();
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (
       !form.name.trim() ||
       !form.contact_person.trim() ||
       !form.mobile_number.trim() ||
-      !form.email.trim() ||
-      !emailRegex.test(form.email.trim())
+      !form.email.trim()
     ) {
-      handleNotification("Please fill all required fields with valid values", "error");
+      toast.error("Please fill all required fields");
+      return;
+    }
+
+    if (!emailRegex.test(form.email.trim())) {
+      toast.error("Please enter a valid email address");
       return;
     }
 
@@ -172,17 +159,21 @@ export default function VendorManagement() {
         contact_person: form.contact_person.trim(),
         mobile_number: form.mobile_number.trim(),
         email: form.email.trim(),
-        status: form.status || "Active"
+        status: form.status || "Active",
       };
 
       if (editId) {
         await itHelpdeskAPI.vendors.update(editId, payload);
-        logUpdate(`Updated vendor ${payload.name}`, editId);
-        handleNotification("Vendor updated successfully", "success");
+        if (typeof logUpdate === "function") {
+          logUpdate(`Updated vendor ${payload.name}`, editId);
+        }
+        toast.success("Vendor updated successfully");
       } else {
         await itHelpdeskAPI.vendors.create(payload);
-        logCreate(`Created vendor ${payload.name}`);
-        handleNotification("Vendor created successfully", "success");
+        if (typeof logCreate === "function") {
+          logCreate(`Created vendor ${payload.name}`);
+        }
+        toast.success("Vendor created successfully");
       }
 
       setShowModal(false);
@@ -191,7 +182,7 @@ export default function VendorManagement() {
       fetchData();
     } catch (err) {
       console.error("Vendor save failed:", err.message);
-      handleNotification("Failed to save vendor", "error");
+      toast.error("Failed to save vendor");
     } finally {
       setSaving(false);
     }
@@ -199,343 +190,655 @@ export default function VendorManagement() {
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this vendor?")) return;
+    if (!window.confirm("Are you sure you want to delete this vendor record?")) return;
 
     try {
       await itHelpdeskAPI.vendors.remove(id);
-      logDelete(`Deleted vendor with ID: ${id}`);
-      handleNotification("Vendor deleted successfully", "success");
+      if (typeof logDelete === "function") {
+        logDelete(`Deleted vendor with ID: ${id}`);
+      }
+      toast.success("Vendor deleted successfully");
       fetchData();
     } catch (err) {
       console.error("Vendor delete failed:", err.message);
-      handleNotification("Failed to delete vendor", "error");
+      toast.error("Failed to delete vendor");
     }
   };
 
-  // --- Excel Export Functionality ---
-  const handleExportAllToExcel = () => {
+  const handleExportToExcel = () => {
     try {
-      // 1. Map data to a cleaner format for Excel
-      const excelData = data.map((item, index) => ({
-        "S.No": index + 1,
-        "Company Name": item.name || "",
-        "Type": item.type || "Other",
-        "GST Number": item.gst_number || "",
-        "PAN Number": item.pan_number || "",
+      const excelData = filteredData.map((item, index) => ({
+        "Sr. No.": index + 1,
+        "Company / Vendor Name": item.name || "",
+        "Vendor Type": item.type || "Other",
+        "GST Number": item.gst_number || "—",
+        "PAN Number": item.pan_number || "—",
         "Contact Person": item.contact_person || "",
         "Mobile Number": item.mobile_number || "",
         "Email": item.email || "",
-        "Status": item.status || "Active"
+        "Status": item.status || "Active",
       }));
 
-      // 2. Create a new workbook
       const wb = XLSX.utils.book_new();
-
-      // 3. Convert JSON data to a worksheet
       const ws = XLSX.utils.json_to_sheet(excelData);
+      XLSX.utils.book_append_sheet(wb, ws, "Vendors & Suppliers");
 
-      // 4. Append worksheet to workbook
-      XLSX.utils.book_append_sheet(wb, ws, "Vendors");
-
-      // 5. Generate filename with current date
       const date = new Date().toISOString().slice(0, 10);
-      const fileName = `Vendors_Export_${date}.xlsx`;
-
-      // 6. Write file and trigger download
-      XLSX.writeFile(wb, fileName);
-
-      handleNotification("Excel exported successfully", "success");
+      XLSX.writeFile(wb, `IT_Vendors_List_${date}.xlsx`);
+      toast.success("Vendor directory exported to Excel");
     } catch (error) {
       console.error("Export failed:", error);
-      handleNotification("Failed to export Excel", "error");
+      toast.error("Failed to export Excel");
     }
   };
-  // ----------------------------------
 
-  // Helper functions
-  const statusColor = (s) => {
-    return s === "Active" ? "success" : "default";
-  };
-
-  const typeColor = (t) => {
-    switch (t) {
-      case "Transporter": return "primary";
-      case "CHA": return "info";
-      case "Shipping Line": return "secondary";
-      case "Supplier": return "success";
-      case "Service Provider": return "warning";
-      default: return "default";
+  const getTypeBadgeClass = (type) => {
+    switch (type) {
+      case "Supplier":
+        return "badge-excellent";
+      case "Service Provider":
+        return "badge-good";
+      case "CHA":
+      case "Transporter":
+        return "badge-primary";
+      case "Shipping Line":
+        return "badge-warning";
+      default:
+        return "badge-secondary";
     }
   };
 
   return (
-    <Box>
-      {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Box display="flex" alignItems="center">
-          <Tooltip title="Back">
-            <IconButton
-              onClick={handleBack}
-              sx={{
-                mr: 1,
-                bgcolor: "white",
-                border: "1px solid",
-                borderColor: "primary.main",
-                color: "primary.main",
-                "&:hover": { bgcolor: "primary.light", color: "primary.dark" }
+    <>
+      {/* ── Topbar ─────────────────────────────────────────────────── */}
+      <div className="topbar">
+        <div className="topbar-left">
+          <button
+            className="btn btn-icon"
+            onClick={() => navigate("/it-helpdesk")}
+            title="Back to IT Helpdesk"
+            style={{
+              border: "1px solid #e2e8f0",
+              background: "white",
+              borderRadius: "50%",
+              width: 36,
+              height: 36,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              fontSize: 18,
+              fontWeight: "bold",
+              color: "#334155",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              transition: "all 0.2s ease",
+            }}
+          >
+            ←
+          </button>
+          <div>
+            <div className="topbar-title">Vendors &amp; AMC Suppliers</div>
+            <div className="topbar-breadcrumb" style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+              IT Hardware Suppliers, Maintenance Partners &amp; Service Providers
+            </div>
+          </div>
+        </div>
+
+        <div className="topbar-right" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <button
+            type="button"
+            className="btn"
+            onClick={handleExportToExcel}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "#ffffff",
+              border: "1px solid #cbd5e1",
+              color: "#0f172a",
+              fontWeight: 600,
+              fontSize: "13px",
+              padding: "7px 14px",
+              borderRadius: "8px",
+              cursor: "pointer",
+            }}
+          >
+            <Download size={15} color="#059669" /> Export Excel
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => handleOpen()}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "13px",
+              padding: "7px 16px",
+              borderRadius: "8px",
+              fontWeight: 600,
+            }}
+          >
+            <Plus size={15} /> + Add Vendor
+          </button>
+        </div>
+      </div>
+
+      <div className="page-body">
+        {/* ── KPI Summary Cards ─────────────────────────────────────── */}
+        <div className="card mb-16">
+          <div className="card-body">
+            <div className="stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "10px" }}>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#0f172a" }}>
+                  {totalCount}
+                </div>
+                <div className="stat-lbl">Total Vendors</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#10b981" }}>
+                  {activeCount}
+                </div>
+                <div className="stat-lbl">Active Partners</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#64748b" }}>
+                  {inactiveCount}
+                </div>
+                <div className="stat-lbl">Inactive</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#4f46e5" }}>
+                  {supplierCount}
+                </div>
+                <div className="stat-lbl">Suppliers / Services</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Filters Card ──────────────────────────────────────────── */}
+        <div className="card mb-16">
+          <div className="card-body">
+            <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "12px", alignItems: "flex-end" }}>
+              <div className="form-field">
+                <label>Search Directory</label>
+                <div style={{ position: "relative" }}>
+                  <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+                  <input
+                    type="text"
+                    placeholder="Company, contact, email, GST…"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{ paddingLeft: "32px" }}
+                  />
+                </div>
+              </div>
+
+              <div className="form-field">
+                <label>Vendor Type</label>
+                <select
+                  value={selectedType}
+                  onChange={(e) => {
+                    setSelectedType(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All Types</option>
+                  {VENDOR_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-field">
+                <label>Status</label>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => {
+                    setSelectedStatus(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All Statuses</option>
+                  {STATUS_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-field">
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setSelectedType("");
+                    setSelectedStatus("");
+                    setPage(1);
+                  }}
+                  style={{
+                    height: "38px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 600,
+                    color: "#0f172a",
+                  }}
+                >
+                  Clear Filters
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Table Card ────────────────────────────────────────────── */}
+        <div className="card">
+          <div
+            className="card-header"
+            style={{
+              padding: "10px 16px",
+              background: "linear-gradient(to right, #f8fafc, #ffffff)",
+              borderBottom: "1px solid #e2e8f0",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "8px",
+            }}
+          >
+            <div className="card-title" style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+              <Building2 size={17} color="#4f46e5" /> Vendor Directory
+            </div>
+
+            <span style={{ fontSize: "12px", color: "#64748b", background: "#f1f5f9", padding: "4px 10px", borderRadius: "12px", fontWeight: 600 }}>
+              Showing {displayedRows.length} of {filteredData.length} records
+            </span>
+          </div>
+
+          <div className="card-body" style={{ padding: 0 }}>
+            {loading ? (
+              <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
+                Loading vendors...
+              </div>
+            ) : (
+              <div className="table-wrap">
+                <table style={{ width: "100%" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 44, textAlign: "center" }}>#</th>
+                      <th style={{ minWidth: 150 }}>Company Name</th>
+                      <th style={{ minWidth: 120 }}>Vendor Type</th>
+                      <th style={{ minWidth: 130 }}>GST / PAN</th>
+                      <th style={{ minWidth: 140 }}>Contact Person</th>
+                      <th style={{ minWidth: 120 }}>Mobile Number</th>
+                      <th style={{ minWidth: 160 }}>Email Address</th>
+                      <th style={{ minWidth: 90, textAlign: "center" }}>Status</th>
+                      <th style={{ width: 90, textAlign: "center" }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} style={{ textAlign: "center", padding: "36px 16px", color: "#94a3b8" }}>
+                          No vendors found matching criteria
+                        </td>
+                      </tr>
+                    ) : (
+                      displayedRows.map((v, idx) => (
+                        <tr key={v._id} style={{ background: idx % 2 === 0 ? "#ffffff" : "#fcfdfd" }}>
+                          <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>
+                            {(page - 1) * limit + idx + 1}
+                          </td>
+                          <td className="fw-600" style={{ color: "#0f172a" }}>
+                            {v.name}
+                          </td>
+                          <td>
+                            <span className={`score-badge ${getTypeBadgeClass(v.type)}`}>
+                              {v.type || "Other"}
+                            </span>
+                          </td>
+                          <td style={{ color: "#475569", fontSize: "12.5px" }}>
+                            {v.gst_number || v.pan_number ? (
+                              <div>
+                                {v.gst_number && <div>GST: {v.gst_number}</div>}
+                                {v.pan_number && <div style={{ color: "#64748b" }}>PAN: {v.pan_number}</div>}
+                              </div>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td style={{ color: "#1e293b", fontWeight: 500 }}>
+                            {v.contact_person || "—"}
+                          </td>
+                          <td style={{ color: "#334155", fontSize: "13px" }}>
+                            {v.mobile_number || "—"}
+                          </td>
+                          <td style={{ color: "#334155", fontSize: "13px" }}>
+                            {v.email || "—"}
+                          </td>
+                          <td style={{ textAlign: "center" }}>
+                            <span className={`score-badge ${v.status === "Active" ? "badge-excellent" : "badge-secondary"}`}>
+                              {v.status || "Active"}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: "center" }}>
+                            <div style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
+                              <button
+                                type="button"
+                                className="btn btn-icon btn-primary"
+                                onClick={() => handleOpen(v)}
+                                title="Edit Vendor"
+                                style={{
+                                  width: "28px",
+                                  height: "28px",
+                                  background: "rgba(79, 70, 229, 0.1)",
+                                  border: "none",
+                                }}
+                              >
+                                <Edit2 size={13} color="#4f46e5" />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-icon btn-danger"
+                                onClick={(e) => handleDelete(e, v._id)}
+                                title="Delete Vendor"
+                                style={{ width: "28px", height: "28px" }}
+                              >
+                                <Trash2 size={13} color="#dc2626" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* ── Pagination Footer ─────────────────────────────────── */}
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "12px",
+                borderTop: "1px solid #e2e8f0",
+                padding: "12px 16px",
+                background: "#fafbfc",
               }}
             >
-              <ArrowBackIcon sx={{ color: "primary.main" }} />
-            </IconButton>
-          </Tooltip>
-          <Typography variant="h5" fontWeight={700}>
-            Vendors & Suppliers
-          </Typography>
-        </Box>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>Show</span>
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    background: "#ffffff",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {[10, 15, 25, 50].map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>entries per page</span>
+              </div>
 
-        <Box display="flex" gap={1}>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpen()}
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  style={{
+                    padding: "5px 10px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    opacity: page <= 1 ? 0.5 : 1,
+                  }}
+                >
+                  <ChevronLeft size={14} /> Prev
+                </button>
+                <span style={{ fontSize: "13px", color: "#475569", fontWeight: 600, padding: "0 8px" }}>
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  style={{
+                    padding: "5px 10px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    opacity: page >= totalPages ? 0.5 : 1,
+                  }}
+                >
+                  Next <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Add / Edit Modal ──────────────────────────────────────── */}
+        {showModal && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100vw",
+              height: "100vh",
+              background: "rgba(15, 23, 42, 0.6)",
+              backdropFilter: "blur(4px)",
+              zIndex: 9999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "16px",
+            }}
           >
-            Add Vendor
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={handleExportAllToExcel}
-          >
-            Export Excel
-          </Button>
-        </Box>
-      </Box>
-
-      {/* Search Input */}
-      <Box mb={2} sx={{ maxWidth: 400 }}>
-        <TextField
-          label="Search Vendors"
-          size="small"
-          fullWidth
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-          }}
-        />
-      </Box>
-
-      {/* Table */}
-      {loading ? (
-        <Box display="flex" justifyContent="center" py={4}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Company Name</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell>GST Number</TableCell>
-                  <TableCell>PAN Number</TableCell>
-                  <TableCell>Contact</TableCell>
-                  <TableCell>Mobile</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Action</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredData.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} align="center">
-                      No vendor found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredData
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((v) => (
-                      <TableRow key={v._id}>
-                        <TableCell>{v.name}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={v.type || "Other"}
-                            color={typeColor(v.type)}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>{v.gst_number || "-"}</TableCell>
-                        <TableCell>{v.pan_number || "-"}</TableCell>
-                        <TableCell>{v.contact_person || "-"}</TableCell>
-                        <TableCell>{v.mobile_number || "-"}</TableCell>
-                        <TableCell>{v.email || "-"}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={v.status}
-                            color={statusColor(v.status)}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          <Tooltip title="Edit">
-                            <IconButton onClick={() => handleOpen(v)}>
-                              <EditIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete">
-                            <IconButton
-                              color="error"
-                              onClick={(e) => handleDelete(e, v._id)}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            component="div"
-            count={filteredData.length}
-            page={page}
-            onPageChange={(e, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            rowsPerPageOptions={[15]}
-            labelDisplayedRows={({ from, to, count }) => `${from}–${to} of ${count}`}
-          />
-        </>
-      )}
-
-      {/* Add/Edit Dialog */}
-      <Dialog
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>{editId ? "Edit Vendor" : "Add Vendor"}</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            size="small"
-            label="Company Name *"
-            margin="normal"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-
-          <FormControl fullWidth margin="normal" size="small">
-            <InputLabel>Vendor Type</InputLabel>
-            <Select
-              value={form.type}
-              label="Vendor Type"
-              onChange={(e) => setForm({ ...form, type: e.target.value })}
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: "14px",
+                width: "100%",
+                maxWidth: "600px",
+                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+                overflow: "hidden",
+                border: "1px solid #e2e8f0",
+              }}
             >
-              {VENDOR_TYPES.map((type) => (
-                <MenuItem key={type} value={type}>
-                  {type}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              {/* Modal Header */}
+              <div
+                style={{
+                  padding: "16px 20px",
+                  background: "linear-gradient(to right, #0f172a, #1e293b)",
+                  color: "#ffffff",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>
+                    {editId ? "✏️ Edit Vendor Details" : "✨ Add New Vendor / Supplier"}
+                  </h3>
+                  <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#94a3b8" }}>
+                    Enter contact and registration information for the partner
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  style={{
+                    background: "rgba(255, 255, 255, 0.1)",
+                    border: "none",
+                    borderRadius: "50%",
+                    width: "32px",
+                    height: "32px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#ffffff",
+                    cursor: "pointer",
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
 
-          <TextField
-            fullWidth
-            size="small"
-            label="GST Number"
-            margin="normal"
-            value={form.gst_number}
-            onChange={(e) => setForm({ ...form, gst_number: e.target.value })}
-          />
+              {/* Modal Body */}
+              <form onSubmit={handleSave} style={{ padding: "20px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+                  <div className="form-field" style={{ gridColumn: "span 2" }}>
+                    <label>Company / Vendor Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Paramount Tech Solutions Pvt Ltd"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    />
+                  </div>
 
-          <TextField
-            fullWidth
-            size="small"
-            label="PAN Number"
-            margin="normal"
-            value={form.pan_number}
-            onChange={(e) => setForm({ ...form, pan_number: e.target.value })}
-          />
+                  <div className="form-field">
+                    <label>Vendor Type</label>
+                    <select
+                      value={form.type}
+                      onChange={(e) => setForm({ ...form, type: e.target.value })}
+                    >
+                      {VENDOR_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-          <TextField
-            fullWidth
-            size="small"
-            label="Contact Person *"
-            margin="normal"
-            value={form.contact_person}
-            onChange={(e) => setForm({ ...form, contact_person: e.target.value })}
-          />
+                  <div className="form-field">
+                    <label>Status</label>
+                    <select
+                      value={form.status}
+                      onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    >
+                      {STATUS_OPTIONS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-          <TextField
-            fullWidth
-            size="small"
-            label="Mobile Number *"
-            margin="normal"
-            value={form.mobile_number}
-            onChange={(e) => setForm({ ...form, mobile_number: e.target.value })}
-          />
+                  <div className="form-field">
+                    <label>GST Number</label>
+                    <input
+                      type="text"
+                      placeholder="24AAAAA0000A1Z5"
+                      value={form.gst_number}
+                      onChange={(e) => setForm({ ...form, gst_number: e.target.value })}
+                    />
+                  </div>
 
-          <TextField
-            fullWidth
-            size="small"
-            label="Email *"
-            margin="normal"
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            error={form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)}
-            helperText={form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) ? "Invalid email format" : ""}
-          />
+                  <div className="form-field">
+                    <label>PAN Number</label>
+                    <input
+                      type="text"
+                      placeholder="AAAAA0000A"
+                      value={form.pan_number}
+                      onChange={(e) => setForm({ ...form, pan_number: e.target.value })}
+                    />
+                  </div>
 
-          <FormControl fullWidth margin="normal" size="small">
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={form.status}
-              label="Status"
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-            >
-              {STATUS_OPTIONS.map((status) => (
-                <MenuItem key={status} value={status}>
-                  {status}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button disabled={saving} onClick={() => setShowModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="contained" disabled={saving} onClick={handleSave}>
-            {saving ? "Saving..." : "Save"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+                  <div className="form-field">
+                    <label>Contact Person *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Mr. Rajesh Kumar"
+                      value={form.contact_person}
+                      onChange={(e) => setForm({ ...form, contact_person: e.target.value })}
+                    />
+                  </div>
 
-      {/* Notification Snackbar */}
-      <Snackbar
-        open={notification.open}
-        autoHideDuration={6000}
-        onClose={() => setNotification({ ...notification, open: false })}
-      >
-        <Alert
-          onClose={() => setNotification({ ...notification, open: false })}
-          severity={notification.severity}
-          sx={{ width: "100%" }}
-        >
-          {notification.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+                  <div className="form-field">
+                    <label>Mobile Number *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="9876543210"
+                      value={form.mobile_number}
+                      onChange={(e) => setForm({ ...form, mobile_number: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-field" style={{ gridColumn: "span 2" }}>
+                    <label>Email Address *</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="rajesh@paramount.com"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: "10px",
+                    marginTop: "20px",
+                    paddingTop: "14px",
+                    borderTop: "1px solid #e2e8f0",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setShowModal(false)}
+                    disabled={saving}
+                    style={{ fontWeight: 600 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={saving}
+                    style={{ fontWeight: 600 }}
+                  >
+                    {saving ? "Saving..." : editId ? "Update Vendor" : "Create Vendor"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

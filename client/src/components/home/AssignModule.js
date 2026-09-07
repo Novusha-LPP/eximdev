@@ -122,9 +122,7 @@ function AssignModule({ selectedUser, allowedModules, allowInactive = false }) {
       }
     } catch (error) {
       console.error("Error updating modules:", error);
-      message.error("Failed to update modules");
-      // Revert state if API fails (optional but good practice, though simple fetch refresh works too)
-      // For now, let's keep it simple as we fetch often
+      message.error(error.response?.data?.message || "Failed to update modules");
     }
   };
 

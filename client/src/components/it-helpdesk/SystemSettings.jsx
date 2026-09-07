@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
   Box,
   Button,
@@ -22,6 +24,8 @@ import {
   FormGroup,
   RadioGroup,
   Radio,
+  Tooltip,
+  IconButton,
 } from "@mui/material";
 import SettingsIcon from "@mui/icons-material/Settings";
 import SaveIcon from "@mui/icons-material/Save";
@@ -275,9 +279,26 @@ export default function SystemSettings() {
     fetchSettings();
   }, []);
 
+  const navigate = useNavigate();
+
   return (
     <Box>
-      <Box display="flex" alignItems="center" gap={2} mb={2}>
+      <Box display="flex" alignItems="center" gap={1} mb={2}>
+        <Tooltip title="Back">
+          <IconButton
+            onClick={() => navigate("/it-helpdesk")}
+            sx={{
+              mr: 1,
+              bgcolor: "white",
+              border: "1px solid",
+              borderColor: "primary.main",
+              color: "primary.main",
+              "&:hover": { bgcolor: "primary.main", color: "white" },
+            }}
+          >
+            <ArrowBackIcon />
+          </IconButton>
+        </Tooltip>
         <SettingsIcon color="primary" />
         <Typography variant="h5" fontWeight={700}>
           System Settings

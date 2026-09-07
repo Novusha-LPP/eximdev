@@ -1,47 +1,31 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Box,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  CircularProgress,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  MenuItem,
-  IconButton,
-  Chip,
-  Tooltip,
-  InputAdornment
-} from "@mui/material";
-
+  Search,
+  Download,
+  Plus,
+  Edit2,
+  Trash2,
+  X,
+  Key,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
-import AddIcon from "@mui/icons-material/Add";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import SearchIcon from "@mui/icons-material/Search";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import DownloadIcon from "@mui/icons-material/Download";
+import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
+import "../../styles/scorecard.scss";
 
 // Compute license status from expiry date
 function computeLicenseStatus(expiryDate) {
-  if (!expiryDate) return { label: "No Expiry", color: "default" };
+  if (!expiryDate) return { label: "No Expiry", cls: "badge-secondary" };
   const expiry = new Date(expiryDate);
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return { label: "Expired", color: "error" };
-  if (diffDays <= 30) return { label: "Expiring Soon", color: "warning" };
-  return { label: "Active", color: "success" };
+  if (diffDays < 0) return { label: "Expired", cls: "badge-danger" };
+  if (diffDays <= 30) return { label: "Expiring Soon", cls: "badge-warning" };
+  return { label: "Active", cls: "badge-excellent" };
 }
 
 const LICENSE_TYPES = [
@@ -50,7 +34,7 @@ const LICENSE_TYPES = [
   "Subscription",
   "Enterprise",
   "OEM",
-  "Trial"
+  "Trial",
 ];
 
 const EMPTY_FORM = {
@@ -58,76 +42,35 @@ const EMPTY_FORM = {
   license_code: "",
   software_name: "",
   vendor: "",
-  license_type: "",
+  license_type: "Subscription",
   expiry_date: "",
   cost: "",
   assigned_to: "",
-  assigned_asset: ""
+  assigned_asset: "",
 };
 
-const flattenPerson = (val) => {
-  if (val === null || val === undefined || val === "") return "";
-  if (typeof val === "string" || typeof val === "number") return String(val);
-  if (typeof val === "object") {
-    return (
-      val.email ||
-      val.name ||
-      val.username ||
-      val.full_name ||
-      val.fullName ||
-      val.employee_name ||
-      val.label ||
-      ""
-    );
-  }
-  return "";
-};
-
-const flattenAsset = (val) => {
-  if (val === null || val === undefined || val === "") return "";
-  if (typeof val === "string" || typeof val === "number") return String(val);
-  if (typeof val === "object") {
-    return (
-      val.name ||
-      val.tag ||
-      val.asset_tag ||
-      val.assetTag ||
-      val.code ||
-      val.label ||
-      ""
-    );
-  }
-  return "";
+const fmtDate = (d) => {
+  if (!d) return "—";
+  const dt = new Date(d);
+  if (isNaN(dt)) return "—";
+  return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
 
 export default function LicenseManagement() {
   const navigate = useNavigate();
-
-  const handleBack = () => {
-    navigate("/it-helpdesk");
-  };
 
   const [data, setData] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [searchTerm, setSearchTerm] = useState("");
-  const [page, setPage] = useState(0);
-  const rowsPerPage = 15;
-
-  const filteredData = data.filter(item => {
-    const term = searchTerm.toLowerCase();
-    return (
-      (item.license_name || "").toLowerCase().includes(term) ||
-      (item.license_code || "").toLowerCase().includes(term) ||
-      (item.software_name || "").toLowerCase().includes(term) ||
-      (item.vendor_name || "").toLowerCase().includes(term) ||
-      (item.assigned_to || "").toLowerCase().includes(term) ||
-      (item.assigned_asset || "").toLowerCase().includes(term)
-    );
-  });
+  const [typeFilter, setTypeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
   const normalize = (x) => {
     const rawAssignedTo =
@@ -155,12 +98,11 @@ export default function LicenseManagement() {
       x.assigned?.asset ??
       null;
 
-    // Handle different data structures for assigned_to
     let assigned_to = "";
     if (rawAssignedTo) {
-      if (typeof rawAssignedTo === 'string') {
+      if (typeof rawAssignedTo === "string") {
         assigned_to = rawAssignedTo;
-      } else if (typeof rawAssignedTo === 'object') {
+      } else if (typeof rawAssignedTo === "object") {
         assigned_to =
           rawAssignedTo.email ||
           rawAssignedTo.name ||
@@ -173,12 +115,11 @@ export default function LicenseManagement() {
       }
     }
 
-    // Handle different data structures for assigned_asset
     let assigned_asset = "";
     if (rawAssignedAsset) {
-      if (typeof rawAssignedAsset === 'string') {
+      if (typeof rawAssignedAsset === "string") {
         assigned_asset = rawAssignedAsset;
-      } else if (typeof rawAssignedAsset === 'object') {
+      } else if (typeof rawAssignedAsset === "object") {
         assigned_asset =
           rawAssignedAsset.name ||
           rawAssignedAsset.tag ||
@@ -190,29 +131,18 @@ export default function LicenseManagement() {
       }
     }
 
-    if (!assigned_to && !assigned_asset) {
-      console.warn(
-        "[LicenseManagement] No assigned_to/assigned_asset found for record:",
-        x
-      );
-    }
-
     return {
       _id: x._id,
-      license_name:
-        x.license_name || x.licenseName || x.name || x.license_title || "",
-      license_code:
-        x.license_code || x.licenseCode || x.code || x.license_id || "",
+      license_name: x.license_name || x.licenseName || x.name || x.license_title || "",
+      license_code: x.license_code || x.licenseCode || x.code || x.license_id || "",
       license_type: x.license_type || x.licenseType || x.type || "",
-      software_name:
-        x.software_name || x.softwareName || x.product_name || "",
+      software_name: x.software_name || x.softwareName || x.product_name || "",
       vendor: x.vendor?._id || x.vendor || "",
-      vendor_name: x.vendor?.name || x.vendor_name || x.publisher || "-",
-      expiry_date:
-        x.expiry_date || x.expiryDate || x.expires_at || x.expiry || "",
+      vendor_name: x.vendor?.name || x.vendor_name || x.publisher || "—",
+      expiry_date: x.expiry_date || x.expiryDate || x.expires_at || x.expiry || "",
       cost: x.cost || 0,
       assigned_to,
-      assigned_asset
+      assigned_asset,
     };
   };
 
@@ -220,10 +150,10 @@ export default function LicenseManagement() {
     setLoading(true);
     try {
       const res = await itHelpdeskAPI.licenses.getAll();
-      console.log("LICENSE DATA (raw)", res.data);
       setData((res.data || []).map(normalize));
     } catch (e) {
-      console.log(e);
+      console.error(e);
+      toast.error("Failed to load licenses");
     } finally {
       setLoading(false);
     }
@@ -234,7 +164,7 @@ export default function LicenseManagement() {
       const res = await itHelpdeskAPI.vendors.getAll();
       setVendors(res.data || []);
     } catch (e) {
-      console.log(e);
+      console.error(e);
     }
   }, []);
 
@@ -248,45 +178,78 @@ export default function LicenseManagement() {
     return emailRegex.test(email);
   };
 
-  // ---- MANDATORY FIELD VALIDATION (updated) ----
-  const handleSave = async () => {
+  const filteredData = data.filter((item) => {
+    const term = searchTerm.toLowerCase();
+    const status = computeLicenseStatus(item.expiry_date);
+
+    const matchesSearch =
+      !searchTerm ||
+      (item.license_name || "").toLowerCase().includes(term) ||
+      (item.license_code || "").toLowerCase().includes(term) ||
+      (item.software_name || "").toLowerCase().includes(term) ||
+      (item.vendor_name || "").toLowerCase().includes(term) ||
+      (item.assigned_to || "").toLowerCase().includes(term) ||
+      (item.assigned_asset || "").toLowerCase().includes(term);
+
+    const matchesType = !typeFilter || item.license_type === typeFilter;
+    const matchesStatus = !statusFilter || status.label === statusFilter;
+
+    return matchesSearch && matchesType && matchesStatus;
+  });
+
+  // KPI calculations
+  const totalCount = data.length;
+  const activeCount = data.filter((d) => computeLicenseStatus(d.expiry_date).label === "Active").length;
+  const expiringCount = data.filter((d) => computeLicenseStatus(d.expiry_date).label === "Expiring Soon").length;
+  const expiredCount = data.filter((d) => computeLicenseStatus(d.expiry_date).label === "Expired").length;
+
+  // Pagination calculation
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / limit));
+  const displayedRows = filteredData.slice((page - 1) * limit, page * limit);
+
+  const handleSave = async (e) => {
+    if (e) e.preventDefault();
+
     if (
-      !form.license_name ||
-      !form.license_code ||
-      !form.software_name ||
+      !form.license_name.trim() ||
+      !form.license_code.trim() ||
+      !form.software_name.trim() ||
       !form.vendor ||
       !form.license_type ||
       !form.expiry_date ||
-      !form.assigned_to
+      !form.assigned_to.trim()
     ) {
-      alert("Please fill all mandatory fields (License Name, Code, Software, Vendor, Type, Expiry Date, Assigned To)");
+      toast.error("Please fill all mandatory fields");
       return;
     }
 
-    if (form.assigned_to && !isValidEmail(form.assigned_to)) {
-      alert("Please enter a valid email address in the Assigned To field");
+    if (form.assigned_to && !isValidEmail(form.assigned_to.trim())) {
+      toast.error("Please enter a valid email address in Assigned To");
       return;
     }
 
+    setSaving(true);
     const payload = {
-      license_name: form.license_name,
-      license_code: form.license_code,
-      software_name: form.software_name,
+      license_name: form.license_name.trim(),
+      license_code: form.license_code.trim(),
+      software_name: form.software_name.trim(),
       vendor: form.vendor,
       license_type: form.license_type,
       expiry_date: form.expiry_date || null,
       cost: Number(form.cost || 0),
-      assigned_to: form.assigned_to || "",
-      assigned_asset: form.assigned_asset || "",
+      assigned_to: form.assigned_to.trim(),
+      assigned_asset: form.assigned_asset?.trim() || "",
       total_seats: 0,
-      used_seats: 0
+      used_seats: 0,
     };
 
     try {
       if (editId) {
         await itHelpdeskAPI.licenses.update(editId, payload);
+        toast.success("License updated successfully");
       } else {
         await itHelpdeskAPI.licenses.create(payload);
+        toast.success("License created successfully");
       }
 
       await fetchData();
@@ -294,33 +257,41 @@ export default function LicenseManagement() {
       setEditId(null);
       setForm({ ...EMPTY_FORM });
     } catch (err) {
-      console.log(err.response?.data || err);
-      alert("Save failed");
+      console.error(err);
+      toast.error("Failed to save license");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const edit = (item) => {
+  const handleEdit = (item) => {
     setEditId(item._id);
-
     setForm({
       license_name: item.license_name,
       license_code: item.license_code,
       software_name: item.software_name,
       vendor: item.vendor?._id || item.vendor,
-      license_type: item.license_type,
+      license_type: item.license_type || "Subscription",
       expiry_date: item.expiry_date ? item.expiry_date.substring(0, 10) : "",
       cost: item.cost,
       assigned_to: item.assigned_to || "",
-      assigned_asset: item.assigned_asset || ""
+      assigned_asset: item.assigned_asset || "",
     });
-
     setOpen(true);
   };
 
-  const remove = async (id) => {
-    if (!window.confirm("Delete license?")) return;
-    await itHelpdeskAPI.licenses.remove(id);
-    fetchData();
+  const handleDelete = async (e, id) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this software license?")) return;
+
+    try {
+      await itHelpdeskAPI.licenses.remove(id);
+      toast.success("License deleted successfully");
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete license");
+    }
   };
 
   const handleExportToExcel = () => {
@@ -328,298 +299,634 @@ export default function LicenseManagement() {
       const excelData = filteredData.map((item, index) => {
         const status = computeLicenseStatus(item.expiry_date);
         return {
-          "S.No": index + 1,
+          "Sr. No.": index + 1,
           "License Name": item.license_name || "",
           "License Code": item.license_code || "",
           "Software Name": item.software_name || "",
           "License Type": item.license_type || "",
           "Vendor": item.vendor_name || "",
-          "Expiry Date": item.expiry_date
-            ? new Date(item.expiry_date).toISOString().split('T')[0]
-            : "No Expiry",
+          "Expiry Date": item.expiry_date ? new Date(item.expiry_date).toISOString().split("T")[0] : "No Expiry",
           "Status": status.label,
-          "Assigned To": item.assigned_to || item.assigned_asset || "-",
-          "Assigned Asset": item.assigned_asset || "-",
-          "Cost": item.cost || 0
+          "Assigned To": item.assigned_to || item.assigned_asset || "—",
+          "Assigned Asset": item.assigned_asset || "—",
+          "Cost": item.cost || 0,
         };
       });
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelData);
-
-      const wscols = Object.keys(excelData[0] || {}).map(() => ({ wch: 20 }));
-      ws['!cols'] = wscols;
-
-      XLSX.utils.book_append_sheet(wb, ws, "Licenses");
+      XLSX.utils.book_append_sheet(wb, ws, "Software Licenses");
 
       const date = new Date().toISOString().slice(0, 10);
-      const fileName = `Licenses_Export_${date}.xlsx`;
-
-      XLSX.writeFile(wb, fileName);
+      XLSX.writeFile(wb, `IT_Software_Licenses_${date}.xlsx`);
+      toast.success("License directory exported to Excel");
     } catch (error) {
       console.error("Export failed:", error);
-      alert("Failed to export Excel");
+      toast.error("Failed to export Excel");
     }
   };
 
   return (
-    <Box>
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={2}
-      >
-        <Box display="flex" alignItems="center">
-          <Tooltip title="Back">
-            <IconButton
-              onClick={handleBack}
-              sx={{
-                mr: 1,
-                bgcolor: "white",
-                border: "1px solid",
-                borderColor: "primary.main",
-                color: "primary.main",
-                "&:hover": { bgcolor: "primary.light", color: "primary.dark" }
-              }}
-            >
-              <ArrowBackIcon sx={{ color: "primary.main" }} />
-            </IconButton>
-          </Tooltip>
-          <Typography variant="h5" fontWeight={700}>
-            Software License
-          </Typography>
-        </Box>
-
-        <Box display="flex" gap={1}>
-          <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={handleExportToExcel}
+    <>
+      {/* ── Topbar ─────────────────────────────────────────────────── */}
+      <div className="topbar">
+        <div className="topbar-left">
+          <button
+            className="btn btn-icon"
+            onClick={() => navigate("/it-helpdesk")}
+            title="Back to IT Helpdesk"
+            style={{
+              border: "1px solid #e2e8f0",
+              background: "white",
+              borderRadius: "50%",
+              width: 36,
+              height: 36,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              fontSize: 18,
+              fontWeight: "bold",
+              color: "#334155",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              transition: "all 0.2s ease",
+            }}
           >
-            Export Excel
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
+            ←
+          </button>
+          <div>
+            <div className="topbar-title">Software License Management</div>
+            <div className="topbar-breadcrumb" style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+              Enterprise Software, SaaS Subscriptions, Expiry Tracking &amp; Assignee Management
+            </div>
+          </div>
+        </div>
+
+        <div className="topbar-right" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <button
+            type="button"
+            className="btn"
+            onClick={handleExportToExcel}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "#ffffff",
+              border: "1px solid #cbd5e1",
+              color: "#0f172a",
+              fontWeight: 600,
+              fontSize: "13px",
+              padding: "7px 14px",
+              borderRadius: "8px",
+              cursor: "pointer",
+            }}
+          >
+            <Download size={15} color="#059669" /> Export Excel
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
             onClick={() => {
               setEditId(null);
               setForm({ ...EMPTY_FORM });
               setOpen(true);
             }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "13px",
+              padding: "7px 16px",
+              borderRadius: "8px",
+              fontWeight: 600,
+            }}
           >
-            Add License
-          </Button>
-        </Box>
-      </Box>
+            <Plus size={15} /> + Add License
+          </button>
+        </div>
+      </div>
 
-      <Box mb={2} sx={{ maxWidth: 400 }}>
-        <TextField
-          label="Search Licenses"
-          size="small"
-          fullWidth
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-          }}
-        />
-      </Box>
+      <div className="page-body">
+        {/* ── KPI Summary Cards ─────────────────────────────────────── */}
+        <div className="card mb-16">
+          <div className="card-body">
+            <div className="stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "10px" }}>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#0f172a" }}>
+                  {totalCount}
+                </div>
+                <div className="stat-lbl">Total Licenses</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#10b981" }}>
+                  {activeCount}
+                </div>
+                <div className="stat-lbl">Active Licenses</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#f59e0b" }}>
+                  {expiringCount}
+                </div>
+                <div className="stat-lbl">Expiring Soon</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-val" style={{ color: "#ef4444" }}>
+                  {expiredCount}
+                </div>
+                <div className="stat-lbl">Expired</div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      {loading ? (
-        <Box display="flex" justifyContent="center">
-          <CircularProgress />
-        </Box>
-      ) : (
-        <>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>License Name</TableCell>
-                  <TableCell>License Code</TableCell>
-                  <TableCell>Software</TableCell>
-                  <TableCell>License Type</TableCell>
-                  <TableCell>Vendor</TableCell>
-                  <TableCell>Expiry Date</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Assigned To</TableCell>
-                  <TableCell>Action</TableCell>
-                </TableRow>
-              </TableHead>
+        {/* ── Filter Bar ────────────────────────────────────────────── */}
+        <div className="card mb-16">
+          <div className="card-body">
+            <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "12px", alignItems: "flex-end" }}>
+              <div className="form-field">
+                <label>Search Directory</label>
+                <div style={{ position: "relative" }}>
+                  <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+                  <input
+                    type="text"
+                    placeholder="License, software, vendor, assignee…"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{ paddingLeft: "32px" }}
+                  />
+                </div>
+              </div>
 
-              <TableBody>
-                {filteredData
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map(row => (
-                    <TableRow key={row._id}>
-                      <TableCell>{row.license_name || "-"}</TableCell>
-                      <TableCell>{row.license_code || "-"}</TableCell>
-                      <TableCell>{row.software_name || "-"}</TableCell>
-                      <TableCell>{row.license_type || "-"}</TableCell>
-                      <TableCell>{row.vendor_name}</TableCell>
-                      <TableCell>
-                        {row.expiry_date
-                          ? new Date(row.expiry_date).toLocaleDateString()
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {(() => {
-                          const s = computeLicenseStatus(row.expiry_date);
-                          return <Chip label={s.label} color={s.color} size="small" />;
-                        })()}
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title={row.assigned_asset ? `Asset: ${row.assigned_asset}` : ""}>
-                          <span>{row.assigned_to || row.assigned_asset || "-"}</span>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title="Edit">
-                          <IconButton
-                            size="small"
-                            onClick={() => edit(row)}
-                            color="primary"
-                            sx={{ mr: 0.5 }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => remove(row._id)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
+              <div className="form-field">
+                <label>License Type</label>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => {
+                    setTypeFilter(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All Types</option>
+                  {LICENSE_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
                   ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            component="div"
-            count={filteredData.length}
-            page={page}
-            onPageChange={(_, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            rowsPerPageOptions={[15]}
-            labelDisplayedRows={({ from, to, count }) => `${from}–${to} of ${count}`}
-          />
-        </>
-      )}
+                </select>
+              </div>
 
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>License</DialogTitle>
+              <div className="form-field">
+                <label>Expiry Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All Statuses</option>
+                  <option value="Active">Active</option>
+                  <option value="Expiring Soon">Expiring Soon</option>
+                  <option value="Expired">Expired</option>
+                  <option value="No Expiry">No Expiry</option>
+                </select>
+              </div>
 
-        <DialogContent>
-          <TextField
-            label="License Name *"
-            fullWidth
-            size="small"
-            sx={{ mt: 2, mb: 2 }}
-            value={form.license_name}
-            onChange={e => setForm({ ...form, license_name: e.target.value })}
-          />
+              <div className="form-field">
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setTypeFilter("");
+                    setStatusFilter("");
+                    setPage(1);
+                  }}
+                  style={{
+                    height: "38px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 600,
+                    color: "#0f172a",
+                  }}
+                >
+                  Clear Filters
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
-          <TextField
-            label="License Code *"
-            fullWidth
-            size="small"
-            sx={{ mb: 2 }}
-            value={form.license_code}
-            onChange={e => setForm({ ...form, license_code: e.target.value })}
-          />
-
-          <TextField
-            label="Software Name *"
-            fullWidth
-            size="small"
-            sx={{ mb: 2 }}
-            value={form.software_name}
-            onChange={e => setForm({ ...form, software_name: e.target.value })}
-          />
-
-          <TextField
-            select
-            label="Vendor *"
-            fullWidth
-            size="small"
-            sx={{ mb: 2 }}
-            value={form.vendor}
-            onChange={e => setForm({ ...form, vendor: e.target.value })}
+        {/* ── Table Card ────────────────────────────────────────────── */}
+        <div className="card">
+          <div
+            className="card-header"
+            style={{
+              padding: "10px 16px",
+              background: "linear-gradient(to right, #f8fafc, #ffffff)",
+              borderBottom: "1px solid #e2e8f0",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "8px",
+            }}
           >
-            <MenuItem value="">Select</MenuItem>
-            {vendors.map(v => (
-              <MenuItem key={v._id} value={v._id}>
-                {v.name}
-              </MenuItem>
-            ))}
-          </TextField>
+            <div className="card-title" style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+              <Key size={17} color="#0284c7" /> Software License Register
+            </div>
 
-          <TextField
-            select
-            label="License Type *"
-            fullWidth
-            size="small"
-            sx={{ mb: 2 }}
-            value={form.license_type}
-            onChange={e => setForm({ ...form, license_type: e.target.value })}
+            <span style={{ fontSize: "12px", color: "#64748b", background: "#f1f5f9", padding: "4px 10px", borderRadius: "12px", fontWeight: 600 }}>
+              Showing {displayedRows.length} of {filteredData.length} records
+            </span>
+          </div>
+
+          <div className="card-body" style={{ padding: 0 }}>
+            {loading ? (
+              <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
+                Loading licenses...
+              </div>
+            ) : (
+              <div className="table-wrap">
+                <table style={{ width: "100%" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 44, textAlign: "center" }}>#</th>
+                      <th style={{ minWidth: 150 }}>License Name</th>
+                      <th style={{ minWidth: 130 }}>License Code</th>
+                      <th style={{ minWidth: 140 }}>Software Product</th>
+                      <th style={{ minWidth: 110 }}>Type</th>
+                      <th style={{ minWidth: 130 }}>Vendor / Partner</th>
+                      <th style={{ minWidth: 110 }}>Expiry Date</th>
+                      <th style={{ minWidth: 110, textAlign: "center" }}>Status</th>
+                      <th style={{ minWidth: 160 }}>Assigned To</th>
+                      <th style={{ minWidth: 90, textAlign: "right" }}>Cost (₹)</th>
+                      <th style={{ width: 80, textAlign: "center" }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={11} style={{ textAlign: "center", padding: "36px 16px", color: "#94a3b8" }}>
+                          No software licenses found matching criteria
+                        </td>
+                      </tr>
+                    ) : (
+                      displayedRows.map((item, idx) => {
+                        const status = computeLicenseStatus(item.expiry_date);
+
+                        return (
+                          <tr key={item._id} style={{ background: idx % 2 === 0 ? "#ffffff" : "#fcfdfd" }}>
+                            <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>
+                              {(page - 1) * limit + idx + 1}
+                            </td>
+                            <td className="fw-600" style={{ color: "#0f172a" }}>
+                              {item.license_name}
+                            </td>
+                            <td style={{ color: "#4f46e5", fontFamily: "monospace", fontSize: "12px" }}>
+                              {item.license_code}
+                            </td>
+                            <td style={{ color: "#334155" }}>
+                              {item.software_name}
+                            </td>
+                            <td>
+                              <span className="score-badge badge-primary">
+                                {item.license_type || "Standard"}
+                              </span>
+                            </td>
+                            <td style={{ color: "#475569" }}>
+                              {item.vendor_name || "—"}
+                            </td>
+                            <td style={{ color: "#64748b", fontSize: "12.5px" }}>
+                              {fmtDate(item.expiry_date)}
+                            </td>
+                            <td style={{ textAlign: "center" }}>
+                              <span className={`score-badge ${status.cls}`}>
+                                {status.label}
+                              </span>
+                            </td>
+                            <td style={{ color: "#1e293b", fontSize: "12.5px" }}>
+                              {item.assigned_to || item.assigned_asset || "—"}
+                            </td>
+                            <td style={{ textAlign: "right", fontWeight: 600, color: "#0f172a" }}>
+                              {item.cost ? `₹${Number(item.cost).toLocaleString("en-IN")}` : "—"}
+                            </td>
+                            <td style={{ textAlign: "center" }}>
+                              <div style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-icon btn-primary"
+                                  onClick={() => handleEdit(item)}
+                                  title="Edit License"
+                                  style={{
+                                    width: "28px",
+                                    height: "28px",
+                                    background: "rgba(79, 70, 229, 0.1)",
+                                    border: "none",
+                                  }}
+                                >
+                                  <Edit2 size={13} color="#4f46e5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-icon btn-danger"
+                                  onClick={(e) => handleDelete(e, item._id)}
+                                  title="Delete License"
+                                  style={{ width: "28px", height: "28px" }}
+                                >
+                                  <Trash2 size={13} color="#dc2626" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* ── Pagination Footer ─────────────────────────────────── */}
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "12px",
+                borderTop: "1px solid #e2e8f0",
+                padding: "12px 16px",
+                background: "#fafbfc",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>Show</span>
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    background: "#ffffff",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {[10, 15, 25, 50].map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>entries per page</span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  style={{
+                    padding: "5px 10px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    opacity: page <= 1 ? 0.5 : 1,
+                  }}
+                >
+                  <ChevronLeft size={14} /> Prev
+                </button>
+                <span style={{ fontSize: "13px", color: "#475569", fontWeight: 600, padding: "0 8px" }}>
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  style={{
+                    padding: "5px 10px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    opacity: page >= totalPages ? 0.5 : 1,
+                  }}
+                >
+                  Next <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Add / Edit Modal ──────────────────────────────────────── */}
+        {open && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100vw",
+              height: "100vh",
+              background: "rgba(15, 23, 42, 0.6)",
+              backdropFilter: "blur(4px)",
+              zIndex: 9999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "16px",
+            }}
           >
-            {LICENSE_TYPES.map(t => (
-              <MenuItem key={t} value={t}>
-                {t}
-              </MenuItem>
-            ))}
-          </TextField>
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: "14px",
+                width: "100%",
+                maxWidth: "600px",
+                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+                overflow: "hidden",
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              {/* Modal Header */}
+              <div
+                style={{
+                  padding: "16px 20px",
+                  background: "linear-gradient(to right, #0f172a, #1e293b)",
+                  color: "#ffffff",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>
+                    {editId ? "✏️ Edit Software License" : "✨ Register New Software License"}
+                  </h3>
+                  <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#94a3b8" }}>
+                    Enter license key, publisher, expiry date, and assignee details
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  style={{
+                    background: "rgba(255, 255, 255, 0.1)",
+                    border: "none",
+                    borderRadius: "50%",
+                    width: "32px",
+                    height: "32px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#ffffff",
+                    cursor: "pointer",
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
 
-          <TextField
-            type="date"
-            label="Expiry Date *"
-            fullWidth
-            size="small"
-            InputLabelProps={{ shrink: true }}
-            sx={{ mb: 2 }}
-            value={form.expiry_date}
-            onChange={e => setForm({ ...form, expiry_date: e.target.value })}
-          />
+              {/* Modal Body */}
+              <form onSubmit={handleSave} style={{ padding: "20px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+                  <div className="form-field">
+                    <label>License Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Microsoft 365 Business Standard"
+                      value={form.license_name}
+                      onChange={(e) => setForm({ ...form, license_name: e.target.value })}
+                    />
+                  </div>
 
-          <TextField
-            label="Assigned To (User) *"
-            fullWidth
-            size="small"
-            sx={{ mb: 2 }}
-            value={form.assigned_to}
-            onChange={e => setForm({ ...form, assigned_to: e.target.value })}
-            placeholder="Employee email (e.g. name@company.com)"
-          />
+                  <div className="form-field">
+                    <label>License Key / Code *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="XXXXX-XXXXX-XXXXX"
+                      value={form.license_code}
+                      onChange={(e) => setForm({ ...form, license_code: e.target.value })}
+                    />
+                  </div>
 
-          <TextField
-            label="Assigned Asset"
-            fullWidth
-            size="small"
-            sx={{ mb: 2 }}
-            value={form.assigned_asset}
-            onChange={e => setForm({ ...form, assigned_asset: e.target.value })}
-            placeholder="Asset tag or name"
-          />
-        </DialogContent>
+                  <div className="form-field">
+                    <label>Software Product *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. MS Office Suite"
+                      value={form.software_name}
+                      onChange={(e) => setForm({ ...form, software_name: e.target.value })}
+                    />
+                  </div>
 
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave}>
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+                  <div className="form-field">
+                    <label>Vendor / Publisher *</label>
+                    <select
+                      required
+                      value={form.vendor}
+                      onChange={(e) => setForm({ ...form, vendor: e.target.value })}
+                    >
+                      <option value="">Select Vendor</option>
+                      {vendors.map((v) => (
+                        <option key={v._id} value={v._id}>
+                          {v.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>License Type *</label>
+                    <select
+                      value={form.license_type}
+                      onChange={(e) => setForm({ ...form, license_type: e.target.value })}
+                    >
+                      {LICENSE_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Expiry Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={form.expiry_date}
+                      onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Assigned To (User Email) *</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="user@alvision.in"
+                      value={form.assigned_to}
+                      onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Cost (₹)</label>
+                    <input
+                      type="number"
+                      placeholder="Annual / One-time cost"
+                      value={form.cost}
+                      onChange={(e) => setForm({ ...form, cost: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: "10px",
+                    marginTop: "20px",
+                    paddingTop: "14px",
+                    borderTop: "1px solid #e2e8f0",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setOpen(false)}
+                    disabled={saving}
+                    style={{ fontWeight: 600 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={saving}
+                    style={{ fontWeight: 600 }}
+                  >
+                    {saving ? "Saving..." : editId ? "Update License" : "Create License"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

@@ -6,10 +6,13 @@ import {
   Bell,
   ChevronLeft,
   ChevronRight,
+  RotateCcw,
 } from "lucide-react";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
+import CustomSelect from "./CustomSelect";
+import ITPagination from "./ITPagination";
 import "../../styles/scorecard.scss";
 
 function computeStatus(dateStr) {
@@ -213,22 +216,13 @@ export default function ITNotifications() {
           </div>
         </div>
 
-        <div className="topbar-right" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button
             type="button"
             className="btn btn-primary"
             onClick={exportToExcel}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "13px",
-              padding: "7px 16px",
-              borderRadius: "8px",
-              fontWeight: 600,
-            }}
           >
-            <Download size={15} /> Export Excel
+            <Download size={15} /> <span>Export Excel</span>
           </button>
         </div>
       </div>
@@ -276,6 +270,7 @@ export default function ITNotifications() {
                   <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
                   <input
                     type="text"
+                    className="form-input"
                     placeholder="Search asset, contract, license…"
                     value={searchTerm}
                     onChange={(e) => {
@@ -289,40 +284,46 @@ export default function ITNotifications() {
 
               <div className="form-field">
                 <label>Alert Category</label>
-                <select
+                <CustomSelect
                   value={filterType}
-                  onChange={(e) => {
-                    setFilterType(e.target.value);
+                  onChange={(val) => {
+                    setFilterType(val);
                     setPage(1);
                   }}
-                >
-                  <option value="">All Categories</option>
-                  <option value="Warranty Expiry">Hardware Warranty</option>
-                  <option value="Contract Renewal">AMC Contract Renewal</option>
-                  <option value="License Expiry">Software License Expiry</option>
-                </select>
+                  options={[
+                    { label: "All Categories", value: "" },
+                    { label: "Hardware Warranty", value: "Warranty Expiry" },
+                    { label: "AMC Contract Renewal", value: "Contract Renewal" },
+                    { label: "Software License Expiry", value: "License Expiry" },
+                  ]}
+                  placeholder="All Categories"
+                  width="100%"
+                />
               </div>
 
               <div className="form-field">
                 <label>Urgency Status</label>
-                <select
+                <CustomSelect
                   value={filterStatus}
-                  onChange={(e) => {
-                    setFilterStatus(e.target.value);
+                  onChange={(val) => {
+                    setFilterStatus(val);
                     setPage(1);
                   }}
-                >
-                  <option value="">All Statuses</option>
-                  <option value="Expiring Soon">Expiring Soon (&lt; 30 days)</option>
-                  <option value="Expired">Expired / Overdue</option>
-                  <option value="Upcoming">Upcoming</option>
-                </select>
+                  options={[
+                    { label: "All Statuses", value: "" },
+                    { label: "Expiring Soon (< 30 days)", value: "Expiring Soon" },
+                    { label: "Expired / Overdue", value: "Expired" },
+                    { label: "Upcoming", value: "Upcoming" },
+                  ]}
+                  placeholder="All Statuses"
+                  width="100%"
+                />
               </div>
 
               <div className="form-field">
                 <button
                   type="button"
-                  className="btn"
+                  className="btn btn-secondary"
                   onClick={() => {
                     setSearchTerm("");
                     setFilterType("");
@@ -334,10 +335,17 @@ export default function ITNotifications() {
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    gap: "6px",
+                    background: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    color: "#475569",
                     fontWeight: 600,
-                    color: "#0f172a",
+                    padding: "0 16px",
+                    borderRadius: "6px",
+                    cursor: "pointer",
                   }}
                 >
+                  <RotateCcw size={14} />
                   Clear Filters
                 </button>
               </div>
@@ -374,7 +382,7 @@ export default function ITNotifications() {
               </div>
             ) : (
               <div className="table-wrap">
-                <table style={{ width: "100%" }}>
+                <table style={{ width: "100%", minWidth: "1100px" }}>
                   <thead>
                     <tr>
                       <th style={{ width: 44, textAlign: "center" }}>#</th>
@@ -438,78 +446,17 @@ export default function ITNotifications() {
             )}
 
             {/* ── Pagination Footer ─────────────────────────────────── */}
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "12px",
-                borderTop: "1px solid #e2e8f0",
-                padding: "12px 16px",
-                background: "#fafbfc",
+            <ITPagination
+              page={page}
+              totalPages={totalPages}
+              totalRecords={filteredAlerts.length}
+              limit={limit}
+              onPageChange={(newPage) => setPage(newPage)}
+              onLimitChange={(newLimit) => {
+                setLimit(newLimit);
+                setPage(1);
               }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>Show</span>
-                <select
-                  value={limit}
-                  onChange={(e) => {
-                    setLimit(Number(e.target.value));
-                    setPage(1);
-                  }}
-                  style={{
-                    padding: "4px 8px",
-                    borderRadius: "6px",
-                    border: "1px solid #cbd5e1",
-                    background: "#ffffff",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                  }}
-                >
-                  {[10, 20, 50].map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>entries per page</span>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    opacity: page <= 1 ? 0.5 : 1,
-                  }}
-                >
-                  <ChevronLeft size={14} /> Prev
-                </button>
-                <span style={{ fontSize: "13px", color: "#475569", fontWeight: 600, padding: "0 8px" }}>
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    opacity: page >= totalPages ? 0.5 : 1,
-                  }}
-                >
-                  Next <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
+            />
           </div>
         </div>
       </div>

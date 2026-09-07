@@ -29,6 +29,7 @@ import AssessmentIcon from "@mui/icons-material/Assessment";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ITPagination from "./ITPagination";
 
 const TICKET_CATEGORIES = ["Hardware", "Software", "Network", "Access", "Other"];
 const TICKET_PRIORITIES = ["Low", "Medium", "High", "Critical"];
@@ -49,8 +50,13 @@ const priorityColor = (p) => {
 };
 
 export default function PriorityManagement({ priorityRules, setPriorityRules }) {
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [showModal, setShowModal] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
+
+  const totalPages = Math.max(1, Math.ceil((priorityRules?.length || 0) / limit));
+  const paginatedRules = (priorityRules || []).slice((page - 1) * limit, page * limit);
   const [form, setForm] = useState({
     name: "",
     category: "Hardware",
@@ -130,7 +136,7 @@ export default function PriorityManagement({ priorityRules, setPriorityRules }) 
                 </TableRow>
               </TableHead>
               <TableBody>
-                {priorityRules.length === 0 ? (
+                {paginatedRules.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} align="center">
                       <Typography variant="body2" color="text.secondary">
@@ -139,7 +145,7 @@ export default function PriorityManagement({ priorityRules, setPriorityRules }) 
                     </TableCell>
                   </TableRow>
                 ) : (
-                  priorityRules.map((rule) => (
+                  paginatedRules.map((rule) => (
                     <TableRow key={rule.id}>
                       <TableCell>{rule.name}</TableCell>
                       <TableCell>{rule.category}</TableCell>
@@ -157,6 +163,18 @@ export default function PriorityManagement({ priorityRules, setPriorityRules }) 
               </TableBody>
             </Table>
           </TableContainer>
+
+          <ITPagination
+            page={page}
+            totalPages={totalPages}
+            totalRecords={(priorityRules || []).length}
+            limit={limit}
+            onPageChange={(p) => setPage(p)}
+            onLimitChange={(l) => {
+              setLimit(l);
+              setPage(1);
+            }}
+          />
         </CardContent>
       </Card>
 

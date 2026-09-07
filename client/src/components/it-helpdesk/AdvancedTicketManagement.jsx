@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
+import ITPagination from "./ITPagination";
 import {
   Box,
   Button,
@@ -137,6 +138,15 @@ export default function AdvancedTicketManagement() {
   const [comment, setComment] = useState("");
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [viewMode, setViewMode] = useState("table"); // 'table' or 'kanban'
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, filterStatus, filterPriority, filterCategory, filterType, filterAssignee, viewMode]);
+
+  const totalPages = Math.max(1, Math.ceil((tickets || []).length / limit));
+  const paginatedTickets = (tickets || []).slice((page - 1) * limit, page * limit);
 
   // Fetch tickets from API
   const fetchTickets = useCallback(async () => {
@@ -598,14 +608,14 @@ export default function AdvancedTicketManagement() {
                           <CircularProgress />
                         </TableCell>
                       </TableRow>
-                    ) : filteredTickets.length === 0 ? (
+                    ) : paginatedTickets.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={9} align="center">
                           No tickets found
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredTickets.map((ticket) => (
+                      paginatedTickets.map((ticket) => (
                         <TableRow key={ticket.id} hover>
                           <TableCell>
                             <Box display="flex" alignItems="center">
@@ -670,6 +680,18 @@ export default function AdvancedTicketManagement() {
                   </TableBody>
                 </Table>
               </TableContainer>
+
+              <ITPagination
+                page={page}
+                totalPages={totalPages}
+                totalRecords={(tickets || []).length}
+                limit={limit}
+                onPageChange={(p) => setPage(p)}
+                onLimitChange={(l) => {
+                  setLimit(l);
+                  setPage(1);
+                }}
+              />
             </>
           ) : (
             // Kanban View

@@ -29,13 +29,19 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ITPagination from "./ITPagination";
 
 const TICKET_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 const TICKET_STATUSES = ["New", "Assigned", "In Progress", "Pending", "Resolved", "Closed"];
 
 export default function TicketEscalation({ escalationRules, setEscalationRules }) {
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [showModal, setShowModal] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
+
+  const totalPages = Math.max(1, Math.ceil((escalationRules?.length || 0) / limit));
+  const paginatedRules = (escalationRules || []).slice((page - 1) * limit, page * limit);
   const [form, setForm] = useState({
     name: "",
     priority: "Medium",
@@ -163,7 +169,7 @@ export default function TicketEscalation({ escalationRules, setEscalationRules }
                 </TableRow>
               </TableHead>
               <TableBody>
-                {escalationRules.length === 0 ? (
+                {paginatedRules.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} align="center">
                       <Typography variant="body2" color="text.secondary">
@@ -172,7 +178,7 @@ export default function TicketEscalation({ escalationRules, setEscalationRules }
                     </TableCell>
                   </TableRow>
                 ) : (
-                  escalationRules.map((rule) => (
+                  paginatedRules.map((rule) => (
                     <TableRow key={rule.id}>
                       <TableCell>{rule.name}</TableCell>
                       <TableCell>
@@ -217,6 +223,18 @@ export default function TicketEscalation({ escalationRules, setEscalationRules }
               </TableBody>
             </Table>
           </TableContainer>
+
+          <ITPagination
+            page={page}
+            totalPages={totalPages}
+            totalRecords={(escalationRules || []).length}
+            limit={limit}
+            onPageChange={(p) => setPage(p)}
+            onLimitChange={(l) => {
+              setLimit(l);
+              setPage(1);
+            }}
+          />
         </CardContent>
       </Card>
 

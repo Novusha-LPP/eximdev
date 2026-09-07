@@ -566,12 +566,7 @@ export default function AdminEquipmentChecklist() {
                                 handleOpenEditDialog(log);
                               }}
                               title="Edit Checklist"
-                              style={{
-                                width: "28px",
-                                height: "28px",
-                                background: "rgba(79, 70, 229, 0.1)",
-                                border: "none",
-                              }}
+                              style={{ width: "28px", height: "28px" }}
                             >
                               <Edit2 size={14} color="#4f46e5" />
                             </button>

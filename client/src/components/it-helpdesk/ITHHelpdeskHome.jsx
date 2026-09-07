@@ -330,54 +330,29 @@ export default function ITHHelpdeskHome() {
             </div>
           </div>
         </div>
-        <div className="topbar-right" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <Link
-            to="/it-helpdesk/tickets"
-            className="btn btn-primary"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              textDecoration: "none",
-              fontSize: "13px",
-              padding: "7px 16px",
-              borderRadius: "8px",
-              fontWeight: 600,
-            }}
-          >
-            <Plus size={15} /> Raise Ticket
-          </Link>
+        <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button
             type="button"
-            className="btn"
+            className="btn btn-secondary"
             onClick={fetchData}
             disabled={loading}
             title="Refresh Dashboard"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "#ffffff",
-              border: "1px solid #cbd5e1",
-              color: "#0f172a",
-              fontWeight: 600,
-              fontSize: "13px",
-              padding: "7px 14px",
-              borderRadius: "8px",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-            }}
           >
             <RefreshCw
               size={15}
               style={{
                 animation: loading ? "spin 1s linear infinite" : "none",
-                color: "#4f46e5",
               }}
             />
-            Refresh
+            <span>Refresh</span>
           </button>
+          <Link
+            to="/it-helpdesk/tickets"
+            className="btn btn-primary"
+            style={{ textDecoration: "none" }}
+          >
+            <Plus size={15} /> <span>Raise Ticket</span>
+          </Link>
         </div>
       </div>
 

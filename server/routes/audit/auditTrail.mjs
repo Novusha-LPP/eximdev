@@ -357,7 +357,9 @@ router.get("/api/audit-trail", authMiddleware, async (req, res) => {
       }
     }
 
-    if (fromDate || toDate) {
+    if (req.query.allDates === 'true' || req.query.noDateFilter === 'true') {
+      // Do not restrict to today; allow all historical logs
+    } else if (fromDate || toDate) {
       dateFilter.timestamp = {};
       if (fromDate) dateFilter.timestamp.$gte = new Date(fromDate);
       if (adjustedToDate) dateFilter.timestamp.$lte = new Date(adjustedToDate);

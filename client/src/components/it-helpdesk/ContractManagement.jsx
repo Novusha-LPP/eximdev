@@ -21,6 +21,7 @@ import {
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import AddIcon from "@mui/icons-material/Add";
 import { useModuleAuditLogs } from "./AuditLogs";
+import ITPagination from "./ITPagination";
 
 
 const EMPTY_FORM = {
@@ -39,6 +40,11 @@ export default function ContractManagement() {
   const [data, setData] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  const totalPages = Math.max(1, Math.ceil((data?.length || 0) / limit));
+  const paginatedData = (data || []).slice((page - 1) * limit, page * limit);
 
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -311,7 +317,7 @@ export default function ContractManagement() {
 
 
                 {
-                  data.length === 0 ?
+                  paginatedData.length === 0 ?
 
                     <TableRow>
 
@@ -327,7 +333,7 @@ export default function ContractManagement() {
 
                     :
 
-                    data.map(c => (
+                    paginatedData.map(c => (
 
 
                       <TableRow key={c._id}>
@@ -441,6 +447,18 @@ export default function ContractManagement() {
 
 
       }
+
+      <ITPagination
+        page={page}
+        totalPages={totalPages}
+        totalRecords={(data || []).length}
+        limit={limit}
+        onPageChange={(p) => setPage(p)}
+        onLimitChange={(l) => {
+          setLimit(l);
+          setPage(1);
+        }}
+      />
 
 
 

@@ -18,6 +18,7 @@ import ComputerIcon from "@mui/icons-material/Computer";
 import HeadsetIcon from "@mui/icons-material/Headset";
 import MouseIcon from "@mui/icons-material/Mouse";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ITPagination from "./ITPagination";
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_STRING || "http://192.168.2.12:9006/api",
@@ -204,7 +205,16 @@ export default function ITUserManagement() {
     }
   };
 
-  const filteredUsers = users.filter(u => !userRoleFilter || u.role === userRoleFilter);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [userRoleFilter]);
+
+  const filteredUsers = (users || []).filter(u => !userRoleFilter || u.role === userRoleFilter);
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / limit));
+  const paginatedUsers = filteredUsers.slice((page - 1) * limit, page * limit);
 
   return (
     <Box>
@@ -267,12 +277,12 @@ export default function ITUserManagement() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredUsers.length === 0 ? (
+              {paginatedUsers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} align="center">No users found</TableCell>
                 </TableRow>
               ) : (
-                filteredUsers.map((u) => (
+                paginatedUsers.map((u) => (
                   <TableRow key={u._id}>
                     <TableCell>{u.username}</TableCell>
                     <TableCell><Chip label={u.role} size="small" /></TableCell>
@@ -326,6 +336,18 @@ export default function ITUserManagement() {
           </Table>
         </TableContainer>
       )}
+
+      <ITPagination
+        page={page}
+        totalPages={totalPages}
+        totalRecords={filteredUsers.length}
+        limit={limit}
+        onPageChange={(p) => setPage(p)}
+        onLimitChange={(l) => {
+          setLimit(l);
+          setPage(1);
+        }}
+      />
 
       <Dialog open={showCreateModal} onClose={() => setShowCreateModal(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Create New User</DialogTitle>

@@ -29,11 +29,14 @@ import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import DeleteIcon from "@mui/icons-material/Delete";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
+import ITPagination from "./ITPagination";
 
 const FILE_TYPES = ["Document", "Image", "Video", "Audio", "Archive", "Other"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export default function AttachmentUpload({ attachments, setAttachments }) {
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState({});
@@ -180,46 +183,63 @@ export default function AttachmentUpload({ attachments, setAttachments }) {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {attachments.map((attachment) => (
-                    <TableRow key={attachment.id}>
-                      <TableCell>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <InsertDriveFileIcon color="primary" />
-                          <Typography variant="body2">{attachment.name}</Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={getFileType(attachment.type)} 
-                          color="primary" 
-                          size="small" 
-                        />
-                      </TableCell>
-                      <TableCell>{formatFileSize(attachment.size)}</TableCell>
-                      <TableCell>
-                        {new Date(attachment.upload_date).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>{attachment.description || "N/A"}</TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="Download">
-                          <IconButton size="small" onClick={() => {
-                            // In a real app, this would trigger a download
-                            toast.success(`Downloading ${attachment.name}`);
-                          }}>
-                            <CloudDownloadIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton size="small" color="error" onClick={() => handleDelete(attachment.id)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {(() => {
+                    const paginatedAttachments = (attachments || []).slice((page - 1) * limit, page * limit);
+                    return paginatedAttachments.map((attachment) => (
+                      <TableRow key={attachment.id}>
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <InsertDriveFileIcon color="primary" />
+                            <Typography variant="body2">{attachment.name}</Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={getFileType(attachment.type)} 
+                            color="primary" 
+                            size="small" 
+                          />
+                        </TableCell>
+                        <TableCell>{formatFileSize(attachment.size)}</TableCell>
+                        <TableCell>
+                          {new Date(attachment.upload_date).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>{attachment.description || "N/A"}</TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="Download">
+                            <IconButton size="small" onClick={() => {
+                              // In a real app, this would trigger a download
+                              toast.success(`Downloading ${attachment.name}`);
+                            }}>
+                              <CloudDownloadIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton size="small" color="error" onClick={() => handleDelete(attachment.id)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ));
+                  })()}
                 </TableBody>
               </Table>
             </TableContainer>
+          )}
+
+          {attachments.length > 0 && (
+            <ITPagination
+              page={page}
+              totalPages={Math.max(1, Math.ceil((attachments || []).length / limit))}
+              totalRecords={(attachments || []).length}
+              limit={limit}
+              onPageChange={(p) => setPage(p)}
+              onLimitChange={(l) => {
+                setLimit(l);
+                setPage(1);
+              }}
+            />
           )}
         </CardContent>
       </Card>

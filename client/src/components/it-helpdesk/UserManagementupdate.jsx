@@ -27,6 +27,7 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
+import ITPagination from "./ITPagination";
 
 const USER_ROLES = ["Admin", "IT Team", "Manager", "Employee"];
 
@@ -55,6 +56,8 @@ export default function UserManagement() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [showDialog, setShowDialog] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
   const fetchUsers = async () => {
     try {
@@ -172,7 +175,7 @@ export default function UserManagement() {
                 </TableCell>
               </TableRow>
             ) : (
-              users.map((u) => (
+              users.slice((page - 1) * limit, page * limit).map((u) => (
                 <TableRow key={u._id} hover>
                   <TableCell>
                     <Typography variant="body2" fontWeight={500}>
@@ -250,6 +253,19 @@ export default function UserManagement() {
             )}
           </TableBody>
         </Table>
+
+        {/* Pagination Footer */}
+        <ITPagination
+          page={page}
+          totalPages={Math.max(1, Math.ceil(users.length / limit))}
+          totalRecords={users.length}
+          limit={limit}
+          onPageChange={(newPage) => setPage(newPage)}
+          onLimitChange={(newLimit) => {
+            setLimit(newLimit);
+            setPage(1);
+          }}
+        />
       </TableContainer>
 
       {/* Add / Edit Dialog */}

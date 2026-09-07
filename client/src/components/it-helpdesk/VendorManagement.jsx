@@ -10,19 +10,25 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  RotateCcw,
 } from "lucide-react";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
+import CustomSelect from "./CustomSelect";
+import ITPagination from "./ITPagination";
 import "../../styles/scorecard.scss";
 
 const VENDOR_TYPES = [
+  "Supplier",
+  "Service Provider",
+  "Hardware",
+  "Software",
+  "Network",
   "Transporter",
   "CHA",
   "Shipping Line",
-  "Supplier",
-  "Service Provider",
   "Other",
 ];
 
@@ -30,7 +36,7 @@ const STATUS_OPTIONS = ["Active", "Inactive"];
 
 const EMPTY_FORM = {
   name: "",
-  type: "Supplier",
+  vendor_type: "Supplier",
   gst_number: "",
   pan_number: "",
   contact_person: "",
@@ -41,7 +47,7 @@ const EMPTY_FORM = {
 
 export default function VendorManagement() {
   const navigate = useNavigate();
-  const { logCreate, logRead, logUpdate, logDelete } = useModuleAuditLogs("Vendor");
+  const { logCreate, logRead, logUpdate, logDelete, logExport } = useModuleAuditLogs("Vendor");
 
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -91,7 +97,8 @@ export default function VendorManagement() {
       (item.mobile_number || "").toLowerCase().includes(term) ||
       (item.email || "").toLowerCase().includes(term);
 
-    const matchesType = !selectedType || item.type === selectedType;
+    const vendorType = item.vendor_type || item.type;
+    const matchesType = !selectedType || vendorType === selectedType;
     const matchesStatus = !selectedStatus || item.status === selectedStatus;
 
     return matchesSearch && matchesType && matchesStatus;
@@ -101,7 +108,10 @@ export default function VendorManagement() {
   const totalCount = data.length;
   const activeCount = data.filter((d) => d.status === "Active").length;
   const inactiveCount = totalCount - activeCount;
-  const supplierCount = data.filter((d) => d.type === "Supplier" || d.type === "Service Provider").length;
+  const supplierCount = data.filter((d) => {
+    const t = d.vendor_type || d.type;
+    return t === "Supplier" || t === "Service Provider" || t === "Hardware" || t === "Software";
+  }).length;
 
   // Pagination calculation
   const totalPages = Math.max(1, Math.ceil(filteredData.length / limit));
@@ -112,7 +122,7 @@ export default function VendorManagement() {
       setEditId(record._id);
       setForm({
         name: record.name || "",
-        type: record.type || "Supplier",
+        vendor_type: record.vendor_type || record.type || "Supplier",
         gst_number: record.gst_number || "",
         pan_number: record.pan_number || "",
         contact_person: record.contact_person || "",
@@ -153,7 +163,8 @@ export default function VendorManagement() {
     try {
       const payload = {
         name: form.name.trim(),
-        type: form.type,
+        vendor_type: form.vendor_type || "Supplier",
+        type: form.vendor_type || "Supplier",
         gst_number: form.gst_number?.trim() || "",
         pan_number: form.pan_number?.trim() || "",
         contact_person: form.contact_person.trim(),
@@ -210,7 +221,7 @@ export default function VendorManagement() {
       const excelData = filteredData.map((item, index) => ({
         "Sr. No.": index + 1,
         "Company / Vendor Name": item.name || "",
-        "Vendor Type": item.type || "Other",
+        "Vendor Type": item.vendor_type || item.type || "Other",
         "GST Number": item.gst_number || "—",
         "PAN Number": item.pan_number || "—",
         "Contact Person": item.contact_person || "",
@@ -226,6 +237,7 @@ export default function VendorManagement() {
       const date = new Date().toISOString().slice(0, 10);
       XLSX.writeFile(wb, `IT_Vendors_List_${date}.xlsx`);
       toast.success("Vendor directory exported to Excel");
+      logExport("vendors-export", `Exported Vendors & Suppliers directory to Excel (${excelData.length} records)`);
     } catch (error) {
       console.error("Export failed:", error);
       toast.error("Failed to export Excel");
@@ -238,7 +250,13 @@ export default function VendorManagement() {
         return "badge-excellent";
       case "Service Provider":
         return "badge-good";
-      case "CHA":
+      case "Hardware":
+      case "Software":
+      case "Network":
+        return "badge-info";
+
+
+        case "CHA":
       case "Transporter":
         return "badge-primary";
       case "Shipping Line":
@@ -284,42 +302,20 @@ export default function VendorManagement() {
           </div>
         </div>
 
-        <div className="topbar-right" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button
             type="button"
-            className="btn"
+            className="btn btn-secondary"
             onClick={handleExportToExcel}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "#ffffff",
-              border: "1px solid #cbd5e1",
-              color: "#0f172a",
-              fontWeight: 600,
-              fontSize: "13px",
-              padding: "7px 14px",
-              borderRadius: "8px",
-              cursor: "pointer",
-            }}
           >
-            <Download size={15} color="#059669" /> Export Excel
+            <Download size={15} /> <span>Export Excel</span>
           </button>
           <button
             type="button"
             className="btn btn-primary"
             onClick={() => handleOpen()}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "13px",
-              padding: "7px 16px",
-              borderRadius: "8px",
-              fontWeight: 600,
-            }}
           >
-            <Plus size={15} /> + Add Vendor
+            <Plus size={15} /> <span>Add Vendor</span>
           </button>
         </div>
       </div>
@@ -367,6 +363,7 @@ export default function VendorManagement() {
                   <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
                   <input
                     type="text"
+                    className="form-input"
                     placeholder="Company, contact, email, GST…"
                     value={searchTerm}
                     onChange={(e) => {
@@ -380,44 +377,42 @@ export default function VendorManagement() {
 
               <div className="form-field">
                 <label>Vendor Type</label>
-                <select
+                <CustomSelect
                   value={selectedType}
-                  onChange={(e) => {
-                    setSelectedType(e.target.value);
+                  onChange={(val) => {
+                    setSelectedType(val);
                     setPage(1);
                   }}
-                >
-                  <option value="">All Types</option>
-                  {VENDOR_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { label: "All Types", value: "" },
+                    ...VENDOR_TYPES.map((t) => ({ label: t, value: t })),
+                  ]}
+                  placeholder="All Types"
+                  width="100%"
+                />
               </div>
 
               <div className="form-field">
                 <label>Status</label>
-                <select
+                <CustomSelect
                   value={selectedStatus}
-                  onChange={(e) => {
-                    setSelectedStatus(e.target.value);
+                  onChange={(val) => {
+                    setSelectedStatus(val);
                     setPage(1);
                   }}
-                >
-                  <option value="">All Statuses</option>
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { label: "All Statuses", value: "" },
+                    ...STATUS_OPTIONS.map((s) => ({ label: s, value: s })),
+                  ]}
+                  placeholder="All Statuses"
+                  width="100%"
+                />
               </div>
 
-              <div className="form-field">
+              <div className="form-field" style={{ minWidth: "130px" }}>
                 <button
                   type="button"
-                  className="btn"
+                  className="btn btn-secondary"
                   onClick={() => {
                     setSearchTerm("");
                     setSelectedType("");
@@ -429,11 +424,19 @@ export default function VendorManagement() {
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    gap: "6px",
                     fontWeight: 600,
-                    color: "#0f172a",
+                    fontSize: "13px",
+                    background: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    color: "#475569",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
                   }}
+                  title="Clear Filters"
                 >
-                  Clear Filters
+                  <RotateCcw size={14} /> Clear Filters
                 </button>
               </div>
             </div>
@@ -471,18 +474,18 @@ export default function VendorManagement() {
               </div>
             ) : (
               <div className="table-wrap">
-                <table style={{ width: "100%" }}>
+                <table style={{ width: "100%", minWidth: "1150px" }}>
                   <thead>
                     <tr>
-                      <th style={{ width: 44, textAlign: "center" }}>#</th>
-                      <th style={{ minWidth: 150 }}>Company Name</th>
-                      <th style={{ minWidth: 120 }}>Vendor Type</th>
-                      <th style={{ minWidth: 130 }}>GST / PAN</th>
-                      <th style={{ minWidth: 140 }}>Contact Person</th>
-                      <th style={{ minWidth: 120 }}>Mobile Number</th>
-                      <th style={{ minWidth: 160 }}>Email Address</th>
-                      <th style={{ minWidth: 90, textAlign: "center" }}>Status</th>
-                      <th style={{ width: 90, textAlign: "center" }}>Action</th>
+                      <th style={{ width: 44, minWidth: 44, textAlign: "center" }}>#</th>
+                      <th style={{ minWidth: 180 }}>Company Name</th>
+                      <th style={{ minWidth: 130 }}>Vendor Type</th>
+                      <th style={{ minWidth: 140 }}>GST / PAN</th>
+                      <th style={{ minWidth: 150 }}>Contact Person</th>
+                      <th style={{ minWidth: 130 }}>Mobile Number</th>
+                      <th style={{ minWidth: 170 }}>Email Address</th>
+                      <th style={{ minWidth: 100, textAlign: "center" }}>Status</th>
+                      <th style={{ width: 90, minWidth: 90, textAlign: "center" }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -501,10 +504,8 @@ export default function VendorManagement() {
                           <td className="fw-600" style={{ color: "#0f172a" }}>
                             {v.name}
                           </td>
-                          <td>
-                            <span className={`score-badge ${getTypeBadgeClass(v.type)}`}>
-                              {v.type || "Other"}
-                            </span>
+                          <td style={{ color: "#334155", fontSize: "13px", fontWeight: 500 }}>
+                            {v.vendor_type || v.type || "—"}
                           </td>
                           <td style={{ color: "#475569", fontSize: "12.5px" }}>
                             {v.gst_number || v.pan_number ? (
@@ -537,14 +538,9 @@ export default function VendorManagement() {
                                 className="btn btn-icon btn-primary"
                                 onClick={() => handleOpen(v)}
                                 title="Edit Vendor"
-                                style={{
-                                  width: "28px",
-                                  height: "28px",
-                                  background: "rgba(79, 70, 229, 0.1)",
-                                  border: "none",
-                                }}
+                                style={{ width: "28px", height: "28px" }}
                               >
-                                <Edit2 size={13} color="#4f46e5" />
+                                <Edit2 size={14} color="#4f46e5" />
                               </button>
                               <button
                                 type="button"
@@ -566,78 +562,17 @@ export default function VendorManagement() {
             )}
 
             {/* ── Pagination Footer ─────────────────────────────────── */}
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "12px",
-                borderTop: "1px solid #e2e8f0",
-                padding: "12px 16px",
-                background: "#fafbfc",
+            <ITPagination
+              page={page}
+              totalPages={totalPages}
+              totalRecords={filteredData.length}
+              limit={limit}
+              onPageChange={(newPage) => setPage(newPage)}
+              onLimitChange={(newLimit) => {
+                setLimit(newLimit);
+                setPage(1);
               }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>Show</span>
-                <select
-                  value={limit}
-                  onChange={(e) => {
-                    setLimit(Number(e.target.value));
-                    setPage(1);
-                  }}
-                  style={{
-                    padding: "4px 8px",
-                    borderRadius: "6px",
-                    border: "1px solid #cbd5e1",
-                    background: "#ffffff",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                  }}
-                >
-                  {[10, 15, 25, 50].map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>entries per page</span>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    opacity: page <= 1 ? 0.5 : 1,
-                  }}
-                >
-                  <ChevronLeft size={14} /> Prev
-                </button>
-                <span style={{ fontSize: "13px", color: "#475569", fontWeight: 600, padding: "0 8px" }}>
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    opacity: page >= totalPages ? 0.5 : 1,
-                  }}
-                >
-                  Next <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
+            />
           </div>
         </div>
 
@@ -726,8 +661,8 @@ export default function VendorManagement() {
                   <div className="form-field">
                     <label>Vendor Type</label>
                     <select
-                      value={form.type}
-                      onChange={(e) => setForm({ ...form, type: e.target.value })}
+                      value={form.vendor_type}
+                      onChange={(e) => setForm({ ...form, vendor_type: e.target.value })}
                     >
                       {VENDOR_TYPES.map((t) => (
                         <option key={t} value={t}>
@@ -810,7 +745,8 @@ export default function VendorManagement() {
                   style={{
                     display: "flex",
                     justifyContent: "flex-end",
-                    gap: "10px",
+                    alignItems: "center",
+                    gap: "12px",
                     marginTop: "20px",
                     paddingTop: "14px",
                     borderTop: "1px solid #e2e8f0",
@@ -818,10 +754,24 @@ export default function VendorManagement() {
                 >
                   <button
                     type="button"
-                    className="btn"
+                    className="btn btn-secondary"
                     onClick={() => setShowModal(false)}
                     disabled={saving}
-                    style={{ fontWeight: 600 }}
+                    style={{
+                      height: "38px",
+                      padding: "0 18px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 600,
+                      fontSize: "13.5px",
+                      borderRadius: "8px",
+                      background: "#ffffff",
+                      border: "1px solid #cbd5e1",
+                      color: "#334155",
+                      margin: 0,
+                      cursor: "pointer",
+                    }}
                   >
                     Cancel
                   </button>
@@ -829,7 +779,18 @@ export default function VendorManagement() {
                     type="submit"
                     className="btn btn-primary"
                     disabled={saving}
-                    style={{ fontWeight: 600 }}
+                    style={{
+                      height: "38px",
+                      padding: "0 18px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 600,
+                      fontSize: "13.5px",
+                      borderRadius: "8px",
+                      margin: 0,
+                      cursor: "pointer",
+                    }}
                   >
                     {saving ? "Saving..." : editId ? "Update Vendor" : "Create Vendor"}
                   </button>

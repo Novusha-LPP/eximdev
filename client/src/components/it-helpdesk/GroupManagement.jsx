@@ -30,6 +30,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import GroupIcon from "@mui/icons-material/Group";
 import PersonIcon from "@mui/icons-material/Person";
 import { toast } from "react-hot-toast";
+import ITPagination from "./ITPagination";
 
 // Available user options for adding to groups
 const AVAILABLE_USERS = [
@@ -48,6 +49,8 @@ export default function GroupManagement() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -224,6 +227,9 @@ export default function GroupManagement() {
     fetchData();
   }, []);
 
+  const totalPages = Math.max(1, Math.ceil((groups || []).length / limit));
+  const paginatedGroups = (groups || []).slice((page - 1) * limit, page * limit);
+
   return (
     <Box>
       <Box display="flex" alignItems="center" gap={2} mb={2}>
@@ -236,7 +242,7 @@ export default function GroupManagement() {
       {/* Groups Grid */}
       <Box mb={2}>
         <Grid container spacing={2}>
-          {groups.map(group => (
+          {paginatedGroups.map(group => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={group.id}>
               <Card sx={{ 
                 height: "100%",
@@ -303,6 +309,19 @@ export default function GroupManagement() {
           ))}
         </Grid>
       </Box>
+
+      {/* Pagination */}
+      <ITPagination
+        page={page}
+        totalPages={totalPages}
+        totalRecords={(groups || []).length}
+        limit={limit}
+        onPageChange={(p) => setPage(p)}
+        onLimitChange={(l) => {
+          setLimit(l);
+          setPage(1);
+        }}
+      />
 
       {/* Add New Group Button */}
       <Box display="flex" justifyContent="center" mt={2}>

@@ -30,6 +30,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SearchIcon from "@mui/icons-material/Search";
+import ITPagination from "./ITPagination";
 
 const TICKET_STATUSES = ["New", "Assigned", "In Progress", "Pending", "Resolved", "Closed"];
 const TICKET_PRIORITIES = ["Low", "Medium", "High", "Critical"];
@@ -228,6 +229,19 @@ export default function AssignTicket({
                 </TableBody>
               </Table>
             </TableContainer>
+          )}
+
+          {pagination && (
+            <ITPagination
+              page={pagination.page || 1}
+              totalPages={Math.max(1, Math.ceil((pagination.total || (data || []).length) / (pagination.limit || 10)))}
+              totalRecords={pagination.total || (data || []).length}
+              limit={pagination.limit || 10}
+              onPageChange={(p) => fetchData && fetchData(p)}
+              onLimitChange={(l) => {
+                if (fetchData) fetchData(1);
+              }}
+            />
           )}
         </CardContent>
       </Card>

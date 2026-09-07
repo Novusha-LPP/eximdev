@@ -15,7 +15,10 @@ import EmailNotifications from "./EmailNotifications";
 import TicketEscalation from "./TicketEscalation";
 import AttachmentUpload from "./AttachmentUpload";
 import TicketDetailDrawer from "./TicketDetailDrawer";
+import CustomSelect from "./CustomSelect";
+import ITPagination from "./ITPagination";
 import * as XLSX from "xlsx";
+import { logExportAudit } from "./auditHelper";
 import {
   Search,
   Download,
@@ -244,6 +247,10 @@ export default function TicketManagement() {
       XLSX.utils.book_append_sheet(wb, ws, "Tickets");
       XLSX.writeFile(wb, "Helpdesk_Tickets.xlsx");
       toast.success("Export downloaded successfully", { id: "export-tickets" });
+      logExportAudit({
+        module: "Helpdesk",
+        details: `Exported Helpdesk Tickets to Excel (${allTickets.length} tickets)`,
+      });
     } catch (err) {
       toast.error("Failed to export tickets", { id: "export-tickets" });
     }
@@ -582,71 +589,108 @@ export default function TicketManagement() {
             {/* Filter & Search Controls */}
             <div className="card mb-16">
               <div className="card-body">
-                <div className="form-grid" style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr auto", alignItems: "flex-end" }}>
+                <div
+                  className="form-grid"
+                  style={{
+                    gridTemplateColumns: "2fr 1fr 1fr 1fr auto",
+                    gap: "12px",
+                    alignItems: "flex-end",
+                  }}
+                >
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Search Tickets</label>
                     <div style={{ position: "relative" }}>
-                      <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--color-text-muted)" }} />
+                      <Search
+                        size={15}
+                        style={{
+                          position: "absolute",
+                          left: 10,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          color: "#94a3b8",
+                        }}
+                      />
                       <input
                         type="text"
                         className="form-input"
-                        style={{ paddingLeft: 32 }}
+                        style={{ paddingLeft: "32px", height: "38px" }}
                         placeholder="Search by ticket ID, title, description, or user..."
                         value={filters.search}
                         onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
                       />
                     </div>
                   </div>
+
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Status</label>
-                    <select
-                      className="form-select"
+                    <CustomSelect
                       value={filters.status}
-                      onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
-                    >
-                      <option value="">All Statuses</option>
-                      {TICKET_STATUSES.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
+                      onChange={(val) => setFilters((f) => ({ ...f, status: val }))}
+                      options={[
+                        { label: "All Statuses", value: "" },
+                        ...TICKET_STATUSES.map((s) => ({ label: s, value: s })),
+                      ]}
+                      placeholder="All Statuses"
+                      width="100%"
+                    />
                   </div>
+
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Category</label>
-                    <select
-                      className="form-select"
+                    <CustomSelect
                       value={filters.category}
-                      onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))}
-                    >
-                      <option value="">All Categories</option>
-                      {TICKET_CATEGORIES.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
+                      onChange={(val) => setFilters((f) => ({ ...f, category: val }))}
+                      options={[
+                        { label: "All Categories", value: "" },
+                        ...TICKET_CATEGORIES.map((c) => ({ label: c, value: c })),
+                      ]}
+                      placeholder="All Categories"
+                      width="100%"
+                    />
                   </div>
+
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Priority</label>
-                    <select
-                      className="form-select"
+                    <CustomSelect
                       value={filters.priority || ""}
-                      onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))}
-                    >
-                      <option value="">All Priorities</option>
-                      {TICKET_PRIORITIES.map((p) => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
+                      onChange={(val) => setFilters((f) => ({ ...f, priority: val }))}
+                      options={[
+                        { label: "All Priorities", value: "" },
+                        ...TICKET_PRIORITIES.map((p) => ({ label: p, value: p })),
+                      ]}
+                      placeholder="All Priorities"
+                      width="100%"
+                    />
                   </div>
-                  {(filters.status || filters.category || filters.priority || filters.search) && (
-                    <div style={{ alignSelf: "flex-end" }}>
-                      <button
-                        className="btn btn-secondary"
-                        onClick={() => setFilters({ status: "", category: "", priority: "", search: "" })}
-                        title="Reset Filters"
-                      >
-                        <RotateCcw size={14} /> Reset
-                      </button>
-                    </div>
-                  )}
+
+                  <div className="form-group" style={{ marginBottom: 0, minWidth: "130px" }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setFilters({ status: "", category: "", priority: "", search: "" })}
+                      title="Clear Filters"
+                      style={{
+                        height: "38px",
+                        width: "100%",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "6px",
+                        padding: "0 14px",
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        background: "#ffffff",
+                        border: "1px solid #cbd5e1",
+                        color: "#475569",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <RotateCcw size={14} /> <span>Clear Filters</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -688,27 +732,50 @@ export default function TicketManagement() {
                         ) : (
                           data.map((t) => {
                             const assignedName = t.assigned_to?.username || t.assigned_to?.first_name || "Vikash";
-                            const getPriorityBadge = (p) => {
+                            
+                            const getPriorityBadgeStyle = (p) => {
                               const val = String(p || "").toLowerCase();
-                              if (val === "critical") return "badge-danger";
-                              if (val === "high") return "badge-warning";
-                              if (val === "medium") return "badge-primary";
-                              return "badge-secondary";
+                              if (val === "critical" || val === "high") {
+                                return { bg: "rgba(239, 68, 68, 0.12)", color: "#dc2626", border: "1px solid rgba(239, 68, 68, 0.25)" };
+                              }
+                              if (val === "medium") {
+                                return { bg: "rgba(245, 158, 11, 0.12)", color: "#d97706", border: "1px solid rgba(245, 158, 11, 0.25)" };
+                              }
+                              return { bg: "rgba(16, 185, 129, 0.12)", color: "#059669", border: "1px solid rgba(16, 185, 129, 0.25)" };
                             };
-                            const getStatusBadge = (s) => {
+
+                            const getStatusBadgeStyle = (s) => {
                               const val = String(s || "").toLowerCase();
-                              if (val === "closed" || val === "resolved") return "badge-excellent";
-                              if (val === "in progress" || val === "assigned" || val === "pending") return "badge-warning";
-                              if (val === "new" || val === "open") return "badge-primary";
-                              return "badge-secondary";
+                              if (val === "closed" || val === "resolved") {
+                                return { bg: "rgba(16, 185, 129, 0.12)", color: "#059669", border: "1px solid rgba(16, 185, 129, 0.25)" };
+                              }
+                              if (val === "in progress" || val === "assigned" || val === "pending" || val === "open") {
+                                return { bg: "rgba(245, 158, 11, 0.12)", color: "#ea580c", border: "1px solid rgba(245, 158, 11, 0.25)" };
+                              }
+                              if (val === "cancelled" || val === "escalated" || val === "rejected") {
+                                return { bg: "rgba(239, 68, 68, 0.12)", color: "#dc2626", border: "1px solid rgba(239, 68, 68, 0.25)" };
+                              }
+                              return { bg: "rgba(37, 99, 235, 0.12)", color: "#2563eb", border: "1px solid rgba(37, 99, 235, 0.25)" };
                             };
+
+                            const priorityStyle = getPriorityBadgeStyle(t.priority);
+                            const statusStyle = getStatusBadgeStyle(t.status);
 
                             return (
                               <tr key={t._id}>
                                 <td>
                                   <span
-                                    className="score-badge badge-primary"
-                                    style={{ cursor: "pointer", fontFamily: "monospace", fontWeight: 700 }}
+                                    style={{
+                                      fontWeight: 700,
+                                      color: "#0f172a",
+                                      cursor: "pointer",
+                                      fontSize: "13.5px",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      transition: "color 0.15s ease",
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.color = "#4f46e5")}
+                                    onMouseLeave={(e) => (e.currentTarget.style.color = "#0f172a")}
                                     onClick={() => {
                                       setDetailTicketId(t._id);
                                       setDrawerOpen(true);
@@ -719,83 +786,107 @@ export default function TicketManagement() {
                                   </span>
                                 </td>
                                 <td>
-                                  <div style={{ fontWeight: 600 }}>{t.category || "General"}</div>
+                                  <div style={{ fontWeight: 600, color: "#0f172a", fontSize: "13.5px" }}>{t.category || "General"}</div>
                                   {t.description && (
-                                    <div style={{ fontSize: 12, color: "var(--color-text-muted)", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    <div style={{ fontSize: "12px", color: "#64748b", maxWidth: "280px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: "2px" }}>
                                       {t.description}
                                     </div>
                                   )}
                                 </td>
                                 <td>
-                                  <span className={`score-badge ${getPriorityBadge(t.priority)}`}>
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      fontSize: "12.5px",
+                                      fontWeight: 700,
+                                      whiteSpace: "nowrap",
+                                      color: priorityStyle.color,
+                                    }}
+                                  >
                                     {t.priority || "Medium"}
                                   </span>
                                 </td>
                                 <td>
-                                  <span className={`score-badge ${getStatusBadge(t.status)}`}>
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      fontSize: "12.5px",
+                                      fontWeight: 700,
+                                      whiteSpace: "nowrap",
+                                      color: statusStyle.color,
+                                    }}
+                                  >
                                     {t.status || "New"}
                                   </span>
                                 </td>
                                 <td>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                     <div style={{
-                                      width: 26,
-                                      height: 26,
+                                      width: "26px",
+                                      height: "26px",
                                       borderRadius: "50%",
-                                      background: "#e0e7ff",
-                                      color: "#3b82f6",
+                                      background: "#eff6ff",
+                                      color: "#2563eb",
+                                      border: "1px solid #bfdbfe",
                                       display: "flex",
                                       alignItems: "center",
                                       justifyContent: "center",
-                                      fontSize: 11,
-                                      fontWeight: 700
+                                      fontSize: "11px",
+                                      fontWeight: 700,
+                                      flexShrink: 0,
                                     }}>
                                       {assignedName.charAt(0).toUpperCase()}
                                     </div>
-                                    <span style={{ fontWeight: 500 }}>{assignedName}</span>
+                                    <span style={{ fontWeight: 500, color: "#1e293b", fontSize: "13px" }}>{assignedName}</span>
                                   </div>
                                 </td>
-                                <td style={{ fontSize: 13, color: "var(--color-text-muted)" }}>
-                                  {t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—"}
+                                <td style={{ fontSize: "13px", color: "#64748b", whiteSpace: "nowrap" }}>
+                                  {t.createdAt ? new Date(t.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}
                                 </td>
-                                <td style={{ textAlign: "right" }}>
-                                  <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
+                                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                                  <div style={{ display: "inline-flex", gap: "6px", alignItems: "center", justifyContent: "flex-end" }}>
                                     <button
-                                      className="btn btn-secondary"
-                                      style={{ padding: "4px 8px" }}
+                                      type="button"
+                                      className="btn btn-icon btn-info"
+                                      style={{ width: "28px", height: "28px" }}
                                       onClick={() => {
                                         setDetailTicketId(t._id);
                                         setDrawerOpen(true);
                                       }}
                                       title="Manage Status & History"
                                     >
-                                      <History size={13} />
+                                      <History size={14} color="#0284c7" />
                                     </button>
                                     {t.attachments && t.attachments.length > 0 && (
                                       <button
-                                        className="btn btn-secondary"
-                                        style={{ padding: "4px 8px" }}
+                                        type="button"
+                                        className="btn btn-icon btn-info"
+                                        style={{ width: "28px", height: "28px" }}
                                         onClick={() => window.open(t.attachments[0].file_url, "_blank")}
                                         title="View Attachment"
                                       >
-                                        <Eye size={13} />
+                                        <Eye size={14} color="#0284c7" />
                                       </button>
                                     )}
                                     <button
-                                      className="btn btn-secondary"
-                                      style={{ padding: "4px 8px" }}
+                                      type="button"
+                                      className="btn btn-icon btn-primary"
+                                      style={{ width: "28px", height: "28px" }}
                                       onClick={() => handleOpen(t)}
                                       title="Edit Ticket"
                                     >
-                                      <Edit2 size={13} />
+                                      <Edit2 size={14} color="#2563eb" />
                                     </button>
                                     <button
-                                      className="btn btn-danger"
-                                      style={{ padding: "4px 8px" }}
+                                      type="button"
+                                      className="btn btn-icon btn-danger"
+                                      style={{ width: "28px", height: "28px" }}
                                       onClick={(e) => handleDelete(e, t._id)}
                                       title="Delete Ticket"
                                     >
-                                      <Trash2 size={13} />
+                                      <Trash2 size={14} color="#dc2626" />
                                     </button>
                                   </div>
                                 </td>
@@ -809,29 +900,16 @@ export default function TicketManagement() {
                 )}
 
                 {/* Pagination Footer */}
-                <div className="pagination-bar">
-                  <div className="pagination-info">
-                    Showing {data.length} of {pagination.total || data.length} tickets (Page {pagination.page} of {Math.max(1, Math.ceil((pagination.total || 1) / pagination.limit))})
-                  </div>
-                  <div className="pagination-controls">
-                    <button
-                      className="btn btn-secondary"
-                      disabled={pagination.page <= 1}
-                      onClick={() => fetchData(pagination.page - 1)}
-                      style={{ padding: "4px 10px", fontSize: 12 }}
-                    >
-                      <ChevronLeft size={14} /> Prev
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      disabled={pagination.page * pagination.limit >= pagination.total}
-                      onClick={() => fetchData(pagination.page + 1)}
-                      style={{ padding: "4px 10px", fontSize: 12 }}
-                    >
-                      Next <ChevronRight size={14} />
-                    </button>
-                  </div>
-                </div>
+                <ITPagination
+                  page={pagination.page}
+                  totalPages={Math.max(1, Math.ceil((pagination.total || data.length || 1) / pagination.limit))}
+                  totalRecords={pagination.total || data.length}
+                  limit={pagination.limit}
+                  onPageChange={(newPage) => fetchData(newPage)}
+                  onLimitChange={(newLimit) => {
+                    setPagination((prev) => ({ ...prev, limit: newLimit, page: 1 }));
+                  }}
+                />
               </div>
             </div>
 

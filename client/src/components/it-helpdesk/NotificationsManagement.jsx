@@ -45,6 +45,7 @@ import SmartphoneIcon from "@mui/icons-material/Smartphone";
 import SearchIcon from "@mui/icons-material/Search";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { toast } from "react-hot-toast";
+import ITPagination from "./ITPagination";
 
 // Notification types with icons and colors
 const NOTIFICATION_TYPES = [
@@ -184,6 +185,13 @@ export default function NotificationsManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
+
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -196,13 +204,16 @@ export default function NotificationsManagement() {
   });
 
   // Filter notification templates
-  const filteredTemplates = notificationTemplates.filter(template => {
+  const filteredTemplates = (notificationTemplates || []).filter(template => {
     const matchesSearch = 
-      template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      template.description.toLowerCase().includes(searchTerm.toLowerCase());
+      template.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      template.description?.toLowerCase().includes(searchTerm.toLowerCase());
 
     return matchesSearch;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredTemplates.length / limit));
+  const paginatedTemplates = filteredTemplates.slice((page - 1) * limit, page * limit);
 
   // Fetch data
 const fetchData = () => {
@@ -460,7 +471,7 @@ const fetchData = () => {
               </Box>
             </Grid>
           ) : (
-            filteredTemplates.map(template => (
+            paginatedTemplates.map(template => (
               <Grid item xs={12} key={template.id}>
                 <Card sx={{ border: "1px solid #e0e0e0" }}>
                   <CardContent>
@@ -562,6 +573,18 @@ const fetchData = () => {
           )}
         </Grid>
       </Box>
+
+      <ITPagination
+        page={page}
+        totalPages={totalPages}
+        totalRecords={filteredTemplates.length}
+        limit={limit}
+        onPageChange={(p) => setPage(p)}
+        onLimitChange={(l) => {
+          setLimit(l);
+          setPage(1);
+        }}
+      />
 
       {/* Add/Edit Template Modal */}
       <Dialog open={showModal} onClose={handleCloseModal} maxWidth="md" fullWidth>

@@ -41,6 +41,7 @@ import AddIcon from "@mui/icons-material/Add";
 import { toast } from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useAuditCRUD } from "./AuditLogs";
+import ITPagination from "./ITPagination";
 import axios from "axios";
 import { UserContext } from "../../contexts/UserContext";
 
@@ -105,10 +106,13 @@ export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("");
   const [filterGroup, setFilterGroup] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
   // Track filter changes
   const handleSearchChange = (value) => {
     setSearchTerm(value);
+    setPage(1);
     if (value) {
       logRead("user-search-filter", `Filtered users by search term: ${value}`, "info");
     }
@@ -116,6 +120,7 @@ export default function UserManagement() {
 
   const handleRoleFilterChange = (value) => {
     setFilterRole(value);
+    setPage(1);
     if (value) {
       logRead("user-role-filter", `Filtered users by role: ${value}`, "info");
     }
@@ -123,6 +128,7 @@ export default function UserManagement() {
 
   const handleGroupFilterChange = (value) => {
     setFilterGroup(value);
+    setPage(1);
     if (value) {
       logRead("user-group-filter", `Filtered users by group: ${value}`, "info");
     }
@@ -232,6 +238,9 @@ export default function UserManagement() {
 
     return matchesSearch && matchesRole && matchesGroup;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / limit));
+  const paginatedUsers = filteredUsers.slice((page - 1) * limit, page * limit);
 
   // Form change
   const handleInputChange = (e) => {
@@ -566,7 +575,7 @@ export default function UserManagement() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredUsers.map((user) => (
+                paginatedUsers.map((user) => (
                   <TableRow
                     key={user.id}
                     hover
@@ -652,6 +661,19 @@ export default function UserManagement() {
             </TableBody>
           </Table>
         </TableContainer>
+
+        {/* Pagination Footer */}
+        <ITPagination
+          page={page}
+          totalPages={totalPages}
+          totalRecords={filteredUsers.length}
+          limit={limit}
+          onPageChange={(newPage) => setPage(newPage)}
+          onLimitChange={(newLimit) => {
+            setLimit(newLimit);
+            setPage(1);
+          }}
+        />
       </Paper>
 
       {/* Modal */}

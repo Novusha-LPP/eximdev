@@ -38,6 +38,7 @@ import SecurityIcon from "@mui/icons-material/Security";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
 import { toast } from "react-hot-toast";
+import ITPagination from "./ITPagination";
 
 // Permission categories for IT Helpdesk
 const PERMISSION_CATEGORIES = [
@@ -158,6 +159,12 @@ export default function RolesPermissions() {
   });
   const [selectedPermissions, setSelectedPermissions] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
 
   const filteredRoles = roles.filter(role => {
     const term = searchTerm.toLowerCase();
@@ -166,6 +173,9 @@ export default function RolesPermissions() {
       (role.description || "").toLowerCase().includes(term)
     );
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredRoles.length / limit));
+  const paginatedRoles = filteredRoles.slice((page - 1) * limit, page * limit);
 
   // Fetch data
   const fetchData = () => {
@@ -478,7 +488,7 @@ export default function RolesPermissions() {
       {/* Roles Grid */}
       <Box mb={2}>
         <Grid container spacing={2.5}>
-          {filteredRoles.map((role) => (
+          {paginatedRoles.map((role) => (
             <Grid item xs={12} md={6} lg={4} key={role.id}>
               <Card
                 sx={{
@@ -614,6 +624,19 @@ export default function RolesPermissions() {
           ))}
         </Grid>
       </Box>
+
+      {/* Pagination */}
+      <ITPagination
+        page={page}
+        totalPages={totalPages}
+        totalRecords={filteredRoles.length}
+        limit={limit}
+        onPageChange={(p) => setPage(p)}
+        onLimitChange={(l) => {
+          setLimit(l);
+          setPage(1);
+        }}
+      />
 
       {/* Add/Edit Role Modal */}
       <Dialog open={showModal} onClose={handleCloseModal} maxWidth="lg" fullWidth>

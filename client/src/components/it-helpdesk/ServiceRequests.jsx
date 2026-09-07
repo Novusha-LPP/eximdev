@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import {
   Box,
@@ -31,6 +31,7 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SearchIcon from "@mui/icons-material/Search";
+import ITPagination from "./ITPagination";
 
 const SERVICE_TYPES = ["New Service", "Change Request", "Incident", "Information Request"];
 const SERVICE_STATUSES = ["New", "In Progress", "Completed", "Cancelled", "On Hold"];
@@ -131,17 +132,27 @@ export default function ServiceRequests({ serviceRequests, loading, setServiceRe
     }
   };
 
-  const filteredRequests = serviceRequests.filter(request => {
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
+
+  const filteredRequests = (serviceRequests || []).filter(request => {
     return (
       (!filters.status || request.status === filters.status) &&
       (!filters.type || request.type === filters.type) &&
       (!filters.priority || request.priority === filters.priority) &&
       (!filters.search || 
-        request.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-        request.description.toLowerCase().includes(filters.search.toLowerCase())
+        request.title?.toLowerCase().includes(filters.search.toLowerCase()) ||
+        request.description?.toLowerCase().includes(filters.search.toLowerCase())
       )
     );
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / limit));
+  const paginatedRequests = filteredRequests.slice((page - 1) * limit, page * limit);
 
   return (
     <Box>
@@ -256,7 +267,7 @@ export default function ServiceRequests({ serviceRequests, loading, setServiceRe
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredRequests.length === 0 ? (
+                  {paginatedRequests.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} align="center">
                         <Typography variant="body2" color="text.secondary">
@@ -265,7 +276,7 @@ export default function ServiceRequests({ serviceRequests, loading, setServiceRe
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredRequests.map((request) => (
+                    paginatedRequests.map((request) => (
                       <TableRow key={request.id}>
                         <TableCell>{request.id}</TableCell>
                         <TableCell>{request.title}</TableCell>
@@ -297,6 +308,18 @@ export default function ServiceRequests({ serviceRequests, loading, setServiceRe
               </Table>
             </TableContainer>
           )}
+
+          <ITPagination
+            page={page}
+            totalPages={totalPages}
+            totalRecords={filteredRequests.length}
+            limit={limit}
+            onPageChange={(p) => setPage(p)}
+            onLimitChange={(l) => {
+              setLimit(l);
+              setPage(1);
+            }}
+          />
         </CardContent>
       </Card>
 

@@ -30,6 +30,7 @@ import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ITPagination from "./ITPagination";
 
 const TICKET_STATUSES = ["New", "Assigned", "In Progress", "Pending", "Resolved", "Closed"];
 
@@ -53,8 +54,13 @@ const statusColor = (s) => {
 };
 
 export default function TicketWorkflow({ workflowSteps, setWorkflowSteps }) {
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [showModal, setShowModal] = useState(false);
   const [editingStep, setEditingStep] = useState(null);
+
+  const totalPages = Math.max(1, Math.ceil((workflowSteps?.length || 0) / limit));
+  const paginatedSteps = (workflowSteps || []).slice((page - 1) * limit, page * limit);
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -179,7 +185,7 @@ export default function TicketWorkflow({ workflowSteps, setWorkflowSteps }) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {workflowSteps.length === 0 ? (
+                {paginatedSteps.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} align="center">
                       <Typography variant="body2" color="text.secondary">
@@ -188,7 +194,7 @@ export default function TicketWorkflow({ workflowSteps, setWorkflowSteps }) {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  workflowSteps.map((step) => (
+                  paginatedSteps.map((step) => (
                     <TableRow key={step.id}>
                       <TableCell>
                         <Chip label={step.status} color={statusColor(step.status)} size="small" />
@@ -220,6 +226,18 @@ export default function TicketWorkflow({ workflowSteps, setWorkflowSteps }) {
               </TableBody>
             </Table>
           </TableContainer>
+
+          <ITPagination
+            page={page}
+            totalPages={totalPages}
+            totalRecords={(workflowSteps || []).length}
+            limit={limit}
+            onPageChange={(p) => setPage(p)}
+            onLimitChange={(l) => {
+              setLimit(l);
+              setPage(1);
+            }}
+          />
         </CardContent>
       </Card>
 

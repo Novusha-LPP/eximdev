@@ -19,9 +19,11 @@ router.get("/", async (req, res) => {
     const { category, inventory_type } = req.query;
     const filter = {};
     if (category) filter.category = category;
-    if (inventory_type) filter.inventory_type = inventory_type;
+    if (inventory_type) {
+      filter.inventory_type = { $regex: new RegExp(`^${inventory_type.trim()}$`, "i") };
+    }
 
-    const data = await Inventory.find(filter).sort({ item_name: 1 });
+    const data = await Inventory.find(filter).sort({ createdAt: -1 });
     res.json({ success: true, data });
   } catch (err) {
     logger.error(`Error fetching inventory: ${err.message}`);
@@ -31,22 +33,52 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const item = new Inventory(req.body);
+    const itemData = { ...req.body };
+    if (itemData.inventory_type) {
+      itemData.inventory_type = itemData.inventory_type.toLowerCase() === "new" ? "New" : "Old";
+    }
+    if (!itemData.warranty_start_date || isNaN(new Date(itemData.warranty_start_date).getTime())) {
+      delete itemData.warranty_start_date;
+    }
+    if (!itemData.warranty_end_date || isNaN(new Date(itemData.warranty_end_date).getTime())) {
+      delete itemData.warranty_end_date;
+    }
+
+    const item = new Inventory(itemData);
     await item.save();
     res.status(201).json({ success: true, data: item });
   } catch (err) {
     logger.error(`Error creating inventory item: ${err.message}`);
-    res.status(500).json({ success: false, message: err.message });
+    let errorMessage = err.message;
+    if (err.code === 11000) {
+      errorMessage = `An item with Item ID "${req.body.item_id}" already exists.`;
+    }
+    res.status(500).json({ success: false, message: errorMessage });
   }
 });
 
 router.put("/:id", validateId, async (req, res) => {
   try {
-    const item = await Inventory.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updateData = { ...req.body };
+    if (updateData.inventory_type) {
+      updateData.inventory_type = updateData.inventory_type.toLowerCase() === "new" ? "New" : "Old";
+    }
+    if (!updateData.warranty_start_date || isNaN(new Date(updateData.warranty_start_date).getTime())) {
+      updateData.warranty_start_date = null;
+    }
+    if (!updateData.warranty_end_date || isNaN(new Date(updateData.warranty_end_date).getTime())) {
+      updateData.warranty_end_date = null;
+    }
+
+    const item = await Inventory.findByIdAndUpdate(req.params.id, updateData, { new: true });
     res.json({ success: true, data: item });
   } catch (err) {
     logger.error(`Error updating inventory item: ${err.message}`);
-    res.status(500).json({ success: false, message: err.message });
+    let errorMessage = err.message;
+    if (err.code === 11000) {
+      errorMessage = `An item with Item ID "${req.body.item_id}" already exists.`;
+    }
+    res.status(500).json({ success: false, message: errorMessage });
   }
 });
 

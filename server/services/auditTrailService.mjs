@@ -146,6 +146,10 @@ export function generateHeading(documentType, action, doc, changes) {
     if (doc?.contract_number) identifiers.push(`'${doc.contract_number}'`);
     if (doc?.software_name) identifiers.push(`'${doc.software_name}'`);
     if (doc?.item_name) identifiers.push(`'${doc.item_name}'`);
+    if (doc?.vendor_name) identifiers.push(`'${doc.vendor_name}'`);
+    if (doc?.company_name) identifiers.push(`'${doc.company_name}'`);
+    if (doc?.vendor_code) identifiers.push(`'${doc.vendor_code}'`);
+    if (documentType === 'ItVendor' && doc?.name) identifiers.push(`'${doc.name}'`);
 
     // KPI specific
     if (doc?.month && doc?.year && !doc?.job_no) {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
+import ITPagination from "./ITPagination";
 import {
   Box,
   Button,
@@ -78,6 +79,8 @@ export default function TicketWorkflowManagement() {
   const [openWorkflowDialog, setOpenWorkflowDialog] = useState(false);
   const [openViewWorkflowDialog, setOpenViewWorkflowDialog] = useState(false);
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [newWorkflow, setNewWorkflow] = useState({
     name: "",
     description: "",
@@ -388,73 +391,92 @@ export default function TicketWorkflowManagement() {
               <CircularProgress />
             </Box>
           ) : (
-            <Grid container spacing={3}>
-              {workflows.map((workflow) => (
-                <Grid item xs={12} md={6} key={workflow.id}>
-                  <Card sx={{ boxShadow: 2, cursor: "pointer" }} onClick={() => {
-                    setSelectedWorkflow(workflow);
-                    setOpenViewWorkflowDialog(true);
-                  }}>
-                    <CardContent>
-                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                        <Typography variant="h6" fontWeight={600}>
-                          {workflow.name}
-                        </Typography>
-                        <Stack direction="row" spacing={1}>
-                          <Chip
-                            label={workflow.status}
-                            color={workflow.status === "Active" ? "success" : "default"}
-                            size="small"
-                          />
-                          <Chip
-                            label={workflow.priority}
-                            color={
-                              workflow.priority === "Critical" ? "error" :
-                              workflow.priority === "High" ? "warning" :
-                              workflow.priority === "Medium" ? "info" : "success"
-                            }
-                            size="small"
-                          />
-                        </Stack>
-                      </Box>
-                      <Typography variant="body2" color="text.secondary" mb={2}>
-                        {workflow.description}
-                      </Typography>
-                      <Box display="flex" alignItems="center" gap={1} mb={2}>
-                        <Typography variant="caption" color="text.secondary">
-                          Steps: {workflow.steps.length}
-                        </Typography>
-                        <Divider orientation="vertical" flexItem />
-                        <Typography variant="caption" color="text.secondary">
-                          Category: {workflow.category}
-                        </Typography>
-                        <Divider orientation="vertical" flexItem />
-                        <Typography variant="caption" color="text.secondary">
-                          Type: {workflow.type}
-                        </Typography>
-                      </Box>
-                      <Box display="flex" justifyContent="space-between" alignItems="center">
-                        <Typography variant="caption" color="text.secondary">
-                          Last updated: {new Date().toLocaleDateString()}
-                        </Typography>
-                        <Box>
-                          <Tooltip title="View Workflow">
-                            <IconButton size="small">
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete Workflow">
-                            <IconButton size="small" color="error">
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
+            <>
+              <Grid container spacing={3}>
+                {(() => {
+                  const totalPages = Math.max(1, Math.ceil((workflows || []).length / limit));
+                  const paginatedWorkflows = (workflows || []).slice((page - 1) * limit, page * limit);
+                  return paginatedWorkflows.map((workflow) => (
+                    <Grid item xs={12} md={6} key={workflow.id}>
+                      <Card sx={{ boxShadow: 2, cursor: "pointer" }} onClick={() => {
+                        setSelectedWorkflow(workflow);
+                        setOpenViewWorkflowDialog(true);
+                      }}>
+                        <CardContent>
+                          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                            <Typography variant="h6" fontWeight={600}>
+                              {workflow.name}
+                            </Typography>
+                            <Stack direction="row" spacing={1}>
+                              <Chip
+                                label={workflow.status}
+                                color={workflow.status === "Active" ? "success" : "default"}
+                                size="small"
+                              />
+                              <Chip
+                                label={workflow.priority}
+                                color={
+                                  workflow.priority === "Critical" ? "error" :
+                                  workflow.priority === "High" ? "warning" :
+                                  workflow.priority === "Medium" ? "info" : "success"
+                                }
+                                size="small"
+                              />
+                            </Stack>
+                          </Box>
+                          <Typography variant="body2" color="text.secondary" mb={2}>
+                            {workflow.description}
+                          </Typography>
+                          <Box display="flex" alignItems="center" gap={1} mb={2}>
+                            <Typography variant="caption" color="text.secondary">
+                              Steps: {workflow.steps.length}
+                            </Typography>
+                            <Divider orientation="vertical" flexItem />
+                            <Typography variant="caption" color="text.secondary">
+                              Category: {workflow.category}
+                            </Typography>
+                            <Divider orientation="vertical" flexItem />
+                            <Typography variant="caption" color="text.secondary">
+                              Type: {workflow.type}
+                            </Typography>
+                          </Box>
+                          <Box display="flex" justifyContent="space-between" alignItems="center">
+                            <Typography variant="caption" color="text.secondary">
+                              Last updated: {new Date().toLocaleDateString()}
+                            </Typography>
+                            <Box>
+                              <Tooltip title="View Workflow">
+                                <IconButton size="small">
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Delete Workflow">
+                                <IconButton size="small" color="error">
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ));
+                })()}
+              </Grid>
+
+              {/* Pagination */}
+              <ITPagination
+                page={page}
+                totalPages={Math.max(1, Math.ceil((workflows || []).length / limit))}
+                totalRecords={(workflows || []).length}
+                limit={limit}
+                onPageChange={(p) => setPage(p)}
+                onLimitChange={(l) => {
+                  setLimit(l);
+                  setPage(1);
+                }}
+              />
+            </>
           )}
         </CardContent>
       </Card>

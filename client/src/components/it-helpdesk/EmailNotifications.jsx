@@ -29,13 +29,19 @@ import EmailIcon from "@mui/icons-material/Email";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ITPagination from "./ITPagination";
 
 const NOTIFICATION_TYPES = ["Ticket Created", "Ticket Updated", "Ticket Assigned", "Ticket Resolved", "Ticket Closed"];
 const NOTIFICATION_TRIGGERS = ["Status Change", "Priority Change", "Assignment Change", "Comment Added", "Due Date Approaching"];
 
 export default function EmailNotifications({ emailNotifications, setEmailNotifications }) {
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [showModal, setShowModal] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
+
+  const totalPages = Math.max(1, Math.ceil((emailNotifications?.length || 0) / limit));
+  const paginatedRules = (emailNotifications || []).slice((page - 1) * limit, page * limit);
   const [form, setForm] = useState({
     name: "",
     type: "Ticket Created",
@@ -128,7 +134,7 @@ export default function EmailNotifications({ emailNotifications, setEmailNotific
                 </TableRow>
               </TableHead>
               <TableBody>
-                {emailNotifications.length === 0 ? (
+                {paginatedRules.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} align="center">
                       <Typography variant="body2" color="text.secondary">
@@ -137,7 +143,7 @@ export default function EmailNotifications({ emailNotifications, setEmailNotific
                     </TableCell>
                   </TableRow>
                 ) : (
-                  emailNotifications.map((rule) => (
+                  paginatedRules.map((rule) => (
                     <TableRow key={rule.id}>
                       <TableCell>{rule.name}</TableCell>
                       <TableCell>{rule.type}</TableCell>
@@ -177,6 +183,18 @@ export default function EmailNotifications({ emailNotifications, setEmailNotific
               </TableBody>
             </Table>
           </TableContainer>
+
+          <ITPagination
+            page={page}
+            totalPages={totalPages}
+            totalRecords={(emailNotifications || []).length}
+            limit={limit}
+            onPageChange={(p) => setPage(p)}
+            onLimitChange={(l) => {
+              setLimit(l);
+              setPage(1);
+            }}
+          />
         </CardContent>
       </Card>
 

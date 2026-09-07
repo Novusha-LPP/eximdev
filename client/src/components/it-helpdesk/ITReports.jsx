@@ -11,10 +11,13 @@ import {
   HardDrive,
   ChevronLeft,
   ChevronRight,
+  RotateCcw,
 } from "lucide-react";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
+import ITPagination from "./ITPagination";
+import { logExportAudit } from "./auditHelper";
 import "../../styles/scorecard.scss";
 
 const REPORT_TYPES = [
@@ -70,12 +73,25 @@ export default function ITReports() {
     }
   };
 
+  const formatUser = (userVal) => {
+    if (!userVal) return "—";
+    if (typeof userVal === "object") {
+      return userVal.username || userVal.first_name || userVal.name || userVal.email || "—";
+    }
+    return String(userVal);
+  };
+
   const filteredData = data.filter((item) => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
-    return Object.values(item)
-      .map((v) => String(v || "").toLowerCase())
-      .some((v) => v.includes(term));
+    return Object.values(item).some((v) => {
+      if (v == null) return false;
+      if (typeof v === "object") {
+        const text = `${v.username || ""} ${v.first_name || ""} ${v.name || ""} ${v.email || ""}`.toLowerCase();
+        return text.includes(term);
+      }
+      return String(v).toLowerCase().includes(term);
+    });
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / limit));
@@ -98,7 +114,7 @@ export default function ITReports() {
               item.asset_tag || "",
               item.asset_type || "",
               item.status || "",
-              item.location || "—",
+              (typeof item.location === "object" ? item.location?.name : item.location) || "—",
               `${item.manufacturer || ""} ${item.model || ""}`.trim() || "—"
             );
             break;
@@ -108,13 +124,13 @@ export default function ITReports() {
               item.title || "",
               item.status || "",
               item.priority || "",
-              item.assigned_to || item.assignee || "—"
+              formatUser(item.assigned_to || item.assignee)
             );
             break;
           case "vendors":
             row.push(
               item.name || "",
-              item.type || item.vendor_type || "",
+              item.vendor_type || item.type || "",
               item.contact_person || "—",
               item.email || "—",
               item.mobile_number || "—"
@@ -152,6 +168,10 @@ export default function ITReports() {
       const date = new Date().toISOString().slice(0, 10);
       XLSX.writeFile(wb, `IT_${reportName.replace(/\s+/g, "_")}_${date}.xlsx`);
       toast.success(`${reportName} exported to Excel`);
+      logExportAudit({
+        module: "Helpdesk",
+        details: `Exported ${reportName} to Excel (${filteredData.length} records)`,
+      });
     } catch (error) {
       console.error("Export error:", error);
       toast.error("Failed to export report");
@@ -207,7 +227,7 @@ export default function ITReports() {
                 {item.priority || "Medium"}
               </span>
             </td>
-            <td style={{ color: "#64748b" }}>{item.assigned_to || item.assignee || "—"}</td>
+            <td style={{ color: "#64748b" }}>{formatUser(item.assigned_to || item.assignee)}</td>
           </tr>
         );
       case "vendors":
@@ -216,7 +236,7 @@ export default function ITReports() {
             <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{(page - 1) * limit + idx + 1}</td>
             <td className="fw-600" style={{ color: "#0f172a" }}>{item.name}</td>
             <td>
-              <span className="score-badge badge-primary">{item.type || item.vendor_type || "Other"}</span>
+              <span className="score-badge badge-primary">{item.vendor_type || item.type || "Other"}</span>
             </td>
             <td style={{ color: "#334155" }}>{item.contact_person || "—"}</td>
             <td style={{ color: "#64748b" }}>{item.email || "—"}</td>
@@ -229,8 +249,8 @@ export default function ITReports() {
             <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{(page - 1) * limit + idx + 1}</td>
             <td className="fw-600" style={{ color: "#0f172a" }}>{item.software_name || item.license_name}</td>
             <td style={{ color: "#4f46e5", fontFamily: "monospace", fontSize: "12px" }}>{item.license_code || "—"}</td>
-            <td>
-              <span className="score-badge badge-primary">{item.license_type || "Standard"}</span>
+            <td style={{ color: "#334155", fontSize: "13px" }}>
+              {item.license_type || "Standard"}
             </td>
             <td style={{ color: "#334155" }}>{item.vendor?.name || item.vendor_name || "—"}</td>
             <td style={{ color: "#64748b" }}>{item.expiry_date ? new Date(item.expiry_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</td>
@@ -242,13 +262,11 @@ export default function ITReports() {
             <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{(page - 1) * limit + idx + 1}</td>
             <td className="fw-600" style={{ color: "#0f172a" }}>{item.item_id}</td>
             <td style={{ color: "#334155" }}>{`${item.brand || ""} ${item.model || ""}`.trim() || "—"}</td>
-            <td>
-              <span className="score-badge badge-primary">{item.category || "Other"}</span>
+            <td style={{ color: "#334155", fontSize: "13px" }}>
+              {item.category || "—"}
             </td>
-            <td>
-              <span className={`score-badge ${item.inventory_type === "New" ? "badge-excellent" : "badge-secondary"}`}>
-                {item.inventory_type || "Old"}
-              </span>
+            <td style={{ color: "#334155", fontSize: "13px" }}>
+              {item.inventory_type || "Old"}
             </td>
             <td style={{ color: "#64748b" }}>{item.warranty_end_date ? new Date(item.warranty_end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</td>
           </tr>
@@ -294,22 +312,13 @@ export default function ITReports() {
           </div>
         </div>
 
-        <div className="topbar-right" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button
             type="button"
             className="btn btn-primary"
             onClick={exportToExcel}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "13px",
-              padding: "7px 16px",
-              borderRadius: "8px",
-              fontWeight: 600,
-            }}
           >
-            <Download size={15} /> Export {filteredData.length > 0 ? `(${filteredData.length})` : ""}
+            <Download size={15} /> <span>Export Excel {filteredData.length > 0 ? `(${filteredData.length})` : ""}</span>
           </button>
         </div>
       </div>
@@ -363,6 +372,7 @@ export default function ITReports() {
                 <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
                 <input
                   type="text"
+                  className="form-input"
                   placeholder={`Search ${REPORT_TYPES.find((r) => r.value === reportType)?.label || "records"}…`}
                   value={searchTerm}
                   onChange={(e) => {
@@ -371,13 +381,7 @@ export default function ITReports() {
                   }}
                   style={{
                     paddingLeft: "32px",
-                    height: "38px",
-                    borderRadius: "8px",
-                    border: "1px solid #cbd5e1",
-                    background: "#f8fafc",
-                    fontSize: "13px",
                     width: "100%",
-                    outline: "none",
                   }}
                 />
               </div>
@@ -391,14 +395,30 @@ export default function ITReports() {
                 {searchTerm && (
                   <button
                     type="button"
-                    className="btn"
+                    className="btn btn-secondary"
                     onClick={() => {
                       setSearchTerm("");
                       setPage(1);
                     }}
-                    style={{ height: "36px", fontSize: "12px", fontWeight: 600, padding: "0 10px" }}
+                    style={{
+                      height: "36px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px",
+                      fontWeight: 600,
+                      fontSize: "12.5px",
+                      background: "#ffffff",
+                      border: "1px solid #cbd5e1",
+                      color: "#475569",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      padding: "0 12px",
+                      transition: "all 0.15s ease",
+                    }}
+                    title="Clear Search"
                   >
-                    Clear Search
+                    <RotateCcw size={14} /> Clear Search
                   </button>
                 )}
               </div>
@@ -436,12 +456,12 @@ export default function ITReports() {
               </div>
             ) : (
               <div className="table-wrap">
-                <table style={{ width: "100%" }}>
+                <table style={{ width: "100%", minWidth: "1000px" }}>
                   <thead>
                     <tr>
-                      <th style={{ width: 44, textAlign: "center" }}>#</th>
+                      <th style={{ width: 44, minWidth: 44, textAlign: "center" }}>#</th>
                       {getColumns().map((col) => (
-                        <th key={col} style={{ minWidth: 120 }}>{col}</th>
+                        <th key={col} style={{ minWidth: 150 }}>{col}</th>
                       ))}
                     </tr>
                   </thead>
@@ -461,78 +481,18 @@ export default function ITReports() {
             )}
 
             {/* ── Pagination Footer ─────────────────────────────────── */}
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "12px",
-                borderTop: "1px solid #e2e8f0",
-                padding: "12px 16px",
-                background: "#fafbfc",
+            <ITPagination
+              page={page}
+              totalPages={totalPages}
+              totalRecords={filteredData.length}
+              limit={limit}
+              onPageChange={(newPage) => setPage(newPage)}
+              onLimitChange={(newLimit) => {
+                setLimit(newLimit);
+                setPage(1);
               }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>Show</span>
-                <select
-                  value={limit}
-                  onChange={(e) => {
-                    setLimit(Number(e.target.value));
-                    setPage(1);
-                  }}
-                  style={{
-                    padding: "4px 8px",
-                    borderRadius: "6px",
-                    border: "1px solid #cbd5e1",
-                    background: "#ffffff",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                  }}
-                >
-                  {[10, 20, 50, 100].map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>entries per page</span>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    opacity: page <= 1 ? 0.5 : 1,
-                  }}
-                >
-                  <ChevronLeft size={14} /> Prev
-                </button>
-                <span style={{ fontSize: "13px", color: "#475569", fontWeight: 600, padding: "0 8px" }}>
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    opacity: page >= totalPages ? 0.5 : 1,
-                  }}
-                >
-                  Next <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
+              limits={[10, 20, 50, 100]}
+            />
           </div>
         </div>
       </div>

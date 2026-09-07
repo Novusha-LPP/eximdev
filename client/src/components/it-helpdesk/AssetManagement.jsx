@@ -25,7 +25,10 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  RotateCcw,
 } from "lucide-react";
+import CustomSelect from "./CustomSelect";
+import ITPagination from "./ITPagination";
 import "../../styles/scorecard.scss";
 
 const ASSET_TYPES = ["Desktop", "Laptop", "Printer", "Network Device", "Software", "Phone", "SIM Card", "Rack", "Cable"];
@@ -196,7 +199,7 @@ export default function AssetManagement() {
   };
 
   // Audit logs
-  const { logCreate, logRead, logUpdate, logDelete } = useModuleAuditLogs("Asset");
+  const { logCreate, logRead, logUpdate, logDelete, logExport } = useModuleAuditLogs("Asset");
 
   const [data, setData] = useState([]);
   const [users, setUsers] = useState([]);
@@ -534,13 +537,13 @@ export default function AssetManagement() {
       XLSX.writeFile(wb, fileName);
 
       toast.success("Excel exported successfully");
-      logCreate("excel-export", "Exported assets to Excel", "info");
+      logExport("excel-export", `Exported assets list to Excel (${excelData.length} records)`, "info");
     } catch (error) {
       console.error("Export failed:", error);
       toast.error("Failed to export Excel");
-      logCreate(error.message, "Excel export failed");
+      logExport("excel-export-failed", "Excel export failed", "error");
     }
-  }, [filteredData, users, logCreate]);
+  }, [filteredData, users, logExport]);
   // ----------------------------------
 
   const requiredFieldsForType = getRequiredFieldsForType(form.asset_type);
@@ -653,15 +656,15 @@ export default function AssetManagement() {
       {/* Filters Card */}
       <div className="card mb-16">
         <div className="card-body">
-          <div className="form-grid" style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr", alignItems: "flex-end" }}>
+          <div className="form-grid" style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr auto", gap: "12px", alignItems: "flex-end" }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Search Assets</label>
               <div style={{ position: "relative" }}>
-                <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--color-text-muted)" }} />
+                <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
                 <input
                   type="text"
                   className="form-input"
-                  style={{ paddingLeft: 32 }}
+                  style={{ paddingLeft: "32px", height: "38px" }}
                   placeholder="Search by tag, model, serial, assignee..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -670,63 +673,85 @@ export default function AssetManagement() {
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Asset Type</label>
-              <select
-                className="form-select"
+              <CustomSelect
                 value={filters.type}
-                onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value, status: "" }))}
-              >
-                <option value="">All Types</option>
-                {ASSET_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setFilters((f) => ({ ...f, type: val, status: "" }))}
+                options={[
+                  { label: "All Types", value: "" },
+                  ...ASSET_TYPES.map((t) => ({ label: t, value: t })),
+                ]}
+                placeholder="All Types"
+                width="100%"
+              />
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Status</label>
-              <select
-                className="form-select"
+              <CustomSelect
                 value={filters.status}
-                onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
-              >
-                <option value="">All Statuses</option>
-                {(filters.type === "SIM Card"
-                  ? ["Available", "Assigned", "Active", "Inactive"]
-                  : filters.type === "Printer"
-                    ? ["Available", "Active", "Repair", "Retired"]
-                    : filters.type === "Network Device"
-                      ? ["Active", "Spare", "Repair", "Retired"]
-                      : filters.type === "Software"
-                        ? ["Active", "Expired", "Suspended"]
-                        : filters.type === "Rack"
-                          ? ["Active", "Inactive", "Occupied", "Available", "Blocked", "Under Maintenance"]
-                          : filters.type === "Desktop" || filters.type === "Laptop" || filters.type === "Phone"
-                            ? ["Available", "Assigned", "Active", "Inactive", "In Repair", "Retired"]
-                            : filters.type === "Cable"
-                              ? ["Available", "Assigned", "In Repair", "Retired"]
-                              : STATUSES
-                ).map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setFilters((f) => ({ ...f, status: val }))}
+                options={[
+                  { label: "All Statuses", value: "" },
+                  ...(filters.type === "SIM Card"
+                    ? ["Available", "Assigned", "Active", "Inactive"]
+                    : filters.type === "Printer"
+                      ? ["Available", "Active", "Repair", "Retired"]
+                      : filters.type === "Network Device"
+                        ? ["Active", "Spare", "Repair", "Retired"]
+                        : filters.type === "Software"
+                          ? ["Active", "Expired", "Suspended"]
+                          : filters.type === "Rack"
+                            ? ["Active", "Inactive", "Occupied", "Available", "Blocked", "Under Maintenance"]
+                            : filters.type === "Desktop" || filters.type === "Laptop" || filters.type === "Phone"
+                              ? ["Available", "Assigned", "Active", "Inactive", "In Repair", "Retired"]
+                              : filters.type === "Cable"
+                                ? ["Available", "Assigned", "In Repair", "Retired"]
+                                : STATUSES
+                  ).map((s) => ({ label: s, value: s })),
+                ]}
+                placeholder="All Statuses"
+                width="100%"
+              />
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Department</label>
-              <select
-                className="form-select"
+              <CustomSelect
                 value={filters.department || ""}
-                onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))}
+                onChange={(val) => setFilters((f) => ({ ...f, department: val }))}
+                options={[
+                  { label: "All Departments", value: "" },
+                  ...DEPARTMENTS.map((dept) => ({ label: dept, value: dept })),
+                ]}
+                placeholder="All Departments"
+                width="100%"
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0, minWidth: "130px" }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setFilters({ search: "", type: "", status: "", department: "" })}
+                style={{
+                  height: "38px",
+                  width: "100%",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  background: "#ffffff",
+                  border: "1px solid #cbd5e1",
+                  color: "#475569",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  padding: "0 14px",
+                  whiteSpace: "nowrap",
+                }}
+                title="Clear Filters"
               >
-                <option value="">All Departments</option>
-                {DEPARTMENTS.map((dept) => (
-                  <option key={dept} value={dept}>
-                    {dept}
-                  </option>
-                ))}
-              </select>
+                <RotateCcw size={14} /> <span>Clear Filters</span>
+              </button>
             </div>
           </div>
         </div>
@@ -747,17 +772,17 @@ export default function AssetManagement() {
             </div>
           ) : (
             <div className="table-wrap">
-              <table>
+              <table style={{ width: "100%", minWidth: "1150px" }}>
                 <thead>
                   <tr>
-                    <th>Asset Tag</th>
-                    <th>Type</th>
-                    <th>Manufacturer / Model</th>
-                    <th>Assigned To</th>
-                    <th>Department</th>
-                    <th>Status</th>
-                    <th>Location</th>
-                    <th style={{ textAlign: "right" }}>Actions</th>
+                    <th style={{ minWidth: 130 }}>Asset Tag</th>
+                    <th style={{ minWidth: 120 }}>Type</th>
+                    <th style={{ minWidth: 180 }}>Manufacturer / Model</th>
+                    <th style={{ minWidth: 150 }}>Assigned To</th>
+                    <th style={{ minWidth: 140 }}>Department</th>
+                    <th style={{ minWidth: 110 }}>Status</th>
+                    <th style={{ minWidth: 150 }}>Location</th>
+                    <th style={{ width: 80, minWidth: 80, textAlign: "right" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -770,39 +795,41 @@ export default function AssetManagement() {
                   ) : (
                     filteredData.map((a) => (
                       <tr key={a._id}>
-                        <td style={{ fontWeight: 600, color: "var(--color-primary)" }}>{a.asset_tag}</td>
-                        <td>
-                          <span className="score-badge badge-primary">{a.asset_type}</span>
+                        <td style={{ fontWeight: 700, color: "#0f172a", fontSize: "13px" }}>{a.asset_tag}</td>
+                        <td style={{ color: "#334155", fontSize: "13px", fontWeight: 500 }}>
+                          {a.asset_type || "—"}
                         </td>
                         <td>
-                          <div style={{ fontWeight: 500 }}>{a.manufacturer || "—"}</div>
-                          {a.model && <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>{a.model}</div>}
+                          <div style={{ fontWeight: 600, color: "#0f172a", fontSize: "13px" }}>{a.manufacturer || "—"}</div>
+                          {a.model && <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>{a.model}</div>}
                         </td>
-                        <td>{getAssignedToName(a.assigned_to)}</td>
-                        <td>{a.department || "—"}</td>
+                        <td style={{ color: "#334155", fontWeight: 500 }}>{getAssignedToName(a.assigned_to)}</td>
+                        <td style={{ color: "#475569" }}>{a.department || "—"}</td>
                         <td>
                           <span className={`score-badge ${getStatusBadgeClass(a.status)}`}>
                             {a.status}
                           </span>
                         </td>
-                        <td>{a.location || "—"}</td>
-                        <td style={{ textAlign: "right" }}>
-                          <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
+                        <td style={{ color: "#475569" }}>{a.location || "—"}</td>
+                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                          <div style={{ display: "inline-flex", gap: "6px", alignItems: "center", justifyContent: "flex-end" }}>
                             <button
-                              className="btn btn-secondary"
-                              style={{ padding: "4px 8px" }}
+                              type="button"
+                              className="btn btn-icon btn-primary"
+                              style={{ width: "28px", height: "28px" }}
                               onClick={() => handleOpen(a)}
                               title="Edit Asset"
                             >
-                              <Edit2 size={13} />
+                              <Edit2 size={14} color="#2563eb" />
                             </button>
                             <button
-                              className="btn btn-danger"
-                              style={{ padding: "4px 8px" }}
+                              type="button"
+                              className="btn btn-icon btn-danger"
+                              style={{ width: "28px", height: "28px" }}
                               onClick={(e) => handleDelete(e, a._id)}
                               title="Delete Asset"
                             >
-                              <Trash2 size={13} />
+                              <Trash2 size={14} color="#dc2626" />
                             </button>
                           </div>
                         </td>
@@ -815,29 +842,16 @@ export default function AssetManagement() {
           )}
 
           {/* Pagination Footer */}
-          <div className="pagination-bar">
-            <div className="pagination-info">
-              Total {pagination.total} records (Page {pagination.page} of {Math.max(1, Math.ceil(pagination.total / pagination.limit))})
-            </div>
-            <div className="pagination-controls">
-              <button
-                className="btn btn-secondary"
-                disabled={pagination.page <= 1}
-                onClick={() => fetchData(pagination.page - 1)}
-                style={{ padding: "4px 10px", fontSize: 12 }}
-              >
-                <ChevronLeft size={14} /> Prev
-              </button>
-              <button
-                className="btn btn-secondary"
-                disabled={pagination.page * pagination.limit >= pagination.total}
-                onClick={() => fetchData(pagination.page + 1)}
-                style={{ padding: "4px 10px", fontSize: 12 }}
-              >
-                Next <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
+          <ITPagination
+            page={pagination.page}
+            totalPages={Math.max(1, Math.ceil((pagination.total || data.length || 1) / pagination.limit))}
+            totalRecords={pagination.total || data.length}
+            limit={pagination.limit}
+            onPageChange={(newPage) => fetchData(newPage)}
+            onLimitChange={(newLimit) => {
+              setPagination((prev) => ({ ...prev, limit: newLimit, page: 1 }));
+            }}
+          />
         </div>
       </div>
 

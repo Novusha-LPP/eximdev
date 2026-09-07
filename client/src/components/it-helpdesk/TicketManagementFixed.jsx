@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import axios from "axios";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
+import ITPagination from "./ITPagination";
 import {
   Box,
   Button,
@@ -626,6 +627,18 @@ export default function TicketManagement() {
                       </Table>
                     </TableContainer>
                   )}
+
+                  <ITPagination
+                    page={pagination.page}
+                    totalPages={Math.max(1, Math.ceil((pagination.total || data.length) / pagination.limit))}
+                    totalRecords={pagination.total || data.length}
+                    limit={pagination.limit}
+                    onPageChange={(p) => fetchData(p)}
+                    onLimitChange={(l) => {
+                      setPagination(prev => ({ ...prev, limit: l, page: 1 }));
+                      fetchData(1);
+                    }}
+                  />
                 </CardContent>
               </Card>
             </CardContent>

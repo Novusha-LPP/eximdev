@@ -10,10 +10,14 @@ import {
   Key,
   ChevronLeft,
   ChevronRight,
+  RotateCcw,
 } from "lucide-react";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
+import CustomSelect from "./CustomSelect";
+import ITPagination from "./ITPagination";
+import { logExportAudit } from "./auditHelper";
 import "../../styles/scorecard.scss";
 
 // Compute license status from expiry date
@@ -320,6 +324,10 @@ export default function LicenseManagement() {
       const date = new Date().toISOString().slice(0, 10);
       XLSX.writeFile(wb, `IT_Software_Licenses_${date}.xlsx`);
       toast.success("License directory exported to Excel");
+      logExportAudit({
+        module: "License",
+        details: `Exported Software Licenses list to Excel (${excelData.length} licenses)`,
+      });
     } catch (error) {
       console.error("Export failed:", error);
       toast.error("Failed to export Excel");
@@ -362,26 +370,13 @@ export default function LicenseManagement() {
           </div>
         </div>
 
-        <div className="topbar-right" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button
             type="button"
-            className="btn"
+            className="btn btn-secondary"
             onClick={handleExportToExcel}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "#ffffff",
-              border: "1px solid #cbd5e1",
-              color: "#0f172a",
-              fontWeight: 600,
-              fontSize: "13px",
-              padding: "7px 14px",
-              borderRadius: "8px",
-              cursor: "pointer",
-            }}
           >
-            <Download size={15} color="#059669" /> Export Excel
+            <Download size={15} /> <span>Export Excel</span>
           </button>
           <button
             type="button"
@@ -391,17 +386,8 @@ export default function LicenseManagement() {
               setForm({ ...EMPTY_FORM });
               setOpen(true);
             }}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "13px",
-              padding: "7px 16px",
-              borderRadius: "8px",
-              fontWeight: 600,
-            }}
           >
-            <Plus size={15} /> + Add License
+            <Plus size={15} /> <span>Add License</span>
           </button>
         </div>
       </div>
@@ -449,6 +435,7 @@ export default function LicenseManagement() {
                   <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
                   <input
                     type="text"
+                    className="form-input"
                     placeholder="License, software, vendor, assignee…"
                     value={searchTerm}
                     onChange={(e) => {
@@ -462,43 +449,45 @@ export default function LicenseManagement() {
 
               <div className="form-field">
                 <label>License Type</label>
-                <select
+                <CustomSelect
                   value={typeFilter}
-                  onChange={(e) => {
-                    setTypeFilter(e.target.value);
+                  onChange={(val) => {
+                    setTypeFilter(val);
                     setPage(1);
                   }}
-                >
-                  <option value="">All Types</option>
-                  {LICENSE_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { label: "All Types", value: "" },
+                    ...LICENSE_TYPES.map((t) => ({ label: t, value: t })),
+                  ]}
+                  placeholder="All Types"
+                  width="100%"
+                />
               </div>
 
               <div className="form-field">
                 <label>Expiry Status</label>
-                <select
+                <CustomSelect
                   value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
+                  onChange={(val) => {
+                    setStatusFilter(val);
                     setPage(1);
                   }}
-                >
-                  <option value="">All Statuses</option>
-                  <option value="Active">Active</option>
-                  <option value="Expiring Soon">Expiring Soon</option>
-                  <option value="Expired">Expired</option>
-                  <option value="No Expiry">No Expiry</option>
-                </select>
+                  options={[
+                    { label: "All Statuses", value: "" },
+                    { label: "Active", value: "Active" },
+                    { label: "Expiring Soon", value: "Expiring Soon" },
+                    { label: "Expired", value: "Expired" },
+                    { label: "No Expiry", value: "No Expiry" },
+                  ]}
+                  placeholder="All Statuses"
+                  width="100%"
+                />
               </div>
 
-              <div className="form-field">
+              <div className="form-field" style={{ minWidth: "130px" }}>
                 <button
                   type="button"
-                  className="btn"
+                  className="btn btn-secondary"
                   onClick={() => {
                     setSearchTerm("");
                     setTypeFilter("");
@@ -510,11 +499,19 @@ export default function LicenseManagement() {
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    gap: "6px",
                     fontWeight: 600,
-                    color: "#0f172a",
+                    fontSize: "13px",
+                    background: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    color: "#475569",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
                   }}
+                  title="Clear Filters"
                 >
-                  Clear Filters
+                  <RotateCcw size={14} /> Clear Filters
                 </button>
               </div>
             </div>
@@ -552,20 +549,20 @@ export default function LicenseManagement() {
               </div>
             ) : (
               <div className="table-wrap">
-                <table style={{ width: "100%" }}>
+                <table style={{ width: "100%", minWidth: "1280px" }}>
                   <thead>
                     <tr>
-                      <th style={{ width: 44, textAlign: "center" }}>#</th>
-                      <th style={{ minWidth: 150 }}>License Name</th>
-                      <th style={{ minWidth: 130 }}>License Code</th>
-                      <th style={{ minWidth: 140 }}>Software Product</th>
-                      <th style={{ minWidth: 110 }}>Type</th>
-                      <th style={{ minWidth: 130 }}>Vendor / Partner</th>
+                      <th style={{ width: 44, minWidth: 44, textAlign: "center" }}>#</th>
+                      <th style={{ minWidth: 200 }}>License Name</th>
+                      <th style={{ minWidth: 140 }}>License Code</th>
+                      <th style={{ minWidth: 150 }}>Software Product</th>
+                      <th style={{ minWidth: 180 }}>Type</th>
+                      <th style={{ minWidth: 180 }}>Vendor / Partner</th>
                       <th style={{ minWidth: 110 }}>Expiry Date</th>
-                      <th style={{ minWidth: 110, textAlign: "center" }}>Status</th>
-                      <th style={{ minWidth: 160 }}>Assigned To</th>
-                      <th style={{ minWidth: 90, textAlign: "right" }}>Cost (₹)</th>
-                      <th style={{ width: 80, textAlign: "center" }}>Action</th>
+                      <th style={{ minWidth: 100, textAlign: "center" }}>Status</th>
+                      <th style={{ minWidth: 180 }}>Assigned To</th>
+                      <th style={{ minWidth: 100, textAlign: "right" }}>Cost (₹)</th>
+                      <th style={{ width: 80, minWidth: 80, textAlign: "center" }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -587,24 +584,22 @@ export default function LicenseManagement() {
                             <td className="fw-600" style={{ color: "#0f172a" }}>
                               {item.license_name}
                             </td>
-                            <td style={{ color: "#4f46e5", fontFamily: "monospace", fontSize: "12px" }}>
+                            <td style={{ color: "#4f46e5", fontFamily: "monospace", fontSize: "12px", whiteSpace: "nowrap" }}>
                               {item.license_code}
                             </td>
                             <td style={{ color: "#334155" }}>
                               {item.software_name}
                             </td>
-                            <td>
-                              <span className="score-badge badge-primary">
-                                {item.license_type || "Standard"}
-                              </span>
+                            <td style={{ minWidth: "180px", color: "#334155", fontSize: "13px" }}>
+                              {item.license_type || "Standard"}
                             </td>
-                            <td style={{ color: "#475569" }}>
-                              {item.vendor_name || "—"}
+                            <td style={{ minWidth: "180px", color: "#475569" }}>
+                              {item.vendor_name || item.vendor?.name || "—"}
                             </td>
-                            <td style={{ color: "#64748b", fontSize: "12.5px" }}>
+                            <td style={{ color: "#64748b", fontSize: "12.5px", whiteSpace: "nowrap" }}>
                               {fmtDate(item.expiry_date)}
                             </td>
-                            <td style={{ textAlign: "center" }}>
+                            <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
                               <span className={`score-badge ${status.cls}`}>
                                 {status.label}
                               </span>
@@ -612,24 +607,19 @@ export default function LicenseManagement() {
                             <td style={{ color: "#1e293b", fontSize: "12.5px" }}>
                               {item.assigned_to || item.assigned_asset || "—"}
                             </td>
-                            <td style={{ textAlign: "right", fontWeight: 600, color: "#0f172a" }}>
+                            <td style={{ textAlign: "right", fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap" }}>
                               {item.cost ? `₹${Number(item.cost).toLocaleString("en-IN")}` : "—"}
                             </td>
-                            <td style={{ textAlign: "center" }}>
+                            <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
                               <div style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
                                 <button
                                   type="button"
                                   className="btn btn-icon btn-primary"
                                   onClick={() => handleEdit(item)}
                                   title="Edit License"
-                                  style={{
-                                    width: "28px",
-                                    height: "28px",
-                                    background: "rgba(79, 70, 229, 0.1)",
-                                    border: "none",
-                                  }}
+                                  style={{ width: "28px", height: "28px" }}
                                 >
-                                  <Edit2 size={13} color="#4f46e5" />
+                                  <Edit2 size={14} color="#4f46e5" />
                                 </button>
                                 <button
                                   type="button"
@@ -652,78 +642,17 @@ export default function LicenseManagement() {
             )}
 
             {/* ── Pagination Footer ─────────────────────────────────── */}
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "12px",
-                borderTop: "1px solid #e2e8f0",
-                padding: "12px 16px",
-                background: "#fafbfc",
+            <ITPagination
+              page={page}
+              totalPages={totalPages}
+              totalRecords={filteredData.length}
+              limit={limit}
+              onPageChange={(newPage) => setPage(newPage)}
+              onLimitChange={(newLimit) => {
+                setLimit(newLimit);
+                setPage(1);
               }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>Show</span>
-                <select
-                  value={limit}
-                  onChange={(e) => {
-                    setLimit(Number(e.target.value));
-                    setPage(1);
-                  }}
-                  style={{
-                    padding: "4px 8px",
-                    borderRadius: "6px",
-                    border: "1px solid #cbd5e1",
-                    background: "#ffffff",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                  }}
-                >
-                  {[10, 15, 25, 50].map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>entries per page</span>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    opacity: page <= 1 ? 0.5 : 1,
-                  }}
-                >
-                  <ChevronLeft size={14} /> Prev
-                </button>
-                <span style={{ fontSize: "13px", color: "#475569", fontWeight: 600, padding: "0 8px" }}>
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    opacity: page >= totalPages ? 0.5 : 1,
-                  }}
-                >
-                  Next <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
+            />
           </div>
         </div>
 

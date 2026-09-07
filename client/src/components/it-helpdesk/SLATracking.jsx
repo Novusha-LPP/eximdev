@@ -27,11 +27,14 @@ import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ITPagination from "./ITPagination";
 
 const TICKET_CATEGORIES = ["Hardware", "Software", "Network", "Access", "Other"];
 const TICKET_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 
 export default function SLATracking({ slaRules, setSlaRules }) {
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [showModal, setShowModal] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
   const [form, setForm] = useState({
@@ -40,6 +43,9 @@ export default function SLATracking({ slaRules, setSlaRules }) {
     priority: "All",
     sla_hours: 24,
   });
+
+  const totalPages = Math.max(1, Math.ceil((slaRules?.length || 0) / limit));
+  const paginatedRules = (slaRules || []).slice((page - 1) * limit, page * limit);
 
   const handleSave = () => {
     if (editingRule) {
@@ -104,7 +110,7 @@ export default function SLATracking({ slaRules, setSlaRules }) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {slaRules.length === 0 ? (
+                {paginatedRules.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} align="center">
                       <Typography variant="body2" color="text.secondary">
@@ -113,7 +119,7 @@ export default function SLATracking({ slaRules, setSlaRules }) {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  slaRules.map((rule) => (
+                  paginatedRules.map((rule) => (
                     <TableRow key={rule.id}>
                       <TableCell>{rule.name}</TableCell>
                       <TableCell>{rule.category}</TableCell>
@@ -137,6 +143,18 @@ export default function SLATracking({ slaRules, setSlaRules }) {
               </TableBody>
             </Table>
           </TableContainer>
+
+          <ITPagination
+            page={page}
+            totalPages={totalPages}
+            totalRecords={(slaRules || []).length}
+            limit={limit}
+            onPageChange={(p) => setPage(p)}
+            onLimitChange={(l) => {
+              setLimit(l);
+              setPage(1);
+            }}
+          />
         </CardContent>
       </Card>
 

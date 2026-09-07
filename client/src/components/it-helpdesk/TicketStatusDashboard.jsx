@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
+import ITPagination from "./ITPagination";
 import {
   Box,
   Button,
@@ -70,6 +71,15 @@ export default function TicketStatusDashboard() {
     critical: 0,
   });
   const [viewMode, setViewMode] = useState("all"); // "all", "open", "pending", "resolved", "closed"
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [viewMode, filters]);
+
+  const totalPages = Math.max(1, Math.ceil((tickets || []).length / limit));
+  const paginatedTickets = (tickets || []).slice((page - 1) * limit, page * limit);
 
   // Fetch tickets from API
   const fetchTickets = async () => {
@@ -496,7 +506,7 @@ export default function TicketStatusDashboard() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {tickets.length === 0 ? (
+                  {paginatedTickets.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} align="center">
                         <Typography variant="body2" color="text.secondary">
@@ -505,7 +515,7 @@ export default function TicketStatusDashboard() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    tickets.map((ticket) => (
+                    paginatedTickets.map((ticket) => (
                       <TableRow key={ticket._id} hover>
                         <TableCell>{ticket.ticket_id || ticket._id}</TableCell>
                         <TableCell>{ticket.title}</TableCell>
@@ -612,6 +622,18 @@ export default function TicketStatusDashboard() {
               </Table>
             </TableContainer>
           )}
+
+          <ITPagination
+            page={page}
+            totalPages={totalPages}
+            totalRecords={(tickets || []).length}
+            limit={limit}
+            onPageChange={(p) => setPage(p)}
+            onLimitChange={(l) => {
+              setLimit(l);
+              setPage(1);
+            }}
+          />
         </CardContent>
       </Card>
     </Box>

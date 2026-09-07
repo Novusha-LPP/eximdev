@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import {
   Box,
@@ -31,6 +31,7 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SearchIcon from "@mui/icons-material/Search";
+import ITPagination from "./ITPagination";
 
 const TICKET_CATEGORIES = ["Hardware", "Software", "Network", "Access", "Other"];
 const TICKET_PRIORITIES = ["Low", "Medium", "High", "Critical"];
@@ -130,17 +131,27 @@ export default function IncidentManagement({ incidents, loading, setIncidents })
     }
   };
 
-  const filteredIncidents = incidents.filter(incident => {
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
+
+  const filteredIncidents = (incidents || []).filter(incident => {
     return (
       (!filters.status || incident.status === filters.status) &&
       (!filters.category || incident.category === filters.category) &&
       (!filters.priority || incident.priority === filters.priority) &&
       (!filters.search || 
-        incident.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-        incident.description.toLowerCase().includes(filters.search.toLowerCase())
+        incident.title?.toLowerCase().includes(filters.search.toLowerCase()) ||
+        incident.description?.toLowerCase().includes(filters.search.toLowerCase())
       )
     );
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredIncidents.length / limit));
+  const paginatedIncidents = filteredIncidents.slice((page - 1) * limit, page * limit);
 
   return (
     <Box>
@@ -255,7 +266,7 @@ export default function IncidentManagement({ incidents, loading, setIncidents })
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredIncidents.length === 0 ? (
+                  {paginatedIncidents.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} align="center">
                         <Typography variant="body2" color="text.secondary">
@@ -264,7 +275,7 @@ export default function IncidentManagement({ incidents, loading, setIncidents })
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredIncidents.map((incident) => (
+                    paginatedIncidents.map((incident) => (
                       <TableRow key={incident.id}>
                         <TableCell>{incident.id}</TableCell>
                         <TableCell>{incident.title}</TableCell>
@@ -296,6 +307,18 @@ export default function IncidentManagement({ incidents, loading, setIncidents })
               </Table>
             </TableContainer>
           )}
+
+          <ITPagination
+            page={page}
+            totalPages={totalPages}
+            totalRecords={filteredIncidents.length}
+            limit={limit}
+            onPageChange={(p) => setPage(p)}
+            onLimitChange={(l) => {
+              setLimit(l);
+              setPage(1);
+            }}
+          />
         </CardContent>
       </Card>
 

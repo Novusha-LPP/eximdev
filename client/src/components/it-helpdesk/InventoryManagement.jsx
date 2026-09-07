@@ -12,11 +12,14 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  RotateCcw,
 } from "lucide-react";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
+import CustomSelect from "./CustomSelect";
+import ITPagination from "./ITPagination";
 import "../../styles/scorecard.scss";
 
 const CATEGORIES = [
@@ -61,7 +64,7 @@ const computeWarrantyStatus = (endStr) => {
 
 export default function InventoryManagement() {
   const navigate = useNavigate();
-  const { logCreate, logUpdate, logDelete } = useModuleAuditLogs("Inventory");
+  const { logCreate, logUpdate, logDelete, logExport } = useModuleAuditLogs("Inventory");
 
   const [activeTab, setActiveTab] = useState("old"); // "old" | "new"
   const [oldData, setOldData] = useState([]);
@@ -161,23 +164,22 @@ export default function InventoryManagement() {
       !form.item_id.trim() ||
       !form.brand.trim() ||
       !form.model.trim() ||
-      !form.category ||
-      !form.warranty_start_date ||
-      !form.warranty_end_date
+      !form.category
     ) {
-      toast.error("Please fill all required fields");
+      toast.error("Please fill all required fields (Item ID, Brand, Model, Category)");
       return;
     }
 
     setSaving(true);
+    const targetType = form.inventory_type || (activeTab === "old" ? "Old" : "New");
     const payload = {
       item_id: form.item_id.trim(),
       brand: form.brand.trim(),
       model: form.model.trim(),
       category: form.category,
-      inventory_type: form.inventory_type,
-      warranty_start_date: new Date(form.warranty_start_date),
-      warranty_end_date: new Date(form.warranty_end_date),
+      inventory_type: targetType,
+      warranty_start_date: form.warranty_start_date ? new Date(form.warranty_start_date) : null,
+      warranty_end_date: form.warranty_end_date ? new Date(form.warranty_end_date) : null,
     };
 
     try {
@@ -197,7 +199,8 @@ export default function InventoryManagement() {
 
       setShowModal(false);
       setForm(EMPTY_FORM);
-      fetchData();
+      setActiveTab(targetType.toLowerCase() === "new" ? "new" : "old");
+      await fetchData();
     } catch (err) {
       console.error("Error saving inventory:", err);
       toast.error(err?.response?.data?.message || err?.message || "Failed to save item");
@@ -243,6 +246,7 @@ export default function InventoryManagement() {
       const date = new Date().toISOString().slice(0, 10);
       XLSX.writeFile(wb, `IT_Inventory_${activeTab.toUpperCase()}_${date}.xlsx`);
       toast.success("Inventory exported to Excel");
+      logExport("inventory-export", `Exported ${activeTab === "old" ? "Old" : "New"} Inventory to Excel (${excelData.length} items)`);
     } catch (error) {
       console.error("Export failed:", error);
       toast.error("Failed to export Excel");
@@ -285,42 +289,20 @@ export default function InventoryManagement() {
           </div>
         </div>
 
-        <div className="topbar-right" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button
             type="button"
-            className="btn"
+            className="btn btn-secondary"
             onClick={handleExportToExcel}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "#ffffff",
-              border: "1px solid #cbd5e1",
-              color: "#0f172a",
-              fontWeight: 600,
-              fontSize: "13px",
-              padding: "7px 14px",
-              borderRadius: "8px",
-              cursor: "pointer",
-            }}
           >
-            <Download size={15} color="#059669" /> Export Excel
+            <Download size={15} /> <span>Export Excel</span>
           </button>
           <button
             type="button"
             className="btn btn-primary"
             onClick={handleOpenAdd}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "13px",
-              padding: "7px 16px",
-              borderRadius: "8px",
-              fontWeight: 600,
-            }}
           >
-            <Plus size={15} /> Add {activeTab === "old" ? "Old" : "New"} Item
+            <Plus size={15} /> <span>Add {activeTab === "old" ? "Old" : "New"} Item</span>
           </button>
         </div>
       </div>
@@ -423,70 +405,85 @@ export default function InventoryManagement() {
                 </button>
               </div>
 
-              <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-                <div style={{ position: "relative", minWidth: "220px" }}>
-                  <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+              {/* Filters: Search Box + Category Dropdown + Clear Filters side-by-side */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  alignItems: "center",
+                  flexWrap: "nowrap",
+                }}
+              >
+                <div style={{ position: "relative", width: "260px" }}>
+                  <Search
+                    size={15}
+                    style={{
+                      position: "absolute",
+                      left: 10,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: "#94a3b8",
+                      pointerEvents: "none",
+                    }}
+                  />
                   <input
                     type="text"
+                    className="form-input"
                     placeholder="Search item, brand, model…"
                     value={searchTerm}
                     onChange={(e) => {
                       setSearchTerm(e.target.value);
                       setPage(1);
                     }}
-                    style={{
-                      paddingLeft: "32px",
-                      height: "36px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      background: "#f8fafc",
-                      fontSize: "13px",
-                      width: "100%",
-                      outline: "none",
-                    }}
+                    style={{ paddingLeft: "32px", height: "38px", width: "100%" }}
                   />
                 </div>
 
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => {
-                    setCategoryFilter(e.target.value);
+                <div style={{ width: "200px" }}>
+                  <CustomSelect
+                    value={categoryFilter}
+                    onChange={(val) => {
+                      setCategoryFilter(val);
+                      setPage(1);
+                    }}
+                    options={[
+                      { label: "All Categories", value: "" },
+                      ...CATEGORIES.map((cat) => ({ label: cat, value: cat })),
+                    ]}
+                    placeholder="All Categories"
+                    width="100%"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setCategoryFilter("");
                     setPage(1);
                   }}
                   style={{
-                    height: "36px",
-                    borderRadius: "8px",
-                    border: "1px solid #cbd5e1",
-                    background: "#ffffff",
+                    height: "38px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                    fontWeight: 600,
                     fontSize: "13px",
-                    padding: "0 10px",
-                    fontWeight: 500,
-                    color: "#0f172a",
-                    outline: "none",
+                    background: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    color: "#475569",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                    padding: "0 14px",
+                    whiteSpace: "nowrap",
                   }}
+                  title="Clear Filters"
                 >
-                  <option value="">All Categories</option>
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-
-                {(searchTerm || categoryFilter) && (
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => {
-                      setSearchTerm("");
-                      setCategoryFilter("");
-                      setPage(1);
-                    }}
-                    style={{ height: "36px", fontSize: "12px", fontWeight: 600, padding: "0 10px" }}
-                  >
-                    Clear
-                  </button>
-                )}
+                  <RotateCcw size={14} /> Clear Filters
+                </button>
               </div>
             </div>
           </div>
@@ -524,19 +521,19 @@ export default function InventoryManagement() {
               </div>
             ) : (
               <div className="table-wrap">
-                <table style={{ width: "100%" }}>
+                <table style={{ width: "100%", minWidth: "1150px" }}>
                   <thead>
                     <tr>
-                      <th style={{ width: 44, textAlign: "center" }}>#</th>
-                      <th style={{ minWidth: 130 }}>Item ID / Tag</th>
-                      <th style={{ minWidth: 120 }}>Brand</th>
-                      <th style={{ minWidth: 130 }}>Model</th>
-                      <th style={{ minWidth: 120 }}>Category</th>
+                      <th style={{ width: 44, minWidth: 44, textAlign: "center" }}>#</th>
+                      <th style={{ minWidth: 140 }}>Item ID / Tag</th>
+                      <th style={{ minWidth: 130 }}>Brand</th>
+                      <th style={{ minWidth: 180 }}>Model</th>
+                      <th style={{ minWidth: 130 }}>Category</th>
                       <th style={{ minWidth: 100 }}>Type</th>
-                      <th style={{ minWidth: 110 }}>Warranty Start</th>
-                      <th style={{ minWidth: 110 }}>Warranty End</th>
-                      <th style={{ minWidth: 100, textAlign: "center" }}>Status</th>
-                      <th style={{ width: 80, textAlign: "center" }}>Action</th>
+                      <th style={{ minWidth: 120 }}>Warranty Start</th>
+                      <th style={{ minWidth: 120 }}>Warranty End</th>
+                      <th style={{ minWidth: 110, textAlign: "center" }}>Status</th>
+                      <th style={{ width: 80, minWidth: 80, textAlign: "center" }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -560,15 +557,11 @@ export default function InventoryManagement() {
                             </td>
                             <td style={{ color: "#334155" }}>{item.brand || "—"}</td>
                             <td style={{ color: "#475569" }}>{item.model || "—"}</td>
-                            <td>
-                              <span className="score-badge badge-primary">
-                                {item.category || "Other"}
-                              </span>
+                            <td style={{ color: "#334155", fontSize: "13px", fontWeight: 500 }}>
+                              {item.category || "—"}
                             </td>
-                            <td>
-                              <span className={`score-badge ${item.inventory_type === "New" ? "badge-excellent" : "badge-secondary"}`}>
-                                {item.inventory_type || "Old"}
-                              </span>
+                            <td style={{ color: "#334155", fontSize: "13px", fontWeight: 500 }}>
+                              {item.inventory_type || (activeTab === "old" ? "Old" : "New")}
                             </td>
                             <td style={{ color: "#64748b", fontSize: "12.5px" }}>
                               {fmtDate(item.warranty_start_date)}
@@ -588,14 +581,9 @@ export default function InventoryManagement() {
                                   className="btn btn-icon btn-primary"
                                   onClick={() => handleOpenEdit(item)}
                                   title="Edit Item"
-                                  style={{
-                                    width: "28px",
-                                    height: "28px",
-                                    background: "rgba(79, 70, 229, 0.1)",
-                                    border: "none",
-                                  }}
+                                  style={{ width: "28px", height: "28px" }}
                                 >
-                                  <Edit2 size={13} color="#4f46e5" />
+                                  <Edit2 size={14} color="#4f46e5" />
                                 </button>
                                 <button
                                   type="button"
@@ -618,78 +606,17 @@ export default function InventoryManagement() {
             )}
 
             {/* ── Pagination Footer ─────────────────────────────────── */}
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "12px",
-                borderTop: "1px solid #e2e8f0",
-                padding: "12px 16px",
-                background: "#fafbfc",
+            <ITPagination
+              page={page}
+              totalPages={totalPages}
+              totalRecords={filteredData.length}
+              limit={limit}
+              onPageChange={(newPage) => setPage(newPage)}
+              onLimitChange={(newLimit) => {
+                setLimit(newLimit);
+                setPage(1);
               }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>Show</span>
-                <select
-                  value={limit}
-                  onChange={(e) => {
-                    setLimit(Number(e.target.value));
-                    setPage(1);
-                  }}
-                  style={{
-                    padding: "4px 8px",
-                    borderRadius: "6px",
-                    border: "1px solid #cbd5e1",
-                    background: "#ffffff",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                  }}
-                >
-                  {[10, 15, 25, 50].map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 500 }}>entries per page</span>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    opacity: page <= 1 ? 0.5 : 1,
-                  }}
-                >
-                  <ChevronLeft size={14} /> Prev
-                </button>
-                <span style={{ fontSize: "13px", color: "#475569", fontWeight: 600, padding: "0 8px" }}>
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    opacity: page >= totalPages ? 0.5 : 1,
-                  }}
-                >
-                  Next <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
+            />
           </div>
         </div>
 
@@ -823,20 +750,18 @@ export default function InventoryManagement() {
                   </div>
 
                   <div className="form-field">
-                    <label>Warranty Start Date *</label>
+                    <label>Warranty Start Date</label>
                     <input
                       type="date"
-                      required
                       value={form.warranty_start_date}
                       onChange={(e) => setForm({ ...form, warranty_start_date: e.target.value })}
                     />
                   </div>
 
                   <div className="form-field">
-                    <label>Warranty End Date *</label>
+                    <label>Warranty End Date</label>
                     <input
                       type="date"
-                      required
                       value={form.warranty_end_date}
                       onChange={(e) => setForm({ ...form, warranty_end_date: e.target.value })}
                     />
@@ -848,7 +773,8 @@ export default function InventoryManagement() {
                   style={{
                     display: "flex",
                     justifyContent: "flex-end",
-                    gap: "10px",
+                    alignItems: "center",
+                    gap: "12px",
                     marginTop: "20px",
                     paddingTop: "14px",
                     borderTop: "1px solid #e2e8f0",
@@ -856,10 +782,24 @@ export default function InventoryManagement() {
                 >
                   <button
                     type="button"
-                    className="btn"
+                    className="btn btn-secondary"
                     onClick={() => setShowModal(false)}
                     disabled={saving}
-                    style={{ fontWeight: 600 }}
+                    style={{
+                      height: "38px",
+                      padding: "0 18px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 600,
+                      fontSize: "13.5px",
+                      borderRadius: "8px",
+                      background: "#ffffff",
+                      border: "1px solid #cbd5e1",
+                      color: "#334155",
+                      margin: 0,
+                      cursor: "pointer",
+                    }}
                   >
                     Cancel
                   </button>
@@ -867,7 +807,18 @@ export default function InventoryManagement() {
                     type="submit"
                     className="btn btn-primary"
                     disabled={saving}
-                    style={{ fontWeight: 600 }}
+                    style={{
+                      height: "38px",
+                      padding: "0 18px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 600,
+                      fontSize: "13.5px",
+                      borderRadius: "8px",
+                      margin: 0,
+                      cursor: "pointer",
+                    }}
                   >
                     {saving ? "Saving..." : editId ? "Update Item" : "Add to Inventory"}
                   </button>

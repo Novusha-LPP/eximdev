@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
+import ITPagination from "./ITPagination";
 import {
   Box,
   Button,
@@ -84,6 +85,8 @@ export default function TicketAnalytics() {
   const [ticketsNeedingAttention, setTicketsNeedingAttention] = useState([]);
   const [reportTickets, setReportTickets] = useState([]);
   const [reportLoading, setReportLoading] = useState(false);
+  const [openTicketsPage, setOpenTicketsPage] = useState(1);
+  const [openTicketsLimit, setOpenTicketsLimit] = useState(10);
 
   // Fetch analytics data
   const fetchAnalytics = async () => {
@@ -820,10 +823,15 @@ export default function TicketAnalytics() {
                               </tr>
                             </thead>
                             <tbody>
-                              {reportTickets
-                                .filter(t => ["New","Open","In Progress","Assigned","Pending"].includes(t.status))
-                                .slice(0, 20)
-                                .map((t, i) => (
+                              {(() => {
+                                const openTicketsList = reportTickets.filter(t => ["New","Open","In Progress","Assigned","Pending"].includes(t.status));
+                                const paginatedList = openTicketsList.slice((openTicketsPage - 1) * openTicketsLimit, openTicketsPage * openTicketsLimit);
+                                if (paginatedList.length === 0) {
+                                  return (
+                                    <tr><td colSpan={7} style={{ padding: "20px", textAlign: "center", color: "#999" }}>No open tickets found</td></tr>
+                                  );
+                                }
+                                return paginatedList.map((t, i) => (
                                   <tr key={t._id} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
                                     <td style={{ padding: "8px 12px", borderBottom: "1px solid #f0f0f0", fontFamily: "monospace", fontSize: 12 }}>{t.ticket_id || t._id?.slice(-6)}</td>
                                     <td style={{ padding: "8px 12px", borderBottom: "1px solid #f0f0f0" }}>{t.title}</td>
@@ -833,18 +841,29 @@ export default function TicketAnalytics() {
                                     <td style={{ padding: "8px 12px", borderBottom: "1px solid #f0f0f0" }}>{t.department || "—"}</td>
                                     <td style={{ padding: "8px 12px", borderBottom: "1px solid #f0f0f0", fontSize: 12 }}>{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—"}</td>
                                   </tr>
-                                ))}
-                              {reportTickets.filter(t => ["New","Open","In Progress","Assigned","Pending"].includes(t.status)).length === 0 && (
-                                <tr><td colSpan={7} style={{ padding: "20px", textAlign: "center", color: "#999" }}>No open tickets found</td></tr>
-                              )}
+                                ));
+                              })()}
                             </tbody>
                           </table>
-                          {reportTickets.filter(t => ["New","Open","In Progress","Assigned","Pending"].includes(t.status)).length > 20 && (
-                            <Typography variant="caption" color="text.secondary" mt={1} display="block" textAlign="center">
-                              Showing first 20 records. Download Excel for full list.
-                            </Typography>
-                          )}
                         </Box>
+                        {/* Pagination */}
+                        {(() => {
+                          const openTicketsList = reportTickets.filter(t => ["New","Open","In Progress","Assigned","Pending"].includes(t.status));
+                          const totalPages = Math.max(1, Math.ceil(openTicketsList.length / openTicketsLimit));
+                          return (
+                            <ITPagination
+                              page={openTicketsPage}
+                              totalPages={totalPages}
+                              totalRecords={openTicketsList.length}
+                              limit={openTicketsLimit}
+                              onPageChange={(p) => setOpenTicketsPage(p)}
+                              onLimitChange={(l) => {
+                                setOpenTicketsLimit(l);
+                                setOpenTicketsPage(1);
+                              }}
+                            />
+                          );
+                        })()}
                       </CardContent>
                     </Card>
                   </Grid>

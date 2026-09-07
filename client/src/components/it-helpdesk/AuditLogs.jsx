@@ -681,7 +681,7 @@ const AuditLogsComponent = () => {
               <div className="page-subtitle">Real-time system activity, change logs, and access security monitoring</div>
             </div>
           </div>
-          <div className="topbar-actions">
+          <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <button className="btn btn-secondary" onClick={handleRefreshLogs} disabled={loading || isRefreshing}>
               <RefreshCw size={15} /> {isRefreshing ? "Refreshing..." : "Refresh"}
             </button>

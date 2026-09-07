@@ -607,7 +607,7 @@ export default function AssetManagement() {
             <div className="page-subtitle">Track, assign, and manage enterprise hardware, laptops, and IT infrastructure</div>
           </div>
         </div>
-        <div className="topbar-actions">
+        <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button className="btn btn-secondary" onClick={() => fetchData(pagination.page)}>
             <RefreshCw size={15} /> Refresh
           </button>

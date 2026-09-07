@@ -50,6 +50,7 @@ $shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
     align-items: center;
     gap: 12px;
 
+    .back-btn,
     .btn-icon {
       border: 1px solid $slate-200;
       background: white;
@@ -74,7 +75,8 @@ $shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
     }
   }
 
-  .topbar-title {
+  .topbar-title,
+  .page-title {
     font-size: 20px;
     font-weight: 700;
     color: $slate-900;
@@ -82,17 +84,26 @@ $shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
     margin: 0;
   }
 
-  .topbar-breadcrumb {
+  .topbar-breadcrumb,
+  .page-subtitle {
     font-size: 12px;
     color: $slate-700;
     margin-top: 2px;
   }
 
+  .topbar-actions,
   .topbar-right {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
+}
+
+.topbar-actions,
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .page-body {
@@ -463,49 +474,77 @@ $shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 20px;
-  font-size: 14px;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 13.5px;
   font-weight: 600;
   border-radius: 8px;
-  border: 1px solid $slate-200;
-  background: white !important;
-  color: #0f172a !important;
+  border: 1px solid #cbd5e1;
+  background: white;
+  color: #334155;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: $shadow-sm !important;
-  margin-top: 0 !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  line-height: 1.4;
+  white-space: nowrap;
+  outline: none;
 
-  &:hover,
-  &:focus,
-  &:active {
-    background: #f8fafc !important;
-    border-color: $slate-300 !important;
-    color: #0f172a !important;
+  svg {
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #0f172a;
     transform: translateY(-1px);
-    box-shadow: $shadow-md !important;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  &.btn-secondary {
+    background: white;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+
+    &:hover {
+      background: #f8fafc;
+      border-color: #94a3b8;
+      color: #0f172a;
+    }
   }
 
   &.btn-primary {
-    background: $primary !important;
-    border-color: $primary;
+    background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%) !important;
+    border: 1px solid #4338ca !important;
     color: white !important;
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3) !important;
 
     &:hover {
-      background: $primary-hover !important;
-      border-color: $primary-hover;
-      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25) !important;
+      background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%) !important;
+      border-color: #3730a3 !important;
+      color: white !important;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4) !important;
+      transform: translateY(-1px);
     }
   }
 
   &.btn-danger {
-    background: $danger !important;
-    border-color: $danger;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+    border: 1px solid #dc2626 !important;
     color: white !important;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25) !important;
 
     &:hover {
-      background: $danger-hover !important;
-      border-color: $danger-hover;
-      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25) !important;
+      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+      border-color: #b91c1c !important;
+      color: white !important;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35) !important;
+      transform: translateY(-1px);
     }
   }
 

@@ -532,7 +532,7 @@ export default function TicketManagement() {
             <div className="page-subtitle">Overview, filter and track all IT support tickets with real-time status</div>
           </div>
         </div>
-        <div className="topbar-actions">
+        <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button className="btn btn-secondary" onClick={() => fetchData(pagination.page)}>
             <RefreshCw size={15} /> Refresh
           </button>

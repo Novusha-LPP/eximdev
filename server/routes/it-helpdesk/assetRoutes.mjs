@@ -306,22 +306,74 @@ const validateAssetPayload = async (req, res, next) => {
 
 router.get("/", async (req, res) => {
   try {
-    const { type, status, location, assigned_to, page = 1, limit = 50 } = req.query;
+    const { type, category, asset_type, status, department, location, assigned_to, search, page = 1, limit = 15, all, fromDate, toDate } = req.query;
     const filter = {};
-    if (type) filter.asset_type = type;
-    if (status) filter.status = status;
+    const selectedType = type || category || asset_type;
+    if (selectedType && selectedType !== "ALL") filter.asset_type = selectedType;
+    if (status && status !== "ALL") filter.status = status;
+    if (department && department !== "ALL") filter.department = department;
     if (location) filter.location = new RegExp(location, "i");
     if (assigned_to) filter.assigned_to = assigned_to;
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+      if (toDate) {
+        const endOfDay = new Date(toDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endOfDay;
+      }
+    }
+    if (search) {
+      const searchRegex = new RegExp(String(search).trim(), "i");
+      filter.$or = [
+        { asset_tag: searchRegex },
+        { asset_name: searchRegex },
+        { manufacturer: searchRegex },
+        { model: searchRegex },
+        { serial_number: searchRegex },
+        { location: searchRegex },
+        { department: searchRegex },
+        { operating_system: searchRegex },
+        { sim_number_iccid: searchRegex },
+        { mobile_number: searchRegex },
+        { processor: searchRegex },
+      ];
+    }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    if (all === "true") {
+      const data = await Asset.find(filter)
+        .populate("assigned_to", "username first_name last_name email name")
+        .populate("vendor", "name")
+        .sort({ createdAt: -1 });
+      return res.json({ success: true, data });
+    }
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 15);
+    const skip = (pageNum - 1) * limitNum;
+
     const [data, total] = await Promise.all([
       Asset.find(filter)
+        .populate("assigned_to", "username first_name last_name email name")
+        .populate("vendor", "name")
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit)),
+        .limit(limitNum),
       Asset.countDocuments(filter),
     ]);
-    res.json({ success: true, data, pagination: { total, page: parseInt(page), limit: parseInt(limit) } });
+
+    const totalPages = Math.ceil(total / limitNum) || 1;
+
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages,
+      },
+    });
   } catch (err) {
     logger.error(`Error fetching assets: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });

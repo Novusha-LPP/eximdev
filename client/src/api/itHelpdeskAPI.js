@@ -30,6 +30,7 @@ export const itHelpdeskAPI = {
   },
   vendors: {
     getAll: (params = {}) => api.get("/it-helpdesk/vendors", { params }).then((r) => r.data),
+    getStats: () => api.get("/it-helpdesk/vendors/stats").then((r) => r.data),
     getById: (id) => api.get(`/it-helpdesk/vendors/${id}`).then((r) => r.data),
     create: (payload) => api.post("/it-helpdesk/vendors", payload).then((r) => r.data),
     update: (id, payload) => api.put(`/it-helpdesk/vendors/${id}`, payload).then((r) => r.data),
@@ -44,6 +45,7 @@ export const itHelpdeskAPI = {
   },
   licenses: {
     getAll: (params = {}) => api.get("/it-helpdesk/licenses", { params }).then((r) => r.data),
+    getStats: () => api.get("/it-helpdesk/licenses/stats").then((r) => r.data),
     getById: (id) => api.get(`/it-helpdesk/licenses/${id}`).then((r) => r.data),
     create: (payload) => api.post("/it-helpdesk/licenses", payload).then((r) => r.data),
     update: (id, payload) => api.put(`/it-helpdesk/licenses/${id}`, payload).then((r) => r.data),
@@ -51,6 +53,7 @@ export const itHelpdeskAPI = {
   },
   inventory: {
     getAll: (params = {}) => api.get("/it-helpdesk/inventory", { params }).then((r) => r.data),
+    getStats: () => api.get("/it-helpdesk/inventory/stats").then((r) => r.data),
     getById: (id) => api.get(`/it-helpdesk/inventory/${id}`).then((r) => r.data),
     create: (payload) => api.post("/it-helpdesk/inventory", payload).then((r) => r.data),
     update: (id, payload) => api.put(`/it-helpdesk/inventory/${id}`, payload).then((r) => r.data),
@@ -62,6 +65,17 @@ export const itHelpdeskAPI = {
     create: (payload) => api.post("/it-helpdesk/users", payload).then((r) => r.data),
     update: (id, payload) => api.put(`/it-helpdesk/users/${id}`, payload).then((r) => r.data),
     remove: (id) => api.delete(`/it-helpdesk/users/${id}`).then((r) => r.data),
+  },
+  notifications: {
+    getAll: (params = {}) => api.get("/it-helpdesk/notifications", { params }).then((r) => r.data),
+    getStats: () => api.get("/it-helpdesk/notifications/stats").then((r) => r.data),
+  },
+  reports: {
+    export: (reportType, params = {}) =>
+      api.get(`/it-helpdesk/reports/${reportType}/export`, {
+        params,
+        responseType: "blob",
+      }),
   },
   admin: {
     myBranches: () => api.get("/admin/my-branches").then((r) => r.data),

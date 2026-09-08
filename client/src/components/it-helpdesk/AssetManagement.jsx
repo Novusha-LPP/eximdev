@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
@@ -276,6 +276,7 @@ const EMPTY_FORM = {
 
 export default function AssetManagement() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const handleBack = () => {
     navigate("/it-helpdesk");
@@ -284,78 +285,97 @@ export default function AssetManagement() {
   // Audit logs
   const { logCreate, logRead, logUpdate, logDelete, logExport } = useModuleAuditLogs("Asset");
 
+  // Server-side pagination & filter state derived directly from URL query params
+  const page = parseInt(searchParams.get("page")) || 1;
+  const limit = parseInt(searchParams.get("limit")) || 15;
+  const typeFilter = searchParams.get("type") || "";
+  const statusFilter = searchParams.get("status") || "";
+  const departmentFilter = searchParams.get("department") || "";
+  const searchParam = searchParams.get("search") || "";
+
   const [data, setData] = useState([]);
   const [users, setUsers] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ type: "", status: "", department: "" });
-  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 15 });
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 15, totalPages: 1 });
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
 
-  // Helper function to safely get assigned user name
-  const getAssignedToName = (assignedTo) => {
-    if (!assignedTo) return "Unassigned";
-    // If backend returns a populated object with username/first_name
-    if (typeof assignedTo === 'object') {
-      return assignedTo.username || assignedTo.first_name || "Unknown User";
-    }
-    // If backend returns an ID, try to find it in the local users list
-    const user = users.find(u => u._id === assignedTo);
-    return user ? (user.username || user.first_name) : "Unknown User";
-  };
-
-  // Computed property for filtered data (moved inside component)
-  const filteredData = data.filter(item => {
-    const term = searchTerm.toLowerCase();
-    return (
-      (item.asset_tag || "").toLowerCase().includes(term) ||
-      (item.asset_name || "").toLowerCase().includes(term) ||
-      (item.asset_type || "").toLowerCase().includes(term) ||
-      (item.manufacturer || "").toLowerCase().includes(term) ||
-      (item.model || "").toLowerCase().includes(term) ||
-      (item.serial_number || "").toLowerCase().includes(term) ||
-      (item.location || "").toLowerCase().includes(term) ||
-      (item.department || "").toLowerCase().includes(term)
-    );
-  });
-
-  const fetchData = useCallback(
-    async (page = 1, overrideFilters = null) => {
-      setLoading(true);
-      try {
-        logRead("asset-list-view", "Accessed asset list with filters", "info");
-
-        const activeFilters = overrideFilters || filters;
-        const params = { page, limit: pagination.limit };
-        if (activeFilters.type) params.type = activeFilters.type;
-        if (activeFilters.status) params.status = activeFilters.status;
-        if (activeFilters.department) params.department = activeFilters.department;
-
-        const res = await itHelpdeskAPI.assets.getAll(params);
-        setData(res.data || []);
-        setPagination(res.pagination || { total: 0, page: 1, limit: params.limit });
-      } catch (err) {
-        toast.error("Failed to load assets");
-        console.error(err);
-        console.error(`Failed to load assets: ${err.message}`);
-      } finally {
-        setLoading(false);
-      }
+  // Helper to update search params while preserving existing ones
+  const updateQueryParams = useCallback(
+    (newParams) => {
+      const current = Object.fromEntries(searchParams.entries());
+      const merged = { ...current, ...newParams };
+      const cleaned = {};
+      Object.keys(merged).forEach((key) => {
+        const val = merged[key];
+        if (val !== "" && val !== undefined && val !== null) {
+          cleaned[key] = String(val);
+        }
+      });
+      setSearchParams(cleaned);
     },
-    [filters, pagination.limit]
+    [searchParams, setSearchParams]
   );
 
+  // Helper function to safely get assigned user name
+  const getAssignedToName = useCallback(
+    (assignedTo) => {
+      if (!assignedTo) return "Unassigned";
+      if (typeof assignedTo === "object") {
+        const nameStr = assignedTo.first_name
+          ? `${assignedTo.first_name} ${assignedTo.last_name || ""}`.trim()
+          : assignedTo.username || assignedTo.name || assignedTo.email || "";
+        if (nameStr) return nameStr;
+      }
+      const user = users.find((u) => String(u._id) === String(assignedTo));
+      if (user) {
+        return user.first_name
+          ? `${user.first_name} ${user.last_name || ""}`.trim()
+          : user.username || user.name || user.email;
+      }
+      if (/^[0-9a-fA-F]{24}$/.test(String(assignedTo).trim())) {
+        return "Unassigned";
+      }
+      return String(assignedTo);
+    },
+    [users]
+  );
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      logRead("asset-list-view", "Accessed asset list with server-side pagination & filters", "info");
+
+      const params = { page, limit };
+      if (typeFilter) params.type = typeFilter;
+      if (statusFilter) params.status = statusFilter;
+      if (departmentFilter) params.department = departmentFilter;
+      if (searchParam) params.search = searchParam;
+
+      const res = await itHelpdeskAPI.assets.getAll(params);
+      setData(res.data || []);
+      setPagination(
+        res.pagination || {
+          total: res.data?.length || 0,
+          page,
+          limit,
+          totalPages: Math.ceil((res.data?.length || 0) / limit) || 1,
+        }
+      );
+    } catch (err) {
+      toast.error("Failed to load assets");
+      console.error("Failed to load assets:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, limit, typeFilter, statusFilter, departmentFilter, searchParam]);
+
   const handleClearFilters = () => {
-    setSearchTerm("");
-    const emptyFilters = { type: "", status: "", department: "" };
-    setFilters(emptyFilters);
-    setPagination((prev) => ({ ...prev, page: 1 }));
-    fetchData(1, emptyFilters);
+    setSearchParams({ page: "1", limit: String(limit) });
   };
 
   const fetchUsers = useCallback(async () => {
@@ -366,10 +386,8 @@ export default function AssetManagement() {
         params: { limit: USERS_FETCH_LIMIT },
       });
       setUsers(res.data || []);
-      console.log("Fetched users:", res.data?.length || 0);
     } catch (err) {
       console.error("Failed to fetch users:", err);
-      console.error(`Failed to fetch users: ${err.message}`);
     }
   }, []);
 
@@ -385,7 +403,7 @@ export default function AssetManagement() {
 
   useEffect(() => {
     logRead("asset-module-access", "Accessed Asset Management module", "info");
-    fetchData(1);
+    fetchData();
   }, [fetchData]);
 
   useEffect(() => {
@@ -533,7 +551,7 @@ export default function AssetManagement() {
         toast.success("Asset created");
       }
       setShowModal(false);
-      fetchData(pagination.page);
+      fetchData();
     } catch (err) {
       toast.error(err.response?.data?.message || "Save failed");
       console.error(`Failed to ${editId ? "update" : "create"} asset: ${err.message}`);
@@ -548,7 +566,7 @@ export default function AssetManagement() {
     try {
       await itHelpdeskAPI.assets.remove(id);
       toast.success("Deleted");
-      fetchData(pagination.page);
+      fetchData();
     } catch (err) {
       toast.error(err.response?.data?.message || "Delete failed");
       console.error(`Failed to delete asset with ID: ${id}: ${err.message}`);
@@ -556,10 +574,19 @@ export default function AssetManagement() {
   };
 
   // --- Excel Export Functionality ---
-  const handleExportAllToExcel = useCallback(() => {
+  const handleExportAllToExcel = useCallback(async () => {
     try {
+      const params = { page: 1, limit: 5000 };
+      if (typeFilter) params.type = typeFilter;
+      if (statusFilter) params.status = statusFilter;
+      if (departmentFilter) params.department = departmentFilter;
+      if (searchParam) params.search = searchParam;
+
+      const res = await itHelpdeskAPI.assets.getAll(params);
+      const exportList = res.data || [];
+
       // 1. Map data to a cleaner format for Excel
-      const excelData = filteredData.map((item, index) => ({
+      const excelData = exportList.map((item, index) => ({
         "S.No": index + 1,
         "Asset Tag": item.asset_tag || "",
         "Asset Type": item.asset_type || "",
@@ -614,7 +641,7 @@ export default function AssetManagement() {
       // 3. Convert JSON data to a worksheet
       const ws = XLSX.utils.json_to_sheet(excelData);
 
-      // 4. Set column widths (optional but makes it look better)
+      // 4. Set column widths
       const wscols = Object.keys(excelData[0] || {}).map(() => ({ wch: 20 }));
       ws['!cols'] = wscols;
 
@@ -635,7 +662,7 @@ export default function AssetManagement() {
       toast.error("Failed to export Excel");
       logExport("excel-export-failed", "Excel export failed", "error");
     }
-  }, [filteredData, users, logExport]);
+  }, [typeFilter, statusFilter, departmentFilter, searchParam, getAssignedToName, logExport]);
   // ----------------------------------
 
   const requiredFieldsForType = getRequiredFieldsForType(form.asset_type);
@@ -704,7 +731,7 @@ export default function AssetManagement() {
           </div>
         </div>
         <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <button className="btn btn-secondary" onClick={() => fetchData(pagination.page)}>
+          <button className="btn btn-secondary" onClick={() => fetchData()}>
             <RefreshCw size={15} /> Refresh
           </button>
           <button className="btn btn-secondary" onClick={handleExportAllToExcel}>
@@ -759,16 +786,16 @@ export default function AssetManagement() {
                   className="form-input"
                   style={{ paddingLeft: "32px", height: "38px" }}
                   placeholder="Search by tag, model, serial, assignee..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={searchParam}
+                  onChange={(e) => updateQueryParams({ search: e.target.value, page: 1 })}
                 />
               </div>
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Asset Type</label>
               <CustomSelect
-                value={filters.type}
-                onChange={(val) => setFilters((f) => ({ ...f, type: val, status: "" }))}
+                value={typeFilter}
+                onChange={(val) => updateQueryParams({ type: val, status: "", page: 1 })}
                 options={[
                   { label: "All Types", value: "" },
                   ...ASSET_TYPES.map((t) => ({ label: t, value: t })),
@@ -780,23 +807,23 @@ export default function AssetManagement() {
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Status</label>
               <CustomSelect
-                value={filters.status}
-                onChange={(val) => setFilters((f) => ({ ...f, status: val }))}
+                value={statusFilter}
+                onChange={(val) => updateQueryParams({ status: val, page: 1 })}
                 options={[
                   { label: "All Statuses", value: "" },
-                  ...(filters.type === "SIM Card"
+                  ...(typeFilter === "SIM Card"
                     ? ["Available", "Assigned", "Active", "Inactive"]
-                    : filters.type === "Printer"
+                    : typeFilter === "Printer"
                       ? ["Available", "Active", "Repair", "Retired"]
-                      : filters.type === "Network Device"
+                      : typeFilter === "Network Device"
                         ? ["Active", "Spare", "Repair", "Retired"]
-                        : filters.type === "Software"
+                        : typeFilter === "Software"
                           ? ["Active", "Expired", "Suspended"]
-                          : filters.type === "Rack"
+                          : typeFilter === "Rack"
                             ? ["Active", "Inactive", "Occupied", "Available", "Blocked", "Under Maintenance"]
-                            : filters.type === "Desktop" || filters.type === "Laptop" || filters.type === "Phone"
+                            : typeFilter === "Desktop" || typeFilter === "Laptop" || typeFilter === "Phone"
                               ? ["Available", "Assigned", "Active", "Inactive", "In Repair", "Retired"]
-                              : filters.type === "Cable"
+                              : typeFilter === "Cable"
                                 ? ["Available", "Assigned", "In Repair", "Retired"]
                                 : STATUSES
                   ).map((s) => ({ label: s, value: s })),
@@ -808,8 +835,8 @@ export default function AssetManagement() {
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Department</label>
               <CustomSelect
-                value={filters.department || ""}
-                onChange={(val) => setFilters((f) => ({ ...f, department: val }))}
+                value={departmentFilter}
+                onChange={(val) => updateQueryParams({ department: val, page: 1 })}
                 options={[
                   { label: "All Departments", value: "" },
                   ...DEPARTMENTS.map((dept) => ({ label: dept, value: dept })),
@@ -855,7 +882,9 @@ export default function AssetManagement() {
         <div className="card-header">
           <div>
             <div className="card-title">Assets Directory</div>
-            <div className="card-subtitle">Showing {filteredData.length} records</div>
+            <div className="card-subtitle">
+              Showing {data.length} of {pagination.total || data.length} records (Page {page} of {pagination.totalPages || 1})
+            </div>
           </div>
         </div>
         <div className="card-body" style={{ padding: 0 }}>
@@ -879,14 +908,14 @@ export default function AssetManagement() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredData.length === 0 ? (
+                  {data.length === 0 ? (
                     <tr>
                       <td colSpan={8} style={{ textAlign: "center", padding: "30px", color: "var(--color-text-muted)" }}>
                         No assets found matching the criteria.
                       </td>
                     </tr>
                   ) : (
-                    filteredData.map((a) => (
+                    data.map((a) => (
                       <tr key={a._id}>
                         <td style={{ fontWeight: 700, color: "#0f172a", fontSize: "13px" }}>{a.asset_tag}</td>
                         <td style={{ color: "#334155", fontSize: "13px", fontWeight: 500 }}>
@@ -936,14 +965,12 @@ export default function AssetManagement() {
 
           {/* Pagination Footer */}
           <ITPagination
-            page={pagination.page}
-            totalPages={Math.max(1, Math.ceil((pagination.total || data.length || 1) / pagination.limit))}
-            totalRecords={pagination.total || data.length}
-            limit={pagination.limit}
-            onPageChange={(newPage) => fetchData(newPage)}
-            onLimitChange={(newLimit) => {
-              setPagination((prev) => ({ ...prev, limit: newLimit, page: 1 }));
-            }}
+            page={page}
+            totalPages={pagination.totalPages || Math.max(1, Math.ceil((pagination.total || 1) / limit))}
+            totalRecords={pagination.total || 0}
+            limit={limit}
+            onPageChange={(newPage) => updateQueryParams({ page: newPage })}
+            onLimitChange={(newLimit) => updateQueryParams({ limit: newLimit, page: 1 })}
           />
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search,
   Download,
@@ -64,20 +64,47 @@ const computeWarrantyStatus = (endStr) => {
 
 export default function InventoryManagement() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { logCreate, logUpdate, logDelete, logExport } = useModuleAuditLogs("Inventory");
 
-  const [activeTab, setActiveTab] = useState("old"); // "old" | "new"
-  const [oldData, setOldData] = useState([]);
-  const [newData, setNewData] = useState([]);
+  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [pagination, setPagination] = useState({ page: 1, limit: 15, total: 0, totalPages: 1 });
+  const [stats, setStats] = useState(null);
+
+  // Parse parameters from URL query string
+  const rawTypeParam = searchParams.get("inventory_type") || "Old";
+  const activeTab = rawTypeParam.toLowerCase() === "new" ? "new" : "old";
+  const categoryParam = searchParams.get("category") || "";
+  const searchParam = searchParams.get("search") || "";
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
+  const limitParam = parseInt(searchParams.get("limit") || "15", 10);
+
+  const updateQueryParams = useCallback(
+    (newParams) => {
+      setSearchParams((prevParams) => {
+        const updated = new URLSearchParams(prevParams);
+        Object.entries(newParams).forEach(([key, val]) => {
+          if (val !== undefined && val !== null && val !== "") {
+            updated.set(key, String(val));
+          } else {
+            updated.delete(key);
+          }
+        });
+        return updated;
+      });
+    },
+    [setSearchParams]
+  );
+
+  const [searchInput, setSearchInput] = useState(searchParam);
+  useEffect(() => {
+    setSearchInput(searchParam);
+  }, [searchParam]);
 
   const formatDateForInput = (dateString) => {
     if (!dateString) return "";
@@ -85,54 +112,58 @@ export default function InventoryManagement() {
     return isNaN(date) ? "" : date.toISOString().split("T")[0];
   };
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [oldRes, newRes] = await Promise.all([
-        itHelpdeskAPI.inventory.getAll({ inventory_type: "Old" }),
-        itHelpdeskAPI.inventory.getAll({ inventory_type: "New" }),
-      ]);
-      setOldData(oldRes.data || []);
-      setNewData(newRes.data || []);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to load inventory data");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchData = useCallback(
+    async (overridePage) => {
+      if (typeof overridePage === "number") {
+        updateQueryParams({ page: overridePage });
+        return;
+      }
+      setLoading(true);
+      try {
+        const targetType = activeTab === "new" ? "New" : "Old";
+        const params = {
+          inventory_type: targetType,
+          page: pageParam,
+          limit: limitParam,
+        };
+        if (categoryParam) params.category = categoryParam;
+        if (searchParam) params.search = searchParam;
+
+        const [listRes, statsRes] = await Promise.all([
+          itHelpdeskAPI.inventory.getAll(params),
+          itHelpdeskAPI.inventory.getStats ? itHelpdeskAPI.inventory.getStats().catch(() => null) : Promise.resolve(null),
+        ]);
+
+        const items = listRes.data || listRes;
+        setData(Array.isArray(items) ? items : []);
+        if (listRes.pagination) {
+          setPagination(listRes.pagination);
+        } else {
+          setPagination({ page: pageParam, limit: limitParam, total: items.length, totalPages: 1 });
+        }
+        if (statsRes && statsRes.data) {
+          setStats(statsRes.data);
+        }
+      } catch (err) {
+        console.error("Failed to load inventory:", err);
+        toast.error("Failed to load inventory data");
+        setData([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [activeTab, pageParam, limitParam, categoryParam, searchParam, updateQueryParams]
+  );
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const currentDataset = activeTab === "old" ? oldData : newData;
-
-  const filteredData = currentDataset.filter((item) => {
-    const term = searchTerm.toLowerCase();
-    const matchesSearch =
-      !searchTerm ||
-      (item.item_id || "").toLowerCase().includes(term) ||
-      (item.brand || "").toLowerCase().includes(term) ||
-      (item.model || "").toLowerCase().includes(term) ||
-      (item.category || "").toLowerCase().includes(term);
-
-    const matchesCategory = !categoryFilter || item.category === categoryFilter;
-
-    return matchesSearch && matchesCategory;
-  });
-
   // KPI calculations
-  const totalOld = oldData.length;
-  const totalNew = newData.length;
-  const grandTotal = totalOld + totalNew;
-  const activeWarrantyCount = [...oldData, ...newData].filter(
-    (item) => item.warranty_end_date && new Date(item.warranty_end_date) > new Date()
-  ).length;
-
-  // Pagination calculation
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / limit));
-  const displayedRows = filteredData.slice((page - 1) * limit, page * limit);
+  const grandTotal = stats?.total ?? pagination.total ?? data.length;
+  const totalOld = stats?.old ?? (activeTab === "old" ? (pagination.total || data.length) : 0);
+  const totalNew = stats?.new ?? (activeTab === "new" ? (pagination.total || data.length) : 0);
+  const activeWarrantyCount = stats?.activeWarranty ?? 0;
 
   const handleOpenAdd = () => {
     setEditId(null);
@@ -199,7 +230,7 @@ export default function InventoryManagement() {
 
       setShowModal(false);
       setForm(EMPTY_FORM);
-      setActiveTab(targetType.toLowerCase() === "new" ? "new" : "old");
+      updateQueryParams({ inventory_type: targetType, page: 1 });
       await fetchData();
     } catch (err) {
       console.error("Error saving inventory:", err);
@@ -226,9 +257,18 @@ export default function InventoryManagement() {
     }
   };
 
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     try {
-      const excelData = currentDataset.map((item, index) => ({
+      toast.loading("Preparing export...", { id: "export-inventory" });
+      const targetType = activeTab === "new" ? "New" : "Old";
+      const params = { inventory_type: targetType, limit: 10000 };
+      if (categoryParam) params.category = categoryParam;
+      if (searchParam) params.search = searchParam;
+
+      const res = await itHelpdeskAPI.inventory.getAll(params);
+      const itemsToExport = res.data || [];
+
+      const excelData = itemsToExport.map((item, index) => ({
         "Sr. No.": index + 1,
         "Item ID / Serial": item.item_id || "",
         "Brand": item.brand || "",
@@ -245,11 +285,11 @@ export default function InventoryManagement() {
 
       const date = new Date().toISOString().slice(0, 10);
       XLSX.writeFile(wb, `IT_Inventory_${activeTab.toUpperCase()}_${date}.xlsx`);
-      toast.success("Inventory exported to Excel");
+      toast.success("Inventory exported to Excel", { id: "export-inventory" });
       logExport("inventory-export", `Exported ${activeTab === "old" ? "Old" : "New"} Inventory to Excel (${excelData.length} items)`);
     } catch (error) {
       console.error("Export failed:", error);
-      toast.error("Failed to export Excel");
+      toast.error("Failed to export Excel", { id: "export-inventory" });
     }
   };
 
@@ -332,10 +372,7 @@ export default function InventoryManagement() {
               <div style={{ display: "inline-flex", background: "#f1f5f9", padding: "4px", borderRadius: "10px", gap: "4px" }}>
                 <button
                   type="button"
-                  onClick={() => {
-                    setActiveTab("old");
-                    setPage(1);
-                  }}
+                  onClick={() => updateQueryParams({ inventory_type: "Old", page: 1 })}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -361,10 +398,7 @@ export default function InventoryManagement() {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setActiveTab("new");
-                    setPage(1);
-                  }}
+                  onClick={() => updateQueryParams({ inventory_type: "New", page: 1 })}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -414,10 +448,11 @@ export default function InventoryManagement() {
                     type="text"
                     className="form-input"
                     placeholder="Search item, brand, model…"
-                    value={searchTerm}
+                    value={searchInput}
                     onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setPage(1);
+                      const val = e.target.value;
+                      setSearchInput(val);
+                      updateQueryParams({ search: val, page: 1 });
                     }}
                     style={{ paddingLeft: "32px", height: "38px", width: "100%" }}
                   />
@@ -425,11 +460,8 @@ export default function InventoryManagement() {
 
                 <div style={{ width: "200px" }}>
                   <CustomSelect
-                    value={categoryFilter}
-                    onChange={(val) => {
-                      setCategoryFilter(val);
-                      setPage(1);
-                    }}
+                    value={categoryParam}
+                    onChange={(val) => updateQueryParams({ category: val, page: 1 })}
                     options={[
                       { label: "All Categories", value: "" },
                       ...CATEGORIES.map((cat) => ({ label: cat, value: cat })),
@@ -443,9 +475,8 @@ export default function InventoryManagement() {
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => {
-                    setSearchTerm("");
-                    setCategoryFilter("");
-                    setPage(1);
+                    setSearchInput("");
+                    setSearchParams({ inventory_type: activeTab === "new" ? "New" : "Old", page: "1", limit: String(limitParam) });
                   }}
                   style={{
                     height: "38px",
@@ -494,7 +525,7 @@ export default function InventoryManagement() {
             </div>
 
             <span style={{ fontSize: "12px", color: "#64748b", background: "#f1f5f9", padding: "4px 10px", borderRadius: "12px", fontWeight: 600 }}>
-              Showing {displayedRows.length} of {filteredData.length} records
+              Showing {data.length} of {pagination.total || 0} records
             </span>
           </div>
 
@@ -521,20 +552,20 @@ export default function InventoryManagement() {
                     </tr>
                   </thead>
                   <tbody>
-                    {displayedRows.length === 0 ? (
+                    {data.length === 0 ? (
                       <tr>
                         <td colSpan={10} style={{ textAlign: "center", padding: "36px 16px", color: "#94a3b8" }}>
                           No {activeTab} inventory records found
                         </td>
                       </tr>
                     ) : (
-                      displayedRows.map((item, idx) => {
+                      data.map((item, idx) => {
                         const warranty = computeWarrantyStatus(item.warranty_end_date);
 
                         return (
                           <tr key={item._id} style={{ background: idx % 2 === 0 ? "#ffffff" : "#fcfdfd" }}>
                             <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>
-                              {(page - 1) * limit + idx + 1}
+                              {(pagination.page - 1) * pagination.limit + idx + 1}
                             </td>
                             <td className="fw-600" style={{ color: "#0f172a" }}>
                               {item.item_id}
@@ -591,15 +622,12 @@ export default function InventoryManagement() {
 
             {/* ── Pagination Footer ─────────────────────────────────── */}
             <ITPagination
-              page={page}
-              totalPages={totalPages}
-              totalRecords={filteredData.length}
-              limit={limit}
-              onPageChange={(newPage) => setPage(newPage)}
-              onLimitChange={(newLimit) => {
-                setLimit(newLimit);
-                setPage(1);
-              }}
+              page={pagination.page || pageParam}
+              totalPages={pagination.totalPages || 1}
+              totalRecords={pagination.total || 0}
+              limit={pagination.limit || limitParam}
+              onPageChange={(newPage) => updateQueryParams({ page: newPage })}
+              onLimitChange={(newLimit) => updateQueryParams({ limit: newLimit, page: 1 })}
             />
           </div>
         </div>

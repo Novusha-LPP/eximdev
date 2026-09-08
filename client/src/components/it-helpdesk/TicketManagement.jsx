@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useContext } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import axios from "axios";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
@@ -159,6 +159,7 @@ const EMPTY_FORM = {
 
 export default function TicketManagement() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useContext(UserContext);
   const isAdmin = user?.role === "Admin";
 
@@ -167,7 +168,6 @@ export default function TicketManagement() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
-  const [filters, setFilters] = useState({ status: "", category: "", priority: "", search: "" });
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 15 });
   const [stats, setStats] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -180,6 +180,57 @@ export default function TicketManagement() {
 
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = React.useRef(null);
+
+  // Derived query parameters from URL
+  const statusParam = searchParams.get("status") || "";
+  const categoryParam = searchParams.get("category") || "";
+  const priorityParam = searchParams.get("priority") || "";
+  const searchParam = searchParams.get("search") || "";
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
+  const limitParam = parseInt(searchParams.get("limit") || "15", 10);
+
+  const filters = {
+    status: statusParam,
+    category: categoryParam,
+    priority: priorityParam,
+    search: searchParam,
+  };
+
+  const updateQueryParams = useCallback(
+    (newParams) => {
+      setSearchParams((prevParams) => {
+        const updated = new URLSearchParams(prevParams);
+        Object.entries(newParams).forEach(([key, val]) => {
+          if (val !== undefined && val !== null && val !== "") {
+            updated.set(key, String(val));
+          } else {
+            updated.delete(key);
+          }
+        });
+        return updated;
+      });
+    },
+    [setSearchParams]
+  );
+
+  const setFilters = useCallback(
+    (updater) => {
+      const current = {
+        status: searchParams.get("status") || "",
+        category: searchParams.get("category") || "",
+        priority: searchParams.get("priority") || "",
+        search: searchParams.get("search") || "",
+      };
+      const nextFilters = typeof updater === "function" ? updater(current) : updater;
+      updateQueryParams({ ...nextFilters, page: 1 });
+    },
+    [searchParams, updateQueryParams]
+  );
+
+  const [searchInput, setSearchInput] = useState(searchParam);
+  useEffect(() => {
+    setSearchInput(searchParam);
+  }, [searchParam]);
 
   const handleFilesSelected = (newFiles) => {
     if (!newFiles || newFiles.length === 0) return;
@@ -240,8 +291,13 @@ export default function TicketManagement() {
   const handleExportAllToExcel = async () => {
     try {
       toast.loading("Preparing export...", { id: "export-tickets" });
-      // Fetch all tickets with a very high limit
-      const res = await itHelpdeskAPI.tickets.getAll({ limit: 10000 });
+      const params = { limit: 10000 };
+      if (statusParam) params.status = statusParam;
+      if (categoryParam) params.category = categoryParam;
+      if (priorityParam) params.priority = priorityParam;
+      if (searchParam) params.search = searchParam;
+
+      const res = await itHelpdeskAPI.tickets.getAll(params);
       const allTickets = res.data || [];
       if (allTickets.length === 0) {
         toast.error("No tickets found to export", { id: "export-tickets" });
@@ -278,17 +334,22 @@ export default function TicketManagement() {
   };
 
   const fetchData = useCallback(
-    async (page = 1) => {
+    async (overridePage) => {
+      if (typeof overridePage === "number") {
+        updateQueryParams({ page: overridePage });
+        return;
+      }
       setLoading(true);
       try {
-        // Log ticket list access
         logRead("ticket-list-view", "Accessed ticket list with filters", "info");
 
-        const params = { page, limit: pagination.limit };
-        if (filters.status) params.status = filters.status;
-        if (filters.category) params.category = filters.category;
-        if (filters.priority) params.priority = filters.priority;
-        if (filters.search) params.search = filters.search;
+        const page = pageParam;
+        const limit = limitParam;
+        const params = { page, limit };
+        if (statusParam) params.status = statusParam;
+        if (categoryParam) params.category = categoryParam;
+        if (priorityParam) params.priority = priorityParam;
+        if (searchParam) params.search = searchParam;
 
         const [listRes, statsRes] = await Promise.all([
           itHelpdeskAPI.tickets.getAll(params),
@@ -296,62 +357,43 @@ export default function TicketManagement() {
         ]);
 
         setData(listRes.data || []);
-        setPagination(listRes.pagination || { total: 0, page: 1, limit: params.limit });
+        setPagination(listRes.pagination || { total: 0, page, limit, totalPages: 1 });
         setStats(statsRes.data || null);
       } catch (err) {
         toast.error("Failed to load tickets");
-        console.error(err);
-        // Log error
-        console.error(`Failed to load tickets: ${err.message}`);
+        console.error("Failed to load tickets:", err);
       } finally {
         setLoading(false);
       }
     },
-    [filters, pagination.limit]
+    [pageParam, limitParam, statusParam, categoryParam, priorityParam, searchParam, updateQueryParams, logRead]
   );
 
   const fetchUsers = useCallback(async () => {
     try {
-
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/get-all-users`,
         {
           withCredentials: true
         }
       );
-
-
-      console.log("USER API RESPONSE =>", res.data);
-
-
       let userList = [];
-
-
       if (Array.isArray(res.data)) {
         userList = res.data;
-      }
-      else if (res.data.users) {
+      } else if (res.data.users) {
         userList = res.data.users;
-      }
-      else if (res.data.data) {
+      } else if (res.data.data) {
         userList = res.data.data;
       }
-
-
       setUsers(userList);
-
-
     } catch (err) {
-
       console.log("USER FETCH ERROR", err);
       toast.error("User list load failed");
-
     }
-
   }, []);
 
   useEffect(() => {
-    fetchData(1);
+    fetchData();
   }, [fetchData]);
 
   useEffect(() => {
@@ -587,7 +629,7 @@ export default function TicketManagement() {
           </div>
         </div>
         <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <button className="btn btn-secondary" onClick={() => fetchData(pagination.page)}>
+          <button className="btn btn-secondary" onClick={() => fetchData()}>
             <RefreshCw size={15} /> Refresh
           </button>
           <button className="btn btn-secondary" onClick={handleExportAllToExcel}>
@@ -662,8 +704,12 @@ export default function TicketManagement() {
                         className="form-input"
                         style={{ paddingLeft: "32px", height: "38px" }}
                         placeholder="Search by ticket ID, title, description, or user..."
-                        value={filters.search}
-                        onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+                        value={searchInput}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSearchInput(val);
+                          updateQueryParams({ search: val, page: 1 });
+                        }}
                       />
                     </div>
                   </div>
@@ -671,8 +717,8 @@ export default function TicketManagement() {
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Status</label>
                     <CustomSelect
-                      value={filters.status}
-                      onChange={(val) => setFilters((f) => ({ ...f, status: val }))}
+                      value={statusParam}
+                      onChange={(val) => updateQueryParams({ status: val, page: 1 })}
                       options={[
                         { label: "All Statuses", value: "" },
                         ...TICKET_STATUSES.map((s) => ({ label: s, value: s })),
@@ -685,8 +731,8 @@ export default function TicketManagement() {
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Category</label>
                     <CustomSelect
-                      value={filters.category}
-                      onChange={(val) => setFilters((f) => ({ ...f, category: val }))}
+                      value={categoryParam}
+                      onChange={(val) => updateQueryParams({ category: val, page: 1 })}
                       options={[
                         { label: "All Categories", value: "" },
                         ...TICKET_CATEGORIES.map((c) => ({ label: c, value: c })),
@@ -699,8 +745,8 @@ export default function TicketManagement() {
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Priority</label>
                     <CustomSelect
-                      value={filters.priority || ""}
-                      onChange={(val) => setFilters((f) => ({ ...f, priority: val }))}
+                      value={priorityParam}
+                      onChange={(val) => updateQueryParams({ priority: val, page: 1 })}
                       options={[
                         { label: "All Priorities", value: "" },
                         ...TICKET_PRIORITIES.map((p) => ({ label: p, value: p })),
@@ -714,7 +760,10 @@ export default function TicketManagement() {
                     <button
                       type="button"
                       className="btn btn-secondary"
-                      onClick={() => setFilters({ status: "", category: "", priority: "", search: "" })}
+                      onClick={() => {
+                        setSearchInput("");
+                        setSearchParams({ page: "1", limit: String(limitParam) });
+                      }}
                       title="Clear Filters"
                       style={{
                         height: "38px",
@@ -747,7 +796,7 @@ export default function TicketManagement() {
               <div className="card-header">
                 <div>
                   <div className="card-title">Support Tickets</div>
-                  <div className="card-subtitle">Showing {data.length} of {pagination.total || data.length} tickets</div>
+                  <div className="card-subtitle">Showing {data.length} of {pagination.total || 0} tickets</div>
                 </div>
               </div>
               <div className="card-body" style={{ padding: 0 }}>
@@ -973,14 +1022,12 @@ export default function TicketManagement() {
 
                 {/* Pagination Footer */}
                 <ITPagination
-                  page={pagination.page}
-                  totalPages={Math.max(1, Math.ceil((pagination.total || data.length || 1) / pagination.limit))}
-                  totalRecords={pagination.total || data.length}
-                  limit={pagination.limit}
-                  onPageChange={(newPage) => fetchData(newPage)}
-                  onLimitChange={(newLimit) => {
-                    setPagination((prev) => ({ ...prev, limit: newLimit, page: 1 }));
-                  }}
+                  page={pagination.page || pageParam}
+                  totalPages={pagination.totalPages || Math.max(1, Math.ceil((pagination.total || 0) / (pagination.limit || limitParam)))}
+                  totalRecords={pagination.total || 0}
+                  limit={pagination.limit || limitParam}
+                  onPageChange={(newPage) => updateQueryParams({ page: newPage })}
+                  onLimitChange={(newLimit) => updateQueryParams({ limit: newLimit, page: 1 })}
                 />
               </div>
             </div>

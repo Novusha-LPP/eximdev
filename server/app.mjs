@@ -48,7 +48,7 @@ import { setupDgftWebSocket } from "./setupDgftWebSocket.mjs";
 import monthlyContainersRouter from "./routes/report/monthlyContainers.mjs";
 import monthlyClearanceRouter from "./routes/report/importClearanceMonthly.mjs";
 import emailRoutes from "./routes/admin/emailRoutes.mjs";
-import userRoutes from "./routes/it-helpdesk/userRoutes.mjs";
+// import userRoutes from "./routes/it-helpdesk/userRoutes.mjs";
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
@@ -299,6 +299,9 @@ import vendorRoutes from "./routes/it-helpdesk/vendorRoutes.mjs";
 import contractRoutes from "./routes/it-helpdesk/contractRoutes.mjs";
 import licenseRoutes from "./routes/it-helpdesk/licenseRoutes.mjs";
 import inventoryRoutes from "./routes/it-helpdesk/inventoryRoutes.mjs";
+import userRoutes from "./routes/it-helpdesk/userRoutes.mjs";
+import notificationRoutes from "./routes/it-helpdesk/notificationRoutes.mjs";
+import itReportsExportRoutes from "./routes/it-helpdesk/itReportsExportRoutes.mjs";
 
 import employeeKPIRoutes from "./routes/hr/employeeKPIRoutes.mjs";
 import profileCompletionRoutes from "./routes/hr/profileCompletionRoutes.mjs";
@@ -774,6 +777,8 @@ app.use("/api/it-helpdesk/contracts", contractRoutes);
 app.use("/api/it-helpdesk/licenses", licenseRoutes);
 app.use("/api/it-helpdesk/inventory", inventoryRoutes);
 app.use("/api/it-helpdesk/users", userRoutes);
+app.use("/api/it-helpdesk/notifications", notificationRoutes);
+app.use("/api/it-helpdesk/reports", itReportsExportRoutes);
 
 app.use(employeeKPIRoutes);
 app.use(profileCompletionRoutes);

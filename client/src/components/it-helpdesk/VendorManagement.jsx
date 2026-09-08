@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search,
   Download,
@@ -111,6 +111,7 @@ const EMPTY_FORM = {
 
 export default function VendorManagement() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { logCreate, logRead, logUpdate, logDelete, logExport } = useModuleAuditLogs("Vendor");
 
   const [data, setData] = useState([]);
@@ -120,67 +121,97 @@ export default function VendorManagement() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState({});
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedType, setSelectedType] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("");
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [pagination, setPagination] = useState({ page: 1, limit: 15, total: 0, totalPages: 1 });
+  const [stats, setStats] = useState(null);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      if (typeof logRead === "function") {
-        logRead("vendor-list-view", "Fetched vendor records", "info");
+  // Parse parameters from URL query string
+  const statusParam = searchParams.get("status") || "";
+  const typeParam = searchParams.get("vendor_type") || searchParams.get("type") || "";
+  const searchParam = searchParams.get("search") || "";
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
+  const limitParam = parseInt(searchParams.get("limit") || "15", 10);
+
+  const updateQueryParams = useCallback(
+    (newParams) => {
+      setSearchParams((prevParams) => {
+        const updated = new URLSearchParams(prevParams);
+        Object.entries(newParams).forEach(([key, val]) => {
+          if (val !== undefined && val !== null && val !== "") {
+            updated.set(key, String(val));
+          } else {
+            updated.delete(key);
+          }
+        });
+        return updated;
+      });
+    },
+    [setSearchParams]
+  );
+
+  const [searchInput, setSearchInput] = useState(searchParam);
+  useEffect(() => {
+    setSearchInput(searchParam);
+  }, [searchParam]);
+
+  const fetchData = useCallback(
+    async (overridePage) => {
+      if (typeof overridePage === "number") {
+        updateQueryParams({ page: overridePage });
+        return;
       }
-      const res = await itHelpdeskAPI.vendors.getAll();
-      const vendors = res.data || res;
-      setData(Array.isArray(vendors) ? vendors : []);
-    } catch (err) {
-      if (typeof logCreate === "function") {
-        logCreate(err.message, "Vendor fetch failed", "error");
+      setLoading(true);
+      try {
+        if (typeof logRead === "function") {
+          logRead("vendor-list-view", "Fetched vendor records", "info");
+        }
+        const params = {
+          page: pageParam,
+          limit: limitParam,
+        };
+        if (statusParam) params.status = statusParam;
+        if (typeParam) params.vendor_type = typeParam;
+        if (searchParam) params.search = searchParam;
+
+        const [listRes, statsRes] = await Promise.all([
+          itHelpdeskAPI.vendors.getAll(params),
+          itHelpdeskAPI.vendors.getStats ? itHelpdeskAPI.vendors.getStats().catch(() => null) : Promise.resolve(null),
+        ]);
+
+        const vendors = listRes.data || listRes;
+        setData(Array.isArray(vendors) ? vendors : []);
+        if (listRes.pagination) {
+          setPagination(listRes.pagination);
+        } else {
+          setPagination({ page: pageParam, limit: limitParam, total: vendors.length, totalPages: 1 });
+        }
+        if (statsRes && statsRes.data) {
+          setStats(statsRes.data);
+        }
+      } catch (err) {
+        if (typeof logCreate === "function") {
+          logCreate(err.message, "Vendor fetch failed", "error");
+        }
+        toast.error("Failed to fetch vendors");
+        setData([]);
+      } finally {
+        setLoading(false);
       }
-      toast.error("Failed to fetch vendors");
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [logCreate, logRead]);
+    },
+    [pageParam, limitParam, statusParam, typeParam, searchParam, updateQueryParams, logCreate, logRead]
+  );
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Filtered data
-  const filteredData = data.filter((item) => {
-    const term = searchTerm.toLowerCase();
-    const matchesSearch =
-      !searchTerm ||
-      (item.name || "").toLowerCase().includes(term) ||
-      (item.gst_number || "").toLowerCase().includes(term) ||
-      (item.pan_number || "").toLowerCase().includes(term) ||
-      (item.contact_person || "").toLowerCase().includes(term) ||
-      (item.mobile_number || "").toLowerCase().includes(term) ||
-      (item.email || "").toLowerCase().includes(term);
-
-    const vendorType = item.vendor_type || item.type;
-    const matchesType = !selectedType || vendorType === selectedType;
-    const matchesStatus = !selectedStatus || item.status === selectedStatus;
-
-    return matchesSearch && matchesType && matchesStatus;
-  });
-
   // KPI counts
-  const totalCount = data.length;
-  const activeCount = data.filter((d) => d.status === "Active").length;
-  const inactiveCount = totalCount - activeCount;
-  const supplierCount = data.filter((d) => {
+  const totalCount = stats?.total ?? pagination.total ?? data.length;
+  const activeCount = stats?.active ?? data.filter((d) => d.status === "Active").length;
+  const inactiveCount = stats?.inactive ?? (totalCount - activeCount);
+  const supplierCount = stats?.suppliers ?? data.filter((d) => {
     const t = d.vendor_type || d.type;
     return t === "Supplier" || t === "Service Provider" || t === "Hardware" || t === "Software";
   }).length;
-
-  // Pagination calculation
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / limit));
-  const displayedRows = filteredData.slice((page - 1) * limit, page * limit);
 
   const handleOpen = (record = null) => {
     setErrors({});
@@ -341,9 +372,18 @@ export default function VendorManagement() {
     }
   };
 
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     try {
-      const excelData = filteredData.map((item, index) => ({
+      toast.loading("Preparing export...", { id: "export-vendors" });
+      const params = { limit: 10000 };
+      if (statusParam) params.status = statusParam;
+      if (typeParam) params.vendor_type = typeParam;
+      if (searchParam) params.search = searchParam;
+
+      const res = await itHelpdeskAPI.vendors.getAll(params);
+      const vendorsToExport = res.data || [];
+
+      const excelData = vendorsToExport.map((item, index) => ({
         "Sr. No.": index + 1,
         "Company / Vendor Name": item.name || "",
         "Vendor Type": item.vendor_type || item.type || "Other",
@@ -361,11 +401,11 @@ export default function VendorManagement() {
 
       const date = new Date().toISOString().slice(0, 10);
       XLSX.writeFile(wb, `IT_Vendors_List_${date}.xlsx`);
-      toast.success("Vendor directory exported to Excel");
+      toast.success("Vendor directory exported to Excel", { id: "export-vendors" });
       logExport("vendors-export", `Exported Vendors & Suppliers directory to Excel (${excelData.length} records)`);
     } catch (error) {
       console.error("Export failed:", error);
-      toast.error("Failed to export Excel");
+      toast.error("Failed to export Excel", { id: "export-vendors" });
     }
   };
 
@@ -474,10 +514,11 @@ export default function VendorManagement() {
                     type="text"
                     className="form-input"
                     placeholder="Company, contact, email, GST…"
-                    value={searchTerm}
+                    value={searchInput}
                     onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setPage(1);
+                      const val = e.target.value;
+                      setSearchInput(val);
+                      updateQueryParams({ search: val, page: 1 });
                     }}
                     style={{ paddingLeft: "32px" }}
                   />
@@ -487,11 +528,8 @@ export default function VendorManagement() {
               <div className="form-field">
                 <label>Vendor Type</label>
                 <CustomSelect
-                  value={selectedType}
-                  onChange={(val) => {
-                    setSelectedType(val);
-                    setPage(1);
-                  }}
+                  value={typeParam}
+                  onChange={(val) => updateQueryParams({ vendor_type: val, page: 1 })}
                   options={[
                     { label: "All Types", value: "" },
                     ...VENDOR_TYPES.map((t) => ({ label: t, value: t })),
@@ -504,11 +542,8 @@ export default function VendorManagement() {
               <div className="form-field">
                 <label>Status</label>
                 <CustomSelect
-                  value={selectedStatus}
-                  onChange={(val) => {
-                    setSelectedStatus(val);
-                    setPage(1);
-                  }}
+                  value={statusParam}
+                  onChange={(val) => updateQueryParams({ status: val, page: 1 })}
                   options={[
                     { label: "All Statuses", value: "" },
                     ...STATUS_OPTIONS.map((s) => ({ label: s, value: s })),
@@ -523,10 +558,8 @@ export default function VendorManagement() {
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => {
-                    setSearchTerm("");
-                    setSelectedType("");
-                    setSelectedStatus("");
-                    setPage(1);
+                    setSearchInput("");
+                    setSearchParams({ page: "1", limit: String(limitParam) });
                   }}
                   style={{
                     height: "38px",
@@ -572,7 +605,7 @@ export default function VendorManagement() {
             </div>
 
             <span style={{ fontSize: "12px", color: "#64748b", background: "#f1f5f9", padding: "4px 10px", borderRadius: "12px", fontWeight: 600 }}>
-              Showing {displayedRows.length} of {filteredData.length} records
+              Showing {data.length} of {pagination.total || 0} records
             </span>
           </div>
 
@@ -598,17 +631,17 @@ export default function VendorManagement() {
                     </tr>
                   </thead>
                   <tbody>
-                    {displayedRows.length === 0 ? (
+                    {data.length === 0 ? (
                       <tr>
                         <td colSpan={9} style={{ textAlign: "center", padding: "36px 16px", color: "#94a3b8" }}>
                           No vendors found matching criteria
                         </td>
                       </tr>
                     ) : (
-                      displayedRows.map((v, idx) => (
+                      data.map((v, idx) => (
                         <tr key={v._id} style={{ background: idx % 2 === 0 ? "#ffffff" : "#fcfdfd" }}>
                           <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>
-                            {(page - 1) * limit + idx + 1}
+                            {(pagination.page - 1) * pagination.limit + idx + 1}
                           </td>
                           <td className="fw-600" style={{ color: "#0f172a" }}>
                             {v.name}
@@ -672,15 +705,12 @@ export default function VendorManagement() {
 
             {/* ── Pagination Footer ─────────────────────────────────── */}
             <ITPagination
-              page={page}
-              totalPages={totalPages}
-              totalRecords={filteredData.length}
-              limit={limit}
-              onPageChange={(newPage) => setPage(newPage)}
-              onLimitChange={(newLimit) => {
-                setLimit(newLimit);
-                setPage(1);
-              }}
+              page={pagination.page || pageParam}
+              totalPages={pagination.totalPages || 1}
+              totalRecords={pagination.total || 0}
+              limit={pagination.limit || limitParam}
+              onPageChange={(newPage) => updateQueryParams({ page: newPage })}
+              onLimitChange={(newLimit) => updateQueryParams({ limit: newLimit, page: 1 })}
             />
           </div>
         </div>

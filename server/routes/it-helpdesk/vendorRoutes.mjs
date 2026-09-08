@@ -14,10 +14,100 @@ const validateId = (req, res, next) => {
   next();
 };
 
+// ── GET vendor stats ──────────────────────────────────────────────────────────
+router.get("/stats", async (req, res) => {
+  try {
+    const [total, active, inactive, suppliers] = await Promise.all([
+      Vendor.countDocuments({ is_active: true }),
+      Vendor.countDocuments({ is_active: true, status: "Active" }),
+      Vendor.countDocuments({ is_active: true, status: "Inactive" }),
+      Vendor.countDocuments({
+        is_active: true,
+        vendor_type: { $in: ["Supplier", "Service Provider", "Hardware", "Software"] },
+      }),
+    ]);
+    res.json({
+      success: true,
+      data: {
+        total,
+        active,
+        inactive,
+        suppliers,
+      },
+    });
+  } catch (err) {
+    logger.error(`Error fetching vendor stats: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── GET all vendors with pagination & filtering ──────────────────────────────
 router.get("/", async (req, res) => {
   try {
-    const data = await Vendor.find({ is_active: true }).sort({ createdAt: -1 });
-    res.json({ success: true, data });
+    const { status, vendor_type, type, search, page = 1, limit = 15, all, fromDate, toDate } = req.query;
+    const filter = {};
+
+    if (status && status !== "ALL") {
+      filter.status = status;
+    }
+
+    const selectedType = vendor_type || type;
+    if (selectedType && selectedType !== "ALL") {
+      filter.vendor_type = selectedType;
+    }
+
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+      if (toDate) {
+        const endOfDay = new Date(toDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endOfDay;
+      }
+    }
+
+    if (search) {
+      const searchRegex = new RegExp(String(search).trim(), "i");
+      filter.$or = [
+        { name: searchRegex },
+        { vendor_code: searchRegex },
+        { contact_person: searchRegex },
+        { email: searchRegex },
+        { mobile_number: searchRegex },
+        { gst_number: searchRegex },
+        { pan_number: searchRegex },
+      ];
+    }
+
+    if (all === "true") {
+      const data = await Vendor.find(filter).sort({ createdAt: -1 });
+      return res.json({ success: true, data });
+    }
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 15);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [data, total] = await Promise.all([
+      Vendor.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum),
+      Vendor.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(total / limitNum) || 1;
+
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages,
+      },
+    });
   } catch (err) {
     logger.error(`Error fetching vendors: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });

@@ -14,17 +14,95 @@ const validateId = (req, res, next) => {
   next();
 };
 
+// ── GET inventory stats ──────────────────────────────────────────────────────
+router.get("/stats", async (req, res) => {
+  try {
+    const today = new Date();
+    const [total, old, newStock, activeWarranty] = await Promise.all([
+      Inventory.countDocuments({}),
+      Inventory.countDocuments({ inventory_type: "Old" }),
+      Inventory.countDocuments({ inventory_type: "New" }),
+      Inventory.countDocuments({ warranty_end_date: { $gt: today } }),
+    ]);
+    res.json({
+      success: true,
+      data: {
+        total,
+        old,
+        new: newStock,
+        activeWarranty,
+      },
+    });
+  } catch (err) {
+    logger.error(`Error fetching inventory stats: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── GET all inventory items with pagination & filtering ──────────────────────
 router.get("/", async (req, res) => {
   try {
-    const { category, inventory_type } = req.query;
+    const { category, inventory_type, status, search, page = 1, limit = 15, all, fromDate, toDate } = req.query;
     const filter = {};
-    if (category) filter.category = category;
-    if (inventory_type) {
-      filter.inventory_type = { $regex: new RegExp(`^${inventory_type.trim()}$`, "i") };
+
+    if (category && category !== "ALL") {
+      filter.category = category;
     }
 
-    const data = await Inventory.find(filter).sort({ createdAt: -1 });
-    res.json({ success: true, data });
+    const selectedType = inventory_type || status;
+    if (selectedType && selectedType !== "ALL") {
+      filter.inventory_type = { $regex: new RegExp(`^${selectedType.trim()}$`, "i") };
+    }
+
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+      if (toDate) {
+        const endOfDay = new Date(toDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endOfDay;
+      }
+    }
+
+    if (search) {
+      const searchRegex = new RegExp(String(search).trim(), "i");
+      filter.$or = [
+        { item_id: searchRegex },
+        { brand: searchRegex },
+        { model: searchRegex },
+        { category: searchRegex },
+      ];
+    }
+
+    if (all === "true") {
+      const data = await Inventory.find(filter).sort({ createdAt: -1 });
+      return res.json({ success: true, data });
+    }
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 15);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [data, total] = await Promise.all([
+      Inventory.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum),
+      Inventory.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(total / limitNum) || 1;
+
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages,
+      },
+    });
   } catch (err) {
     logger.error(`Error fetching inventory: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });

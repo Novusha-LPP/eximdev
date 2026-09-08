@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search,
   Download,
@@ -36,67 +36,162 @@ const REPORT_TYPES = [
 
 export default function ITReports() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [reportType, setReportType] = useState("assets");
+  const reportType = searchParams.get("report_type") || searchParams.get("type") || "assets";
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
+  const limitParam = parseInt(searchParams.get("limit") || "10", 10);
+  const searchParam = searchParams.get("search") || "";
+  const statusFilter = searchParams.get("status") || "ALL";
+  const categoryFilter = searchParams.get("category") || "ALL";
+  const fromDate = searchParams.get("from_date") || searchParams.get("fromDate") || "";
+  const toDate = searchParams.get("to_date") || searchParams.get("toDate") || "";
+  const quickFilter = searchParams.get("quick_filter") || "ALL";
+
   const [data, setData] = useState([]);
+  const [allFilterOptions, setAllFilterOptions] = useState([]);
   const [loading, setLoading] = useState(false);
-  
-  // Filter States
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [categoryFilter, setCategoryFilter] = useState("ALL");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [quickFilter, setQuickFilter] = useState("ALL");
-  
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [usersMap, setUsersMap] = useState({});
+  const [searchInput, setSearchInput] = useState(searchParam);
+  const [pagination, setPagination] = useState({
+    page: pageParam,
+    limit: limitParam,
+    total: 0,
+    totalPages: 1,
+  });
+
+  useEffect(() => {
+    setSearchInput(searchParam);
+  }, [searchParam]);
+
+  const updateQueryParams = (newParams) => {
+    const params = new URLSearchParams(searchParams);
+    Object.entries(newParams).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === "" || value === "ALL") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    setSearchParams(params, { replace: true });
+  };
+
+  useEffect(() => {
+    // Fetch users list to map raw ObjectIds to usernames/names if needed
+    itHelpdeskAPI.users
+      .getAll()
+      .then((res) => {
+        const map = {};
+        const userList = res?.data || res || [];
+        if (Array.isArray(userList)) {
+          userList.forEach((u) => {
+            if (u._id) {
+              map[String(u._id)] = u;
+            }
+          });
+        }
+        setUsersMap(map);
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await itHelpdeskAPI[reportType].getAll();
-      setData(res.data || []);
-      setPage(1);
+      const apiModule = itHelpdeskAPI[reportType] || itHelpdeskAPI.assets;
+      const params = {
+        page: pageParam,
+        limit: limitParam,
+      };
+      if (searchParam) params.search = searchParam;
+      if (statusFilter && statusFilter !== "ALL") params.status = statusFilter;
+      if (categoryFilter && categoryFilter !== "ALL") {
+        params.category = categoryFilter;
+        params.asset_type = categoryFilter;
+        params.license_type = categoryFilter;
+        params.vendor_type = categoryFilter;
+        params.type = categoryFilter;
+      }
+      if (fromDate) params.fromDate = fromDate;
+      if (toDate) params.toDate = toDate;
+
+      const res = await apiModule.getAll(params);
+      const items = res.data || [];
+      setData(items);
+      if (res.pagination) {
+        setPagination(res.pagination);
+      } else {
+        setPagination({
+          page: pageParam,
+          limit: limitParam,
+          total: items.length,
+          totalPages: 1,
+        });
+      }
     } catch (err) {
       console.error(err);
       toast.error(`Failed to load ${reportType} report`);
     } finally {
       setLoading(false);
     }
-  }, [reportType]);
+  }, [reportType, pageParam, limitParam, searchParam, statusFilter, categoryFilter, fromDate, toDate]);
 
   useEffect(() => {
     fetchReport();
-    setSearchTerm("");
-    setStatusFilter("ALL");
-    setCategoryFilter("ALL");
-    setFromDate("");
-    setToDate("");
-    setQuickFilter("ALL");
-    setPage(1);
-  }, [fetchReport, reportType]);
+  }, [fetchReport]);
+
+  // Fetch full metadata per reportType for unique dropdown options & total KPI scorecards
+  useEffect(() => {
+    const fetchFullMetadata = async () => {
+      try {
+        const apiModule = itHelpdeskAPI[reportType] || itHelpdeskAPI.assets;
+        const res = await apiModule.getAll({ all: "true" });
+        setAllFilterOptions(res.data || []);
+      } catch (e) {
+        console.error(e);
+        setAllFilterOptions([]);
+      }
+    };
+    fetchFullMetadata();
+  }, [reportType]);
 
   const formatUser = (userVal) => {
     if (!userVal) return "—";
-    let raw = "";
-    if (typeof userVal === "object") {
-      raw = userVal.first_name ? `${userVal.first_name} ${userVal.last_name || ""}`.trim() : (userVal.username || userVal.name || userVal.email || "—");
-    } else {
-      raw = String(userVal);
+
+    let target = userVal;
+    const strVal = String(userVal).trim();
+
+    if (typeof userVal !== "object" && usersMap[strVal]) {
+      target = usersMap[strVal];
     }
+
+    let raw = "";
+    if (typeof target === "object" && target !== null) {
+      raw = target.first_name
+        ? `${target.first_name} ${target.last_name || ""}`.trim()
+        : target.username || target.name || target.email || "";
+    } else {
+      raw = String(target);
+    }
+
+    // If unmapped 24-character hex ObjectId string, return dash instead of raw ID
+    if (/^[0-9a-fA-F]{24}$/.test(raw.trim())) {
+      return "—";
+    }
+
     if (raw.includes("@")) {
       raw = raw.split("@")[0];
     }
-    return (
-      raw
-        .replace(/[._]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .split(" ")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(" ") || "—"
-    );
+
+    const formatted = raw
+      .replace(/[._]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+
+    return formatted || "—";
   };
 
   const formatDateStr = (dateVal) => {
@@ -115,7 +210,7 @@ export default function ITReports() {
   // Derive unique categories dynamically for filtering dropdown
   const uniqueCategories = useMemo(() => {
     const set = new Set();
-    data.forEach((item) => {
+    allFilterOptions.forEach((item) => {
       let val = null;
       if (reportType === "assets") val = item.asset_type;
       else if (reportType === "tickets") val = item.category;
@@ -125,29 +220,30 @@ export default function ITReports() {
       if (val) set.add(String(val).trim());
     });
     return Array.from(set).sort();
-  }, [data, reportType]);
+  }, [allFilterOptions, reportType]);
 
   // Derive unique statuses dynamically for filtering dropdown
   const uniqueStatuses = useMemo(() => {
     const set = new Set();
-    data.forEach((item) => {
+    allFilterOptions.forEach((item) => {
       let val = item.status;
       if (reportType === "inventory") val = item.inventory_type;
       if (val) set.add(String(val).trim());
     });
     return Array.from(set).sort();
-  }, [data, reportType]);
+  }, [allFilterOptions, reportType]);
 
   // Compute Metrics & KPI Statistics for current tab
   const metrics = useMemo(() => {
-    const total = data.length;
+    const sourceList = allFilterOptions.length ? allFilterOptions : data;
+    const total = pagination.total || sourceList.length;
     const now = new Date();
 
     if (reportType === "assets") {
-      const available = data.filter((d) => d.status === "Available" || d.status === "In Stock").length;
-      const assigned = data.filter((d) => d.status === "Assigned" || d.status === "In Use").length;
-      const inRepair = data.filter((d) => d.status === "In Repair" || d.status === "Under Maintenance").length;
-      const retired = data.filter((d) => d.status === "Retired" || d.status === "Scrapped" || d.status === "Lost").length;
+      const available = sourceList.filter((d) => d.status === "Available" || d.status === "In Stock").length;
+      const assigned = sourceList.filter((d) => d.status === "Assigned" || d.status === "In Use").length;
+      const inRepair = sourceList.filter((d) => d.status === "In Repair" || d.status === "Under Maintenance").length;
+      const retired = sourceList.filter((d) => d.status === "Retired" || d.status === "Scrapped" || d.status === "Lost").length;
       return [
         { label: "Total Assets", count: total, color: "#0f172a", bg: "#f8fafc", icon: Laptop },
         { label: "Assigned / In Use", count: assigned, color: "#059669", bg: "#ecfdf5", icon: CheckCircle2 },
@@ -158,10 +254,10 @@ export default function ITReports() {
     }
 
     if (reportType === "tickets") {
-      const openNew = data.filter((d) => d.status === "New" || d.status === "Open").length;
-      const inProgress = data.filter((d) => d.status === "In Progress" || d.status === "Assigned").length;
-      const resolvedClosed = data.filter((d) => d.status === "Resolved" || d.status === "Closed").length;
-      const criticalHigh = data.filter((d) => d.priority === "Critical" || d.priority === "High").length;
+      const openNew = sourceList.filter((d) => d.status === "New" || d.status === "Open").length;
+      const inProgress = sourceList.filter((d) => d.status === "In Progress" || d.status === "Assigned").length;
+      const resolvedClosed = sourceList.filter((d) => d.status === "Resolved" || d.status === "Closed").length;
+      const criticalHigh = sourceList.filter((d) => d.priority === "Critical" || d.priority === "High").length;
       return [
         { label: "Total Tickets", count: total, color: "#0f172a", bg: "#f8fafc", icon: Ticket },
         { label: "New & Open", count: openNew, color: "#2563eb", bg: "#eff6ff", icon: Clock },
@@ -172,9 +268,9 @@ export default function ITReports() {
     }
 
     if (reportType === "vendors") {
-      const hardwareAmc = data.filter((d) => (d.vendor_type || d.type || "").toLowerCase().includes("hardware") || (d.vendor_type || d.type || "").toLowerCase().includes("amc")).length;
-      const softwareSaas = data.filter((d) => (d.vendor_type || d.type || "").toLowerCase().includes("software") || (d.vendor_type || d.type || "").toLowerCase().includes("saas")).length;
-      const active = data.filter((d) => !d.status || d.status === "Active").length;
+      const hardwareAmc = sourceList.filter((d) => (d.vendor_type || d.type || "").toLowerCase().includes("hardware") || (d.vendor_type || d.type || "").toLowerCase().includes("amc")).length;
+      const softwareSaas = sourceList.filter((d) => (d.vendor_type || d.type || "").toLowerCase().includes("software") || (d.vendor_type || d.type || "").toLowerCase().includes("saas")).length;
+      const active = sourceList.filter((d) => !d.status || d.status === "Active").length;
       return [
         { label: "Total Suppliers & Vendors", count: total, color: "#0f172a", bg: "#f8fafc", icon: Users },
         { label: "Active Suppliers", count: active, color: "#059669", bg: "#ecfdf5", icon: CheckCircle2 },
@@ -188,7 +284,7 @@ export default function ITReports() {
       let allocatedSeatsSum = 0;
       let expiring30Days = 0;
 
-      data.forEach((l) => {
+      sourceList.forEach((l) => {
         totalSeatsSum += Number(l.total_seats || l.seats || 0);
         allocatedSeatsSum += Number(l.allocated_seats || l.used_seats || 0);
         if (l.expiry_date) {
@@ -202,16 +298,16 @@ export default function ITReports() {
         { label: "Total Subscriptions", count: total, color: "#0f172a", bg: "#f8fafc", icon: Key },
         { label: "Total Allocated Seats", count: `${allocatedSeatsSum} / ${totalSeatsSum || "—"}`, color: "#0284c7", bg: "#f0f9ff", icon: Users },
         { label: "Expiring in < 30 Days", count: expiring30Days, color: expiring30Days > 0 ? "#dc2626" : "#059669", bg: expiring30Days > 0 ? "#fef2f2" : "#ecfdf5", icon: AlertTriangle },
-        { label: "Active Licenses", count: total - expiring30Days, color: "#059669", bg: "#ecfdf5", icon: CheckCircle2 },
+        { label: "Active Licenses", count: Math.max(0, total - expiring30Days), color: "#059669", bg: "#ecfdf5", icon: CheckCircle2 },
       ];
     }
 
     if (reportType === "inventory") {
-      const sparesCount = data.reduce((acc, item) => acc + Number(item.quantity || 1), 0);
+      const sparesCount = sourceList.reduce((acc, item) => acc + Number(item.quantity || 1), 0);
       let warrantyExpired = 0;
       let validWarranty = 0;
 
-      data.forEach((i) => {
+      sourceList.forEach((i) => {
         if (i.warranty_end_date) {
           const exp = new Date(i.warranty_end_date);
           if (exp < now) warrantyExpired++;
@@ -228,13 +324,14 @@ export default function ITReports() {
     }
 
     return [];
-  }, [data, reportType]);
+  }, [allFilterOptions, data, pagination.total, reportType]);
 
   // Compute Category Distribution Breakdown
   const categoryBreakdown = useMemo(() => {
-    if (!data.length) return [];
+    const sourceList = allFilterOptions.length ? allFilterOptions : data;
+    if (!sourceList.length) return [];
     const counts = {};
-    data.forEach((item) => {
+    sourceList.forEach((item) => {
       let cat = "Other";
       if (reportType === "assets") cat = item.asset_type || "Other";
       else if (reportType === "tickets") cat = item.category || "Other";
@@ -250,85 +347,12 @@ export default function ITReports() {
       .map(([name, count], index) => ({
         name,
         count,
-        percentage: Math.round((count / data.length) * 100),
+        percentage: Math.round((count / sourceList.length) * 100),
         color: colors[index % colors.length],
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 6);
-  }, [data, reportType]);
-
-  // Multi-dimensional Filtering Logic
-  const filteredData = useMemo(() => {
-    return data.filter((item) => {
-      // 1. Text Search Term
-      if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        const matchesText = Object.values(item).some((v) => {
-          if (v == null) return false;
-          if (typeof v === "object") {
-            const text = `${v.username || ""} ${v.first_name || ""} ${v.name || ""} ${v.email || ""}`.toLowerCase();
-            return text.includes(term);
-          }
-          return String(v).toLowerCase().includes(term);
-        });
-        if (!matchesText) return false;
-      }
-
-      // 2. Status Filter
-      if (statusFilter !== "ALL") {
-        const itemStatus = item.status || item.inventory_type || "";
-        if (itemStatus.toLowerCase() !== statusFilter.toLowerCase()) return false;
-      }
-
-      // 3. Category Filter
-      if (categoryFilter !== "ALL") {
-        let itemCat = "";
-        if (reportType === "assets") itemCat = item.asset_type;
-        else if (reportType === "tickets") itemCat = item.category;
-        else if (reportType === "vendors") itemCat = item.vendor_type || item.type;
-        else if (reportType === "licenses") itemCat = item.license_type;
-        else if (reportType === "inventory") itemCat = item.category;
-
-        if (String(itemCat || "").toLowerCase() !== categoryFilter.toLowerCase()) return false;
-      }
-
-      // 4. Quick Preset Filter
-      if (quickFilter !== "ALL") {
-        const now = new Date();
-        if (quickFilter === "EXPIRING_SOON") {
-          const dateVal = item.expiry_date || item.warranty_end_date || item.sla_due_date;
-          if (!dateVal) return false;
-          const targetDate = new Date(dateVal);
-          const diffDays = Math.ceil((targetDate - now) / (1000 * 60 * 60 * 24));
-          if (diffDays < 0 || diffDays > 30) return false;
-        } else if (quickFilter === "ACTION_REQUIRED") {
-          const s = (item.status || "").toLowerCase();
-          const p = (item.priority || "").toLowerCase();
-          if (s !== "in repair" && s !== "pending" && s !== "new" && p !== "high" && p !== "critical") {
-            return false;
-          }
-        }
-      }
-
-      // 5. Date Range Filter
-      if (fromDate || toDate) {
-        const dateVal = item.createdAt || item.purchase_date || item.expiry_date || item.warranty_end_date;
-        if (!dateVal) return false;
-        const itemDate = new Date(dateVal);
-        if (fromDate && itemDate < new Date(fromDate)) return false;
-        if (toDate) {
-          const endOfDay = new Date(toDate);
-          endOfDay.setHours(23, 59, 59, 999);
-          if (itemDate > endOfDay) return false;
-        }
-      }
-
-      return true;
-    });
-  }, [data, searchTerm, statusFilter, categoryFilter, quickFilter, fromDate, toDate, reportType]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / limit));
-  const displayedRows = filteredData.slice((page - 1) * limit, page * limit);
+  }, [allFilterOptions, data, reportType]);
 
   const getColumns = () => {
     switch (reportType) {
@@ -389,27 +413,40 @@ export default function ITReports() {
   };
 
   const resetAllFilters = () => {
-    setSearchTerm("");
-    setStatusFilter("ALL");
-    setCategoryFilter("ALL");
-    setFromDate("");
-    setToDate("");
-    setQuickFilter("ALL");
-    setPage(1);
+    setSearchInput("");
+    setSearchParams({ report_type: reportType }, { replace: true });
     toast.success("Filters reset");
   };
 
-  const exportToExcel = () => {
-    if (!filteredData || filteredData.length === 0) {
-      toast.error("No data to export");
-      return;
-    }
+  const exportToExcel = async () => {
     try {
+      const apiModule = itHelpdeskAPI[reportType] || itHelpdeskAPI.assets;
+      const params = { limit: 10000, all: "true" };
+      if (searchParam) params.search = searchParam;
+      if (statusFilter && statusFilter !== "ALL") params.status = statusFilter;
+      if (categoryFilter && categoryFilter !== "ALL") {
+        params.category = categoryFilter;
+        params.asset_type = categoryFilter;
+        params.license_type = categoryFilter;
+        params.vendor_type = categoryFilter;
+        params.type = categoryFilter;
+      }
+      if (fromDate) params.fromDate = fromDate;
+      if (toDate) params.toDate = toDate;
+
+      const res = await apiModule.getAll(params);
+      const exportData = res.data || [];
+
+      if (!exportData || exportData.length === 0) {
+        toast.error("No data to export");
+        return;
+      }
+
       const columns = getColumns();
       const headers = columns.map((c) => c.name);
       const wsData = [headers];
 
-      filteredData.forEach((item) => {
+      exportData.forEach((item) => {
         const row = [];
         switch (reportType) {
           case "assets":
@@ -479,20 +516,18 @@ export default function ITReports() {
       const reportName = REPORT_TYPES.find((r) => r.value === reportType)?.label || "Report";
       XLSX.utils.book_append_sheet(wb, ws, reportName);
 
-      const date = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `IT_${reportName.replace(/\s+/g, "_")}_Filtered_${date}.xlsx`);
-      toast.success(`${reportName} (${filteredData.length} records) exported to Excel`);
+      const dateStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `IT_${reportName.replace(/\s+/g, "_")}_Filtered_${dateStr}.xlsx`);
+      toast.success(`${reportName} (${exportData.length} records) exported to Excel`);
       logExportAudit({
         module: "Helpdesk",
-        details: `Exported ${reportName} to Excel (${filteredData.length} records)`,
+        details: `Exported ${reportName} to Excel (${exportData.length} records)`,
       });
     } catch (error) {
       console.error("Export error:", error);
       toast.error("Failed to export report");
     }
   };
-
-
 
   const renderPillBadge = (text, variant = "secondary") => {
     if (!text) return <span style={{ color: "#94a3b8", fontSize: "12px" }}>—</span>;
@@ -589,11 +624,12 @@ export default function ITReports() {
 
   const renderRow = (item, idx) => {
     const rowBg = idx % 2 === 0 ? "#ffffff" : "#fcfdfd";
+    const rowIndex = (pagination.page - 1) * pagination.limit + idx + 1;
     switch (reportType) {
       case "assets":
         return (
           <tr key={item._id || idx} style={{ background: rowBg }}>
-            <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{(page - 1) * limit + idx + 1}</td>
+            <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{rowIndex}</td>
             <td>{getCodeTag(item.asset_tag)}</td>
             <td style={{ color: "#0f172a", fontWeight: 600 }}>
               {item.name || item.asset_name || `${item.manufacturer || ""} ${item.model || ""}`.trim() || "—"}
@@ -608,7 +644,7 @@ export default function ITReports() {
       case "tickets":
         return (
           <tr key={item._id || idx} style={{ background: rowBg }}>
-            <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{(page - 1) * limit + idx + 1}</td>
+            <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{rowIndex}</td>
             <td>{getCodeTag(item.ticket_id)}</td>
             <td style={{ color: "#0f172a", fontWeight: 600, maxWidth: "280px", lineHeight: "1.4" }} title={item.title}>
               {item.title}
@@ -624,7 +660,7 @@ export default function ITReports() {
       case "vendors":
         return (
           <tr key={item._id || idx} style={{ background: rowBg }}>
-            <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{(page - 1) * limit + idx + 1}</td>
+            <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{rowIndex}</td>
             <td>{getCodeTag(item.vendor_code)}</td>
             <td style={{ color: "#0f172a", fontWeight: 600 }}>{item.name || item.vendor_name}</td>
             <td>{getCategoryBadge(item.vendor_type || item.type || "Supplier")}</td>
@@ -640,7 +676,7 @@ export default function ITReports() {
       case "licenses":
         return (
           <tr key={item._id || idx} style={{ background: rowBg }}>
-            <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{(page - 1) * limit + idx + 1}</td>
+            <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{rowIndex}</td>
             <td style={{ color: "#0f172a", fontWeight: 600 }}>{item.software_name || item.license_name}</td>
             <td>{getCodeTag(item.license_code)}</td>
             <td style={{ color: "#334155", fontSize: "13px" }}>{item.license_type || "Standard"}</td>
@@ -653,7 +689,7 @@ export default function ITReports() {
       case "inventory":
         return (
           <tr key={item._id || idx} style={{ background: rowBg }}>
-            <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{(page - 1) * limit + idx + 1}</td>
+            <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{rowIndex}</td>
             <td>{getCodeTag(item.item_id)}</td>
             <td style={{ color: "#0f172a", fontWeight: 600 }}>{`${item.brand || ""} ${item.model || ""}`.trim() || "—"}</td>
             <td>{getCategoryBadge(item.category)}</td>
@@ -668,7 +704,7 @@ export default function ITReports() {
   };
 
   const hasActiveFilters = Boolean(
-    searchTerm || statusFilter !== "ALL" || categoryFilter !== "ALL" || quickFilter !== "ALL" || fromDate || toDate
+    searchParam || statusFilter !== "ALL" || categoryFilter !== "ALL" || quickFilter !== "ALL" || fromDate || toDate
   );
 
   const columns = getColumns();
@@ -703,7 +739,7 @@ export default function ITReports() {
               boxShadow: "0 4px 12px rgba(5, 150, 105, 0.25)",
             }}
           >
-            <Download size={15} /> <span>Export Excel ({filteredData.length})</span>
+            <Download size={15} /> <span>Export Excel ({pagination.total})</span>
           </button>
         </div>
       </div>
@@ -720,7 +756,7 @@ export default function ITReports() {
                   <button
                     key={r.value}
                     type="button"
-                    onClick={() => setReportType(r.value)}
+                    onClick={() => updateQueryParams({ report_type: r.value, page: 1, status: "ALL", category: "ALL" })}
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
@@ -852,10 +888,10 @@ export default function ITReports() {
                   type="text"
                   className="form-input"
                   placeholder={`Search ${REPORT_TYPES.find((r) => r.value === reportType)?.label || "records"}…`}
-                  value={searchTerm}
+                  value={searchInput}
                   onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setPage(1);
+                    setSearchInput(e.target.value);
+                    updateQueryParams({ search: e.target.value, page: 1 });
                   }}
                   style={{ paddingLeft: "34px", width: "100%", height: "38px", fontSize: "13px" }}
                 />
@@ -867,10 +903,7 @@ export default function ITReports() {
                   <select
                     className="form-input"
                     value={statusFilter}
-                    onChange={(e) => {
-                      setStatusFilter(e.target.value);
-                      setPage(1);
-                    }}
+                    onChange={(e) => updateQueryParams({ status: e.target.value, page: 1 })}
                     style={{ height: "38px", fontSize: "13px", color: "#334155" }}
                   >
                     <option value="ALL">All Statuses</option>
@@ -887,10 +920,7 @@ export default function ITReports() {
                   <select
                     className="form-input"
                     value={categoryFilter}
-                    onChange={(e) => {
-                      setCategoryFilter(e.target.value);
-                      setPage(1);
-                    }}
+                    onChange={(e) => updateQueryParams({ category: e.target.value, page: 1 })}
                     style={{ height: "38px", fontSize: "13px", color: "#334155" }}
                   >
                     <option value="ALL">All Categories</option>
@@ -908,10 +938,7 @@ export default function ITReports() {
                   type="date"
                   className="form-input"
                   value={fromDate}
-                  onChange={(e) => {
-                    setFromDate(e.target.value);
-                    setPage(1);
-                  }}
+                  onChange={(e) => updateQueryParams({ from_date: e.target.value, page: 1 })}
                   style={{ height: "38px", fontSize: "12.5px" }}
                 />
               </div>
@@ -923,10 +950,7 @@ export default function ITReports() {
                   type="date"
                   className="form-input"
                   value={toDate}
-                  onChange={(e) => {
-                    setToDate(e.target.value);
-                    setPage(1);
-                  }}
+                  onChange={(e) => updateQueryParams({ to_date: e.target.value, page: 1 })}
                   style={{ height: "38px", fontSize: "12.5px" }}
                 />
               </div>
@@ -963,7 +987,7 @@ export default function ITReports() {
               <span style={{ fontSize: "12px", color: "#64748b", fontWeight: 700, marginRight: "4px" }}>Quick Presets:</span>
               <button
                 type="button"
-                onClick={() => { setQuickFilter("ALL"); setPage(1); }}
+                onClick={() => updateQueryParams({ quick_filter: "ALL", page: 1 })}
                 style={{
                   padding: "5px 14px",
                   borderRadius: "20px",
@@ -976,12 +1000,12 @@ export default function ITReports() {
                   transition: "all 0.15s ease",
                 }}
               >
-                All Records ({data.length})
+                All Records ({pagination.total})
               </button>
 
               <button
                 type="button"
-                onClick={() => { setQuickFilter("EXPIRING_SOON"); setPage(1); }}
+                onClick={() => updateQueryParams({ quick_filter: "EXPIRING_SOON", page: 1 })}
                 style={{
                   padding: "5px 14px",
                   borderRadius: "20px",
@@ -999,7 +1023,7 @@ export default function ITReports() {
 
               <button
                 type="button"
-                onClick={() => { setQuickFilter("ACTION_REQUIRED"); setPage(1); }}
+                onClick={() => updateQueryParams({ quick_filter: "ACTION_REQUIRED", page: 1 })}
                 style={{
                   padding: "4px 12px",
                   borderRadius: "20px",
@@ -1038,7 +1062,7 @@ export default function ITReports() {
 
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span style={{ fontSize: "12px", color: "#475569", background: "#f1f5f9", padding: "4px 10px", borderRadius: "12px", fontWeight: 600 }}>
-                Showing {displayedRows.length} of {filteredData.length} filtered (Total {data.length})
+                Showing {data.length} of {pagination.total} records
               </span>
             </div>
           </div>
@@ -1062,14 +1086,14 @@ export default function ITReports() {
                     </tr>
                   </thead>
                   <tbody>
-                    {displayedRows.length === 0 ? (
+                    {data.length === 0 ? (
                       <tr>
                         <td colSpan={columns.length + 1} style={{ textAlign: "center", padding: "40px 16px", color: "#94a3b8" }}>
                           {hasActiveFilters ? "No results matching current filters" : "No records found in this report"}
                         </td>
                       </tr>
                     ) : (
-                      displayedRows.map((item, idx) => renderRow(item, idx))
+                      data.map((item, idx) => renderRow(item, idx))
                     )}
                   </tbody>
                 </table>
@@ -1078,15 +1102,12 @@ export default function ITReports() {
 
             {/* ── Pagination Footer ─────────────────────────────────── */}
             <ITPagination
-              page={page}
-              totalPages={totalPages}
-              totalRecords={filteredData.length}
-              limit={limit}
-              onPageChange={(newPage) => setPage(newPage)}
-              onLimitChange={(newLimit) => {
-                setLimit(newLimit);
-                setPage(1);
-              }}
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              totalRecords={pagination.total}
+              limit={pagination.limit}
+              onPageChange={(newPage) => updateQueryParams({ page: newPage })}
+              onLimitChange={(newLimit) => updateQueryParams({ limit: newLimit, page: 1 })}
               limits={[10, 20, 50, 100]}
             />
           </div>

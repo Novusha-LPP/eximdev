@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search,
   Download,
@@ -9,7 +9,6 @@ import {
   X,
   Key,
   ChevronLeft,
-  ChevronRight,
   RotateCcw,
 } from "lucide-react";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
@@ -62,6 +61,13 @@ const fmtDate = (d) => {
 
 export default function LicenseManagement() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
+  const limitParam = parseInt(searchParams.get("limit") || "10", 10);
+  const statusParam = searchParams.get("status") || "";
+  const typeParam = searchParams.get("type") || searchParams.get("license_type") || "";
+  const searchParam = searchParams.get("search") || "";
 
   const [data, setData] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -70,11 +76,30 @@ export default function LicenseManagement() {
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
-  const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [searchInput, setSearchInput] = useState(searchParam);
+  const [stats, setStats] = useState({ total: 0, active: 0, expiring: 0, expired: 0 });
+  const [pagination, setPagination] = useState({
+    page: pageParam,
+    limit: limitParam,
+    total: 0,
+    totalPages: 1,
+  });
+
+  useEffect(() => {
+    setSearchInput(searchParam);
+  }, [searchParam]);
+
+  const updateQueryParams = (newParams) => {
+    const params = new URLSearchParams(searchParams);
+    Object.entries(newParams).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === "") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    setSearchParams(params, { replace: true });
+  };
 
   const normalize = (x) => {
     const rawAssignedTo =
@@ -153,19 +178,44 @@ export default function LicenseManagement() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await itHelpdeskAPI.licenses.getAll();
+      const params = {};
+      if (statusParam) params.status = statusParam;
+      if (typeParam) {
+        params.type = typeParam;
+        params.license_type = typeParam;
+      }
+      if (searchParam) params.search = searchParam;
+      params.page = pageParam;
+      params.limit = limitParam;
+
+      const res = await itHelpdeskAPI.licenses.getAll(params);
+
       setData((res.data || []).map(normalize));
+      if (res.pagination) {
+        setPagination(res.pagination);
+      }
     } catch (e) {
       console.error(e);
       toast.error("Failed to load licenses");
     } finally {
       setLoading(false);
     }
+  }, [pageParam, limitParam, statusParam, typeParam, searchParam]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await itHelpdeskAPI.licenses.getStats();
+      if (res && res.data) {
+        setStats(res.data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
   }, []);
 
   const fetchVendors = useCallback(async () => {
     try {
-      const res = await itHelpdeskAPI.vendors.getAll();
+      const res = await itHelpdeskAPI.vendors.getAll({ all: "true" });
       setVendors(res.data || []);
     } catch (e) {
       console.error(e);
@@ -173,43 +223,18 @@ export default function LicenseManagement() {
   }, []);
 
   useEffect(() => {
-    fetchData();
     fetchVendors();
-  }, [fetchData, fetchVendors]);
+    fetchStats();
+  }, [fetchVendors, fetchStats]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const isValidEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
-
-  const filteredData = data.filter((item) => {
-    const term = searchTerm.toLowerCase();
-    const status = computeLicenseStatus(item.expiry_date);
-
-    const matchesSearch =
-      !searchTerm ||
-      (item.license_name || "").toLowerCase().includes(term) ||
-      (item.license_code || "").toLowerCase().includes(term) ||
-      (item.software_name || "").toLowerCase().includes(term) ||
-      (item.vendor_name || "").toLowerCase().includes(term) ||
-      (item.assigned_to || "").toLowerCase().includes(term) ||
-      (item.assigned_asset || "").toLowerCase().includes(term);
-
-    const matchesType = !typeFilter || item.license_type === typeFilter;
-    const matchesStatus = !statusFilter || status.label === statusFilter;
-
-    return matchesSearch && matchesType && matchesStatus;
-  });
-
-  // KPI calculations
-  const totalCount = data.length;
-  const activeCount = data.filter((d) => computeLicenseStatus(d.expiry_date).label === "Active").length;
-  const expiringCount = data.filter((d) => computeLicenseStatus(d.expiry_date).label === "Expiring Soon").length;
-  const expiredCount = data.filter((d) => computeLicenseStatus(d.expiry_date).label === "Expired").length;
-
-  // Pagination calculation
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / limit));
-  const displayedRows = filteredData.slice((page - 1) * limit, page * limit);
 
   const handleSave = async (e) => {
     if (e) e.preventDefault();
@@ -256,7 +281,7 @@ export default function LicenseManagement() {
         toast.success("License created successfully");
       }
 
-      await fetchData();
+      await Promise.all([fetchData(), fetchStats()]);
       setOpen(false);
       setEditId(null);
       setForm({ ...EMPTY_FORM });
@@ -291,16 +316,24 @@ export default function LicenseManagement() {
     try {
       await itHelpdeskAPI.licenses.remove(id);
       toast.success("License deleted successfully");
-      fetchData();
+      Promise.all([fetchData(), fetchStats()]);
     } catch (err) {
       console.error(err);
       toast.error("Failed to delete license");
     }
   };
 
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     try {
-      const excelData = filteredData.map((item, index) => {
+      const params = { limit: 10000 };
+      if (statusParam) params.status = statusParam;
+      if (typeParam) params.type = typeParam;
+      if (searchParam) params.search = searchParam;
+
+      const res = await itHelpdeskAPI.licenses.getAll(params);
+      const exportItems = (res.data || []).map(normalize);
+
+      const excelData = exportItems.map((item, index) => {
         const status = computeLicenseStatus(item.expiry_date);
         return {
           "Sr. No.": index + 1,
@@ -383,25 +416,25 @@ export default function LicenseManagement() {
             <div className="stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "10px" }}>
               <div className="stat-card">
                 <div className="stat-val" style={{ color: "#0f172a" }}>
-                  {totalCount}
+                  {stats.total}
                 </div>
                 <div className="stat-lbl">Total Licenses</div>
               </div>
               <div className="stat-card">
                 <div className="stat-val" style={{ color: "#10b981" }}>
-                  {activeCount}
+                  {stats.active}
                 </div>
                 <div className="stat-lbl">Active Licenses</div>
               </div>
               <div className="stat-card">
                 <div className="stat-val" style={{ color: "#f59e0b" }}>
-                  {expiringCount}
+                  {stats.expiring}
                 </div>
                 <div className="stat-lbl">Expiring Soon</div>
               </div>
               <div className="stat-card">
                 <div className="stat-val" style={{ color: "#ef4444" }}>
-                  {expiredCount}
+                  {stats.expired}
                 </div>
                 <div className="stat-lbl">Expired</div>
               </div>
@@ -421,10 +454,10 @@ export default function LicenseManagement() {
                     type="text"
                     className="form-input"
                     placeholder="License, software, vendor, assignee…"
-                    value={searchTerm}
+                    value={searchInput}
                     onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setPage(1);
+                      setSearchInput(e.target.value);
+                      updateQueryParams({ search: e.target.value, page: 1 });
                     }}
                     style={{ paddingLeft: "32px" }}
                   />
@@ -434,10 +467,9 @@ export default function LicenseManagement() {
               <div className="form-field">
                 <label>License Type</label>
                 <CustomSelect
-                  value={typeFilter}
+                  value={typeParam}
                   onChange={(val) => {
-                    setTypeFilter(val);
-                    setPage(1);
+                    updateQueryParams({ type: val, license_type: val, page: 1 });
                   }}
                   options={[
                     { label: "All Types", value: "" },
@@ -451,10 +483,9 @@ export default function LicenseManagement() {
               <div className="form-field">
                 <label>Expiry Status</label>
                 <CustomSelect
-                  value={statusFilter}
+                  value={statusParam}
                   onChange={(val) => {
-                    setStatusFilter(val);
-                    setPage(1);
+                    updateQueryParams({ status: val, page: 1 });
                   }}
                   options={[
                     { label: "All Statuses", value: "" },
@@ -473,10 +504,8 @@ export default function LicenseManagement() {
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => {
-                    setSearchTerm("");
-                    setTypeFilter("");
-                    setStatusFilter("");
-                    setPage(1);
+                    setSearchInput("");
+                    setSearchParams({}, { replace: true });
                   }}
                   style={{
                     height: "38px",
@@ -522,7 +551,7 @@ export default function LicenseManagement() {
             </div>
 
             <span style={{ fontSize: "12px", color: "#64748b", background: "#f1f5f9", padding: "4px 10px", borderRadius: "12px", fontWeight: 600 }}>
-              Showing {displayedRows.length} of {filteredData.length} records
+              Showing {data.length} of {pagination.total} records
             </span>
           </div>
 
@@ -550,20 +579,20 @@ export default function LicenseManagement() {
                     </tr>
                   </thead>
                   <tbody>
-                    {displayedRows.length === 0 ? (
+                    {data.length === 0 ? (
                       <tr>
                         <td colSpan={11} style={{ textAlign: "center", padding: "36px 16px", color: "#94a3b8" }}>
                           No software licenses found matching criteria
                         </td>
                       </tr>
                     ) : (
-                      displayedRows.map((item, idx) => {
+                      data.map((item, idx) => {
                         const status = computeLicenseStatus(item.expiry_date);
 
                         return (
                           <tr key={item._id} style={{ background: idx % 2 === 0 ? "#ffffff" : "#fcfdfd" }}>
                             <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>
-                              {(page - 1) * limit + idx + 1}
+                              {(pagination.page - 1) * pagination.limit + idx + 1}
                             </td>
                             <td className="fw-600" style={{ color: "#0f172a" }}>
                               {item.license_name}
@@ -627,15 +656,12 @@ export default function LicenseManagement() {
 
             {/* ── Pagination Footer ─────────────────────────────────── */}
             <ITPagination
-              page={page}
-              totalPages={totalPages}
-              totalRecords={filteredData.length}
-              limit={limit}
-              onPageChange={(newPage) => setPage(newPage)}
-              onLimitChange={(newLimit) => {
-                setLimit(newLimit);
-                setPage(1);
-              }}
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              totalRecords={pagination.total}
+              limit={pagination.limit}
+              onPageChange={(newPage) => updateQueryParams({ page: newPage })}
+              onLimitChange={(newLimit) => updateQueryParams({ limit: newLimit, page: 1 })}
             />
           </div>
         </div>
@@ -810,8 +836,10 @@ export default function LicenseManagement() {
                 <div
                   style={{
                     display: "flex",
+                    flexDirection: "row",
                     justifyContent: "flex-end",
-                    gap: "10px",
+                    alignItems: "center",
+                    gap: "12px",
                     marginTop: "20px",
                     paddingTop: "14px",
                     borderTop: "1px solid #e2e8f0",
@@ -819,10 +847,25 @@ export default function LicenseManagement() {
                 >
                   <button
                     type="button"
-                    className="btn"
+                    className="btn btn-secondary"
                     onClick={() => setOpen(false)}
                     disabled={saving}
-                    style={{ fontWeight: 600 }}
+                    style={{
+                      height: "38px",
+                      padding: "0 18px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 600,
+                      fontSize: "13.5px",
+                      borderRadius: "8px",
+                      background: "#ffffff",
+                      border: "1px solid #cbd5e1",
+                      color: "#334155",
+                      margin: 0,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
                   >
                     Cancel
                   </button>
@@ -830,7 +873,19 @@ export default function LicenseManagement() {
                     type="submit"
                     className="btn btn-primary"
                     disabled={saving}
-                    style={{ fontWeight: 600 }}
+                    style={{
+                      height: "38px",
+                      padding: "0 18px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 600,
+                      fontSize: "13.5px",
+                      borderRadius: "8px",
+                      margin: 0,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
                   >
                     {saving ? "Saving..." : editId ? "Update License" : "Create License"}
                   </button>

@@ -41,6 +41,11 @@ const resolveJobNumberQuery = (jobNoInput) => {
         if (cleanJobNo !== rawJobNo) {
             conditions.push({ [field]: rawJobNo });
         }
+        if (/FF-SUC\//i.test(cleanJobNo)) {
+            conditions.push({ [field]: cleanJobNo.replace(/FF-SUC\//gi, "FF/") });
+        } else if (/^FF\//i.test(cleanJobNo) || /\/FF\//i.test(cleanJobNo)) {
+            conditions.push({ [field]: cleanJobNo.replace(/\bFF\//gi, "FF-SUC/") });
+        }
     });
 
     let seqNum = null;
@@ -325,8 +330,16 @@ const getJobDetailsInternal = async (job_number) => {
   const uniquePoNumbers = [...new Set(poNumbers.map(p => p.trim()).filter(Boolean))];
   const customerRef = uniquePoNumbers.join(", ") || job.po_no || "";
 
+/**
+ * Formats a job number for Tally integration (removes SUC from Freight Forwarding jobs, e.g. FF-SUC/... -> FF/...)
+ */
+const formatTallyJobNo = (jobNo) => {
+  if (!jobNo) return "";
+  return String(jobNo).replace(/\bFF-SUC\//gi, "FF/");
+};
+
   return {
-    "Job Number": job.job_number,
+    "Job Number": formatTallyJobNo(job.job_number || job.job_no),
     "Job Year": job.year,
     "Job Type": (() => {
       const type = job.type || `${job.trade_type || ""} ${job.mode || ""}`.trim();
@@ -773,7 +786,7 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       "Entry Date": entry.entryDate,
       "Supplier Inv No": entry.supplierInvNo,
       "Supplier Inv Date": entry.supplierInvDate,
-      "Job No": entry.jobNo,
+      "Job No": formatTallyJobNo(entry.jobNo),
       "Supplier Name": entry.supplierName,
       "Address 1": entry.address1,
       "Address 2": entry.address2,
@@ -1177,6 +1190,7 @@ router.get("/payment-request", authApiKey, async (req, res) => {
       formattedData["Job Details"] = jobDetails;
     }
 
+    formattedData["jobNo"] = formatTallyJobNo(job_number);
     res.status(200).json(formattedData);
 
   } catch (error) {

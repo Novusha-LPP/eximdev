@@ -22,9 +22,11 @@ export const itHelpdeskAPI = {
     assign: (id, payload) => api.post(`/it-helpdesk/tickets/${id}/assign`, payload).then((r) => r.data),
     addHistory: (id, payload) => api.post(`/it-helpdesk/tickets/${id}/history`, payload).then((r) => r.data),
     uploadAttachment: (id, formData) =>
-      api.post(`/it-helpdesk/tickets/${id}/attachments`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      }).then((r) => r.data),
+      api.post(`/it-helpdesk/tickets/${id}/attachments`, formData).then((r) => r.data),
+    deleteAttachment: (id, attachmentId) =>
+      api.delete(`/it-helpdesk/tickets/${id}/attachments/${attachmentId}`).then((r) => r.data),
+    replaceAttachment: (id, attachmentId, formData) =>
+      api.put(`/it-helpdesk/tickets/${id}/attachments/${attachmentId}`, formData).then((r) => r.data),
   },
   vendors: {
     getAll: (params = {}) => api.get("/it-helpdesk/vendors", { params }).then((r) => r.data),

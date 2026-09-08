@@ -44,6 +44,16 @@ const upload = multer({
   },
 });
 
+const handleUpload = (req, res, next) => {
+  upload.any()(req, res, (err) => {
+    if (err) {
+      logger.error(`Multer upload error: ${err.message}`);
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next();
+  });
+};
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const validateId = (req, res, next) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -214,7 +224,7 @@ router.get("/:id", validateId, async (req, res) => {
 });
 
 // ── POST create ticket ────────────────────────────────────────────────────────
-router.post("/", async (req, res) => {
+router.post("/", handleUpload, async (req, res) => {
   try {
     const {
       title, description, category, subcategory, type, priority, severity,
@@ -227,6 +237,35 @@ router.post("/", async (req, res) => {
 
     // Determine initial status: "Assigned" if assigned_to is provided, else "New"
     const initialStatus = assigned_to ? "Assigned" : "New";
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const initialAttachments = (req.files || []).map((file) => ({
+      file_url: `${baseUrl}/uploads/it-helpdesk/${file.filename}`,
+      file_name: file.originalname,
+      file_size: file.size,
+      mime_type: file.mimetype,
+      uploaded_by: userId,
+      uploaded_at: new Date(),
+    }));
+
+    const history = [
+      {
+        action: "Created",
+        changed_by: userId || undefined,
+        changed_by_name: req.user?.username || "System",
+        new_value: initialStatus,
+        remarks: `Ticket created with status: ${initialStatus}`,
+      },
+    ];
+
+    if (initialAttachments.length > 0) {
+      history.push({
+        action: "Attachment Added",
+        changed_by: userId || undefined,
+        changed_by_name: req.user?.username || "System",
+        remarks: `${initialAttachments.length} file(s) attached: ${initialAttachments.map((f) => f.file_name).join(", ")}`,
+      });
+    }
 
     const ticket = new Ticket({
       ticket_id,
@@ -246,15 +285,8 @@ router.post("/", async (req, res) => {
       assigned_to: assigned_to || undefined,
       raised_by: userId || undefined,
       status: initialStatus,
-      history: [
-        {
-          action: "Created",
-          changed_by: userId || undefined,
-          changed_by_name: req.user?.username || "System",
-          new_value: initialStatus,
-          remarks: `Ticket created with status: ${initialStatus}`,
-        },
-      ],
+      attachments: initialAttachments,
+      history,
     });
 
     await ticket.save();
@@ -509,7 +541,7 @@ router.post("/:id/history", validateId, async (req, res) => {
 });
 
 // ── POST upload attachment ────────────────────────────────────────────────────
-router.post("/:id/attachments", validateId, upload.array("files", 5), async (req, res) => {
+router.post("/:id/attachments", validateId, handleUpload, async (req, res) => {
   try {
     const ticket = await Ticket.findById(req.params.id);
     if (!ticket) return res.status(404).json({ success: false, message: "Ticket not found" });
@@ -519,6 +551,7 @@ router.post("/:id/attachments", validateId, upload.array("files", 5), async (req
     // Check authorization: only Admin, the person who raised the ticket, or the person assigned to the ticket can upload attachments.
     const isAuthorized =
       req.user?.role === "Admin" ||
+      !ticket.raised_by ||
       ticket.raised_by?.toString() === userId?.toString() ||
       ticket.assigned_to?.toString() === userId?.toString();
 
@@ -531,18 +564,20 @@ router.post("/:id/attachments", validateId, upload.array("files", 5), async (req
       return res.status(400).json({ success: false, message: "Closed tickets cannot have attachments added" });
     }
 
-    if (!req.files || req.files.length === 0) {
+    const uploadedFiles = req.files || [];
+    if (uploadedFiles.length === 0) {
       return res.status(400).json({ success: false, message: "No files uploaded" });
     }
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
 
-    const newAttachments = req.files.map((file) => ({
+    const newAttachments = uploadedFiles.map((file) => ({
       file_url: `${baseUrl}/uploads/it-helpdesk/${file.filename}`,
       file_name: file.originalname,
       file_size: file.size,
       mime_type: file.mimetype,
       uploaded_by: userId,
+      uploaded_at: new Date(),
     }));
 
     const updated = await Ticket.findByIdAndUpdate(
@@ -554,7 +589,7 @@ router.post("/:id/attachments", validateId, upload.array("files", 5), async (req
             action: "Attachment Added",
             changed_by: userId,
             changed_by_name: req.user?.username || "System",
-            remarks: `${req.files.length} file(s) attached: ${req.files.map((f) => f.originalname).join(", ")}`,
+            remarks: `${uploadedFiles.length} file(s) attached: ${uploadedFiles.map((f) => f.originalname).join(", ")}`,
           },
         },
       },
@@ -564,6 +599,120 @@ router.post("/:id/attachments", validateId, upload.array("files", 5), async (req
     res.json({ success: true, data: updated, attachments: newAttachments });
   } catch (err) {
     logger.error(`Error uploading ticket attachment: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── DELETE single attachment ──────────────────────────────────────────────────
+router.delete("/:id/attachments/:attachmentId", validateId, async (req, res) => {
+  try {
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket) return res.status(404).json({ success: false, message: "Ticket not found" });
+
+    if (ticket.status === "Closed") {
+      return res.status(400).json({ success: false, message: "Closed tickets cannot have attachments deleted" });
+    }
+
+    const userId = req.user?._id || req.user?.id;
+    const isAuthorized =
+      req.user?.role === "Admin" ||
+      !ticket.raised_by ||
+      ticket.raised_by?.toString() === userId?.toString() ||
+      ticket.assigned_to?.toString() === userId?.toString();
+
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: "Unauthorized to delete attachments from this ticket" });
+    }
+
+    const attachmentIdStr = String(req.params.attachmentId);
+    const targetAttachment = ticket.attachments.find(
+      (a) => a._id?.toString() === attachmentIdStr
+    );
+
+    if (!targetAttachment) {
+      return res.status(404).json({ success: false, message: "Attachment not found" });
+    }
+
+    const fileName = targetAttachment.file_name;
+
+    // Filter out target attachment
+    ticket.attachments = ticket.attachments.filter(
+      (a) => a._id?.toString() !== attachmentIdStr
+    );
+
+    ticket.history.push({
+      action: "Attachment Removed",
+      changed_by: userId,
+      changed_by_name: req.user?.username || "System",
+      remarks: `Attachment removed: "${fileName}"`,
+    });
+
+    await ticket.save();
+    res.json({ success: true, message: "Attachment removed successfully", data: ticket });
+  } catch (err) {
+    logger.error(`Error deleting attachment: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── PUT replace single attachment ─────────────────────────────────────────────
+router.put("/:id/attachments/:attachmentId", validateId, handleUpload, async (req, res) => {
+  try {
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket) return res.status(404).json({ success: false, message: "Ticket not found" });
+
+    if (ticket.status === "Closed") {
+      return res.status(400).json({ success: false, message: "Closed tickets cannot have attachments modified" });
+    }
+
+    const userId = req.user?._id || req.user?.id;
+    const isAuthorized =
+      req.user?.role === "Admin" ||
+      !ticket.raised_by ||
+      ticket.raised_by?.toString() === userId?.toString() ||
+      ticket.assigned_to?.toString() === userId?.toString();
+
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: "Unauthorized to modify attachments on this ticket" });
+    }
+
+    const uploadedFiles = req.files || [];
+    if (uploadedFiles.length === 0) {
+      return res.status(400).json({ success: false, message: "No replacement file provided" });
+    }
+
+    const attachmentIdStr = String(req.params.attachmentId);
+    const targetAttachment = ticket.attachments.find(
+      (a) => a._id?.toString() === attachmentIdStr
+    );
+
+    if (!targetAttachment) {
+      return res.status(404).json({ success: false, message: "Attachment not found" });
+    }
+
+    const oldFileName = targetAttachment.file_name;
+    const newFile = uploadedFiles[0];
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+    // Update target attachment fields
+    targetAttachment.file_url = `${baseUrl}/uploads/it-helpdesk/${newFile.filename}`;
+    targetAttachment.file_name = newFile.originalname;
+    targetAttachment.file_size = newFile.size;
+    targetAttachment.mime_type = newFile.mimetype;
+    targetAttachment.uploaded_by = userId;
+    targetAttachment.uploaded_at = new Date();
+
+    ticket.history.push({
+      action: "Attachment Replaced",
+      changed_by: userId,
+      changed_by_name: req.user?.username || "System",
+      remarks: `Attachment replaced: "${oldFileName}" -> "${newFile.originalname}"`,
+    });
+
+    await ticket.save();
+    res.json({ success: true, message: "Attachment replaced successfully", data: ticket });
+  } catch (err) {
+    logger.error(`Error replacing attachment: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });

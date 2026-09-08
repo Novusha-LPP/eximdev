@@ -165,7 +165,7 @@ export default function RaiseTicket() {
       formData.append("tags", JSON.stringify(ticketForm.tags));
 
       // Attachments are optional
-      attachments.forEach((file) => formData.append("attachments", file));
+      attachments.forEach((file) => formData.append("files", file));
 
       await itHelpdeskAPI.tickets.create(formData);
       toast.success("Ticket raised successfully!");

@@ -259,27 +259,11 @@ export default function InventoryManagement() {
       <div className="topbar">
         <div className="topbar-left">
           <button
-            className="btn btn-icon"
+            className="back-btn"
             onClick={() => navigate("/it-helpdesk")}
             title="Back to IT Helpdesk"
-            style={{
-              border: "1px solid #e2e8f0",
-              background: "white",
-              borderRadius: "50%",
-              width: 36,
-              height: 36,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              fontSize: 18,
-              fontWeight: "bold",
-              color: "#334155",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-              transition: "all 0.2s ease",
-            }}
           >
-            ←
+            <ChevronLeft size={20} />
           </button>
           <div>
             <div className="topbar-title">Inventory &amp; Spares Management</div>

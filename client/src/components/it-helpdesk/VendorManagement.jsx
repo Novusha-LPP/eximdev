@@ -34,6 +34,70 @@ const VENDOR_TYPES = [
 
 const STATUS_OPTIONS = ["Active", "Inactive"];
 
+// Validation patterns for standard Indian registrations and contact details
+const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+const MOBILE_REGEX = /^[6-9]\d{9}$/;
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+/**
+ * Reusable field-level validator for Vendor form
+ */
+export const validateVendorField = (fieldName, value) => {
+  const val = typeof value === "string" ? value.trim() : "";
+  switch (fieldName) {
+    case "name":
+      if (!val) return "Company / Vendor name is required";
+      return "";
+    case "contact_person":
+      if (!val) return "Contact person name is required";
+      return "";
+    case "mobile_number":
+      if (!val) return "Mobile number is required";
+      if (!MOBILE_REGEX.test(val)) {
+        return "Must be 10 digits starting with 6, 7, 8, or 9";
+      }
+      return "";
+    case "email":
+      if (!val) return "Email address is required";
+      if (!EMAIL_REGEX.test(val)) {
+        return "Invalid email format (e.g. name@domain.com)";
+      }
+      return "";
+    case "gst_number":
+      if (val) {
+        if (!GSTIN_REGEX.test(val.toUpperCase())) {
+          return "Invalid GSTIN format (e.g. 24AAAAA0000A1Z5 - 15 characters)";
+        }
+      }
+      return "";
+    case "pan_number":
+      if (val) {
+        if (!PAN_REGEX.test(val.toUpperCase())) {
+          return "Invalid PAN format (e.g. AAAAA0000A - 10 characters)";
+        }
+      }
+      return "";
+    default:
+      return "";
+  }
+};
+
+/**
+ * Reusable form-level validator for Vendor form
+ */
+export const validateVendorForm = (formData) => {
+  const errors = {};
+  const fields = ["name", "contact_person", "mobile_number", "email", "gst_number", "pan_number"];
+  fields.forEach((field) => {
+    const error = validateVendorField(field, formData[field]);
+    if (error) {
+      errors[field] = error;
+    }
+  });
+  return errors;
+};
+
 const EMPTY_FORM = {
   name: "",
   vendor_type: "Supplier",
@@ -55,6 +119,7 @@ export default function VendorManagement() {
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [errors, setErrors] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
@@ -118,6 +183,7 @@ export default function VendorManagement() {
   const displayedRows = filteredData.slice((page - 1) * limit, page * limit);
 
   const handleOpen = (record = null) => {
+    setErrors({});
     if (record) {
       setEditId(record._id);
       setForm({
@@ -140,22 +206,71 @@ export default function VendorManagement() {
     setShowModal(true);
   };
 
+  /**
+   * Handle real-time input change with auto-formatting and error clearance
+   */
+  const handleFieldChange = (field, rawValue) => {
+    let value = rawValue;
+
+    // Auto-formatting: GST/PAN uppercase and no spaces
+    if (field === "gst_number" || field === "pan_number") {
+      value = rawValue.toUpperCase().replace(/\s/g, "");
+    } else if (field === "mobile_number") {
+      // Numbers only, max 10 digits
+      value = rawValue.replace(/\D/g, "").slice(0, 10);
+    }
+
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+    // Immediate error removal when valid
+    const fieldError = validateVendorField(field, value);
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (!fieldError) {
+        delete next[field];
+      } else if (prev[field]) {
+        // If field already had an error, update message
+        next[field] = fieldError;
+      }
+      return next;
+    });
+  };
+
   const handleSave = async (e) => {
     if (e) e.preventDefault();
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (
-      !form.name.trim() ||
-      !form.contact_person.trim() ||
-      !form.mobile_number.trim() ||
-      !form.email.trim()
-    ) {
-      toast.error("Please fill all required fields");
-      return;
-    }
+    // Comprehensive format validation across all fields
+    const validationErrors = validateVendorForm(form);
 
-    if (!emailRegex.test(form.email.trim())) {
-      toast.error("Please enter a valid email address");
+    // Client-side uniqueness pre-check against existing vendor list
+    const duplicateErrors = {};
+    const normalizedName = (form.name || "").trim().toLowerCase();
+    const normalizedMobile = (form.mobile_number || "").trim();
+    const normalizedGst = (form.gst_number || "").trim().toUpperCase();
+    const normalizedPan = (form.pan_number || "").trim().toUpperCase();
+
+    data.forEach((item) => {
+      if (editId && item._id === editId) return;
+
+      if (normalizedName && (item.name || "").trim().toLowerCase() === normalizedName) {
+        duplicateErrors.name = "A vendor with this name already exists";
+      }
+      if (normalizedMobile && (item.mobile_number || "").trim() === normalizedMobile) {
+        duplicateErrors.mobile_number = "A vendor with this mobile number already exists";
+      }
+      if (normalizedGst && (item.gst_number || "").trim().toUpperCase() === normalizedGst) {
+        duplicateErrors.gst_number = "A vendor with this GST number already exists";
+      }
+      if (normalizedPan && (item.pan_number || "").trim().toUpperCase() === normalizedPan) {
+        duplicateErrors.pan_number = "A vendor with this PAN number already exists";
+      }
+    });
+
+    const combinedErrors = { ...validationErrors, ...duplicateErrors };
+    if (Object.keys(combinedErrors).length > 0) {
+      setErrors(combinedErrors);
+      const firstErrorMessage = Object.values(combinedErrors)[0];
+      toast.error(firstErrorMessage || "Please fix validation errors before submitting");
       return;
     }
 
@@ -165,11 +280,11 @@ export default function VendorManagement() {
         name: form.name.trim(),
         vendor_type: form.vendor_type || "Supplier",
         type: form.vendor_type || "Supplier",
-        gst_number: form.gst_number?.trim() || "",
-        pan_number: form.pan_number?.trim() || "",
+        gst_number: form.gst_number?.trim().toUpperCase() || "",
+        pan_number: form.pan_number?.trim().toUpperCase() || "",
         contact_person: form.contact_person.trim(),
         mobile_number: form.mobile_number.trim(),
-        email: form.email.trim(),
+        email: form.email.trim().toLowerCase(),
         status: form.status || "Active",
       };
 
@@ -190,10 +305,20 @@ export default function VendorManagement() {
       setShowModal(false);
       setEditId(null);
       setForm({ ...EMPTY_FORM });
+      setErrors({});
       fetchData();
     } catch (err) {
-      console.error("Vendor save failed:", err.message);
-      toast.error("Failed to save vendor");
+      console.error("Vendor save failed:", err);
+      const serverMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        "Failed to save vendor";
+
+      if (err.response?.data?.errors) {
+        setErrors(err.response.data.errors);
+      }
+      toast.error(serverMessage);
     } finally {
       setSaving(false);
     }
@@ -272,27 +397,11 @@ export default function VendorManagement() {
       <div className="topbar">
         <div className="topbar-left">
           <button
-            className="btn btn-icon"
+            className="back-btn"
             onClick={() => navigate("/it-helpdesk")}
             title="Back to IT Helpdesk"
-            style={{
-              border: "1px solid #e2e8f0",
-              background: "white",
-              borderRadius: "50%",
-              width: 36,
-              height: 36,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              fontSize: 18,
-              fontWeight: "bold",
-              color: "#334155",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-              transition: "all 0.2s ease",
-            }}
           >
-            ←
+            <ChevronLeft size={20} />
           </button>
           <div>
             <div className="topbar-title">Vendors &amp; AMC Suppliers</div>
@@ -645,24 +754,33 @@ export default function VendorManagement() {
               </div>
 
               {/* Modal Body */}
-              <form onSubmit={handleSave} style={{ padding: "20px" }}>
+              <form onSubmit={handleSave} noValidate style={{ padding: "20px" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
                   <div className="form-field" style={{ gridColumn: "span 2" }}>
                     <label>Company / Vendor Name *</label>
                     <input
                       type="text"
-                      required
                       placeholder="e.g. Paramount Tech Solutions Pvt Ltd"
                       value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      onChange={(e) => handleFieldChange("name", e.target.value)}
+                      style={{
+                        ...(errors.name
+                          ? { borderColor: "#ef4444 !important", boxShadow: "0 0 0 2px rgba(239, 68, 68, 0.15) !important" }
+                          : {}),
+                      }}
                     />
+                    {errors.name && (
+                      <span style={{ color: "#ef4444", fontSize: "11.5px", marginTop: "4px", display: "block", fontWeight: 500 }}>
+                        {errors.name}
+                      </span>
+                    )}
                   </div>
 
                   <div className="form-field">
                     <label>Vendor Type</label>
                     <select
                       value={form.vendor_type}
-                      onChange={(e) => setForm({ ...form, vendor_type: e.target.value })}
+                      onChange={(e) => handleFieldChange("vendor_type", e.target.value)}
                     >
                       {VENDOR_TYPES.map((t) => (
                         <option key={t} value={t}>
@@ -676,7 +794,7 @@ export default function VendorManagement() {
                     <label>Status</label>
                     <select
                       value={form.status}
-                      onChange={(e) => setForm({ ...form, status: e.target.value })}
+                      onChange={(e) => handleFieldChange("status", e.target.value)}
                     >
                       {STATUS_OPTIONS.map((s) => (
                         <option key={s} value={s}>
@@ -691,9 +809,20 @@ export default function VendorManagement() {
                     <input
                       type="text"
                       placeholder="24AAAAA0000A1Z5"
+                      maxLength={15}
                       value={form.gst_number}
-                      onChange={(e) => setForm({ ...form, gst_number: e.target.value })}
+                      onChange={(e) => handleFieldChange("gst_number", e.target.value)}
+                      style={{
+                        ...(errors.gst_number
+                          ? { borderColor: "#ef4444 !important", boxShadow: "0 0 0 2px rgba(239, 68, 68, 0.15) !important" }
+                          : {}),
+                      }}
                     />
+                    {errors.gst_number && (
+                      <span style={{ color: "#ef4444", fontSize: "11.5px", marginTop: "4px", display: "block", fontWeight: 500 }}>
+                        {errors.gst_number}
+                      </span>
+                    )}
                   </div>
 
                   <div className="form-field">
@@ -701,42 +830,81 @@ export default function VendorManagement() {
                     <input
                       type="text"
                       placeholder="AAAAA0000A"
+                      maxLength={10}
                       value={form.pan_number}
-                      onChange={(e) => setForm({ ...form, pan_number: e.target.value })}
+                      onChange={(e) => handleFieldChange("pan_number", e.target.value)}
+                      style={{
+                        ...(errors.pan_number
+                          ? { borderColor: "#ef4444 !important", boxShadow: "0 0 0 2px rgba(239, 68, 68, 0.15) !important" }
+                          : {}),
+                      }}
                     />
+                    {errors.pan_number && (
+                      <span style={{ color: "#ef4444", fontSize: "11.5px", marginTop: "4px", display: "block", fontWeight: 500 }}>
+                        {errors.pan_number}
+                      </span>
+                    )}
                   </div>
 
                   <div className="form-field">
                     <label>Contact Person *</label>
                     <input
                       type="text"
-                      required
                       placeholder="Mr. Rajesh Kumar"
                       value={form.contact_person}
-                      onChange={(e) => setForm({ ...form, contact_person: e.target.value })}
+                      onChange={(e) => handleFieldChange("contact_person", e.target.value)}
+                      style={{
+                        ...(errors.contact_person
+                          ? { borderColor: "#ef4444 !important", boxShadow: "0 0 0 2px rgba(239, 68, 68, 0.15) !important" }
+                          : {}),
+                      }}
                     />
+                    {errors.contact_person && (
+                      <span style={{ color: "#ef4444", fontSize: "11.5px", marginTop: "4px", display: "block", fontWeight: 500 }}>
+                        {errors.contact_person}
+                      </span>
+                    )}
                   </div>
 
                   <div className="form-field">
                     <label>Mobile Number *</label>
                     <input
                       type="text"
-                      required
                       placeholder="9876543210"
+                      maxLength={10}
                       value={form.mobile_number}
-                      onChange={(e) => setForm({ ...form, mobile_number: e.target.value })}
+                      onChange={(e) => handleFieldChange("mobile_number", e.target.value)}
+                      style={{
+                        ...(errors.mobile_number
+                          ? { borderColor: "#ef4444 !important", boxShadow: "0 0 0 2px rgba(239, 68, 68, 0.15) !important" }
+                          : {}),
+                      }}
                     />
+                    {errors.mobile_number && (
+                      <span style={{ color: "#ef4444", fontSize: "11.5px", marginTop: "4px", display: "block", fontWeight: 500 }}>
+                        {errors.mobile_number}
+                      </span>
+                    )}
                   </div>
 
                   <div className="form-field" style={{ gridColumn: "span 2" }}>
                     <label>Email Address *</label>
                     <input
                       type="email"
-                      required
                       placeholder="rajesh@paramount.com"
                       value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      onChange={(e) => handleFieldChange("email", e.target.value)}
+                      style={{
+                        ...(errors.email
+                          ? { borderColor: "#ef4444 !important", boxShadow: "0 0 0 2px rgba(239, 68, 68, 0.15) !important" }
+                          : {}),
+                      }}
                     />
+                    {errors.email && (
+                      <span style={{ color: "#ef4444", fontSize: "11.5px", marginTop: "4px", display: "block", fontWeight: 500 }}>
+                        {errors.email}
+                      </span>
+                    )}
                   </div>
                 </div>
 

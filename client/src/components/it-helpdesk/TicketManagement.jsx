@@ -15,6 +15,7 @@ import EmailNotifications from "./EmailNotifications";
 import TicketEscalation from "./TicketEscalation";
 import AttachmentUpload from "./AttachmentUpload";
 import TicketDetailDrawer from "./TicketDetailDrawer";
+import AttachmentImageViewer from "./AttachmentImageViewer";
 import CustomSelect from "./CustomSelect";
 import ITPagination from "./ITPagination";
 import * as XLSX from "xlsx";
@@ -215,6 +216,12 @@ export default function TicketManagement() {
   const [emailNotifications, setEmailNotifications] = useState([]);
   const [escalationRules, setEscalationRules] = useState([]);
   const [attachments, setAttachments] = useState([]);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [imageViewerData, setImageViewerData] = useState({
+    attachments: [],
+    initialIndex: 0,
+    ticketId: "",
+  });
 
   const handleExportAllToExcel = async () => {
     try {
@@ -425,7 +432,7 @@ export default function TicketManagement() {
 
     // File validation (client-side matching backend constraints)
     if (form.files && form.files.length > 0) {
-      const allowedExtensions = /\.(jpeg|jpg|png)$/i;
+      const allowedExtensions = /\.(jpeg|jpg|png|gif|pdf|doc|docx|xls|xlsx|txt|zip)$/i;
       for (const file of form.files) {
         if (file.size > 10 * 1024 * 1024) { // 10MB limit
           toast.error(`File "${file.name}" exceeds the 10MB limit.`);
@@ -439,36 +446,62 @@ export default function TicketManagement() {
     }
 
     const autoTitle = `[${form.type}] ${form.category}`;
-    const payload = {
-      ...form,
-      title: form.title || autoTitle,
-      status: editId ? form.status : "New", // always "New" when raising a ticket
-      assigned_to: form.assigned_to === "Vikash" ? undefined : (form.assigned_to || undefined),
-      requester_name: form.requester_name || undefined,
-      sla_due_date: form.sla_due_date || undefined,
-    };
     setSaving(true);
     try {
-      let ticketId = editId;
       if (editId) {
+        const payload = {
+          ...form,
+          title: form.title || autoTitle,
+          assigned_to: form.assigned_to === "Vikash" ? undefined : (form.assigned_to || undefined),
+          requester_name: form.requester_name || undefined,
+          sla_due_date: form.sla_due_date || undefined,
+        };
         await itHelpdeskAPI.tickets.update(editId, payload);
         toast.success("Ticket updated successfully");
-      } else {
-        const res = await itHelpdeskAPI.tickets.create(payload);
-        ticketId = res.data?._id;
-        toast.success("Ticket raised successfully");
-      }
 
-      // Handle attachments separately
-      if (form.files && form.files.length > 0 && ticketId) {
-        try {
-          const formData = new FormData();
-          form.files.forEach(file => formData.append("files", file));
-          await itHelpdeskAPI.tickets.uploadAttachment(ticketId, formData);
-        } catch (uploadErr) {
-          console.error("Attachment upload failed:", uploadErr);
-          toast.error(uploadErr.response?.data?.message || "Ticket saved, but failed to upload some attachments.");
+        if (form.files && form.files.length > 0) {
+          try {
+            const formData = new FormData();
+            form.files.forEach((file) => formData.append("files", file));
+            await itHelpdeskAPI.tickets.uploadAttachment(editId, formData);
+          } catch (uploadErr) {
+            console.error("Attachment upload failed:", uploadErr);
+            toast.error(uploadErr.response?.data?.message || "Ticket saved, but failed to upload some attachments.");
+          }
         }
+      } else {
+        let payload;
+        if (form.files && form.files.length > 0) {
+          const formData = new FormData();
+          formData.append("title", form.title || autoTitle);
+          formData.append("description", form.description || "");
+          formData.append("category", form.category || "Hardware");
+          if (form.subcategory) formData.append("subcategory", form.subcategory);
+          formData.append("type", form.type || "Incident");
+          formData.append("priority", form.priority || "Medium");
+          if (form.severity) formData.append("severity", form.severity);
+          if (form.requester_name) formData.append("requester_name", form.requester_name);
+          formData.append("department", form.department || "");
+          if (form.contact_information) formData.append("contact_information", form.contact_information);
+          if (form.location) formData.append("location", form.location);
+          if (form.sla_due_date) formData.append("sla_due_date", form.sla_due_date);
+          if (form.assigned_to && form.assigned_to !== "Vikash") {
+            formData.append("assigned_to", form.assigned_to);
+          }
+          form.files.forEach((file) => formData.append("files", file));
+          payload = formData;
+        } else {
+          payload = {
+            ...form,
+            title: form.title || autoTitle,
+            status: "New",
+            assigned_to: form.assigned_to === "Vikash" ? undefined : (form.assigned_to || undefined),
+            requester_name: form.requester_name || undefined,
+            sla_due_date: form.sla_due_date || undefined,
+          };
+        }
+        await itHelpdeskAPI.tickets.create(payload);
+        toast.success("Ticket raised successfully");
       }
 
       setShowModal(false);
@@ -863,11 +896,36 @@ export default function TicketManagement() {
                                       <button
                                         type="button"
                                         className="btn btn-icon btn-info"
-                                        style={{ width: "28px", height: "28px" }}
-                                        onClick={() => window.open(t.attachments[0].file_url, "_blank")}
-                                        title="View Attachment"
+                                        style={{ width: "28px", height: "28px", position: "relative" }}
+                                        onClick={() => {
+                                          setImageViewerData({
+                                            attachments: t.attachments,
+                                            initialIndex: 0,
+                                            ticketId: t.ticket_id || t.ticketId || "",
+                                          });
+                                          setImageViewerOpen(true);
+                                        }}
+                                        title={t.attachments.length > 1 ? `View ${t.attachments.length} Attached Images` : "View Attachment"}
                                       >
                                         <Eye size={14} color="#0284c7" />
+                                        {t.attachments.length > 1 && (
+                                          <span
+                                            style={{
+                                              position: "absolute",
+                                              top: "-4px",
+                                              right: "-4px",
+                                              fontSize: "9px",
+                                              fontWeight: 700,
+                                              backgroundColor: "#2563eb",
+                                              color: "#ffffff",
+                                              borderRadius: "10px",
+                                              padding: "0 4px",
+                                              lineHeight: "13px",
+                                            }}
+                                          >
+                                            {t.attachments.length}
+                                          </span>
+                                        )}
                                       </button>
                                     )}
                                     <button
@@ -1354,6 +1412,14 @@ export default function TicketManagement() {
               onUpdate={() => fetchData(pagination.page)}
               users={users}
               isAdmin={isAdmin}
+            />
+
+            <AttachmentImageViewer
+              open={imageViewerOpen}
+              onClose={() => setImageViewerOpen(false)}
+              attachments={imageViewerData.attachments}
+              initialIndex={imageViewerData.initialIndex}
+              ticketId={imageViewerData.ticketId}
             />
           </div>
         )}

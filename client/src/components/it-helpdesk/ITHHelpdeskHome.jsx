@@ -1,5 +1,37 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useContext, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import axios from "axios";
+import {
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Grid,
+  IconButton,
+  MenuItem,
+  TextField,
+  Typography,
+  CircularProgress,
+} from "@mui/material";
+import ConfirmationNumberIcon from "@mui/icons-material/ConfirmationNumber";
+import CloseIcon from "@mui/icons-material/Close";
+import DescriptionIcon from "@mui/icons-material/Description";
+import CategoryIcon from "@mui/icons-material/Category";
+import PriorityHighIcon from "@mui/icons-material/PriorityHigh";
+import PersonIcon from "@mui/icons-material/Person";
+import BusinessIcon from "@mui/icons-material/Business";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import SendIcon from "@mui/icons-material/Send";
+import { UserContext } from "../../contexts/UserContext";
 import {
   RefreshCw,
   Boxes,
@@ -16,10 +48,52 @@ import {
   ArrowRight,
   Plus,
   AlertTriangle,
+  ChevronLeft,
 } from "lucide-react";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
 import "../../styles/scorecard.scss";
+
+const TICKET_CATEGORIES = [
+  "Hardware",
+  "Software",
+  "Network",
+  "Access",
+  "Email",
+  "Other",
+];
+
+const TICKET_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
+
+const PRIORITY_CONFIG = {
+  Low: { color: "default", bg: "#f1f5f9", text: "#475569", dot: "#94a3b8" },
+  Medium: { color: "info", bg: "#eff6ff", text: "#2563eb", dot: "#3b82f6" },
+  High: { color: "warning", bg: "#fffbeb", text: "#d97706", dot: "#f59e0b" },
+  Urgent: { color: "error", bg: "#fef2f2", text: "#dc2626", dot: "#ef4444" },
+};
+
+const EMPTY_TICKET_FORM = {
+  title: "",
+  description: "",
+  category: "Hardware",
+  priority: "Medium",
+  status: "New",
+  type: "Incident",
+  assigned_to: "Vikash",
+  requester_name: "",
+  department: "",
+  sla_due_date: "",
+  resolution_notes: "",
+  files: [],
+};
+
+const formatFileSize = (bytes) => {
+  if (!bytes || bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+};
 
 const getAssetStatusBadgeClass = (status) => {
   switch (status) {
@@ -146,6 +220,9 @@ const MODULES = [
 
 export default function ITHHelpdeskHome() {
   const navigate = useNavigate();
+  const { user } = useContext(UserContext);
+  const isAdmin = user?.role === "Admin";
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [stats, setStats] = useState({
@@ -164,8 +241,188 @@ export default function ITHHelpdeskHome() {
   const [recentAssets, setRecentAssets] = useState([]);
   const [recentTickets, setRecentTickets] = useState([]);
 
+  // Ticket Modal State
+  const [showTicketModal, setShowTicketModal] = useState(false);
+  const [ticketForm, setTicketForm] = useState({ ...EMPTY_TICKET_FORM });
+  const [savingTicket, setSavingTicket] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef(null);
+
   // Audit logs
   const { logCreate, logRead } = useModuleAuditLogs("IT Helpdesk Home");
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-all-users`,
+        { withCredentials: true }
+      );
+      let userList = [];
+      if (Array.isArray(res.data)) userList = res.data;
+      else if (res.data?.users) userList = res.data.users;
+      else if (res.data?.data) userList = res.data.data;
+      setUsers(userList);
+    } catch (err) {
+      console.log("User fetch error:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleOpenTicketModal = () => {
+    let defaultAssignedTo = "Vikash";
+    if (users && users.length > 0) {
+      const vikash = users.find(
+        (u) =>
+          (u.username || u.first_name || u.email || "")
+            .toLowerCase()
+            .includes("vikash")
+      );
+      if (vikash) defaultAssignedTo = vikash._id;
+    }
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(now.getDate()).padStart(2, "0")}`;
+
+    setTicketForm({
+      ...EMPTY_TICKET_FORM,
+      assigned_to: defaultAssignedTo,
+      sla_due_date: today,
+      requester_name: user?.username || user?.first_name || user?.email || "",
+      files: [],
+    });
+    setShowTicketModal(true);
+  };
+
+  const handleFilesSelected = (newFiles) => {
+    if (!newFiles || newFiles.length === 0) return;
+    const fileArray = Array.from(newFiles);
+    setTicketForm((prev) => ({
+      ...prev,
+      files: [...(prev.files || []), ...fileArray],
+    }));
+  };
+
+  const handleRemoveFile = (indexToRemove) => {
+    setTicketForm((prev) => ({
+      ...prev,
+      files: (prev.files || []).filter((_, i) => i !== indexToRemove),
+    }));
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesSelected(e.dataTransfer.files);
+    }
+  };
+
+  const handleSaveTicket = async () => {
+    if (!ticketForm.description.trim()) {
+      toast.error("Description is required");
+      return;
+    }
+    if (!ticketForm.category) {
+      toast.error("Category is required");
+      return;
+    }
+    if (!ticketForm.department.trim()) {
+      toast.error("Department is required");
+      return;
+    }
+    if (!ticketForm.sla_due_date) {
+      toast.error("SLA Due Date is required");
+      return;
+    }
+
+    if (ticketForm.files && ticketForm.files.length > 0) {
+      const allowedExtensions = /\.(jpeg|jpg|png|gif|pdf|doc|docx|xls|xlsx|txt|zip)$/i;
+      for (const file of ticketForm.files) {
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`File "${file.name}" exceeds the 10MB limit.`);
+          return;
+        }
+        if (!allowedExtensions.test(file.name)) {
+          toast.error(`File type for "${file.name}" is not supported.`);
+          return;
+        }
+      }
+    }
+
+    const autoTitle = `[${ticketForm.type || "Incident"}] ${ticketForm.category}`;
+
+    setSavingTicket(true);
+    try {
+      let payload;
+      if (ticketForm.files && ticketForm.files.length > 0) {
+        const formData = new FormData();
+        formData.append("title", ticketForm.title || autoTitle);
+        formData.append("description", ticketForm.description || "");
+        formData.append("category", ticketForm.category || "Hardware");
+        if (ticketForm.subcategory) formData.append("subcategory", ticketForm.subcategory);
+        formData.append("type", ticketForm.type || "Incident");
+        formData.append("priority", ticketForm.priority || "Medium");
+        if (ticketForm.severity) formData.append("severity", ticketForm.severity);
+        if (ticketForm.requester_name) formData.append("requester_name", ticketForm.requester_name);
+        formData.append("department", ticketForm.department || "");
+        if (ticketForm.contact_information) formData.append("contact_information", ticketForm.contact_information);
+        if (ticketForm.location) formData.append("location", ticketForm.location);
+        if (ticketForm.sla_due_date) formData.append("sla_due_date", ticketForm.sla_due_date);
+        if (ticketForm.assigned_to && ticketForm.assigned_to !== "Vikash") {
+          formData.append("assigned_to", ticketForm.assigned_to);
+        }
+        ticketForm.files.forEach((file) => formData.append("files", file));
+        payload = formData;
+      } else {
+        payload = {
+          ...ticketForm,
+          title: ticketForm.title || autoTitle,
+          status: "New",
+          assigned_to:
+            ticketForm.assigned_to === "Vikash"
+              ? undefined
+              : ticketForm.assigned_to || undefined,
+          requester_name: ticketForm.requester_name || undefined,
+          sla_due_date: ticketForm.sla_due_date || undefined,
+        };
+      }
+
+      await itHelpdeskAPI.tickets.create(payload);
+      toast.success("Ticket raised successfully");
+
+      setShowTicketModal(false);
+      setTicketForm({ ...EMPTY_TICKET_FORM });
+      localStorage.setItem(
+        "ticketDataRefresh",
+        JSON.stringify({ timestamp: Date.now() })
+      );
+      window.dispatchEvent(new Event("ticketDataUpdated"));
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to raise ticket");
+    } finally {
+      setSavingTicket(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -301,27 +558,11 @@ export default function ITHHelpdeskHome() {
       <div className="topbar">
         <div className="topbar-left">
           <button
-            className="btn btn-icon"
+            className="back-btn"
             onClick={() => navigate("/")}
             title="Back to Home"
-            style={{
-              border: "1px solid #e2e8f0",
-              background: "white",
-              borderRadius: "50%",
-              width: 36,
-              height: 36,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              fontSize: 18,
-              fontWeight: "bold",
-              color: "#334155",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-              transition: "all 0.2s ease",
-            }}
           >
-            ←
+            <ChevronLeft size={20} />
           </button>
           <div>
             <div className="topbar-title">IT Helpdesk Dashboard</div>
@@ -346,13 +587,14 @@ export default function ITHHelpdeskHome() {
             />
             <span>Refresh</span>
           </button>
-          <Link
-            to="/it-helpdesk/tickets"
+          <button
+            type="button"
             className="btn btn-primary"
-            style={{ textDecoration: "none" }}
+            onClick={handleOpenTicketModal}
+            title="Raise Support Ticket"
           >
             <Plus size={15} /> <span>Raise Ticket</span>
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -906,6 +1148,575 @@ export default function ITHHelpdeskHome() {
           })}
         </div>
       </div>
+
+      {/* ── Raise Support Ticket Modal ───────────────────────────────── */}
+      <Dialog
+        open={showTicketModal}
+        onClose={() => setShowTicketModal(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow:
+              "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+            overflow: "hidden",
+          },
+        }}
+      >
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            px: 3,
+            py: 2.2,
+            background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+            borderBottom: "1px solid #e2e8f0",
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={1.75}>
+            <Box
+              sx={{
+                width: 44,
+                height: 44,
+                borderRadius: 2.5,
+                background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)",
+              }}
+            >
+              <ConfirmationNumberIcon fontSize="medium" />
+            </Box>
+            <Box>
+              <Typography
+                variant="h6"
+                fontWeight={700}
+                color="text.primary"
+                lineHeight={1.2}
+              >
+                Raise Support Ticket
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Fill in the details below to request IT assistance
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            onClick={() => setShowTicketModal(false)}
+            size="small"
+            sx={{
+              color: "text.secondary",
+              "&:hover": { bgcolor: "#e2e8f0", color: "text.primary" },
+            }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+
+        {/* Form Content */}
+        <DialogContent sx={{ p: 3 }}>
+          <Grid container spacing={2.5}>
+            {/* Description */}
+            <Grid item xs={12}>
+              <Typography
+                variant="subtitle2"
+                fontWeight={600}
+                color="text.primary"
+                sx={{
+                  mb: 0.75,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                }}
+              >
+                <DescriptionIcon fontSize="small" color="primary" />
+                Issue Description <span style={{ color: "#dc2626" }}>*</span>
+              </Typography>
+              <TextField
+                placeholder="Please describe the issue, symptoms, or request with as much detail as possible..."
+                size="small"
+                fullWidth
+                multiline
+                minRows={3}
+                required
+                value={ticketForm.description}
+                onChange={(e) =>
+                  setTicketForm((f) => ({ ...f, description: e.target.value }))
+                }
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 2,
+                    bgcolor: "#fafafa",
+                    "&:hover": { bgcolor: "#ffffff" },
+                    "&.Mui-focused": { bgcolor: "#ffffff" },
+                  },
+                }}
+              />
+            </Grid>
+
+            {/* Category */}
+            <Grid item xs={12} sm={6}>
+              <Typography
+                variant="subtitle2"
+                fontWeight={600}
+                color="text.primary"
+                sx={{
+                  mb: 0.75,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                }}
+              >
+                <CategoryIcon fontSize="small" color="primary" />
+                Category <span style={{ color: "#dc2626" }}>*</span>
+              </Typography>
+              <TextField
+                select
+                size="small"
+                fullWidth
+                required
+                value={ticketForm.category}
+                onChange={(e) =>
+                  setTicketForm((f) => ({ ...f, category: e.target.value }))
+                }
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+              >
+                {TICKET_CATEGORIES.map((c) => (
+                  <MenuItem key={c} value={c}>
+                    {c}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+
+            {/* Priority */}
+            <Grid item xs={12} sm={6}>
+              <Typography
+                variant="subtitle2"
+                fontWeight={600}
+                color="text.primary"
+                sx={{
+                  mb: 0.75,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                }}
+              >
+                <PriorityHighIcon fontSize="small" color="warning" />
+                Priority (Optional)
+              </Typography>
+              <TextField
+                select
+                size="small"
+                fullWidth
+                value={ticketForm.priority || ""}
+                onChange={(e) =>
+                  setTicketForm((f) => ({ ...f, priority: e.target.value }))
+                }
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+              >
+                <MenuItem value="">
+                  <Typography variant="body2" color="text.secondary">
+                    <em>Not specified</em>
+                  </Typography>
+                </MenuItem>
+                {TICKET_PRIORITIES.map((p) => {
+                  const cfg = PRIORITY_CONFIG[p] || {};
+                  return (
+                    <MenuItem key={p} value={p}>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Box
+                          sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: "50%",
+                            bgcolor: cfg.dot || "#94a3b8",
+                          }}
+                        />
+                        <Typography variant="body2" fontWeight={500}>
+                          {p}
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  );
+                })}
+              </TextField>
+            </Grid>
+
+            {/* Assigned To */}
+            <Grid item xs={12} sm={6}>
+              <Typography
+                variant="subtitle2"
+                fontWeight={600}
+                color="text.primary"
+                sx={{
+                  mb: 0.75,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                }}
+              >
+                <PersonIcon fontSize="small" color="primary" />
+                Assigned To
+              </Typography>
+              {isAdmin ? (
+                <TextField
+                  select
+                  size="small"
+                  fullWidth
+                  value={ticketForm.assigned_to || ""}
+                  onChange={(e) =>
+                    setTicketForm((f) => ({
+                      ...f,
+                      assigned_to: e.target.value,
+                    }))
+                  }
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                >
+                  <MenuItem value="">Select User</MenuItem>
+                  {ticketForm.assigned_to === "Vikash" && (
+                    <MenuItem value="Vikash">Vikash</MenuItem>
+                  )}
+                  {users && users.length > 0 ? (
+                    users.map((u) => (
+                      <MenuItem key={u._id} value={u._id}>
+                        {u.username || u.first_name || u.email}
+                      </MenuItem>
+                    ))
+                  ) : (
+                    ticketForm.assigned_to !== "Vikash" && (
+                      <MenuItem disabled>No Users Found</MenuItem>
+                    )
+                  )}
+                </TextField>
+              ) : (
+                <TextField
+                  select
+                  size="small"
+                  fullWidth
+                  disabled
+                  value={ticketForm.assigned_to || "Vikash"}
+                  helperText="Default IT Assignee"
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                >
+                  <MenuItem value={ticketForm.assigned_to || "Vikash"}>
+                    {ticketForm.assigned_to === "Vikash"
+                      ? "Vikash"
+                      : users?.find((u) => u._id === ticketForm.assigned_to)
+                          ?.username || "Vikash"}
+                  </MenuItem>
+                </TextField>
+              )}
+            </Grid>
+
+            {/* Department */}
+            <Grid item xs={12} sm={6}>
+              <Typography
+                variant="subtitle2"
+                fontWeight={600}
+                color="text.primary"
+                sx={{
+                  mb: 0.75,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                }}
+              >
+                <BusinessIcon fontSize="small" color="primary" />
+                Department <span style={{ color: "#dc2626" }}>*</span>
+              </Typography>
+              <TextField
+                placeholder="e.g. Accounts, Import, Operations"
+                size="small"
+                fullWidth
+                required
+                value={ticketForm.department}
+                onChange={(e) =>
+                  setTicketForm((f) => ({ ...f, department: e.target.value }))
+                }
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+              />
+            </Grid>
+
+            {/* SLA Due Date */}
+            <Grid item xs={12} sm={6}>
+              <Typography
+                variant="subtitle2"
+                fontWeight={600}
+                color="text.primary"
+                sx={{
+                  mb: 0.75,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                }}
+              >
+                <CalendarMonthIcon fontSize="small" color="primary" />
+                SLA Due Date <span style={{ color: "#dc2626" }}>*</span>
+              </Typography>
+              <TextField
+                type="date"
+                size="small"
+                required
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                value={
+                  ticketForm.sla_due_date
+                    ? ticketForm.sla_due_date.substring(0, 10)
+                    : (() => {
+                        const n = new Date();
+                        return `${n.getFullYear()}-${String(
+                          n.getMonth() + 1
+                        ).padStart(2, "0")}-${String(n.getDate()).padStart(
+                          2,
+                          "0"
+                        )}`;
+                      })()
+                }
+                disabled
+                helperText="Auto-set to today's date"
+                onChange={(e) =>
+                  setTicketForm((prev) => ({
+                    ...prev,
+                    sla_due_date: e.target.value,
+                  }))
+                }
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+              />
+            </Grid>
+
+            {/* Status */}
+            <Grid item xs={12} sm={6}>
+              <Typography
+                variant="subtitle2"
+                fontWeight={600}
+                color="text.primary"
+                sx={{
+                  mb: 0.75,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                }}
+              >
+                <CheckCircleOutlineIcon fontSize="small" color="success" />
+                Initial Status
+              </Typography>
+              <Box
+                sx={{
+                  p: 1.1,
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 2,
+                  bgcolor: "#f8fafc",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Chip
+                  label="New"
+                  size="small"
+                  color="info"
+                  sx={{ fontWeight: 600 }}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  Starts automatically as New
+                </Typography>
+              </Box>
+            </Grid>
+
+            {/* Attachments Section */}
+            <Grid item xs={12}>
+              <Typography
+                variant="subtitle2"
+                fontWeight={600}
+                color="text.primary"
+                sx={{
+                  mb: 0.75,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                }}
+              >
+                <UploadFileIcon fontSize="small" color="primary" />
+                Attachments (Optional)
+              </Typography>
+
+              {/* Hidden Native File Input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".png,.jpg,.jpeg"
+                onChange={(e) => handleFilesSelected(e.target.files)}
+                style={{ display: "none" }}
+              />
+
+              {/* Modern Dropzone Area */}
+              <Box
+                onClick={() =>
+                  fileInputRef.current && fileInputRef.current.click()
+                }
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                sx={{
+                  border: isDragging
+                    ? "2px dashed #2563eb"
+                    : "2px dashed #cbd5e1",
+                  borderRadius: 2.5,
+                  p: 2.5,
+                  textAlign: "center",
+                  bgcolor: isDragging ? "#eff6ff" : "#f8fafc",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease-in-out",
+                  "&:hover": {
+                    borderColor: "primary.main",
+                    bgcolor: "#f0f7ff",
+                  },
+                }}
+              >
+                <CloudUploadIcon
+                  sx={{
+                    fontSize: 36,
+                    color: isDragging ? "primary.main" : "#94a3b8",
+                    mb: 0.5,
+                  }}
+                />
+                <Typography
+                  variant="body2"
+                  fontWeight={600}
+                  color="text.primary"
+                >
+                  Click to upload or drag & drop screenshots / files
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Supported: PNG, JPG, JPEG (Max 10MB each)
+                </Typography>
+              </Box>
+
+              {/* Attached Files Preview List */}
+              {ticketForm.files && ticketForm.files.length > 0 && (
+                <Box
+                  sx={{
+                    mt: 1.5,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 1,
+                  }}
+                >
+                  {ticketForm.files.map((file, idx) => (
+                    <Box
+                      key={idx}
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        p: 1.2,
+                        borderRadius: 2,
+                        border: "1px solid #e2e8f0",
+                        bgcolor: "#ffffff",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                      }}
+                    >
+                      <Box
+                        display="flex"
+                        alignItems="center"
+                        gap={1.2}
+                        sx={{ minWidth: 0 }}
+                      >
+                        <InsertDriveFileIcon color="primary" fontSize="small" />
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography
+                            variant="body2"
+                            fontWeight={500}
+                            noWrap
+                            sx={{ maxWidth: 320 }}
+                          >
+                            {file.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {formatFileSize(file.size)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveFile(idx);
+                        }}
+                        title="Remove file"
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Grid>
+          </Grid>
+        </DialogContent>
+
+        {/* Actions */}
+        <DialogActions
+          sx={{
+            px: 3,
+            py: 2,
+            borderTop: "1px solid #e2e8f0",
+            bgcolor: "#fafbfc",
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <Button
+            onClick={() => setShowTicketModal(false)}
+            disabled={savingTicket}
+            variant="outlined"
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 600,
+              px: 2.5,
+              borderColor: "#cbd5e1",
+              color: "text.secondary",
+              "&:hover": { borderColor: "#94a3b8", bgcolor: "#f1f5f9" },
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveTicket}
+            variant="contained"
+            disabled={savingTicket}
+            startIcon={
+              savingTicket ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <SendIcon />
+              )
+            }
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 600,
+              px: 3,
+              background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+              boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
+              "&:hover": {
+                background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
+              },
+            }}
+          >
+            {savingTicket ? "Saving..." : "Raise Ticket"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

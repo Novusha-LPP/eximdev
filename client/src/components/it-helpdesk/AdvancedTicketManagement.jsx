@@ -79,6 +79,7 @@ const TICKET_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 const TICKET_SEVERITY = ["Low", "Medium", "High", "Critical"];
 const TICKET_STATUSES = ["New", "Open", "In Progress", "Pending", "Resolved", "Closed"];
 const TICKET_TYPES = ["Incident", "Service Request", "Problem", "Change Request", "Other"];
+const USERS_FETCH_LIMIT = 100;
 
 const priorityColors = {
   Low: "success",
@@ -269,6 +270,11 @@ export default function AdvancedTicketManagement() {
   const handleAddComment = async () => {
     if (!comment || !selectedTicket) return;
 
+    if (selectedTicket.status === "Closed") {
+      toast.error("This ticket is closed. New comments cannot be added.");
+      return;
+    }
+
     try {
       // In a real implementation, this would make an API call to add a comment
       const updatedTicket = {
@@ -296,7 +302,14 @@ export default function AdvancedTicketManagement() {
       toast.success("Comment added successfully");
     } catch (error) {
       console.error("Error adding comment:", error);
-      toast.error("Failed to add comment");
+      const serverMsg = error?.response?.data?.message;
+      let friendlyMsg = "Unable to add comment. Please try again.";
+      if (serverMsg === "Closed tickets cannot be commented on") {
+        friendlyMsg = "This ticket is closed. New comments cannot be added.";
+      } else if (serverMsg) {
+        friendlyMsg = serverMsg;
+      }
+      toast.error(friendlyMsg);
     }
   };
 

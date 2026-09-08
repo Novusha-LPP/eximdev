@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { ChevronLeft } from "lucide-react";
 import {
   Box,
   Button,
@@ -37,6 +37,7 @@ import LanguageIcon from "@mui/icons-material/Language";
 import StorageIcon from "@mui/icons-material/Storage";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { toast } from "react-hot-toast";
+import "../../styles/scorecard.scss";
 
 // System settings categories
 const SETTING_CATEGORIES = [
@@ -283,27 +284,24 @@ export default function SystemSettings() {
 
   return (
     <Box>
-      <Box display="flex" alignItems="center" gap={1} mb={2}>
-        <Tooltip title="Back">
-          <IconButton
+      {/* Topbar */}
+      <div className="topbar">
+        <div className="topbar-left">
+          <button
+            className="back-btn"
             onClick={() => navigate("/it-helpdesk")}
-            sx={{
-              mr: 1,
-              bgcolor: "white",
-              border: "1px solid",
-              borderColor: "primary.main",
-              color: "primary.main",
-              "&:hover": { bgcolor: "primary.main", color: "white" },
-            }}
+            title="Back to IT Helpdesk"
           >
-            <ArrowBackIcon />
-          </IconButton>
-        </Tooltip>
-        <SettingsIcon color="primary" />
-        <Typography variant="h5" fontWeight={700}>
-          System Settings
-        </Typography>
-      </Box>
+            <ChevronLeft size={20} />
+          </button>
+          <div>
+            <div className="topbar-title">System Settings</div>
+            <div className="topbar-breadcrumb" style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+              Helpdesk Configuration, Security Policies, Localization &amp; Backup Controls
+            </div>
+          </div>
+        </div>
+      </div>
 
       {loading ? (
         <Box display="flex" justifyContent="center" py={4}>

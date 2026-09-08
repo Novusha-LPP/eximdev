@@ -8,13 +8,15 @@ import * as XLSX from "xlsx";
 import {
   Button,
   Dialog,
-  DialogTitle,
   DialogContent,
   DialogActions,
   Grid,
   MenuItem,
   TextField,
   Typography,
+  Box,
+  IconButton,
+  Chip,
 } from "@mui/material";
 import {
   Search,
@@ -26,6 +28,17 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
+  X,
+  Tag,
+  Cpu,
+  UserCheck,
+  Calendar,
+  Layers,
+  Server,
+  Smartphone,
+  MapPin,
+  DollarSign,
+  FileText,
 } from "lucide-react";
 import CustomSelect from "./CustomSelect";
 import ITPagination from "./ITPagination";
@@ -42,6 +55,76 @@ const USERS_FETCH_LIMIT = 200;
 
 // Added department options
 const DEPARTMENTS = ["Import", "Export", "DGFT", "Alluvium-IT", "Nousha-IT", "Paramount", "Account", "E-sanchit", "Admin/Hr"];
+
+const modalFieldSx = {
+  "& .MuiOutlinedInput-root": {
+    borderRadius: "8px",
+    backgroundColor: "#ffffff",
+    transition: "all 0.15s ease",
+    "& fieldset": {
+      borderColor: "#e2e8f0",
+    },
+    "&:hover fieldset": {
+      borderColor: "#94a3b8",
+    },
+    "&.Mui-focused fieldset": {
+      borderColor: "#2563eb",
+      borderWidth: "1.5px",
+    },
+    "&.Mui-error fieldset": {
+      borderColor: "#ef4444",
+    },
+  },
+  "& .MuiInputLabel-root": {
+    fontSize: "0.85rem",
+    color: "#64748b",
+    "&.Mui-focused": {
+      color: "#2563eb",
+      fontWeight: 600,
+    },
+    "&.Mui-error": {
+      color: "#ef4444",
+    },
+  },
+  "& .MuiOutlinedInput-input": {
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    color: "#0f172a",
+    padding: "9px 12px",
+  },
+  "& .MuiFormHelperText-root": {
+    marginLeft: "2px",
+    fontSize: "0.72rem",
+    fontWeight: 500,
+  },
+};
+
+const FormSectionTitle = ({ icon: Icon, title }) => (
+  <Grid item xs={12} sx={{ mt: 1, mb: 0.25 }}>
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.6, borderBottom: "1px solid #f1f5f9" }}>
+      {Icon && (
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 22,
+            height: 22,
+            borderRadius: "5px",
+            bgcolor: "#eff6ff",
+            color: "#2563eb",
+            flexShrink: 0,
+          }}
+        >
+          <Icon size={13} />
+        </Box>
+      )}
+      <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        {title}
+      </Typography>
+    </Box>
+  </Grid>
+);
 
 const FIELD_LABELS = {
   asset_tag: "Asset Tag",
@@ -242,15 +325,16 @@ export default function AssetManagement() {
   });
 
   const fetchData = useCallback(
-    async (page = 1) => {
+    async (page = 1, overrideFilters = null) => {
       setLoading(true);
       try {
         logRead("asset-list-view", "Accessed asset list with filters", "info");
 
+        const activeFilters = overrideFilters || filters;
         const params = { page, limit: pagination.limit };
-        if (filters.type) params.type = filters.type;
-        if (filters.status) params.status = filters.status;
-        if (filters.department) params.department = filters.department;
+        if (activeFilters.type) params.type = activeFilters.type;
+        if (activeFilters.status) params.status = activeFilters.status;
+        if (activeFilters.department) params.department = activeFilters.department;
 
         const res = await itHelpdeskAPI.assets.getAll(params);
         setData(res.data || []);
@@ -265,6 +349,14 @@ export default function AssetManagement() {
     },
     [filters, pagination.limit]
   );
+
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    const emptyFilters = { type: "", status: "", department: "" };
+    setFilters(emptyFilters);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+    fetchData(1, emptyFilters);
+  };
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -556,11 +648,12 @@ export default function AssetManagement() {
 
   const isRequiredField = (field) => requiredFieldsForType.includes(field);
   const getFieldError = (field) => errors[field];
-  const getFieldHelperText = (field) => getFieldError(field) || (isRequiredField(field) ? `Required for ${form.asset_type}` : undefined);
+  const getFieldHelperText = (field) => getFieldError(field);
   const getRequiredProps = (field) => ({
     required: isRequiredField(field),
     error: Boolean(getFieldError(field)),
     helperText: getFieldHelperText(field),
+    sx: modalFieldSx,
   });
 
   const updateField = (field, value) => {
@@ -729,7 +822,7 @@ export default function AssetManagement() {
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => setFilters({ search: "", type: "", status: "", department: "" })}
+                onClick={handleClearFilters}
                 style={{
                   height: "38px",
                   width: "100%",
@@ -855,13 +948,90 @@ export default function AssetManagement() {
         </div>
       </div>
 
-      <Dialog open={showModal} onClose={() => setShowModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editId ? "Edit Asset" : "New Asset"}</DialogTitle>
-        <DialogContent>
-          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-            Required for {form.asset_type}: {requiredHint}
-          </Typography>
-          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+      <Dialog
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "16px",
+            boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.25)",
+            overflow: "hidden",
+            border: "1px solid #e2e8f0",
+            backgroundColor: "#ffffff",
+          },
+        }}
+      >
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            px: 3,
+            py: 2,
+            borderBottom: "1px solid #f1f5f9",
+            background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Box
+              sx={{
+                width: 38,
+                height: 38,
+                borderRadius: "9px",
+                background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#ffffff",
+                boxShadow: "0 4px 10px rgba(37, 99, 235, 0.25)",
+              }}
+            >
+              {editId ? <Edit2 size={18} /> : <Plus size={18} />}
+            </Box>
+            <Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography sx={{ fontSize: "1.1rem", fontWeight: 700, color: "#0f172a", lineHeight: 1.2 }}>
+                  {editId ? "Edit Asset" : "New Asset"}
+                </Typography>
+                <Chip
+                  label={form.asset_type}
+                  size="small"
+                  sx={{
+                    height: 22,
+                    fontSize: "0.72rem",
+                    fontWeight: 600,
+                    backgroundColor: "#eff6ff",
+                    color: "#2563eb",
+                    border: "1px solid #dbeafe",
+                    borderRadius: "6px",
+                  }}
+                />
+              </Box>
+              <Typography sx={{ fontSize: "0.76rem", color: "#64748b", mt: 0.2 }}>
+                {editId ? "Update hardware configurations and assignments." : "Fill in the asset specifications, status, and assignment details."}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            onClick={() => setShowModal(false)}
+            size="small"
+            sx={{
+              color: "#94a3b8",
+              borderRadius: "8px",
+              "&:hover": { color: "#0f172a", backgroundColor: "#f1f5f9" },
+            }}
+          >
+            <X size={18} />
+          </IconButton>
+        </Box>
+
+        <DialogContent sx={{ p: 3, maxHeight: "calc(82vh - 140px)", overflowY: "auto" }}>
+          <Grid container spacing={2}>
+            {/* General Identification */}
+            <FormSectionTitle icon={Tag} title="Asset Identification" />
             <Grid item xs={6}>
               <TextField
                 label="Asset Tag"
@@ -915,8 +1085,10 @@ export default function AssetManagement() {
                 ))}
               </TextField>
             </Grid>
+
             {form.asset_type === "SIM Card" ? (
               <>
+                <FormSectionTitle icon={Smartphone} title="SIM & Plan Details" />
                 <Grid item xs={6}>
                   <TextField
                     select
@@ -959,6 +1131,7 @@ export default function AssetManagement() {
                     label="IMSI Number"
                     size="small"
                     fullWidth
+                    sx={modalFieldSx}
                     value={form.imsi_number}
                     onChange={(e) => updateField("imsi_number", e.target.value)}
                   />
@@ -1009,6 +1182,8 @@ export default function AssetManagement() {
                     onChange={(e) => updateField("monthly_plan_package", e.target.value)}
                   />
                 </Grid>
+
+                <FormSectionTitle icon={UserCheck} title="Assignment & Allocation" />
                 <Grid item xs={6}>
                   <TextField
                     label="Assigned To"
@@ -1057,6 +1232,8 @@ export default function AssetManagement() {
                     onChange={(e) => updateField("allocation_date", e.target.value)}
                   />
                 </Grid>
+
+                <FormSectionTitle icon={Calendar} title="Procurement & Vendor" />
                 <Grid item xs={6}>
                   <TextField
                     label="Purchase Date"
@@ -1064,6 +1241,7 @@ export default function AssetManagement() {
                     size="small"
                     fullWidth
                     InputLabelProps={{ shrink: true }}
+                    sx={modalFieldSx}
                     value={form.purchase_date}
                     onChange={(e) => updateField("purchase_date", e.target.value)}
                   />
@@ -1074,6 +1252,7 @@ export default function AssetManagement() {
                     label="Vendor"
                     size="small"
                     fullWidth
+                    sx={modalFieldSx}
                     value={form.vendor}
                     onChange={(e) => updateField("vendor", e.target.value)}
                   >
@@ -1083,6 +1262,8 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
+
+                <FormSectionTitle icon={FileText} title="Additional Notes" />
                 <Grid item xs={12}>
                   <TextField
                     label="Remarks"
@@ -1090,6 +1271,7 @@ export default function AssetManagement() {
                     fullWidth
                     multiline
                     minRows={2}
+                    sx={modalFieldSx}
                     value={form.remarks}
                     onChange={(e) => updateField("remarks", e.target.value)}
                   />
@@ -1097,6 +1279,7 @@ export default function AssetManagement() {
               </>
             ) : form.asset_type === "Printer" ? (
               <>
+                <FormSectionTitle icon={Layers} title="Printer Specifications" />
                 <Grid item xs={6}>
                   <TextField
                     label="Printer Name"
@@ -1173,6 +1356,8 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
+
+                <FormSectionTitle icon={UserCheck} title="Location & Status" />
                 <Grid item xs={6}>
                   <TextField
                     label="Location"
@@ -1236,6 +1421,8 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
+
+                <FormSectionTitle icon={Calendar} title="Procurement" />
                 <Grid item xs={6}>
                   <TextField
                     label="Purchase Date"
@@ -1251,6 +1438,7 @@ export default function AssetManagement() {
               </>
             ) : form.asset_type === "Network Device" ? (
               <>
+                <FormSectionTitle icon={Server} title="Device & Network Details" />
                 <Grid item xs={6}>
                   <TextField
                     label="Device Name"
@@ -1329,6 +1517,8 @@ export default function AssetManagement() {
                     onChange={(e) => updateField("mac_address", e.target.value)}
                   />
                 </Grid>
+
+                <FormSectionTitle icon={MapPin} title="Location & Status" />
                 <Grid item xs={6}>
                   <TextField
                     label="Location"
@@ -1356,6 +1546,8 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
+
+                <FormSectionTitle icon={Calendar} title="Procurement" />
                 <Grid item xs={6}>
                   <TextField
                     label="Purchase Date"
@@ -1363,6 +1555,7 @@ export default function AssetManagement() {
                     size="small"
                     fullWidth
                     InputLabelProps={{ shrink: true }}
+                    sx={modalFieldSx}
                     value={form.purchase_date}
                     onChange={(e) => updateField("purchase_date", e.target.value)}
                   />
@@ -1370,6 +1563,7 @@ export default function AssetManagement() {
               </>
             ) : form.asset_type === "Software" ? (
               <>
+                <FormSectionTitle icon={Layers} title="Software & Licensing Details" />
                 <Grid item xs={6}>
                   <TextField
                     label="Software Name"
@@ -1422,22 +1616,6 @@ export default function AssetManagement() {
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
-                    select
-                    label="Vendor/Publisher"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("vendor")}
-                    value={form.vendor}
-                    onChange={(e) => updateField("vendor", e.target.value)}
-                  >
-                    <MenuItem value="">No Vendor/Publisher</MenuItem>
-                    {vendors.map((v) => (
-                      <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
                     label="Number of Licenses"
                     type="number"
                     size="small"
@@ -1447,6 +1625,8 @@ export default function AssetManagement() {
                     onChange={(e) => updateField("number_of_licenses", e.target.value)}
                   />
                 </Grid>
+
+                <FormSectionTitle icon={UserCheck} title="Allocation & Status" />
                 <Grid item xs={6}>
                   <TextField
                     label="Assigned To"
@@ -1500,6 +1680,24 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
+
+                <FormSectionTitle icon={Calendar} title="Vendor & Renewal" />
+                <Grid item xs={6}>
+                  <TextField
+                    select
+                    label="Vendor/Publisher"
+                    size="small"
+                    fullWidth
+                    {...getRequiredProps("vendor")}
+                    value={form.vendor}
+                    onChange={(e) => updateField("vendor", e.target.value)}
+                  >
+                    <MenuItem value="">No Vendor/Publisher</MenuItem>
+                    {vendors.map((v) => (
+                      <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
                 <Grid item xs={6}>
                   <TextField
                     label="Purchase Date"
@@ -1527,6 +1725,7 @@ export default function AssetManagement() {
               </>
             ) : form.asset_type === "Phone" ? (
               <>
+                <FormSectionTitle icon={Smartphone} title="Device Specifications" />
                 <Grid item xs={6}>
                   <TextField
                     label="Brand"
@@ -1577,6 +1776,8 @@ export default function AssetManagement() {
                     onChange={(e) => updateField("mobile_number", e.target.value)}
                   />
                 </Grid>
+
+                <FormSectionTitle icon={UserCheck} title="Assignment & Location" />
                 <Grid item xs={6}>
                   <TextField
                     label="Assigned To"
@@ -1615,6 +1816,16 @@ export default function AssetManagement() {
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
+                    label="Location"
+                    size="small"
+                    fullWidth
+                    {...getRequiredProps("location")}
+                    value={form.location}
+                    onChange={(e) => updateField("location", e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
                     select
                     label="Status"
                     size="small"
@@ -1630,6 +1841,8 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
+
+                <FormSectionTitle icon={Calendar} title="Procurement" />
                 <Grid item xs={6}>
                   <TextField
                     label="Purchase Date"
@@ -1642,19 +1855,10 @@ export default function AssetManagement() {
                     onChange={(e) => updateField("purchase_date", e.target.value)}
                   />
                 </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    label="Location"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("location")}
-                    value={form.location}
-                    onChange={(e) => updateField("location", e.target.value)}
-                  />
-                </Grid>
               </>
             ) : form.asset_type === "Rack" ? (
               <>
+                <FormSectionTitle icon={Server} title="Rack Specifications" />
                 <Grid item xs={6}>
                   <TextField
                     label="Rack Name/Number"
@@ -1677,16 +1881,6 @@ export default function AssetManagement() {
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
-                    label="Location"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("location")}
-                    value={form.location}
-                    onChange={(e) => updateField("location", e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
                     label="Rack Size (U Height)"
                     size="small"
                     fullWidth
@@ -1703,6 +1897,18 @@ export default function AssetManagement() {
                     {...getRequiredProps("manufacturer")}
                     value={form.manufacturer}
                     onChange={(e) => updateField("manufacturer", e.target.value)}
+                  />
+                </Grid>
+
+                <FormSectionTitle icon={MapPin} title="Deployment & Status" />
+                <Grid item xs={6}>
+                  <TextField
+                    label="Location"
+                    size="small"
+                    fullWidth
+                    {...getRequiredProps("location")}
+                    value={form.location}
+                    onChange={(e) => updateField("location", e.target.value)}
                   />
                 </Grid>
                 <Grid item xs={6}>
@@ -1737,6 +1943,7 @@ export default function AssetManagement() {
               </>
             ) : form.asset_type === "Cable" ? (
               <>
+                <FormSectionTitle icon={Layers} title="Cable Specifications" />
                 <Grid item xs={6}>
                   <TextField
                     label="Cable Name"
@@ -1768,6 +1975,8 @@ export default function AssetManagement() {
                     onChange={(e) => updateField("length", e.target.value)}
                   />
                 </Grid>
+
+                <FormSectionTitle icon={MapPin} title="Deployment & Status" />
                 <Grid item xs={6}>
                   <TextField
                     label="Location"
@@ -1810,6 +2019,7 @@ export default function AssetManagement() {
               </>
             ) : isComputerAsset ? (
               <>
+                <FormSectionTitle icon={Cpu} title="Hardware & Specifications" />
                 <Grid item xs={6}>
                   <TextField
                     label="Asset Name"
@@ -1890,6 +2100,8 @@ export default function AssetManagement() {
                     onChange={(e) => updateField("operating_system", e.target.value)}
                   />
                 </Grid>
+
+                <FormSectionTitle icon={UserCheck} title="Assignment & Status" />
                 <Grid item xs={6}>
                   <TextField
                     label="Assigned To"
@@ -1953,6 +2165,8 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
+
+                <FormSectionTitle icon={Calendar} title="Procurement & Warranty" />
                 <Grid item xs={6}>
                   <TextField
                     label="Purchase Date"
@@ -1983,6 +2197,7 @@ export default function AssetManagement() {
                     label="Vendor"
                     size="small"
                     fullWidth
+                    sx={modalFieldSx}
                     value={form.vendor}
                     onChange={(e) => updateField("vendor", e.target.value)}
                   >
@@ -1992,6 +2207,8 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
+
+                <FormSectionTitle icon={FileText} title="Additional Notes" />
                 <Grid item xs={12}>
                   <TextField
                     label="Remarks"
@@ -1999,6 +2216,7 @@ export default function AssetManagement() {
                     fullWidth
                     multiline
                     minRows={2}
+                    sx={modalFieldSx}
                     value={form.remarks}
                     onChange={(e) => updateField("remarks", e.target.value)}
                   />
@@ -2006,6 +2224,7 @@ export default function AssetManagement() {
               </>
             ) : (
               <>
+                <FormSectionTitle icon={UserCheck} title="Assignment & Location" />
                 <Grid item xs={6}>
                   <TextField
                     label="Assigned To"
@@ -2046,12 +2265,15 @@ export default function AssetManagement() {
                     onChange={(e) => updateField("location", e.target.value)}
                   />
                 </Grid>
+
+                <FormSectionTitle icon={DollarSign} title="Financial & Vendor Details" />
                 <Grid item xs={6}>
                   <TextField
                     label="Purchase Cost"
                     type="number"
                     size="small"
                     fullWidth
+                    sx={modalFieldSx}
                     value={form.purchase_cost}
                     onChange={(e) => updateField("purchase_cost", e.target.value)}
                   />
@@ -2072,6 +2294,8 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
+
+                <FormSectionTitle icon={FileText} title="Description" />
                 <Grid item xs={12}>
                   <TextField
                     label="Description"
@@ -2079,6 +2303,7 @@ export default function AssetManagement() {
                     fullWidth
                     multiline
                     minRows={2}
+                    sx={modalFieldSx}
                     value={form.description}
                     onChange={(e) => updateField("description", e.target.value)}
                   />
@@ -2087,12 +2312,58 @@ export default function AssetManagement() {
             )}
           </Grid>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowModal(false)} disabled={saving}>
+
+        <DialogActions
+          sx={{
+            px: 3,
+            py: 2,
+            borderTop: "1px solid #f1f5f9",
+            backgroundColor: "#f8fafc",
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 1.5,
+          }}
+        >
+          <Button
+            onClick={() => setShowModal(false)}
+            disabled={saving}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              fontSize: "0.85rem",
+              color: "#64748b",
+              px: 2.5,
+              py: 0.8,
+              borderRadius: "8px",
+              "&:hover": { backgroundColor: "#e2e8f0", color: "#334155" },
+            }}
+          >
             Cancel
           </Button>
-          <Button onClick={handleSave} variant="contained" disabled={saving || !canSave}>
-            {saving ? "Saving..." : "Save"}
+          <Button
+            onClick={handleSave}
+            variant="contained"
+            disabled={saving || !canSave}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              fontSize: "0.85rem",
+              px: 3,
+              py: 0.8,
+              borderRadius: "8px",
+              background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+              boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
+              "&:hover": {
+                background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
+                boxShadow: "0 6px 16px rgba(37, 99, 235, 0.35)",
+              },
+              "&:disabled": {
+                background: "#94a3b8",
+                color: "#ffffff",
+              },
+            }}
+          >
+            {saving ? "Saving..." : editId ? "Update Asset" : "Save Asset"}
           </Button>
         </DialogActions>
       </Dialog>

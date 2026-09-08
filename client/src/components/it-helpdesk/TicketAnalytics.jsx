@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import ITPagination from "./ITPagination";
@@ -233,53 +232,45 @@ export default function TicketAnalytics() {
     }
   };
 
-  const handleGenerateReport = () => {
-    if (!reportTickets.length) return;
-    const wb = XLSX.utils.book_new();
+  const handleGenerateReport = async () => {
+    try {
+      setReportLoading(true);
+      const response = await itHelpdeskAPI.tickets.export();
 
-    // Sheet 1: All Tickets
-    const allData = [["Ticket ID", "Title", "Category", "Priority", "Status", "Department", "Assigned To", "Created Date"]];
-    reportTickets.forEach(t => allData.push([
-      t.ticket_id || t._id,
-      t.title || "",
-      t.category || "",
-      t.priority || "",
-      t.status || "",
-      t.department || "—",
-      t.assigned_to?.username || t.assigned_to?.email || "Unassigned",
-      t.createdAt ? new Date(t.createdAt).toLocaleString() : ""
-    ]));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(allData), "All Tickets");
+      if (response.data && response.data.type === "application/json") {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        throw new Error(json.message || "Failed to generate report");
+      }
 
-    // Sheet 2: Open Tickets
-    const openStatuses = ["New", "Open", "In Progress", "Assigned", "Pending"];
-    const openData = [["Ticket ID", "Title", "Priority", "Status", "Department", "Created Date"]];
-    reportTickets.filter(t => openStatuses.includes(t.status)).forEach(t => openData.push([
-      t.ticket_id || t._id,
-      t.title || "",
-      t.priority || "",
-      t.status || "",
-      t.department || "—",
-      t.createdAt ? new Date(t.createdAt).toLocaleString() : ""
-    ]));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(openData), "Open Tickets");
+      let fileName = `Ticket_Reports_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const disposition = response.headers ? response.headers["content-disposition"] : null;
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          fileName = match[1];
+        }
+      }
 
-    // Sheet 3: By Status Summary
-    const statusMap = {};
-    reportTickets.forEach(t => { statusMap[t.status] = (statusMap[t.status] || 0) + 1; });
-    const statusData = [["Status", "Count"]];
-    Object.entries(statusMap).forEach(([k, v]) => statusData.push([k, v]));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(statusData), "By Status");
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      if (link.parentNode) link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
 
-    // Sheet 4: By Priority Summary
-    const priorityMap = {};
-    reportTickets.forEach(t => { priorityMap[t.priority] = (priorityMap[t.priority] || 0) + 1; });
-    const priorityData = [["Priority", "Count"]];
-    Object.entries(priorityMap).forEach(([k, v]) => priorityData.push([k, v]));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(priorityData), "By Priority");
-
-    XLSX.writeFile(wb, `Ticket_Reports_${new Date().toLocaleDateString().replace(/\//g, "-")}.xlsx`);
-    toast.success("Report downloaded successfully!");
+      toast.success("Report downloaded successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || "Failed to download report");
+    } finally {
+      setReportLoading(false);
+    }
   };
 
   useEffect(() => {

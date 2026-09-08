@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx";
 import CustomSelect from "./CustomSelect";
 import ITPagination from "./ITPagination";
 import { logExportAudit } from "./auditHelper";
@@ -75,6 +74,7 @@ export default function LicenseManagement() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [searchInput, setSearchInput] = useState(searchParam);
   const [stats, setStats] = useState({ total: 0, active: 0, expiring: 0, expired: 0 });
@@ -324,46 +324,48 @@ export default function LicenseManagement() {
   };
 
   const handleExportToExcel = async () => {
+    setExporting(true);
     try {
-      const params = { limit: 10000 };
-      if (statusParam) params.status = statusParam;
-      if (typeParam) params.type = typeParam;
-      if (searchParam) params.search = searchParam;
+      // Backend queries all licenses directly from DB and streams binary .xlsx
+      const response = await itHelpdeskAPI.licenses.export();
 
-      const res = await itHelpdeskAPI.licenses.getAll(params);
-      const exportItems = (res.data || []).map(normalize);
+      if (response.data && response.data.type === "application/json") {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        throw new Error(json.message || "Failed to generate license report");
+      }
 
-      const excelData = exportItems.map((item, index) => {
-        const status = computeLicenseStatus(item.expiry_date);
-        return {
-          "Sr. No.": index + 1,
-          "License Name": item.license_name || "",
-          "License Code": item.license_code || "",
-          "Software Name": item.software_name || "",
-          "License Type": item.license_type || "",
-          "Vendor": item.vendor_name || "",
-          "Expiry Date": item.expiry_date ? new Date(item.expiry_date).toISOString().split("T")[0] : "No Expiry",
-          "Status": status.label,
-          "Assigned To": item.assigned_to || item.assigned_asset || "—",
-          "Assigned Asset": item.assigned_asset || "—",
-          "Cost": item.cost || 0,
-        };
+      let fileName = `IT_Software_Licenses_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const disposition = response.headers ? response.headers["content-disposition"] : null;
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          fileName = match[1];
+        }
+      }
+
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      if (link.parentNode) link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
 
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(excelData);
-      XLSX.utils.book_append_sheet(wb, ws, "Software Licenses");
-
-      const date = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `IT_Software_Licenses_${date}.xlsx`);
       toast.success("License directory exported to Excel");
       logExportAudit({
         module: "License",
-        details: `Exported Software Licenses list to Excel (${excelData.length} licenses)`,
+        details: "Exported complete Software Licenses list to Excel via backend generator",
       });
     } catch (error) {
       console.error("Export failed:", error);
-      toast.error("Failed to export Excel");
+      toast.error(error.message || "Failed to export Excel");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -392,8 +394,10 @@ export default function LicenseManagement() {
             type="button"
             className="btn btn-secondary"
             onClick={handleExportToExcel}
+            disabled={exporting}
+            style={{ opacity: exporting ? 0.7 : 1, cursor: exporting ? "not-allowed" : "pointer" }}
           >
-            <Download size={15} /> <span>Export Excel</span>
+            <Download size={15} /> <span>{exporting ? "Generating Excel..." : "Export Excel"}</span>
           </button>
           <button
             type="button"

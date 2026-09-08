@@ -88,34 +88,70 @@ const getUserEmail = async (userId) => {
 // ── GET all tickets ──────────────────────────────────────────────────────────
 router.get("/", async (req, res) => {
   try {
-    const { status, category, priority, type, raised_by, assigned_to, search, page = 1, limit = 10 } = req.query;
+    const { status, category, priority, type, department, raised_by, assigned_to, search, page = 1, limit = 15, all, fromDate, toDate } = req.query;
     const filter = {};
-    if (status) filter.status = status;
-    if (category) filter.category = category;
-    if (priority) filter.priority = priority;
-    if (type) filter.type = type;
+    if (status && status !== "ALL") filter.status = status;
+    if (category && category !== "ALL") filter.category = category;
+    if (priority && priority !== "ALL") filter.priority = priority;
+    if (type && type !== "ALL") filter.type = type;
+    if (department && department !== "ALL") filter.department = department;
     if (raised_by) filter.raised_by = raised_by;
     if (assigned_to) filter.assigned_to = assigned_to;
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+      if (toDate) {
+        const endOfDay = new Date(toDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endOfDay;
+      }
+    }
     if (search) {
+      const searchRegex = new RegExp(String(search).trim(), "i");
       filter.$or = [
-        { ticket_id: new RegExp(search, "i") },
-        { title: new RegExp(search, "i") },
-        { requester_name: new RegExp(search, "i") },
-        { department: new RegExp(search, "i") },
+        { ticket_id: searchRegex },
+        { title: searchRegex },
+        { description: searchRegex },
+        { requester_name: searchRegex },
+        { department: searchRegex },
+        { category: searchRegex },
       ];
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    if (all === "true") {
+      const data = await Ticket.find(filter)
+        .populate("raised_by", "username email first_name last_name name")
+        .populate("assigned_to", "username email first_name last_name name")
+        .sort({ createdAt: -1 });
+      return res.json({ success: true, data });
+    }
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, parseInt(limit) || 15);
+    const skip = (pageNum - 1) * limitNum;
+
     const [data, total] = await Promise.all([
       Ticket.find(filter)
-        .populate("raised_by", "username email")
-        .populate("assigned_to", "username email")
+        .populate("raised_by", "username email first_name last_name name")
+        .populate("assigned_to", "username email first_name last_name name")
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit)),
+        .limit(limitNum),
       Ticket.countDocuments(filter),
     ]);
-    res.json({ success: true, data, pagination: { total, page: parseInt(page), limit: parseInt(limit) } });
+
+    const totalPages = Math.ceil(total / limitNum) || 1;
+
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages,
+      },
+    });
   } catch (err) {
     logger.error(`Error fetching tickets: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });

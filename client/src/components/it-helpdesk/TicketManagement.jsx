@@ -281,6 +281,7 @@ export default function TicketManagement() {
   const [emailNotifications, setEmailNotifications] = useState([]);
   const [escalationRules, setEscalationRules] = useState([]);
   const [attachments, setAttachments] = useState([]);
+  const [exporting, setExporting] = useState(false);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [imageViewerData, setImageViewerData] = useState({
     attachments: [],
@@ -289,47 +290,48 @@ export default function TicketManagement() {
   });
 
   const handleExportAllToExcel = async () => {
+    setExporting(true);
     try {
-      toast.loading("Preparing export...", { id: "export-tickets" });
-      const params = { limit: 10000 };
-      if (statusParam) params.status = statusParam;
-      if (categoryParam) params.category = categoryParam;
-      if (priorityParam) params.priority = priorityParam;
-      if (searchParam) params.search = searchParam;
+      // Backend queries all tickets directly from DB and streams binary .xlsx
+      const response = await itHelpdeskAPI.tickets.export();
 
-      const res = await itHelpdeskAPI.tickets.getAll(params);
-      const allTickets = res.data || [];
-      if (allTickets.length === 0) {
-        toast.error("No tickets found to export", { id: "export-tickets" });
-        return;
+      if (response.data && response.data.type === "application/json") {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        throw new Error(json.message || "Failed to generate tickets report");
       }
-      const wb = XLSX.utils.book_new();
-      const wsData = [
-        ["Ticket ID", "Description", "Category", "Priority", "Status", "Assigned To", "Requester", "Department", "Created Date"]
-      ];
-      allTickets.forEach(t => {
-        wsData.push([
-          t.ticket_id || t._id,
-          t.description || "",
-          t.category || "",
-          t.priority || "",
-          t.status || "",
-          t.assigned_to?.username || t.assigned_to?.first_name || "Vikash",
-          t.requester_name || t.raised_by?.username || t.raised_by?.email || "—",
-          t.department || "—",
-          t.createdAt ? new Date(t.createdAt).toLocaleString() : "—"
-        ]);
+
+      let fileName = `Helpdesk_Tickets_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const disposition = response.headers ? response.headers["content-disposition"] : null;
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          fileName = match[1];
+        }
+      }
+
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
-      XLSX.utils.book_append_sheet(wb, ws, "Tickets");
-      XLSX.writeFile(wb, "Helpdesk_Tickets.xlsx");
-      toast.success("Export downloaded successfully", { id: "export-tickets" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      if (link.parentNode) link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Helpdesk tickets exported successfully");
       logExportAudit({
         module: "Helpdesk",
-        details: `Exported Helpdesk Tickets to Excel (${allTickets.length} tickets)`,
+        details: "Exported complete Helpdesk tickets list to Excel via backend generator",
       });
     } catch (err) {
-      toast.error("Failed to export tickets", { id: "export-tickets" });
+      console.error("Export error:", err);
+      toast.error(err.message || "Failed to export tickets");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -632,8 +634,13 @@ export default function TicketManagement() {
           <button className="btn btn-secondary" onClick={() => fetchData()}>
             <RefreshCw size={15} /> Refresh
           </button>
-          <button className="btn btn-secondary" onClick={handleExportAllToExcel}>
-            <Download size={15} /> Export Excel
+          <button
+            className="btn btn-secondary"
+            onClick={handleExportAllToExcel}
+            disabled={exporting}
+            style={{ opacity: exporting ? 0.7 : 1, cursor: exporting ? "not-allowed" : "pointer" }}
+          >
+            <Download size={15} /> {exporting ? "Generating Excel..." : "Export Excel"}
           </button>
           <button className="btn btn-primary" onClick={() => handleOpen()}>
             <Plus size={15} /> Raise Ticket

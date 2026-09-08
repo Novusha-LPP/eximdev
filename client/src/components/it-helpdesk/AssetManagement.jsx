@@ -4,7 +4,6 @@ import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
 import axios from "axios";
-import * as XLSX from "xlsx";
 import {
   Button,
   Dialog,
@@ -303,6 +302,7 @@ export default function AssetManagement() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Helper to update search params while preserving existing ones
   const updateQueryParams = useCallback(
@@ -573,96 +573,50 @@ export default function AssetManagement() {
     }
   };
 
-  // --- Excel Export Functionality ---
+  // --- Excel Export Functionality (Backend Generated) ---
   const handleExportAllToExcel = useCallback(async () => {
+    setExporting(true);
     try {
-      const params = { page: 1, limit: 5000 };
-      if (typeFilter) params.type = typeFilter;
-      if (statusFilter) params.status = statusFilter;
-      if (departmentFilter) params.department = departmentFilter;
-      if (searchParam) params.search = searchParam;
+      // Backend queries all assets directly from DB and streams binary .xlsx
+      const response = await itHelpdeskAPI.assets.export();
 
-      const res = await itHelpdeskAPI.assets.getAll(params);
-      const exportList = res.data || [];
+      if (response.data && response.data.type === "application/json") {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        throw new Error(json.message || "Failed to generate asset report");
+      }
 
-      // 1. Map data to a cleaner format for Excel
-      const excelData = exportList.map((item, index) => ({
-        "S.No": index + 1,
-        "Asset Tag": item.asset_tag || "",
-        "Asset Type": item.asset_type || "",
-        "Asset Name": item.asset_name || "",
-        "Manufacturer": item.manufacturer || "",
-        "Model": item.model || "",
-        "Serial Number": item.serial_number || "",
-        "Processor": item.processor || "",
-        "RAM": item.ram || "",
-        "Storage": item.storage || "",
-        "Operating System": item.operating_system || "",
-        "Assigned To": getAssignedToName(item.assigned_to),
-        "Department": item.department || "",
-        "Location": item.location || "",
-        "Status": item.status || "",
-        "Purchase Date": item.purchase_date ? item.purchase_date.slice(0, 10) : "",
-        "Warranty Expiry": item.warranty_expiry ? item.warranty_expiry.slice(0, 10) : "",
-        "Purchase Cost": item.purchase_cost || "",
-        "Vendor": item.vendor?.name || "",
-        "Description": item.description || "",
-        "Device Category": item.device_category || "",
-        "IP Address": item.ip_address || "",
-        "MAC Address": item.mac_address || "",
-        "Software Category": item.software_category || "",
-        "Version": item.version || "",
-        "License Type": item.license_type || "",
-        "License Key / Subscription ID": item.license_key_subscription_id || "",
-        "Number of Licenses": item.number_of_licenses || "",
-        "Expiry/Renewal Date": item.expiry_renewal_date ? item.expiry_renewal_date.slice(0, 10) : "",
-        "IMEI Number": item.imei_number || "",
-        "Rack Name/Number": item.rack_name || "",
-        "Rack Type": item.rack_type || "",
-        "Rack Size (U Height)": item.rack_size_u_height || "",
-        "Installation Date": item.installation_date ? item.installation_date.slice(0, 10) : "",
-        "Cable Name": item.cable_name || "",
-        "Cable Type": item.cable_type || "",
-        "Length": item.length || "",
-        "Printer Type": item.printer_type || "",
-        "Connection Type": item.connection_type || "",
-        "SIM Number": item.sim_number_iccid || "",
-        "Mobile Number": item.mobile_number || "",
-        "IMSI Number": item.imsi_number || "",
-        "Service Provider": item.service_provider || "",
-        "Plan Type": item.plan_type || "",
-        "Monthly Plan/Package": item.monthly_plan_package || "",
-        "Remarks": item.remarks || "",
-      }));
+      let fileName = `Assets_Export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const disposition = response.headers ? response.headers["content-disposition"] : null;
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          fileName = match[1];
+        }
+      }
 
-      // 2. Create a new workbook
-      const wb = XLSX.utils.book_new();
-
-      // 3. Convert JSON data to a worksheet
-      const ws = XLSX.utils.json_to_sheet(excelData);
-
-      // 4. Set column widths
-      const wscols = Object.keys(excelData[0] || {}).map(() => ({ wch: 20 }));
-      ws['!cols'] = wscols;
-
-      // 5. Append worksheet to workbook
-      XLSX.utils.book_append_sheet(wb, ws, "Assets");
-
-      // 6. Generate filename with current date
-      const date = new Date().toISOString().slice(0, 10);
-      const fileName = `Assets_Export_${date}.xlsx`;
-
-      // 7. Write file and trigger download
-      XLSX.writeFile(wb, fileName);
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      if (link.parentNode) link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
 
       toast.success("Excel exported successfully");
-      logExport("excel-export", `Exported assets list to Excel (${excelData.length} records)`, "info");
+      logExport("excel-export", "Exported complete assets list to Excel via backend generator", "info");
     } catch (error) {
       console.error("Export failed:", error);
-      toast.error("Failed to export Excel");
+      toast.error(error.message || "Failed to export Excel");
       logExport("excel-export-failed", "Excel export failed", "error");
+    } finally {
+      setExporting(false);
     }
-  }, [typeFilter, statusFilter, departmentFilter, searchParam, getAssignedToName, logExport]);
+  }, [logExport]);
   // ----------------------------------
 
   const requiredFieldsForType = getRequiredFieldsForType(form.asset_type);
@@ -734,8 +688,13 @@ export default function AssetManagement() {
           <button className="btn btn-secondary" onClick={() => fetchData()}>
             <RefreshCw size={15} /> Refresh
           </button>
-          <button className="btn btn-secondary" onClick={handleExportAllToExcel}>
-            <Download size={15} /> Export Excel
+          <button
+            className="btn btn-secondary"
+            onClick={handleExportAllToExcel}
+            disabled={exporting}
+            style={{ opacity: exporting ? 0.7 : 1, cursor: exporting ? "not-allowed" : "pointer" }}
+          >
+            <Download size={15} /> {exporting ? "Generating Excel..." : "Export Excel"}
           </button>
           <button className="btn btn-primary" onClick={() => handleOpen()}>
             <Plus size={15} /> Add Asset

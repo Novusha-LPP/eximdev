@@ -15,7 +15,6 @@ import {
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx";
 import CustomSelect from "./CustomSelect";
 import ITPagination from "./ITPagination";
 import "../../styles/scorecard.scss";
@@ -119,6 +118,7 @@ export default function VendorManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState({});
   const [pagination, setPagination] = useState({ page: 1, limit: 15, total: 0, totalPages: 1 });
@@ -373,39 +373,45 @@ export default function VendorManagement() {
   };
 
   const handleExportToExcel = async () => {
+    setExporting(true);
     try {
-      toast.loading("Preparing export...", { id: "export-vendors" });
-      const params = { limit: 10000 };
-      if (statusParam) params.status = statusParam;
-      if (typeParam) params.vendor_type = typeParam;
-      if (searchParam) params.search = searchParam;
+      // Backend queries all vendors directly from DB and streams binary .xlsx
+      const response = await itHelpdeskAPI.vendors.export();
 
-      const res = await itHelpdeskAPI.vendors.getAll(params);
-      const vendorsToExport = res.data || [];
+      if (response.data && response.data.type === "application/json") {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        throw new Error(json.message || "Failed to generate vendor report");
+      }
 
-      const excelData = vendorsToExport.map((item, index) => ({
-        "Sr. No.": index + 1,
-        "Company / Vendor Name": item.name || "",
-        "Vendor Type": item.vendor_type || item.type || "Other",
-        "GST Number": item.gst_number || "—",
-        "PAN Number": item.pan_number || "—",
-        "Contact Person": item.contact_person || "",
-        "Mobile Number": item.mobile_number || "",
-        "Email": item.email || "",
-        "Status": item.status || "Active",
-      }));
+      let fileName = `IT_Vendors_List_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const disposition = response.headers ? response.headers["content-disposition"] : null;
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          fileName = match[1];
+        }
+      }
 
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(excelData);
-      XLSX.utils.book_append_sheet(wb, ws, "Vendors & Suppliers");
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      if (link.parentNode) link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
 
-      const date = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `IT_Vendors_List_${date}.xlsx`);
-      toast.success("Vendor directory exported to Excel", { id: "export-vendors" });
-      logExport("vendors-export", `Exported Vendors & Suppliers directory to Excel (${excelData.length} records)`);
+      toast.success("Vendor directory exported to Excel");
+      logExport("vendors-export", "Exported complete Vendors & Suppliers directory to Excel via backend generator");
     } catch (error) {
       console.error("Export failed:", error);
-      toast.error("Failed to export Excel", { id: "export-vendors" });
+      toast.error(error.message || "Failed to export Excel");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -456,8 +462,10 @@ export default function VendorManagement() {
             type="button"
             className="btn btn-secondary"
             onClick={handleExportToExcel}
+            disabled={exporting}
+            style={{ opacity: exporting ? 0.7 : 1, cursor: exporting ? "not-allowed" : "pointer" }}
           >
-            <Download size={15} /> <span>Export Excel</span>
+            <Download size={15} /> <span>{exporting ? "Generating Excel..." : "Export Excel"}</span>
           </button>
           <button
             type="button"

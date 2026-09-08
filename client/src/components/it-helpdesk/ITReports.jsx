@@ -51,6 +51,7 @@ export default function ITReports() {
   const [data, setData] = useState([]);
   const [allFilterOptions, setAllFilterOptions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [usersMap, setUsersMap] = useState({});
   const [searchInput, setSearchInput] = useState(searchParam);
   const [pagination, setPagination] = useState({
@@ -419,113 +420,49 @@ export default function ITReports() {
   };
 
   const exportToExcel = async () => {
+    setExporting(true);
+    const reportName = REPORT_TYPES.find((r) => r.value === reportType)?.label || "Report";
     try {
-      const apiModule = itHelpdeskAPI[reportType] || itHelpdeskAPI.assets;
-      const params = { limit: 10000, all: "true" };
-      if (searchParam) params.search = searchParam;
-      if (statusFilter && statusFilter !== "ALL") params.status = statusFilter;
-      if (categoryFilter && categoryFilter !== "ALL") {
-        params.category = categoryFilter;
-        params.asset_type = categoryFilter;
-        params.license_type = categoryFilter;
-        params.vendor_type = categoryFilter;
-        params.type = categoryFilter;
-      }
-      if (fromDate) params.fromDate = fromDate;
-      if (toDate) params.toDate = toDate;
+      // Export all data directly from backend without applying UI search/filter params
+      const response = await itHelpdeskAPI.reports.export(reportType);
 
-      const res = await apiModule.getAll(params);
-      const exportData = res.data || [];
-
-      if (!exportData || exportData.length === 0) {
-        toast.error("No data to export");
-        return;
+      if (response.data && response.data.type === "application/json") {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        throw new Error(json.message || "Failed to generate report");
       }
 
-      const columns = getColumns();
-      const headers = columns.map((c) => c.name);
-      const wsData = [headers];
-
-      exportData.forEach((item) => {
-        const row = [];
-        switch (reportType) {
-          case "assets":
-            row.push(
-              item.asset_tag || "",
-              item.name || item.asset_name || `${item.manufacturer || ""} ${item.model || ""}`.trim() || "—",
-              item.asset_type || item.category || "—",
-              item.status || "",
-              (typeof item.location === "object" ? item.location?.name : item.location) || "—",
-              formatUser(item.assigned_to || item.user),
-              item.warranty_expiry ? (new Date(item.warranty_expiry) < new Date() ? "Expired" : "Active") : "—"
-            );
-            break;
-          case "tickets":
-            row.push(
-              item.ticket_id || "",
-              item.title || "",
-              item.category || "—",
-              item.status || "",
-              item.priority || "",
-              item.department || "—",
-              formatUser(item.assigned_to || item.assignee),
-              formatDateStr(item.createdAt)
-            );
-            break;
-          case "vendors":
-            row.push(
-              item.vendor_code || "—",
-              item.name || item.vendor_name || "",
-              item.vendor_type || item.type || "",
-              item.contact_person || "—",
-              item.email || "—",
-              item.mobile_number || item.phone || "—",
-              `${item.gst_number || "—"} / ${item.pan_number || "—"}`,
-              item.status || "Active"
-            );
-            break;
-          case "licenses":
-            row.push(
-              item.software_name || item.license_name || "",
-              item.license_code || "—",
-              item.license_type || "",
-              item.vendor?.name || item.vendor_name || "—",
-              `${item.allocated_seats || 0} / ${item.total_seats || "—"}`,
-              formatDateStr(item.expiry_date),
-              item.status || "Active"
-            );
-            break;
-          case "inventory":
-            row.push(
-              item.item_id || "",
-              `${item.brand || ""} ${item.model || ""}`.trim() || "—",
-              item.category || "",
-              item.quantity || 1,
-              item.inventory_type || "",
-              item.warranty_end_date ? (new Date(item.warranty_end_date) < new Date() ? "Expired" : "Active") : "—"
-            );
-            break;
-          default:
-            return;
+      let filename = `IT_${reportName.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const disposition = response.headers ? response.headers["content-disposition"] : null;
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          filename = match[1];
         }
-        wsData.push(row);
+      }
+
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      if (link.parentNode) link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
 
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
-      const reportName = REPORT_TYPES.find((r) => r.value === reportType)?.label || "Report";
-      XLSX.utils.book_append_sheet(wb, ws, reportName);
-
-      const dateStr = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `IT_${reportName.replace(/\s+/g, "_")}_Filtered_${dateStr}.xlsx`);
-      toast.success(`${reportName} (${exportData.length} records) exported to Excel`);
+      toast.success(`${reportName} exported successfully`);
       logExportAudit({
         module: "Helpdesk",
-        details: `Exported ${reportName} to Excel (${exportData.length} records)`,
+        details: `Exported all ${reportName} records to Excel via backend generator`,
       });
     } catch (error) {
       console.error("Export error:", error);
-      toast.error("Failed to export report");
+      toast.error(error.message || "Failed to export report");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -734,12 +671,15 @@ export default function ITReports() {
             type="button"
             className="btn btn-primary"
             onClick={exportToExcel}
+            disabled={exporting}
             style={{
               background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
               boxShadow: "0 4px 12px rgba(5, 150, 105, 0.25)",
+              opacity: exporting ? 0.7 : 1,
+              cursor: exporting ? "not-allowed" : "pointer",
             }}
           >
-            <Download size={15} /> <span>Export Excel ({pagination.total})</span>
+            <Download size={15} /> <span>{exporting ? "Generating Excel..." : `Export Excel (${allFilterOptions.length || pagination.total})`}</span>
           </button>
         </div>
       </div>

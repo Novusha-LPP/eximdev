@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx";
 import CustomSelect from "./CustomSelect";
 import ITPagination from "./ITPagination";
 import "../../styles/scorecard.scss";
@@ -32,6 +31,7 @@ export default function ITNotifications() {
   const searchParam = searchParams.get("search") || "";
 
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [alerts, setAlerts] = useState([]);
   const [searchInput, setSearchInput] = useState(searchParam);
   const [stats, setStats] = useState({ total: 0, expiring: 0, expired: 0, upcoming: 0 });
@@ -103,40 +103,44 @@ export default function ITNotifications() {
   }, [fetchData]);
 
   const exportToExcel = async () => {
+    setExporting(true);
     try {
-      const params = { limit: 10000, all: "true" };
-      if (statusParam) params.status = statusParam;
-      if (typeParam) params.type = typeParam;
-      if (searchParam) params.search = searchParam;
+      // Backend queries all notifications directly from DB and streams binary .xlsx
+      const response = await itHelpdeskAPI.notifications.export();
 
-      const res = await itHelpdeskAPI.notifications.getAll(params);
-      const exportAlerts = res.data || [];
-
-      if (!exportAlerts || exportAlerts.length === 0) {
-        toast.error("No alerts to export");
-        return;
+      if (response.data && response.data.type === "application/json") {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        throw new Error(json.message || "Failed to generate notifications report");
       }
 
-      const excelData = exportAlerts.map((alert, index) => ({
-        "Sr. No.": index + 1,
-        "Alert Type": alert.type,
-        "Item / Subject": alert.item,
-        "Details": alert.details || "—",
-        "Expiry / Renewal Date": new Date(alert.date).toLocaleDateString("en-IN"),
-        "Days Remaining": alert.diffDays < 0 ? `${Math.abs(alert.diffDays)} days overdue` : `${alert.diffDays} days left`,
-        "Status": alert.status,
-      }));
+      let fileName = `IT_Expiry_Notifications_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const disposition = response.headers ? response.headers["content-disposition"] : null;
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          fileName = match[1];
+        }
+      }
 
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(excelData);
-      XLSX.utils.book_append_sheet(wb, ws, "Expiry Alerts");
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      if (link.parentNode) link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
 
-      const date = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `IT_Notifications_Alerts_${date}.xlsx`);
       toast.success("Expiry notifications exported to Excel");
     } catch (error) {
       console.error("Export error:", error);
-      toast.error("Failed to export Excel");
+      toast.error(error.message || "Failed to export Excel");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -178,8 +182,10 @@ export default function ITNotifications() {
             type="button"
             className="btn btn-primary"
             onClick={exportToExcel}
+            disabled={exporting}
+            style={{ opacity: exporting ? 0.7 : 1, cursor: exporting ? "not-allowed" : "pointer" }}
           >
-            <Download size={15} /> <span>Export Excel</span>
+            <Download size={15} /> <span>{exporting ? "Generating Excel..." : "Export Excel"}</span>
           </button>
         </div>
       </div>

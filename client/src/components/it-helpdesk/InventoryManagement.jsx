@@ -17,7 +17,6 @@ import {
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx";
 import CustomSelect from "./CustomSelect";
 import ITPagination from "./ITPagination";
 import "../../styles/scorecard.scss";
@@ -72,6 +71,7 @@ export default function InventoryManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [pagination, setPagination] = useState({ page: 1, limit: 15, total: 0, totalPages: 1 });
   const [stats, setStats] = useState(null);
@@ -258,38 +258,45 @@ export default function InventoryManagement() {
   };
 
   const handleExportToExcel = async () => {
+    setExporting(true);
     try {
-      toast.loading("Preparing export...", { id: "export-inventory" });
-      const targetType = activeTab === "new" ? "New" : "Old";
-      const params = { inventory_type: targetType, limit: 10000 };
-      if (categoryParam) params.category = categoryParam;
-      if (searchParam) params.search = searchParam;
+      // Backend queries all inventory items directly from DB and streams binary .xlsx
+      const response = await itHelpdeskAPI.inventory.export();
 
-      const res = await itHelpdeskAPI.inventory.getAll(params);
-      const itemsToExport = res.data || [];
+      if (response.data && response.data.type === "application/json") {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        throw new Error(json.message || "Failed to generate inventory report");
+      }
 
-      const excelData = itemsToExport.map((item, index) => ({
-        "Sr. No.": index + 1,
-        "Item ID / Serial": item.item_id || "",
-        "Brand": item.brand || "",
-        "Model": item.model || "",
-        "Category": item.category || "",
-        "Inventory Type": item.inventory_type || "",
-        "Warranty Start": item.warranty_start_date ? formatDateForInput(item.warranty_start_date) : "—",
-        "Warranty End": item.warranty_end_date ? formatDateForInput(item.warranty_end_date) : "—",
-      }));
+      let fileName = `IT_Inventory_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const disposition = response.headers ? response.headers["content-disposition"] : null;
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          fileName = match[1];
+        }
+      }
 
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(excelData);
-      XLSX.utils.book_append_sheet(wb, ws, `${activeTab === "old" ? "Old" : "New"} Inventory`);
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      if (link.parentNode) link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
 
-      const date = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `IT_Inventory_${activeTab.toUpperCase()}_${date}.xlsx`);
-      toast.success("Inventory exported to Excel", { id: "export-inventory" });
-      logExport("inventory-export", `Exported ${activeTab === "old" ? "Old" : "New"} Inventory to Excel (${excelData.length} items)`);
+      toast.success("Inventory directory exported to Excel");
+      logExport("inventory-export", "Exported complete inventory directory to Excel via backend generator");
     } catch (error) {
       console.error("Export failed:", error);
-      toast.error("Failed to export Excel", { id: "export-inventory" });
+      toast.error(error.message || "Failed to export Excel");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -318,8 +325,10 @@ export default function InventoryManagement() {
             type="button"
             className="btn btn-secondary"
             onClick={handleExportToExcel}
+            disabled={exporting}
+            style={{ opacity: exporting ? 0.7 : 1, cursor: exporting ? "not-allowed" : "pointer" }}
           >
-            <Download size={15} /> <span>Export Excel</span>
+            <Download size={15} /> <span>{exporting ? "Generating Excel..." : "Export Excel"}</span>
           </button>
           <button
             type="button"

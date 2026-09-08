@@ -1,5 +1,6 @@
 
 import express from "express";
+import ExcelJS from "exceljs";
 import AuditTrailModel from "../../model/auditTrailModel.mjs";
 import UserModel from "../../model/userModel.mjs";
 import { getAllUserMappings, getUsernameById } from "../../utils/userIdManager.mjs";
@@ -293,24 +294,31 @@ router.post("/api/audit-trail/custom", authMiddleware, async (req, res) => {
   }
 });
 
-// Get comprehensive audit trail with advanced filters
+// Get comprehensive audit trail with advanced filters and server-side pagination
 router.get("/api/audit-trail", authMiddleware, async (req, res) => {
   try {
     const {
       page = 1,
-      limit = 50,
+      limit = 10,
       action,
       username,
       documentType,
+      module: moduleParam,
       job_no,
       year,
       field,
       fromDate,
       toDate,
+      startDate,
+      endDate,
+      search,
+      allDates,
+      noDateFilter,
     } = req.query;
 
-    const { search } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, Math.min(200, parseInt(limit) || 10));
+    const skip = (pageNum - 1) * limitNum;
 
     // Build filter query
     const filter = {};
@@ -324,72 +332,105 @@ router.get("/api/audit-trail", authMiddleware, async (req, res) => {
       if (req.query.branchId) filter.branchId = req.query.branchId;
       if (req.query.branch_code) filter.branch_code = req.query.branch_code;
     }
-    if (action) filter.action = action;
-    if (username) filter.username = { $regex: username, $options: 'i' };
-    if (documentType) filter.documentType = documentType;
-    if (job_no) filter.job_no = { $regex: job_no, $options: 'i' }; // regex search on job_no for flexibility
-    if (year) filter.year = year;
-    if (field) filter['changes.field'] = { $regex: field, $options: 'i' };
-    if (search) filter.job_no = { $regex: search, $options: 'i' };
 
-    // Date range filter: default to current date if not provided
-    const dateFilter = {};
-    let adjustedToDate = toDate;
-    if (fromDate && toDate) {
-      const from = new Date(fromDate);
-      const to = new Date(toDate);
-
-      // If fromDate is after toDate, return error
-      if (from > to) {
-        return res.status(400).json({
-          message: "Invalid time range: fromDate must be before or equal to toDate"
-        });
-      }
-
-      // If fromDate and toDate are the same day, increment toDate by 1 day
-      if (
-        from.getFullYear() === to.getFullYear() &&
-        from.getMonth() === to.getMonth() &&
-        from.getDate() === to.getDate()
-      ) {
-        to.setDate(to.getDate() + 1);
-        adjustedToDate = to.toISOString().slice(0, 10);
-      }
+    if (action && action.trim()) {
+      filter.action = { $regex: action.trim(), $options: "i" };
     }
 
-    if (req.query.allDates === 'true' || req.query.noDateFilter === 'true') {
-      // Do not restrict to today; allow all historical logs
-    } else if (fromDate || toDate) {
-      dateFilter.timestamp = {};
-      if (fromDate) dateFilter.timestamp.$gte = new Date(fromDate);
-      if (adjustedToDate) dateFilter.timestamp.$lte = new Date(adjustedToDate);
-      Object.assign(filter, dateFilter); // Apply date filter to the main filter
-    } else {
-      // Default: current date 00:00 to 23:59:59.999
-      const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-      filter.timestamp = { $gte: start, $lte: end };
+    if (username && username.trim()) {
+      filter.username = { $regex: username.trim(), $options: "i" };
     }
 
-    // Fetch audit trail data with pagination
-    const auditTrail = await AuditTrailModel.find(filter)
-      .sort({ timestamp: -1 })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .lean();
+    const docType = documentType || moduleParam;
+    if (docType && docType.trim()) {
+      const trimmed = docType.trim();
+      const reverseMap = {
+        Asset: "ITAsset",
+        Vendor: "ItVendor",
+        Helpdesk: "HelpdeskTicket",
+        Inventory: "ITInventory",
+        Contract: "ITContract",
+        License: "ITLicense",
+        User: "User",
+      };
+      const mapped = reverseMap[trimmed] || trimmed;
+      filter.documentType = {
+        $in: [trimmed, mapped, new RegExp(`^${trimmed}$`, "i"), new RegExp(`^${mapped}$`, "i")],
+      };
+    }
 
-    const total = await AuditTrailModel.countDocuments(filter);
+    if (job_no && job_no.trim()) filter.job_no = { $regex: job_no.trim(), $options: "i" };
+    if (year && year.trim()) filter.year = year.trim();
+    if (field && field.trim()) filter["changes.field"] = { $regex: field.trim(), $options: "i" };
+
+    // Multi-field search
+    if (search && search.trim()) {
+      const s = search.trim();
+      const searchRegex = { $regex: s, $options: "i" };
+      filter.$or = [
+        { username: searchRegex },
+        { action: searchRegex },
+        { documentType: searchRegex },
+        { heading: searchRegex },
+        { job_no: searchRegex },
+        { ip_address: searchRegex },
+        { userAgent: searchRegex },
+        { reason: searchRegex },
+      ];
+    }
+
+    // Date range filter
+    const from = fromDate || startDate;
+    const to = toDate || endDate;
+    if (from || to) {
+      filter.timestamp = {};
+      if (from) {
+        const fromD = new Date(from);
+        fromD.setHours(0, 0, 0, 0);
+        filter.timestamp.$gte = fromD;
+      }
+      if (to) {
+        const toD = new Date(to);
+        toD.setHours(23, 59, 59, 999);
+        filter.timestamp.$lte = toD;
+      }
+    } else if (allDates === "true" || noDateFilter === "true" || req.query.timestamp) {
+      // Allow all historical logs
+    }
+
+    // Fetch audit trail data and counts concurrently
+    const [auditTrail, total, createCount, updateCount] = await Promise.all([
+      AuditTrailModel.find(filter)
+        .sort({ timestamp: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      AuditTrailModel.countDocuments(filter),
+      AuditTrailModel.countDocuments({ ...filter, action: { $regex: "CREATE|INSERT", $options: "i" } }),
+      AuditTrailModel.countDocuments({ ...filter, action: { $regex: "UPDATE|EDIT", $options: "i" } }),
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / limitNum));
 
     res.json({
+      success: true,
       auditTrail,
+      data: auditTrail,
       pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages,
+        currentPage: pageNum,
         totalItems: total,
-        hasNext: skip + parseInt(limit) < total,
-        hasPrev: parseInt(page) > 1
-      }
+        hasNext: skip + limitNum < total,
+        hasPrev: pageNum > 1,
+      },
+      stats: {
+        total,
+        createCount,
+        updateCount,
+      },
     });
   } catch (error) {
     console.error("Error fetching audit trail:", error);
@@ -938,18 +979,80 @@ router.delete("/api/audit-trail", authMiddleware, async (req, res) => {
   }
 });
 
-// Delete a single audit log by ID
-router.delete("/api/audit-trail/:id", authMiddleware, async (req, res) => {
+// Export all audit logs to Excel
+router.get("/api/audit-trail/export", authMiddleware, async (req, res) => {
   try {
-    const { id } = req.params;
-    const deleted = await AuditTrailModel.findByIdAndDelete(id);
-    if (!deleted) {
-      return res.status(404).json({ message: "Audit log not found." });
-    }
-    res.json({ success: true, message: "Audit log deleted." });
-  } catch (error) {
-    console.error("Error deleting audit log:", error);
-    res.status(500).json({ message: "Error deleting audit log", error: error.message });
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Audit Logs");
+    const filename = `Audit_Logs_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    const documentTypeMap = {
+      ITAsset: "Asset",
+      ItVendor: "Vendor",
+      HelpdeskTicket: "Helpdesk",
+      ITInventory: "Inventory",
+      ITContract: "Contract",
+      ITLicense: "License",
+      User: "User",
+    };
+
+    // Export ALL audit logs directly from DB (no UI filter restriction)
+    const auditLogs = await AuditTrailModel.find({})
+      .sort({ timestamp: -1, createdAt: -1 })
+      .lean();
+
+    worksheet.columns = [
+      { header: "S.No", key: "srNo", width: 8 },
+      { header: "Timestamp", key: "timestamp", width: 22 },
+      { header: "User", key: "user", width: 22 },
+      { header: "Action", key: "action", width: 16 },
+      { header: "Module", key: "module", width: 18 },
+      { header: "Details / Activity", key: "details", width: 45 },
+      { header: "IP Address", key: "ip_address", width: 18 },
+      { header: "User Agent", key: "user_agent", width: 35 },
+    ];
+
+    auditLogs.forEach((item, idx) => {
+      const rawUser = item.username || item.user || item.userId || "—";
+      const moduleName = documentTypeMap[item.documentType] || item.documentType || "General";
+      const detailsText =
+        item.heading ||
+        item.details ||
+        item.reason ||
+        (item.changes && item.changes.length > 0 ? `${item.changes.length} field change(s)` : "—");
+
+      worksheet.addRow({
+        srNo: idx + 1,
+        timestamp: item.timestamp
+          ? new Date(item.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
+          : "—",
+        user: rawUser,
+        action: item.action || "UNKNOWN",
+        module: moduleName,
+        details: detailsText,
+        ip_address: item.ip_address || "—",
+        user_agent: item.userAgent || item.user_agent || "—",
+      });
+    });
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFF" }, size: 11 };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "0F172A" },
+    };
+    headerRow.alignment = { vertical: "middle", horizontal: "center" };
+    headerRow.height = 26;
+
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.send(buffer);
+  } catch (err) {
+    console.error("Error exporting audit trail to Excel:", err);
+    return res.status(500).json({ success: false, message: `Failed to generate audit report: ${err.message}` });
   }
 });
 

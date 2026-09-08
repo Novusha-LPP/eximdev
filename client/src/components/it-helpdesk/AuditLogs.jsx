@@ -44,8 +44,8 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import axios from "axios";
 import { debounce } from "lodash";
-import { useNavigate } from "react-router-dom";
-import * as XLSX from 'xlsx'; // Add this import for Excel export
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 
 // ✅ FIX 1: Create axios instance WITHOUT hardcoded token in headers
 const api = axios.create({
@@ -518,17 +518,53 @@ export const useModuleAuditLogs = (moduleName) => {
 
 const AuditLogsComponent = () => {
   const navigate = useNavigate();
-  const { auditLogs, setAuditLogs, addAuditLog, loading, error, setError, fetchAuditLogs, lastUpdated, isRefreshing, MODULES, ACTIONS, SEVERITY } = useAuditLogs();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { addAuditLog, MODULES, ACTIONS, SEVERITY } = useAuditLogs();
 
   const handleBack = () => {
     navigate("/it-helpdesk");
   };
 
+  // URL query params
+  const page = Math.max(1, parseInt(searchParams.get("page")) || 1);
+  const limit = Math.max(1, parseInt(searchParams.get("limit")) || 10);
+  const searchTerm = searchParams.get("search") || "";
+  const filterModule = searchParams.get("module") || "";
+  const filterAction = searchParams.get("action") || "";
+  const filterUser = searchParams.get("user") || "";
+  const startDate = searchParams.get("startDate") || "";
+  const endDate = searchParams.get("endDate") || "";
+
+  // Component state
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
+  const [stats, setStats] = useState({
+    total: 0,
+    createCount: 0,
+    updateCount: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [copiedUserAgent, setCopiedUserAgent] = useState(false);
   const [copiedDetails, setCopiedDetails] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [selectedLog, setSelectedLog] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [localSearch, setLocalSearch] = useState(searchTerm);
+  const [modalDateRange, setModalDateRange] = useState({
+    startDate: startDate ? new Date(startDate) : null,
+    endDate: endDate ? new Date(endDate) : null,
+  });
 
   const parseUserAgent = useCallback((ua) => {
     if (!ua) return { browser: "Unknown", os: "Unknown" };
@@ -548,142 +584,208 @@ const AuditLogsComponent = () => {
 
     return { browser, os };
   }, []);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [selectedLog, setSelectedLog] = useState(null);
-  const [tabValue, setTabValue] = useState("all");
-  const [exportLoading, setExportLoading] = useState(false);
-  const [newLogsCount, setNewLogsCount] = useState(0);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterUser, setFilterUser] = useState("");
-  const [filterAction, setFilterAction] = useState("");
-  const [filterIp, setFilterIp] = useState("");
-  const [filterModule, setFilterModule] = useState("");
-  const [dateRange, setDateRange] = useState({ startDate: null, endDate: null });
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+
+  // Helper to update search params while preserving existing ones
+  const updateQueryParams = useCallback(
+    (newParams) => {
+      const current = Object.fromEntries(searchParams.entries());
+      const merged = { ...current, ...newParams };
+      const cleaned = {};
+      Object.keys(merged).forEach((key) => {
+        const val = merged[key];
+        if (val !== "" && val !== undefined && val !== null) {
+          cleaned[key] = String(val);
+        }
+      });
+      setSearchParams(cleaned);
+    },
+    [searchParams, setSearchParams]
+  );
 
   useEffect(() => {
-    if (lastUpdated) {
-      const recentLogs = auditLogs.filter(log => new Date(log.timestamp) > new Date(Date.now() - 60000));
-      setNewLogsCount(recentLogs.length);
-    }
-  }, [auditLogs, lastUpdated]);
+    setLocalSearch(searchTerm);
+  }, [searchTerm]);
 
-  const handleSearch = useMemo(() => debounce((value) => {
-    setSearchTerm(value);
-    setPage(1);
-  }, 300), []);
-
-  const filteredLogs = useMemo(() => {
-    const term = searchTerm.toLowerCase();
-    return auditLogs.filter(log => {
-      const formattedTime = log.timestamp
-        ? new Date(log.timestamp).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', year: 'numeric', month: 'short', day: 'numeric' }) +
-        ' ' + new Date(log.timestamp).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
-        : '';
-      const matchesSearch = !term ||
-        (log.user || '').toLowerCase().includes(term) ||
-        (log.action || '').toLowerCase().includes(term) ||
-        (log.details || '').toLowerCase().includes(term) ||
-        (log.module || '').toLowerCase().includes(term) ||
-        (log.ip_address || '').toLowerCase().includes(term) ||
-        formattedTime.toLowerCase().includes(term);
-      const matchesUser = !filterUser || (log.user || '') === filterUser;
-      const matchesAction = !filterAction ||
-        (log.action || '').toUpperCase() === filterAction.toUpperCase() ||
-        (log.action || '').toUpperCase().includes(filterAction.toUpperCase());
-      const matchesIp = !filterIp || (log.ip_address || '') === filterIp;
-      const matchesModule = !filterModule || (log.module || '') === filterModule;
-      const matchesTab = tabValue === "all" ||
-        (tabValue === "recent" && new Date(log.timestamp) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) ||
-        (tabValue === "errors" && log.severity === SEVERITY.ERROR) ||
-        (tabValue === "warnings" && log.severity === SEVERITY.WARNING);
-
-      let matchesDate = true;
-      if (dateRange.startDate || dateRange.endDate) {
-        const logDate = new Date(log.timestamp);
-        if (dateRange.startDate) { const s = new Date(dateRange.startDate); s.setHours(0, 0, 0, 0); matchesDate = matchesDate && logDate >= s; }
-        if (dateRange.endDate) { const e = new Date(dateRange.endDate); e.setHours(23, 59, 59, 999); matchesDate = matchesDate && logDate <= e; }
-      }
-      return matchesSearch && matchesUser && matchesAction && matchesIp && matchesModule && matchesDate && matchesTab;
+  useEffect(() => {
+    setModalDateRange({
+      startDate: startDate ? new Date(startDate) : null,
+      endDate: endDate ? new Date(endDate) : null,
     });
-  }, [auditLogs, searchTerm, filterUser, filterAction, filterIp, filterModule, dateRange, tabValue, SEVERITY]);
+  }, [startDate, endDate]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / limit));
-  const paginatedLogs = useMemo(() => {
-    const start = (page - 1) * limit;
-    return filteredLogs.slice(start, start + limit);
-  }, [filteredLogs, page, limit]);
+  const fetchAuditLogs = useCallback(
+    async (isRefresh = false) => {
+      setLoading(true);
+      if (isRefresh) setIsRefreshing(true);
+      try {
+        const params = {
+          page,
+          limit,
+          allDates: !startDate && !endDate ? "true" : undefined,
+        };
+        if (searchTerm) params.search = searchTerm;
+        if (filterModule) {
+          params.documentType = reverseDocumentTypeMap[filterModule] || filterModule;
+          params.module = filterModule;
+        }
+        if (filterAction) params.action = filterAction;
+        if (filterUser) params.username = filterUser;
+        if (startDate) params.startDate = startDate;
+        if (endDate) params.endDate = endDate;
 
-  const handleViewDetails = (log) => { setSelectedLog(log); setShowDetailsModal(true); };
+        const response = await api.get("/audit-trail", { params });
+        const backendLogs = response.data.auditTrail || response.data.data || [];
 
-  const handleDeleteSingleLog = useCallback(async (logId) => {
-    try {
-      await api.delete(`/audit-trail/${logId}`);
-      // Remove from local state immediately — no need to re-fetch
-      setAuditLogs(prev => prev.filter(l => l.id !== logId));
-      toast.success('Log entry deleted.');
-    } catch (err) {
-      const msg = err?.response?.data?.message || 'Failed to delete log entry.';
-      toast.error(msg);
-    }
-  }, [setAuditLogs]);
+        const formattedLogs = backendLogs.map((log) => ({
+          id: log._id || log.id,
+          user: sanitizeUser(log.username || log.user),
+          action: log.action || "UNKNOWN",
+          module: documentTypeMap[log.documentType] || log.documentType || "General",
+          severity: log.action === "DELETE" ? "warning" : log.severity || "info",
+          timestamp: log.timestamp || new Date().toISOString(),
+          ip_address: log.ip_address || log.ip || "",
+          user_agent: log.userAgent || log.user_agent || "",
+          details: log.heading || log.details || "",
+        }));
 
-  const handleModuleFilterChange = useCallback((module) => {
-    setFilterModule(module);
-    // Re-fetch from server with documentType filter for accurate server-side filtering
+        setAuditLogs(formattedLogs);
+
+        const serverPagination = response.data.pagination;
+        if (serverPagination) {
+          setPagination({
+            page: serverPagination.page || serverPagination.currentPage || page,
+            limit: serverPagination.limit || limit,
+            total: serverPagination.total ?? serverPagination.totalItems ?? formattedLogs.length,
+            totalPages:
+              serverPagination.totalPages ||
+              Math.max(1, Math.ceil((serverPagination.total || formattedLogs.length) / limit)),
+          });
+        } else {
+          setPagination({
+            page,
+            limit,
+            total: formattedLogs.length,
+            totalPages: Math.max(1, Math.ceil(formattedLogs.length / limit)),
+          });
+        }
+
+        if (response.data.stats) {
+          setStats(response.data.stats);
+        } else {
+          setStats({
+            total: response.data.pagination?.total || formattedLogs.length,
+            createCount: formattedLogs.filter((l) =>
+              String(l.action).toUpperCase().includes("CREATE") || String(l.action).toUpperCase().includes("INSERT")
+            ).length,
+            updateCount: formattedLogs.filter((l) =>
+              String(l.action).toUpperCase().includes("UPDATE")
+            ).length,
+          });
+        }
+
+        setLastUpdated(new Date());
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching audit logs:", err);
+        setError(handleApiError(err, filterModule));
+      } finally {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [page, limit, searchTerm, filterModule, filterAction, filterUser, startDate, endDate]
+  );
+
+  useEffect(() => {
     fetchAuditLogs(false);
   }, [fetchAuditLogs]);
+
+  const debouncedSearch = useMemo(
+    () =>
+      debounce((val) => {
+        updateQueryParams({ search: val || undefined, page: 1 });
+      }, 350),
+    [updateQueryParams]
+  );
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setLocalSearch(val);
+    debouncedSearch(val);
+  };
+
+  const handleModuleFilterChange = useCallback(
+    (module) => {
+      updateQueryParams({ module: module || undefined, page: 1 });
+    },
+    [updateQueryParams]
+  );
+
+  const handleActionFilterChange = useCallback(
+    (action) => {
+      updateQueryParams({ action: action || undefined, page: 1 });
+    },
+    [updateQueryParams]
+  );
+
+  const handleViewDetails = (log) => {
+    setSelectedLog(log);
+    setShowDetailsModal(true);
+  };
+
+  const handleDeleteSingleLog = useCallback(
+    async (logId) => {
+      try {
+        await api.delete(`/audit-trail/${logId}`);
+        toast.success("Log entry deleted.");
+        fetchAuditLogs(false);
+      } catch (err) {
+        const msg = err?.response?.data?.message || "Failed to delete log entry.";
+        toast.error(msg);
+      }
+    },
+    [fetchAuditLogs]
+  );
 
   const handleDeleteLogs = useCallback(async () => {
     setDeleteLoading(true);
     try {
       const params = filterModule ? { documentType: reverseDocumentTypeMap[filterModule] || filterModule } : {};
-      await api.delete('/audit-trail', { params });
-      toast.success(filterModule ? `Logs for "${filterModule}" deleted.` : 'All audit logs deleted.');
+      await api.delete("/audit-trail", { params });
+      toast.success(filterModule ? `Logs for "${filterModule}" deleted.` : "All audit logs deleted.");
       setShowDeleteConfirm(false);
       fetchAuditLogs(false);
     } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || 'Failed to delete audit logs.';
+      const msg = err?.response?.data?.message || err?.message || "Failed to delete audit logs.";
       toast.error(msg);
-      console.error('Delete logs error:', err?.response?.status, err?.response?.data);
+      console.error("Delete logs error:", err?.response?.status, err?.response?.data);
     } finally {
       setDeleteLoading(false);
     }
   }, [filterModule, fetchAuditLogs]);
 
-  // Modified export function to use XLSX for Excel export
+  // Backend-side Excel export for audit logs
   const handleExportLogs = useCallback(async () => {
     setExportLoading(true);
     try {
-      // Prepare data for Excel export
-      const headers = ['Timestamp', 'User', 'Action', 'Module', 'Details'];
-      const data = filteredLogs.map(log => ({
-        'Timestamp': log.timestamp,
-        'User': log.user,
-        'Action': log.action,
-        'Module': log.module,
-        'Details': log.details
-      }));
+      const response = await itHelpdeskAPI.reports.export("audit");
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `audit-logs-${new Date().toISOString().split("T")[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
 
-      // Create a new workbook
-      const workbook = XLSX.utils.book_new();
-
-      // Create a worksheet
-      const worksheet = XLSX.utils.json_to_sheet(data, { header: headers });
-
-      // Add the worksheet to the workbook
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Audit Logs");
-
-      // Generate Excel file and trigger download
-      XLSX.writeFile(workbook, `audit-logs-${new Date().toISOString().split('T')[0]}.xlsx`);
-
-      // Automatically record audit log for this export action
       if (addAuditLog) {
         await addAuditLog({
           action: "EXPORT",
           module: "Administration",
-          details: `Exported ${filteredLogs.length} audit log entries to Excel`,
+          details: "Exported all audit log entries to Excel",
           severity: SEVERITY.INFO,
         });
       }
@@ -691,15 +793,36 @@ const AuditLogsComponent = () => {
       toast.success("Audit logs exported successfully");
     } catch (err) {
       console.error("Export error:", err);
-      toast.error("Failed to export audit logs");
+      const errMsg = err?.response?.data?.message || err?.message || "Failed to export audit logs";
+      toast.error(errMsg);
     } finally {
       setExportLoading(false);
     }
-  }, [filteredLogs, addAuditLog, SEVERITY]);
+  }, [addAuditLog, SEVERITY]);
 
   const handleRefreshLogs = useCallback(() => {
-    if (!loading) { fetchAuditLogs(true); toast.success("Audit logs refreshed"); }
+    if (!loading) {
+      fetchAuditLogs(true);
+      toast.success("Audit logs refreshed");
+    }
   }, [fetchAuditLogs, loading]);
+
+  const handleApplyDateFilter = () => {
+    const startStr = modalDateRange.startDate ? new Date(modalDateRange.startDate).toISOString().split("T")[0] : "";
+    const endStr = modalDateRange.endDate ? new Date(modalDateRange.endDate).toISOString().split("T")[0] : "";
+    updateQueryParams({
+      startDate: startStr || undefined,
+      endDate: endStr || undefined,
+      page: 1,
+    });
+    setShowFilterModal(false);
+  };
+
+  const handleClearFilters = () => {
+    setLocalSearch("");
+    setModalDateRange({ startDate: null, endDate: null });
+    setSearchParams({ page: "1", limit: String(limit) });
+  };
 
   const getSeverityColor = useCallback((severity) => {
     switch (severity) {
@@ -734,7 +857,7 @@ const AuditLogsComponent = () => {
       date.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
   }, []);
 
-  useEffect(() => { return () => { handleSearch.cancel(); }; }, [handleSearch]);
+  useEffect(() => { return () => { debouncedSearch.cancel(); }; }, [debouncedSearch]);
 
   const getActionBadgeClass = (action) => {
     const act = String(action || "").toUpperCase();
@@ -1030,18 +1153,18 @@ const AuditLogsComponent = () => {
           <div className="card-body">
             <div className="stat-grid">
               <div className="stat-card">
-                <div className="stat-val">{auditLogs.length}</div>
+                <div className="stat-val">{stats.total ?? pagination.total ?? 0}</div>
                 <div className="stat-lbl">Total Log Entries</div>
               </div>
               <div className="stat-card">
                 <div className="stat-val" style={{ color: "#10b981" }}>
-                  {auditLogs.filter(l => String(l.action || "").toUpperCase().includes("CREATE") || String(l.action || "").toUpperCase().includes("INSERT")).length}
+                  {stats.createCount ?? 0}
                 </div>
                 <div className="stat-lbl">Create Actions</div>
               </div>
               <div className="stat-card">
                 <div className="stat-val" style={{ color: "#3b82f6" }}>
-                  {auditLogs.filter(l => String(l.action || "").toUpperCase().includes("UPDATE")).length}
+                  {stats.updateCount ?? 0}
                 </div>
                 <div className="stat-lbl">Update Actions</div>
               </div>
@@ -1062,7 +1185,8 @@ const AuditLogsComponent = () => {
                     className="form-input"
                     style={{ paddingLeft: "32px", height: "38px" }}
                     placeholder="Search by user, action, module, details, IP..."
-                    onChange={(e) => handleSearch(e.target.value)}
+                    value={localSearch}
+                    onChange={handleSearchChange}
                   />
                 </div>
               </div>
@@ -1083,7 +1207,7 @@ const AuditLogsComponent = () => {
                 <label className="form-label">Action</label>
                 <CustomSelect
                   value={filterAction}
-                  onChange={(val) => setFilterAction(val)}
+                  onChange={(val) => handleActionFilterChange(val)}
                   options={[
                     { label: "All Actions", value: "" },
                     { label: "CREATE", value: "CREATE" },
@@ -1098,12 +1222,7 @@ const AuditLogsComponent = () => {
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => {
-                    setFilterModule("");
-                    setFilterAction("");
-                    setSearchTerm("");
-                    setDateRange({ startDate: null, endDate: null });
-                  }}
+                  onClick={handleClearFilters}
                   title="Clear Filters"
                   style={{
                     height: "38px",
@@ -1136,7 +1255,7 @@ const AuditLogsComponent = () => {
           <div className="card-header">
             <div>
               <div className="card-title">Audit Log Entries</div>
-              <div className="card-subtitle">Showing {filteredLogs.length} of {auditLogs.length} records</div>
+              <div className="card-subtitle">Showing {auditLogs.length} of {pagination.total || 0} records</div>
             </div>
           </div>
           <div className="card-body" style={{ padding: 0 }}>
@@ -1170,14 +1289,16 @@ const AuditLogsComponent = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {paginatedLogs.length === 0 ? (
+                    {auditLogs.length === 0 ? (
                       <tr>
                         <td colSpan={6} style={{ textAlign: "center", padding: "40px 16px", color: "var(--color-text-muted)" }}>
-                          {auditLogs.length === 0 ? "No audit logs recorded yet." : "No logs matching current filter."}
+                          {searchTerm || filterModule || filterAction || startDate || endDate
+                            ? "No logs matching current filter."
+                            : "No audit logs recorded yet."}
                         </td>
                       </tr>
                     ) : (
-                      paginatedLogs.map((log) => {
+                      auditLogs.map((log) => {
                         const { date, time } = formatTimestamp(log.timestamp);
                         const rawUser = sanitizeUser(log.user);
                         const avatar = getUserAvatarTheme(rawUser);
@@ -1353,15 +1474,12 @@ const AuditLogsComponent = () => {
 
             {/* Pagination Footer */}
             <ITPagination
-              page={page}
-              totalPages={totalPages}
-              totalRecords={filteredLogs.length}
-              limit={limit}
-              onPageChange={(newPage) => setPage(newPage)}
-              onLimitChange={(newLimit) => {
-                setLimit(newLimit);
-                setPage(1);
-              }}
+              page={pagination.page || page}
+              totalPages={pagination.totalPages || 1}
+              totalRecords={pagination.total || 0}
+              limit={pagination.limit || limit}
+              onPageChange={(newPage) => updateQueryParams({ page: newPage })}
+              onLimitChange={(newLimit) => updateQueryParams({ limit: newLimit, page: 1 })}
             />
           </div>
         </div>
@@ -1389,24 +1507,41 @@ const AuditLogsComponent = () => {
 
         {/* Filter Modal */}
         <Dialog open={showFilterModal} onClose={() => setShowFilterModal(false)} maxWidth="sm" fullWidth aria-labelledby="filter-dialog-title">
-          <DialogTitle id="filter-dialog-title">Advanced Filters</DialogTitle>
+          <DialogTitle id="filter-dialog-title">Advanced Date Filters</DialogTitle>
           <DialogContent>
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12} md={6}>
-                <DatePicker label="Start Date" value={dateRange.startDate}
-                  onChange={(v) => setDateRange(prev => ({ ...prev, startDate: v }))}
-                  slotProps={{ textField: { size: 'small', fullWidth: true } }} />
+                <DatePicker
+                  label="Start Date"
+                  value={modalDateRange.startDate}
+                  onChange={(v) => setModalDateRange((prev) => ({ ...prev, startDate: v }))}
+                  slotProps={{ textField: { size: "small", fullWidth: true } }}
+                />
               </Grid>
               <Grid item xs={12} md={6}>
-                <DatePicker label="End Date" value={dateRange.endDate}
-                  onChange={(v) => setDateRange(prev => ({ ...prev, endDate: v }))}
-                  slotProps={{ textField: { size: 'small', fullWidth: true } }} />
+                <DatePicker
+                  label="End Date"
+                  value={modalDateRange.endDate}
+                  onChange={(v) => setModalDateRange((prev) => ({ ...prev, endDate: v }))}
+                  slotProps={{ textField: { size: "small", fullWidth: true } }}
+                />
               </Grid>
             </Grid>
           </DialogContent>
           <DialogActions>
+            <Button
+              onClick={() => {
+                setModalDateRange({ startDate: null, endDate: null });
+                updateQueryParams({ startDate: undefined, endDate: undefined, page: 1 });
+                setShowFilterModal(false);
+              }}
+            >
+              Reset
+            </Button>
             <Button onClick={() => setShowFilterModal(false)}>Cancel</Button>
-            <Button variant="contained" onClick={() => setShowFilterModal(false)}>Apply</Button>
+            <Button variant="contained" onClick={handleApplyDateFilter}>
+              Apply
+            </Button>
           </DialogActions>
         </Dialog>
 

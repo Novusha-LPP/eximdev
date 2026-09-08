@@ -64,6 +64,20 @@ const TICKET_CATEGORIES = [
 ];
 
 const TICKET_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
+const TICKET_DEPARTMENTS = [
+  "Import",
+  "Export",
+  "DGFT",
+  "Alluvium-IT",
+  "Novusha-IT",
+  "Paramount",
+  "Account",
+  "E-sanchit",
+  "Admin/Hr",
+  "Operations",
+  "Sales/CRM",
+  "Other",
+];
 
 const PRIORITY_CONFIG = {
   Low: { color: "default", bg: "#f1f5f9", text: "#475569", dot: "#94a3b8" },
@@ -1431,7 +1445,7 @@ export default function ITHHelpdeskHome() {
                 Department <span style={{ color: "#dc2626" }}>*</span>
               </Typography>
               <TextField
-                placeholder="e.g. Accounts, Import, Operations"
+                select
                 size="small"
                 fullWidth
                 required
@@ -1440,7 +1454,14 @@ export default function ITHHelpdeskHome() {
                   setTicketForm((f) => ({ ...f, department: e.target.value }))
                 }
                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-              />
+              >
+                <MenuItem value="" disabled>Select Department</MenuItem>
+                {TICKET_DEPARTMENTS.map((dept) => (
+                  <MenuItem key={dept} value={dept}>
+                    {dept}
+                  </MenuItem>
+                ))}
+              </TextField>
             </Grid>
 
             {/* SLA Due Date */}

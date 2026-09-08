@@ -68,7 +68,6 @@ export default function ITReports() {
 
   useEffect(() => {
     fetchReport();
-    // Reset filters when tab changes
     setSearchTerm("");
     setStatusFilter("ALL");
     setCategoryFilter("ALL");
@@ -80,10 +79,37 @@ export default function ITReports() {
 
   const formatUser = (userVal) => {
     if (!userVal) return "—";
+    let raw = "";
     if (typeof userVal === "object") {
-      return userVal.username || userVal.first_name || userVal.name || userVal.email || "—";
+      raw = userVal.first_name ? `${userVal.first_name} ${userVal.last_name || ""}`.trim() : (userVal.username || userVal.name || userVal.email || "—");
+    } else {
+      raw = String(userVal);
     }
-    return String(userVal);
+    if (raw.includes("@")) {
+      raw = raw.split("@")[0];
+    }
+    return (
+      raw
+        .replace(/[._]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(" ") || "—"
+    );
+  };
+
+  const formatDateStr = (dateVal) => {
+    if (!dateVal) return "—";
+    try {
+      return new Date(dateVal).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return "—";
+    }
   };
 
   // Derive unique categories dynamically for filtering dropdown
@@ -134,7 +160,6 @@ export default function ITReports() {
     if (reportType === "tickets") {
       const openNew = data.filter((d) => d.status === "New" || d.status === "Open").length;
       const inProgress = data.filter((d) => d.status === "In Progress" || d.status === "Assigned").length;
-      const pending = data.filter((d) => d.status === "Pending").length;
       const resolvedClosed = data.filter((d) => d.status === "Resolved" || d.status === "Closed").length;
       const criticalHigh = data.filter((d) => d.priority === "Critical" || d.priority === "High").length;
       return [
@@ -308,15 +333,56 @@ export default function ITReports() {
   const getColumns = () => {
     switch (reportType) {
       case "assets":
-        return ["Asset Tag", "Asset Type", "Status", "Location", "Manufacturer / Model", "Warranty Status"];
+        return [
+          { name: "Asset Tag", minWidth: "120px" },
+          { name: "Asset Name / Model", minWidth: "220px" },
+          { name: "Asset Type", minWidth: "130px" },
+          { name: "Status", minWidth: "130px" },
+          { name: "Location", minWidth: "150px" },
+          { name: "Assigned User", minWidth: "150px" },
+          { name: "Warranty Status", minWidth: "160px" },
+        ];
       case "tickets":
-        return ["Ticket ID", "Title / Issue", "Status", "Priority", "Department", "Assigned User"];
+        return [
+          { name: "Ticket ID", minWidth: "130px" },
+          { name: "Title / Issue Description", minWidth: "240px" },
+          { name: "Category", minWidth: "130px" },
+          { name: "Status", minWidth: "130px" },
+          { name: "Priority", minWidth: "120px" },
+          { name: "Department", minWidth: "130px" },
+          { name: "Assigned User", minWidth: "150px" },
+          { name: "Created Date", minWidth: "130px" },
+        ];
       case "vendors":
-        return ["Company Name", "Vendor Type", "Contact Person", "Email Address", "Mobile"];
+        return [
+          { name: "Vendor Code", minWidth: "120px" },
+          { name: "Company Name", minWidth: "220px" },
+          { name: "Vendor Type", minWidth: "140px" },
+          { name: "Contact Person", minWidth: "160px" },
+          { name: "Email Address", minWidth: "200px" },
+          { name: "Mobile", minWidth: "130px" },
+          { name: "GSTIN / PAN", minWidth: "170px" },
+          { name: "Status", minWidth: "110px" },
+        ];
       case "licenses":
-        return ["Software Product", "License Key", "License Type", "Vendor", "Expiry Date"];
+        return [
+          { name: "Software Product", minWidth: "200px" },
+          { name: "License Key", minWidth: "180px" },
+          { name: "License Type", minWidth: "130px" },
+          { name: "Vendor", minWidth: "160px" },
+          { name: "Allocated Seats", minWidth: "140px" },
+          { name: "Expiry Date", minWidth: "150px" },
+          { name: "Status", minWidth: "110px" },
+        ];
       case "inventory":
-        return ["Item ID", "Brand & Model", "Category", "Inventory Type", "Warranty Status"];
+        return [
+          { name: "Item ID", minWidth: "120px" },
+          { name: "Brand & Model", minWidth: "240px" },
+          { name: "Category", minWidth: "130px" },
+          { name: "Quantity Stock", minWidth: "130px" },
+          { name: "Inventory Type", minWidth: "130px" },
+          { name: "Warranty Status", minWidth: "160px" },
+        ];
       default:
         return [];
     }
@@ -339,7 +405,8 @@ export default function ITReports() {
       return;
     }
     try {
-      const headers = getColumns();
+      const columns = getColumns();
+      const headers = columns.map((c) => c.name);
       const wsData = [headers];
 
       filteredData.forEach((item) => {
@@ -348,10 +415,11 @@ export default function ITReports() {
           case "assets":
             row.push(
               item.asset_tag || "",
-              item.asset_type || "",
+              item.name || item.asset_name || `${item.manufacturer || ""} ${item.model || ""}`.trim() || "—",
+              item.asset_type || item.category || "—",
               item.status || "",
               (typeof item.location === "object" ? item.location?.name : item.location) || "—",
-              `${item.manufacturer || ""} ${item.model || ""}`.trim() || "—",
+              formatUser(item.assigned_to || item.user),
               item.warranty_expiry ? (new Date(item.warranty_expiry) < new Date() ? "Expired" : "Active") : "—"
             );
             break;
@@ -359,19 +427,24 @@ export default function ITReports() {
             row.push(
               item.ticket_id || "",
               item.title || "",
+              item.category || "—",
               item.status || "",
               item.priority || "",
               item.department || "—",
-              formatUser(item.assigned_to || item.assignee)
+              formatUser(item.assigned_to || item.assignee),
+              formatDateStr(item.createdAt)
             );
             break;
           case "vendors":
             row.push(
-              item.name || "",
+              item.vendor_code || "—",
+              item.name || item.vendor_name || "",
               item.vendor_type || item.type || "",
               item.contact_person || "—",
               item.email || "—",
-              item.mobile_number || "—"
+              item.mobile_number || item.phone || "—",
+              `${item.gst_number || "—"} / ${item.pan_number || "—"}`,
+              item.status || "Active"
             );
             break;
           case "licenses":
@@ -380,7 +453,9 @@ export default function ITReports() {
               item.license_code || "—",
               item.license_type || "",
               item.vendor?.name || item.vendor_name || "—",
-              item.expiry_date ? new Date(item.expiry_date).toISOString().split("T")[0] : "—"
+              `${item.allocated_seats || 0} / ${item.total_seats || "—"}`,
+              formatDateStr(item.expiry_date),
+              item.status || "Active"
             );
             break;
           case "inventory":
@@ -388,6 +463,7 @@ export default function ITReports() {
               item.item_id || "",
               `${item.brand || ""} ${item.model || ""}`.trim() || "—",
               item.category || "",
+              item.quantity || 1,
               item.inventory_type || "",
               item.warranty_end_date ? (new Date(item.warranty_end_date) < new Date() ? "Expired" : "Active") : "—"
             );
@@ -416,29 +492,84 @@ export default function ITReports() {
     }
   };
 
+
+
+  const renderPillBadge = (text, variant = "secondary") => {
+    if (!text) return <span style={{ color: "#94a3b8", fontSize: "12px" }}>—</span>;
+
+    const baseStyle = {
+      display: "inline-flex",
+      alignItems: "center",
+      padding: "4px 11px",
+      borderRadius: "14px",
+      fontSize: "12px",
+      fontWeight: 600,
+      lineHeight: "1.2",
+      whiteSpace: "nowrap",
+    };
+
+    const variantStyles = {
+      success: { background: "#ecfdf5", color: "#047857", border: "1px solid #a7f3d0" },
+      primary: { background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe" },
+      warning: { background: "#fffbeb", color: "#b45309", border: "1px solid #fef08a" },
+      danger: { background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecdd3" },
+      purple: { background: "#f5f3ff", color: "#6d28d9", border: "1px solid #ddd6fe" },
+      teal: { background: "#f0fdf4", color: "#0f766e", border: "1px solid #99f6e4" },
+      secondary: { background: "#f8fafc", color: "#475569", border: "1px solid #e2e8f0" },
+    };
+
+    const style = { ...baseStyle, ...(variantStyles[variant] || variantStyles.secondary) };
+    return <span style={style}>{text}</span>;
+  };
+
   const getStatusBadge = (status) => {
-    switch (status) {
-      case "Available":
-      case "Active":
-      case "Closed":
-      case "Resolved":
-        return <span className="score-badge badge-excellent">{status}</span>;
-      case "Assigned":
-      case "In Progress":
-      case "In Use":
-        return <span className="score-badge badge-good">{status}</span>;
-      case "In Repair":
-      case "Pending":
-      case "Expiring Soon":
-        return <span className="score-badge badge-warning">{status}</span>;
-      case "Retired":
-      case "Lost":
-      case "Expired":
-      case "New":
-        return <span className="score-badge badge-danger">{status}</span>;
-      default:
-        return <span className="score-badge badge-secondary">{status || "—"}</span>;
-    }
+    if (!status) return renderPillBadge("—", "secondary");
+    const s = String(status).toLowerCase();
+    if (["available", "active", "closed", "resolved"].includes(s)) return renderPillBadge(status, "success");
+    if (["assigned", "in progress", "in use"].includes(s)) return renderPillBadge(status, "primary");
+    if (["in repair", "pending", "expiring soon"].includes(s)) return renderPillBadge(status, "warning");
+    if (["retired", "lost", "expired", "new"].includes(s)) return renderPillBadge(status, "danger");
+    return renderPillBadge(status, "secondary");
+  };
+
+  const getPriorityBadge = (priority) => {
+    if (!priority) return renderPillBadge("Medium", "warning");
+    const p = String(priority).toLowerCase();
+    if (p === "critical" || p === "high") return renderPillBadge(priority, "danger");
+    if (p === "medium") return renderPillBadge(priority, "warning");
+    if (p === "low") return renderPillBadge(priority, "success");
+    return renderPillBadge(priority, "secondary");
+  };
+
+  const getCategoryBadge = (category) => {
+    if (!category) return renderPillBadge("General", "secondary");
+    const c = String(category).toLowerCase();
+    if (c.includes("hardware")) return renderPillBadge(category, "purple");
+    if (c.includes("software")) return renderPillBadge(category, "primary");
+    if (c.includes("network")) return renderPillBadge(category, "teal");
+    if (c.includes("access")) return renderPillBadge(category, "warning");
+    return renderPillBadge(category, "secondary");
+  };
+
+  const getCodeTag = (codeStr) => {
+    if (!codeStr) return <span style={{ color: "#94a3b8" }}>—</span>;
+    return (
+      <span
+        style={{
+          fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace",
+          fontWeight: 700,
+          fontSize: "12px",
+          color: "#0f172a",
+          background: "#f8fafc",
+          padding: "3px 8px",
+          borderRadius: "6px",
+          border: "1px solid #cbd5e1",
+          display: "inline-block",
+        }}
+      >
+        {codeStr}
+      </span>
+    );
   };
 
   const getWarrantyBadge = (dateString) => {
@@ -448,87 +579,85 @@ export default function ITReports() {
     const diffDays = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) {
-      return (
-        <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "12px", background: "#fef2f2", color: "#dc2626", border: "1px solid #fecdd3" }}>
-          Expired ({Math.abs(diffDays)}d ago)
-        </span>
-      );
+      return renderPillBadge(`Expired (${Math.abs(diffDays)}d ago)`, "danger");
     }
     if (diffDays <= 30) {
-      return (
-        <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "12px", background: "#fffbeb", color: "#d97706", border: "1px solid #fef08a" }}>
-          Expires in {diffDays}d
-        </span>
-      );
+      return renderPillBadge(`Expires in ${diffDays}d`, "warning");
     }
-    return (
-      <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "12px", background: "#ecfdf5", color: "#059669", border: "1px solid #a7f3d0" }}>
-        Active ({exp.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })})
-      </span>
-    );
+    return renderPillBadge(`Active (${exp.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })})`, "success");
   };
 
   const renderRow = (item, idx) => {
+    const rowBg = idx % 2 === 0 ? "#ffffff" : "#fcfdfd";
     switch (reportType) {
       case "assets":
         return (
-          <tr key={item._id || idx} style={{ background: idx % 2 === 0 ? "#ffffff" : "#fcfdfd" }}>
+          <tr key={item._id || idx} style={{ background: rowBg }}>
             <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{(page - 1) * limit + idx + 1}</td>
-            <td className="fw-600" style={{ color: "#0f172a" }}>{item.asset_tag}</td>
-            <td style={{ color: "#334155" }}>{item.asset_type}</td>
+            <td>{getCodeTag(item.asset_tag)}</td>
+            <td style={{ color: "#0f172a", fontWeight: 600 }}>
+              {item.name || item.asset_name || `${item.manufacturer || ""} ${item.model || ""}`.trim() || "—"}
+            </td>
+            <td>{getCategoryBadge(item.asset_type || item.category)}</td>
             <td>{getStatusBadge(item.status)}</td>
             <td style={{ color: "#475569" }}>{typeof item.location === "object" ? item.location?.name : item.location || "—"}</td>
-            <td style={{ color: "#64748b" }}>{`${item.manufacturer || ""} ${item.model || ""}`.trim() || "—"}</td>
+            <td style={{ color: "#334155", fontWeight: 600 }}>{formatUser(item.assigned_to || item.user)}</td>
             <td>{getWarrantyBadge(item.warranty_expiry)}</td>
           </tr>
         );
       case "tickets":
         return (
-          <tr key={item._id || idx} style={{ background: idx % 2 === 0 ? "#ffffff" : "#fcfdfd" }}>
+          <tr key={item._id || idx} style={{ background: rowBg }}>
             <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{(page - 1) * limit + idx + 1}</td>
-            <td className="fw-600" style={{ color: "#0f172a" }}>{item.ticket_id}</td>
-            <td style={{ color: "#334155", maxWidth: "260px" }}>{item.title}</td>
-            <td>{getStatusBadge(item.status)}</td>
-            <td>
-              <span className={`score-badge ${item.priority === "High" || item.priority === "Critical" ? "badge-danger" : item.priority === "Medium" ? "badge-warning" : "badge-good"}`}>
-                {item.priority || "Medium"}
-              </span>
+            <td>{getCodeTag(item.ticket_id)}</td>
+            <td style={{ color: "#0f172a", fontWeight: 600, maxWidth: "280px", lineHeight: "1.4" }} title={item.title}>
+              {item.title}
             </td>
-            <td style={{ color: "#475569" }}>{item.department || "—"}</td>
-            <td style={{ color: "#64748b" }}>{formatUser(item.assigned_to || item.assignee)}</td>
+            <td>{getCategoryBadge(item.category || "General")}</td>
+            <td>{getStatusBadge(item.status)}</td>
+            <td>{getPriorityBadge(item.priority)}</td>
+            <td style={{ color: "#475569", fontWeight: 500 }}>{item.department || "—"}</td>
+            <td style={{ color: "#334155", fontWeight: 600 }}>{formatUser(item.assigned_to || item.assignee)}</td>
+            <td style={{ color: "#64748b", fontSize: "12.5px" }}>{formatDateStr(item.createdAt)}</td>
           </tr>
         );
       case "vendors":
         return (
-          <tr key={item._id || idx} style={{ background: idx % 2 === 0 ? "#ffffff" : "#fcfdfd" }}>
+          <tr key={item._id || idx} style={{ background: rowBg }}>
             <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{(page - 1) * limit + idx + 1}</td>
-            <td className="fw-600" style={{ color: "#0f172a" }}>{item.name}</td>
-            <td>
-              <span className="score-badge badge-primary">{item.vendor_type || item.type || "Supplier"}</span>
+            <td>{getCodeTag(item.vendor_code)}</td>
+            <td style={{ color: "#0f172a", fontWeight: 600 }}>{item.name || item.vendor_name}</td>
+            <td>{getCategoryBadge(item.vendor_type || item.type || "Supplier")}</td>
+            <td style={{ color: "#334155", fontWeight: 500 }}>{item.contact_person || "—"}</td>
+            <td style={{ color: "#2563eb", fontSize: "12.5px" }}>{item.email || "—"}</td>
+            <td style={{ color: "#475569" }}>{item.mobile_number || item.phone || "—"}</td>
+            <td style={{ color: "#64748b", fontSize: "12px", fontFamily: "monospace" }}>
+              {item.gst_number || item.pan_number ? `${item.gst_number || "—"} / ${item.pan_number || "—"}` : "—"}
             </td>
-            <td style={{ color: "#334155" }}>{item.contact_person || "—"}</td>
-            <td style={{ color: "#64748b" }}>{item.email || "—"}</td>
-            <td style={{ color: "#64748b" }}>{item.mobile_number || "—"}</td>
+            <td>{getStatusBadge(item.status || "Active")}</td>
           </tr>
         );
       case "licenses":
         return (
-          <tr key={item._id || idx} style={{ background: idx % 2 === 0 ? "#ffffff" : "#fcfdfd" }}>
+          <tr key={item._id || idx} style={{ background: rowBg }}>
             <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{(page - 1) * limit + idx + 1}</td>
-            <td className="fw-600" style={{ color: "#0f172a" }}>{item.software_name || item.license_name}</td>
-            <td style={{ color: "#4f46e5", fontFamily: "monospace", fontSize: "12px" }}>{item.license_code || "—"}</td>
+            <td style={{ color: "#0f172a", fontWeight: 600 }}>{item.software_name || item.license_name}</td>
+            <td>{getCodeTag(item.license_code)}</td>
             <td style={{ color: "#334155", fontSize: "13px" }}>{item.license_type || "Standard"}</td>
             <td style={{ color: "#334155" }}>{item.vendor?.name || item.vendor_name || "—"}</td>
+            <td style={{ color: "#059669", fontWeight: 700 }}>{`${item.allocated_seats || 0} / ${item.total_seats || "—"}`}</td>
             <td>{getWarrantyBadge(item.expiry_date)}</td>
+            <td>{getStatusBadge(item.status || "Active")}</td>
           </tr>
         );
       case "inventory":
         return (
-          <tr key={item._id || idx} style={{ background: idx % 2 === 0 ? "#ffffff" : "#fcfdfd" }}>
+          <tr key={item._id || idx} style={{ background: rowBg }}>
             <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>{(page - 1) * limit + idx + 1}</td>
-            <td className="fw-600" style={{ color: "#0f172a" }}>{item.item_id}</td>
-            <td style={{ color: "#334155" }}>{`${item.brand || ""} ${item.model || ""}`.trim() || "—"}</td>
-            <td style={{ color: "#334155", fontSize: "13px" }}>{item.category || "—"}</td>
+            <td>{getCodeTag(item.item_id)}</td>
+            <td style={{ color: "#0f172a", fontWeight: 600 }}>{`${item.brand || ""} ${item.model || ""}`.trim() || "—"}</td>
+            <td>{getCategoryBadge(item.category)}</td>
+            <td style={{ color: "#0284c7", fontWeight: 700 }}>{item.quantity || 1} units</td>
             <td style={{ color: "#334155", fontSize: "13px" }}>{item.inventory_type || "Old"}</td>
             <td>{getWarrantyBadge(item.warranty_end_date)}</td>
           </tr>
@@ -541,6 +670,8 @@ export default function ITReports() {
   const hasActiveFilters = Boolean(
     searchTerm || statusFilter !== "ALL" || categoryFilter !== "ALL" || quickFilter !== "ALL" || fromDate || toDate
   );
+
+  const columns = getColumns();
 
   return (
     <>
@@ -577,9 +708,9 @@ export default function ITReports() {
         </div>
       </div>
 
-      <div className="page-body">
+      <div className="page-body" style={{ padding: "0 24px 24px 24px" }}>
         {/* ── Category Selector Pills ───────────────────────────────── */}
-        <div className="card mb-16" style={{ background: "#ffffff", borderRadius: "12px" }}>
+        <div className="card" style={{ background: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", marginBottom: "20px" }}>
           <div className="card-body" style={{ padding: "14px 18px" }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
               {REPORT_TYPES.map((r) => {
@@ -620,9 +751,9 @@ export default function ITReports() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-              gap: "14px",
-              marginBottom: "16px",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gap: "16px",
+              marginBottom: "20px",
             }}
           >
             {metrics.map((m, idx) => {
@@ -634,7 +765,7 @@ export default function ITReports() {
                     background: "#ffffff",
                     border: "1px solid #e2e8f0",
                     borderRadius: "12px",
-                    padding: "16px",
+                    padding: "16px 20px",
                     display: "flex",
                     alignItems: "center",
                     gap: "14px",
@@ -672,17 +803,17 @@ export default function ITReports() {
 
         {/* ── Category Breakdown Progress Bar ─────────────────────────── */}
         {categoryBreakdown.length > 0 && (
-          <div className="card mb-16" style={{ background: "#ffffff", borderRadius: "12px", padding: "16px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-              <div style={{ fontSize: "13px", fontWeight: 700, color: "#334155", display: "flex", alignItems: "center", gap: "6px" }}>
-                <PieChart size={15} color="#2563eb" />
+          <div className="card" style={{ background: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", padding: "18px", marginBottom: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <div style={{ fontSize: "13.5px", fontWeight: 700, color: "#334155", display: "flex", alignItems: "center", gap: "8px" }}>
+                <PieChart size={16} color="#2563eb" />
                 Category Distribution Breakdown
               </div>
-              <span style={{ fontSize: "12px", color: "#64748b" }}>Top Categories</span>
+              <span style={{ fontSize: "12px", color: "#64748b", fontWeight: 600 }}>Top Categories</span>
             </div>
 
             {/* Progress Track */}
-            <div style={{ display: "flex", height: "10px", borderRadius: "6px", overflow: "hidden", background: "#f1f5f9", marginBottom: "12px" }}>
+            <div style={{ display: "flex", height: "12px", borderRadius: "8px", overflow: "hidden", background: "#f1f5f9", marginBottom: "14px" }}>
               {categoryBreakdown.map((item, idx) => (
                 <div
                   key={idx}
@@ -697,10 +828,10 @@ export default function ITReports() {
             </div>
 
             {/* Legend Pills */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "14px" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
               {categoryBreakdown.map((item, idx) => (
-                <div key={idx} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#475569" }}>
-                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: item.color }} />
+                <div key={idx} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12.5px", color: "#475569" }}>
+                  <span style={{ width: "9px", height: "9px", borderRadius: "50%", background: item.color }} />
                   <strong>{item.name}:</strong>
                   <span>{item.count} ({item.percentage}%)</span>
                 </div>
@@ -710,13 +841,13 @@ export default function ITReports() {
         )}
 
         {/* ── Multi-Dimensional Filters Card ─────────────────────────── */}
-        <div className="card mb-16" style={{ background: "#ffffff", borderRadius: "12px", padding: "16px" }}>
+        <div className="card" style={{ background: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", padding: "18px", marginBottom: "20px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
             {/* Top Filter Controls Row */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" }}>
               {/* Search Box */}
               <div style={{ position: "relative", minWidth: "240px", flex: 2 }}>
-                <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+                <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
                 <input
                   type="text"
                   className="form-input"
@@ -726,7 +857,7 @@ export default function ITReports() {
                     setSearchTerm(e.target.value);
                     setPage(1);
                   }}
-                  style={{ paddingLeft: "32px", width: "100%", height: "38px", fontSize: "13px" }}
+                  style={{ paddingLeft: "34px", width: "100%", height: "38px", fontSize: "13px" }}
                 />
               </div>
 
@@ -772,7 +903,7 @@ export default function ITReports() {
 
               {/* Date From */}
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <span style={{ fontSize: "12px", color: "#64748b", fontWeight: 600 }}>From:</span>
+                <span style={{ fontSize: "12.5px", color: "#475569", fontWeight: 600 }}>From:</span>
                 <input
                   type="date"
                   className="form-input"
@@ -787,7 +918,7 @@ export default function ITReports() {
 
               {/* Date To */}
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <span style={{ fontSize: "12px", color: "#64748b", fontWeight: 600 }}>To:</span>
+                <span style={{ fontSize: "12.5px", color: "#475569", fontWeight: 600 }}>To:</span>
                 <input
                   type="date"
                   className="form-input"
@@ -827,21 +958,22 @@ export default function ITReports() {
               )}
             </div>
 
-            {/* Quick Presets Row */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", pt: "4px" }}>
-              <span style={{ fontSize: "12px", color: "#64748b", fontWeight: 600, marginRight: "4px" }}>Quick Presets:</span>
+            {/* Separator & Quick Presets Row */}
+            <div style={{ borderTop: "1px solid #f1f5f9", marginTop: "4px", paddingTop: "12px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <span style={{ fontSize: "12px", color: "#64748b", fontWeight: 700, marginRight: "4px" }}>Quick Presets:</span>
               <button
                 type="button"
                 onClick={() => { setQuickFilter("ALL"); setPage(1); }}
                 style={{
-                  padding: "4px 12px",
-                  borderRadius: "16px",
-                  border: quickFilter === "ALL" ? "1px solid #2563eb" : "1px solid #e2e8f0",
+                  padding: "5px 14px",
+                  borderRadius: "20px",
+                  border: quickFilter === "ALL" ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
                   background: quickFilter === "ALL" ? "#eff6ff" : "#ffffff",
                   color: quickFilter === "ALL" ? "#1d4ed8" : "#475569",
                   fontSize: "12px",
                   fontWeight: 600,
                   cursor: "pointer",
+                  transition: "all 0.15s ease",
                 }}
               >
                 All Records ({data.length})
@@ -851,14 +983,15 @@ export default function ITReports() {
                 type="button"
                 onClick={() => { setQuickFilter("EXPIRING_SOON"); setPage(1); }}
                 style={{
-                  padding: "4px 12px",
-                  borderRadius: "16px",
-                  border: quickFilter === "EXPIRING_SOON" ? "1px solid #d97706" : "1px solid #e2e8f0",
+                  padding: "5px 14px",
+                  borderRadius: "20px",
+                  border: quickFilter === "EXPIRING_SOON" ? "1.5px solid #d97706" : "1px solid #e2e8f0",
                   background: quickFilter === "EXPIRING_SOON" ? "#fffbeb" : "#ffffff",
                   color: quickFilter === "EXPIRING_SOON" ? "#b45309" : "#475569",
                   fontSize: "12px",
                   fontWeight: 600,
                   cursor: "pointer",
+                  transition: "all 0.15s ease",
                 }}
               >
                 ⚠️ Expiring Soon / Due (&lt; 30d)
@@ -869,13 +1002,14 @@ export default function ITReports() {
                 onClick={() => { setQuickFilter("ACTION_REQUIRED"); setPage(1); }}
                 style={{
                   padding: "4px 12px",
-                  borderRadius: "16px",
-                  border: quickFilter === "ACTION_REQUIRED" ? "1px solid #dc2626" : "1px solid #e2e8f0",
+                  borderRadius: "20px",
+                  border: quickFilter === "ACTION_REQUIRED" ? "1.5px solid #dc2626" : "1px solid #e2e8f0",
                   background: quickFilter === "ACTION_REQUIRED" ? "#fef2f2" : "#ffffff",
                   color: quickFilter === "ACTION_REQUIRED" ? "#b91c1c" : "#475569",
                   fontSize: "12px",
                   fontWeight: 600,
                   cursor: "pointer",
+                  transition: "all 0.15s ease",
                 }}
               >
                 🚨 Action Required / Repair Needed
@@ -885,11 +1019,11 @@ export default function ITReports() {
         </div>
 
         {/* ── Table Card ────────────────────────────────────────────── */}
-        <div className="card" style={{ background: "#ffffff", borderRadius: "12px" }}>
+        <div className="card" style={{ background: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", marginBottom: "20px" }}>
           <div
             className="card-header"
             style={{
-              padding: "12px 18px",
+              padding: "14px 20px",
               background: "linear-gradient(to right, #f8fafc, #ffffff)",
               borderBottom: "1px solid #e2e8f0",
               display: "flex",
@@ -916,19 +1050,21 @@ export default function ITReports() {
               </div>
             ) : (
               <div className="table-wrap">
-                <table style={{ width: "100%", minWidth: "1000px" }}>
+                <table style={{ width: "100%", minWidth: "1000px", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ background: "#f8fafc" }}>
-                      <th style={{ width: 44, minWidth: 44, textAlign: "center" }}>#</th>
-                      {getColumns().map((col) => (
-                        <th key={col} style={{ minWidth: 150 }}>{col}</th>
+                      <th style={{ width: 44, minWidth: 44, textAlign: "center", padding: "10px 14px", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.03em", color: "#475569", borderBottom: "1px solid #e2e8f0" }}>#</th>
+                      {columns.map((col) => (
+                        <th key={col.name} style={{ minWidth: col.minWidth, padding: "10px 14px", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.03em", color: "#475569", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
+                          {col.name}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {displayedRows.length === 0 ? (
                       <tr>
-                        <td colSpan={getColumns().length + 1} style={{ textAlign: "center", padding: "40px 16px", color: "#94a3b8" }}>
+                        <td colSpan={columns.length + 1} style={{ textAlign: "center", padding: "40px 16px", color: "#94a3b8" }}>
                           {hasActiveFilters ? "No results matching current filters" : "No records found in this report"}
                         </td>
                       </tr>

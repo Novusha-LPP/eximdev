@@ -100,7 +100,21 @@ import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 
 const TICKET_CATEGORIES = ["Hardware", "Software", "Network", "Access", "Other"];
 const TICKET_PRIORITIES = ["Low", "Medium", "High", "Critical"];
-const TICKET_STATUSES = ["Open", "In Progress", "Closed"];
+const TICKET_STATUSES = ["New", "Assigned", "Open", "In Progress", "Pending", "Resolved", "Closed"];
+const TICKET_DEPARTMENTS = [
+  "Import",
+  "Export",
+  "DGFT",
+  "Alluvium-IT",
+  "Novusha-IT",
+  "Paramount",
+  "Account",
+  "E-sanchit",
+  "Admin/Hr",
+  "Operations",
+  "Sales/CRM",
+  "Other",
+];
 const USERS_FETCH_LIMIT = 200;
 
 const PRIORITY_CONFIG = {
@@ -1192,14 +1206,21 @@ export default function TicketManagement() {
                       Department <span style={{ color: "#dc2626" }}>*</span>
                     </Typography>
                     <TextField
-                      placeholder="e.g. Accounts, Import, Operations"
+                      select
                       size="small"
                       fullWidth
                       required
                       value={form.department}
                       onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
                       sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-                    />
+                    >
+                      <MenuItem value="" disabled>Select Department</MenuItem>
+                      {TICKET_DEPARTMENTS.map((dept) => (
+                        <MenuItem key={dept} value={dept}>
+                          {dept}
+                        </MenuItem>
+                      ))}
+                    </TextField>
                   </Grid>
 
                   {/* SLA Due Date */}

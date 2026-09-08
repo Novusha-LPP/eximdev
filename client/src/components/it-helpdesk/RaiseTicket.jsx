@@ -52,6 +52,20 @@ const TICKET_SUB_CATEGORIES = [
 const TICKET_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 const TICKET_SEVERITY = ["Low", "Medium", "High", "Critical"];
 const TICKET_TYPES = ["Incident", "Service Request", "Problem", "Change Request", "Maintenance", "Other"];
+const TICKET_DEPARTMENTS = [
+  "Import",
+  "Export",
+  "DGFT",
+  "Alluvium-IT",
+  "Novusha-IT",
+  "Paramount",
+  "Account",
+  "E-sanchit",
+  "Admin/Hr",
+  "Operations",
+  "Sales/CRM",
+  "Other",
+];
 
 // Statuses available to Admin when updating
 const ADMIN_STATUSES = ["Open", "In Progress", "Closed"];
@@ -388,20 +402,27 @@ export default function RaiseTicket() {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Department"
-                name="department"
-                value={ticketForm.department}
-                onChange={handleInputChange}
-                InputProps={{
-                  startAdornment: (
+              <FormControl fullWidth required>
+                <InputLabel>Department</InputLabel>
+                <Select
+                  name="department"
+                  value={ticketForm.department}
+                  onChange={handleInputChange}
+                  label="Department"
+                  startAdornment={
                     <InputAdornment position="start">
                       <BusinessIcon />
                     </InputAdornment>
-                  ),
-                }}
-              />
+                  }
+                >
+                  <MenuItem value="" disabled>Select Department</MenuItem>
+                  {TICKET_DEPARTMENTS.map((dept) => (
+                    <MenuItem key={dept} value={dept}>
+                      {dept}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
 
             <Grid item xs={12} md={6}>

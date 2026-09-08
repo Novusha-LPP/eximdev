@@ -52,6 +52,20 @@ const TICKET_SUB_CATEGORIES = [
 ];
 const TICKET_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 const TICKET_TYPES = ["Incident", "Service Request", "Problem", "Change Request", "Maintenance", "Other"];
+const TICKET_DEPARTMENTS = [
+  "Import",
+  "Export",
+  "DGFT",
+  "Alluvium-IT",
+  "Novusha-IT",
+  "Paramount",
+  "Account",
+  "E-sanchit",
+  "Admin/Hr",
+  "Operations",
+  "Sales/CRM",
+  "Other",
+];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const formatUser = (userVal) => {
@@ -1067,22 +1081,27 @@ export default function TicketDetailDrawer({
                         <Building size={13} color="#059669" />
                         Department
                       </Typography>
-                      <input
-                        type="text"
+                      <select
                         value={editForm.department}
                         onChange={(e) => setEditForm((prev) => ({ ...prev, department: e.target.value }))}
-                        placeholder="e.g. IT Operations, Finance..."
                         style={{
                           width: "100%",
                           height: "36px",
                           padding: "0 10px",
                           borderRadius: "6px",
                           border: "1px solid #cbd5e1",
+                          background: "#ffffff",
                           fontSize: "13px",
-                          boxSizing: "border-box",
+                          fontWeight: 600,
+                          color: "#0f172a",
                           outline: "none",
                         }}
-                      />
+                      >
+                        <option value="" disabled>Select Department...</option>
+                        {TICKET_DEPARTMENTS.map((dept) => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
                     </Box>
 
                     {/* Location */}

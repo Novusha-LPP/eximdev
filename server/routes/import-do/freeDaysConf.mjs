@@ -32,6 +32,7 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 100;
     const search = req.query.search || "";
     const importer = req.query.importer ? decodeURIComponent(req.query.importer).trim() : "";
+    const shippingLine = req.query.shippingLine ? decodeURIComponent(req.query.shippingLine).trim() : "";
     const selectedICD = req.query.selectedICD ? decodeURIComponent(req.query.selectedICD).trim() : "";
     const selectedYear = req.query.year ? req.query.year.trim() : ""; // ✅ Extract and trim year
     const branchId = req.query.branchId; // ✅ Extract branchId
@@ -86,6 +87,15 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
     // ✅ Apply Importer Filter if provided
     if (importer && importer !== "Select Importer") {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${escapeRegex(importer)}$`, "i") } });
+    }
+
+    // ✅ Apply Shipping Line Filter if provided
+    if (shippingLine && shippingLine !== "Select Shipping Line" && shippingLine !== "All Shipping Lines") {
+      baseQuery.$and.push({
+        shipping_line_airline: {
+          $regex: new RegExp(`^\\s*${escapeRegex(shippingLine)}\\s*$`, "i"),
+        },
+      });
     }
 
     if (selectedICD && selectedICD !== "Select ICD") {

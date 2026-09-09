@@ -35,6 +35,7 @@ router.get(
         limit = 100,
         search = "",
         importer,
+        shippingLine,
         selectedICD,
         year,
         unresolvedOnly,
@@ -57,6 +58,7 @@ router.get(
 
       // Decode and trim query params
       const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
+      const decodedShippingLine = shippingLine ? decodeURIComponent(shippingLine).trim() : "";
       const decodedICD = selectedICD ? decodeURIComponent(selectedICD).trim() : "";
 
       // **Step 1: Define query conditions**
@@ -100,6 +102,19 @@ router.get(
       if (decodedImporter && decodedImporter !== "Select Importer" && decodedImporter !== "All Importers") {
         baseQuery.$and.push({
           importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") },
+        });
+      }
+
+      // ✅ Apply shipping line filter if provided
+      if (
+        decodedShippingLine &&
+        decodedShippingLine !== "Select Shipping Line" &&
+        decodedShippingLine !== "All Shipping Lines"
+      ) {
+        baseQuery.$and.push({
+          shipping_line_airline: {
+            $regex: new RegExp(`^\\s*${escapeRegex(decodedShippingLine)}\\s*$`, "i"),
+          },
         });
       }
 

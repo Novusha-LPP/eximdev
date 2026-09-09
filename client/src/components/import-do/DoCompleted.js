@@ -35,6 +35,7 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 import { BranchContext } from "../../contexts/BranchContext.js";
 import useDynamicICDs from "../../customHooks/useDynamicICDs";
+import useShippingLines from "../../customHooks/useShippingLines";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 import FormControl from '@mui/material/FormControl';
@@ -76,15 +77,24 @@ function DoCompleted() {
   const [rows, setRows] = useState([]);
   const [totalPages, setTotalPages] = useState(1); // Total pages from API
   const [loading, setLoading] = useState(false); // Loading state
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { user } = useContext(UserContext);
+  const { branches, selectedBranch, selectedCategory } = useContext(BranchContext);
+  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
+  const dynamicICDs = useDynamicICDs();
+
   // Use context for searchQuery, selectedImporter, and currentPage for DO Completed tab
   const {
     searchQuery,
     setSearchQuery,
     selectedImporter,
     setSelectedImporter,
+    selectedShippingLine,
+    setSelectedShippingLine,
     currentPageDoTab2: currentPage,
     setCurrentPageDoTab2: setCurrentPage,
   } = useSearchQuery();
+  const { shippingLineNames } = useShippingLines(selectedYearState);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced query
   const navigate = useNavigate();
   const location = useLocation();
@@ -94,11 +104,6 @@ function DoCompleted() {
     // If you previously stored a job ID in location.state, retrieve it
     location.state?.selectedJobId || null
   );
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const { user } = useContext(UserContext);
-  const { branches, selectedBranch, selectedCategory } = useContext(BranchContext);
-  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
-  const dynamicICDs = useDynamicICDs();
 
   // Restore pagination/search state when returning from job details
   React.useEffect(() => {
@@ -235,7 +240,8 @@ function DoCompleted() {
       selectedImporter,
       unresolvedOnly = false,
       selectedBranch = "all",
-      selectedCategory = "all"
+      selectedCategory = "all",
+      shippingLine = ""
     ) => {
       setLoading(true);
       try {
@@ -249,6 +255,7 @@ function DoCompleted() {
               year: currentYear,
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "",
+              shippingLine: shippingLine?.trim() || "",
               username: user?.username || "", // ✅ Send username for ICD filtering
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
@@ -291,7 +298,8 @@ function DoCompleted() {
         selectedImporter,
         showUnresolvedOnly,
         selectedBranch,
-        selectedCategory
+        selectedCategory,
+        selectedShippingLine
       );
     }
   }, [
@@ -300,6 +308,7 @@ function DoCompleted() {
     selectedYearState,
     selectedICD,
     selectedImporter,
+    selectedShippingLine,
     user?.username,
     showUnresolvedOnly,
     selectedBranch,
@@ -1298,6 +1307,28 @@ function DoCompleted() {
                 {...params}
                 variant="outlined"
                 label="Select Importer"
+                fullWidth
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "white",
+                  },
+                }}
+              />
+            )}
+          />
+          <Autocomplete
+            size="small"
+            options={shippingLineNames.map((option) => option.label)}
+            value={selectedShippingLine || ""}
+            onInputChange={(event, newValue) => {
+              setSelectedShippingLine(newValue);
+              setCurrentPage(1);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                label="Select Shipping Line"
                 fullWidth
                 sx={{
                   "& .MuiOutlinedInput-root": {

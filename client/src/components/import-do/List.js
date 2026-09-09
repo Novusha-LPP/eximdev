@@ -44,6 +44,7 @@ import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext.js";
 import useDynamicICDs from "../../customHooks/useDynamicICDs";
+import useShippingLines from "../../customHooks/useShippingLines";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 import InvoiceDisplay from "./InvoiceDisplay.js";
@@ -81,9 +82,12 @@ function List() {
     setSearchQuery,
     selectedImporter,
     setSelectedImporter,
+    selectedShippingLine,
+    setSelectedShippingLine,
     currentPageDoTab0: currentPage,
     setCurrentPageDoTab0: setCurrentPage,
   } = useSearchQuery();
+  const { shippingLineNames } = useShippingLines(selectedYearState);
   const [importers, setImporters] = useState("");
   const [selectedICD, setSelectedICD] = useState("");
   const [beNoFilter, setBeNoFilter] = useState(""); 
@@ -219,7 +223,8 @@ function List() {
       freeTimeFilter = "",
       selectedBranch = "all",
       selectedCategory = "all",
-      beNoFilter = ""
+      beNoFilter = "",
+      shippingLine = ""
     ) => {
       setLoading(true);
       try {
@@ -233,6 +238,7 @@ function List() {
               year: currentYear,
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", 
+              shippingLine: shippingLine?.trim() || "",
               username: user?.username || "", 
               unresolvedOnly: unresolvedOnly.toString(), 
               emergency: emergencyOnly.toString(), 
@@ -282,7 +288,8 @@ function List() {
         freeTimeFilter,
         selectedBranch,
         selectedCategory,
-        beNoFilter
+        beNoFilter,
+        selectedShippingLine
       );
     }
   }, [
@@ -291,6 +298,7 @@ function List() {
     selectedYearState,
     selectedICD,
     selectedImporter,
+    selectedShippingLine,
     user?.username,
     showUnresolvedOnly,
     showEmergencyOnly,
@@ -359,6 +367,7 @@ function List() {
             year: selectedYearState,
             selectedICD: selectedICD,
             importer: selectedImporter?.trim() || "",
+            shippingLine: selectedShippingLine?.trim() || "",
             username: user?.username || "",
             unresolvedOnly: showUnresolvedOnly.toString(),
             emergency: showEmergencyOnly.toString(),
@@ -1373,12 +1382,37 @@ function List() {
             size="small"
             options={importerNames.map((option) => option.label)}
             value={selectedImporter || ""}
-            onInputChange={(event, newValue) => setSelectedImporter(newValue)}
+            onInputChange={(event, newValue) => {
+              setSelectedImporter(newValue);
+              setCurrentPage(1);
+            }}
             renderInput={(params) => (
               <TextField
                 {...params}
                 variant="outlined"
                 label="Select Importer"
+                fullWidth
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "white",
+                  },
+                }}
+              />
+            )}
+          />
+          <Autocomplete
+            size="small"
+            options={shippingLineNames.map((option) => option.label)}
+            value={selectedShippingLine || ""}
+            onInputChange={(event, newValue) => {
+              setSelectedShippingLine(newValue);
+              setCurrentPage(1);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                label="Select Shipping Line"
                 fullWidth
                 sx={{
                   "& .MuiOutlinedInput-root": {

@@ -1,40 +1,65 @@
 import express from "express";
 import JobModel from "../model/jobModel.mjs";
+import { getBranchMatch } from "../utils/branchFilter.mjs";
+import { applyUserBranchFilter } from "../middleware/branchMiddleware.mjs";
 
 const router = express.Router();
 
-router.get("/api/get-shipping-lines/:year", async (req, res) => {
+const getShippingLinesHandler = async (req, res) => {
   try {
     const selectedYear = req.params.year;
+    const { branchId, category } = req.query;
 
-    // Use Mongoose aggregation to group and retrieve unique importer and importerURL values
+    const matchStage = {
+      shipping_line_airline: { $nin: [null, ""] },
+      ...getBranchMatch(branchId, category, req.authorizedBranchIds),
+    };
+
+    if (selectedYear && selectedYear !== "all") {
+      matchStage.year = selectedYear;
+    }
+
     const uniqueShippingLines = await JobModel.aggregate([
+      { $match: matchStage },
       {
-        $match: { year: selectedYear }, // Filter documents by year
+        $addFields: {
+          trimmedName: { $trim: { input: "$shipping_line_airline" } },
+        },
+      },
+      {
+        $match: {
+          trimmedName: { $ne: "" },
+        },
       },
       {
         $group: {
-          _id: { shipping_line_airline: "$shipping_line_airline" },
+          _id: { $toUpper: "$trimmedName" },
+          shipping_line_airline: { $first: "$trimmedName" },
         },
       },
       {
         $project: {
-          _id: 0, // Exclude the default _id field
-          shipping_line_airline: "$_id.shipping_line_airline",
+          _id: 0,
+          shipping_line_airline: 1,
         },
       },
       {
         $sort: {
-          shipping_line_airline: 1, // Sort importer in ascending order (alphabetical)
+          shipping_line_airline: 1,
         },
       },
     ]);
 
     res.status(200).json(uniqueShippingLines);
   } catch (error) {
-    console.log(error);
-    res.status(500).send("An error occurred while fetching importers.");
+    console.error("Error in get-shipping-lines:", error);
+    res.status(500).json({ message: "An error occurred while fetching shipping lines." });
   }
-});
+};
+
+router.get("/api/get-shipping-lines/:year", applyUserBranchFilter, getShippingLinesHandler);
+router.get("/api/get-shipping-lines-list", applyUserBranchFilter, getShippingLinesHandler);
+router.get("/api/get-shipping-lines-list/:year", applyUserBranchFilter, getShippingLinesHandler);
 
 export default router;
+

@@ -34,6 +34,7 @@ import { BranchContext } from "../../contexts/BranchContext.js";
 import useDynamicICDs from "../../customHooks/useDynamicICDs";
 import InvoiceDisplay from "./InvoiceDisplay.js";
 import ContainerCellContent from "../ContainerCellContent";
+import useShippingLines from "../../customHooks/useShippingLines";
 
 const FreeDaysConf = () => {
   const { user } = useContext(UserContext);
@@ -44,6 +45,8 @@ const FreeDaysConf = () => {
   const [selectedICD, setSelectedICD] = useState("");
   const [years, setYears] = useState([]);
   const [selectedImporter, setSelectedImporter] = useState("");
+  const [selectedShippingLine, setSelectedShippingLine] = useState("");
+  const { shippingLineNames } = useShippingLines(selectedYearState);
   const [importers, setImporters] = useState("");
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1); // Current page number
@@ -155,7 +158,8 @@ const FreeDaysConf = () => {
       currentICD,
       selectedImporter,
       selectedBranch = "all",
-      selectedCategory = "all"
+      selectedCategory = "all",
+      shippingLine = ""
     ) => {
       try {
         const res = await axios.get(
@@ -168,6 +172,7 @@ const FreeDaysConf = () => {
               year: currentYear,
               selectedICD: currentICD,
               importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+              shippingLine: shippingLine?.trim() || "",
               username: user?.username || "", // ✅ Send username for ICD filtering
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
               category: selectedCategory || "all", // ✅ Add category parameter
@@ -206,7 +211,8 @@ const FreeDaysConf = () => {
         selectedICD,
         selectedImporter,
         selectedBranch,
-        selectedCategory
+        selectedCategory,
+        selectedShippingLine
       );
     }
   }, [
@@ -215,6 +221,7 @@ const FreeDaysConf = () => {
     selectedYearState,
     selectedICD,
     selectedImporter,
+    selectedShippingLine,
     user?.username,
     selectedBranch,
     selectedCategory,
@@ -884,12 +891,37 @@ const FreeDaysConf = () => {
             size="small"
             options={importerNames.map((option) => option.label)}
             value={selectedImporter || ""}
-            onInputChange={(event, newValue) => setSelectedImporter(newValue)}
+            onInputChange={(event, newValue) => {
+              setSelectedImporter(newValue);
+              setPage(1);
+            }}
             renderInput={(params) => (
               <TextField
                 {...params}
                 variant="outlined"
                 label="Select Importer"
+                fullWidth
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "white",
+                  },
+                }}
+              />
+            )}
+          />
+          <Autocomplete
+            size="small"
+            options={shippingLineNames.map((option) => option.label)}
+            value={selectedShippingLine || ""}
+            onInputChange={(event, newValue) => {
+              setSelectedShippingLine(newValue);
+              setPage(1);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                label="Select Shipping Line"
                 fullWidth
                 sx={{
                   "& .MuiOutlinedInput-root": {

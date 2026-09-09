@@ -26,7 +26,7 @@ const buildSearchQuery = (search) => ({
 router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year, statusFilter = "", unresolvedOnly, branchId, category } = req.query;
+    const { page = 1, limit = 100, search = "", importer, shippingLine, selectedICD, year, statusFilter = "", unresolvedOnly, branchId, category } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -43,6 +43,7 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
 
     // Decode and trim query params
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
+    const decodedShippingLine = shippingLine ? decodeURIComponent(shippingLine).trim() : "";
     const decodedICD = selectedICD ? decodeURIComponent(selectedICD).trim() : "";
 
     // **Step 1: Define query conditions**
@@ -115,6 +116,19 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
     // ✅ Apply importer filter if provided
     if (decodedImporter && decodedImporter !== "Select Importer") {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") } });
+    }
+
+    // ✅ Apply shipping line filter if provided
+    if (
+      decodedShippingLine &&
+      decodedShippingLine !== "Select Shipping Line" &&
+      decodedShippingLine !== "All Shipping Lines"
+    ) {
+      baseQuery.$and.push({
+        shipping_line_airline: {
+          $regex: new RegExp(`^\\s*${escapeRegex(decodedShippingLine)}\\s*$`, "i"),
+        },
+      });
     }
 
     const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
@@ -403,7 +417,7 @@ router.get("/api/get-do-module-jobs", applyUserIcdFilter, async (req, res) => {
 router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
-    const { page = 1, limit = 100, search = "", importer, selectedICD, year, unresolvedOnly, branchId, category } = req.query;
+    const { page = 1, limit = 100, search = "", importer, shippingLine, selectedICD, year, unresolvedOnly, branchId, category } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
@@ -420,6 +434,7 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
 
     // Decode and trim query params
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
+    const decodedShippingLine = shippingLine ? decodeURIComponent(shippingLine).trim() : "";
     const decodedICD = selectedICD ? decodeURIComponent(selectedICD).trim() : "";
 
     // **Step 1: Define query conditions**
@@ -475,6 +490,19 @@ router.get("/api/get-do-complete-module-jobs", applyUserIcdFilter, async (req, r
     // ✅ Apply importer filter if provided
     if (decodedImporter && decodedImporter !== "Select Importer") {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") } });
+    }
+
+    // ✅ Apply shipping line filter if provided
+    if (
+      decodedShippingLine &&
+      decodedShippingLine !== "Select Shipping Line" &&
+      decodedShippingLine !== "All Shipping Lines"
+    ) {
+      baseQuery.$and.push({
+        shipping_line_airline: {
+          $regex: new RegExp(`^\\s*${escapeRegex(decodedShippingLine)}\\s*$`, "i"),
+        },
+      });
     }
 
     const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
@@ -597,6 +625,7 @@ export async function getTodayJob(req, res) {
       limit = 100,
       search = "",
       importer,
+      shippingLine,
       selectedICD,
       obl_telex_bl,
       year,
@@ -620,6 +649,7 @@ export async function getTodayJob(req, res) {
 
     // Decode and trim query parameters
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
+    const decodedShippingLine = shippingLine ? decodeURIComponent(shippingLine).trim() : "";
     const decodedICD = selectedICD
       ? decodeURIComponent(selectedICD).trim()
       : "";
@@ -664,6 +694,19 @@ export async function getTodayJob(req, res) {
     if (decodedImporter && decodedImporter !== "Select Importer") {
       baseQuery.$and.push({
         importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") },
+      });
+    }
+
+    // ✅ If shippingLine is selected, filter by shipping line
+    if (
+      decodedShippingLine &&
+      decodedShippingLine !== "Select Shipping Line" &&
+      decodedShippingLine !== "All Shipping Lines"
+    ) {
+      baseQuery.$and.push({
+        shipping_line_airline: {
+          $regex: new RegExp(`^\\s*${escapeRegex(decodedShippingLine)}\\s*$`, "i"),
+        },
       });
     }
 

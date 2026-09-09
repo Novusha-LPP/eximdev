@@ -31,6 +31,7 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
       limit = 100,
       search = "",
       importer,
+      shippingLine,
       selectedICD,
       obl_telex_bl,
       year,
@@ -54,6 +55,7 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
 
     // Decode and trim query parameters
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
+    const decodedShippingLine = shippingLine ? decodeURIComponent(shippingLine).trim() : "";
     const decodedICD = selectedICD
       ? decodeURIComponent(selectedICD).trim()
       : "";
@@ -100,6 +102,19 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
     if (decodedImporter && decodedImporter !== "Select Importer") {
       baseQuery.$and.push({
         importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") },
+      });
+    }
+
+    // ✅ If shippingLine is selected, filter by shipping line
+    if (
+      decodedShippingLine &&
+      decodedShippingLine !== "Select Shipping Line" &&
+      decodedShippingLine !== "All Shipping Lines"
+    ) {
+      baseQuery.$and.push({
+        shipping_line_airline: {
+          $regex: new RegExp(`^\\s*${escapeRegex(decodedShippingLine)}\\s*$`, "i"),
+        },
       });
     }
 

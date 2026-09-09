@@ -64,8 +64,8 @@ const ChargesGrid = ({
 
   const handleMultiPurchaseBook = async () => {
     const selectedCharges = charges.filter(c => selectedIds.has(c._id));
-    if (selectedCharges.length < 2) {
-      alert("Please select at least 2 charges to create a combined Purchase Book.");
+    if (selectedCharges.length < 1) {
+      alert("Please select at least 1 charge to create a Purchase Book.");
       return;
     }
 
@@ -385,7 +385,8 @@ const ChargesGrid = ({
          onDeleteSelected={handleDeleteSelected}
          readOnly={readOnlyFinal}
          isDeleteDisabled={isDeleteDisabled}
-         onMultiPurchaseBook={selectedIds.size >= 2 ? handleMultiPurchaseBook : null}
+         onMultiPurchaseBook={selectedIds.size >= 1 ? handleMultiPurchaseBook : null}
+         purchaseBookLabel={selectedIds.size > 1 ? 'Combined Purchase Book' : 'Purchase Book'}
       />
       
       <div style={{ position: 'relative' }}>
@@ -468,38 +469,28 @@ const ChargesGrid = ({
         <FileUploadModal 
           isOpen={!!fileModalCharge}
           onClose={() => setFileModalCharge(null)}
-          chargeLabel={`${fileModalCharge.charge.chargeHead} (${fileModalCharge.tab})`}
+          chargeLabel={fileModalCharge.charge.chargeHead}
           showTypeSelection={fileModalCharge.charge.chargeHead?.trim().toUpperCase() === shippingLineAirline?.trim().toUpperCase()}
-          initialUrls={
-            fileModalCharge.tab === 'cost' 
-              ? [
-                  ...(fileModalCharge.charge.cost?.url || []),
-                  ...(fileModalCharge.charge.cost?.url_draft || []),
-                  ...(fileModalCharge.charge.cost?.url_final || [])
-                ]
-              : [
-                  ...(fileModalCharge.charge.revenue?.url || []),
-                  ...(fileModalCharge.charge.revenue?.url_draft || []),
-                  ...(fileModalCharge.charge.revenue?.url_final || [])
-                ]
-          }
-          categorizedUrls={
-            fileModalCharge.tab === 'cost' 
-              ? { 
-                  draft: [
-                    ...(fileModalCharge.charge.cost?.url || []),
-                    ...(fileModalCharge.charge.cost?.url_draft || [])
-                  ], 
-                  final: fileModalCharge.charge.cost?.url_final || [] 
-                }
-              : { 
-                  draft: [
-                    ...(fileModalCharge.charge.revenue?.url || []),
-                    ...(fileModalCharge.charge.revenue?.url_draft || [])
-                  ], 
-                  final: fileModalCharge.charge.revenue?.url_final || [] 
-                }
-          }
+          initialUrls={[...new Set([
+            ...(fileModalCharge.charge.cost?.url || []),
+            ...(fileModalCharge.charge.cost?.url_draft || []),
+            ...(fileModalCharge.charge.cost?.url_final || []),
+            ...(fileModalCharge.charge.revenue?.url || []),
+            ...(fileModalCharge.charge.revenue?.url_draft || []),
+            ...(fileModalCharge.charge.revenue?.url_final || [])
+          ])]}
+          categorizedUrls={{
+            draft: [...new Set([
+              ...(fileModalCharge.charge.cost?.url || []),
+              ...(fileModalCharge.charge.cost?.url_draft || []),
+              ...(fileModalCharge.charge.revenue?.url || []),
+              ...(fileModalCharge.charge.revenue?.url_draft || [])
+            ])],
+            final: [...new Set([
+              ...(fileModalCharge.charge.cost?.url_final || []),
+              ...(fileModalCharge.charge.revenue?.url_final || [])
+            ])]
+          }}
           onAttach={handleAttachFiles}
         />
       )}

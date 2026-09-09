@@ -379,6 +379,24 @@ const userSchema = new Schema({
     type: Date,
     default: Date.now,
   },
+  userAssets: [
+    {
+      module: { type: String, required: true },
+      type: {
+        type: String,
+        enum: ['System', 'Laptop', 'Mouse', 'Keyboard', 'Monitor', 'Headset', 'Dongle', 'Other'],
+        required: true,
+      },
+      serialNumber: { type: String },
+      assignedDate: { type: Date, default: Date.now },
+      status: {
+        type: String,
+        enum: ['Assigned', 'Returned', 'Damaged'],
+        default: 'Assigned',
+      },
+      remarks: { type: String },
+    },
+  ],
   profile_employee_notified_at: {
     type: Date,
     default: null,
@@ -391,5 +409,7 @@ const userSchema = new Schema({
 
 userSchema.plugin(auditPlugin, { documentType: "User" });
 
-const UserModel = mongoose.model("User", userSchema);
-export default UserModel;
+const User =
+  mongoose.models.User || mongoose.model("User", userSchema);
+
+export default User;

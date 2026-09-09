@@ -18,7 +18,7 @@ const __dirname = path.dirname(__filename);
 // Load .env from server directory
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-const MONGODB_URI = process.env.PROD_MONGODB_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/exim';
+const MONGODB_URI = process.env.PROD_MONGODB_URI || process.env.MONGODB_URI || 'mongodb://0.0.0.0:27017/exim';
 
 async function removeIndividualGeofencing() {
     try {
@@ -27,7 +27,7 @@ async function removeIndividualGeofencing() {
         console.log('✅ Connected to MongoDB\n');
 
         console.log('🚀 Searching for users with individual geofencing settings...');
-        
+
         // Count how many users have these settings
         const count = await User.countDocuments({
             $or: [
@@ -43,11 +43,11 @@ async function removeIndividualGeofencing() {
 
             const result = await User.updateMany(
                 {},
-                { 
-                    $unset: { 
+                {
+                    $unset: {
                         'attendance_settings.geo_fencing_required': "",
                         'attendance_settings.allowed_locations': ""
-                    } 
+                    }
                 }
             );
 

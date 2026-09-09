@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const baseURL = 'http://localhost:9006/api';
+const baseURL = 'http://0.0.0.0:9006/api';
 const reportUrl = `${baseURL}/attendance/admin-report?startDate=2026-04-01&endDate=2026-04-14&company_id=all`;
 
 const credentials = [

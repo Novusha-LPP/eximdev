@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/eximdev';
+const MONGO_URI = process.env.MONGODB_URI || 'mongodb://0.0.0.0:27017/eximdev';
 
 const userSchema = new mongoose.Schema({}, { strict: false });
 const User = mongoose.model('User', userSchema, 'users');
@@ -31,7 +31,7 @@ async function debug() {
         // Find any leave application in that date range
         const startOfMay = new Date('2026-04-20');
         const endOfMay = new Date('2026-05-10');
-        
+
         const leaves = await LeaveApplication.find({
             from_date: { $gte: startOfMay, $lte: endOfMay }
         }).populate('employee_id');

@@ -10,6 +10,8 @@ import { moduleCategories } from "../../utils/moduleCategories.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { fetchMyPendingCount, searchOpenPointByUniqueId, fetchOpenPointSuggestions } from "../../services/openPointsService.js";
 
+
+
 const importPriority = [
   "Import - DSR",
   "e-Sanchit",
@@ -22,13 +24,124 @@ const importPriority = [
   "Billing Confirmation",
   "Import Utility Tool",
   "Report",
-
   "Audit Trail",
-
   "DGFT",
   "Open Points",
   "MasterDirectory",
 ];
+
+const getModuleStyle = (module) => {
+  const defaults = {
+    icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="15" y2="17"></line></svg>,
+    color: "#6366f1",
+    bg: "#f5f3ff"
+  };
+  
+  const map = {
+    "Import - DSR": {
+      color: "#0284c7",
+      bg: "#f0f9ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+    },
+    "Import - DO": {
+      color: "#0d9488",
+      bg: "#f0fdfa",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+    },
+    "Import - Operations": {
+      color: "#ea580c",
+      bg: "#fff7ed",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+    },
+    "Import - Add": {
+      color: "#2563eb",
+      bg: "#eff6ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+    },
+    "Import - Billing": {
+      color: "#16a34a",
+      bg: "#f0fdf4",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><line x1="12" y1="10" x2="12" y2="18"></line><line x1="8" y1="14" x2="16" y2="14"></line></svg>
+    },
+    "Import Utility Tool": {
+      color: "#4f46e5",
+      bg: "#eef2ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+    },
+    "Report": {
+      color: "#9333ea",
+      bg: "#faf5ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+    },
+    "Audit Trail": {
+      color: "#4b5563",
+      bg: "#f3f4f6",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+    },
+    "Export": {
+      color: "#2563eb",
+      bg: "#eff6ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+    },
+    "Employee Onboarding": {
+      color: "#2563eb",
+      bg: "#eff6ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="17" y1="11" x2="23" y2="11"></line></svg>
+    },
+    "Employee KYC": {
+      color: "#0891b2",
+      bg: "#ecfeff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><line x1="15" y1="9" x2="17" y2="9"></line><line x1="15" y1="13" x2="18" y2="13"></line><path d="M14 17H4v-1a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1z"></path></svg>
+    },
+    "Customer KYC": {
+      color: "#0369a1",
+      bg: "#f0f9ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+    },
+    "CRM": {
+      color: "#db2777",
+      bg: "#fdf2f8",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+    },
+    "Supplier Scorecard": {
+      color: "#d97706",
+      bg: "#fffbeb",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+    },
+    "AMC Suppliers Renewal": {
+      color: "#dc2626",
+      bg: "#fef2f2",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+    },
+    "AMC Visitor Logs": {
+      color: "#0f766e",
+      bg: "#f0fdfa",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><path d="M12 8v8"></path><path d="M8 12h8"></path></svg>
+    },
+    "Admin Equipment Checklist": {
+      color: "#4f46e5",
+      bg: "#eef2ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+    },
+    "Attendance": {
+      color: "#059669",
+      bg: "#ecfdf5",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+    },
+    "Open Points": {
+      color: "#b91c1c",
+      bg: "#fef2f2",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+    },
+    "IT Helpdesk": {
+      color: "#0284c7",
+      bg: "#f0f9ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+    }
+  };
+
+  return map[module] || defaults;
+};
 
 function Home() {
   const { user } = useContext(UserContext);
@@ -69,18 +182,19 @@ function Home() {
 
   let sopsGrouped = false;
   const isRabsUser = user?.company && /RABS/i.test(user.company);
+
+  // Retrieve assigned modules from fetched user profile
   let userModulesList = data?.modules || [];
-  if (isRabsUser && !userModulesList.includes("First Aid")) {
-    userModulesList = [...userModulesList, "First Aid"];
+  let finalModulesList = [...userModulesList];
+
+  // Auto-include First Aid for RABS company users if not already present
+  if (isRabsUser && !finalModulesList.includes("First Aid")) {
+    finalModulesList.push("First Aid");
   }
 
-  const categorizedModules = userModulesList.reduce((acc, module) => {
-    // Restrict Attendance card to RABS users only
-    // if (module === "Attendance" && !(user?.company && /RABS/i.test(user.company))) {
-    //   return acc;
-    // }
-
-    // Restrict 5S Audit card to RABS Admin and HOD users only
+  // Group modules into their respective dashboard categories
+  const categorizedModules = finalModulesList.reduce((acc, module) => {
+    // 1. Restrict 5S Audit card: Visible only to RABS Admin and HOD users
     if (module === "5S Audit") {
       const isRabs = user?.company && /RABS/i.test(user.company);
       const isAdminOrHod = user?.role === "Admin" || user?.role === "Head_of_Department" || user?.role === "HOD" || user?.isHOD;
@@ -89,7 +203,7 @@ function Home() {
       }
     }
 
-    // Restrict First Aid card to RABS Admin and HOD users only
+    // 2. Restrict First Aid card: Visible only to RABS Admin and HOD users
     if (module === "First Aid") {
       const isRabs = user?.company && /RABS/i.test(user.company);
       const isAdminOrHod = user?.role === "Admin" || user?.role === "Head_of_Department" || user?.role === "HOD" || user?.isHOD;
@@ -98,6 +212,7 @@ function Home() {
       }
     }
 
+    // 3. Group Procurement & Insurance SOPs into a single combined tile under Accounts
     if (["RM Procurement SOP", "Tyre Procurement SOP", "Fleet Insurance SOP"].includes(module)) {
       if (!sopsGrouped) {
         const category = "Accounts";
@@ -108,6 +223,7 @@ function Home() {
       return acc;
     }
 
+    // 4. If user has 'Accounts', ensure both Accounts and Pricing Requests tiles are available under Accounts category
     if (module === "Accounts") {
       const category = "Accounts";
       if (!acc[category]) acc[category] = [];
@@ -116,6 +232,7 @@ function Home() {
       return acc;
     }
 
+    // 5. Default mapping: categorize module according to predefined moduleCategories map
     const category = moduleCategories[module] || "Uncategorized";
     if (!acc[category]) acc[category] = [];
     acc[category].push(module);
@@ -552,7 +669,11 @@ function Home() {
       {categorizedModules &&
         Object.keys(categorizedModules)
           .filter((category) => category !== "Uncategorized")
-          .sort()
+          .sort((a, b) => {
+            if (a === "AMC Suppliers Renewal Sheet") return 1;
+            if (b === "AMC Suppliers Renewal Sheet") return -1;
+            return a.localeCompare(b);
+          })
           .map((category, idx) => (
             <div key={idx}>
               <br />

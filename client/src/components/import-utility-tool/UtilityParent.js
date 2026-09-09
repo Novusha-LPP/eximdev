@@ -54,7 +54,7 @@ const UtilityParent = () => {
     severity: "info",
   });
 
-  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const isLocal = window.location.hostname === "0.0.0.0" || window.location.hostname === "127.0.0.1";
   const apiBase = process.env.REACT_APP_API_STRING;
 
   const handleSync = async () => {

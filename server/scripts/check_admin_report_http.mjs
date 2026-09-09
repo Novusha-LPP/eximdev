@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const url = 'http://localhost:9006/api/attendance/admin-report?startDate=2026-04-01&endDate=2026-04-14&company_id=all';
+const url = 'http://0.0.0.0:9006/api/attendance/admin-report?startDate=2026-04-01&endDate=2026-04-14&company_id=all';
 
 async function run() {
   const startedAt = Date.now();

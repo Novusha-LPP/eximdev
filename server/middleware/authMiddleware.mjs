@@ -78,10 +78,10 @@ const verifyToken = async (req, res, next) => {
             if (fullUser.role !== 'Admin') {
                 const isWriteRequest = ['POST', 'PUT', 'DELETE'].includes(req.method);
                 
-                // Allowed paths that bypass restrictions:
                 // - Auth/user profile: me, getUserData, logout, change-password, complete-kyc, complete-onboarding, update-profile-photo
                 // - Attendance/payroll/statutory compliance: attendance, leave, regularization, payroll
-                const allowedPathPattern = /^\/api\/(login|logout|me|getUserData|complete-kyc|complete-onboarding|update-profile-photo|attendance|leave|payroll|regularization)/i;
+                // - Admin/HOD user management: assign-modules, unassign-modules, assign-role, assign-department, assign-module-to-all
+                const allowedPathPattern = /^\/api\/(login|logout|me|getUserData|complete-kyc|complete-onboarding|update-profile-photo|attendance|leave|payroll|regularization|assign-modules|unassign-modules|assign-role|assign-department|assign-module-to-all)/i;
                 const isAllowedPath = allowedPathPattern.test(req.path);
 
                 if (completion.isBlocked && !isAllowedPath) {
@@ -113,8 +113,11 @@ const verifyToken = async (req, res, next) => {
         // Run subsequent middleware and controller in the user context
         context.run({ user: req.user, req }, next);
     } catch (err) {
-        console.error("Auth token verification failed:", err);
-        return res.status(403).json({ message: "Invalid Token" });
+        if (err.name === 'TokenExpiredError') {
+            return res.status(401).json({ message: "Session expired. Please log in again." });
+        }
+        console.error("Auth token verification failed:", err.message || err);
+        return res.status(401).json({ message: "Invalid Token" });
     }
 };
 

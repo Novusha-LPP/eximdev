@@ -4,7 +4,7 @@ import { validateLicenseUtilization } from "../services/licenseUtilizationServic
 
 dotenv.config();
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || "mongodb://localhost:27017/exim";
+const MONGODB_URI = process.env.DEV_MONGODB_URI || "mongodb://0.0.0.0:27017/exim";
 
 async function run() {
   console.log("Connecting to database...");

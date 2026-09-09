@@ -39,7 +39,7 @@ import TuneIcon from '@mui/icons-material/Tune';
 import SearchIcon from '@mui/icons-material/Search';
 import '../../styles/mrm.scss';
 
-const API_URL = (process.env.REACT_APP_API_STRING || 'http://localhost:9006/api');
+const API_URL = (process.env.REACT_APP_API_STRING || 'http://0.0.0.0:9006/api');
 
 const MRMAdminDashboard = () => {
     const { user } = useContext(UserContext);

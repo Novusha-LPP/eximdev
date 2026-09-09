@@ -4,7 +4,7 @@ import {
 } from 'date-fns';
 
 export const getApiUrl = () => {
-    let apiUrl = process.env.REACT_APP_API_STRING || 'http://localhost:9006';
+    let apiUrl = process.env.REACT_APP_API_STRING || 'http://0.0.0.0:9006';
     if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
     return apiUrl;
 };
@@ -18,7 +18,7 @@ export const getEndpoint = (path) => {
 };
 
 export const TRANSPORT_BASE = 'https://eximbot.alvision.in/transport';
-// export const TRANSPORT_BASE = 'http://localhost:9007';
+// export const TRANSPORT_BASE = 'http://0.0.0.0:9007';
 export const TRANSPORT_API_KEY = '1234567890';
 export const TRANSPORT_HEADERS = { 'x-api-key': TRANSPORT_API_KEY };
 

@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.PROD_MONGODB_URI || 'mongodb://localhost:27017/eximNew';
+const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.PROD_MONGODB_URI || 'mongodb://0.0.0.0:27017/eximNew';
 
 async function verify() {
     try {

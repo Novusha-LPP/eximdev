@@ -10,7 +10,7 @@ import dotenv from 'dotenv';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/exim';
+const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.MONGODB_URI || 'mongodb://0.0.0.0:27017/exim';
 
 async function diagnose() {
   await mongoose.connect(MONGODB_URI);
@@ -32,7 +32,7 @@ async function diagnose() {
     { $match: { company_id: { $exists: true, $ne: null } } },
     { $group: { _id: '$company_id', count: { $sum: 1 } } }
   ]).toArray();
-  
+
   console.log(`Users with company_id: ${usersWithCompanyId.reduce((s, g) => s + g.count, 0)}`);
   for (const g of usersWithCompanyId) {
     const company = companies.find(c => c._id.toString() === g._id.toString());
@@ -45,7 +45,7 @@ async function diagnose() {
     company: { $exists: true, $ne: '' },
     $or: [{ company_id: { $exists: false } }, { company_id: null }]
   }).limit(20).toArray();
-  
+
   console.log(`Found: ${usersWithoutCompanyId.length} (showing max 20)`);
   usersWithoutCompanyId.forEach(u => {
     console.log(`  - ${u.username}: "${u.company}"`);
@@ -55,12 +55,12 @@ async function diagnose() {
   console.log('\n=== ATTENDANCE RECORDS ===');
   const recordCount = await db.collection('attendancerecords').countDocuments({});
   console.log(`Total attendance records: ${recordCount}`);
-  
+
   const recentRecords = await db.collection('attendancerecords').find({})
     .sort({ attendance_date: -1 })
     .limit(5)
     .toArray();
-  
+
   if (recentRecords.length > 0) {
     console.log('Recent records:');
     recentRecords.forEach(r => {
@@ -72,9 +72,9 @@ async function diagnose() {
   if (companies.length > 0) {
     console.log('\n=== SIMULATING ADMIN REPORT QUERY ===');
     for (const company of companies.slice(0, 3)) {
-      const usersForCompany = await db.collection('users').countDocuments({ 
-        company_id: company._id, 
-        isActive: true 
+      const usersForCompany = await db.collection('users').countDocuments({
+        company_id: company._id,
+        isActive: true
       });
       console.log(`Company "${company.company_name}": ${usersForCompany} active users with company_id`);
     }
@@ -84,7 +84,7 @@ async function diagnose() {
   console.log('\n=== ATTENDANCE RECORDS BY COMPANY (via user lookup) ===');
   const surajCompany = companies.find(c => c.company_name === 'Suraj Forwarders Private Limited');
   const eximCompany = companies.find(c => c.company_name === 'EXIM Global');
-  
+
   if (surajCompany) {
     const surajUsers = await db.collection('users').find({ company_id: surajCompany._id, isActive: true }).toArray();
     const surajUserIds = surajUsers.map(u => u._id);
@@ -93,7 +93,7 @@ async function diagnose() {
     });
     console.log(`Suraj Forwarders: ${surajUsers.length} active users, ${surajRecords} attendance records`);
   }
-  
+
   if (eximCompany) {
     const eximUsers = await db.collection('users').find({ company_id: eximCompany._id, isActive: true }).toArray();
     const eximUserIds = eximUsers.map(u => u._id);
@@ -116,9 +116,9 @@ async function diagnose() {
   // 8. Check records in the date range 2026-02-28 to 2026-03-31
   console.log('\n=== RECORDS IN REQUESTED DATE RANGE (Feb 28 - Mar 31, 2026) ===');
   const rangeRecords = await db.collection('attendancerecords').countDocuments({
-    attendance_date: { 
-      $gte: new Date('2026-02-28'), 
-      $lte: new Date('2026-03-31T23:59:59') 
+    attendance_date: {
+      $gte: new Date('2026-02-28'),
+      $lte: new Date('2026-03-31T23:59:59')
     }
   });
   console.log(`Records in range: ${rangeRecords}`);

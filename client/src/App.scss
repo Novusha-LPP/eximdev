@@ -32,7 +32,7 @@
   margin: 0;
 }
 
-.btn-danger {
+.btn-danger:not(.btn-icon):not([class*="btn-icon"]):not(.table *):not(.table-wrap *) {
   background-color: #f70303 !important;
   color: #fff !important;
   padding: 10px;

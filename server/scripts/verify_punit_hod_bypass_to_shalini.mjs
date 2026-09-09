@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:9006';
+const BASE_URL = process.env.BASE_URL || 'http://0.0.0.0:9006';
 
 const users = {
   krishnapal_puvar: { username: 'krishnapal_puvar', password: '12345678' },

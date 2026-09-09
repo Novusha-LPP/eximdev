@@ -3,6 +3,7 @@ import logger from "./logger.js";
 import dotenv from "dotenv";
 import moment from "moment-timezone";
 
+
 dotenv.config();
 
 let nodeProfilingIntegration;
@@ -46,6 +47,8 @@ import { setupDgftWebSocket } from "./setupDgftWebSocket.mjs";
 
 import monthlyContainersRouter from "./routes/report/monthlyContainers.mjs";
 import monthlyClearanceRouter from "./routes/report/importClearanceMonthly.mjs";
+import emailRoutes from "./routes/admin/emailRoutes.mjs";
+// import userRoutes from "./routes/it-helpdesk/userRoutes.mjs";
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
@@ -275,12 +278,33 @@ import dgftRoutes from "./routes/dgft/dgftRoutes.mjs";
 
 // CRM Module
 import crmRoutes from "./routes/crm/crmRoutes.mjs";
+
 // Admin Branch Module
 import branchRoutes from "./routes/admin/branchRoutes.mjs";
 import jobMigrationRouter from "./routes/admin/jobMigration.mjs";
 
-// HR Asset Module
 import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
+import userAssetEquipmentRoutes from "./routes/user/userAssets.mjs";
+
+// Scorecard Module
+import scorecardRoutes from "./routes/scorecards/scorecards.js";
+
+// AMC Suppliers Renewal Module
+import amcRenewalRoutes from "./routes/amc-renewals/amcRenewalRoutes.mjs";
+import amcVisitorLogRoutes from "./routes/amc-renewals/amcVisitorLogRoutes.mjs";
+import adminEquipmentChecklistRoutes from "./routes/amc-renewals/adminEquipmentChecklistRoutes.mjs";
+
+// IT Asset & Helpdesk Module
+import assetRoutes from "./routes/it-helpdesk/assetRoutes.mjs";
+import ticketRoutes from "./routes/it-helpdesk/ticketRoutes.mjs";
+import vendorRoutes from "./routes/it-helpdesk/vendorRoutes.mjs";
+import contractRoutes from "./routes/it-helpdesk/contractRoutes.mjs";
+import licenseRoutes from "./routes/it-helpdesk/licenseRoutes.mjs";
+import inventoryRoutes from "./routes/it-helpdesk/inventoryRoutes.mjs";
+import userRoutes from "./routes/it-helpdesk/userRoutes.mjs";
+import itNotificationRoutes from "./routes/it-helpdesk/notificationRoutes.mjs";
+import itReportsExportRoutes from "./routes/it-helpdesk/itReportsExportRoutes.mjs";
+
 import employeeKPIRoutes from "./routes/hr/employeeKPIRoutes.mjs";
 import profileCompletionRoutes from "./routes/hr/profileCompletionRoutes.mjs";
 import pfEsicRoutes from "./routes/hr/pfEsicRoutes.mjs";
@@ -370,7 +394,7 @@ import customHouseRoutes from "./routes/master-directory/customHouseRoutes.mjs";
 import cfsRoutes from "./routes/master-directory/cfsRoutes.mjs";
 import transporterRoutes from "./routes/master-directory/transporterRoutes.mjs";
 import emptyOffLocationRoutes from "./routes/master-directory/emptyOffLocationRoutes.mjs";
-import notificationRoutes from "./routes/master-directory/notificationRoutes.mjs";
+import masterDirectoryNotificationRoutes from "./routes/master-directory/notificationRoutes.mjs";
 
 // Tally API
 import tallyRoutes from "./tallyapi/tallyRoutes.mjs";
@@ -414,6 +438,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+
 app.use((req, res, next) => {
   const isBrowserRequest =
     req.headers["user-agent"] &&
@@ -438,9 +463,11 @@ app.use((req, res, next) => {
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, server-to-server, etc.)
       if (!origin || origin === "null") return callback(null, true);
 
       const allowedOrigins = [
+        "null",
         "http://eximdev.s3-website.ap-south-1.amazonaws.com",
         "http://localhost:3000",
         "http://localhost:3001",
@@ -448,10 +475,14 @@ app.use(
         "http://localhost:9007",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
-        "http://localhost:3002",
+        "http://0.0.0.0:3000",
+        "http://0.0.0.0:3001",
+        "http://0.0.0.0:9007",
         "http://192.168.1.105:3000",
         "http://192.168.1.105:3001",
+        "http://192.168.1.103:3000",
         "http://192.168.2.36:3002",
+        "http://192.168.2.95:3000",
         "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
         "https://import.alvision.in",
         "https://test-frontend.alvision.in",
@@ -459,13 +490,13 @@ app.use(
         "https://export.alvision.in"
       ];
 
-      const isLocalIp = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|172\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin);
+      const localNetworkPattern = /^http:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/;
 
-      if (allowedOrigins.includes(origin) || isLocalIp) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
+      if (allowedOrigins.includes(origin) || localNetworkPattern.test(origin)) {
+        return callback(null, true);
       }
+
+      callback(null, true);
     },
     credentials: true,
     // Allow custom headers for audit trail
@@ -525,6 +556,7 @@ app.use(getYears);
 app.use(login);
 app.use(logout);
 app.use(me);
+
 
 // handle delete
 app.use(handleS3Deletation);
@@ -723,14 +755,39 @@ app.use(teamRoutes);
 // DGFT Module
 app.use(dgftRoutes);
 
-// CRM Module (existing)
+// CRM Module
+app.use("/crm", crmRoutes);
 app.use("/api/crm", crmRoutes);
+
+
 
 // Admin Branch Module
 app.use("/api/admin", branchRoutes);
 app.use("/api/admin/job-migration", jobMigrationRouter);
+app.use("/api/admin/email", emailRoutes);
 
 app.use(userAssetsRoutes);
+app.use(userAssetEquipmentRoutes);
+
+// Scorecard Module
+app.use("/api/scorecards", scorecardRoutes);
+
+// AMC Suppliers Renewal Module
+app.use("/api/amc-renewals", amcRenewalRoutes);
+app.use("/api/amc-visitor", amcVisitorLogRoutes);
+app.use("/api/equipment-checklist", adminEquipmentChecklistRoutes);
+
+// IT Asset & Helpdesk Module
+app.use("/api/it-helpdesk/assets", assetRoutes);
+app.use("/api/it-helpdesk/tickets", ticketRoutes);
+app.use("/api/it-helpdesk/vendors", vendorRoutes);
+app.use("/api/it-helpdesk/contracts", contractRoutes);
+app.use("/api/it-helpdesk/licenses", licenseRoutes);
+app.use("/api/it-helpdesk/inventory", inventoryRoutes);
+app.use("/api/it-helpdesk/users", userRoutes);
+app.use("/api/it-helpdesk/notifications", itNotificationRoutes);
+app.use("/api/it-helpdesk/reports", itReportsExportRoutes);
+
 app.use(employeeKPIRoutes);
 app.use(profileCompletionRoutes);
 app.use(pfEsicRoutes);
@@ -754,7 +811,7 @@ app.use("/api", cfsRoutes);
 app.use("/api", transporterRoutes);
 app.use("/api", generalOrgRoutes);
 app.use("/api", emptyOffLocationRoutes);
-app.use(notificationRoutes);
+app.use(masterDirectoryNotificationRoutes);
 
 
 // Tally API
@@ -770,6 +827,9 @@ app.use('/api/payroll', payrollRoutes);
 app.use('/api/first-aid', firstAidRoutes);
 app.use('/uploads/leaves', express.static(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'leaves')
+));
+app.use('/uploads/it-helpdesk', express.static(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'it-helpdesk')
 ));
 // ─────────────────────────────────────────────────────────────────────────────
 // Client Queries API
@@ -970,7 +1030,7 @@ if (!disableCluster && cluster.isPrimary) {
           }
         });
 
-        const port = Number(process.env.PORT || 9006);
+        const port = Number(process.env.PORT || 9007);
 
         server.listen(port, "0.0.0.0", () => {
           console.log(`🟢 Server listening on port ${port}`);

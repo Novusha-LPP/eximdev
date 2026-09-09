@@ -1,5 +1,5 @@
 // Configuration
-const BASE_URL = 'http://localhost:9006/api';
+const BASE_URL = 'http://0.0.0.0:9006/api';
 
 // Users
 const users = {
@@ -18,23 +18,23 @@ async function login(user) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: user.username, password: user.password })
     });
-    
+
     // Cookie parsing
-    const rawCookies = res.headers.getSetCookie(); 
+    const rawCookies = res.headers.getSetCookie();
     if (rawCookies && rawCookies.length > 0) {
-        cookies = rawCookies.map(c => c.split(';')[0]).join('; ');
+      cookies = rawCookies.map(c => c.split(';')[0]).join('; ');
     } else {
-        const legacyCookie = res.headers.get('set-cookie');
-        if (legacyCookie) cookies = legacyCookie.split(';')[0];
+      const legacyCookie = res.headers.get('set-cookie');
+      if (legacyCookie) cookies = legacyCookie.split(';')[0];
     }
-    
+
     const data = await res.json();
-    
+
     if (res.status === 200 && data._id) {
-        console.log(`Login successful. ID: ${data._id}, Role: ${data.role}`);
-        return data;
+      console.log(`Login successful. ID: ${data._id}, Role: ${data.role}`);
+      return data;
     } else {
-        throw new Error(data.message || 'Login failed');
+      throw new Error(data.message || 'Login failed');
     }
   } catch (err) {
     console.error('Login Error:', err.message);
@@ -52,27 +52,27 @@ async function runTest() {
 
     // 2. Get Leave Balance
     console.log('\nFetching Leave Balance...');
-    const balanceRes = await fetch(`${BASE_URL}/leave/balance`, { 
+    const balanceRes = await fetch(`${BASE_URL}/leave/balance`, {
       headers: { Cookie: cookies }
     });
     const balanceData = await balanceRes.json();
     const balances = balanceData.results || balanceData.data || [];
-    
+
     // Find a paid policy
     const targetBalance = balances.find(b => {
-        const type = String(b.leave_type || b.leave_policy_id?.leave_type || b.policy_name || '').toLowerCase();
-        return (type.includes('casual') || type.includes('cl') || type.includes('privilege') || type.includes('pl')) && !type.includes('unpaid');
+      const type = String(b.leave_type || b.leave_policy_id?.leave_type || b.policy_name || '').toLowerCase();
+      return (type.includes('casual') || type.includes('cl') || type.includes('privilege') || type.includes('pl')) && !type.includes('unpaid');
     });
-    
+
     if (!targetBalance) {
-       console.error('Paid Leave policy not found for user.');
-       process.exit(1);
+      console.error('Paid Leave policy not found for user.');
+      process.exit(1);
     }
     const policyId = targetBalance.leave_policy_id?._id || targetBalance.leave_policy_id || targetBalance._id;
     console.log(`Target Policy: ${targetBalance.leave_type || targetBalance.policy_name} (ID: ${policyId})`);
 
     // 3. Apply for Leave (Unique future date)
-    const uniqueDate = '2029-12-01'; 
+    const uniqueDate = '2029-12-01';
     console.log(`\nApplying for 1-day Leave on ${uniqueDate}...`);
     const applyRes = await fetch(`${BASE_URL}/leave/apply`, {
       method: 'POST',
@@ -88,8 +88,8 @@ async function runTest() {
     const applyData = await applyRes.json();
     const applicationId = applyData._id || applyData.data?._id;
     if (!applicationId) {
-        console.error('Application failed:', applyData);
-        process.exit(1);
+      console.error('Application failed:', applyData);
+      process.exit(1);
     }
     console.log(`Application Success! ID: ${applicationId}`);
 
@@ -146,14 +146,14 @@ async function runTest() {
 
     // 9. Verify Final
     console.log('\nVerifying Final Net Available...');
-    const finalRes = await fetch(`${BASE_URL}/leave/balance?employee_id=${userId}`, { 
+    const finalRes = await fetch(`${BASE_URL}/leave/balance?employee_id=${userId}`, {
       headers: { Cookie: cookies }
     });
     const finalData = await finalRes.json();
     const finalBalances = finalData.results || finalData.data || [];
     const finalTarget = finalBalances.find(b => {
-        const bid = (b.leave_policy_id?._id || b.leave_policy_id || b._id);
-        return String(bid) === String(policyId);
+      const bid = (b.leave_policy_id?._id || b.leave_policy_id || b._id);
+      return String(bid) === String(policyId);
     });
 
     console.log('\n--- FINAL RESULTS ---');

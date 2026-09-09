@@ -92,6 +92,7 @@ auditTrailSchema.index({ username: 1, timestamp: -1 });
 auditTrailSchema.index({ branchId: 1, timestamp: -1 });
 auditTrailSchema.index({ branch_code: 1, timestamp: -1 });
 auditTrailSchema.index({ action: 1, timestamp: -1 });
+auditTrailSchema.index({ timestamp: -1, createdAt: -1 });
 
 const AuditTrailModel = mongoose.model("AuditTrail", auditTrailSchema);
 export default AuditTrailModel;

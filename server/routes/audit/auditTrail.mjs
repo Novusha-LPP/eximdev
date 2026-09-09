@@ -75,8 +75,10 @@ router.get("/api/audit-trail/user-logs/:userId", authMiddleware, async (req, res
 // Get all users with details, assigned modules, and last activity date
 router.get("/api/audit-trail/all-users-with-activity", authMiddleware, async (req, res) => {
   try {
-    // Filter by branch if not Admin
-    const activityFilter = {};
+    // Filter by branch if not Admin, and bound by recent timestamp to leverage index
+    const activityFilter = {
+      timestamp: { $gte: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000) }
+    };
     if (req.user.role !== "Admin") {
       if (req.user.branchId) activityFilter.branchId = req.user.branchId;
       else if (req.user.branch_code) activityFilter.branch_code = req.user.branch_code;
@@ -398,16 +400,32 @@ router.get("/api/audit-trail", authMiddleware, async (req, res) => {
       // Allow all historical logs
     }
 
-    // Fetch audit trail data and counts concurrently
+    // Fetch audit trail data and counts concurrently (optimized to avoid full collection scans)
+    const isFilterEmpty = Object.keys(filter).length === 0;
+
+    const totalCountPromise = isFilterEmpty
+      ? AuditTrailModel.estimatedDocumentCount()
+      : AuditTrailModel.countDocuments(filter);
+
+    const createCountPromise = AuditTrailModel.countDocuments({
+      ...filter,
+      action: { $in: ["CREATE", "INSERT", "BULK_CREATE_UPDATE"] },
+    });
+
+    const updateCountPromise = AuditTrailModel.countDocuments({
+      ...filter,
+      action: { $in: ["UPDATE", "EDIT"] },
+    });
+
     const [auditTrail, total, createCount, updateCount] = await Promise.all([
       AuditTrailModel.find(filter)
         .sort({ timestamp: -1, createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
         .lean(),
-      AuditTrailModel.countDocuments(filter),
-      AuditTrailModel.countDocuments({ ...filter, action: { $regex: "CREATE|INSERT", $options: "i" } }),
-      AuditTrailModel.countDocuments({ ...filter, action: { $regex: "UPDATE|EDIT", $options: "i" } }),
+      totalCountPromise,
+      createCountPromise,
+      updateCountPromise,
     ]);
 
     const totalPages = Math.max(1, Math.ceil(total / limitNum));

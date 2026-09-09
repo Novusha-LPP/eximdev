@@ -19,7 +19,7 @@ const pointSchema = new mongoose.Schema({
     department: { type: String, default: 'General' },
     priority: { type: String, enum: ['Low', 'Medium', 'High', 'Emergency', 'P1', 'P2', 'P3', 'P4'], default: 'Low' },
     status: { type: String, enum: ['Green', 'Yellow', 'Red', 'Orange'], default: 'Red' },
-    creation_date: { type: Date, index: true },
+    creation_date: { type: Date, default: Date.now, index: true },
     target_date: { type: Date }, // Can be optional if not always known
     completion_date: { type: Date }, // Automatically set when status is Green
 
@@ -40,11 +40,11 @@ const pointSchema = new mongoose.Schema({
     }],
 
     // Originating Context for external integrations (MRM, etc.)
-    originModule: { 
-        type: String, 
-        enum: ['MRM', 'CRM', 'MANUAL', null], 
-        default: null, 
-        index: true 
+    originModule: {
+        type: String,
+        enum: ['MRM', 'CRM', 'MANUAL', null],
+        default: null,
+        index: true
     },
     originContext: {
         mrmItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'MRMItem', index: true },

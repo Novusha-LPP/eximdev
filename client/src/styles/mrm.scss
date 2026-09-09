@@ -17,7 +17,7 @@ $emerald-700: #047857;
 $emerald-600: #059669;
 $emerald-500: #10b981;
 $emerald-100: #d1fae5;
-$emerald-50:  #ecfdf5;
+$emerald-50: #ecfdf5;
 
 // Palette: Slate Neutrals
 $slate-900: #0f172a;
@@ -29,7 +29,7 @@ $slate-400: #94a3b8;
 $slate-300: #cbd5e1;
 $slate-200: #e2e8f0;
 $slate-100: #f1f5f9;
-$slate-50:  #f8fafc;
+$slate-50: #f8fafc;
 
 // Status Tokens
 $status-green-bg: #ecfdf5;
@@ -173,23 +173,47 @@ $status-red-text: #991b1b;
             }
 
             &.warning {
-                &::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
-                .kpi-icon-badge { background: #fef3c7; color: #d97706; }
+                &::before {
+                    background: linear-gradient(90deg, #f59e0b, #d97706);
+                }
+
+                .kpi-icon-badge {
+                    background: #fef3c7;
+                    color: #d97706;
+                }
             }
 
             &.success {
-                &::before { background: linear-gradient(90deg, #10b981, #059669); }
-                .kpi-icon-badge { background: #d1fae5; color: #059669; }
+                &::before {
+                    background: linear-gradient(90deg, #10b981, #059669);
+                }
+
+                .kpi-icon-badge {
+                    background: #d1fae5;
+                    color: #059669;
+                }
             }
 
             &.info {
-                &::before { background: linear-gradient(90deg, #3b82f6, #2563eb); }
-                .kpi-icon-badge { background: #dbeafe; color: #2563eb; }
+                &::before {
+                    background: linear-gradient(90deg, #3b82f6, #2563eb);
+                }
+
+                .kpi-icon-badge {
+                    background: #dbeafe;
+                    color: #2563eb;
+                }
             }
 
             &.accent {
-                &::before { background: linear-gradient(90deg, #8b5cf6, #7c3aed); }
-                .kpi-icon-badge { background: #ede9fe; color: #7c3aed; }
+                &::before {
+                    background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+                }
+
+                .kpi-icon-badge {
+                    background: #ede9fe;
+                    color: #7c3aed;
+                }
             }
 
             .kpi-header {
@@ -975,6 +999,7 @@ $status-red-text: #991b1b;
         &::-webkit-scrollbar {
             width: 6px;
         }
+
         &::-webkit-scrollbar-thumb {
             background: #cbd5e1;
             border-radius: 4px;
@@ -998,6 +1023,7 @@ $status-red-text: #991b1b;
 
             &.MuiButton-contained {
                 box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+
                 &:hover {
                     transform: translateY(-1px);
                     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
@@ -1007,6 +1033,7 @@ $status-red-text: #991b1b;
             &.MuiButton-outlined {
                 border-color: #cbd5e1 !important;
                 color: $slate-600 !important;
+
                 &:hover {
                     background: #f1f5f9 !important;
                     border-color: $slate-400 !important;
@@ -1036,6 +1063,7 @@ $status-red-text: #991b1b;
         .MuiInputLabel-root {
             font-size: 0.85rem !important;
             font-family: $font-body !important;
+
             &.Mui-focused {
                 color: #059669 !important;
             }
@@ -1059,6 +1087,7 @@ $status-red-text: #991b1b;
 
         .MuiIconButton-root {
             transition: all 0.2s ease;
+
             &:hover {
                 transform: scale(1.08);
             }

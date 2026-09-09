@@ -124,12 +124,12 @@ router.get("/api/export-analytics/pulse", authMiddleware, async (req, res) => {
     try {
         const { exporter } = req.query;
         const targetUrl = `https://eximbot.alvision.in/export/api/export-analytics/pulse?exporter=${exporter || ''}`;
-        
+
         const response = await fetch(targetUrl);
         if (!response.ok) {
             throw new Error(`External API responded with status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         res.json(data);
     } catch (error) {
@@ -591,7 +591,7 @@ const getDocumentationPipeline = (start, end, importer, branchId, category) => {
     const pendingDocsMatch = {
         $and: [
             baseMatch,
-            { status: { $regex: /^pending$/i } },
+            { status: { $in: ["Pending", "pending", "PENDING"] } },
             { be_no: { $in: [null, ""] } }, // Important: Pending until BE is filed
             { awb_bl_no: { $ne: null, $ne: "" } },
             { job_no: { $ne: null } },
@@ -761,7 +761,7 @@ const getDoManagementPipeline = (start, end, importer, branchId, category) => {
                     {
                         $match: {
                             ...baseMatch,
-                            status: { $regex: /^pending$/i },
+                            status: { $in: ["Pending", "pending", "PENDING"] },
                             $or: [{ doPlanning: true }, { doPlanning: "true" }],
                             $and: [
                                 {
@@ -959,7 +959,7 @@ const getESanchitPipeline = (start, end, importer, branchId, category) => {
     const pendingEsanchitMatch = {
         $and: [
             baseMatch,
-            { status: { $regex: /^pending$/i } },
+            { status: { $in: ["Pending", "pending", "PENDING"] } },
             { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
             { job_no: { $ne: null } },
             { out_of_charge: { $eq: "" } },
@@ -1063,7 +1063,7 @@ const getOperationsPipeline = (start, end, importer, branchId, category) => {
     };
 
     const inExamPlanningMatch = {
-        status: { $regex: /^Pending$/i },
+        status: { $in: ["Pending", "pending", "PENDING"] },
         be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
         ...baseMatch,
         $and: [
@@ -1140,7 +1140,7 @@ const getSubmissionPipeline = (start, end, importer, branchId, category) => {
     const pendingSubmissionMatch = {
         $and: [
             baseMatch,
-            { status: { $regex: /^pending$/i } },
+            { status: { $in: ["Pending", "pending", "PENDING"] } },
             { job_no: { $ne: null } },
             {
                 $or: [
@@ -1221,7 +1221,7 @@ const getPulsePipeline = (start, end, importer, branchId, category) => {
     const pendingEsanchitMatch = {
         $and: [
             baseMatch,
-            { status: { $regex: /^pending$/i } },
+            { status: { $in: ["Pending", "pending", "PENDING"] } },
             { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
             { job_no: { $ne: null } },
             { out_of_charge: { $eq: "" } },
@@ -1246,7 +1246,7 @@ const getPulsePipeline = (start, end, importer, branchId, category) => {
     const pendingDocsMatch = {
         $and: [
             baseMatch,
-            { status: { $regex: /^pending$/i } },
+            { status: { $in: ["Pending", "pending", "PENDING"] } },
             { be_no: { $in: [null, ""] } }, // Important: Pending until BE is filed
             { awb_bl_no: { $ne: null, $ne: "" } },
             { job_no: { $ne: null } },
@@ -1284,7 +1284,7 @@ const getPulsePipeline = (start, end, importer, branchId, category) => {
     const pendingSubmissionMatch = {
         $and: [
             baseMatch,
-            { status: { $regex: /^pending$/i } },
+            { status: { $in: ["Pending", "pending", "PENDING"] } },
             { job_no: { $ne: null } },
             {
                 $or: [
@@ -1345,7 +1345,7 @@ const getPulsePipeline = (start, end, importer, branchId, category) => {
         ]
     };
     const inExamPlanningMatch = {
-        status: { $regex: /^Pending$/i },
+        status: { $in: ["Pending", "pending", "PENDING"] },
         be_no: { $exists: true, $ne: null, $ne: "", $not: /cancelled/i },
         ...baseMatch,
         $and: [
@@ -1368,7 +1368,7 @@ const getPulsePipeline = (start, end, importer, branchId, category) => {
     // DO (In DO Planning)
     const inDoPlanningMatch = {
         ...baseMatch,
-        status: { $regex: /^pending$/i },
+        status: { $in: ["Pending", "pending", "PENDING"] },
         $or: [{ doPlanning: true }, { doPlanning: "true" }],
         $and: [
             {

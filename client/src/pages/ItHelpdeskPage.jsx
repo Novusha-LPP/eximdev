@@ -12,8 +12,7 @@ import ITNotifications from "../components/it-helpdesk/ITNotifications";
 import UserManagement from "../components/it-helpdesk/UserManagement";
 import RolesPermissions from "../components/it-helpdesk/RolesPermissions";
 import AuditLogs from "../components/it-helpdesk/AuditLogs";
-import EmailConfiguration from "../components/it-helpdesk/EmailConfiguration";
-import SystemSettings from "../components/it-helpdesk/SystemSettings";
+// import SystemSettings from "../components/it-helpdesk/SystemSettings";
 // import { AuditLogProvider } from "../contexts/AuditLogContext";
 
 export default function ItHelpdeskPage() {
@@ -41,8 +40,9 @@ export default function ItHelpdeskPage() {
         <Route path="/reports" element={<ITReports />} />
         <Route path="/notifications" element={<ITNotifications />} />
         <Route path="/administration/roles" element={<RolesPermissions />} />
-        <Route path="/administration/audit" element={<AuditLogs />} />
-        <Route path="/administration/settings" element={<SystemSettings />} />
+        {/* <Route path="/administration/settings" element={<SystemSettings />} /> */}
+        <Route path="/administration/settings" element={<Navigate to="/it-helpdesk" replace />} />
+        <Route path="/administration/setting" element={<Navigate to="/it-helpdesk" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

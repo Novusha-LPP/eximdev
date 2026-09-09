@@ -384,6 +384,9 @@ router.post("/api/open-points/points", authMiddleware, auditMiddleware("OpenPoin
     try {
         const pointData = { ...req.body };
 
+        // Automatically set creation date on creation
+        pointData.creation_date = new Date();
+
         // Server-side fallback: If responsibility text is missing but ID is present, fetch it.
         if (!pointData.responsibility && pointData.responsible_person) {
             try {

@@ -134,7 +134,7 @@ node ./scripts/reset_leave_balances_to_zero.mjs
 Use the admin endpoint to set specific user balances:
 
 ```bash
-curl -X POST http://localhost:9006/api/attendance/leave/admin/update-balance/:employee_id \
+curl -X POST http://0.0.0.0:9006/api/attendance/leave/admin/update-balance/:employee_id \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <admin_token>" \
   -d '{
@@ -286,7 +286,7 @@ Fix a specific user's balance without affecting others:
 node ./scripts/reset_leave_balances_advanced.mjs --user-id <user_id>
 
 # Then set the correct balance via API
-curl -X POST http://localhost:9006/api/attendance/leave/admin/update-balance/<user_id> ...
+curl -X POST http://0.0.0.0:9006/api/attendance/leave/admin/update-balance/<user_id> ...
 ```
 
 ---

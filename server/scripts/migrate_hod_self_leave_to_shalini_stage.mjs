@@ -13,7 +13,7 @@ const resolveMongoUri = () => {
     process.env.PROD_MONGODB_URI ||
     process.env.MONGODB_URI ||
     process.env.MONGO_URI ||
-    'mongodb://localhost:27017/exim'
+    'mongodb://0.0.0.0:27017/exim'
   );
 };
 

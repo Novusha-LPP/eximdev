@@ -47,6 +47,7 @@ import { getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 import ContainerTrackButton from '../ContainerTrackButton';
 import { BranchContext } from "../../contexts/BranchContext.js";
 import InvoiceDisplay from "./InvoiceDisplay.js";
+import useShippingLines from "../../customHooks/useShippingLines";
 
 function DoPlanning() {
   const [doDocCounts, setDoDocCounts] = useState({
@@ -106,15 +107,23 @@ function DoPlanning() {
   const [socketError, setSocketError] = useState(null);
   const [emptyOffLocations, setEmptyOffLocations] = useState([]);
 
+  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
+  const { user } = useContext(UserContext);
+  const { branches, selectedBranch, selectedCategory } = useContext(BranchContext);
+  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
+
   // Use context for search functionality
   const {
     searchQuery,
     setSearchQuery,
     selectedImporter,
     setSelectedImporter,
+    selectedShippingLine,
+    setSelectedShippingLine,
     currentPageDoTab1: currentPage,
     setCurrentPageDoTab1: setCurrentPage,
   } = useSearchQuery();
+  const { shippingLineNames } = useShippingLines(selectedYearState);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const navigate = useNavigate();
   const location = useLocation();
@@ -125,10 +134,6 @@ function DoPlanning() {
   const [selectedJobId, setSelectedJobId] = useState(
     location.state?.selectedJobId || null
   );
-  const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const { user } = useContext(UserContext);
-  const { branches, selectedBranch, selectedCategory } = useContext(BranchContext);
-  const activeBranchConfig = branches.find(b => b._id === selectedBranch)?.configuration || { railout_enabled: true, gateway_igm_enabled: true, gateway_igm_date_enabled: true };
 
   // Status filter options with dynamic counts and styled badges
   const statusFilterOptions = [
@@ -372,7 +377,7 @@ function DoPlanning() {
 
   // ✅ Simple WebSocket implementation
   useEffect(() => {
-    const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL || "localhost:9006"
+    const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL || "0.0.0.0:9006"
       }`;
     console.log("🔗 Connecting to DO Billing WebSocket:", SOCKET_URL);
 
@@ -550,7 +555,8 @@ function DoPlanning() {
       unresolvedOnly = false,
       doPlanningDateToday = false,
       selectedBranch = "all",
-      selectedCategory = "all"
+      selectedCategory = "all",
+      shippingLine = ""
     ) => {
       setLoading(true);
       try {
@@ -566,6 +572,7 @@ function DoPlanning() {
             year: currentYear,
             selectedICD: currentICD,
             importer: selectedImporter?.trim() || "",
+            shippingLine: shippingLine?.trim() || "",
             username: user?.username || "",
             statusFilter: statusFilter || "",
 
@@ -709,7 +716,8 @@ function DoPlanning() {
         showUnresolvedOnly,
         showDoPlanningTodayOnly,
         selectedBranch,
-        selectedCategory
+        selectedCategory,
+        selectedShippingLine
       );
     }
   }, [
@@ -718,6 +726,7 @@ function DoPlanning() {
     selectedYearState,
     selectedICD,
     selectedImporter,
+    selectedShippingLine,
     selectedStatusFilter,
     user?.username,
     showUnresolvedOnly,
@@ -1130,7 +1139,7 @@ function DoPlanning() {
                       gap: '4px'
                     }}
                   >
-                    Req No: {req.payment_request_no} 
+                    Req No: {req.payment_request_no}
                     <IconButton size="small" onClick={(e) => handleCopy(e, req.payment_request_no)} sx={{ p: 0 }} title="Copy No">
                       <ContentCopyIcon sx={{ fontSize: '12px' }} />
                     </IconButton>
@@ -1139,7 +1148,7 @@ function DoPlanning() {
                 ))}
               </div>
             )}
-            
+
             {/* Show payment receipt links if available from charges */}
             {paymentsMade.length > 0 && (
               <div style={{ marginTop: "4px" }}>
@@ -2057,12 +2066,38 @@ function DoPlanning() {
             size="small"
             options={importerNames.map((option) => option.label)}
             value={selectedImporter || ""}
-            onInputChange={(event, newValue) => setSelectedImporter(newValue)}
+            onInputChange={(event, newValue) => {
+              setSelectedImporter(newValue);
+              setCurrentPage(1);
+            }}
             renderInput={(params) => (
               <TextField
                 {...params}
                 variant="outlined"
                 label="Select Importer"
+                fullWidth
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "white",
+                  },
+                }}
+              />
+            )}
+          />
+
+          <Autocomplete
+            size="small"
+            options={shippingLineNames.map((option) => option.label)}
+            value={selectedShippingLine || ""}
+            onInputChange={(event, newValue) => {
+              setSelectedShippingLine(newValue);
+              setCurrentPage(1);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                label="Select Shipping Line"
                 fullWidth
                 sx={{
                   "& .MuiOutlinedInput-root": {

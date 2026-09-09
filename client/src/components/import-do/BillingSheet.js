@@ -32,6 +32,7 @@ import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext";
 import useDynamicICDs from "../../customHooks/useDynamicICDs";
+import useShippingLines from "../../customHooks/useShippingLines";
 import {
   getTableRowsClassname,
   getTableRowInlineStyle,
@@ -86,9 +87,12 @@ function BillingSheet() {
     setSearchQuery,
     selectedImporter,
     setSelectedImporter,
+    selectedShippingLine,
+    setSelectedShippingLine,
     currentPageDoTab3: currentPage,
     setCurrentPageDoTab3: setCurrentPage,
   } = useSearchQuery();
+  const { shippingLineNames } = useShippingLines(selectedYearState);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const limit = 100;
@@ -262,7 +266,8 @@ function BillingSheet() {
       OBLvalue,
       selectedImporter,
       unresolvedOnly = false,
-      selectedBranch = "all"
+      selectedBranch = "all",
+      shippingLine = ""
     ) => {
       setLoading(true);
       setError(null);
@@ -278,6 +283,7 @@ function BillingSheet() {
             selectedICD: currentICD,
             obl_telex_bl: OBLvalue.trim(),
             importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
+            shippingLine: shippingLine?.trim() || "",
             username: user?.username || "", // ✅ Send username for ICD filtering
             unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
             branchId: selectedBranch || "all", // ✅ Add branchId parameter
@@ -318,7 +324,8 @@ function BillingSheet() {
         blValue,
         selectedImporter,
         showUnresolvedOnly,
-        selectedBranch
+        selectedBranch,
+        selectedShippingLine
       );
     }
   }, [
@@ -328,6 +335,7 @@ function BillingSheet() {
     selectedICD,
     blValue,
     selectedImporter,
+    selectedShippingLine,
     user?.username,
     showUnresolvedOnly,
     fetchJobs,
@@ -885,12 +893,37 @@ function BillingSheet() {
             size="small"
             options={importerNames.map((option) => option.label)}
             value={selectedImporter || ""}
-            onInputChange={(event, newValue) => setSelectedImporter(newValue)}
+            onInputChange={(event, newValue) => {
+              setSelectedImporter(newValue);
+              setCurrentPage(1);
+            }}
             renderInput={(params) => (
               <TextField
                 {...params}
                 variant="outlined"
                 label="Select Importer"
+                fullWidth
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "white",
+                  },
+                }}
+              />
+            )}
+          />
+          <Autocomplete
+            size="small"
+            options={shippingLineNames.map((option) => option.label)}
+            value={selectedShippingLine || ""}
+            onInputChange={(event, newValue) => {
+              setSelectedShippingLine(newValue);
+              setCurrentPage(1);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                label="Select Shipping Line"
                 fullWidth
                 sx={{
                   "& .MuiOutlinedInput-root": {

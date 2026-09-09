@@ -3,6 +3,11 @@ import React, { useContext } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { UserContext } from "../contexts/UserContext";
 
+// Modules that are accessible to all users without explicit module assignment
+const PUBLIC_MODULES = [
+  "Audit Trail", // ✅ Accessible to all logged-in users
+];
+
 const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
   const { user } = useContext(UserContext);
   const location = useLocation();
@@ -13,13 +18,15 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
 
   const userModules = user.modules || [];
 
+  const isPublicModule = Array.isArray(requiredModule)
+    ? requiredModule.some(m => PUBLIC_MODULES.includes(m))
+    : PUBLIC_MODULES.includes(requiredModule);
+
   // Restrict Attendance module to RABS employees
   const isRabsUser = user.company && /RABS/i.test(user.company);
   const isAttendanceModule = Array.isArray(requiredModule)
     ? requiredModule.includes("Attendance")
     : requiredModule === "Attendance";
-
-  // The attendance RABS restriction was removed here
 
   const is5sAuditModule = Array.isArray(requiredModule)
     ? requiredModule.includes("5S Audit")
@@ -66,16 +73,18 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
   }
 
   // Check if user has the required module permission
-  const hasPermission = user.role === 'Admin' || (Array.isArray(requiredModule)
-    ? requiredModule.some(m => userModules.includes(m))
-    : userModules.includes(requiredModule));
+  const hasPermission =
+    user.role === "Admin" ||
+    isPublicModule ||
+    (Array.isArray(requiredModule)
+      ? requiredModule.some(m => userModules.includes(m))
+      : userModules.includes(requiredModule));
 
   const isOwnKycRoute = location.pathname.startsWith('/employee-kyc') || location.pathname.startsWith('/complete-kyc');
   const isOwnKyc = isOwnKycRoute && (requiredModule === "Employee KYC");
 
   if (!hasPermission && !isOwnKyc && !isAttendanceModule) {
     const moduleLabel = Array.isArray(requiredModule) ? requiredModule.join(' or ') : requiredModule;
-    // Redirect to fallback path with a message
     return (
       <Navigate
         to={fallbackPath}

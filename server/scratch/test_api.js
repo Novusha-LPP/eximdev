@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 async function test() {
-    const url = 'http://localhost:9006/api/leave/admin-update-balance/696f2427e1bae1f749fc64ac';
+    const url = 'http://0.0.0.0:9006/api/leave/admin-update-balance/696f2427e1bae1f749fc64ac';
     const payload = {
         leave_policy_id: "69ce0c8b9303f74d13e81dba",
         opening_balance: 26.5,

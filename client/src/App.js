@@ -1,3 +1,4 @@
+
 import "./App.scss";
 import "./styles/job-details.scss";
 import axios from "axios";
@@ -8,27 +9,19 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Routes, Route } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
+import AmcPublicForm from "./pages/AmcPublicForm";
+import ItHelpdeskPage from "./pages/ItHelpdeskPage";
+import { AuditLogProvider } from "./components/it-helpdesk/AuditLogs";
+import { itHelpdeskAPI } from "./api/itHelpdeskAPI";
 
 import { Toaster } from "react-hot-toast";
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem("exim_user");
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/me`, { withCredentials: true });
-        setUser(res.data);
-      } catch (e) {
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    checkSession();
-  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -64,25 +57,30 @@ function App() {
     }
   }, [user]);
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        Loading...
-      </div>
-    );
-  }
-
   return (
     <UserContext.Provider value={{ user, setUser }}>
-      <Toaster position="top-right" reverseOrder={false} />
-      <LocalizationProvider dateAdapter={AdapterDateFns}>
-        <div className="App">
-          <Routes>
-            
-            <Route path="*" element={user ? <HomePage /> : <LoginPage />} />
-          </Routes>
-        </div>
-      </LocalizationProvider>
+      <AuditLogProvider>
+        <Toaster
+          position="top-right"
+          reverseOrder={false}
+          containerStyle={{
+            zIndex: 99999999,
+          }}
+          toastOptions={{
+            style: {
+              zIndex: 99999999,
+            },
+          }}
+        />
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <div className="App">
+            <Routes>
+              <Route path="/amc-entry" element={<AmcPublicForm />} />
+              <Route path="*" element={user ? <HomePage /> : <LoginPage />} />
+            </Routes>
+          </div>
+        </LocalizationProvider>
+      </AuditLogProvider>
     </UserContext.Provider>
   );
 }

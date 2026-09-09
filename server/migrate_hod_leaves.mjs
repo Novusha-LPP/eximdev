@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
 
-const MONGODB_URI = process.env.PROD_MONGODB_URI || 'mongodb://localhost:27017/exim';
+const MONGODB_URI = process.env.PROD_MONGODB_URI || 'mongodb://0.0.0.0:27017/exim';
 
 const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
 
@@ -25,7 +25,7 @@ async function migrate() {
         console.log('Identifying HODs...');
         const activeTeams = await teamsCol.find({ isActive: { $ne: false } }).toArray();
         const hodUserIds = new Set();
-        
+
         activeTeams.forEach(team => {
             if (team.hodId) hodUserIds.add(team.hodId.toString());
         });
@@ -34,7 +34,7 @@ async function migrate() {
             role: { $regex: /HOD|HEADOFDEPARTMENT/i },
             isActive: true
         }).toArray();
-        
+
         hodRoleUsers.forEach(u => hodUserIds.add(u._id.toString()));
 
         const hodIds = Array.from(hodUserIds).map(id => new mongoose.Types.ObjectId(id));

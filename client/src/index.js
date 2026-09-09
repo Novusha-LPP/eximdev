@@ -43,6 +43,10 @@ axios.interceptors.request.use(
       const dynamicBase = getDynamicBaseURL();
       config.url = config.url.replace(process.env.REACT_APP_API_STRING, dynamicBase);
     }
+    const token = localStorage.getItem("token");
+    if (token && !config.headers.Authorization && !config.headers.authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => Promise.reject(error)

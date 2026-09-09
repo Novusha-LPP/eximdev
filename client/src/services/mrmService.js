@@ -1,7 +1,7 @@
 
 import axios from 'axios';
 
-const API_URL = (process.env.REACT_APP_API_STRING || 'http://localhost:9006/api') + '/mrm';
+const API_URL = (process.env.REACT_APP_API_STRING || 'http://0.0.0.0:9006/api') + '/mrm';
 
 const getHeaders = () => {
     const user = JSON.parse(localStorage.getItem('exim_user') || '{}');

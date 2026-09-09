@@ -1,4 +1,4 @@
-const BASE_URL = process.env.API_BASE_URL || 'http://localhost:9006/api';
+const BASE_URL = process.env.API_BASE_URL || 'http://0.0.0.0:9006/api';
 
 function getArg(name) {
   const prefix = `--${name}=`;

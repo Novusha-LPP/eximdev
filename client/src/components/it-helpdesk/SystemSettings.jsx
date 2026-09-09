@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import {
   Box,
@@ -141,6 +141,7 @@ const DEFAULT_SETTINGS = {
 };
 
 export default function SystemSettings() {
+  return <Navigate to="/it-helpdesk" replace />;
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

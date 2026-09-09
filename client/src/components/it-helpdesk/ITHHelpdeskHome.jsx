@@ -222,14 +222,14 @@ const MODULES = [
     color: "#d97706",
     bgColor: "#fffbeb",
   },
-  {
-    title: "System Settings",
-    desc: "Helpdesk Config & Mail Setup",
-    icon: Settings,
-    to: "/it-helpdesk/administration/settings",
-    color: "#475569",
-    bgColor: "#f1f5f9",
-  },
+  // {
+  //   title: "System Settings",
+  //   desc: "Helpdesk Config & Mail Setup",
+  //   icon: Settings,
+  //   to: "/it-helpdesk/administration/settings",
+  //   color: "#475569",
+  //   bgColor: "#f1f5f9",
+  // },
 ];
 
 export default function ITHHelpdeskHome() {
@@ -254,6 +254,10 @@ export default function ITHHelpdeskHome() {
   });
   const [recentAssets, setRecentAssets] = useState([]);
   const [recentTickets, setRecentTickets] = useState([]);
+
+  // License Expiry Modal State
+  const [expiringLicenses, setExpiringLicenses] = useState([]);
+  const [showExpiryModal, setShowExpiryModal] = useState(false);
 
   // Ticket Modal State
   const [showTicketModal, setShowTicketModal] = useState(false);
@@ -446,12 +450,16 @@ export default function ITHHelpdeskHome() {
         logRead("dashboard-view", "Accessed IT Helpdesk Dashboard", "info");
       }
 
-      const [assetsRes, ticketsRes, ticketStatsRes, assetStatsRes] =
+      const [assetsRes, ticketsRes, ticketStatsRes, assetStatsRes, licensesRes] =
         await Promise.all([
           itHelpdeskAPI.assets.getAll({ limit: 5 }),
           itHelpdeskAPI.tickets.getAll({ limit: 5 }),
           itHelpdeskAPI.tickets.getStats(),
           itHelpdeskAPI.assets.getStats(),
+          itHelpdeskAPI.licenses.getAll({ all: "true" }).catch((err) => {
+            console.error("License fetch error:", err);
+            return { data: [] };
+          }),
         ]);
 
       const assetData = assetsRes?.data || [];
@@ -461,6 +469,50 @@ export default function ITHHelpdeskHome() {
 
       setRecentAssets(assetData);
       setRecentTickets(ticketData);
+
+      // Check expired and expiring software licenses (expired OR expiring within 7 days / 1 week)
+      const rawLicenses = Array.isArray(licensesRes?.data)
+        ? licensesRes.data
+        : Array.isArray(licensesRes)
+        ? licensesRes
+        : [];
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const expList = rawLicenses
+        .filter((item) => {
+          const rawDate = item?.expiry_date || item?.expiryDate || item?.expires_at;
+          if (!rawDate) return false;
+          const exp = new Date(rawDate);
+          if (isNaN(exp.getTime())) return false;
+          exp.setHours(0, 0, 0, 0);
+          const diffDays = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          // Include both expired (diffDays < 0) and expiring within 7 days (diffDays <= 7)
+          return diffDays <= 7;
+        })
+        .map((item) => {
+          const rawDate = item?.expiry_date || item?.expiryDate || item?.expires_at;
+          const exp = new Date(rawDate);
+          exp.setHours(0, 0, 0, 0);
+          const diffDays = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          return {
+            ...item,
+            diffDays,
+            isExpired: diffDays < 0,
+            formattedExpiry: exp.toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            }),
+          };
+        })
+        .sort((a, b) => a.diffDays - b.diffDays);
+
+      setExpiringLicenses(expList);
+      if (expList.length > 0) {
+        setShowExpiryModal(true);
+      }
 
       const newCount = ticketStats?.newCount || 0;
       const assignedCount = ticketStats?.assigned || 0;
@@ -1422,7 +1474,7 @@ export default function ITHHelpdeskHome() {
                     {ticketForm.assigned_to === "Vikash"
                       ? "Vikash"
                       : users?.find((u) => u._id === ticketForm.assigned_to)
-                          ?.username || "Vikash"}
+                        ?.username || "Vikash"}
                   </MenuItem>
                 </TextField>
               )}
@@ -1490,14 +1542,14 @@ export default function ITHHelpdeskHome() {
                   ticketForm.sla_due_date
                     ? ticketForm.sla_due_date.substring(0, 10)
                     : (() => {
-                        const n = new Date();
-                        return `${n.getFullYear()}-${String(
-                          n.getMonth() + 1
-                        ).padStart(2, "0")}-${String(n.getDate()).padStart(
-                          2,
-                          "0"
-                        )}`;
-                      })()
+                      const n = new Date();
+                      return `${n.getFullYear()}-${String(
+                        n.getMonth() + 1
+                      ).padStart(2, "0")}-${String(n.getDate()).padStart(
+                        2,
+                        "0"
+                      )}`;
+                    })()
                 }
                 disabled
                 helperText="Auto-set to today's date"
@@ -1735,6 +1787,260 @@ export default function ITHHelpdeskHome() {
             }}
           >
             {savingTicket ? "Saving..." : "Raise Ticket"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Software License Expiry & Expired Pop-up Notification Dialog ──────── */}
+      <Dialog
+        open={showExpiryModal}
+        onClose={() => setShowExpiryModal(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "16px",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+            overflow: "hidden",
+          },
+        }}
+      >
+        {/* Header */}
+        <Box
+          sx={{
+            background: "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)",
+            borderBottom: "1px solid #fed7aa",
+            px: 3,
+            py: 2.2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Box
+              sx={{
+                width: 42,
+                height: 42,
+                borderRadius: "10px",
+                backgroundColor: "#ea580c",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#ffffff",
+                boxShadow: "0 4px 10px rgba(234, 88, 12, 0.3)",
+              }}
+            >
+              <AlertTriangle size={22} />
+            </Box>
+            <Box>
+              <Typography variant="h6" fontWeight={700} sx={{ color: "#9a3412", lineHeight: 1.2, fontSize: "1.1rem" }}>
+                Software License Expiry &amp; Renewal Alert
+              </Typography>
+              <Typography variant="caption" sx={{ color: "#c2410c", fontWeight: 500, fontSize: "12px" }}>
+                {(() => {
+                  const expiredCount = expiringLicenses.filter((l) => l.diffDays < 0).length;
+                  const expiringCount = expiringLicenses.filter((l) => l.diffDays >= 0).length;
+                  if (expiredCount > 0 && expiringCount > 0) {
+                    return `${expiredCount} expired and ${expiringCount} expiring within 7 days.`;
+                  }
+                  if (expiredCount > 0) {
+                    return `${expiredCount} software license${expiredCount > 1 ? "s have" : " has"} expired.`;
+                  }
+                  return `${expiringCount} software license${expiringCount > 1 ? "s are" : " is"} expiring within 7 days (1 week).`;
+                })()}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            size="small"
+            onClick={() => setShowExpiryModal(false)}
+            sx={{ color: "#9a3412", "&:hover": { bgcolor: "#fed7aa" } }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+
+        {/* Content / License List */}
+        <DialogContent sx={{ p: 3, bgcolor: "#ffffff" }}>
+          <Box
+            sx={{
+              p: 1.8,
+              mb: 2.5,
+              borderRadius: "10px",
+              backgroundColor: "#fffbeb",
+              border: "1px solid #fef3c7",
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+            }}
+          >
+            <Key size={18} color="#d97706" style={{ flexShrink: 0 }} />
+            <Typography variant="body2" sx={{ color: "#92400e", fontSize: "13px", lineHeight: 1.45 }}>
+              <strong>Notice:</strong> The following software licenses have expired or will expire within 1 week. Please initiate license renewal with the respective vendors to prevent workflow interruptions.
+            </Typography>
+          </Box>
+
+          <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "10px" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead>
+                <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#475569" }}>
+                  <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600 }}>#</th>
+                  <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600 }}>License Name</th>
+                  <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600 }}>License Code</th>
+                  <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600 }}>Assigned To / Vendor</th>
+                  <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600 }}>Expiry Date</th>
+                  <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600 }}>Status / Time Remaining</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expiringLicenses.map((lic, index) => {
+                  const isExpired = lic.diffDays < 0;
+                  const isToday = lic.diffDays === 0;
+                  const isTomorrow = lic.diffDays === 1;
+
+                  let badgeBg = "#fff7ed";
+                  let badgeColor = "#ea580c";
+                  let badgeBorder = "#ffedd5";
+                  let badgeText = `Expires in ${lic.diffDays} days`;
+
+                  if (isExpired) {
+                    badgeBg = "#fef2f2";
+                    badgeColor = "#dc2626";
+                    badgeBorder = "#fecaca";
+                    badgeText =
+                      lic.diffDays === -1
+                        ? "Expired Yesterday"
+                        : `Expired (${Math.abs(lic.diffDays)} days ago)`;
+                  } else if (isToday) {
+                    badgeBg = "#fef2f2";
+                    badgeColor = "#dc2626";
+                    badgeBorder = "#fecaca";
+                    badgeText = "Expires Today";
+                  } else if (isTomorrow) {
+                    badgeBg = "#fff7ed";
+                    badgeColor = "#ea580c";
+                    badgeBorder = "#ffedd5";
+                    badgeText = "Expires Tomorrow (1 day)";
+                  }
+
+                  return (
+                    <tr
+                      key={lic._id || index}
+                      style={{
+                        borderBottom: index < expiringLicenses.length - 1 ? "1px solid #f1f5f9" : "none",
+                        backgroundColor: isExpired ? "#fff5f5" : isToday ? "#fffaf5" : "#ffffff",
+                      }}
+                    >
+                      <td style={{ padding: "12px 14px", color: "#64748b", fontWeight: 500 }}>
+                        {index + 1}
+                      </td>
+                      <td style={{ padding: "12px 14px" }}>
+                        <div style={{ fontWeight: 600, color: "#1e293b" }}>
+                          {lic.license_name || "—"}
+                        </div>
+                        {lic.software_name && (
+                          <div style={{ fontSize: "11.5px", color: "#64748b" }}>
+                            {lic.software_name}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: "12px 14px" }}>
+                        <code
+                          style={{
+                            backgroundColor: "#f1f5f9",
+                            padding: "3px 8px",
+                            borderRadius: "6px",
+                            fontSize: "12px",
+                            color: "#334155",
+                            fontFamily: "monospace",
+                          }}
+                        >
+                          {lic.license_code || "—"}
+                        </code>
+                      </td>
+                      <td style={{ padding: "12px 14px", color: "#475569" }}>
+                        <div>{lic.assigned_to || "Unassigned"}</div>
+                        {lic.vendor && (
+                          <div style={{ fontSize: "11px", color: "#94a3b8" }}>
+                            {typeof lic.vendor === "object" ? lic.vendor.name : lic.vendor}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: "12px 14px", color: "#334155", fontWeight: 500 }}>
+                        {lic.formattedExpiry}
+                      </td>
+                      <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "4px 10px",
+                            borderRadius: "20px",
+                            fontSize: "11.5px",
+                            fontWeight: 600,
+                            backgroundColor: badgeBg,
+                            color: badgeColor,
+                            border: `1px solid ${badgeBorder}`,
+                          }}
+                        >
+                          {badgeText}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </DialogContent>
+
+        {/* Footer */}
+        <DialogActions
+          sx={{
+            px: 3,
+            py: 2,
+            borderTop: "1px solid #e2e8f0",
+            bgcolor: "#fafbfc",
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <Button
+            onClick={() => setShowExpiryModal(false)}
+            variant="outlined"
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 600,
+              px: 2.5,
+              borderColor: "#cbd5e1",
+              color: "#475569",
+              "&:hover": { borderColor: "#94a3b8", bgcolor: "#f1f5f9" },
+            }}
+          >
+            Remind Later
+          </Button>
+          <Button
+            onClick={() => {
+              setShowExpiryModal(false);
+              navigate("/it-helpdesk/licenses");
+            }}
+            variant="contained"
+            endIcon={<ArrowRight size={16} />}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 600,
+              px: 3,
+              background: "linear-gradient(135deg, #ea580c 0%, #c2410c 100%)",
+              boxShadow: "0 4px 12px rgba(234, 88, 12, 0.25)",
+              "&:hover": {
+                background: "linear-gradient(135deg, #c2410c 0%, #9a3412 100%)",
+              },
+            }}
+          >
+            View in License Management
           </Button>
         </DialogActions>
       </Dialog>

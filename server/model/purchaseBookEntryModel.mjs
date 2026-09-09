@@ -39,6 +39,8 @@ const purchaseBookEntrySchema = new mongoose.Schema({
   revenueSgst: { type: Number },
   revenueIgst: { type: Number },
   revenueTotal: { type: Number },
+  revenueRate: { type: Number, default: 0 },
+  revenueCurrencyAmount: { type: Number, default: 0 },
   isApproved: { type: Boolean, default: false },
   isPostBilling: { type: Boolean, default: false },
   approvedByFirst: { type: String, trim: true },

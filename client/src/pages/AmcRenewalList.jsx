@@ -379,7 +379,7 @@ export default function AmcRenewalList() {
                 <label style={{ visibility: "hidden" }}>Action</label>
                 <button
                   type="button"
-                  className="btn"
+                  className="btn btn-secondary"
                   onClick={() => setFilters({ status: "", search: "" })}
                   style={{
                     height: "38px",
@@ -387,8 +387,11 @@ export default function AmcRenewalList() {
                     alignItems: "center",
                     justifyContent: "center",
                     boxSizing: "border-box",
+                    backgroundColor: "#ffffff",
                     color: "#0f172a",
+                    border: "1px solid #cbd5e1",
                     fontWeight: 600,
+                    marginTop: 0,
                   }}
                 >
                   Clear Filters

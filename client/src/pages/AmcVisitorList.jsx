@@ -262,53 +262,72 @@ export default function AmcVisitorList() {
           </div>
         </div>
         <div className="topbar-right" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-          <div style={{ display: "inline-flex", gap: "6px", background: "#f1f5f9", padding: "4px", borderRadius: "8px" }}>
-            <button
-              type="button"
-              className={`btn ${tabValue === 0 ? "btn-primary" : ""}`}
-              onClick={() => setTabValue(0)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "6px 14px",
-                fontSize: "13px",
-                fontWeight: 600,
-                borderRadius: "6px",
-                boxShadow: tabValue === 0 ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
-                background: tabValue === 0 ? undefined : "transparent",
-                border: tabValue === 0 ? undefined : "none",
-                color: tabValue === 0 ? "white" : "#475569",
-              }}
-            >
-              <ClipboardList size={15} /> Visitor History Logs
-            </button>
-            <button
-              type="button"
-              className={`btn ${tabValue === 1 ? "btn-primary" : ""}`}
-              onClick={() => setTabValue(1)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "6px 14px",
-                fontSize: "13px",
-                fontWeight: 600,
-                borderRadius: "6px",
-                boxShadow: tabValue === 1 ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
-                background: tabValue === 1 ? undefined : "transparent",
-                border: tabValue === 1 ? undefined : "none",
-                color: tabValue === 1 ? "white" : "#475569",
-              }}
-            >
-              <QrCode size={15} /> QR Poster Print
-            </button>
-          </div>
-
           <button
+            type="button"
+            className={`btn ${tabValue === 0 ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setTabValue(0)}
+            style={{
+              height: "38px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              padding: "0 14px",
+              fontSize: "13px",
+              fontWeight: 600,
+              borderRadius: "8px",
+              boxSizing: "border-box",
+              marginTop: 0,
+              marginBottom: 0,
+              backgroundColor: tabValue === 0 ? undefined : "#ffffff",
+              color: tabValue === 0 ? "#ffffff" : "#0f172a",
+              border: tabValue === 0 ? "1px solid #4338ca" : "1px solid #cbd5e1",
+            }}
+          >
+            <ClipboardList size={15} /> Visitor History Logs
+          </button>
+          <button
+            type="button"
+            className={`btn ${tabValue === 1 ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setTabValue(1)}
+            style={{
+              height: "38px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              padding: "0 14px",
+              fontSize: "13px",
+              fontWeight: 600,
+              borderRadius: "8px",
+              boxSizing: "border-box",
+              marginTop: 0,
+              marginBottom: 0,
+              backgroundColor: tabValue === 1 ? undefined : "#ffffff",
+              color: tabValue === 1 ? "#ffffff" : "#0f172a",
+              border: tabValue === 1 ? "1px solid #4338ca" : "1px solid #cbd5e1",
+            }}
+          >
+            <QrCode size={15} /> QR Poster Print
+          </button>
+          <button
+            type="button"
             className="btn btn-primary"
             onClick={handleExportExcel}
-            style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "7px 16px", fontSize: "13px" }}
+            style={{
+              height: "38px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              padding: "0 16px",
+              fontSize: "13px",
+              fontWeight: 600,
+              borderRadius: "8px",
+              boxSizing: "border-box",
+              marginTop: 0,
+              marginBottom: 0,
+            }}
           >
             <Download size={15} /> Export Excel
           </button>
@@ -372,7 +391,7 @@ export default function AmcVisitorList() {
                     <label style={{ visibility: "hidden" }}>Action</label>
                     <button
                       type="button"
-                      className="btn"
+                      className="btn btn-secondary"
                       onClick={() => setFilters({ status: "", search: "" })}
                       style={{
                         height: "38px",
@@ -380,8 +399,11 @@ export default function AmcVisitorList() {
                         alignItems: "center",
                         justifyContent: "center",
                         boxSizing: "border-box",
+                        backgroundColor: "#ffffff",
                         color: "#0f172a",
+                        border: "1px solid #cbd5e1",
                         fontWeight: 600,
+                        marginTop: 0,
                       }}
                     >
                       Clear Filters

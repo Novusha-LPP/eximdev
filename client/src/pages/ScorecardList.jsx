@@ -196,7 +196,7 @@ export default function ScorecardList() {
                 <label style={{ visibility: "hidden" }}>Action</label>
                 <button
                   type="button"
-                  className="btn"
+                  className="btn btn-secondary"
                   onClick={() => setFilters({ branch: "", status: "", supplierName: "" })}
                   style={{
                     height: "38px",
@@ -204,8 +204,11 @@ export default function ScorecardList() {
                     alignItems: "center",
                     justifyContent: "center",
                     boxSizing: "border-box",
+                    backgroundColor: "#ffffff",
                     color: "#0f172a",
+                    border: "1px solid #cbd5e1",
                     fontWeight: 600,
+                    marginTop: 0,
                   }}
                 >
                   Clear Filters

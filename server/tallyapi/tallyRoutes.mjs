@@ -10,6 +10,106 @@ const router = express.Router();
 router.get("/test", (req, res) => res.json({ status: "Tally API is connected and working!" }));
 
 /**
+ * Normalize any date to yyyy-MM-dd format for outgoing Tally APIs
+ * Handles: dd-MM-yyyy, dd/MM/yyyy, yyyy-MM-dd, ISO strings, Date objects
+ */
+const normalizeDate = (dateVal) => {
+    if (!dateVal) return "";
+    let str = String(dateVal).trim();
+
+    // Already yyyy-MM-dd format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+    // ISO string or yyyy-MM-dd like 2026-09-05 or 2026-09-05T05:38:55.109Z
+    const ymdMatch = str.match(/^(\d{4})[\-\/\.](\d{1,2})[\-\/\.](\d{1,2})/);
+    if (ymdMatch) {
+        const year = ymdMatch[1];
+        const month = ymdMatch[2].padStart(2, '0');
+        const day = ymdMatch[3].padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // Fix year typo e.g. 26-05-0026 -> 26-05-2026
+    if (/^\d{2}-\d{2}-00\d{2}$/.test(str)) {
+        str = str.replace(/-00(\d{2})$/, '-20$1');
+    }
+
+    // dd-MM-yyyy or dd/MM/yyyy or dd.MM.yyyy (1 or 2 digits)
+    const dmyMatch = str.match(/^(\d{1,2})[\-\/\.](\d{1,2})[\-\/\.](\d{4})/);
+    if (dmyMatch) {
+        const day = dmyMatch[1].padStart(2, '0');
+        const month = dmyMatch[2].padStart(2, '0');
+        const year = dmyMatch[3];
+        return `${year}-${month}-${day}`;
+    }
+
+    // YYYYMMDD string like 20260905
+    if (/^\d{8}$/.test(str)) {
+        return `${str.substring(0, 4)}-${str.substring(4, 6)}-${str.substring(6, 8)}`;
+    }
+
+    // Date object or parseable date string
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    return str;
+};
+
+/**
+ * Normalize billing date to dd-MM-yyyy format for EXIM billing details database storage
+ */
+const normalizeBillingDate = (dateVal) => {
+    if (!dateVal) return "";
+    let str = String(dateVal).trim();
+
+    // Fix year typo e.g. 26-05-0026 -> 26-05-2026
+    if (/^\d{2}-\d{2}-00\d{2}$/.test(str)) {
+        str = str.replace(/-00(\d{2})$/, '-20$1');
+    }
+
+    // Handle 09/XX/YYYY or 09-XX-YYYY (where 09 is September month coming from Tally MM/DD/YYYY)
+    const mdyMatch = str.match(/^(09)[\-\/\.](0[1-9]|1[0-2])[\-\/\.](202[4-6])$/);
+    if (mdyMatch) {
+        const day = mdyMatch[2].padStart(2, '0');
+        const year = mdyMatch[3];
+        return `${day}-09-${year}`;
+    }
+
+    // Already dd-MM-yyyy format
+    if (/^\d{2}-\d{2}-\d{4}$/.test(str)) return str;
+
+    // ISO string or yyyy-MM-dd like 2026-09-05 or 2026-05-09
+    const ymdMatch = str.match(/^(\d{4})[\-\/\.](\d{1,2})[\-\/\.](\d{1,2})/);
+    if (ymdMatch) {
+        const year = ymdMatch[1];
+        const month = ymdMatch[2].padStart(2, '0');
+        const day = ymdMatch[3].padStart(2, '0');
+        return `${day}-${month}-${year}`;
+    }
+
+    // dd-MM-yyyy or dd/MM/yyyy or dd.MM.yyyy (1 or 2 digits)
+    const dmyMatch = str.match(/^(\d{1,2})[\-\/\.](\d{1,2})[\-\/\.](\d{4})/);
+    if (dmyMatch) {
+        const day = dmyMatch[1].padStart(2, '0');
+        const month = dmyMatch[2].padStart(2, '0');
+        const year = dmyMatch[3];
+        return `${day}-${month}-${year}`;
+    }
+
+    // YYYYMMDD string like 20260525
+    if (/^\d{8}$/.test(str)) {
+        return `${str.substring(6, 8)}-${str.substring(4, 6)}-${str.substring(0, 4)}`;
+    }
+
+    return str;
+};
+
+/**
  * Resolves a Tally job number or short bill reference (e.g., GIA/00001/26-27, GEA/0001/26-27, 
  * GG/IA/0001/26-27, GH/EA/0001/26-27, GC/IA/0001/26-27, GB/IA/0001/26-27, FF/0001/26-27, 0001, 00001) 
  * into an array of MongoDB $or query objects.
@@ -1520,12 +1620,12 @@ const updateImportBillingDetailsHandler = async (req, res) => {
         const matchedJobNo = doc.job_no || doc.job_number || doc.jobNo || targetJobNo;
 
         const agencyNo = formatTallyBillNumber(rawAgencyNo, doc, "IMPORT", "AGENCY");
-        const agencyDate = normalizeDate(rawAgencyDate);
+        const agencyDate = normalizeBillingDate(rawAgencyDate);
         const agencyAmt = (rawAgencyAmt !== undefined && rawAgencyAmt !== null && rawAgencyAmt !== "") ? Number(rawAgencyAmt) : undefined;
         const agencyDoc = rawAgencyDoc;
 
         const reimbNo = formatTallyBillNumber(rawReimbNo, doc, "IMPORT", "REIMBURSEMENT");
-        const reimbDate = normalizeDate(rawReimbDate);
+        const reimbDate = normalizeBillingDate(rawReimbDate);
         const reimbAmt = (rawReimbAmt !== undefined && rawReimbAmt !== null && rawReimbAmt !== "") ? Number(rawReimbAmt) : undefined;
         const reimbDoc = rawReimbDoc;
 

@@ -2,8 +2,28 @@ import express from 'express';
 import mongoose from 'mongoose';
 import Activity from '../../model/crm/Activity.mjs';
 import SalesTeam from '../../model/crm/SalesTeam.mjs';
+import Lead from '../../model/crm/Lead.mjs';
+import Opportunity from '../../model/crm/Opportunity.mjs';
 
 const router = express.Router();
+
+async function updateEntityActivityTimestamp(relatedTo, activityType) {
+  if (!relatedTo || !relatedTo.model || !relatedTo.id) return;
+  const now = new Date();
+  try {
+    if (relatedTo.model === 'Lead') {
+      const updateData = { lastActivityAt: now };
+      if (['visit', 'meeting'].includes(activityType?.toLowerCase())) {
+        updateData.hasPlannedVisit = true;
+      }
+      await Lead.findByIdAndUpdate(relatedTo.id, updateData);
+    } else if (relatedTo.model === 'Opportunity') {
+      await Opportunity.findByIdAndUpdate(relatedTo.id, { lastActivityAt: now });
+    }
+  } catch (err) {
+    console.error('Error updating activity timestamp on related entity:', err);
+  }
+}
 
 async function buildActivityFilter(user, requestedTeamId = null, req = null) {
   const role = user?.crmRole || user?.role || req?.headers?.['user-role'];
@@ -112,6 +132,7 @@ router.post('/', async (req, res) => {
       userId: req.user?._id || req.body.userId // Use current user ID or ID from body
     });
     await newActivity.save();
+    await updateEntityActivityTimestamp(newActivity.relatedTo, newActivity.type);
     res.status(201).json(newActivity);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -127,6 +148,7 @@ router.put('/:id', async (req, res) => {
       { new: true }
     );
     if (!updated) return res.status(404).json({ message: 'Activity not found' });
+    await updateEntityActivityTimestamp(updated.relatedTo, updated.type);
     res.json(updated);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });

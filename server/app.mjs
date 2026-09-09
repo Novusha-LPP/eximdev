@@ -246,7 +246,7 @@ import feedback from "./routes/feedbackRoutes.js";
 
 //scrapper
 import cron from "node-cron";
-import { scrapeAndSaveCurrencyRates } from "./services/currencyRateScraper.js";
+// import { scrapeAndSaveCurrencyRates } from "./services/currencyRateScraper.js";
 import ActiveSession from "./model/attendance/ActiveSession.js";
 import AttendanceRecord from "./model/attendance/AttendanceRecord.js";
 import Opportunity from "./model/crm/Opportunity.mjs";
@@ -263,6 +263,7 @@ import uploadFileRoutes from "./routes/upload/uploadFile.mjs";
 // Project Nucleus
 import nucleusReports from "./routes/project-nucleus/nucleusReports.mjs";
 import invoicingNucleusRoutes from "./routes/project-nucleus/invoicingNucleusRoutes.mjs";
+import importPendingProductivityRoutes from "./routes/project-nucleus/importPendingProductivityRoutes.mjs";
 import { seedDefaultInvoicingData, initInvoicingCronScheduler } from "./services/invoicing/invoicingSyncService.mjs";
 import clientQueryRoutes from "./routes/clientQueryRoutes.mjs";
 
@@ -392,6 +393,7 @@ import customHouseRoutes from "./routes/master-directory/customHouseRoutes.mjs";
 import cfsRoutes from "./routes/master-directory/cfsRoutes.mjs";
 import transporterRoutes from "./routes/master-directory/transporterRoutes.mjs";
 import emptyOffLocationRoutes from "./routes/master-directory/emptyOffLocationRoutes.mjs";
+import notificationRoutes from "./routes/master-directory/notificationRoutes.mjs";
 
 // Tally API
 import tallyRoutes from "./tallyapi/tallyRoutes.mjs";
@@ -741,6 +743,7 @@ app.use(uploadFileRoutes);
 // Project Nucleus
 app.use("/api/project-nucleus", nucleusReports);
 app.use("/api/project-nucleus/invoicing", invoicingNucleusRoutes);
+app.use("/api/project-nucleus/import-pending", importPendingProductivityRoutes);
 
 // KPI Module
 app.use(kpiRoutes);
@@ -803,6 +806,7 @@ app.use("/api", cfsRoutes);
 app.use("/api", transporterRoutes);
 app.use("/api", generalOrgRoutes);
 app.use("/api", emptyOffLocationRoutes);
+app.use(notificationRoutes);
 
 
 // Tally API
@@ -923,14 +927,13 @@ if (!disableCluster && cluster.isPrimary) {
           cron.schedule(
             "1 0 * * *",
             async () => {
-              console.log(
-                "🕐 Running scheduled currency rate scraper at 12:01 AM..."
-              );
+              console.log('Running scheduled currency rate scraper via Export API at 12:01 AM...');
               try {
-                const result = await scrapeAndSaveCurrencyRates();
-                console.log("✅ Scheduled scrape completed:", result);
+                const { default: axios } = await import('axios');
+                const res = await axios.post('https://eximbot.alvision.in/export/api/currency-rates/scrape', {}, { timeout: 30000 });
+                console.log('Scheduled scrape completed via Export API:', res.data);
               } catch (error) {
-                console.error("❌ Scheduled scrape failed:", error);
+                console.error('Scheduled scrape via Export API failed:', error.message);
               }
             },
             {

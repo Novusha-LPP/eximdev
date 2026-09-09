@@ -333,7 +333,8 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
             (Number(prev.odPremium) > 0) ||
             (Number(prev.totalPolicyPremium) > 0) ||
             (Number(prev.newPremiumAmount) > 0) ||
-            (Number(prev.premiumAmount) > 0);
+            (Number(prev.premiumAmount) > 0) ||
+            (Number(prev.premium) > 0);
           if (!hasPremium) missing.push("Premium Amount");
 
           if (missing.length > 0) {
@@ -441,19 +442,17 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       dataToSave.paymentUtr && String(dataToSave.paymentUtr).trim().length > 0
     );
 
-    // Only set renewed = YES and sync paymentDate to renewalDate when actively renewing or when payment UTR is completed
-    if (hasRenewedFields || hasCompletedUtr || isRenew) {
+    // Only set renewed = YES and renewalStatus = Renewed when payment UTR is completed
+    if (hasCompletedUtr) {
       dataToSave.renewed = "YES";
       dataToSave.renewalStatus = "Renewed";
-      if (dataToSave.paymentDate) {
-        dataToSave.renewalDate = dataToSave.paymentDate;
-        dataToSave.renewedDate = dataToSave.paymentDate;
-      }
+      dataToSave.renewalDate = formData.renewalDate || dataToSave.paymentDate || "";
+      dataToSave.renewedDate = formData.renewedDate || formData.renewalDate || dataToSave.paymentDate || "";
     } else {
       dataToSave.renewed = "NO";
       dataToSave.renewalStatus = "Pending";
       dataToSave.renewalDate = formData.renewalDate || "";
-      dataToSave.renewedDate = formData.renewalDate || "";
+      dataToSave.renewedDate = formData.renewedDate || formData.renewalDate || "";
     }
 
     // ONCE THE PAYMENT UTR STAGE IS COMPLETED (paymentUtr entered), RENEW THE OLD POLICY WITH THE NEW POLICY
@@ -560,7 +559,27 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
 
 
   const formatDateValue = useCallback((dateStr) => {
-    return dateStr ? String(dateStr).split("T")[0] : "";
+    if (!dateStr) return "";
+    if (typeof dateStr === "string") {
+      if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+        return dateStr.split("T")[0];
+      }
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) {
+        const year = parsed.getFullYear();
+        const month = String(parsed.getMonth() + 1).padStart(2, "0");
+        const day = String(parsed.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+      return dateStr.split("T")[0];
+    }
+    if (dateStr instanceof Date && !isNaN(dateStr.getTime())) {
+      const year = dateStr.getFullYear();
+      const month = String(dateStr.getMonth() + 1).padStart(2, "0");
+      const day = String(dateStr.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+    return "";
   }, []);
 
   const handleRegistrationBlur = useCallback(async (e) => {
@@ -843,10 +862,10 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
               <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
-                Renewed Premium
+                {(formData.renewalStatus === "Renewed" || formData.paymentUtr) ? "Renewed Premium" : "Policy Premium"}
               </Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#16a34a" }}>
-                ₹ {Number(formData.newTotalPolicyPremium || formData.totalPolicyPremium || 0).toLocaleString("en-IN")}
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: (formData.renewalStatus === "Renewed" || formData.paymentUtr) ? "#16a34a" : "#0f172a" }}>
+                ₹ {Number(formData.newTotalPolicyPremium || formData.totalPolicyPremium || formData.premiumAmount || formData.premium || 0).toLocaleString("en-IN")}
               </Typography>
             </Grid>
           </Grid>

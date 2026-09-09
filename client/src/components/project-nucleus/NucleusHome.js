@@ -52,7 +52,7 @@ const NucleusHome = () => {
                 { id: 'fine', label: 'Bill of Entry – Fine Report' },
                 { id: 'penalty', label: 'Bill of Entry – Penalty Report' },
                 { id: 'top10', label: 'Top 10 Importers' },
-                { id: 'import_pending_summary', label: 'Pending Job Summary' },
+                { id: 'import_pending_summary', label: 'Import Pending Job & Productivity' },
                 { id: 'import_out_of_charge_summary', label: 'Out of Charge Summary' }
             ]
         },
@@ -165,10 +165,8 @@ const NucleusHome = () => {
     useEffect(() => {
         if (activeReport === 'transport_monitoring') {
             setFilterType('day');
-        } else if (['import_pending_summary'].includes(activeReport)) {
-            setFilterType('fin-year');
         } else {
-            if (filterType === 'fin-year' && activeReport !== 'import_out_of_charge_summary') setFilterType('year');
+            if (filterType === 'fin-year' && !['import_out_of_charge_summary', 'import_pending_summary', 'export_leo_summary'].includes(activeReport)) setFilterType('year');
         }
     }, [activeReport]);
 
@@ -404,6 +402,7 @@ const NucleusHome = () => {
                         selectedDay={selectedDay}
                         category={selectedCategory}
                         branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
+                        selectedBranchGroup={selectedBranchGroup}
                     />
                 );
             case 'import_out_of_charge_summary':
@@ -418,6 +417,7 @@ const NucleusHome = () => {
                         selectedDay={selectedDay}
                         category={selectedCategory}
                         branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
+                        selectedBranchGroup={selectedBranchGroup}
                     />
                 );
             case 'invoicing_group':
@@ -449,7 +449,7 @@ const NucleusHome = () => {
 
     // Determine if date controls are needed (udyam, training, client login analytics, new_customers, invoicing reports don't need them)
     const showDateControls = ![
-        'udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse', 'import_pending_summary',
+        'udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse',
         'invoicing_group', 'invoicing_company', 'invoicing_daily', 'invoicing_targets', 'invoicing_unbilled', 'invoicing_proforma', 'invoicing_credit_notes', 'invoicing_customers', 'invoicing_yoy', 'invoicing_exceptions', 'invoicing_settings'
     ].includes(activeReport);
 
@@ -518,8 +518,6 @@ const NucleusHome = () => {
                                                     if (['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts'].includes(report.id)) {
                                                         setFilterType('day');
                                                         setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
-                                                    } else if (report.id === 'import_pending_summary') {
-                                                        setFilterType('fin-year');
                                                     } else if (report.id === 'import_out_of_charge_summary') {
                                                         if (filterType === 'fin-year') {
                                                             setFilterType('month');
@@ -557,27 +555,25 @@ const NucleusHome = () => {
                     <div className="nucleus-controls-container">
                         <div className="nucleus-filter-section">
                             <div className="filter-row custom-filter-row" style={{ marginTop: 0, paddingLeft: 0, background: 'transparent' }}>
-                                {!["import_pending_summary"].includes(activeReport) && (
-                                    <div className="filter-type-selector">
-                                        <span className="filter-label" style={{ minWidth: 'auto', marginRight: '10px' }}>Filter Period:</span>
-                                        <select
-                                            value={filterType}
-                                            onChange={(e) => setFilterType(e.target.value)}
-                                            className="nucleus-select"
-                                        >
-                                            {['transport_monitoring', 'fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts', 'import_pending_summary', 'import_out_of_charge_summary', 'export_leo_summary'].includes(activeReport) && (
-                                                <option value="day">Day Wise</option>
-                                            )}
-                                            <option value="week">Week Wise</option>
-                                            <option value="month">Month Wise</option>
-                                            <option value="quarter">Quarter Wise</option>
-                                            <option value="year">Year Wise</option>
-                                            {["import_pending_summary", "import_out_of_charge_summary", "export_leo_summary"].includes(activeReport) && <option value="fin-year">Financial Year</option>}
-                                            <option value="date-range">Date Range</option>
-                                            <option value="all">Unfiltered (All Time)</option>
-                                        </select>
-                                    </div>
-                                )}
+                                <div className="filter-type-selector">
+                                    <span className="filter-label" style={{ minWidth: 'auto', marginRight: '10px' }}>Filter Period:</span>
+                                    <select
+                                        value={filterType}
+                                        onChange={(e) => setFilterType(e.target.value)}
+                                        className="nucleus-select"
+                                    >
+                                        {['transport_monitoring', 'fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts', 'import_pending_summary', 'import_out_of_charge_summary', 'export_leo_summary'].includes(activeReport) && (
+                                            <option value="day">Day Wise</option>
+                                        )}
+                                        <option value="week">Week Wise</option>
+                                        <option value="month">Month Wise</option>
+                                        <option value="quarter">Quarter Wise</option>
+                                        <option value="year">Year Wise</option>
+                                        {["import_pending_summary", "import_out_of_charge_summary", "export_leo_summary"].includes(activeReport) && <option value="fin-year">Financial Year</option>}
+                                        <option value="date-range">Date Range</option>
+                                        <option value="all">Unfiltered (All Time)</option>
+                                    </select>
+                                </div>
 
                                 {filterType === 'day' && (
                                     <div className="custom-inputs">

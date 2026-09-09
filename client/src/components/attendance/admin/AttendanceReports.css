@@ -517,6 +517,18 @@
   text-align: center;
 }
 
+.atr-table th.atr-col-spacer,
+.atr-table td.atr-col-spacer {
+  width: 24px !important;
+  min-width: 24px !important;
+  max-width: 24px !important;
+  padding: 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+  background: transparent !important;
+  pointer-events: none;
+}
+
 .atr-table td {
   padding: 10px 14px;
   border-bottom: 1px solid #f1f5f9;
@@ -626,6 +638,29 @@
   background: #eff6ff;
   color: #1d4ed8;
   border: 1px solid #bfdbfe;
+}
+
+.atr-pill-wo-hd,
+.atr-pill-weekoff {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  font-weight: 700;
+}
+
+.atr-pill-holiday {
+  background: #fefce8;
+  color: #a16207;
+  border: 1px solid #fef08a;
+  font-weight: 700;
+}
+
+.atr-pill-total-work {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  color: #065f46;
+  border: 1.5px solid #6ee7b7;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.12);
+  font-weight: 800;
 }
 
 .atr-pill-hdleaves {

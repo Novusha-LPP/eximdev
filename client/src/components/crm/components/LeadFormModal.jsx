@@ -32,11 +32,20 @@ const TRANSPORT_SOURCES = [
   'Other'
 ];
 
-// All known named sources across both verticals (used to detect custom "Other" text)
+// Sources specific to the Novusha business vertical
+const NOVUSHA_SOURCES = [
+  'eLock',
+  'Novusha Direct',
+  'Novusha Referral',
+  'Other'
+];
+
+// All known named sources across verticals (used to detect custom "Other" text)
 const ALL_STANDARD_SOURCES = [
   'Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit',
   'Referral', 'Email Campaign',
-  'CHA (Custom House Agent)', 'Freight Forwarder', 'Importer', 'Exporter'
+  'CHA (Custom House Agent)', 'Freight Forwarder', 'Importer', 'Exporter',
+  'eLock', 'Novusha Direct', 'Novusha Referral'
 ];
 
 export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplicate, leadToEdit }) {
@@ -374,8 +383,9 @@ const getHeaders = () => {
                 value={formData.businessVertical || 'Paramount'}
                 onChange={e => {
                   const vertical = e.target.value;
-                  const isTrans = vertical === 'Transportation';
-                  const defaultSource = isTrans ? 'CHA (Custom House Agent)' : 'Web / Own Generated Lead';
+                  let defaultSource = 'Web / Own Generated Lead';
+                  if (vertical === 'Transportation') defaultSource = 'CHA (Custom House Agent)';
+                  else if (vertical === 'Novusha') defaultSource = 'eLock';
                   setFormData({
                     ...formData,
                     businessVertical: vertical,
@@ -385,6 +395,7 @@ const getHeaders = () => {
                 }}
                 style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem', background: '#fff' }}
               >
+                <option value="Novusha">Novusha</option>
                 <option value="Paramount">Paramount</option>
                 <option value="Transportation">Transportation</option>
                 <option value="Freight Forwarding">Freight Forwarding</option>
@@ -396,7 +407,8 @@ const getHeaders = () => {
             {/* Source */}
             {(() => {
               const isTransportation = formData.businessVertical === 'Transportation';
-              const activeSources = isTransportation ? TRANSPORT_SOURCES : SOURCES;
+              const isNovusha = formData.businessVertical === 'Novusha';
+              const activeSources = isNovusha ? NOVUSHA_SOURCES : (isTransportation ? TRANSPORT_SOURCES : SOURCES);
               const isCustom = formData.source && !ALL_STANDARD_SOURCES.includes(formData.source) && formData.source !== 'Other';
               const selectedVal = isCustom ? 'Other' : (formData.source || activeSources[0]);
               return (
@@ -405,6 +417,9 @@ const getHeaders = () => {
                     Lead Source
                     {isTransportation && (
                       <span style={{ marginLeft: '8px', fontSize: '0.75rem', fontWeight: 600, color: '#7c3aed', background: '#ede9fe', padding: '2px 8px', borderRadius: '99px' }}>Transportation</span>
+                    )}
+                    {isNovusha && (
+                      <span style={{ marginLeft: '8px', fontSize: '0.75rem', fontWeight: 600, color: '#0284c7', background: '#e0f2fe', padding: '2px 8px', borderRadius: '99px' }}>Novusha</span>
                     )}
                   </label>
                   <select

@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const salesIncentiveSchema = new mongoose.Schema({
-  tenantId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  tenantId: { type: mongoose.Schema.Types.ObjectId },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   opportunityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Opportunity', required: true },
   dealValue: { type: Number, required: true },

@@ -1528,7 +1528,11 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
     } else {
       paymentRequestNo = request.requestNo;
       if (request.chargeRef) {
-        const pb = await PurchaseBookEntryModel.findOne({ chargeRef: request.chargeRef }).select('entryNo').lean();
+        const pb = await PurchaseBookEntryModel.findOne({ 
+          chargeRef: request.chargeRef,
+          status: { $ne: 'Rejected' },
+          isRejected: { $ne: true }
+        }).select('entryNo').lean();
         if (pb) {
           purchaseBookNo = pb.entryNo;
         }
@@ -1551,10 +1555,10 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
             );
           }
           if (linkedCharge) {
-            if (linkedCharge.purchase_book_no && !purchaseBookNo) {
+            if (linkedCharge.purchase_book_no && linkedCharge.purchase_book_status !== 'Rejected' && !purchaseBookNo) {
               purchaseBookNo = linkedCharge.purchase_book_no;
             }
-            if (linkedCharge.payment_request_no && !paymentRequestNo) {
+            if (linkedCharge.payment_request_no && linkedCharge.payment_request_status !== 'Rejected' && !paymentRequestNo) {
               paymentRequestNo = linkedCharge.payment_request_no;
             }
           }

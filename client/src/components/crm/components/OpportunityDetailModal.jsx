@@ -458,6 +458,20 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
         </div>
 
         <div style={{ padding: '24px' }}>
+          {/* Referral Highlighting Banner */}
+          {(formData.isReferral || formData.referredFromTeamId || formData.referredToTeamId) && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '10px 16px', background: '#fef2f2', borderRadius: '8px',
+              marginBottom: '20px', border: '1px solid #fecaca', color: '#991b1b'
+            }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 800 }}>⚡ Cross-Team Referral:</span>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>
+                Referred from {formData.referredFromTeamId?.teamName || formData.referredFromTeamId?.name || 'Team'} → {formData.referredToTeamId?.teamName || formData.referredToTeamId?.name || 'Team'}
+              </span>
+            </div>
+          )}
+
           {/* Quick Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
             <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #4f46e5' }}>

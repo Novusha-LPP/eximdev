@@ -50,9 +50,15 @@ const leadSchema = new mongoose.Schema({
   referralSourceName: { type: String },
   businessVertical: {
     type: String,
-    enum: ['Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],
+    enum: ['Novusha', 'Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],
     default: 'Paramount'
   },
+  referredFromTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'SalesTeam' },
+  referredToTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'SalesTeam' },
+  referredByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  isReferral: { type: Boolean, default: false },
+  hasPlannedVisit: { type: Boolean, default: false },
+  lastActivityAt: { type: Date, default: Date.now },
   monthlyVolume: { type: String },
   monthlyRevenue: { type: String },
   period: { type: String, default: () => new Date().toISOString().substring(0, 7) },

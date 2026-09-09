@@ -74,9 +74,10 @@ function StatusBadge({ status }) {
 // ─── Employee / Personal View ──────────────────────────────────────────────────
 function EmployeeView({ data, loading }) {
   if (loading) return <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading your incentives…</div>;
-  if (!data) return null;
 
-  const { summary, incentives = [] } = data;
+  const safeData = data || { summary: { pending: 0, approved: 0, paid: 0, total: 0 }, incentives: [] };
+  const summary = safeData.summary || { pending: 0, approved: 0, paid: 0, total: 0 };
+  const incentives = safeData.incentives || [];
   const maxVal = Math.max(summary.pending, summary.approved, summary.paid, 1);
 
   return (
@@ -163,9 +164,11 @@ function ManagerView({ data, loading, onStatusUpdate }) {
   const [savingId, setSavingId] = useState(null);
 
   if (loading) return <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading team incentives…</div>;
-  if (!data) return null;
 
-  const { stats, leaderboard = [], incentives = [] } = data;
+  const safeData = data || { stats: { totalPending: 0, totalApproved: 0, totalPaid: 0, totalLiability: 0 }, leaderboard: [], incentives: [] };
+  const stats = safeData.stats || { totalPending: 0, totalApproved: 0, totalPaid: 0, totalLiability: 0 };
+  const leaderboard = safeData.leaderboard || [];
+  const incentives = safeData.incentives || [];
   const pendingIncentives = incentives.filter(i => i.status === 'pending');
   const maxTotal = leaderboard.length > 0 ? leaderboard[0].total : 1;
 
@@ -387,7 +390,6 @@ function ManagerView({ data, loading, onStatusUpdate }) {
   );
 }
 
-// ─── Main Dashboard ─────────────────────────────────────────────────────────────
 export default function SalesIncentiveDashboard() {
   const [myData, setMyData] = useState(null);
   const [managerData, setManagerData] = useState(null);
@@ -395,13 +397,29 @@ export default function SalesIncentiveDashboard() {
   const [managerLoading, setManagerLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('my');
   const [currentUser, setCurrentUser] = useState(null);
+  const [teams, setTeams] = useState([]);
+  const [selectedTeamId, setSelectedTeamId] = useState('all');
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
     setCurrentUser(user);
   }, []);
 
-  const isManagerOrAdmin = currentUser?.role === 'Admin' || currentUser?.role === 'Manager';
+  const fetchTeams = useCallback(async () => {
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/teams`, getHeaders());
+      setTeams(res.data.teams || []);
+    } catch (err) {
+      console.error('Failed to fetch teams in incentive dashboard:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTeams();
+  }, [fetchTeams]);
+
+  const role = (currentUser?.crmRole || currentUser?.role || '').toLowerCase();
+  const isManagerOrAdmin = role === 'admin' || role === 'manager' || role === 'hod' || role === 'head_of_department' || !role;
 
   const fetchMyData = useCallback(async () => {
     setMyLoading(true);
@@ -419,14 +437,17 @@ export default function SalesIncentiveDashboard() {
     if (!isManagerOrAdmin) return;
     setManagerLoading(true);
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/incentives/all`, getHeaders());
+      const endpoint = selectedTeamId && selectedTeamId !== 'all' 
+        ? `${process.env.REACT_APP_API_STRING}/crm/incentives/all?teamId=${selectedTeamId}`
+        : `${process.env.REACT_APP_API_STRING}/crm/incentives/all`;
+      const res = await axios.get(endpoint, getHeaders());
       setManagerData(res.data);
     } catch (err) {
       console.error('Failed to fetch all incentives:', err);
     } finally {
       setManagerLoading(false);
     }
-  }, [isManagerOrAdmin]);
+  }, [isManagerOrAdmin, selectedTeamId]);
 
   useEffect(() => {
     fetchMyData();
@@ -434,7 +455,7 @@ export default function SalesIncentiveDashboard() {
 
   useEffect(() => {
     if (activeTab === 'team') fetchManagerData();
-  }, [activeTab, fetchManagerData]);
+  }, [activeTab, fetchManagerData, selectedTeamId]);
 
   const handleStatusUpdate = async (id, updates) => {
     try {
@@ -462,12 +483,26 @@ export default function SalesIncentiveDashboard() {
             </h2>
             <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8' }}>Track your earnings and incentive pipeline</p>
           </div>
-          <button
-            onClick={() => { fetchMyData(); if (activeTab === 'team') fetchManagerData(); }}
-            style={{ background: '#f1f5f9', border: 'none', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <RefreshCw size={14} /> Refresh
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {activeTab === 'team' && isManagerOrAdmin && (
+              <select
+                value={selectedTeamId}
+                onChange={e => setSelectedTeamId(e.target.value)}
+                style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, background: '#fff', color: '#334155' }}
+              >
+                <option value="all">All Teams</option>
+                {teams.map(t => (
+                  <option key={t._id} value={t._id}>{t.name || t.teamName}</option>
+                ))}
+              </select>
+            )}
+            <button
+              onClick={() => { fetchMyData(); if (activeTab === 'team') fetchManagerData(); }}
+              style={{ background: '#f1f5f9', border: 'none', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <RefreshCw size={14} /> Refresh
+            </button>
+          </div>
         </div>
 
         {/* Tab Navigation */}

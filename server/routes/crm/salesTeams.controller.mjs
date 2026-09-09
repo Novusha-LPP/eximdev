@@ -51,19 +51,22 @@ router.post('/', async (req, res) => {
 // GET all teams
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 20, type } = req.query;
+    const { page = 1, limit = 100, type, all } = req.query;
     let query = { isActive: true };
 
     if (type) query.type = type;
 
-    const teams = await SalesTeam.find(query)
+    let teamsQuery = SalesTeam.find(query)
       .populate('managerId', 'username first_name last_name email')
       .populate('memberIds', 'username first_name last_name')
       .populate('assignedTerritories', 'name')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
+      .sort({ name: 1 });
 
+    if (all !== 'true') {
+      teamsQuery = teamsQuery.skip((page - 1) * limit).limit(Number(limit));
+    }
+
+    const teams = await teamsQuery;
     const total = await SalesTeam.countDocuments(query);
 
     res.json({

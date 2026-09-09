@@ -60,15 +60,19 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
     ]
   }).lean();
 
+  const myTeamIds = myTeams.map(t => t._id);
   let visibleUserIds = [objectIdUserId];
 
   if (myTeams && myTeams.length > 0) {
     myTeams.forEach(team => {
-      if (team.memberIds) {
-        team.memberIds.forEach(m => visibleUserIds.push(new mongoose.Types.ObjectId(m.toString())));
-      }
-      if (team.managerId) {
-        visibleUserIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
+      const isManager = team.managerId?.toString() === userId?.toString();
+      if (isManager) {
+        if (team.memberIds) {
+          team.memberIds.forEach(m => visibleUserIds.push(new mongoose.Types.ObjectId(m.toString())));
+        }
+        if (team.managerId) {
+          visibleUserIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
+        }
       }
     });
   }
@@ -77,8 +81,16 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 
   const orConditions = [
     { ownerId: { $in: uniqueUserIds } },
-    { createdBy: { $in: uniqueUserIds } }
+    { createdBy: { $in: uniqueUserIds } },
+    { hasPlannedVisit: true },
+    { status: 'sales_visit' },
+    { 'plannedVisits.0': { $exists: true } }
   ];
+
+  if (myTeamIds.length > 0) {
+    orConditions.push({ referredFromTeamId: { $in: myTeamIds } });
+    orConditions.push({ referredToTeamId: { $in: myTeamIds } });
+  }
 
   return { $or: orConditions };
 }
@@ -136,6 +148,9 @@ router.get('/', async (req, res) => {
 
     const leads = await Lead.find(query)
       .populate('ownerId', 'username first_name last_name')
+      .populate('referredFromTeamId', 'nameCode teamName')
+      .populate('referredToTeamId', 'nameCode teamName')
+      .populate('referredByUserId', 'username first_name last_name')
       .sort({ createdAt: -1 });
       
     console.log(`[CRM GET Leads] Returning ${leads.length} leads to user ${userId}`);
@@ -149,9 +164,47 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const lead = await Lead.findById(req.params.id)
-      .populate('ownerId', 'username first_name last_name');
+      .populate('ownerId', 'username first_name last_name')
+      .populate('referredFromTeamId', 'nameCode teamName')
+      .populate('referredToTeamId', 'nameCode teamName')
+      .populate('referredByUserId', 'username first_name last_name');
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
     res.json(lead);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// PUT /api/crm/leads/:id/refer - Transfer/Refer lead to internal team
+router.put('/:id/refer', async (req, res) => {
+  try {
+    const { targetTeamId, fromTeamId } = req.body;
+    const userId = req.user?._id || req.headers['user-id'];
+    
+    if (!targetTeamId) {
+      return res.status(400).json({ success: false, message: 'Target team ID is required' });
+    }
+
+    const lead = await Lead.findById(req.params.id);
+    if (!lead) {
+      return res.status(404).json({ success: false, message: 'Lead not found' });
+    }
+
+    lead.referredToTeamId = targetTeamId;
+    if (fromTeamId) lead.referredFromTeamId = fromTeamId;
+    if (userId) lead.referredByUserId = userId;
+    lead.isReferral = true;
+    lead.lastActivityAt = new Date();
+
+    await lead.save();
+
+    const updatedLead = await Lead.findById(lead._id)
+      .populate('ownerId', 'username first_name last_name')
+      .populate('referredFromTeamId', 'nameCode teamName')
+      .populate('referredToTeamId', 'nameCode teamName')
+      .populate('referredByUserId', 'username first_name last_name');
+
+    res.json({ success: true, message: 'Lead referred successfully to target team', lead: updatedLead });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -93,12 +93,11 @@ const AttendanceManagement = () => {
 
     const openEdit = rec => {
         setDrawer({ open: true, type: 'edit', rec });
-        const day = rec.attendance_date ? new Date(rec.attendance_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
         setEditForm({
             _id: rec._id,
-            status: rec.status,
-            first_in: rec.first_in ? new Date(rec.first_in).toISOString().slice(0, 16) : `${day}T09:00`,
-            last_out: rec.last_out ? new Date(rec.last_out).toISOString().slice(0, 16) : `${day}T18:00`,
+            status: (rec.status === 'missed_punch' || rec.status === 'incomplete') ? 'incomplete' : rec.status,
+            first_in: rec.first_in ? moment(rec.first_in).format('YYYY-MM-DDTHH:mm') : '',
+            last_out: rec.last_out ? moment(rec.last_out).format('YYYY-MM-DDTHH:mm') : '',
             employee_id: rec.employee_id?._id || rec.id, // Ensure employee_id is passed
             remarks: rec.remarks || '',
         });
@@ -126,7 +125,12 @@ const AttendanceManagement = () => {
 
         setSaving(true);
         try {
-            await attendanceAPI.updateAttendanceRecord(editForm._id, editForm);
+            const payload = {
+                ...editForm,
+                first_in: editForm.first_in || null,
+                last_out: editForm.last_out || null
+            };
+            await attendanceAPI.updateAttendanceRecord(editForm._id, payload);
             toast.success('Record updated');
             setDrawer({ open: false }); fetchData();
         } catch (err) {
@@ -138,8 +142,9 @@ const AttendanceManagement = () => {
                 return;
             }
             toast.error(apiMessage);
+        } finally {
+            setSaving(false);
         }
-        finally { setSaving(false); }
     };
 
     const exportCSV = () => {
@@ -384,10 +389,13 @@ const AttendanceManagement = () => {
                                 <div className="am-field">
                                     <label>Status Override</label>
                                     <select className="am-field-ctrl" value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
+                                        <option value="incomplete">Miss Punch</option>
                                         <option value="present">Present</option>
                                         <option value="absent">Absent</option>
                                         <option value="half_day">Half Day</option>
                                         <option value="leave">Leave</option>
+                                        <option value="weekly_off">Weekly Off</option>
+                                        <option value="holiday">Holiday</option>
                                     </select>
                                 </div>
 

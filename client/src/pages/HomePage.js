@@ -130,6 +130,7 @@ import CFSDirectory from "../components/master-directory/CFSDirectory.js";
 import TransporterDirectory from "../components/master-directory/TransporterDirectory.js";
 import EmptyOffLocationDirectory from "../components/master-directory/EmptyOffLocationDirectory.js";
 import IndianPortDirectory from "../components/master-directory/IndianPortDirectory.js";
+import NotificationMasterDirectory from "../components/master-directory/notifications/NotificationMasterDirectory.js";
 
 // Document Collection
 import DocumentCollection from "../components/document-collection/DocumentCollection.js";
@@ -809,6 +810,14 @@ function HomePageContent() {
                 element={
                   <ProtectedRoute requiredModule="Import Utility Tool">
                     <ImportUtilityTool />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/notification-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <NotificationMasterDirectory />
                   </ProtectedRoute>
                 }
               />

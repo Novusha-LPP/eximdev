@@ -20,11 +20,21 @@ import SyncIcon from "@mui/icons-material/Sync";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import CalculateIcon from "@mui/icons-material/Calculate";
+
+// Helper to safely parse numeric values
+const parseNum = (val) => {
+  if (val === null || val === undefined || val === "") return 0;
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  const cleaned = String(val).replace(/,/g, "").trim();
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+};
 
 // Helper to format currency values cleanly
 const fmtINR = (val) => {
   if (val === "" || val === null || val === undefined) return "—";
-  const num = parseFloat(val);
+  const num = typeof val === "number" ? val : parseFloat(String(val).replace(/,/g, ""));
   if (isNaN(num)) return val;
   return "₹" + num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
@@ -431,18 +441,156 @@ export default function BoePartIIIDutyTable({
         </Box>
       )}
 
-      {/* Product Cards List */}
-      {dutiesList && dutiesList.length > 0 && (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 3.5 }}>
-          {dutiesList.map((item, index) => {
-            const d = item.ItemDetails || {};
-            const itemDuty = item.ItemDuty || {};
-            const otherDuties = item.OtherDuties || {};
-            const otherDutiesA = item.OtherDutiesA || {};
+      {/* Product Cards List with Top Aggregate Summary */}
+      {dutiesList && dutiesList.length > 0 && (() => {
+        // Calculate cumulative totals across all products
+        const totalAssessableValue = dutiesList.reduce((sum, item) => {
+          const d = item?.ItemDetails || {};
+          const val = d["ASSESS VALUE"] ?? d["ASSESS_VALUE"] ?? d.assess_value ?? d.assessValue;
+          return sum + parseNum(val);
+        }, 0);
 
-            return (
-              <Card
-                key={index}
+        const totalProductDuty = dutiesList.reduce((sum, item) => {
+          const d = item?.ItemDetails || {};
+          const val = d["TOTAL DUTY"] ?? d["TOTAL_DUTY"] ?? d.total_duty ?? d.totalDuty;
+          return sum + parseNum(val);
+        }, 0);
+
+        return (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 3.5 }}>
+            {/* Top Cumulative Summary Banner */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 2, sm: 2.5 },
+                borderRadius: "8px",
+                background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                border: "1px solid #334155",
+                color: "#ffffff",
+                display: "flex",
+                flexDirection: { xs: "column", md: "row" },
+                alignItems: { xs: "stretch", md: "center" },
+                justifyContent: "space-between",
+                gap: 2,
+                boxShadow: "0 4px 12px rgba(15, 23, 42, 0.15)"
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: "8px",
+                    background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 2px 8px rgba(37, 99, 235, 0.35)",
+                    flexShrink: 0
+                  }}
+                >
+                  <CalculateIcon sx={{ fontSize: 26, color: "#ffffff" }} />
+                </Box>
+                <Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                    <Typography variant="h6" sx={{ fontSize: "1.05rem", fontWeight: 700, color: "#ffffff" }}>
+                      Total Duties & Assessable Value Summary
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={`${dutiesList.length} ${dutiesList.length === 1 ? "Product" : "Products"}`}
+                      sx={{
+                        background: "rgba(56, 189, 248, 0.15)",
+                        color: "#38bdf8",
+                        border: "1px solid rgba(56, 189, 248, 0.3)",
+                        fontWeight: 700,
+                        fontSize: "0.75rem",
+                        height: "22px"
+                      }}
+                    />
+                  </Box>
+                  <Typography variant="body2" sx={{ color: "#94a3b8", mt: 0.3, fontSize: "0.85rem" }}>
+                    Cumulative sum of all product assessable values and total duties
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
+                {/* Total Assessable Value */}
+                <Box
+                  sx={{
+                    background: "rgba(255, 255, 255, 0.08)",
+                    px: 2.5,
+                    py: 1,
+                    borderRadius: "8px",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    minWidth: { xs: "100%", sm: "180px" },
+                    textAlign: { xs: "left", sm: "right" },
+                    flex: { xs: 1, md: "initial" }
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "#94a3b8",
+                      display: "block",
+                      textTransform: "uppercase",
+                      fontSize: "10.5px",
+                      fontWeight: 700,
+                      letterSpacing: "0.05em"
+                    }}
+                  >
+                    Total Assessable Value (CIF)
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: "#38bdf8", mt: 0.2, fontSize: "1.15rem" }}>
+                    {fmtINR(totalAssessableValue)}
+                  </Typography>
+                </Box>
+
+                {/* Total Product Duty */}
+                <Box
+                  sx={{
+                    background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                    px: 2.5,
+                    py: 1,
+                    borderRadius: "8px",
+                    border: "1px solid rgba(255, 255, 255, 0.2)",
+                    minWidth: { xs: "100%", sm: "180px" },
+                    textAlign: { xs: "left", sm: "right" },
+                    boxShadow: "0 2px 10px rgba(37, 99, 235, 0.3)",
+                    flex: { xs: 1, md: "initial" }
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "#bfdbfe",
+                      display: "block",
+                      textTransform: "uppercase",
+                      fontSize: "10.5px",
+                      fontWeight: 700,
+                      letterSpacing: "0.05em"
+                    }}
+                  >
+                    Total Product Duty
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: "#ffffff", mt: 0.2, fontSize: "1.15rem" }}>
+                    {fmtINR(totalProductDuty)}
+                  </Typography>
+                </Box>
+              </Box>
+            </Paper>
+
+            {/* Individual Product Cards */}
+            {dutiesList.map((item, index) => {
+              const d = item.ItemDetails || {};
+              const itemDuty = item.ItemDuty || {};
+              const otherDuties = item.OtherDuties || {};
+              const otherDutiesA = item.OtherDutiesA || {};
+
+              return (
+                <Card
+                  key={index}
                 sx={{
                   border: "1px solid #94a3b8",
                   borderRadius: "8px",
@@ -600,7 +748,8 @@ export default function BoePartIIIDutyTable({
             );
           })}
         </Box>
-      )}
+        );
+      })()}
     </Box>
   );
 }

@@ -682,9 +682,31 @@ const mapPurchaseEntryData = (data) => {
     isMultiCharge: data.isMultiCharge !== undefined ? data.isMultiCharge : false,
     chargeItems: Array.isArray(data.chargeItems) ? data.chargeItems : [],
     chargeRefs: Array.isArray(data.chargeRefs) ? data.chargeRefs : [],
-    currency: data["Currency"] || data["Invoice Currency"] || data.currency || "INR",
-    currencyAmount: Number(data["Currency Amount"] || data["Foreign Currency Amount"] || data.currencyAmount || data.foreignCurrencyAmount || 0),
-    exchangeRate: Number(data["Exchange Rate"] || data.exchangeRate || 1),
+    currency: (() => {
+      let c = data["Currency"] || data["Invoice Currency"] || data.currency || "";
+      if ((!c || c === "INR") && Array.isArray(data.chargeItems) && data.chargeItems.length > 0) {
+        const f = data.chargeItems.find(item => (item.Currency || item.currency) && (item.Currency || item.currency) !== "INR");
+        const target = f || data.chargeItems[0];
+        if (target && (target.Currency || target.currency)) c = target.Currency || target.currency;
+      }
+      return c || "INR";
+    })(),
+    currencyAmount: (() => {
+      let amt = Number(data["Currency Amount"] || data["Foreign Currency Amount"] || data.currencyAmount || data.foreignCurrencyAmount || 0);
+      if (!amt && Array.isArray(data.chargeItems) && data.chargeItems.length > 0) {
+        const f = data.chargeItems.find(item => Number(item["Currency Amount"] || item.currencyAmount || 0) > 0);
+        if (f) amt = Number(f["Currency Amount"] || f.currencyAmount || 0);
+      }
+      return amt;
+    })(),
+    exchangeRate: (() => {
+      let ex = Number(data["Exchange Rate"] || data.exchangeRate || 1);
+      if (ex === 1 && Array.isArray(data.chargeItems) && data.chargeItems.length > 0) {
+        const f = data.chargeItems.find(item => Number(item["Exchange Rate"] || item.exchangeRate || 1) > 1);
+        if (f) ex = Number(f["Exchange Rate"] || f.exchangeRate || 1);
+      }
+      return ex;
+    })(),
     qty: data["Qty"] !== undefined && data["Qty"] !== null ? Number(data["Qty"]) : (data.qty !== undefined ? Number(data.qty) : 1),
     rate: data["Rate"] !== undefined && data["Rate"] !== null ? Number(data["Rate"]) : (data.rate !== undefined ? Number(data.rate) : 0),
     etaDate: data["ETA Date"] || data.etaDate || '',
@@ -905,9 +927,23 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       "Place of Supply": entry.placeOfSupply,
       "Credit Terms": entry.creditTerms,
       "Status": entry.status,
-      "Currency": entry.currency || "INR",
+      "Currency": (() => {
+        let c = entry.currency;
+        if ((!c || c === "INR") && Number(entry.exchangeRate || 1) > 1) {
+          c = "USD";
+        }
+        if ((!c || c === "INR") && Array.isArray(entry.chargeItems) && entry.chargeItems.length > 0) {
+          const f = entry.chargeItems.find(item => (item.Currency || item.currency) && (item.Currency || item.currency) !== "INR");
+          const target = f || entry.chargeItems[0];
+          if (target && (target.Currency || target.currency)) c = target.Currency || target.currency;
+          if ((!c || c === "INR") && Number(target?.exchangeRate || target?.["Exchange Rate"] || 1) > 1) {
+            c = "USD";
+          }
+        }
+        return c || "INR";
+      })(),
       "Currency Amount": entry.currencyAmount !== undefined && entry.currencyAmount !== null ? entry.currencyAmount : (entry.currency && entry.currency !== "INR" ? entry.taxableValue : ""),
-      "Exchange Rate": entry.exchangeRate !== undefined && entry.exchangeRate !== null ? entry.exchangeRate : (entry.currency && entry.currency !== "INR" ? 1 : ""),
+      "Exchange Rate": entry.exchangeRate !== undefined && entry.exchangeRate !== null ? entry.exchangeRate : (entry.currency && entry.currency !== "INR" ? 1 : 1),
       "ETA Date": entry.etaDate || "",
       "Volume (CBM)": entry.volumeCbm || "",
       "IGM Number": entry.igmNo || "",

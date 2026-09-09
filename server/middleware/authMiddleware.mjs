@@ -113,8 +113,11 @@ const verifyToken = async (req, res, next) => {
         // Run subsequent middleware and controller in the user context
         context.run({ user: req.user, req }, next);
     } catch (err) {
-        console.error("Auth token verification failed:", err);
-        return res.status(403).json({ message: "Invalid Token" });
+        if (err.name === 'TokenExpiredError') {
+            return res.status(401).json({ message: "Session expired. Please log in again." });
+        }
+        console.error("Auth token verification failed:", err.message || err);
+        return res.status(401).json({ message: "Invalid Token" });
     }
 };
 

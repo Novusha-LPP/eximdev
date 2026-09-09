@@ -657,12 +657,22 @@ function HomePageContent() {
 
 
               {/* CRM Module */}
-              {/* <Route
+              <Route
+                path="/crm/*"
+                element={
+                  <ProtectedRoute requiredModule="CRM">
+                    <CRMModule />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/crm"
                 element={
-                  <CRMModule />
+                  <ProtectedRoute requiredModule="CRM">
+                    <CRMModule />
+                  </ProtectedRoute>
                 }
-              /> */}
+              />
 
               {/* IT Helpdesk Module */}
               <Route

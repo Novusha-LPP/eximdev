@@ -277,6 +277,7 @@ import teamRoutes from "./routes/team/teamRoutes.mjs";
 import dgftRoutes from "./routes/dgft/dgftRoutes.mjs";
 
 // CRM Module
+import crmRoutes from "./routes/crm/crmRoutes.mjs";
 
 // Admin Branch Module
 import branchRoutes from "./routes/admin/branchRoutes.mjs";
@@ -753,6 +754,10 @@ app.use(teamRoutes);
 
 // DGFT Module
 app.use(dgftRoutes);
+
+// CRM Module
+app.use("/crm", crmRoutes);
+app.use("/api/crm", crmRoutes);
 
 
 

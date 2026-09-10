@@ -464,7 +464,6 @@ const jobSchema = new mongoose.Schema({
       actual_weight: { type: String, trim: true },
       transporter: { type: String, trim: true },
       transporter_date_time: { type: String, trim: true },
-      srcc_date_time: { type: String, trim: true },
       vehicle_no: { type: String, trim: true },
       driver_name: { type: String, trim: true },
       driver_phone: { type: String, trim: true },

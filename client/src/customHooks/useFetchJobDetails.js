@@ -1012,7 +1012,6 @@ function useFetchJobDetails(
             : safeValue(container.weight_excess),
         transporter: safeValue(container.transporter),
         transporter_date_time: safeValue(container.transporter_date_time),
-        srcc_date_time: safeValue(container.srcc_date_time),
       }));
 
 

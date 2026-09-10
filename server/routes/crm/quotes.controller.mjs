@@ -308,7 +308,7 @@ const buildQuoteEmailHTML = (quote, customBody) => {
 // CREATE quote
 router.post('/', async (req, res) => {
   try {
-    const { opportunityId, accountId, contactId, title, description, lineItems = [], terms, placeOfSupply, billToAddress, shipToAddress, companyTemplate } = req.body;
+    const { opportunityId, accountId, contactId, title, description, lineItems = [], terms, placeOfSupply, billToAddress, shipToAddress, companyTemplate, tradeType } = req.body;
 
     if (!accountId || !title) {
       return res.status(400).json({ message: 'Account and title are required' });
@@ -367,6 +367,7 @@ router.post('/', async (req, res) => {
       billToAddress,
       shipToAddress,
       companyTemplate: companyTemplate || 'standard',
+      tradeType: tradeType || 'import',
       createdById: creatorId,
       businessVertical: finalVertical
     });
@@ -488,6 +489,7 @@ router.put('/:id', async (req, res) => {
     if (req.body.billToAddress !== undefined) quote.billToAddress = req.body.billToAddress;
     if (req.body.shipToAddress !== undefined) quote.shipToAddress = req.body.shipToAddress;
     if (req.body.companyTemplate !== undefined) quote.companyTemplate = req.body.companyTemplate || 'standard';
+    if (req.body.tradeType !== undefined) quote.tradeType = ['import', 'export'].includes(req.body.tradeType) ? req.body.tradeType : 'import';
 
     await quote.save();
 

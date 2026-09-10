@@ -31,12 +31,45 @@ export default function QuoteFormModal({
   initialEmail,
   initialContactName
 }) {
+  const getChargeTemplate = (selectedType = 'import') => {
+    const templates = {
+      import: [
+        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 2750, discount: 0, tax: 0 },
+        { productName: 'VGM/ESB/FORM-13 filing through ODEX/MMD3', hsnSac: '9987', quantity: 1, unitPrice: 1500, discount: 0, tax: 0 },
+        { productName: 'Certificate of Origin - Non Preferential', hsnSac: '9987', quantity: 1, unitPrice: 500, discount: 0, tax: 0 },
+        { productName: 'EDI Charges', hsnSac: '9987', quantity: 1, unitPrice: 70, discount: 0, tax: 0 },
+        { productName: 'CFS charges at MUNDRA', hsnSac: '9987', quantity: 1, unitPrice: 15000, discount: 0, tax: 0 },
+        { productName: 'Unseal for Non Factory stuffing permission', hsnSac: '9987', quantity: 1, unitPrice: 8000, discount: 0, tax: 0 },
+        { productName: 'Transportation charges (ICD Khediyari to Amman)', hsnSac: '9987', quantity: 1, unitPrice: 10000, discount: 0, tax: 0 },
+        { productName: 'Lift on lift off charges', hsnSac: '9987', quantity: 1, unitPrice: 2000, discount: 0, tax: 0 },
+        { productName: 'Detention Charges', hsnSac: '9987', quantity: 1, unitPrice: 1500, discount: 0, tax: 0 },
+        { productName: 'Transportation charges (Amman to Mundra)', hsnSac: '9987', quantity: 1, unitPrice: 25000, discount: 0, tax: 0 },
+        { productName: 'Loaded Container Shifting charges', hsnSac: '9987', quantity: 1, unitPrice: 5000, discount: 0, tax: 0 }
+      ],
+      export: [
+        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 2200, discount: 0, tax: 0 },
+        { productName: 'Shipping Line Documentation Charges', hsnSac: '9987', quantity: 1, unitPrice: 1800, discount: 0, tax: 0 },
+        { productName: 'Customs Filing Charges', hsnSac: '9987', quantity: 1, unitPrice: 1200, discount: 0, tax: 0 },
+        { productName: 'EDI Charges', hsnSac: '9987', quantity: 1, unitPrice: 60, discount: 0, tax: 0 },
+        { productName: 'CFS / Gate Charges', hsnSac: '9987', quantity: 1, unitPrice: 13000, discount: 0, tax: 0 },
+        { productName: 'Transport to Port / ICD', hsnSac: '9987', quantity: 1, unitPrice: 9500, discount: 0, tax: 0 },
+        { productName: 'Terminal Handling Charges', hsnSac: '9987', quantity: 1, unitPrice: 6000, discount: 0, tax: 0 },
+        { productName: 'Lift on / Lift off Charges', hsnSac: '9987', quantity: 1, unitPrice: 1800, discount: 0, tax: 0 },
+        { productName: 'Seal / Security Charges', hsnSac: '9987', quantity: 1, unitPrice: 1200, discount: 0, tax: 0 },
+        { productName: 'Documentation / Insurance', hsnSac: '9987', quantity: 1, unitPrice: 1500, discount: 0, tax: 0 }
+      ]
+    };
+
+    return templates[selectedType] || templates.import;
+  };
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     accountId: '',
     opportunityId: '',
     contactId: '',
+    tradeType: 'import',
     companyTemplate: 'standard',
     placeOfSupply: 'Gujarat (24)',
     billToAddress: '',
@@ -104,6 +137,7 @@ export default function QuoteFormModal({
               accountId: accId,
               opportunityId: oppId,
               contactId: cntId,
+              tradeType: quoteToEdit.tradeType || 'import',
               companyTemplate: quoteToEdit.companyTemplate || 'standard',
               placeOfSupply: quoteToEdit.placeOfSupply || 'Gujarat (24)',
               billToAddress: quoteToEdit.billToAddress || '',
@@ -190,19 +224,20 @@ export default function QuoteFormModal({
             const selectedCnt = contsRes.data.find(c => c._id === cntId);
             setContactSearch(selectedCnt ? `${selectedCnt.firstName} ${selectedCnt.lastName || ''}`.trim() : (initialContactName || ''));
 
+            const initialTradeType = /export/i.test(initialOpportunityName || initialTitle || '') ? 'export' : 'import';
+
             setFormData({
               title: initialTitle || '',
               description: '',
               accountId: accId,
               opportunityId: oppId,
               contactId: cntId,
+              tradeType: initialTradeType,
               companyTemplate: 'standard',
               placeOfSupply: 'Gujarat (24)',
               billToAddress: selectedAcc ? (selectedAcc.address || '') : '',
               shipToAddress: selectedAcc ? (selectedAcc.address || '') : '',
-              lineItems: [
-                { productName: '', hsnSac: '392310', quantity: 1, unitPrice: 0, discount: 0, tax: 0, lineTotal: 0 }
-              ],
+              lineItems: getChargeTemplate(initialTradeType),
               terms: {
                 validFrom: today.toISOString().substring(0, 10),
                 validUntil: nextMonth.toISOString().substring(0, 10),
@@ -224,6 +259,17 @@ export default function QuoteFormModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, quoteToEdit, initialAccountId, initialOpportunityId, initialContactId, initialCompany, initialEmail, initialContactName, initialOpportunityName]);
+
+  const handleTradeTypeChange = (nextType) => {
+    setFormData(prev => {
+      const hasCustomLines = prev.lineItems?.some(item => item.productName && item.productName.trim() !== '');
+      return {
+        ...prev,
+        tradeType: nextType,
+        lineItems: hasCustomLines && !quoteToEdit ? prev.lineItems : getChargeTemplate(nextType).map(item => ({ ...item, lineTotal: (item.quantity || 1) * (item.unitPrice || 0) }))
+      };
+    });
+  };
 
   // Handle line item update
   const handleLineItemChange = (index, field, value) => {
@@ -310,7 +356,7 @@ export default function QuoteFormModal({
         // Create new
         const res = await axios.post(
           `${process.env.REACT_APP_API_STRING}/crm/quotes`,
-          formData,
+          { ...formData, tradeType: formData.tradeType || 'import' },
           getHeaders()
         );
         message.success('Quotation created successfully');
@@ -469,6 +515,18 @@ export default function QuoteFormModal({
                   <option value="sent">Sent</option>
                   <option value="accepted">Accepted</option>
                   <option value="rejected">Rejected</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>QUOTE TYPE</label>
+                <select
+                  value={formData.tradeType || 'import'}
+                  onChange={e => handleTradeTypeChange(e.target.value)}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', background: '#fff' }}
+                >
+                  <option value="import">Import</option>
+                  <option value="export">Export</option>
                 </select>
               </div>
 

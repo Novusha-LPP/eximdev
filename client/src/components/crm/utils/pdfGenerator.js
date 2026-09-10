@@ -51,10 +51,42 @@ function numberToIndianWords(num) {
   return 'Rupees ' + result.trim() + ' Only';
 }
 
+const getTradeChargeRows = (tradeType = 'import') => {
+  if (tradeType === 'export') {
+    return [
+      { label: 'Agency Charges', amount: 2200 },
+      { label: 'Shipping Line Documentation Charges', amount: 1800 },
+      { label: 'Customs Filing Charges', amount: 1200 },
+      { label: 'EDI Charges', amount: 60 },
+      { label: 'CFS / Gate Charges', amount: 13000 },
+      { label: 'Transport to Port / ICD', amount: 9500 },
+      { label: 'Terminal Handling Charges', amount: 6000 },
+      { label: 'Lift on / Lift off Charges', amount: 1800 },
+      { label: 'Seal / Security Charges', amount: 1200 },
+      { label: 'Documentation / Insurance', amount: 1500 }
+    ];
+  }
+
+  return [
+    { label: 'Agency Charges', amount: 2750 },
+    { label: 'VGM/ESB/FORM-13 filing through ODEX/MMD3', amount: 1500 },
+    { label: 'Certificate of Origin - Non Preferential', amount: 500 },
+    { label: 'EDI Charges', amount: 70 },
+    { label: 'CFS charges at MUNDRA', amount: 15000 },
+    { label: 'Unseal for Non Factory stuffing permission', amount: 8000 },
+    { label: 'Transportation charges (ICD Khediyari to Amman)', amount: 10000 },
+    { label: 'Lift on lift off charges', amount: 2000 },
+    { label: 'Detention Charges', amount: 1500 },
+    { label: 'Transportation charges (Amman to Mundra)', amount: 25000 },
+    { label: 'Loaded Container Shifting charges', amount: 5000 }
+  ];
+};
+
 export const buildQuotePDF = (doc, quote) => {
   // Page width and height limits
   const pageWidth = 210;
   const pageHeight = 297;
+  const customRows = getTradeChargeRows(quote?.tradeType || 'import');
 
   // Draw Page Border (8mm margins)
   doc.setDrawColor(200, 200, 200);
@@ -150,71 +182,31 @@ export const buildQuotePDF = (doc, quote) => {
   doc.line(8, 80, 202, 80);
 
   // --- Line Items Table ---
-  // Double-row header structure to match CGST and SGST subheadings
-  const tableHeaders = [
+  const customsTableHeaders = [
     [
-      { content: '#', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
-      { content: 'Item & Description', rowSpan: 2, styles: { valign: 'middle' } },
-      { content: 'HSN/SAC', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
-      { content: 'Qty', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
-      { content: 'Rate', rowSpan: 2, styles: { valign: 'middle', halign: 'right' } },
-      { content: 'CGST', colSpan: 2, styles: { halign: 'center' } },
-      { content: 'SGST', colSpan: 2, styles: { halign: 'center' } },
-      { content: 'Amount', rowSpan: 2, styles: { valign: 'middle', halign: 'right' } }
-    ],
-    [
-      { content: '%', styles: { halign: 'center' } },
-      { content: 'Amt', styles: { halign: 'right' } },
-      { content: '%', styles: { halign: 'center' } },
-      { content: 'Amt', styles: { halign: 'right' } }
+      { content: 'Customs Clearance Cost', colSpan: 2, styles: { halign: 'center', fillColor: [191, 219, 254], textColor: [15, 23, 42], fontStyle: 'bold' } },
+      { content: 'Amount (Rs)', styles: { halign: 'center', fillColor: [191, 219, 254], textColor: [15, 23, 42], fontStyle: 'bold' } },
+      { content: 'Remarks', styles: { halign: 'center', fillColor: [191, 219, 254], textColor: [15, 23, 42], fontStyle: 'bold' } }
     ]
   ];
 
-  let calculatedCgstSum = 0;
-  let calculatedSgstSum = 0;
-
-  const tableRows = quote.lineItems.map((item, index) => {
-    const lineSubtotal = item.quantity * item.unitPrice;
-    const discountAmt = lineSubtotal * ((item.discount || 0) / 100);
-    const baseForTax = lineSubtotal - discountAmt;
-    const taxRate = item.tax || 0;
-    
-    // Split GST equally into CGST & SGST
-    const cgstRate = taxRate / 2;
-    const sgstRate = taxRate / 2;
-    
-    const cgstAmt = baseForTax * (cgstRate / 100);
-    const sgstAmt = baseForTax * (sgstRate / 100);
-
-    calculatedCgstSum += cgstAmt;
-    calculatedSgstSum += sgstAmt;
-
-    return [
-      index + 1,
-      item.productName + (item.description ? `\n${item.description}` : ''),
-      item.hsnSac || '392310',
-      Number(item.quantity).toFixed(2),
-      Number(item.unitPrice).toFixed(2),
-      cgstRate ? `${cgstRate}%` : '0%',
-      cgstAmt ? cgstAmt.toFixed(2) : '0.00',
-      sgstRate ? `${sgstRate}%` : '0%',
-      sgstAmt ? sgstAmt.toFixed(2) : '0.00',
-      Number(item.lineTotal).toFixed(2)
-    ];
-  });
+  const customsTableRows = customRows.map((row) => [
+    row.label,
+    '',
+    Number(row.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    quote?.tradeType === 'export' ? 'Container / port related export charges' : 'Per container / GST as applicable'
+  ]);
 
   doc.autoTable({
     startY: 80,
-    head: tableHeaders,
-    body: tableRows,
+    head: customsTableHeaders,
+    body: customsTableRows,
     theme: 'grid',
     headStyles: {
-      fillColor: [248, 250, 252],
-      textColor: [30, 41, 59],
-      fontSize: 7.5,
-      fontStyle: 'bold',
-      lineWidth: 0.15,
-      lineColor: [200, 200, 200]
+      fillColor: [191, 219, 254],
+      textColor: [15, 23, 42],
+      fontSize: 8,
+      fontStyle: 'bold'
     },
     bodyStyles: {
       fontSize: 7.5,
@@ -223,19 +215,59 @@ export const buildQuotePDF = (doc, quote) => {
       lineColor: [200, 200, 200]
     },
     columnStyles: {
-      0: { cellWidth: 7, halign: 'center' },
-      1: { cellWidth: 62 },
-      2: { cellWidth: 16, halign: 'center' },
-      3: { cellWidth: 14, halign: 'center' },
-      4: { cellWidth: 18, halign: 'right' },
-      5: { cellWidth: 10, halign: 'center' },
-      6: { cellWidth: 18, halign: 'right' },
-      7: { cellWidth: 10, halign: 'center' },
-      8: { cellWidth: 18, halign: 'right' },
-      9: { cellWidth: 21, halign: 'right' }
+      0: { cellWidth: 94 },
+      1: { cellWidth: 15 },
+      2: { cellWidth: 28, halign: 'right' },
+      3: { cellWidth: 42 }
     },
     margin: { left: 8, right: 8 }
   });
+
+  const shippingLineRows = [
+    ['Ocean Freight', 118800, 211300],
+    ['Terminal Handling Charge (THC)', 18500, 23500],
+    ['Bill of Lading Charges (BL)', 4500, 4500],
+    ['Seal Charges', 1500, 1500],
+    ['Mandatory User Charges', 170, 170],
+    ['VTS Charges', 500, 500]
+  ];
+
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY + 6,
+    head: [[{ content: 'Shipping Line Cost', colSpan: 3, styles: { halign: 'center', fillColor: [147, 197, 253], textColor: [15, 23, 42], fontStyle: 'bold' } }, { content: 'Amount (Rs)', styles: { halign: 'center', fillColor: [147, 197, 253], textColor: [15, 23, 42], fontStyle: 'bold' } }]],
+    body: shippingLineRows.map((row) => [row[0], Number(row[1]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), Number(row[2]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })]),
+    theme: 'grid',
+    headStyles: {
+      fillColor: [147, 197, 253],
+      textColor: [15, 23, 42],
+      fontSize: 8,
+      fontStyle: 'bold'
+    },
+    bodyStyles: {
+      fontSize: 7.5,
+      textColor: [51, 65, 85],
+      lineWidth: 0.15,
+      lineColor: [200, 200, 200]
+    },
+    columnStyles: {
+      0: { cellWidth: 94 },
+      1: { cellWidth: 42, halign: 'right' },
+      2: { cellWidth: 42, halign: 'right' }
+    },
+    margin: { left: 8, right: 8 }
+  });
+
+  const totalA = customRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const totalB = shippingLineRows.reduce((sum, row) => sum + Number(row[2] || 0), 0);
+  const grandTotal = totalA + totalB;
+
+  doc.setFillColor(140, 92, 180);
+  doc.rect(8, doc.lastAutoTable.finalY + 4, 194, 9, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(255, 255, 255);
+  doc.text('GRAND TOTAL', 14, doc.lastAutoTable.finalY + 10.5);
+  doc.text(`₹ ${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 176, doc.lastAutoTable.finalY + 10.5, { align: 'right' });
 
   // --- Calculations & Notes Footer Block ---
   const finalY = doc.lastAutoTable.finalY;

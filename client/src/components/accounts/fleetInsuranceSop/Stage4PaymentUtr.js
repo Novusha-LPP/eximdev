@@ -33,6 +33,18 @@ function Stage4PaymentUtr({ formData, handleChange, formatDateValue }) {
             size="small" 
           />
         </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField 
+            label="Renewal Date" 
+            type="date" 
+            InputLabelProps={{ shrink: true }} 
+            value={formatDateValue(formData.renewalDate || formData.paymentDate)} 
+            onChange={(e) => handleChange("renewalDate", e.target.value)} 
+            fullWidth 
+            size="small" 
+            helperText="Automatically updated from Payment Date"
+          />
+        </Grid>
         
         <Grid item xs={12} sm={6}>
           <TextField 

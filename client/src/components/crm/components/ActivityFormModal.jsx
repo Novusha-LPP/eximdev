@@ -30,6 +30,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
     outcome: 'neutral',
     nextSteps: '',
     activityDate: getLocalISOString(),
+    attachments: [],
     relatedTo: {
       model: '',
       id: '',
@@ -54,6 +55,30 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
       },
       withCredentials: true
     };
+  };
+
+  const handleAttachmentChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    try {
+      const prepared = await Promise.all(files.map(file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({
+          name: file.name,
+          url: reader.result,
+          mimeType: file.type || 'application/octet-stream',
+          size: file.size || 0
+        });
+        reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
+        reader.readAsDataURL(file);
+      })));
+
+      setFormData(prev => ({ ...prev, attachments: [...(prev.attachments || []), ...prepared] }));
+      e.target.value = '';
+    } catch (error) {
+      message.error(error.message || 'Could not read selected attachment');
+    }
   };
 
   const fetchEntityOptions = async (model) => {
@@ -85,6 +110,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
       if (activity) {
         setFormData({
           ...activity,
+          attachments: activity.attachments || [],
           activityDate: getLocalISOString(activity.activityDate),
           relatedTo: activity.relatedTo || { model: '', id: '', name: '' }
         });
@@ -104,6 +130,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
           outcome: 'neutral',
           nextSteps: '',
           activityDate: getLocalISOString(),
+          attachments: [],
           relatedTo: {
             model: initialModel || '',
             id: linkedId || '',
@@ -135,6 +162,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
       const dataToSubmit = {
         ...formData,
         userId: userId,
+        attachments: formData.attachments || [],
         relatedTo: linkedId ? {
           model: modelMap[linkedType],
           id: linkedId
@@ -238,13 +266,13 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
                 </div>
 
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Subject / Title *</label>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Subject / Title {currentType === 'note' ? '' : '*'}</label>
                   <input
                     type="text"
-                    required
+                    required={currentType !== 'note'}
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    placeholder={currentType === 'note' ? 'Note title' : 'e.g., Sales Visit / Product Inquiry Call'}
+                    placeholder={currentType === 'note' ? 'Optional note title' : 'e.g., Sales Visit / Product Inquiry Call'}
                     style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
                   />
                 </div>
@@ -257,6 +285,29 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
                     placeholder={descPlaceholder}
                     style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', minHeight: '80px', fontFamily: 'inherit' }}
                   />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Attachments</label>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleAttachmentChange}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', background: '#fff' }}
+                  />
+                  {formData.attachments && formData.attachments.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
+                      {formData.attachments.map((attachment, idx) => (
+                        <span key={`${attachment.name}-${idx}`} style={{
+                          background: '#eff6ff', color: '#1d4ed8', borderRadius: '999px',
+                          padding: '4px 8px', fontSize: '0.75rem', fontWeight: 600,
+                          border: '1px solid #bfdbfe'
+                        }}>
+                          {attachment.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {showNextSteps && (

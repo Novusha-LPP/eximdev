@@ -37,6 +37,7 @@ export default function QuoteFormModal({
     accountId: '',
     opportunityId: '',
     contactId: '',
+    companyTemplate: 'standard',
     placeOfSupply: 'Gujarat (24)',
     billToAddress: '',
     shipToAddress: '',
@@ -103,6 +104,7 @@ export default function QuoteFormModal({
               accountId: accId,
               opportunityId: oppId,
               contactId: cntId,
+              companyTemplate: quoteToEdit.companyTemplate || 'standard',
               placeOfSupply: quoteToEdit.placeOfSupply || 'Gujarat (24)',
               billToAddress: quoteToEdit.billToAddress || '',
               shipToAddress: quoteToEdit.shipToAddress || '',
@@ -194,6 +196,7 @@ export default function QuoteFormModal({
               accountId: accId,
               opportunityId: oppId,
               contactId: cntId,
+              companyTemplate: 'standard',
               placeOfSupply: 'Gujarat (24)',
               billToAddress: selectedAcc ? (selectedAcc.address || '') : '',
               shipToAddress: selectedAcc ? (selectedAcc.address || '') : '',
@@ -443,7 +446,7 @@ export default function QuoteFormModal({
           <div className="scrollable-body" style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
             {/* Meta Section */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>PROPOSAL TITLE *</label>
                 <input
@@ -466,6 +469,20 @@ export default function QuoteFormModal({
                   <option value="sent">Sent</option>
                   <option value="accepted">Accepted</option>
                   <option value="rejected">Rejected</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>COMPANY TEMPLATE</label>
+                <select
+                  value={formData.companyTemplate || 'standard'}
+                  onChange={e => setFormData({ ...formData, companyTemplate: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', background: '#fff' }}
+                >
+                  <option value="standard">Standard</option>
+                  <option value="paramount">Paramount</option>
+                  <option value="suraj">Suraj</option>
+                  <option value="custom">Custom</option>
                 </select>
               </div>
             </div>

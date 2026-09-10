@@ -321,6 +321,7 @@ export default function CRMKanbanBoard() {
   };
 
   const visibleMembers = getTeamMembers();
+  const searchIsActive = Boolean(searchQuery.trim());
 
   const fetchMyTeams = async (all = false) => {
     try {
@@ -754,6 +755,7 @@ export default function CRMKanbanBoard() {
             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Stage:</span>
             <select
               value={selectedStage}
+              disabled={searchIsActive}
               onChange={e => setSelectedStage(e.target.value)}
               style={{
                 padding: '8px 14px',
@@ -763,7 +765,8 @@ export default function CRMKanbanBoard() {
                 color: '#334155',
                 background: '#ffffff',
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: searchIsActive ? 'not-allowed' : 'pointer',
+                opacity: searchIsActive ? 0.5 : 1,
                 outline: 'none'
               }}
             >
@@ -779,6 +782,7 @@ export default function CRMKanbanBoard() {
             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Source:</span>
             <select
               value={selectedSource}
+              disabled={searchIsActive}
               onChange={e => setSelectedSource(e.target.value)}
               style={{
                 padding: '8px 14px',
@@ -788,7 +792,8 @@ export default function CRMKanbanBoard() {
                 color: '#334155',
                 background: '#ffffff',
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: searchIsActive ? 'not-allowed' : 'pointer',
+                opacity: searchIsActive ? 0.5 : 1,
                 outline: 'none'
               }}
             >
@@ -807,6 +812,7 @@ export default function CRMKanbanBoard() {
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Team:</span>
               <select
                 value={selectedTeam}
+                disabled={searchIsActive}
                 onChange={e => {
                   setSelectedTeam(e.target.value);
                   setSelectedOwner('all'); // Reset owner on team change
@@ -819,7 +825,8 @@ export default function CRMKanbanBoard() {
                   color: '#334155',
                   background: '#ffffff',
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: searchIsActive ? 'not-allowed' : 'pointer',
+                  opacity: searchIsActive ? 0.5 : 1,
                   outline: 'none'
                 }}
               >
@@ -837,6 +844,7 @@ export default function CRMKanbanBoard() {
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Member:</span>
               <select
                 value={selectedOwner}
+                disabled={searchIsActive}
                 onChange={e => setSelectedOwner(e.target.value)}
                 style={{
                   padding: '8px 14px',
@@ -846,7 +854,8 @@ export default function CRMKanbanBoard() {
                   color: '#334155',
                   background: '#ffffff',
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: searchIsActive ? 'not-allowed' : 'pointer',
+                  opacity: searchIsActive ? 0.5 : 1,
                   outline: 'none'
                 }}
               >
@@ -952,7 +961,7 @@ export default function CRMKanbanBoard() {
             </div>
           </div>
         ) : (
-          <FilterBar moduleName="pipeline" onChange={handleFilterChange} />
+          <FilterBar moduleName="pipeline" onChange={handleFilterChange} disabled={searchIsActive} />
         )}
       </div>
 
@@ -1390,7 +1399,7 @@ export default function CRMKanbanBoard() {
 
                         {/* CR-008 Source badge on deal card */}
                         {opp.source && (
-                          <div style={{ marginBottom: '8px' }}>
+                          <div style={{ marginBottom: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
                             <span style={{
                               fontSize: '0.65rem',
                               background: opp.source === 'IndiaMart Lead' ? '#ffedd5'
@@ -1418,6 +1427,25 @@ export default function CRMKanbanBoard() {
                             }}>
                               {opp.source}
                             </span>
+                            {(() => {
+                              const lastActivity = opp.lastActivityAt ? new Date(opp.lastActivityAt) : null;
+                              if (!lastActivity || Number.isNaN(lastActivity.getTime())) return null;
+                              const diffDays = Math.floor((Date.now() - lastActivity.getTime()) / (1000 * 60 * 60 * 24));
+                              if (diffDays < 2) return null;
+                              return (
+                                <span style={{
+                                  fontSize: '0.62rem',
+                                  background: '#fef2f2',
+                                  color: '#b91c1c',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  fontWeight: 800,
+                                  border: '1px solid #fecaca'
+                                }}>
+                                  ⚠ Stagnant {diffDays}d
+                                </span>
+                              );
+                            })()}
                           </div>
                         )}
 

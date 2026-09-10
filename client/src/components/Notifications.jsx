@@ -32,18 +32,18 @@ import {
   Badge,
 } from "@mui/material";
 import NotificationsIcon from "@mui/icons-material/Notifications";
-  EmailIcon from "@mui/icons-material/Email";
-  CalendarTodayIcon from "@mui/icons-material/CalendarToday";
-  WarningIcon from "@mui/icons-material/Warning";
-  AssignmentIcon from "@mui/icons-material/Assignment";
-  SettingsIcon from "@mui/icons-material/Settings";
-  CheckCircleIcon from "@mui/icons-material/CheckCircle";
-  ErrorIcon from "@mui/icons-material/Error";
-  InfoIcon from "@mui/icons-material/Info";
-  AddIcon from "@mui/icons-material/Add";
-  EditIcon from "@mui/icons-material/Edit";
-  DeleteIcon from "@mui/icons-material/Delete";
-  SearchIcon from "@mui/icons-material/Search";
+import EmailIcon from "@mui/icons-material/Email";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import WarningIcon from "@mui/icons-material/Warning";
+import AssignmentIcon from "@mui/icons-material/Assignment";
+import SettingsIcon from "@mui/icons-material/Settings";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ErrorIcon from "@mui/icons-material/Error";
+import InfoIcon from "@mui/icons-material/Info";
+import AddIcon from "@mui/icons-material/Add";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import SearchIcon from "@mui/icons-material/Search";
 
 // Alert types
 const ALERT_TYPES = [
@@ -156,13 +156,10 @@ const [
 ] = await Promise.all([
 
 
-axios.get("/api/tickets"),
-
-axios.get("/api/assets"),
-
-axios.get("/api/licenses"),
-
-axios.get("/api/contracts")
+        axios.get(`${process.env.REACT_APP_API_STRING}/tickets`),
+        axios.get(`${process.env.REACT_APP_API_STRING}/assets`),
+        axios.get(`${process.env.REACT_APP_API_STRING}/licenses`),
+        axios.get(`${process.env.REACT_APP_API_STRING}/contracts`)
 
 
 ]);

@@ -70,7 +70,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
       if (user?.username && !isAdmin) {
         try {
           const res = await axios.get(
-            `/api/tyre-procurement/user-tabs/${user.username}`
+            `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
           );
           if (res.data?.success && res.data.allowed_tabs?.length > 0) {
             setAllowedUserTabs(res.data.allowed_tabs);

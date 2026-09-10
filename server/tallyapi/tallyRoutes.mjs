@@ -389,6 +389,14 @@ const scoreJob = (job, queryInput) => {
 };
 
 /**
+ * Formats a job number for Tally integration (removes SUC from Freight Forwarding jobs, e.g. FF-SUC/... -> FF/...)
+ */
+const formatTallyJobNo = (jobNo) => {
+  if (!jobNo) return "";
+  return String(jobNo).replace(/\bFF-SUC\//gi, "FF/");
+};
+
+/**
  * Internal helper to retrieve and format job data for Tally
  */
 const getJobDetailsInternal = async (job_number) => {
@@ -429,14 +437,6 @@ const getJobDetailsInternal = async (job_number) => {
   }
   const uniquePoNumbers = [...new Set(poNumbers.map(p => p.trim()).filter(Boolean))];
   const customerRef = uniquePoNumbers.join(", ") || job.po_no || "";
-
-  /**
-   * Formats a job number for Tally integration (removes SUC from Freight Forwarding jobs, e.g. FF-SUC/... -> FF/...)
-   */
-  const formatTallyJobNo = (jobNo) => {
-    if (!jobNo) return "";
-    return String(jobNo).replace(/\bFF-SUC\//gi, "FF/");
-  };
 
   return {
     "Job Number": formatTallyJobNo(job.job_number || job.job_no),
@@ -484,6 +484,8 @@ const getJobDetailsInternal = async (job_number) => {
     "BE Date": job.be_date || "",
     "BE Type": job.type_of_b_e,
     "BE Heading": job.description,
+    "Description": job.description || "",
+    "description": job.description || "",
     "SB No": job.sb_no || "",
     "SB Date": job.sb_date || "",
     "MBL NO": job.awb_bl_no,

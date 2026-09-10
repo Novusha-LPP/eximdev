@@ -135,8 +135,11 @@ router.get("/fleet-insurance-sop/payment-utr/list", authMiddleware, async (req, 
 // GET all records with pagination and search
 router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "", month = "", year = "", regNo, owner, size, modelType, premiumAmount, premiumQuote, expiryDate, renewed } = req.query;
+    const { page = 1, limit = 10, search = "", month = "", year = "", regNo, owner, size, modelType, premiumAmount, premiumQuote, expiryDate, renewed, tat } = req.query;
     const query = {};
+    if (tat !== undefined && tat !== "") {
+      query.tat = Number(tat);
+    }
     if (search) {
       query.$or = [
         { registrationNo: { $regex: search, $options: "i" } },

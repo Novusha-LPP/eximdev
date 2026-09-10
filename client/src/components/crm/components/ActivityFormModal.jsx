@@ -161,6 +161,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
 
       const dataToSubmit = {
         ...formData,
+        subject: formData.type === 'note' && !formData.subject ? (formData.description?.slice(0, 30) || 'Note') : formData.subject,
         userId: userId,
         attachments: formData.attachments || [],
         relatedTo: linkedId ? {
@@ -265,17 +266,19 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
                   )}
                 </div>
 
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Subject / Title {currentType === 'note' ? '' : '*'}</label>
-                  <input
-                    type="text"
-                    required={currentType !== 'note'}
-                    value={formData.subject}
-                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    placeholder={currentType === 'note' ? 'Optional note title' : 'e.g., Sales Visit / Product Inquiry Call'}
-                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
-                  />
-                </div>
+                {currentType !== 'note' && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Subject / Title *</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.subject}
+                      onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                      placeholder="e.g., Sales Visit / Product Inquiry Call"
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                    />
+                  </div>
+                )}
 
                 <div style={{ marginBottom: '16px' }}>
                   <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>{descLabel}</label>

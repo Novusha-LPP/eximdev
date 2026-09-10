@@ -93,32 +93,86 @@ export const buildQuotePDF = (doc, quote) => {
   doc.setLineWidth(0.3);
   doc.rect(8, 8, pageWidth - 16, pageHeight - 16);
 
-  // --- Company Header Details (Top Left) ---
-  // Logo placeholder text logo matching PARAMOUNT branding
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.setTextColor(239, 68, 68); // Red logo highlight
-  doc.text('P', 14, 18);
-  doc.setTextColor(30, 41, 59); // Slate-800
-  doc.text('PARAMOUNT', 19, 18);
-  doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139); // Slate-500
-  doc.text('PROPACK PVT. LTD.', 19, 21.5);
+  // Company Template Branding Selection
+  const template = (quote?.companyTemplate || 'paramount').toLowerCase();
 
-  // Corporate details next to logo
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text('Paramount Propack Pvt Ltd', 58, 16);
+  if (template === 'elock' || template === 'e-lock') {
+    // eLock Branding
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.setTextColor(14, 165, 233); // Cyan/sky blue
+    doc.text('e', 14, 18);
+    doc.setTextColor(30, 41, 59);
+    doc.text('LOCK', 18, 18);
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('ELECTRONIC CARGO SECURITY', 14, 22);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105);
-  doc.text('A-306, Wall Street 2, Opp. Orient Club,', 58, 20.5);
-  doc.text('Nr. Gujarat College, Ellis Bridge,', 58, 24.5);
-  doc.text('Ahmedabad, Gujarat 380006', 58, 28.5);
-  doc.text('India. Phone : 9924304363, Mo.9924330777', 58, 32.5);
-  doc.text('GSTIN 24AAHCP4599D1Z8', 58, 36.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('eLock Solutions Pvt Ltd', 65, 16);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text('Cargo Tracking & Smart Security Division,', 65, 20.5);
+    doc.text('301-304, Navrangpura Business Hub,', 65, 24.5);
+    doc.text('Ahmedabad, Gujarat 380009', 65, 28.5);
+    doc.text('India. Phone: +91 79 4000 5566, Email: ops@elock.in', 65, 32.5);
+    doc.text('GSTIN 24AABCE1234F1Z5', 65, 36.5);
+  } else if (template === 'exim' || template === 'standard') {
+    // Exim Logistics / Freight Forwarding Branding
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(37, 99, 235); // Royal Blue
+    doc.text('EXIM', 14, 18);
+    doc.setTextColor(30, 41, 59);
+    doc.text('LOGISTICS', 32, 18);
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('GLOBAL FREIGHT & EXIM SOLUTIONS', 14, 22);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Exim Logistics Pvt Ltd', 68, 16);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text('International Freight & Customs Broking Division,', 68, 20.5);
+    doc.text('Mundra Port Road, Sector 8, Gandhidham,', 68, 24.5);
+    doc.text('Kutch, Gujarat 370201', 68, 28.5);
+    doc.text('India. Phone: +91 2836 234567, Email: quotes@eximlogistics.com', 68, 32.5);
+    doc.text('GSTIN 24AABCE9876G1Z2', 68, 36.5);
+  } else {
+    // Default: Paramount Propack Branding
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(239, 68, 68); // Red logo highlight
+    doc.text('P', 14, 18);
+    doc.setTextColor(30, 41, 59); // Slate-800
+    doc.text('PARAMOUNT', 19, 18);
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139); // Slate-500
+    doc.text('PROPACK PVT. LTD.', 19, 21.5);
+
+    // Corporate details next to logo
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Paramount Propack Pvt Ltd', 58, 16);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text('A-306, Wall Street 2, Opp. Orient Club,', 58, 20.5);
+    doc.text('Nr. Gujarat College, Ellis Bridge,', 58, 24.5);
+    doc.text('Ahmedabad, Gujarat 380006', 58, 28.5);
+    doc.text('India. Phone : 9924304363, Mo.9924330777', 58, 32.5);
+    doc.text('GSTIN 24AAHCP4599D1Z8', 58, 36.5);
+  }
 
   // --- Document Title (Top Right) ---
   doc.setFont('helvetica', 'normal');

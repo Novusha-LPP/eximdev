@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { message, Modal } from 'antd';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Paperclip, Download } from 'lucide-react';
 import ActivityFormModal from './ActivityFormModal';
 
 const ACTIVITY_TYPES = {
@@ -186,6 +186,36 @@ export default function ActivityTimeline({ linkedId, linkedType = 'opportunity' 
                   {activity.duration && <span>Duration: {activity.duration} mins</span>}
                   {activity.outcome && <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>Outcome: {activity.outcome}</span>}
                 </div>
+
+                {activity.attachments && activity.attachments.length > 0 && (
+                  <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {activity.attachments.map((att, idx) => (
+                      <a
+                        key={idx}
+                        href={att.url}
+                        download={att.name}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          background: '#f8fafc',
+                          border: '1px solid #cbd5e1',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.78rem',
+                          color: '#2563eb',
+                          textDecoration: 'none'
+                        }}
+                      >
+                        <Paperclip size={12} />
+                        <span>{att.name}</span>
+                        <Download size={12} style={{ marginLeft: '2px', color: '#64748b' }} />
+                      </a>
+                    ))}
+                  </div>
+                )}
 
                 {activity.nextSteps && (
                   <div style={{ marginTop: '8px', padding: '8px', background: '#f1f5f9', borderRadius: '4px', fontSize: '0.85rem', color: '#475569', borderLeft: '3px solid #4f46e5' }}>

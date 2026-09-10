@@ -533,14 +533,14 @@ export default function QuoteFormModal({
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>COMPANY TEMPLATE</label>
                 <select
-                  value={formData.companyTemplate || 'standard'}
+                  value={formData.companyTemplate || 'paramount'}
                   onChange={e => setFormData({ ...formData, companyTemplate: e.target.value })}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', background: '#fff' }}
                 >
+                  <option value="paramount">Paramount Propack</option>
+                  <option value="elock">eLock Solutions</option>
+                  <option value="exim">Exim Logistics</option>
                   <option value="standard">Standard</option>
-                  <option value="paramount">Paramount</option>
-                  <option value="suraj">Suraj</option>
-                  <option value="custom">Custom</option>
                 </select>
               </div>
             </div>
@@ -671,7 +671,19 @@ export default function QuoteFormModal({
                         <div
                           key={o._id}
                           onClick={() => {
-                            setFormData(prev => ({ ...prev, opportunityId: o._id }));
+                            // FR-18: Auto-select template based on opportunity vertical or service
+                            let autoTemplate = formData.companyTemplate;
+                            const servicesStr = (o.services || []).join(' ').toLowerCase();
+                            const vertStr = (o.businessVertical || '').toLowerCase();
+                            if (servicesStr.includes('e-lock') || servicesStr.includes('elock') || vertStr.includes('elock')) {
+                              autoTemplate = 'elock';
+                            } else if (servicesStr.includes('freight') || vertStr.includes('freight') || vertStr.includes('export') || vertStr.includes('import')) {
+                              autoTemplate = 'exim';
+                            } else if (vertStr.includes('paramount') || servicesStr.includes('paramount')) {
+                              autoTemplate = 'paramount';
+                            }
+
+                            setFormData(prev => ({ ...prev, opportunityId: o._id, companyTemplate: autoTemplate }));
                             setOpportunitySearch(o.name);
                             setIsOpportunityDropdownOpen(false);
                           }}

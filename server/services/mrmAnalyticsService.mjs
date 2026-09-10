@@ -19,6 +19,25 @@ export const parseNumericValue = (val) => {
 };
 
 /**
+ * Resolves unified RegExp for department names handling common aliases/variations
+ * e.g., 'Software' vs 'Software Development', 'Sales & Marketing' vs 'Marketing', 'Field' vs 'Feild'
+ */
+export const getDepartmentFilterRegex = (dept) => {
+    if (!dept) return /.*/;
+    const clean = String(dept).trim();
+    if (/^software(\s+development)?$/i.test(clean)) {
+        return /^(software|software\s+development)$/i;
+    }
+    if (/^(sales\s*(&|and)?\s*marketing|marketing)$/i.test(clean)) {
+        return /^(sales\s*(&|and)?\s*marketing|marketing)$/i;
+    }
+    if (/^f[ie]{2}ld$/i.test(clean)) {
+        return /^f[ie]{2}ld$/i;
+    }
+    return new RegExp(`^${clean}$`, 'i');
+};
+
+/**
  * Evaluates Auto-RAG status based on Actual vs Plan, Optimization Direction, and Tolerance Band.
  * Returns 'Green' | 'Yellow' | 'Red' | null
  */
@@ -654,12 +673,51 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
     const monthStr = String(month).padStart(2, '0');
     const monthNum = parseInt(month, 10);
     const yearNum = parseInt(year, 10);
+    const monthEndDate = new Date(yearNum, monthNum, 0, 23, 59, 59, 999);
+    const deptRegex = getDepartmentFilterRegex(department);
 
-    // 1. Fetch active users belonging to this department
-    const deptUsers = await UserModel.find({
-        department: { $regex: new RegExp(`^${department}$`, 'i') },
+    // 1. Fetch active candidate users belonging to this department (supporting aliases)
+    const candidateUsers = await UserModel.find({
+        department: { $regex: deptRegex },
         isActive: { $ne: false }
-    }).select('_id first_name last_name username sub_team sub_team_role department').lean();
+    }).select('_id first_name last_name username sub_team sub_team_role department joining_date role').lean();
+
+    // 2. Fetch KPISheets for current month for candidate users
+    const candidateIds = candidateUsers.map(u => u._id);
+    const currentSheets = await KPISheet.find({
+        user: { $in: candidateIds },
+        month: monthNum,
+        year: yearNum
+    }).lean();
+
+    const sheetByUserMap = new Map();
+    currentSheets.forEach(s => sheetByUserMap.set(s.user.toString(), s));
+
+    // 3. Filter members: exclude users who joined after this month (unless they submitted),
+    // exclude system test accounts like dev_master (unless they submitted),
+    // and exclude HOD reviewer from subordinate pending list if they have no personal sheet.
+    const deptUsers = candidateUsers.filter(u => {
+        const uIdStr = u._id.toString();
+        const hasSheet = sheetByUserMap.has(uIdStr);
+        if (hasSheet) return true;
+
+        if (u.username === 'dev_master') return false;
+
+        if (u.joining_date) {
+            const jDate = new Date(u.joining_date);
+            if (!isNaN(jDate.getTime()) && jDate > monthEndDate) {
+                return false;
+            }
+        }
+
+        const isHodUser = (hodId && uIdStr === hodId.toString()) ||
+            /^(head_of_department|hod)$/i.test(String(u.role || ''));
+        if (isHodUser) {
+            return false;
+        }
+
+        return true;
+    });
 
     if (!deptUsers || deptUsers.length === 0) {
         return {
@@ -673,7 +731,7 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
         };
     }
 
-    // 2. Group users into sub-teams (defaulting to 'General')
+    // 4. Group users into sub-teams (defaulting to 'General')
     const subTeamMap = new Map();
     deptUsers.forEach(u => {
         const teamName = (u.sub_team && u.sub_team.trim()) ? u.sub_team.trim() : 'General';
@@ -683,18 +741,9 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
         subTeamMap.get(teamName).push(u);
     });
 
-    // 3. Fetch KPISheets for current month
     const userIds = deptUsers.map(u => u._id);
-    const currentSheets = await KPISheet.find({
-        user: { $in: userIds },
-        month: monthNum,
-        year: yearNum
-    }).lean();
 
-    const sheetByUserMap = new Map();
-    currentSheets.forEach(s => sheetByUserMap.set(s.user.toString(), s));
-
-    // 4. Determine trailing 3 months for trend baseline
+    // 5. Determine trailing 3 months for trend baseline
     const trailingMonths = [];
     for (let offset = 1; offset <= 3; offset++) {
         let m = monthNum - offset;
@@ -998,10 +1047,11 @@ export const calculateHodMonthlyScore = async ({ hodId, department, month, year 
 
     const monthStr = String(month).padStart(2, '0');
     const yearNum = parseInt(year, 10);
+    const deptRegex = getDepartmentFilterRegex(department);
 
     // 1. Team KPI Performance Score (S_Team, 70% weight)
     let rollups = await MRMSegmentRollup.find({
-        department,
+        department: { $regex: deptRegex },
         month: monthStr,
         year: yearNum
     }).lean();
@@ -1047,7 +1097,7 @@ export const calculateHodMonthlyScore = async ({ hodId, department, month, year 
 
     // 4. Cumulative Annual Business Loss
     const annualRollups = await MRMSegmentRollup.find({
-        department,
+        department: { $regex: deptRegex },
         year: yearNum
     }).lean();
 
@@ -1131,8 +1181,9 @@ export const detectRecurringBlockers = async ({ department, month, year }) => {
         targetMonths.push({ month: m, year: y });
     }
 
+    const deptRegex = getDepartmentFilterRegex(department);
     const sheets = await KPISheet.find({
-        department: { $regex: new RegExp(`^${department}$`, 'i') },
+        department: { $regex: deptRegex },
         $or: targetMonths.map(t => ({ month: t.month, year: t.year }))
     }).populate('user', 'first_name last_name username sub_team').lean();
 
@@ -1193,21 +1244,44 @@ export const detectRecurringBlockers = async ({ department, month, year }) => {
 export const getPreDeadlineSubmissionStatus = async ({ department, month, year }) => {
     const monthNum = parseInt(month, 10);
     const yearNum = parseInt(year, 10);
+    const monthEndDate = new Date(yearNum, monthNum, 0, 23, 59, 59, 999);
+    const deptRegex = getDepartmentFilterRegex(department);
 
-    const users = await UserModel.find({
-        department: { $regex: new RegExp(`^${department}$`, 'i') },
+    const rawUsers = await UserModel.find({
+        department: { $regex: deptRegex },
         isActive: { $ne: false }
-    }).select('_id first_name last_name username email sub_team sub_team_role').lean();
+    }).select('_id first_name last_name username email sub_team sub_team_role joining_date role').lean();
 
-    const userIds = users.map(u => u._id);
+    const rawUserIds = rawUsers.map(u => u._id);
     const sheets = await KPISheet.find({
-        user: { $in: userIds },
+        user: { $in: rawUserIds },
         month: monthNum,
         year: yearNum
     }).select('user status summary updatedAt').lean();
 
     const sheetMap = new Map();
     sheets.forEach(s => sheetMap.set(s.user.toString(), s));
+
+    const users = rawUsers.filter(u => {
+        const uIdStr = u._id.toString();
+        const hasSheet = sheetMap.has(uIdStr);
+        if (hasSheet) return true;
+
+        if (u.username === 'dev_master') return false;
+
+        if (u.joining_date) {
+            const jDate = new Date(u.joining_date);
+            if (!isNaN(jDate.getTime()) && jDate > monthEndDate) {
+                return false;
+            }
+        }
+
+        if (/^(head_of_department|hod)$/i.test(String(u.role || ''))) {
+            return false;
+        }
+
+        return true;
+    });
 
     const submitted = [];
     const pending = [];
@@ -1255,9 +1329,10 @@ export const getPreDeadlineSubmissionStatus = async ({ department, month, year }
  */
 export const calculateAnnualBusinessLossRollup = async ({ department, year }) => {
     const yearNum = parseInt(year, 10);
+    const deptRegex = getDepartmentFilterRegex(department);
 
     const rollups = await MRMSegmentRollup.find({
-        department: { $regex: new RegExp(`^${department}$`, 'i') },
+        department: { $regex: deptRegex },
         year: yearNum
     }).lean();
 

@@ -18,7 +18,8 @@ import {
     calculateHodMonthlyScore,
     detectRecurringBlockers,
     getPreDeadlineSubmissionStatus,
-    calculateAnnualBusinessLossRollup
+    calculateAnnualBusinessLossRollup,
+    getDepartmentFilterRegex
 } from '../../services/mrmAnalyticsService.mjs';
 import { isFeatureEnabled } from '../../config/featureFlags.mjs';
 
@@ -1339,7 +1340,7 @@ router.post('/api/mrm/sub-teams/manage', authMiddleware, async (req, res) => {
             }
 
             await UserModel.updateMany(
-                { _id: { $in: userIds }, department: { $regex: new RegExp(`^${department}$`, 'i') } },
+                { _id: { $in: userIds }, department: { $regex: getDepartmentFilterRegex(department) } },
                 { 
                     $set: { 
                         sub_team: sub_team.trim(),
@@ -1353,7 +1354,7 @@ router.post('/api/mrm/sub-teams/manage', authMiddleware, async (req, res) => {
 
         if (action === 'list') {
             const users = await UserModel.find({
-                department: { $regex: new RegExp(`^${department}$`, 'i') },
+                department: { $regex: getDepartmentFilterRegex(department) },
                 isActive: { $ne: false }
             }).select('_id first_name last_name username sub_team sub_team_role designation').lean();
 
@@ -1394,7 +1395,7 @@ router.post('/api/mrm/segments/approve', authMiddleware, async (req, res) => {
 
         // Update all segments for this department/month to Approved
         await MRMSegmentRollup.updateMany(
-            { department, month: monthStr, year: yearNum },
+            { department: { $regex: getDepartmentFilterRegex(department) }, month: monthStr, year: yearNum },
             { 
                 $set: { 
                     status: 'Approved',
@@ -1413,7 +1414,7 @@ router.post('/api/mrm/segments/approve', authMiddleware, async (req, res) => {
         });
 
         await MRMHodScore.findOneAndUpdate(
-            { department, month: monthStr, year: yearNum, hodId: req.user._id },
+            { department: { $regex: getDepartmentFilterRegex(department) }, month: monthStr, year: yearNum, hodId: req.user._id },
             { 
                 $set: { 
                     status: 'Approved',

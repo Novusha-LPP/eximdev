@@ -315,9 +315,8 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
           const incomingTransporter = (container.transporter || "").trim();
 
           let transporter_date_time = container.transporter_date_time || existingContainer?.transporter_date_time || "";
-          let srcc_date_time = container.srcc_date_time || existingContainer?.srcc_date_time || "";
 
-          // Transporter timestamp logic
+          // Transporter timestamp logic (records for both SRCC and third-party transporters)
           if (incomingTransporter) {
             if (incomingTransporter !== existingTransporter || !transporter_date_time) {
               transporter_date_time = new Date().toISOString();
@@ -326,22 +325,12 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
             transporter_date_time = "";
           }
 
-          // SRCC specific timestamp logic
-          if (incomingTransporter === "SRCC") {
-            if (existingTransporter !== "SRCC" || !srcc_date_time) {
-              srcc_date_time = new Date().toISOString();
-            }
-          } else {
-            srcc_date_time = "";
-          }
-
           return {
             ...container,
             arrival_date: targetArrivalDate,
             detention_from: detentionDate,
             do_validity_upto_container_level: subtractOneDay(detentionDate),
             transporter_date_time,
-            srcc_date_time,
           };
         };
 
@@ -590,7 +579,6 @@ router.put("/api/admin/update-job-static/:branch_code/:trade_type/:mode/:year/:j
             const incomingTransporter = (container.transporter || "").trim();
 
             let transporter_date_time = container.transporter_date_time || existingContainer?.transporter_date_time || "";
-            let srcc_date_time = container.srcc_date_time || existingContainer?.srcc_date_time || "";
 
             if (incomingTransporter) {
               if (incomingTransporter !== existingTransporter || !transporter_date_time) {
@@ -600,18 +588,9 @@ router.put("/api/admin/update-job-static/:branch_code/:trade_type/:mode/:year/:j
               transporter_date_time = "";
             }
 
-            if (incomingTransporter === "SRCC") {
-              if (existingTransporter !== "SRCC" || !srcc_date_time) {
-                srcc_date_time = new Date().toISOString();
-              }
-            } else {
-              srcc_date_time = "";
-            }
-
             return {
               ...container,
               transporter_date_time,
-              srcc_date_time,
             };
           });
         }

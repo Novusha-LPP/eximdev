@@ -269,109 +269,48 @@ export const buildQuotePDF = (doc, quote) => {
   doc.text('GRAND TOTAL', 14, doc.lastAutoTable.finalY + 10.5);
   doc.text(`₹ ${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 176, doc.lastAutoTable.finalY + 10.5, { align: 'right' });
 
-  // --- Calculations & Notes Footer Block ---
-  const finalY = doc.lastAutoTable.finalY;
-  
-  // Calculate average tax percentage for labels
-  const avgTaxRate = quote.lineItems.length > 0 ? (quote.lineItems[0].tax || 0) : 0;
-  const avgCgstRate = avgTaxRate / 2;
-  const avgSgstRate = avgTaxRate / 2;
-
-  const roundedTotal = Math.round(quote.total || 0);
-  const roundingDiff = roundedTotal - (quote.total || 0);
-
-  // Main vertical block separation line
-  doc.line(116, finalY, 116, 281);
-
-  // --- Right side calculations box ---
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(30, 41, 59);
-
-  let rightY = finalY + 6;
-  doc.text('Sub Total', 148, rightY);
-  doc.text(`CGST${avgCgstRate} (${avgCgstRate}%)`, 148, rightY + 6);
-  doc.text(`SGST${avgSgstRate} (${avgSgstRate}%)`, 148, rightY + 12);
-  doc.text('Rounding', 148, rightY + 18);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.text('Total', 148, rightY + 26);
-
-  // Print values right-aligned
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.text(Number(quote.subtotal || 0).toFixed(2), 196, rightY, { align: 'right' });
-  doc.text(Number(calculatedCgstSum || 0).toFixed(2), 196, rightY + 6, { align: 'right' });
-  doc.text(Number(calculatedSgstSum || 0).toFixed(2), 196, rightY + 12, { align: 'right' });
-  doc.text(Number(roundingDiff || 0).toFixed(2), 196, rightY + 18, { align: 'right' });
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.text(`Rs.${Number(roundedTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 196, rightY + 26, { align: 'right' });
-
-  // Divider lines inside calculations box
+  // --- Footer summary area ---
+  const footerY = doc.lastAutoTable.finalY + 8;
   doc.setDrawColor(200, 200, 200);
-  doc.line(116, rightY + 21, 202, rightY + 21);
-  doc.line(116, rightY + 29, 202, rightY + 29);
+  doc.line(8, footerY, 202, footerY);
 
-  // Authorized Signature bottom box
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105);
-  doc.text('Authorized Signature', 159, 276, { align: 'center' });
-
-  // --- Left side notes & terms ---
-  let leftY = finalY + 6;
-  
-  // Total in Words
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
-  doc.text('Total In Words', 12, leftY);
+  doc.text('Total In Words', 12, footerY + 6);
 
-  doc.setFont('helvetica', 'bolditalic');
-  doc.setFontSize(8);
+  doc.setFont('helvetica', 'italic');
   doc.setTextColor(15, 23, 42);
-  doc.text(numberToIndianWords(roundedTotal), 12, leftY + 5, { maxWidth: 100 });
+  doc.text(numberToIndianWords(Number(grandTotal || 0)), 12, footerY + 12, { maxWidth: 110 });
 
-  // Notes
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
-  doc.text('Notes', 12, leftY + 14);
-
+  doc.text('Payment Terms', 135, footerY + 6);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105);
-  doc.text(quote.terms?.notes || 'Looking forward for your business.', 12, leftY + 19, { maxWidth: 100 });
+  doc.text(quote.terms?.paymentTerms || '100% Advance', 135, footerY + 12);
 
-  // Terms and conditions
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
-  doc.text('Terms & Conditions', 12, leftY + 28);
+  doc.text('Authorized Signature', 155, 276, { align: 'center' });
 
   const defaultTerms = [
-    `Payment Terms: ${quote.terms?.paymentTerms || '100% Advance.'}`,
-    'Freight charges will be extra.',
-    'Delivery Within 10 -12 Working Days.',
-    'Prices: The price is quoted in INR.',
-    'Bank Detail: Kotak Mahindra Bank,',
-    'Branch: Chandan House, Opp.Abhijit 3, Ahmedabad.',
-    'A/c. No.1512264287, IFSC Code : KKBK0000812',
-    'Other Detail: PAN No. AAHCP4599D',
-    'GSTIN No.- 24AAHCP4599D1Z8'
+    '>>> Payment: 100% Advance',
+    '>>> The above terms are subject to local conditions on both sides',
+    '>>> The above terms are subject to space availability, equipment, rate approval, and acceptance.',
+    '>>> Booking cancellation fees as per liner tariff.',
+    '>>> The above terms apply to only hazarodus cargo only.',
+    '>>> Exchange rate taken only for calculation purpose. (Final exchange rate will be differ)',
+    '>>> Wooden Packaging: If wooden packaging is used, fumigation with an ISPM-15 stamp is mandatory. This will be the responsibility of the exporter.',
+    '>>> Additional Services: Any landing, chocking, greasing, forklift, or crane services required will incur extra charges.',
+    '>>> Hidden Charges: Any hidden charges incurred at the time of clearance and forwarding will be charged at actual costs, subject to prior approval.',
+    '>>> GST: Extra, as applicable.'
   ];
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
+  doc.setFontSize(7.2);
   doc.setTextColor(71, 85, 105);
-  
-  let currentTermY = leftY + 33;
-  defaultTerms.forEach(term => {
-    doc.text(term, 12, currentTermY);
-    currentTermY += 4;
+  defaultTerms.forEach((term, idx) => {
+    doc.text(term, 12, footerY + 20 + idx * 4.2, { maxWidth: 185 });
   });
 };
 

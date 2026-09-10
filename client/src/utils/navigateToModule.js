@@ -101,6 +101,7 @@ export const navigateToModule = (module, navigate) => {
     case "Attendance":
       return navigate("/attendance/dashboard");
     case "IT Helpdesk":
+      sessionStorage.removeItem("it_helpdesk_expiry_modal_shown");
       return navigate("/it-helpdesk");
     case "Karma Points":
       return navigate("/karma-points");

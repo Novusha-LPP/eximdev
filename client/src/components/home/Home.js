@@ -252,6 +252,7 @@ function Home() {
   const [billingConfirmCount, setBillingConfirmCount] = useState(0);
 
   useEffect(() => {
+    sessionStorage.removeItem("it_helpdesk_expiry_modal_shown");
     async function fetchPendingCount() {
       try {
         const res = await axios.get(

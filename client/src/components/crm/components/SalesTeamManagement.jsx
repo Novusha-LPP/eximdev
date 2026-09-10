@@ -415,6 +415,9 @@ export default function SalesTeamManagement() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
       {/* FR-12 HOD Multi-Team Access Modal */}
       {isHodModalOpen && (
         <div style={{

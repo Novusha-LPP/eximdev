@@ -1,6 +1,11 @@
 import MRMItem from '../model/mrm/mrmItemModel.mjs';
 import MRMMetadata from '../model/mrm/mrmMetadataModel.mjs';
 import OpenPoint from '../model/openPoints/openPointModel.mjs';
+import UserModel from '../model/userModel.mjs';
+import KPISheet from '../model/kpi/kpiSheetModel.mjs';
+import MRMSegmentRollup from '../model/mrm/mrmSegmentRollupModel.mjs';
+import MRMHodScore from '../model/mrm/mrmHodScoreModel.mjs';
+import { isFeatureEnabled } from '../config/featureFlags.mjs';
 
 /**
  * Parses numeric value safely from strings (handles percentages, commas, currency)
@@ -349,12 +354,29 @@ export const calculateAnnualRollup = async ({ year, userId = null, forecastMetho
         tilesCount: tileSummaries.length
     };
 
+    // 6. Annual Team Business Loss Rollup (MRM 2.0 KPI Rollup Extension)
+    let teamBusinessLoss = null;
+    if (isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED') && userId) {
+        try {
+            const userDoc = await UserModel.findById(userId).select('department').lean();
+            if (userDoc?.department) {
+                teamBusinessLoss = await calculateAnnualBusinessLossRollup({
+                    department: userDoc.department,
+                    year: queryYear
+                });
+            }
+        } catch (err) {
+            console.error('Failed to attach teamBusinessLoss to annual rollup:', err);
+        }
+    }
+
     return {
         year: queryYear,
         approvedMonths: Array.from(approvedMonthSet),
         objectives: rollupResults,
         tileSummaries,
-        personSummary
+        personSummary,
+        ...(teamBusinessLoss ? { teamBusinessLoss } : {})
     };
 };
 
@@ -615,4 +637,661 @@ export const analyzeRecurringIssues = async ({ year = new Date().getFullYear() }
         systemicTiles
     };
 };
+
+// ============================================================================
+// MRM 2.0 — KPI ROLLUP & HOD PERFORMANCE SCORING ENGINES (FEATURE-FLAG GATED)
+// ============================================================================
+
+/**
+ * Calculates Sub-Team KPI Segment Rollups for an HOD's Department
+ * 2-Signal Derived RAG: Signal 1 (Trailing 3M Trend Deviation) + Signal 2 (Flags: Blocker/Loss/Late)
+ */
+export const calculateSegmentRollup = async ({ department, hodId, month, year }) => {
+    if (!isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED')) {
+        return { enabled: false, message: 'MRM KPI Rollup feature is not enabled' };
+    }
+
+    const monthStr = String(month).padStart(2, '0');
+    const monthNum = parseInt(month, 10);
+    const yearNum = parseInt(year, 10);
+
+    // 1. Fetch active users belonging to this department
+    const deptUsers = await UserModel.find({
+        department: { $regex: new RegExp(`^${department}$`, 'i') },
+        isActive: { $ne: false }
+    }).select('_id first_name last_name username sub_team sub_team_role department').lean();
+
+    if (!deptUsers || deptUsers.length === 0) {
+        return {
+            enabled: true,
+            department,
+            month: monthStr,
+            year: yearNum,
+            segments: [],
+            totalMembers: 0,
+            submittedCount: 0
+        };
+    }
+
+    // 2. Group users into sub-teams (defaulting to 'General')
+    const subTeamMap = new Map();
+    deptUsers.forEach(u => {
+        const teamName = (u.sub_team && u.sub_team.trim()) ? u.sub_team.trim() : 'General';
+        if (!subTeamMap.has(teamName)) {
+            subTeamMap.set(teamName, []);
+        }
+        subTeamMap.get(teamName).push(u);
+    });
+
+    // 3. Fetch KPISheets for current month
+    const userIds = deptUsers.map(u => u._id);
+    const currentSheets = await KPISheet.find({
+        user: { $in: userIds },
+        month: monthNum,
+        year: yearNum
+    }).lean();
+
+    const sheetByUserMap = new Map();
+    currentSheets.forEach(s => sheetByUserMap.set(s.user.toString(), s));
+
+    // 4. Determine trailing 3 months for trend baseline
+    const trailingMonths = [];
+    for (let offset = 1; offset <= 3; offset++) {
+        let m = monthNum - offset;
+        let y = yearNum;
+        if (m <= 0) {
+            m += 12;
+            y -= 1;
+        }
+        trailingMonths.push({ month: m, year: y });
+    }
+
+    // Fetch historical sheets for the 3 trailing months
+    const historicalSheets = await KPISheet.find({
+        user: { $in: userIds },
+        $or: trailingMonths.map(t => ({ month: t.month, year: t.year }))
+    }).lean();
+
+    // Check Cold-Start Rule:
+    // Count distinct historical months with submitted/approved sheets across department
+    const distinctHistoricalMonthKeys = new Set(
+        historicalSheets
+            .filter(s => ['SUBMITTED', 'APPROVED', 'CHECKED', 'VERIFIED'].includes(s.status))
+            .map(s => `${s.year}-${String(s.month).padStart(2, '0')}`)
+    );
+    const isColdStart = distinctHistoricalMonthKeys.size < 3;
+
+    // 5. Build Segment Rollups
+    const segmentRollups = [];
+
+    for (const [subTeamName, members] of subTeamMap.entries()) {
+        const memberIds = members.map(m => m._id.toString());
+
+        let totalSegmentTasks = 0;
+        let businessLossTotal = 0;
+        let hasBusinessLoss = false;
+        let hasBlockers = false;
+        let totalBlockersCount = 0;
+        let hasUnsubmitted = false;
+        const unsubmittedMembers = [];
+        const contributingMembers = [];
+        const taskSumMap = new Map();
+
+        members.forEach(member => {
+            const mIdStr = member._id.toString();
+            const sheet = sheetByUserMap.get(mIdStr);
+            const memberFullName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.username;
+
+            let memberTasks = 0;
+            let memberLoss = 0;
+            let memberLossNTR = false;
+            let memberLossRemarks = '';
+            let memberHasBlockers = false;
+            let memberBlockersSummary = '';
+            let memberBlockersRecurrenceKey = '';
+            let memberOpenPointsCount = 0;
+            let memberOpenPointsItems = [];
+
+            const isSubmitted = sheet ? ['SUBMITTED', 'APPROVED', 'CHECKED', 'VERIFIED'].includes(sheet.status) : false;
+            const isSubmittedOnTime = sheet?.summary?.is_submitted_on_time !== false;
+
+            if (sheet) {
+                if (Array.isArray(sheet.rows)) {
+                    sheet.rows.forEach(r => {
+                        const rowTotal = Number(r.total) || 0;
+                        memberTasks += rowTotal;
+
+                        const taskLabel = r.label || r.row_id || 'Other';
+                        if (!taskSumMap.has(taskLabel)) {
+                            taskSumMap.set(taskLabel, {
+                                task_name: taskLabel,
+                                total_count: 0,
+                                member_counts: []
+                            });
+                        }
+                        const tObj = taskSumMap.get(taskLabel);
+                        tObj.total_count += rowTotal;
+                        tObj.member_counts.push({
+                            userId: member._id,
+                            name: memberFullName,
+                            count: rowTotal
+                        });
+                    });
+                }
+
+                const summary = sheet.summary || {};
+                memberLoss = Number(summary.business_loss) || 0;
+                memberLossNTR = Boolean(summary.business_loss_nothing_to_report);
+                memberLossRemarks = summary.business_loss_remarks || summary.loss_description || '';
+                if (!memberLossNTR && memberLoss > 0) {
+                    businessLossTotal += memberLoss;
+                    hasBusinessLoss = true;
+                }
+
+                const blockerText = (summary.blockers || '').trim();
+                const blockerNTR = Boolean(summary.blockers_nothing_to_report);
+                if (!blockerNTR && blockerText && blockerText !== 'NONE: No blockers to select' && blockerText.toUpperCase() !== 'NONE') {
+                    memberHasBlockers = true;
+                    hasBlockers = true;
+                    totalBlockersCount++;
+                    memberBlockersSummary = blockerText;
+                    memberBlockersRecurrenceKey = summary.blockers_recurrence_key || summary.blockers_root_cause || '';
+                }
+
+                memberOpenPointsCount = Number(summary.open_points_count) || (Array.isArray(summary.open_points) ? summary.open_points.length : 0);
+                if (Array.isArray(summary.open_points)) {
+                    memberOpenPointsItems = summary.open_points;
+                }
+            }
+
+            if (!isSubmitted) {
+                hasUnsubmitted = true;
+                unsubmittedMembers.push(memberFullName);
+            }
+
+            totalSegmentTasks += memberTasks;
+
+            contributingMembers.push({
+                userId: member._id,
+                name: memberFullName,
+                task_count: memberTasks,
+                business_loss: memberLoss,
+                business_loss_nothing_to_report: memberLossNTR,
+                business_loss_remarks: memberLossRemarks,
+                has_blockers: memberHasBlockers,
+                blockers_summary: memberBlockersSummary,
+                blockers_recurrence_key: memberBlockersRecurrenceKey,
+                open_points_count: memberOpenPointsCount,
+                open_points_items: memberOpenPointsItems,
+                submitted: isSubmitted,
+                submitted_at: sheet?.summary?.submission_date || sheet?.updatedAt,
+                is_submitted_on_time: isSubmittedOnTime
+            });
+        });
+
+        // Trailing 3-Month Trend
+        let trailing3mAvg = null;
+        let trendDeviationPct = null;
+        let trendStatus = 'ColdStart';
+
+        if (!isColdStart) {
+            const monthlySums = [0, 0, 0];
+            trailingMonths.forEach((tm, idx) => {
+                const sheetsForMonth = historicalSheets.filter(hs =>
+                    hs.month === tm.month &&
+                    hs.year === tm.year &&
+                    memberIds.includes(hs.user.toString())
+                );
+                sheetsForMonth.forEach(s => {
+                    if (Array.isArray(s.rows)) {
+                        s.rows.forEach(r => {
+                            monthlySums[idx] += (Number(r.total) || 0);
+                        });
+                    }
+                });
+            });
+
+            const sumOf3M = monthlySums.reduce((a, b) => a + b, 0);
+            trailing3mAvg = Number((sumOf3M / 3).toFixed(1));
+
+            if (trailing3mAvg > 0) {
+                trendDeviationPct = Number((((totalSegmentTasks - trailing3mAvg) / trailing3mAvg) * 100).toFixed(1));
+            } else {
+                trendDeviationPct = 0;
+            }
+
+            if (trendDeviationPct <= -20.0) {
+                trendStatus = 'Red';
+            } else if (trendDeviationPct <= -10.0) {
+                trendStatus = 'Amber';
+            } else {
+                trendStatus = 'Green';
+            }
+        }
+
+        // Flag Status
+        const flagStatus = (hasBusinessLoss || hasBlockers || hasUnsubmitted) ? 'Red' : 'Green';
+
+        // Final RAG & Score & Reason Badge
+        let finalRag = 'Green';
+        let segmentScore = 100;
+        let reasonBadge = '';
+
+        if (hasUnsubmitted) {
+            finalRag = 'Red';
+            segmentScore = 0;
+            reasonBadge = `[Missed Submission: ${unsubmittedMembers.join(', ')}]`;
+        } else if (isColdStart) {
+            if (flagStatus === 'Red') {
+                finalRag = 'Red';
+                segmentScore = 40;
+                const reasons = [];
+                if (hasBusinessLoss) reasons.push(`Loss: ₹${businessLossTotal.toLocaleString('en-IN')}`);
+                if (hasBlockers) reasons.push('Blockers');
+                reasonBadge = `[Operational Flag: ${reasons.join(', ')} (Cold Start)]`;
+            } else {
+                finalRag = 'Green';
+                segmentScore = 100;
+                reasonBadge = '[Clean (Cold Start)]';
+            }
+        } else {
+            const isTrendRed = trendStatus === 'Red';
+            const isTrendAmber = trendStatus === 'Amber';
+            const isFlagRed = flagStatus === 'Red';
+
+            if (isTrendRed && isFlagRed) {
+                finalRag = 'Red';
+                segmentScore = 20;
+                reasonBadge = `[Trend Deviation (${trendDeviationPct}%) & Operational Flags]`;
+            } else if (isTrendRed && !isFlagRed) {
+                finalRag = 'Red';
+                segmentScore = 40;
+                reasonBadge = `[Trend Deviation (${trendDeviationPct}%)]`;
+            } else if (!isTrendRed && isFlagRed) {
+                finalRag = 'Red';
+                segmentScore = 40;
+                const reasons = [];
+                if (hasBusinessLoss) reasons.push(`Loss: ₹${businessLossTotal.toLocaleString('en-IN')}`);
+                if (hasBlockers) reasons.push('Blockers');
+                reasonBadge = `[Operational Flag: ${reasons.join(', ')}]`;
+            } else if (isTrendAmber && !isFlagRed) {
+                finalRag = 'Amber';
+                segmentScore = 70;
+                reasonBadge = `[Trend Deviation (${trendDeviationPct}%)]`;
+            } else {
+                finalRag = 'Green';
+                segmentScore = 100;
+                reasonBadge = '[On Trend & Clean]';
+            }
+        }
+
+        const taskBreakdown = Array.from(taskSumMap.values());
+
+        const segmentData = {
+            month: monthStr,
+            year: yearNum,
+            department,
+            sub_team: subTeamName,
+            hodId: hodId || members[0]?._id,
+            contributing_members: contributingMembers,
+            total_tasks: totalSegmentTasks,
+            trailing_3m_avg: trailing3mAvg,
+            trend_deviation_pct: trendDeviationPct,
+            is_cold_start: isColdStart,
+            trend_status: trendStatus,
+            flags: {
+                business_loss_total: businessLossTotal,
+                has_business_loss: hasBusinessLoss,
+                has_blockers: hasBlockers,
+                blockers_count: totalBlockersCount,
+                has_unsubmitted: hasUnsubmitted,
+                unsubmitted_members: unsubmittedMembers
+            },
+            flag_status: flagStatus,
+            final_rag: finalRag,
+            reason_badge: reasonBadge,
+            segment_score: segmentScore,
+            task_breakdown: taskBreakdown
+        };
+
+        // Persist snapshot to MRMSegmentRollup
+        await MRMSegmentRollup.findOneAndUpdate(
+            { month: monthStr, year: yearNum, department, sub_team: subTeamName },
+            { $set: segmentData },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+
+        segmentRollups.push(segmentData);
+    }
+
+    // Sort segments: Reds first, then Ambers, then Greens
+    const ragPriority = { Red: 0, Amber: 1, Green: 2 };
+    segmentRollups.sort((a, b) => ragPriority[a.final_rag] - ragPriority[b.final_rag]);
+
+    const totalUnsubmitted = segmentRollups.reduce((acc, s) => acc + s.flags.unsubmitted_members.length, 0);
+
+    return {
+        enabled: true,
+        department,
+        month: monthStr,
+        year: yearNum,
+        segments: segmentRollups,
+        totalMembers: deptUsers.length,
+        submittedCount: deptUsers.length - totalUnsubmitted
+    };
+};
+
+/**
+ * Calculates 70/30 Blended Monthly HOD Performance Score
+ * S_HOD = (S_Team * 0.70) + (S_Focus * 0.30)
+ */
+export const calculateHodMonthlyScore = async ({ hodId, department, month, year }) => {
+    if (!isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED')) {
+        return { enabled: false, message: 'MRM KPI Rollup feature is not enabled' };
+    }
+
+    const monthStr = String(month).padStart(2, '0');
+    const yearNum = parseInt(year, 10);
+
+    // 1. Team KPI Performance Score (S_Team, 70% weight)
+    let rollups = await MRMSegmentRollup.find({
+        department,
+        month: monthStr,
+        year: yearNum
+    }).lean();
+
+    if (!rollups || rollups.length === 0) {
+        const computed = await calculateSegmentRollup({ department, hodId, month: monthStr, year: yearNum });
+        rollups = computed?.segments || [];
+    }
+
+    let teamScore = 100;
+    if (rollups.length > 0) {
+        const totalSegmentScores = rollups.reduce((acc, s) => acc + (Number(s.segment_score) || 0), 0);
+        teamScore = Number((totalSegmentScores / rollups.length).toFixed(1));
+    }
+
+    // 2. HOD Focus Areas Score (S_Focus, 30% weight)
+    const hodItems = await MRMItem.find({
+        month: monthStr,
+        year: yearNum,
+        createdBy: hodId,
+        isTitleRow: { $ne: true }
+    }).lean();
+
+    let greenCount = 0;
+    let yellowCount = 0;
+    let redCount = 0;
+
+    hodItems.forEach(item => {
+        const st = String(item.status || '').toLowerCase();
+        if (st === 'green') greenCount++;
+        else if (st === 'yellow' || st === 'amber' || st === 'orange') yellowCount++;
+        else if (st === 'red') redCount++;
+    });
+
+    const totalObjectives = greenCount + yellowCount + redCount;
+    let focusScore = 100;
+    if (totalObjectives > 0) {
+        focusScore = Number((((greenCount * 100) + (yellowCount * 60) + (redCount * 0)) / totalObjectives).toFixed(1));
+    }
+
+    // 3. Final Blended Score
+    const finalScore = Number(((teamScore * 0.70) + (focusScore * 0.30)).toFixed(1));
+
+    // 4. Cumulative Annual Business Loss
+    const annualRollups = await MRMSegmentRollup.find({
+        department,
+        year: yearNum
+    }).lean();
+
+    let annualLossTotal = 0;
+    let annualLossIncidents = 0;
+    annualRollups.forEach(r => {
+        const loss = Number(r.flags?.business_loss_total) || 0;
+        if (loss > 0) {
+            annualLossTotal += loss;
+            annualLossIncidents += (r.contributing_members || []).filter(m => m.business_loss > 0).length;
+        }
+    });
+
+    const scoreData = {
+        month: monthStr,
+        year: yearNum,
+        hodId,
+        department,
+        team_score: teamScore,
+        focus_score: focusScore,
+        final_score: finalScore,
+        segments_count: rollups.length,
+        segments_summary: rollups.map(r => ({
+            sub_team: r.sub_team,
+            rag: r.final_rag,
+            score: r.segment_score,
+            reason: r.reason_badge
+        })),
+        focus_areas_count: totalObjectives,
+        focus_areas_summary: {
+            green: greenCount,
+            yellow: yellowCount,
+            red: redCount
+        },
+        annual_cumulative_team_business_loss: annualLossTotal,
+        annual_business_loss_incident_count: annualLossIncidents
+    };
+
+    const savedScore = await MRMHodScore.findOneAndUpdate(
+        { month: monthStr, year: yearNum, hodId },
+        { $set: scoreData },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    // Compute rankings across all HODs for this month
+    const allMonthlyScores = await MRMHodScore.find({
+        month: monthStr,
+        year: yearNum
+    }).sort({ final_score: -1 }).lean();
+
+    const rank = allMonthlyScores.findIndex(s => s.hodId.toString() === hodId.toString()) + 1;
+    const totalRanked = allMonthlyScores.length;
+
+    await MRMHodScore.findByIdAndUpdate(savedScore._id, {
+        monthly_rank: rank,
+        total_hods_ranked: totalRanked
+    });
+
+    return {
+        ...scoreData,
+        monthly_rank: rank,
+        total_hods_ranked: totalRanked
+    };
+};
+
+/**
+ * Detects Recurring Blockers across historical KPI submissions
+ */
+export const detectRecurringBlockers = async ({ department, month, year }) => {
+    const monthNum = parseInt(month, 10);
+    const yearNum = parseInt(year, 10);
+
+    const targetMonths = [];
+    for (let offset = 0; offset < 3; offset++) {
+        let m = monthNum - offset;
+        let y = yearNum;
+        if (m <= 0) {
+            m += 12;
+            y -= 1;
+        }
+        targetMonths.push({ month: m, year: y });
+    }
+
+    const sheets = await KPISheet.find({
+        department: { $regex: new RegExp(`^${department}$`, 'i') },
+        $or: targetMonths.map(t => ({ month: t.month, year: t.year }))
+    }).populate('user', 'first_name last_name username sub_team').lean();
+
+    const blockerMap = new Map();
+
+    sheets.forEach(s => {
+        const summary = s.summary || {};
+        if (summary.blockers_nothing_to_report) return;
+        const blockerText = (summary.blockers || '').trim();
+        if (!blockerText || blockerText === 'NONE: No blockers to select' || blockerText.toUpperCase() === 'NONE') return;
+
+        const key = (summary.blockers_recurrence_key || summary.blockers_root_cause || blockerText).trim().toLowerCase();
+        const userName = s.user ? `${s.user.first_name || ''} ${s.user.last_name || ''}`.trim() || s.user.username : 'Unknown';
+        const subTeam = s.user?.sub_team || 'General';
+
+        if (!blockerMap.has(key)) {
+            blockerMap.set(key, {
+                key,
+                rawText: blockerText,
+                subTeam,
+                members: new Set(),
+                occurrences: []
+            });
+        }
+
+        const b = blockerMap.get(key);
+        b.members.add(userName);
+        b.occurrences.push({
+            month: s.month,
+            year: s.year,
+            userName,
+            text: blockerText
+        });
+    });
+
+    const recurringList = [];
+    for (const [key, val] of blockerMap.entries()) {
+        const distinctMonths = new Set(val.occurrences.map(o => `${o.year}-${o.month}`));
+        if (distinctMonths.size >= 2) {
+            recurringList.push({
+                recurrenceKey: key,
+                description: val.rawText,
+                subTeam: val.subTeam,
+                affectedMembers: Array.from(val.members),
+                consecutiveMonthsCount: distinctMonths.size,
+                isChronic: distinctMonths.size >= 3,
+                occurrences: val.occurrences
+            });
+        }
+    }
+
+    return recurringList;
+};
+
+/**
+ * Pre-Deadline Submission Tracker for HODs
+ */
+export const getPreDeadlineSubmissionStatus = async ({ department, month, year }) => {
+    const monthNum = parseInt(month, 10);
+    const yearNum = parseInt(year, 10);
+
+    const users = await UserModel.find({
+        department: { $regex: new RegExp(`^${department}$`, 'i') },
+        isActive: { $ne: false }
+    }).select('_id first_name last_name username email sub_team sub_team_role').lean();
+
+    const userIds = users.map(u => u._id);
+    const sheets = await KPISheet.find({
+        user: { $in: userIds },
+        month: monthNum,
+        year: yearNum
+    }).select('user status summary updatedAt').lean();
+
+    const sheetMap = new Map();
+    sheets.forEach(s => sheetMap.set(s.user.toString(), s));
+
+    const submitted = [];
+    const pending = [];
+
+    users.forEach(u => {
+        const uId = u._id.toString();
+        const s = sheetMap.get(uId);
+        const name = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username;
+        const isSub = s ? ['SUBMITTED', 'APPROVED', 'CHECKED', 'VERIFIED'].includes(s.status) : false;
+
+        const info = {
+            userId: u._id,
+            name,
+            sub_team: u.sub_team || 'General',
+            status: s ? s.status : 'NOT_STARTED',
+            submittedAt: s?.summary?.submission_date || (isSub ? s.updatedAt : null)
+        };
+
+        if (isSub) {
+            submitted.push(info);
+        } else {
+            pending.push(info);
+        }
+    });
+
+    const total = users.length;
+    const submittedCount = submitted.length;
+    const submissionRate = total > 0 ? Number(((submittedCount / total) * 100).toFixed(1)) : 0;
+
+    return {
+        department,
+        month: monthNum,
+        year: yearNum,
+        totalMembers: total,
+        submittedCount,
+        pendingCount: pending.length,
+        submissionRate,
+        submitted,
+        pending
+    };
+};
+
+/**
+ * Calculates Department Annual Business Loss Rollup
+ */
+export const calculateAnnualBusinessLossRollup = async ({ department, year }) => {
+    const yearNum = parseInt(year, 10);
+
+    const rollups = await MRMSegmentRollup.find({
+        department: { $regex: new RegExp(`^${department}$`, 'i') },
+        year: yearNum
+    }).lean();
+
+    let totalLoss = 0;
+    const monthlyBreakdown = {};
+    const subTeamBreakdown = {};
+    const incidents = [];
+
+    rollups.forEach(r => {
+        const mKey = r.month;
+        if (!monthlyBreakdown[mKey]) monthlyBreakdown[mKey] = 0;
+        if (!subTeamBreakdown[r.sub_team]) subTeamBreakdown[r.sub_team] = 0;
+
+        const loss = Number(r.flags?.business_loss_total) || 0;
+        totalLoss += loss;
+        monthlyBreakdown[mKey] += loss;
+        subTeamBreakdown[r.sub_team] += loss;
+
+        (r.contributing_members || []).forEach(m => {
+            if (m.business_loss > 0) {
+                incidents.push({
+                    month: r.month,
+                    sub_team: r.sub_team,
+                    memberName: m.name,
+                    amount: m.business_loss,
+                    remarks: m.business_loss_remarks
+                });
+            }
+        });
+    });
+
+    return {
+        department,
+        year: yearNum,
+        totalLoss,
+        totalIncidents: incidents.length,
+        monthlyBreakdown,
+        subTeamBreakdown,
+        incidents
+    };
+};
+
 

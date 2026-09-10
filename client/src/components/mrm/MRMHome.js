@@ -6,9 +6,10 @@ import {
     fetchMRMItems, createMRMItem, updateMRMItem, deleteMRMItem, 
     bulkDeleteMRMItems, importMRMItems, fetchMRMMetadata, 
     saveMRMMetadata, fetchMRMUsers, reorderMRMItems,
-    submitMRM, approveMRM, requestMRMRevision, reopenMRM, updateObjectiveConfig 
+    submitMRM, approveMRM, requestMRMRevision, reopenMRM, updateObjectiveConfig,
+    fetchMRMFeatureStatus, fetchSegmentRollup, fetchHodScore 
 } from '../../services/mrmService';
-import { IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Autocomplete, TextField, Menu, MenuItem, Tooltip, Checkbox, FormControlLabel, Snackbar, Alert } from '@mui/material';
+import { IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Autocomplete, TextField, Menu, MenuItem, Tooltip, Checkbox, FormControlLabel, Snackbar, Alert, Box, Typography, Chip } from '@mui/material';
 import { Reorder, useDragControls } from "framer-motion";
 import SaveIcon from '@mui/icons-material/Save';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
@@ -23,10 +24,15 @@ import LockOpenIcon from '@mui/icons-material/LockOpen';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import SendIcon from '@mui/icons-material/Send';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import GroupsIcon from '@mui/icons-material/Groups';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import SegmentRollupView from './SegmentRollupView';
+import PreDeadlineTracker from './PreDeadlineTracker';
+import HodScoreCard from './HodScoreCard';
+import SubTeamManager from './SubTeamManager';
 import '../../styles/mrm.scss';
 
 const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDeleteDialog, handleInsertItem, autoResizeTextarea, mrmUsers, isLocked, openBaselineDialog, handleStatusChange, hasTileAnomaly }) => {
@@ -550,6 +556,15 @@ const MRMHome = () => {
     const initialParamUserId = searchParams.get('userId');
     const [selectedUserId, setSelectedUserId] = useState((initialParamUserId && initialParamUserId !== 'undefined') ? initialParamUserId : '');
 
+    // MRM 2.0 — KPI Rollup & Sub-Team Segment State (Feature-Flagged)
+    const [rollupFeatureEnabled, setRollupFeatureEnabled] = useState(false);
+    const [segmentRollupData, setSegmentRollupData] = useState(null);
+    const [hodScoreData, setHodScoreData] = useState(null);
+    const [subTeamManagerOpen, setSubTeamManagerOpen] = useState(false);
+
+    const selectedUserObj = mrmUsers.find(u => String(u._id) === String(selectedUserId)) || user;
+    const activeDepartment = selectedUserObj?.department || user?.department || 'Import';
+
     // Modern Toast Notification State
     const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
     const showToast = (message, severity = 'success') => setToast({ open: true, message, severity });
@@ -635,6 +650,40 @@ const MRMHome = () => {
                 revisionHistory: metaData?.revisionHistory || [],
                 reopenHistory: metaData?.reopenHistory || []
             });
+
+            // Check MRM 2.0 KPI Rollup Feature Flag
+            try {
+                const featureRes = await fetchMRMFeatureStatus();
+                const isFeatureOn = Boolean(featureRes?.enabled);
+                setRollupFeatureEnabled(isFeatureOn);
+
+                if (isFeatureOn) {
+                    const selectedUserObj = mrmUsers.find(u => String(u._id) === String(targetUserId)) || user;
+                    const activeDept = selectedUserObj?.department || user?.department || 'Import';
+
+                    const [segData, scoreData] = await Promise.all([
+                        fetchSegmentRollup({
+                            department: activeDept,
+                            month: monthStr,
+                            year: selectedYear,
+                            hodId: targetUserId
+                        }),
+                        fetchHodScore({
+                            department: activeDept,
+                            month: monthStr,
+                            year: selectedYear,
+                            hodId: targetUserId
+                        })
+                    ]);
+                    setSegmentRollupData(segData);
+                    setHodScoreData(scoreData);
+                } else {
+                    setSegmentRollupData(null);
+                    setHodScoreData(null);
+                }
+            } catch (fErr) {
+                setRollupFeatureEnabled(false);
+            }
 
             // Auto-resize all textareas after data loads
             setTimeout(() => {
@@ -1678,6 +1727,16 @@ const MRMHome = () => {
                                 </button>
                             </>
                         )}
+                        {rollupFeatureEnabled && canManagePresenters && (
+                            <button
+                                className="action-btn secondary"
+                                onClick={() => setSubTeamManagerOpen(true)}
+                                title="Manage department sub-teams and assign team members"
+                                style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe', fontWeight: '600' }}
+                            >
+                                👥 Sub-Teams
+                            </button>
+                        )}
                         {items.length > 0 && (
                             <>
                                 {/* Export Dropdown Button */}
@@ -1961,6 +2020,24 @@ const MRMHome = () => {
                 </DialogActions>
             </Dialog>
 
+            {/* MRM 2.0 — HOD Monthly Scorecard (Feature-Flagged) */}
+            {rollupFeatureEnabled && hodScoreData && (
+                <HodScoreCard scoreData={hodScoreData} />
+            )}
+
+            {rollupFeatureEnabled && (
+                <Box mb={1} display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+                    <Typography variant="h6" fontWeight={800} color="#0f172a">
+                        Section 1: HOD Strategic Focus Areas
+                    </Typography>
+                    <Chip 
+                        label="Weight: 30% of Monthly HOD Score | Target-Based RAG" 
+                        size="small" 
+                        sx={{ bgcolor: '#f1f5f9', fontWeight: 600, fontSize: '11px' }} 
+                    />
+                </Box>
+            )}
+
             <div className="data-grid-container">
                 {loading ? <p style={{ padding: '20px', textAlign: 'center' }}>Loading...</p> : (
                     <table>
@@ -2026,6 +2103,33 @@ const MRMHome = () => {
                     </table>
                 )}
             </div>
+
+            {/* ═══ SECTION 2: SUB-TEAM KPI PERFORMANCE SEGMENTS (FEATURE-FLAGGED) ═══ */}
+            {rollupFeatureEnabled && (
+                <Box sx={{ mt: 3, mb: 2 }}>
+                    <PreDeadlineTracker 
+                        department={activeDepartment}
+                        month={String(selectedMonth).padStart(2, '0')}
+                        year={selectedYear}
+                        onReminderSent={(m) => showToast(`Reminder ping sent to ${m.name}`)}
+                    />
+                    <SegmentRollupView 
+                        segments={segmentRollupData?.segments || []}
+                        department={activeDepartment}
+                        month={String(selectedMonth).padStart(2, '0')}
+                        year={selectedYear}
+                        isHodOrAdmin={canManagePresenters}
+                        onApprovalComplete={loadData}
+                    />
+                </Box>
+            )}
+
+            <SubTeamManager 
+                open={subTeamManagerOpen}
+                onClose={() => setSubTeamManagerOpen(false)}
+                department={activeDepartment}
+                onSaved={loadData}
+            />
 
             {/* Import Modal */}
             <Dialog open={showImportModal} onClose={() => setShowImportModal(false)} maxWidth="sm" fullWidth>

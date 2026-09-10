@@ -12,6 +12,7 @@ import EmployeeKPI from "../../model/hr/employeeKPIModel.mjs";
 import AttendanceRecord from "../../model/attendance/AttendanceRecord.js";
 import moment from "moment";
 import fs from "fs";
+import { isFeatureEnabled } from "../../config/featureFlags.mjs";
 
 const router = express.Router();
 
@@ -1345,9 +1346,53 @@ router.post("/api/kpi/sheet/submit", verifyToken, async (req, res) => {
             return res.status(403).json({ message: `KPI locked. Submission deadline (${deadlineDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}) has passed. Contact Admin for extension.` });
         }
 
+        // Validate mandatory submission fields if MRM 2.0 KPI Rollup is enabled
+        if (isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED')) {
+            const sumObj = summary || sheet.summary || {};
+            const errors = [];
+
+            // 1. Business Loss: mandatory rupee amount OR "Nothing to report"
+            const lossNTR = Boolean(sumObj.business_loss_nothing_to_report);
+            const lossVal = Number(sumObj.business_loss) || 0;
+            const lossRemarks = (sumObj.business_loss_remarks || sumObj.loss_description || '').trim();
+
+            if (!lossNTR && lossVal > 0 && lossRemarks.length < 15) {
+                errors.push("Business loss remarks must include an actionable remedial recommendation (minimum 15 characters).");
+            } else if (!lossNTR && (sumObj.business_loss === undefined || sumObj.business_loss === null || isNaN(Number(sumObj.business_loss)))) {
+                errors.push("Business loss is required. Enter ₹ 0 or select 'Nothing to report'.");
+            }
+
+            // 2. Blockers: mandatory text OR "Nothing to report"
+            const blockersNTR = Boolean(sumObj.blockers_nothing_to_report);
+            const blockersText = (sumObj.blockers || '').trim();
+            if (!blockersNTR && (!blockersText || blockersText === 'NONE: No blockers to select' || blockersText.toUpperCase() === 'NONE')) {
+                errors.push("Blockers field is required. Provide details or select 'Nothing to report'.");
+            }
+
+            // 3. Open Points: mandatory OR "Nothing to report"
+            const openPointsNTR = Boolean(sumObj.open_points_nothing_to_report);
+            const openPointsList = Array.isArray(sumObj.open_points) ? sumObj.open_points : [];
+            const openPointsCount = Number(sumObj.open_points_count) || openPointsList.length;
+            if (!openPointsNTR && openPointsCount === 0 && openPointsList.length === 0) {
+                errors.push("Open points entry is required. Add open points or select 'Nothing to report'.");
+            }
+
+            if (errors.length > 0) {
+                return res.status(422).json({
+                    message: "Validation failed for monthly KPI submission",
+                    errors
+                });
+            }
+        }
+
         // Update Summary if provided
         if (summary) {
-            sheet.summary = { ...sheet.summary, ...summary, submission_date: new Date() };
+            sheet.summary = { 
+                ...sheet.summary, 
+                ...summary, 
+                submission_date: new Date(),
+                is_submitted_on_time: todayDate <= deadlineDate 
+            };
         }
 
         // Always recalculate metrics to ensure they are present and correct

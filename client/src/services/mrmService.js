@@ -225,3 +225,89 @@ export const updateObjectiveConfig = async (data) => {
     }
 };
 
+// ==========================================
+// MRM 2.0 — KPI ROLLUP & HOD SCORING (FLAG-GATED)
+// ==========================================
+
+export const fetchMRMFeatureStatus = async () => {
+    try {
+        const response = await axios.get(`${API_URL}/feature-status`, getHeaders());
+        return response.data;
+    } catch (error) {
+        return { enabled: false };
+    }
+};
+
+export const fetchSegmentRollup = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/segments/rollup`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const fetchHodScore = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/hod-score`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const fetchHodRankings = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/hod-scores/rankings`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const fetchPreDeadlineTracker = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/pre-deadline-tracker`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const fetchRecurringBlockers = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/recurring-blockers`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const fetchAnnualBusinessLoss = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/annual-business-loss`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const manageSubTeams = async (data) => {
+    try {
+        const response = await axios.post(`${API_URL}/sub-teams/manage`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const approveSegmentsRollup = async (data) => {
+    try {
+        const response = await axios.post(`${API_URL}/segments/approve`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+

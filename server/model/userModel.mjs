@@ -186,6 +186,17 @@ const userSchema = new Schema({
   department: {
     type: String,
   },
+  sub_team: {
+    type: String,
+    trim: true,
+    index: true,
+    default: "General",
+  },
+  sub_team_role: {
+    type: String,
+    enum: ["Member", "Lead"],
+    default: "Member",
+  },
   joining_date: {
     type: String,
   },

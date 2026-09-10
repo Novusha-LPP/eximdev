@@ -10,7 +10,9 @@ import {
     fetchMRMOpenPoints,
     approveMRM,
     requestMRMRevision,
-    updateObjectiveConfig
+    updateObjectiveConfig,
+    fetchMRMFeatureStatus,
+    fetchHodRankings
 } from '../../services/mrmService';
 import {
     Dialog,
@@ -26,7 +28,13 @@ import {
     FormControl,
     InputLabel,
     Snackbar,
-    Alert
+    Alert,
+    Chip,
+    Table,
+    TableHead,
+    TableBody,
+    TableRow,
+    TableCell
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -37,6 +45,10 @@ import PeopleIcon from '@mui/icons-material/People';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import TuneIcon from '@mui/icons-material/Tune';
 import SearchIcon from '@mui/icons-material/Search';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupee';
 import '../../styles/mrm.scss';
 
 const API_URL = (process.env.REACT_APP_API_STRING || 'http://0.0.0.0:9006/api');
@@ -106,10 +118,18 @@ const MRMAdminDashboard = () => {
     const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
     const showToast = (message, severity = 'success') => setToast({ open: true, message, severity });
 
-    // Load initial users list
+    // Tab 5: HOD Performance Rankings State (Feature-Flagged)
+    const [featureEnabled, setFeatureEnabled] = useState(false);
+    const [rankingsData, setRankingsData] = useState([]);
+    const [rankingSearch, setRankingSearch] = useState('');
+    const [rankingSort, setRankingSort] = useState('rank_asc');
+    const [expandedHodId, setExpandedHodId] = useState(null);
+
+    // Load initial users list & check feature flag
     useEffect(() => {
         if (isAuthorized) {
             fetchMRMUsers().then(users => setMrmUsers(users)).catch(console.error);
+            fetchMRMFeatureStatus().then(st => setFeatureEnabled(Boolean(st?.enabled))).catch(() => setFeatureEnabled(false));
         }
     }, [isAuthorized]);
 
@@ -127,10 +147,25 @@ const MRMAdminDashboard = () => {
             loadRecurringIssues();
         } else if (activeTab === 4) {
             loadMRMOpenPoints();
+        } else if (activeTab === 5 && featureEnabled) {
+            loadRankings();
         }
-    }, [activeTab, selectedMonth, selectedYear, selectedUserId, forecastMethod, opStatusFilter, opAgeFilter, opOwnerSearch, isAuthorized]);
+    }, [activeTab, selectedMonth, selectedYear, selectedUserId, forecastMethod, opStatusFilter, opAgeFilter, opOwnerSearch, isAuthorized, featureEnabled]);
 
     // Data Fetchers
+    const loadRankings = async () => {
+        setLoading(true);
+        try {
+            const data = await fetchHodRankings({ month: selectedMonth, year: selectedYear });
+            setRankingsData(Array.isArray(data) ? data : []);
+        } catch (err) {
+            console.error("Failed to load HOD rankings", err);
+            setRankingsData([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const loadApprovalQueue = async () => {
         setLoading(true);
         try {
@@ -459,6 +494,15 @@ const MRMAdminDashboard = () => {
                     <AssignmentIcon sx={{ fontSize: 18 }} />
                     MRM Open Points Hub
                 </button>
+                {featureEnabled && (
+                    <button
+                        className={`dash-tab ${activeTab === 5 ? 'active' : ''}`}
+                        onClick={() => setActiveTab(5)}
+                    >
+                        <EmojiEventsIcon sx={{ fontSize: 18 }} />
+                        HOD Rankings & Scorecard
+                    </button>
+                )}
             </div>
 
             {/* TAB 0: EXECUTIVE / HOD APPROVAL QUEUE */}
@@ -1650,6 +1694,467 @@ const MRMAdminDashboard = () => {
                     </div>
                 </div>
             )}
+
+            {/* TAB 5: HOD PERFORMANCE RANKINGS & SCORECARD (MRM 2.0 FEATURE FLAGGED) */}
+            {activeTab === 5 && featureEnabled && (() => {
+                // Compute summary KPIs across all ranked HODs
+                const rankedCount = rankingsData.length;
+                const avgScore = rankedCount > 0 
+                    ? (rankingsData.reduce((acc, r) => acc + (Number(r.final_score) || 0), 0) / rankedCount).toFixed(1)
+                    : '0.0';
+                const sortedByScore = [...rankingsData].sort((a, b) => (Number(b.final_score) || 0) - (Number(a.final_score) || 0));
+                const topDepartment = sortedByScore[0]?.department || '—';
+                const totalLoss = rankingsData.reduce((acc, r) => acc + (Number(r.annual_cumulative_team_business_loss) || 0), 0);
+
+                // Filter & Sort rankings
+                const filteredRankings = rankingsData
+                    .filter(r => {
+                        if (!rankingSearch.trim()) return true;
+                        const q = rankingSearch.toLowerCase();
+                        const hodName = `${r.hodId?.first_name || ''} ${r.hodId?.last_name || ''} ${r.hodId?.username || ''}`.toLowerCase();
+                        const dept = (r.department || '').toLowerCase();
+                        return hodName.includes(q) || dept.includes(q);
+                    })
+                    .sort((a, b) => {
+                        if (rankingSort === 'rank_asc') return (a.monthly_rank || 999) - (b.monthly_rank || 999);
+                        if (rankingSort === 'final_score_desc') return (Number(b.final_score) || 0) - (Number(a.final_score) || 0);
+                        if (rankingSort === 'team_score_desc') return (Number(b.team_score) || 0) - (Number(a.team_score) || 0);
+                        if (rankingSort === 'focus_score_desc') return (Number(b.focus_score) || 0) - (Number(a.focus_score) || 0);
+                        if (rankingSort === 'loss_desc') return (Number(b.annual_cumulative_team_business_loss) || 0) - (Number(a.annual_cumulative_team_business_loss) || 0);
+                        return 0;
+                    });
+
+                const getScoreColor = (score) => {
+                    const s = Number(score) || 0;
+                    if (s >= 80) return { bg: '#dcfce7', text: '#15803d', border: '#86efac' };
+                    if (s >= 60) return { bg: '#fef3c7', text: '#b45309', border: '#fcd34d' };
+                    return { bg: '#fee2e2', text: '#b91c1c', border: '#fca5a5' };
+                };
+
+                const getRankBadge = (rank) => {
+                    if (rank === 1) return { label: '#1 🥇', bg: '#fef3c7', text: '#b45309', border: '#fcd34d' };
+                    if (rank === 2) return { label: '#2 🥈', bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' };
+                    if (rank === 3) return { label: '#3 🥉', bg: '#ffedd5', text: '#c2410c', border: '#fed7aa' };
+                    return { label: `#${rank || '—'}`, bg: '#f8fafc', text: '#64748b', border: '#e2e8f0' };
+                };
+
+                return (
+                    <div style={{ padding: '20px 24px' }}>
+                        {/* Tab Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <div>
+                                <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#14532d', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <EmojiEventsIcon sx={{ color: '#d97706', fontSize: 28 }} />
+                                    HOD Performance Rankings & Blended Scorecard
+                                </h2>
+                                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                                    Executive Governance for {getMonthName(selectedMonth)} {selectedYear} &bull; Blended Formula: 70% Team KPI Roll-up (S_Team) + 30% HOD Focus Areas (S_Focus)
+                                </span>
+                            </div>
+                            <button
+                                onClick={loadRankings}
+                                style={{
+                                    padding: '7px 16px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #cbd5e1',
+                                    background: 'white',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    fontWeight: 600,
+                                    color: '#334155'
+                                }}
+                            >
+                                <AutorenewIcon sx={{ fontSize: 16 }} /> Refresh Rankings
+                            </button>
+                        </div>
+
+                        {/* Executive KPI Summary Cards */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    Ranked Leaders
+                                </div>
+                                <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a', margin: '6px 0 2px' }}>
+                                    {rankedCount} <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#64748b' }}>HODs</span>
+                                </div>
+                                <div style={{ fontSize: '0.8rem', color: '#16a34a', fontWeight: 500 }}>
+                                    Active for {getMonthName(selectedMonth)} {selectedYear}
+                                </div>
+                            </div>
+
+                            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    Company Avg Score
+                                </div>
+                                <div style={{ fontSize: '1.75rem', fontWeight: 700, color: Number(avgScore) >= 80 ? '#15803d' : Number(avgScore) >= 60 ? '#b45309' : '#b91c1c', margin: '6px 0 2px' }}>
+                                    {avgScore}%
+                                </div>
+                                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                    70/30 Blended Mean
+                                </div>
+                            </div>
+
+                            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    Top Department
+                                </div>
+                                <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#166534', margin: '6px 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {topDepartment}
+                                </div>
+                                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                    Rank #1 Monthly Leader
+                                </div>
+                            </div>
+
+                            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    Cumulative Team Loss (YTD)
+                                </div>
+                                <div style={{ fontSize: '1.75rem', fontWeight: 700, color: totalLoss > 0 ? '#dc2626' : '#15803d', margin: '6px 0 2px' }}>
+                                    ₹{Number(totalLoss).toLocaleString()}
+                                </div>
+                                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                    All Departments Combined ({selectedYear})
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Search, Filter & Sort Controls */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 300px' }}>
+                                <div style={{ position: 'relative', width: '100%', maxWidth: '380px' }}>
+                                    <SearchIcon sx={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: 18 }} />
+                                    <input
+                                        type="text"
+                                        placeholder="Filter by HOD name or department..."
+                                        value={rankingSearch}
+                                        onChange={(e) => setRankingSearch(e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 12px 8px 34px',
+                                            borderRadius: '8px',
+                                            border: '1px solid #cbd5e1',
+                                            fontSize: '0.85rem',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569' }}>Sort by:</label>
+                                <select
+                                    value={rankingSort}
+                                    onChange={(e) => setRankingSort(e.target.value)}
+                                    style={{
+                                        padding: '7px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid #cbd5e1',
+                                        fontSize: '0.85rem',
+                                        background: 'white',
+                                        color: '#334155',
+                                        fontWeight: 500,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <option value="rank_asc">Official Rank (Ascending)</option>
+                                    <option value="final_score_desc">Final Blended Score (High to Low)</option>
+                                    <option value="team_score_desc">Team KPI Score (High to Low)</option>
+                                    <option value="focus_score_desc">HOD Focus Score (High to Low)</option>
+                                    <option value="loss_desc">Annual Team Loss (High to Low)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Leaderboard Table Container */}
+                        <div className="data-grid-container" style={{ borderRadius: '12px', background: 'white', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                            {loading ? (
+                                <div style={{ padding: '60px 20px', textAlign: 'center', color: '#64748b' }}>
+                                    <AutorenewIcon sx={{ fontSize: 32, animation: 'spin 1s linear infinite', mb: 1, color: '#16a34a' }} />
+                                    <p>Loading HOD Performance Rankings...</p>
+                                </div>
+                            ) : filteredRankings.length === 0 ? (
+                                <div style={{ padding: '60px 20px', textAlign: 'center', color: '#64748b' }}>
+                                    <EmojiEventsIcon sx={{ fontSize: 48, color: '#cbd5e1', mb: 1 }} />
+                                    <h3>No HOD Scores Found</h3>
+                                    <p style={{ maxWidth: '420px', margin: '8px auto 0', fontSize: '0.88rem' }}>
+                                        No performance scores have been generated for {getMonthName(selectedMonth)} {selectedYear}. Ensure team KPI sheets and HOD focus tiles are submitted.
+                                    </p>
+                                </div>
+                            ) : (
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
+                                            <th style={{ padding: '12px 16px', width: '80px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Rank</th>
+                                            <th style={{ padding: '12px 16px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>HOD & Department</th>
+                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '140px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                                                Final Score (70/30)
+                                            </th>
+                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '150px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                                                Team KPI (70%)
+                                            </th>
+                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '150px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                                                HOD Focus (30%)
+                                            </th>
+                                            <th style={{ padding: '12px 16px', textAlign: 'right', width: '160px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                                                Annual Team Loss
+                                            </th>
+                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '100px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Status</th>
+                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '130px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredRankings.map((row, idx) => {
+                                            const rankInfo = getRankBadge(row.monthly_rank || (idx + 1));
+                                            const finalColor = getScoreColor(row.final_score);
+                                            const teamColor = getScoreColor(row.team_score);
+                                            const focusColor = getScoreColor(row.focus_score);
+                                            const isExpanded = expandedHodId === (row.hodId?._id || row.hodId || row._id);
+                                            const hodName = `${row.hodId?.first_name || ''} ${row.hodId?.last_name || ''}`.trim() || row.hodId?.username || '—';
+                                            const hodUserId = row.hodId?._id || row.hodId;
+
+                                            return (
+                                                <React.Fragment key={row._id || idx}>
+                                                    <tr 
+                                                        style={{ 
+                                                            borderBottom: isExpanded ? 'none' : '1px solid #e2e8f0', 
+                                                            transition: 'background 0.15s ease',
+                                                            background: isExpanded ? '#f0fdf4' : 'white'
+                                                        }}
+                                                    >
+                                                        {/* Rank */}
+                                                        <td style={{ padding: '14px 16px' }}>
+                                                            <span style={{
+                                                                display: 'inline-block',
+                                                                padding: '4px 10px',
+                                                                borderRadius: '999px',
+                                                                fontSize: '0.82rem',
+                                                                fontWeight: 700,
+                                                                background: rankInfo.bg,
+                                                                color: rankInfo.text,
+                                                                border: `1px solid ${rankInfo.border}`
+                                                            }}>
+                                                                {rankInfo.label}
+                                                            </span>
+                                                        </td>
+
+                                                        {/* HOD & Department */}
+                                                        <td style={{ padding: '14px 16px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <div>
+                                                                    <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.92rem' }}>
+                                                                        {hodName}
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
+                                                                        <span style={{
+                                                                            display: 'inline-block',
+                                                                            padding: '1px 8px',
+                                                                            borderRadius: '4px',
+                                                                            fontSize: '0.75rem',
+                                                                            fontWeight: 600,
+                                                                            background: '#e0f2fe',
+                                                                            color: '#0369a1'
+                                                                        }}>
+                                                                            {row.department}
+                                                                        </span>
+                                                                        {row.hodId?.designation && (
+                                                                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                                                &bull; {row.hodId.designation}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Final Score (70/30) */}
+                                                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                                                            <span style={{
+                                                                display: 'inline-block',
+                                                                padding: '6px 14px',
+                                                                borderRadius: '8px',
+                                                                fontSize: '1rem',
+                                                                fontWeight: 800,
+                                                                background: finalColor.bg,
+                                                                color: finalColor.text,
+                                                                border: `1px solid ${finalColor.border}`,
+                                                                minWidth: '70px'
+                                                            }}>
+                                                                {row.final_score}%
+                                                            </span>
+                                                        </td>
+
+                                                        {/* Team KPI (70%) */}
+                                                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                                                            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: teamColor.text }}>
+                                                                {row.team_score}%
+                                                            </div>
+                                                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                                                                {row.segments_count || row.segments_summary?.length || 0} Sub-teams
+                                                            </div>
+                                                        </td>
+
+                                                        {/* HOD Focus (30%) */}
+                                                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                                                            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: focusColor.text }}>
+                                                                {row.focus_score}%
+                                                            </div>
+                                                            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', display: 'flex', justifyContent: 'center', gap: '4px' }}>
+                                                                <span title="Green" style={{ color: '#16a34a', fontWeight: 600 }}>🟢 {row.focus_areas_summary?.green || 0}</span>
+                                                                <span title="Yellow" style={{ color: '#d97706', fontWeight: 600 }}>🟡 {row.focus_areas_summary?.yellow || 0}</span>
+                                                                <span title="Red" style={{ color: '#dc2626', fontWeight: 600 }}>🔴 {row.focus_areas_summary?.red || 0}</span>
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Annual Team Business Loss */}
+                                                        <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                                                            <div style={{
+                                                                fontWeight: 700,
+                                                                fontSize: '0.9rem',
+                                                                color: (row.annual_cumulative_team_business_loss || 0) > 0 ? '#dc2626' : '#15803d'
+                                                            }}>
+                                                                ₹{Number(row.annual_cumulative_team_business_loss || 0).toLocaleString()}
+                                                            </div>
+                                                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                                                                {row.annual_business_loss_incident_count || 0} incident(s)
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Status */}
+                                                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                                                            <span style={{
+                                                                display: 'inline-block',
+                                                                padding: '3px 8px',
+                                                                borderRadius: '4px',
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: 600,
+                                                                background: row.status === 'Approved' || row.status === 'Locked' ? '#dcfce7' : '#f1f5f9',
+                                                                color: row.status === 'Approved' || row.status === 'Locked' ? '#15803d' : '#64748b',
+                                                                border: row.status === 'Approved' || row.status === 'Locked' ? '1px solid #bbf7d0' : '1px solid #cbd5e1'
+                                                            }}>
+                                                                {row.status || 'Draft'}
+                                                            </span>
+                                                        </td>
+
+                                                        {/* Action */}
+                                                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (hodUserId) {
+                                                                            navigate(`/mrm?userId=${hodUserId}&month=${selectedMonth}&year=${selectedYear}`);
+                                                                        }
+                                                                    }}
+                                                                    style={{
+                                                                        padding: '5px 10px',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #16a34a',
+                                                                        background: '#f0fdf4',
+                                                                        color: '#15803d',
+                                                                        fontSize: '0.78rem',
+                                                                        fontWeight: 600,
+                                                                        cursor: 'pointer',
+                                                                        transition: 'all 0.15s ease'
+                                                                    }}
+                                                                    title="Open HOD monthly performance sheet"
+                                                                >
+                                                                    View Sheet
+                                                                </button>
+                                                                {row.segments_summary && row.segments_summary.length > 0 && (
+                                                                    <button
+                                                                        onClick={() => setExpandedHodId(isExpanded ? null : hodUserId)}
+                                                                        style={{
+                                                                            padding: '4px 6px',
+                                                                            borderRadius: '6px',
+                                                                            border: '1px solid #cbd5e1',
+                                                                            background: 'white',
+                                                                            color: '#64748b',
+                                                                            cursor: 'pointer',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center'
+                                                                        }}
+                                                                        title={isExpanded ? "Collapse sub-team details" : "Expand sub-team details"}
+                                                                    >
+                                                                        {isExpanded ? <ExpandLessIcon sx={{ fontSize: 16 }} /> : <ExpandMoreIcon sx={{ fontSize: 16 }} />}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+
+                                                    {/* Expandable Sub-Team Drilldown Row */}
+                                                    {isExpanded && row.segments_summary && row.segments_summary.length > 0 && (
+                                                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                                            <td colSpan={8} style={{ padding: '14px 24px 18px 48px' }}>
+                                                                <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 16px' }}>
+                                                                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#14532d', marginBottom: '8px' }}>
+                                                                        Sub-Team Roll-Up Breakdown for {row.department}
+                                                                    </div>
+                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                                                                        {row.segments_summary.map((seg, sIdx) => {
+                                                                            const ragBg = seg.rag === 'Green' ? '#dcfce7' : seg.rag === 'Amber' ? '#fef3c7' : '#fee2e2';
+                                                                            const ragText = seg.rag === 'Green' ? '#15803d' : seg.rag === 'Amber' ? '#b45309' : '#b91c1c';
+                                                                            const ragBorder = seg.rag === 'Green' ? '#86efac' : seg.rag === 'Amber' ? '#fcd34d' : '#fca5a5';
+
+                                                                            return (
+                                                                                <div 
+                                                                                    key={sIdx} 
+                                                                                    style={{ 
+                                                                                        padding: '10px 12px', 
+                                                                                        borderRadius: '6px', 
+                                                                                        background: '#f8fafc', 
+                                                                                        border: '1px solid #e2e8f0',
+                                                                                        display: 'flex',
+                                                                                        justifyContent: 'space-between',
+                                                                                        alignItems: 'center'
+                                                                                    }}
+                                                                                >
+                                                                                    <div>
+                                                                                        <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#0f172a' }}>
+                                                                                            {seg.sub_team}
+                                                                                        </div>
+                                                                                        {seg.reason && (
+                                                                                            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                                                                                                {seg.reason}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                        <span style={{
+                                                                                            padding: '2px 8px',
+                                                                                            borderRadius: '4px',
+                                                                                            fontSize: '0.75rem',
+                                                                                            fontWeight: 700,
+                                                                                            background: ragBg,
+                                                                                            color: ragText,
+                                                                                            border: `1px solid ${ragBorder}`
+                                                                                        }}>
+                                                                                            {seg.rag}
+                                                                                        </span>
+                                                                                        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#334155' }}>
+                                                                                            {seg.score}%
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Executive Approve & Lock Confirmation Dialog */}
             <Dialog 

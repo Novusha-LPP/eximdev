@@ -129,7 +129,20 @@ const KPISheetSchema = new Schema(
             total_value_score: { type: Number, default: 0 },
             average_complexity: { type: Number, default: 0 },
             performance_quadrant: { type: String, enum: ["Star", "Specialist", "Engine", "Drainer", ""], default: "" },
-            total_quantity: { type: Number, default: 0 }
+            total_quantity: { type: Number, default: 0 },
+            business_loss_nothing_to_report: { type: Boolean, default: false },
+            business_loss_remarks: { type: String, default: "" },
+            blockers_nothing_to_report: { type: Boolean, default: false },
+            blockers_recurrence_key: { type: String, default: "" },
+            open_points: [{
+                title: { type: String, default: "" },
+                targetDate: { type: Date },
+                responsibility: { type: String, default: "" },
+                priority: { type: String, enum: ["High", "Medium", "Low"], default: "Medium" }
+            }],
+            open_points_nothing_to_report: { type: Boolean, default: false },
+            open_points_count: { type: Number, default: 0 },
+            is_submitted_on_time: { type: Boolean, default: true }
         },
 
         // Signature Metadata

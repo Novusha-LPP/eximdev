@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { UserContext } from "../../contexts/UserContext";
-import { Box, Typography, Button, CircularProgress, Grid, TextField, FormControl, InputLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead, TableBody, TableRow, TableCell, Snackbar, Alert, Menu, Autocomplete, Checkbox, IconButton, Divider, Chip } from '@mui/material';
+import { Box, Typography, Button, CircularProgress, Grid, TextField, FormControl, InputLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead, TableBody, TableRow, TableCell, Snackbar, Alert, Menu, Autocomplete, Checkbox, IconButton, Divider, Chip, FormControlLabel } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import BusinessCenterIcon from '@mui/icons-material/BusinessCenter';
 import DescriptionIcon from '@mui/icons-material/Description';
@@ -34,7 +34,14 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
         blockers_root_cause: '',
         can_hod_solve: 'No',
         total_workload_percentage: 0,
-        submission_date: null
+        submission_date: null,
+        business_loss_nothing_to_report: false,
+        business_loss_remarks: '',
+        blockers_nothing_to_report: false,
+        blockers_recurrence_key: '',
+        open_points_nothing_to_report: false,
+        open_points_count: 0,
+        open_points: []
     });
 
 
@@ -492,38 +499,57 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
     };
 
     const handleSubmit = async () => {
-        // Validation - All Summary fields are required, but 0 is acceptable
+        // Validation - All Summary fields are required, but "Nothing to report" options are supported
         const missingFields = [];
 
+        const isLossNTR = Boolean(summary.business_loss_nothing_to_report);
+        const isBlockersNTR = Boolean(summary.blockers_nothing_to_report);
+        const isOpenPointsNTR = Boolean(summary.open_points_nothing_to_report);
+
         const bizLossAmt = Number(summary.business_loss) || 0;
-        if (summary.business_loss === undefined || summary.business_loss === null || summary.business_loss === '') {
-            missingFields.push('Business Loss amount in Rupees (INR)');
-        }
-        if (bizLossAmt > 0) {
-            if (summary.root_cause === undefined || summary.root_cause === null || summary.root_cause === '') {
-                missingFields.push('Business Loss Type');
+        if (!isLossNTR) {
+            if (summary.business_loss === undefined || summary.business_loss === null || summary.business_loss === '') {
+                missingFields.push('Business Loss amount (or check "Nothing to report")');
             }
-            if (summary.root_cause?.includes('OTHERS: Others') && (!summary.root_cause_other || !summary.root_cause_other.trim())) {
-                missingFields.push('Specific details for "Others" business loss');
+            if (bizLossAmt > 0) {
+                if (summary.root_cause === undefined || summary.root_cause === null || summary.root_cause === '') {
+                    missingFields.push('Business Loss Type');
+                }
+                if (summary.root_cause?.includes('OTHERS: Others') && (!summary.root_cause_other || !summary.root_cause_other.trim())) {
+                    missingFields.push('Specific details for "Others" business loss');
+                }
+                const remarks = (summary.business_loss_remarks || summary.loss_description || '').trim();
+                if (remarks.length < 15) {
+                    missingFields.push('Actionable business loss remedial remarks (min 15 chars)');
+                }
+            }
+            if (!summary.action_plan || !summary.action_plan.trim()) {
+                missingFields.push('Action plan for business loss');
             }
         }
-        if (summary.action_plan === undefined || summary.action_plan === null || summary.action_plan === '') {
-            missingFields.push('Action plan for business loss');
-        }
+
         if (summary.overall_percentage === undefined || summary.overall_percentage === null || summary.overall_percentage === '') {
             missingFields.push('Overall KPI %');
         }
-        if (summary.blockers === undefined || summary.blockers === null || summary.blockers === '') {
-            missingFields.push('Blockers');
+
+        if (!isBlockersNTR) {
+            if (summary.blockers === undefined || summary.blockers === null || summary.blockers === '' || summary.blockers === 'NONE: No blockers to select') {
+                missingFields.push('Blockers (or check "Nothing to report")');
+            }
+            if (summary.blockers?.includes('OTHERS: Others') && (!summary.blockers_other || !summary.blockers_other.trim())) {
+                missingFields.push('Specific details for "Others" blocker');
+            }
+            if (summary.blockers_root_cause === undefined || summary.blockers_root_cause === null || summary.blockers_root_cause === '') {
+                missingFields.push('Rootcause (for blockers)');
+            }
         }
-        if (summary.blockers?.includes('OTHERS: Others') && (!summary.blockers_other || !summary.blockers_other.trim())) {
-            missingFields.push('Specific details for "Others" blocker');
-        }
-        if (summary.blockers_root_cause === undefined || summary.blockers_root_cause === null || summary.blockers_root_cause === '') {
-            missingFields.push('Rootcause (for blockers)');
-        }
+
         if (summary.total_workload_percentage === undefined || summary.total_workload_percentage === null || summary.total_workload_percentage === '') {
             missingFields.push('Total Month Workload %');
+        }
+
+        if (!isOpenPointsNTR && (!summary.open_points_count && (!summary.open_points || summary.open_points.length === 0))) {
+            missingFields.push('Workload / Open Points (or check "Nothing to report")');
         }
 
         if (missingFields.length > 0) {
@@ -532,10 +558,20 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
             return;
         }
 
+        // Prepare submission payload with clean defaults for NTR fields
+        const submissionPayload = {
+            ...summary,
+            business_loss: isLossNTR ? 0 : Number(summary.business_loss) || 0,
+            action_plan: isLossNTR && !summary.action_plan ? 'Nothing to report - Clean operations' : summary.action_plan,
+            blockers: isBlockersNTR ? 'NONE: No blockers to select' : summary.blockers,
+            blockers_root_cause: isBlockersNTR && !summary.blockers_root_cause ? 'N/A - Clean operations' : summary.blockers_root_cause,
+            open_points_count: isOpenPointsNTR ? 0 : Number(summary.open_points_count) || 0
+        };
+
         try {
             await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/submit`, {
                 sheetId: sheet._id,
-                summary
+                summary: submissionPayload
             }, { withCredentials: true });
             setConfirmSubmit(false);
             fetchSheet();
@@ -931,26 +967,54 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                             <tr>
                                 <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'બિઝનેસ લોસ (INR)' : displayLang === 'hi' ? 'व्यवसाय हानि (INR)' : 'Business Loss amount in Rupees (INR)'} <span style={{ color: 'red' }}>*</span></td>
                                 <td>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', p: '2px' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', p: '2px', flexWrap: 'wrap', gap: 1 }}>
                                         <input
                                             type="number"
-                                            value={summary.business_loss}
+                                            value={summary.business_loss_nothing_to_report ? 0 : summary.business_loss}
                                             onChange={(e) => {
                                                 const val = e.target.value;
-                                                setSummary({ ...summary, business_loss: val });
-                                                saveSummaryField({ business_loss: val });
+                                                setSummary({ ...summary, business_loss: val, business_loss_nothing_to_report: false });
+                                                saveSummaryField({ business_loss: val, business_loss_nothing_to_report: false });
                                             }}
-                                            disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
-                                            style={{ width: '100px', border: 'none', outline: 'none', padding: '5px' }}
+                                            disabled={(sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED') || summary.business_loss_nothing_to_report}
+                                            style={{ width: '100px', border: 'none', outline: 'none', padding: '5px', backgroundColor: summary.business_loss_nothing_to_report ? '#f1f5f9' : 'transparent' }}
                                         />
-                                        <Button 
-                                            size="small" 
-                                            variant="outlined" 
-                                            onClick={() => setLossDialogOpen(true)}
-                                            sx={{ ml: 2, textTransform: 'none', fontSize: '0.75rem' }}
-                                        >
-                                            {summary.root_cause ? 'Edit Loss Details' : 'Add Loss Details'}
-                                        </Button>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    size="small"
+                                                    checked={Boolean(summary.business_loss_nothing_to_report)}
+                                                    disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
+                                                    onChange={(e) => {
+                                                        const checked = e.target.checked;
+                                                        const newSummary = {
+                                                            ...summary,
+                                                            business_loss_nothing_to_report: checked,
+                                                            business_loss: checked ? 0 : summary.business_loss,
+                                                            business_loss_remarks: checked ? 'Nothing to report - Clean operations' : summary.business_loss_remarks
+                                                        };
+                                                        setSummary(newSummary);
+                                                        saveSummaryField({
+                                                            business_loss_nothing_to_report: checked,
+                                                            business_loss: checked ? 0 : summary.business_loss,
+                                                            business_loss_remarks: checked ? 'Nothing to report - Clean operations' : summary.business_loss_remarks
+                                                        });
+                                                    }}
+                                                />
+                                            }
+                                            label={<span style={{ fontSize: '11px', color: '#4b5563', fontWeight: 600 }}>Nothing to report</span>}
+                                            sx={{ m: 0 }}
+                                        />
+                                        {!summary.business_loss_nothing_to_report && (
+                                            <Button 
+                                                size="small" 
+                                                variant="outlined" 
+                                                onClick={() => setLossDialogOpen(true)}
+                                                sx={{ ml: 1, textTransform: 'none', fontSize: '0.75rem' }}
+                                            >
+                                                {summary.root_cause ? 'Edit Loss Details' : 'Add Loss Details'}
+                                            </Button>
+                                        )}
                                     </Box>
                                 </td>
                             </tr>
@@ -989,68 +1053,100 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                             <tr>
                                 <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'અવરોધો' : displayLang === 'hi' ? 'अवरोधक' : 'Blockers'} <span style={{ color: 'red' }}>*</span></td>
                                 <td>
-                                    <Autocomplete
-                                        multiple
-                                        disableCloseOnSelect
-                                        options={ALL_BLOCKERS}
-                                        value={summary.blockers ? summary.blockers.split(' | ').filter(b => b) : []}
-                                        isOptionEqualToValue={(option, value) => option === value}
-                                        onChange={(event, newValue) => {
-                                            const newBlockers = newValue.join(' | ');
-                                            const updatedSummary = { ...summary, blockers: newBlockers };
-                                            setSummary(updatedSummary);
-                                            saveSummaryField({ blockers: newBlockers });
-                                        }}
-                                        getOptionLabel={(option) => option.includes(': ') ? option.split(': ')[1] : option}
-                                        groupBy={(option) => option.split(': ')[0]}
-                                        renderInput={(params) => (
-                                            <TextField
-                                                {...params}
-                                                placeholder="Select Blockers"
-                                                variant="standard"
+                                    <Box sx={{ mb: 0.5, px: 0.5 }}>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    size="small"
+                                                    checked={Boolean(summary.blockers_nothing_to_report)}
+                                                    disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
+                                                    onChange={(e) => {
+                                                        const checked = e.target.checked;
+                                                        const newSummary = {
+                                                            ...summary,
+                                                            blockers_nothing_to_report: checked,
+                                                            blockers: checked ? 'NONE: No blockers to select' : '',
+                                                            blockers_root_cause: checked ? 'N/A - Clean operations' : summary.blockers_root_cause
+                                                        };
+                                                        setSummary(newSummary);
+                                                        saveSummaryField({
+                                                            blockers_nothing_to_report: checked,
+                                                            blockers: checked ? 'NONE: No blockers to select' : '',
+                                                            blockers_root_cause: checked ? 'N/A - Clean operations' : summary.blockers_root_cause
+                                                        });
+                                                    }}
+                                                />
+                                            }
+                                            label={<span style={{ fontSize: '11px', color: '#4b5563', fontWeight: 600 }}>Nothing to report (No Blockers)</span>}
+                                            sx={{ m: 0 }}
+                                        />
+                                    </Box>
+                                    {!summary.blockers_nothing_to_report && (
+                                        <>
+                                            <Autocomplete
+                                                multiple
+                                                disableCloseOnSelect
+                                                options={ALL_BLOCKERS}
+                                                value={summary.blockers ? summary.blockers.split(' | ').filter(b => b) : []}
+                                                isOptionEqualToValue={(option, value) => option === value}
+                                                onChange={(event, newValue) => {
+                                                    const newBlockers = newValue.join(' | ');
+                                                    const updatedSummary = { ...summary, blockers: newBlockers };
+                                                    setSummary(updatedSummary);
+                                                    saveSummaryField({ blockers: newBlockers });
+                                                }}
+                                                getOptionLabel={(option) => option.includes(': ') ? option.split(': ')[1] : option}
+                                                groupBy={(option) => option.split(': ')[0]}
+                                                renderInput={(params) => (
+                                                    <TextField
+                                                        {...params}
+                                                        placeholder="Select Blockers"
+                                                        variant="standard"
+                                                        sx={{
+                                                            padding: '2px 5px',
+                                                            '& .MuiInput-root': {
+                                                                '&:before, &:after': { display: 'none' }
+                                                            }
+                                                        }}
+                                                    />
+                                                )}
+                                                renderOption={(props, option, { selected }) => (
+                                                    <li {...props} style={{ fontSize: '0.85rem', padding: '4px 8px' }}>
+                                                        <Checkbox
+                                                            size="small"
+                                                            style={{ marginRight: 4 }}
+                                                            checked={selected}
+                                                        />
+                                                        {option.includes(': ') ? option.split(': ')[1] : option}
+                                                    </li>
+                                                )}
+                                                disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
                                                 sx={{
-                                                    padding: '2px 5px',
-                                                    '& .MuiInput-root': {
-                                                        '&:before, &:after': { display: 'none' }
+                                                    width: '100%',
+                                                    '& .MuiAutocomplete-tag': {
+                                                        height: '24px',
+                                                        fontSize: '0.75rem'
                                                     }
                                                 }}
                                             />
-                                        )}
-                                        renderOption={(props, option, { selected }) => (
-                                            <li {...props} style={{ fontSize: '0.85rem', padding: '4px 8px' }}>
-                                                <Checkbox
+                                            {summary.blockers?.includes('OTHERS: Others') && (
+                                                <TextField
+                                                    fullWidth
                                                     size="small"
-                                                    style={{ marginRight: 4 }}
-                                                    checked={selected}
+                                                    placeholder="Specify other blocker (max 100 chars)"
+                                                    value={summary.blockers_other || ''}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.substring(0, 100);
+                                                        setSummary({ ...summary, blockers_other: val });
+                                                        saveSummaryField({ blockers_other: val });
+                                                    }}
+                                                    disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
+                                                    variant="standard"
+                                                    sx={{ mt: 1, px: 1 }}
+                                                    inputProps={{ maxLength: 100 }}
                                                 />
-                                                {option.includes(': ') ? option.split(': ')[1] : option}
-                                            </li>
-                                        )}
-                                        disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
-                                        sx={{
-                                            width: '100%',
-                                            '& .MuiAutocomplete-tag': {
-                                                height: '24px',
-                                                fontSize: '0.75rem'
-                                            }
-                                        }}
-                                    />
-                                    {summary.blockers?.includes('OTHERS: Others') && (
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            placeholder="Specify other blocker (max 100 chars)"
-                                            value={summary.blockers_other || ''}
-                                            onChange={(e) => {
-                                                const val = e.target.value.substring(0, 100);
-                                                setSummary({ ...summary, blockers_other: val });
-                                                saveSummaryField({ blockers_other: val });
-                                            }}
-                                            disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
-                                            variant="standard"
-                                            sx={{ mt: 1, px: 1 }}
-                                            inputProps={{ maxLength: 100 }}
-                                        />
+                                            )}
+                                        </>
                                     )}
                                 </td>
                             </tr>
@@ -1102,6 +1198,52 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                                         disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
                                         style={{ width: '100%', minHeight: '30px', border: 'none', outline: 'none', padding: '5px', boxSizing: 'border-box' }}
                                     />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'કાર્યભાર / ઓપન પોઇન્ટ્સ' : displayLang === 'hi' ? 'कार्यभार / ओपन पॉइंट्स' : 'Workload / Open Points'} <span style={{ color: 'red' }}>*</span></td>
+                                <td>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', p: '2px', flexWrap: 'wrap', gap: 1 }}>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    size="small"
+                                                    checked={Boolean(summary.open_points_nothing_to_report)}
+                                                    disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
+                                                    onChange={(e) => {
+                                                        const checked = e.target.checked;
+                                                        const newSummary = {
+                                                            ...summary,
+                                                            open_points_nothing_to_report: checked,
+                                                            open_points_count: checked ? 0 : summary.open_points_count
+                                                        };
+                                                        setSummary(newSummary);
+                                                        saveSummaryField({
+                                                            open_points_nothing_to_report: checked,
+                                                            open_points_count: checked ? 0 : summary.open_points_count
+                                                        });
+                                                    }}
+                                                />
+                                            }
+                                            label={<span style={{ fontSize: '11px', color: '#4b5563', fontWeight: 600 }}>Nothing to report (No Open Points)</span>}
+                                            sx={{ m: 0 }}
+                                        />
+                                        {!summary.open_points_nothing_to_report && (
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                placeholder="Open Items Count"
+                                                value={summary.open_points_count || ''}
+                                                onChange={(e) => {
+                                                    const val = parseInt(e.target.value, 10) || 0;
+                                                    setSummary({ ...summary, open_points_count: val });
+                                                    saveSummaryField({ open_points_count: val });
+                                                }}
+                                                disabled={sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED'}
+                                                style={{ width: '130px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', padding: '4px 8px', fontSize: '12px' }}
+                                            />
+                                        )}
+                                    </Box>
                                 </td>
                             </tr>
                             {/* Performance Metrics (Read-only, restricted to HOD/Admin) */}

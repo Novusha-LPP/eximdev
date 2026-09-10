@@ -30,11 +30,14 @@ const ProjectWorkspace = () => {
     const [projectOwnerId, setProjectOwnerId] = useState(null);
     const [showLegend, setShowLegend] = useState(false);
     const [filters, setFilters] = useState({ status: '', priority: '', responsibility: '' });
-    const [monthFilter, setMonthFilter] = useState('');
-    const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
-    const [targetMonthFilter, setTargetMonthFilter] = useState(new Date().getMonth() + 1);
-    const [targetYearFilter, setTargetYearFilter] = useState(new Date().getFullYear());
     const [hideGreen, setHideGreen] = useState(true); // Hide completed points by default
+
+    // Unified Date Filter State
+    const [dateFilterType, setDateFilterType] = useState('target_date'); // 'target_date' (default), 'creation_date', 'completion_date'
+    const [activeMonthFilter, setActiveMonthFilter] = useState(new Date().getMonth() + 1); // Current month by default
+    const [activeYearFilter, setActiveYearFilter] = useState(new Date().getFullYear());
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
 
     // Quick Add State (Row at bottom)
     const [newPoint, setNewPoint] = useState({
@@ -79,7 +82,7 @@ const ProjectWorkspace = () => {
                 const foundPoint = points.find(p => p._id === searchPointId);
                 if (foundPoint) {
                     setHighlightedPointId(searchPointId);
-
+                    
                     // Scroll to it after a short delay so the DOM has fully rendered
                     setTimeout(() => {
                         const rowElement = document.getElementById(`point-row-${searchPointId}`);
@@ -490,180 +493,322 @@ const ProjectWorkspace = () => {
     return (
         <div className="open-points-container" style={{ padding: '10px' }}>
 
-            {/* Unified Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', background: '#f8fafc', padding: '10px 15px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <h3 style={{ margin: 0, fontWeight: '700', color: '#334155', fontSize: '1.25rem' }}>
-                    <span style={{ fontWeight: '400', color: '#64748b', fontSize: '1rem', marginRight: '8px' }}>Project Title:</span>
-                    {projectName || 'Project Workspace'}
-                </h3>
+            {/* Top Bar: Title & Actions */}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '12px',
+                background: '#ffffff',
+                padding: '12px 18px',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0',
+                borderLeft: '4px solid #3b82f6',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+            }}>
+                {/* Left: Project Title */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                        Project
+                    </span>
+                    <span style={{ color: '#cbd5e1', fontSize: '16px' }}>|</span>
+                    <h2 style={{ margin: 0, fontWeight: 700, color: '#0f172a', fontSize: '1.25rem' }}>
+                        {projectName || 'Project Workspace'}
+                    </h2>
+                    <span style={{
+                        background: '#f1f5f9',
+                        color: '#475569',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        padding: '2px 9px',
+                        borderRadius: '12px',
+                        border: '1px solid #e2e8f0'
+                    }}>
+                        {points.length} {points.length === 1 ? 'Point' : 'Points'}
+                    </span>
+                </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    {/* Filters Group */}
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>Filters:</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <select className="form-control" style={{ width: '110px', height: '32px', fontSize: '12px', padding: '0 8px' }} value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })}>
-                            <option value="">Status</option>
-                            <option value="Red">Red</option>
-                            <option value="Yellow">Yellow</option>
-                            <option value="Green">Green</option>
-                            <option value="Orange">Orange</option>
-                        </select>
-                        <select className="form-control" style={{ width: '110px', height: '32px', fontSize: '12px', padding: '0 8px' }} value={filters.priority} onChange={e => setFilters({ ...filters, priority: e.target.value })}>
-                            <option value="">Priority</option>
-                            <option value="Emergency">Emergency</option>
-                            <option value="High">High</option>
-                            <option value="Medium">Medium</option>
-                            <option value="Low">Low</option>
-                        </select>
-                        <select className="form-control" style={{ width: '140px', height: '32px', fontSize: '12px', padding: '0 8px' }} value={filters.responsibility} onChange={e => setFilters({ ...filters, responsibility: e.target.value })}>
-                            <option value="">Members</option>
-                            {projectTeam.map(m => (
-                                <option key={m._id} value={m.username}>{m.displayName || m.username}</option>
-                            ))}
-                        </select>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', borderLeft: '1px solid #cbd5e1', paddingLeft: '8px', marginLeft: '4px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Target:</span>
-                            <select
-                                className="form-control"
-                                style={{ width: '100px', height: '32px', fontSize: '12px', padding: '0 8px' }}
-                                value={targetMonthFilter}
-                                onChange={e => setTargetMonthFilter(e.target.value)}
-                            >
-                                <option value="">All Months</option>
-                                {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
-                                    <option key={m} value={i + 1}>{m}</option>
-                                ))}
-                            </select>
-                            <select
-                                className="form-control"
-                                style={{ width: '70px', height: '32px', fontSize: '12px', padding: '0 8px' }}
-                                value={targetYearFilter}
-                                onChange={e => setTargetYearFilter(Number(e.target.value))}
-                            >
-                                {[2024, 2025, 2026, 2027].map(y => (
-                                    <option key={y} value={y}>{y}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', borderLeft: '1px solid #cbd5e1', paddingLeft: '8px', marginLeft: '4px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Finished:</span>
-                            <select
-                                className="form-control"
-                                style={{ width: '100px', height: '32px', fontSize: '12px', padding: '0 8px' }}
-                                value={monthFilter}
-                                onChange={e => {
-                                    setMonthFilter(e.target.value);
-                                    if (e.target.value) setHideGreen(false); // Auto show green if filtering by month
-                                }}
-                            >
-                                <option value="">Any Month</option>
-                                {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
-                                    <option key={m} value={i + 1}>{m}</option>
-                                ))}
-                            </select>
-                            <select
-                                className="form-control"
-                                style={{ width: '70px', height: '32px', fontSize: '12px', padding: '0 8px' }}
-                                value={yearFilter}
-                                onChange={e => setYearFilter(Number(e.target.value))}
-                            >
-                                {[2024, 2025, 2026, 2027].map(y => (
-                                    <option key={y} value={y}>{y}</option>
-                                ))}
-                            </select>
-                        </div>
-                        {/* Toggle for showing/hiding completed points */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {/* Right: Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {projectName === 'Internal Software Team' && (user?.role === 'Admin' || user?.role?.toLowerCase() === 'head_of_department' || user?.role?.toLowerCase() === 'hod') && (
+                        <div style={{ position: 'relative' }}>
                             <button
-                                className={`btn btn-sm ${hideGreen ? 'btn-success' : 'btn-secondary'}`}
-                                style={{ fontSize: '12px', padding: '5px 12px', fontWeight: '500' }}
-                                onClick={() => setHideGreen(!hideGreen)}
-                                title={hideGreen ? 'Click to show completed points' : 'Click to hide completed points'}
-                            >
-                                {hideGreen ? `✅ Show Closed (${points.filter(p => p.status === 'Green').length})` : '✅ Hide Closed'}
-                            </button>
-                            {monthFilter && (
-                                <span style={{
+                                className="btn btn-sm"
+                                style={{
+                                    background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                                    color: 'white',
+                                    padding: '6px 14px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    fontWeight: 500,
                                     fontSize: '12px',
-                                    fontWeight: 'bold',
-                                    background: '#dcfce7',
-                                    color: '#166534',
-                                    padding: '4px 10px',
-                                    borderRadius: '15px',
-                                    border: '1px solid #bbf7d0'
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    boxShadow: '0 2px 4px rgba(79, 70, 229, 0.25)'
+                                }}
+                                onClick={() => setShowSoftwareTeamMenu(!showSoftwareTeamMenu)}
+                            >
+                                📊 Team Dashboards
+                            </button>
+                            {showSoftwareTeamMenu && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '100%',
+                                    right: 0,
+                                    marginTop: '8px',
+                                    background: 'white',
+                                    borderRadius: '8px',
+                                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                                    padding: '8px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '4px',
+                                    zIndex: 10,
+                                    minWidth: '220px',
+                                    border: '1px solid #e2e8f0'
                                 }}>
-                                    Completed: {
-                                        points.filter(p => {
-                                            if (p.status !== 'Green' || !p.completion_date) return false;
-                                            const compDate = new Date(p.completion_date);
-                                            return compDate.getMonth() + 1 === Number(monthFilter) && compDate.getFullYear() === Number(yearFilter);
-                                        }).length
-                                    }
-                                </span>
+                                    <button onClick={() => navigate(`/open-points/project/${projectId}/planned`)} style={{ padding: '8px 12px', textDecoration: 'none', color: '#1e293b', fontWeight: 500, borderRadius: '4px', transition: 'background 0.2s', display: 'block', fontSize: '13px', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', width: '100%' }} onMouseEnter={e => e.target.style.background = '#f1f5f9'} onMouseLeave={e => e.target.style.background = 'transparent'}>
+                                        Planned
+                                    </button>
+                                    <button onClick={() => navigate(`/open-points/project/${projectId}/forecasting`)} style={{ padding: '8px 12px', textDecoration: 'none', color: '#1e293b', fontWeight: 500, borderRadius: '4px', transition: 'background 0.2s', display: 'block', fontSize: '13px', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', width: '100%' }} onMouseEnter={e => e.target.style.background = '#f1f5f9'} onMouseLeave={e => e.target.style.background = 'transparent'}>
+                                        Forecasting
+                                    </button>
+                                    <button onClick={() => navigate(`/open-points/project/${projectId}/month`)} style={{ padding: '8px 12px', textDecoration: 'none', color: '#1e293b', fontWeight: 500, borderRadius: '4px', transition: 'background 0.2s', display: 'block', fontSize: '13px', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', width: '100%' }} onMouseEnter={e => e.target.style.background = '#f1f5f9'} onMouseLeave={e => e.target.style.background = 'transparent'}>
+                                        Month
+                                    </button>
+                                </div>
                             )}
                         </div>
+                    )}
+                    <button
+                        className="btn btn-sm"
+                        onClick={() => setShowLegend(true)}
+                        style={{ fontSize: '12px', padding: '6px 12px', fontWeight: 500, borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', color: '#334155' }}
+                    >
+                        ℹ Legend
+                    </button>
+                    <button
+                        className="btn btn-sm btn-primary"
+                        onClick={() => setShowAddMember(true)}
+                        style={{ fontSize: '12px', padding: '6px 14px', fontWeight: 500, borderRadius: '6px', background: '#2563eb', border: 'none', color: '#fff', boxShadow: '0 2px 4px rgba(37, 99, 235, 0.25)' }}
+                    >
+                        + Add Member
+                    </button>
+                    <button
+                        className="btn btn-sm"
+                        onClick={handleDeleteProject}
+                        style={{ fontSize: '12px', padding: '6px 12px', fontWeight: 500, borderRadius: '6px', border: '1px solid #fecaca', background: '#fff', color: '#dc2626' }}
+                    >
+                        🗑️ Delete Project
+                    </button>
+                </div>
+            </div>
+
+            {/* Second Row: Filter Bar */}
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '15px',
+                background: '#ffffff',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                flexWrap: 'wrap',
+                gap: '8px'
+            }}>
+                {/* Filters Left Section */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginRight: '2px' }}>
+                        Filters:
+                    </span>
+
+                    {/* Status */}
+                    <select
+                        className="form-control"
+                        style={{ width: '105px', height: '32px', fontSize: '12px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                        value={filters.status}
+                        onChange={e => setFilters({ ...filters, status: e.target.value })}
+                    >
+                        <option value="">Status</option>
+                        <option value="Red">Red</option>
+                        <option value="Yellow">Yellow</option>
+                        <option value="Green">Green</option>
+                        <option value="Orange">Orange</option>
+                    </select>
+
+                    {/* Priority */}
+                    <select
+                        className="form-control"
+                        style={{ width: '105px', height: '32px', fontSize: '12px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                        value={filters.priority}
+                        onChange={e => setFilters({ ...filters, priority: e.target.value })}
+                    >
+                        <option value="">Priority</option>
+                        <option value="Emergency">Emergency</option>
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+
+                    {/* Responsibility */}
+                    <select
+                        className="form-control"
+                        style={{ width: '135px', height: '32px', fontSize: '12px', padding: '0 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                        value={filters.responsibility}
+                        onChange={e => setFilters({ ...filters, responsibility: e.target.value })}
+                    >
+                        <option value="">Members</option>
+                        {projectTeam.map(m => (
+                            <option key={m._id} value={m.username}>{m.displayName || m.username}</option>
+                        ))}
+                    </select>
+
+                    {/* Divider */}
+                    <div style={{ width: '1px', height: '22px', background: '#cbd5e1', margin: '0 2px' }}></div>
+
+                    {/* Unified Date Filter Group */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '2px 8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }}>Date:</span>
+                        <select
+                            className="form-control"
+                            style={{ width: '115px', height: '28px', fontSize: '12px', padding: '0 6px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff' }}
+                            value={dateFilterType}
+                            onChange={e => setDateFilterType(e.target.value)}
+                            title="Date field to filter"
+                        >
+                            <option value="target_date">Target Date</option>
+                            <option value="creation_date">Creation Date</option>
+                            <option value="completion_date">Finished Date</option>
+                        </select>
+
+                        {/* Month & Year Selectors */}
+                        <select
+                            className="form-control"
+                            style={{ width: '95px', height: '28px', fontSize: '12px', padding: '0 6px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff' }}
+                            value={activeMonthFilter}
+                            onChange={e => {
+                                setActiveMonthFilter(e.target.value);
+                                if (dateFilterType === 'completion_date' && e.target.value) setHideGreen(false);
+                            }}
+                        >
+                            <option value="">All Months</option>
+                            {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
+                                <option key={m} value={i + 1}>{m}</option>
+                            ))}
+                        </select>
+                        <select
+                            className="form-control"
+                            style={{ width: '68px', height: '28px', fontSize: '12px', padding: '0 6px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff' }}
+                            value={activeYearFilter}
+                            onChange={e => setActiveYearFilter(Number(e.target.value))}
+                        >
+                            {[2024, 2025, 2026, 2027].map(y => (
+                                <option key={y} value={y}>{y}</option>
+                            ))}
+                        </select>
+
+                        <span style={{ fontSize: '11px', color: '#94a3b8', margin: '0 1px' }}>or Range:</span>
+
+                        {/* From / To Date Inputs */}
+                        <input
+                            type="date"
+                            className="form-control"
+                            style={{ width: '120px', height: '28px', fontSize: '11px', padding: '0 4px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff' }}
+                            value={fromDate}
+                            onChange={e => { setFromDate(e.target.value); setActiveMonthFilter(''); }}
+                            title="From Date"
+                        />
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>-</span>
+                        <input
+                            type="date"
+                            className="form-control"
+                            style={{ width: '120px', height: '28px', fontSize: '11px', padding: '0 4px', borderRadius: '4px', border: '1px solid #cbd5e1', background: '#fff' }}
+                            value={toDate}
+                            onChange={e => { setToDate(e.target.value); setActiveMonthFilter(''); }}
+                            title="To Date"
+                        />
+
+                        {/* Clear Date Filter Button */}
+                        {(fromDate || toDate || activeMonthFilter) && (
+                            <button
+                                className="btn btn-sm"
+                                style={{ fontSize: '11px', padding: '1px 6px', height: '24px', borderRadius: '4px', background: '#fee2e2', color: '#b91c1c', border: 'none', fontWeight: 600 }}
+                                onClick={() => {
+                                    setFromDate('');
+                                    setToDate('');
+                                    setActiveMonthFilter('');
+                                }}
+                                title="Clear date filter"
+                            >
+                                ✕
+                            </button>
+                        )}
                     </div>
 
-                    {/* Actions Group */}
-                    <div style={{ display: 'flex', gap: '8px', borderLeft: '1px solid #cbd5e1', paddingLeft: '15px', marginLeft: '5px' }}>
-                        {projectName === 'Internal Software Team' && (user?.role === 'Admin' || user?.role?.toLowerCase() === 'head_of_department' || user?.role?.toLowerCase() === 'hod') && (
-                            <div style={{ position: 'relative' }}>
-                                <button
-                                    className="btn btn-sm"
-                                    style={{
-                                        background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
-                                        color: 'white',
-                                        padding: '5px 12px',
-                                        borderRadius: '4px',
-                                        border: 'none',
-                                        boxShadow: '0 4px 6px rgba(139, 92, 246, 0.3)',
-                                        fontWeight: 500,
-                                        fontSize: '12px'
-                                    }}
-                                    onClick={() => setShowSoftwareTeamMenu(!showSoftwareTeamMenu)}
-                                >
-                                    📊 Team Dashboards
-                                </button>
-                                {showSoftwareTeamMenu && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: '100%',
-                                        right: 0,
-                                        marginTop: '8px',
-                                        background: 'white',
-                                        borderRadius: '8px',
-                                        boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-                                        padding: '8px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '4px',
-                                        zIndex: 10,
-                                        minWidth: '220px',
-                                        border: '1px solid #e2e8f0'
-                                    }}>
-                                        <button onClick={() => navigate(`/open-points/project/${projectId}/planned`)} style={{ padding: '8px 12px', textDecoration: 'none', color: '#1e293b', fontWeight: 500, borderRadius: '4px', transition: 'background 0.2s', display: 'block', fontSize: '13px', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', width: '100%' }} onMouseEnter={e => e.target.style.background = '#f1f5f9'} onMouseLeave={e => e.target.style.background = 'transparent'}>
-                                            Planned
-                                        </button>
-                                        <button onClick={() => navigate(`/open-points/project/${projectId}/forecasting`)} style={{ padding: '8px 12px', textDecoration: 'none', color: '#1e293b', fontWeight: 500, borderRadius: '4px', transition: 'background 0.2s', display: 'block', fontSize: '13px', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', width: '100%' }} onMouseEnter={e => e.target.style.background = '#f1f5f9'} onMouseLeave={e => e.target.style.background = 'transparent'}>
-                                            Forecasting
-                                        </button>
-                                        <button onClick={() => navigate(`/open-points/project/${projectId}/month`)} style={{ padding: '8px 12px', textDecoration: 'none', color: '#1e293b', fontWeight: 500, borderRadius: '4px', transition: 'background 0.2s', display: 'block', fontSize: '13px', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', width: '100%' }} onMouseEnter={e => e.target.style.background = '#f1f5f9'} onMouseLeave={e => e.target.style.background = 'transparent'}>
-                                            Month
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                        <button className="btn btn-sm btn-info" onClick={() => setShowLegend(true)} style={{ fontSize: '12px', padding: '5px 12px', fontWeight: '500' }}>
-                            ℹ Legend
+                    {/* Reset All Filters Button */}
+                    {(fromDate || toDate || activeMonthFilter || filters.status || filters.priority || filters.responsibility) && (
+                        <button
+                            className="btn btn-sm btn-outline-secondary"
+                            style={{ fontSize: '11px', padding: '0 8px', height: '32px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            onClick={() => {
+                                setFilters({ status: '', priority: '', responsibility: '' });
+                                setFromDate('');
+                                setToDate('');
+                                setActiveMonthFilter('');
+                            }}
+                            title="Reset all filters"
+                        >
+                            ✕ Reset All
                         </button>
-                        <button className="btn btn-sm btn-primary" onClick={() => setShowAddMember(true)} style={{ fontSize: '12px', padding: '5px 12px', fontWeight: '500' }}>
-                            + Add Member
-                        </button>
-                        <button className="btn btn-sm btn-danger" onClick={handleDeleteProject} style={{ fontSize: '12px', padding: '5px 12px', fontWeight: '500' }}>
-                            🗑️ Delete Project
-                        </button>
-                    </div>
+                    )}
+                </div>
+
+                {/* Filters Right Section */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {dateFilterType === 'completion_date' && activeMonthFilter && (
+                        <span style={{ 
+                            fontSize: '12px', 
+                            fontWeight: 'bold', 
+                            background: '#dcfce7', 
+                            color: '#166534', 
+                            padding: '4px 10px', 
+                            borderRadius: '15px',
+                            border: '1px solid #bbf7d0'
+                        }}>
+                            Completed: {
+                                points.filter(p => {
+                                    if (p.status !== 'Green' || !p.completion_date) return false;
+                                    const compDate = new Date(p.completion_date);
+                                    return compDate.getMonth() + 1 === Number(activeMonthFilter) && compDate.getFullYear() === Number(activeYearFilter);
+                                }).length
+                            }
+                        </span>
+                    )}
+                    <button
+                        className="btn btn-sm"
+                        style={{
+                            fontSize: '12px',
+                            padding: '0 14px',
+                            height: '32px',
+                            fontWeight: '600',
+                            borderRadius: '6px',
+                            background: hideGreen ? '#10b981' : '#64748b',
+                            color: '#ffffff',
+                            border: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: hideGreen ? '0 2px 4px rgba(16, 185, 129, 0.25)' : 'none',
+                            cursor: 'pointer'
+                        }}
+                        onClick={() => setHideGreen(!hideGreen)}
+                        title={hideGreen ? 'Click to show completed points' : 'Click to hide completed points'}
+                    >
+                        {hideGreen ? `✅ Show Closed (${points.filter(p => p.status === 'Green').length})` : '✅ Hide Closed'}
+                    </button>
                 </div>
             </div>
 
@@ -819,6 +964,7 @@ const ProjectWorkspace = () => {
                             <th style={{ width: '120px' }}>Responsibility</th>
                             <th style={{ width: '80px' }}>Approval</th>
                             <th style={{ width: '20%' }}>Gap / Action Point</th>
+                            <th style={{ width: '110px' }}>Creation Date</th>
                             <th style={{ width: '100px' }}>Target Date</th>
                             <th style={{ width: '140px' }}>Status</th>
                             <th style={{ width: '100px' }}>Review</th>
@@ -836,33 +982,41 @@ const ProjectWorkspace = () => {
                             if (filters.priority && p.priority !== filters.priority) return false;
                             if (filters.responsibility && p.responsibility !== filters.responsibility) return false;
 
-                            // Target Month Filter
-                            if (targetMonthFilter) {
-                                // If there is no target date, we might want to still show it, or hide it. 
-                                // To be strict, if filtering by month, hide if no date.
-                                if (!p.target_date) return false;
-                                const tDate = new Date(p.target_date);
-                                if (tDate.getMonth() + 1 !== Number(targetMonthFilter) || tDate.getFullYear() !== Number(targetYearFilter)) {
+                            // Unified Date Filter
+                            let pointDate = null;
+                            if (dateFilterType === 'creation_date') {
+                                pointDate = p.creation_date;
+                            } else if (dateFilterType === 'completion_date') {
+                                pointDate = p.completion_date;
+                            } else {
+                                pointDate = p.target_date;
+                            }
+
+                            // 1. Date Range Filter
+                            if (fromDate || toDate) {
+                                if (!pointDate) return false;
+                                const dStr = (typeof pointDate === 'string' ? pointDate : new Date(pointDate).toISOString()).split('T')[0];
+                                if (fromDate && dStr < fromDate) return false;
+                                if (toDate && dStr > toDate) return false;
+                            }
+
+                            // 2. Month & Year Filter (applies when From/To is not set)
+                            if (!fromDate && !toDate && activeMonthFilter) {
+                                if (!pointDate) return false;
+                                const d = new Date(pointDate);
+                                if (d.getMonth() + 1 !== Number(activeMonthFilter) || d.getFullYear() !== Number(activeYearFilter)) {
                                     return false;
                                 }
                             }
 
-                            // Month/Year Filter (Applies to Green items only)
-                            if (monthFilter) {
-                                if (p.status !== 'Green') return false;
-                                if (!p.completion_date) return false;
-                                const compDate = new Date(p.completion_date);
-                                if (compDate.getMonth() + 1 !== Number(monthFilter) || compDate.getFullYear() !== Number(yearFilter)) {
-                                    return false;
-                                }
-                            }
+                            // Hide green points by default unless toggle is off, specific status is selected, or filtering completed date with month/range
+                            const isFilteringCompletion = dateFilterType === 'completion_date' && (activeMonthFilter || fromDate || toDate);
+                            if (hideGreen && !filters.status && !isFilteringCompletion && p.status === 'Green') return false;
 
-                            // Hide green points by default unless toggle is off, specific status is selected, or month filter is on
-                            if (hideGreen && !filters.status && !monthFilter && p.status === 'Green') return false;
                             return true;
                         }).map((point, index) => (
-                            <tr
-                                key={point._id}
+                            <tr 
+                                key={point._id} 
                                 id={`point-row-${point._id}`}
                                 style={highlightedPointId === point._id ? { backgroundColor: '#fef08a', transition: 'background-color 0.5s ease', boxShadow: 'inset 0 0 10px rgba(234, 179, 8, 0.4)' } : {}}
                             >
@@ -917,6 +1071,13 @@ const ProjectWorkspace = () => {
                                         style={{ fieldSizing: 'content' }}
                                     />
                                 </td>
+                                <td style={{ textAlign: 'center', fontSize: '12px', color: '#475569', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                                    {point.creation_date ? (
+                                        new Date(point.creation_date).toLocaleDateString('en-GB')
+                                    ) : (
+                                        <span style={{ color: '#94a3b8' }}>-</span>
+                                    )}
+                                </td>
                                 <td>
                                     <input
                                         type="date"
@@ -940,13 +1101,13 @@ const ProjectWorkspace = () => {
                                         <option value="Orange">Orange</option>
                                     </select>
                                     {!point.completion_date && (
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '50%',
-                                            left: '50%',
+                                        <div style={{ 
+                                            position: 'absolute', 
+                                            top: '50%', 
+                                            left: '50%', 
                                             transform: 'translate(-50%, -50%)',
-                                            fontSize: '10px',
-                                            color: point.status === 'Red' ? 'white' : 'black',
+                                            fontSize: '10px', 
+                                            color: point.status === 'Red' ? 'white' : 'black', 
                                             pointerEvents: 'none',
                                             opacity: 0.7
                                         }}>
@@ -954,13 +1115,13 @@ const ProjectWorkspace = () => {
                                         </div>
                                     )}
                                     {point.status === 'Green' && point.completion_date && (
-                                        <div style={{
+                                        <div style={{ 
                                             position: 'absolute',
                                             top: '50%',
                                             left: '50%',
                                             transform: 'translate(-50%, -50%)',
-                                            fontSize: '9px',
-                                            fontWeight: 'bold',
+                                            fontSize: '9px', 
+                                            fontWeight: 'bold', 
                                             color: '#166534',
                                             lineHeight: '1',
                                             pointerEvents: 'none',
@@ -1069,6 +1230,7 @@ const ProjectWorkspace = () => {
                                     style={{ fieldSizing: 'content' }}
                                 />
                             </td>
+                            <td></td>
                             <td>
                                 <input
                                     type="date"

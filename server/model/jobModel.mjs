@@ -972,7 +972,7 @@ jobSchema.index({ branch_id: 1, year: 1, trade_type: 1, mode: 1, job_no: 1 }, { 
 
 // New indexes for structured job numbers and branch management
 jobSchema.index({ job_number: 1 }, { unique: true, sparse: true });
-jobSchema.index({ branch_id: 1 });
+jobSchema.index({ type_of_b_e: 1 }); // Atlas suggested: speeds up In-Bond/Home Consumption queries from 2.5s to <5ms
 jobSchema.index({ branch_id: 1, createdAt: 1 });
 jobSchema.index({ branch_code: 1, trade_type: 1, mode: 1, financial_year: 1 });
 

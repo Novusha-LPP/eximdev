@@ -24,6 +24,11 @@ const MyOpenPoints = ({ username: propUsername, viewMode }) => {
     const [hideGreen, setHideGreen] = useState(true); // Hide completed points by default
     const [modifiedPoints, setModifiedPoints] = useState(new Set());
 
+    // Date Filter State
+    const [dateFilterType, setDateFilterType] = useState('creation_date'); // 'creation_date', 'target_date', 'completion_date'
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
+
     // Dialog State
     const [dialogConfig, setDialogConfig] = useState({ open: false, title: '', message: '', type: 'info', onConfirm: null });
 
@@ -167,6 +172,22 @@ const MyOpenPoints = ({ username: propUsername, viewMode }) => {
             if (respName !== responsibleFilter) return false;
         }
 
+        // Date Range Filter
+        if (fromDate || toDate) {
+            let dateVal = null;
+            if (dateFilterType === 'creation_date') {
+                dateVal = p.creation_date;
+            } else if (dateFilterType === 'target_date') {
+                dateVal = p.target_date;
+            } else if (dateFilterType === 'completion_date') {
+                dateVal = p.completion_date;
+            }
+            if (!dateVal) return false;
+            const dStr = (typeof dateVal === 'string' ? dateVal : new Date(dateVal).toISOString()).split('T')[0];
+            if (fromDate && dStr < fromDate) return false;
+            if (toDate && dStr > toDate) return false;
+        }
+
         // Hide green points by default unless toggle is off or specific status is selected
         if (hideGreen && !statusFilter && p.status === 'Green') return false;
         return true;
@@ -184,6 +205,21 @@ const MyOpenPoints = ({ username: propUsername, viewMode }) => {
         if (responsibleFilter) {
             const respName = p.responsible_person ? (p.responsible_person.first_name ? `${p.responsible_person.first_name} ${p.responsible_person.last_name || ''}` : p.responsible_person.username) : null;
             if (respName !== responsibleFilter) return false;
+        }
+        // Date Range Filter
+        if (fromDate || toDate) {
+            let dateVal = null;
+            if (dateFilterType === 'creation_date') {
+                dateVal = p.creation_date;
+            } else if (dateFilterType === 'target_date') {
+                dateVal = p.target_date;
+            } else if (dateFilterType === 'completion_date') {
+                dateVal = p.completion_date;
+            }
+            if (!dateVal) return false;
+            const dStr = (typeof dateVal === 'string' ? dateVal : new Date(dateVal).toISOString()).split('T')[0];
+            if (fromDate && dStr < fromDate) return false;
+            if (toDate && dStr > toDate) return false;
         }
         return true;
     });
@@ -341,6 +377,49 @@ const MyOpenPoints = ({ username: propUsername, viewMode }) => {
                         <option value="Medium">Medium</option>
                         <option value="Low">Low</option>
                     </select>
+                    {/* Date Range Filter */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderLeft: '1px solid #cbd5e1', paddingLeft: '10px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Date:</span>
+                        <select
+                            className="form-control"
+                            style={{ width: '135px', height: '36px', fontSize: '13px' }}
+                            value={dateFilterType}
+                            onChange={e => setDateFilterType(e.target.value)}
+                            title="Filter by Date Type"
+                        >
+                            <option value="creation_date">Creation Date</option>
+                            <option value="target_date">Target Date</option>
+                            <option value="completion_date">Completion Date</option>
+                        </select>
+                        <input
+                            type="date"
+                            className="form-control"
+                            style={{ width: '135px', height: '36px', fontSize: '12px' }}
+                            value={fromDate}
+                            onChange={e => setFromDate(e.target.value)}
+                            title="From Date"
+                        />
+                        <span style={{ fontSize: '12px', color: '#64748b' }}>to</span>
+                        <input
+                            type="date"
+                            className="form-control"
+                            style={{ width: '135px', height: '36px', fontSize: '12px' }}
+                            value={toDate}
+                            onChange={e => setToDate(e.target.value)}
+                            title="To Date"
+                        />
+                        {(fromDate || toDate) && (
+                            <button
+                                className="btn btn-sm btn-outline-secondary"
+                                style={{ height: '36px', padding: '0 10px', fontSize: '12px' }}
+                                onClick={() => { setFromDate(''); setToDate(''); }}
+                                title="Clear Date Filter"
+                            >
+                                ✕ Clear Date
+                            </button>
+                        )}
+                    </div>
+
                     {/* Toggle for showing/hiding completed points */}
                     <button
                         className={`btn btn-sm ${hideGreen ? 'btn-success' : 'btn-outline-secondary'}`}
@@ -350,11 +429,11 @@ const MyOpenPoints = ({ username: propUsername, viewMode }) => {
                     >
                         {hideGreen ? `✅ Show Closed (${summary.green})` : '✅ Hide Closed'}
                     </button>
-                    {(projectFilter || statusFilter || priorityFilter || assignerFilter || responsibleFilter) && (
+                    {(projectFilter || statusFilter || priorityFilter || assignerFilter || responsibleFilter || fromDate || toDate) && (
                         <button
                             className="btn btn-sm btn-outline-secondary"
                             style={{ padding: '6px 12px' }}
-                            onClick={() => { setProjectFilter(''); setStatusFilter(''); setPriorityFilter(''); setAssignerFilter(''); setResponsibleFilter(''); }}
+                            onClick={() => { setProjectFilter(''); setStatusFilter(''); setPriorityFilter(''); setAssignerFilter(''); setResponsibleFilter(''); setFromDate(''); setToDate(''); }}
                         >
                             ✕ Clear Filters
                         </button>
@@ -390,6 +469,7 @@ const MyOpenPoints = ({ username: propUsername, viewMode }) => {
                                     <th style={{ width: '120px' }}>Assigned To</th>
                                     <th style={{ width: '80px' }}>Approval</th>
                                     <th style={{ width: '18%' }}>Gap / Action Point</th>
+                                    <th style={{ width: '110px' }}>Creation Date</th>
                                     <th style={{ width: '100px' }}>Target Date</th>
                                     <th style={{ width: '120px' }}>Status</th>
                                     <th style={{ width: '100px' }}>Review</th>
@@ -460,6 +540,13 @@ const MyOpenPoints = ({ username: propUsername, viewMode }) => {
                                                 onInput={autoResize}
                                                 style={{ fieldSizing: 'content' }}
                                             />
+                                        </td>
+                                        <td style={{ textAlign: 'center', fontSize: '12px', color: '#475569', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                                            {point.creation_date && !isNaN(new Date(point.creation_date).getTime()) ? (
+                                                new Date(point.creation_date).toLocaleDateString('en-GB')
+                                            ) : (
+                                                <span style={{ color: '#94a3b8' }}>-</span>
+                                            )}
                                         </td>
                                         <td>
                                             <input

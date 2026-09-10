@@ -3625,6 +3625,20 @@ const ImportCreateJob = () => {
         PaperProps={{
           sx: { borderRadius: '16px', p: 1 }
         }}
+        BackdropProps={{
+          sx: {
+            backdropFilter: 'none !important',
+            WebkitBackdropFilter: 'none !important',
+          }
+        }}
+        slotProps={{
+          backdrop: {
+            sx: {
+              backdropFilter: 'none !important',
+              WebkitBackdropFilter: 'none !important',
+            }
+          }
+        }}
       >
         <DialogTitle sx={{ fontWeight: 800, color: 'error.main', display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <BusinessIcon /> Duplicate Job Found
@@ -3697,6 +3711,20 @@ const ImportCreateJob = () => {
         fullWidth
         PaperProps={{
           sx: { borderRadius: '16px', p: 1 }
+        }}
+        BackdropProps={{
+          sx: {
+            backdropFilter: 'none !important',
+            WebkitBackdropFilter: 'none !important',
+          }
+        }}
+        slotProps={{
+          backdrop: {
+            sx: {
+              backdropFilter: 'none !important',
+              WebkitBackdropFilter: 'none !important',
+            }
+          }
         }}
       >
         <DialogTitle sx={{ fontWeight: 800, color: 'primary.main', borderBottom: '1px solid #eee', mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

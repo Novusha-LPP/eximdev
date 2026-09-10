@@ -52,9 +52,15 @@ const quoteSchema = new mongoose.Schema({
   // Status tracking
   status: {
     type: String,
-    enum: ['draft', 'sent', 'viewed', 'accepted', 'rejected', 'expired', 'converted'],
+    enum: ['draft', 'sent', 'viewed', 'accepted', 'rejected', 'expired', 'converted', 'invoice_requested'],
     default: 'draft'
   },
+
+  // Company and invoice metadata
+  companyTemplate: { type: String, default: 'standard' },
+  tradeType: { type: String, enum: ['import', 'export'], default: 'import' },
+  invoiceReference: { type: String },
+  invoiceRequestStatus: { type: String, enum: ['none', 'requested', 'created'], default: 'none' },
   
   // Tracking
   tracking: {

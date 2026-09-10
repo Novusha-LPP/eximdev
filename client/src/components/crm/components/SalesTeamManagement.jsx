@@ -20,6 +20,49 @@ export default function SalesTeamManagement() {
   const [userSearch, setUserSearch] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  // FR-12 HOD Multi-Team Management States
+  const [isHodModalOpen, setIsHodModalOpen] = useState(false);
+  const [hodsList, setHodsList] = useState([]);
+  const [selectedHodUser, setSelectedHodUser] = useState(null);
+  const [hodManagedTeams, setHodManagedTeams] = useState([]);
+  const [isSavingHod, setIsSavingHod] = useState(false);
+
+  const fetchHods = async () => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/teams/hod-assignments`,
+        getHeaders()
+      );
+      setHodsList(res.data.hods || []);
+    } catch (err) {
+      console.error('Failed to load HODs', err);
+    }
+  };
+
+  const handleSaveHodTeams = async () => {
+    if (!selectedHodUser) return;
+    setIsSavingHod(true);
+    try {
+      await axios.post(
+        `${process.env.REACT_APP_API_STRING}/crm/teams/assign-hod-teams`,
+        {
+          userId: selectedHodUser._id,
+          isHod: true,
+          teamIds: hodManagedTeams
+        },
+        getHeaders()
+      );
+      message.success('HOD multi-team assignments updated successfully');
+      fetchHods();
+      setSelectedHodUser(null);
+    } catch (err) {
+      console.error('Failed to update HOD assignments:', err);
+      message.error(err.response?.data?.message || 'Failed to update HOD assignments');
+    } finally {
+      setIsSavingHod(false);
+    }
+  };
+
   const getHeaders = () => {
     const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
     return {
@@ -375,25 +418,210 @@ export default function SalesTeamManagement() {
         </div>
       )}
 
+      {/* FR-12 HOD Multi-Team Access Modal */}
+      {isHodModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, padding: '20px'
+        }}>
+          <div style={{
+            background: '#fff', width: '100%', maxWidth: '680px',
+            borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column'
+          }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', flexShrink: 0 }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <UserCheck size={20} color="#4f46e5" /> Admin HOD Multi-Team Access
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                  Assign cross-team visibility to Head of Departments (HODs) so they can monitor leads, deals, and members across multiple sales units.
+                </p>
+              </div>
+              <button onClick={() => { setIsHodModalOpen(false); setSelectedHodUser(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Select User / HOD */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#334155', fontWeight: 700, fontSize: '0.875rem' }}>
+                  Select Head of Department (HOD) / Manager
+                </label>
+                <select
+                  value={selectedHodUser?._id || ''}
+                  onChange={e => {
+                    const u = allUsers.find(user => user._id === e.target.value);
+                    setSelectedHodUser(u || null);
+                    // Pre-fill existing managed teams
+                    const existingHod = hodsList.find(h => h._id === e.target.value);
+                    const currentTeams = existingHod?.crmManagedTeams
+                      ? existingHod.crmManagedTeams.map(t => typeof t === 'object' ? t._id : t)
+                      : (u?.crmManagedTeams || []);
+                    setHodManagedTeams(currentTeams);
+                  }}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', background: '#fff' }}
+                >
+                  <option value="">-- Choose User / HOD --</option>
+                  {allUsers.map(u => {
+                    const name = u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : u.username;
+                    const isHodTag = u.role?.toLowerCase() === 'hod' || u.isHod ? ' [HOD]' : '';
+                    return (
+                      <option key={u._id} value={u._id}>
+                        {name} ({u.username}) {isHodTag}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {selectedHodUser && (
+                <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: '#1e293b' }}>
+                      Assign Accessible Teams to {selectedHodUser.first_name || selectedHodUser.username}
+                    </h4>
+                    <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>
+                      {hodManagedTeams.length} {hodManagedTeams.length === 1 ? 'Team' : 'Teams'} Selected
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    {teams.map(team => {
+                      const isChecked = hodManagedTeams.includes(team._id);
+                      return (
+                        <div
+                          key={team._id}
+                          onClick={() => {
+                            if (isChecked) {
+                              setHodManagedTeams(hodManagedTeams.filter(id => id !== team._id));
+                            } else {
+                              setHodManagedTeams([...hodManagedTeams, team._id]);
+                            }
+                          }}
+                          style={{
+                            padding: '10px 14px', borderRadius: '8px', cursor: 'pointer',
+                            border: `1px solid ${isChecked ? '#4f46e5' : '#cbd5e1'}`,
+                            background: isChecked ? '#eef2ff' : '#fff',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: '0.875rem', color: isChecked ? '#312e81' : '#334155' }}>
+                              {team.name}
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                              {team.businessVertical || 'General'}
+                            </span>
+                          </div>
+                          <div style={{
+                            width: '20px', height: '20px', borderRadius: '4px',
+                            border: `2px solid ${isChecked ? '#4f46e5' : '#94a3b8'}`,
+                            background: isChecked ? '#4f46e5' : 'transparent',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}>
+                            {isChecked && <Check size={14} color="#fff" />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+                    <button
+                      type="button"
+                      onClick={() => { setIsHodModalOpen(false); setSelectedHodUser(null); }}
+                      style={{ padding: '8px 16px', border: '1px solid #cbd5e1', background: '#fff', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSavingHod}
+                      onClick={handleSaveHodTeams}
+                      style={{ padding: '8px 20px', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      {isSavingHod ? 'Saving...' : 'Save HOD Multi-Team Access'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Current Active HODs Summary */}
+              <div>
+                <h4 style={{ margin: '0 0 10px', fontSize: '0.85rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                  Current HOD Designations & Coverage
+                </h4>
+                {hodsList.length === 0 ? (
+                  <div style={{ fontSize: '0.85rem', color: '#94a3b8', padding: '12px', background: '#f8fafc', borderRadius: '8px', textAlign: 'center' }}>
+                    No HOD multi-team designations configured yet. Select a user above to designate as HOD and assign teams.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {hodsList.map(h => (
+                      <div key={h._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <div>
+                          <span style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.9rem' }}>
+                            {h.first_name ? `${h.first_name} ${h.last_name || ''}`.trim() : h.username}
+                          </span>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '8px' }}>({h.email || h.username})</span>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {h.crmManagedTeams && h.crmManagedTeams.length > 0 ? (
+                            h.crmManagedTeams.map((tm, idx) => (
+                              <span key={idx} style={{ background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600 }}>
+                                {typeof tm === 'object' ? tm.name : tm}
+                              </span>
+                            ))
+                          ) : (
+                            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Default team scope</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h2 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Users size={24} style={{ color: '#4f46e5' }} />
-            Sales Teams
+            Sales Teams & Access Control
           </h2>
-          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Creator becomes team owner. Members see only their own leads.</span>
+          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Manage sales team hierarchies, quotas, and admin-controlled HOD multi-team access.</span>
         </div>
-        <button
-          onClick={() => { setEditingTeam(null); setIsFormOpen(true); }}
-          style={{
-            background: '#4f46e5', color: 'white', padding: '10px 20px', border: 'none',
-            borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex',
-            alignItems: 'center', gap: '8px', whiteSpace: 'nowrap'
-          }}
-        >
-          <Plus size={18} /> New Team
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={() => { fetchHods(); setIsHodModalOpen(true); }}
+            style={{
+              background: '#f8fafc', color: '#334155', padding: '10px 18px', border: '1px solid #cbd5e1',
+              borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex',
+              alignItems: 'center', gap: '8px', whiteSpace: 'nowrap'
+            }}
+          >
+            <UserCheck size={18} style={{ color: '#4f46e5' }} /> HOD Multi-Team Access
+          </button>
+          <button
+            onClick={() => { setEditingTeam(null); setIsFormOpen(true); }}
+            style={{
+              background: '#4f46e5', color: 'white', padding: '10px 20px', border: 'none',
+              borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex',
+              alignItems: 'center', gap: '8px', whiteSpace: 'nowrap'
+            }}
+          >
+            <Plus size={18} /> New Team
+          </button>
+        </div>
       </div>
 
       {/* Teams Table */}

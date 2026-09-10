@@ -52,12 +52,17 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 
   const objectIdUserId = new mongoose.Types.ObjectId(userId.toString());
 
+  const userDoc = await UserModel.findById(userId).select('isHod crmManagedTeams').lean();
+  const managedTeamIds = (userDoc?.crmManagedTeams || []).map(id => id.toString());
+  const isHodUser = isHOD || Boolean(userDoc?.isHod);
+
   if (requestedTeamId && requestedTeamId !== 'all' && mongoose.Types.ObjectId.isValid(requestedTeamId)) {
     const team = await SalesTeam.findById(requestedTeamId).lean();
     if (team) {
       const isManager = team.managerId?.toString() === userId?.toString();
       const isMember = team.memberIds?.some(m => m?.toString() === userId?.toString());
-      if (isAdmin || isManager || isMember) {
+      const isHodForTeam = isHodUser && managedTeamIds.includes(team._id.toString());
+      if (isAdmin || isManager || isMember || isHodForTeam) {
         const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
         if (team.managerId) {
           objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
@@ -73,11 +78,16 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 
   if (isAdmin) return {};
 
+  const teamOrConditions = [
+    { managerId: userId },
+    { memberIds: userId }
+  ];
+  if (managedTeamIds.length > 0) {
+    teamOrConditions.push({ _id: { $in: managedTeamIds } });
+  }
+
   const myTeams = await SalesTeam.find({
-    $or: [
-      { managerId: userId },
-      { memberIds: userId }
-    ]
+    $or: teamOrConditions
   }).lean();
 
   let visibleUserIds = [objectIdUserId];
@@ -1311,6 +1321,239 @@ router.get('/stagnation', async (req, res) => {
       stagnantDeals
     });
   } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// FR-19: Detailed Lost Report
+// Returns lead/deal name, owner, team, business vertical, stage reached before loss, lost reason/category, lost date, deal value, competitor, and notes
+router.get('/lost-leads-detailed', async (req, res) => {
+  try {
+    const { teamId, startDate, endDate, period, businessVertical, reason } = req.query;
+    const ownerFilter = await buildOwnerFilter(req.user, teamId, req);
+    const query = { ...ownerFilter, stage: 'lost' };
+
+    if (businessVertical && businessVertical !== 'all') {
+      query.businessVertical = new RegExp(`^${businessVertical.trim()}$`, 'i');
+    }
+    if (reason && reason !== 'all') {
+      query.closeReason = reason;
+    }
+
+    if (startDate && endDate) {
+      const start = new Date(`${startDate}T00:00:00.000Z`);
+      const end = new Date(`${endDate}T23:59:59.999Z`);
+      query.updatedAt = { $gte: start, $lte: end };
+    } else if (period) {
+      const [year, month] = period.split('-');
+      const start = new Date(year, parseInt(month) - 1, 1);
+      const end = new Date(year, parseInt(month), 0, 23, 59, 59, 999);
+      query.updatedAt = { $gte: start, $lte: end };
+    }
+
+    const lostOpportunities = await Opportunity.find(query)
+      .populate('ownerId', 'username first_name last_name email')
+      .populate('accountId', 'name industry')
+      .populate('referredFromTeamId', 'name')
+      .populate('referredToTeamId', 'name')
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    // Map each lost deal with team name and stage reached before loss
+    const teams = await SalesTeam.find({ isActive: true }).lean();
+    const teamUserMap = new Map();
+    teams.forEach(t => {
+      if (t.managerId) teamUserMap.set(t.managerId.toString(), t.name);
+      (t.memberIds || []).forEach(m => teamUserMap.set(m.toString(), t.name));
+    });
+
+    const report = lostOpportunities.map(opp => {
+      let lostDate = opp.updatedAt;
+      let stageBeforeLoss = opp.lostStageBeforeLoss;
+      
+      if (!stageBeforeLoss && opp.stageHistory && opp.stageHistory.length > 0) {
+        const hist = [...opp.stageHistory];
+        const lostIdx = hist.findIndex(h => h.stage === 'lost');
+        if (lostIdx > 0) {
+          stageBeforeLoss = hist[lostIdx - 1]?.stage;
+          lostDate = hist[lostIdx]?.enteredAt || lostDate;
+        } else if (hist.length > 1) {
+          stageBeforeLoss = hist[hist.length - 2]?.stage;
+        }
+      }
+
+      const ownerIdStr = opp.ownerId?._id?.toString() || opp.ownerId?.toString();
+      const teamName = opp.referredToTeamId?.name || opp.referredFromTeamId?.name || (ownerIdStr ? teamUserMap.get(ownerIdStr) : null) || 'General';
+
+      return {
+        _id: opp._id,
+        name: opp.name,
+        company: opp.accountId?.name || 'No Account',
+        dealValue: opp.value || 0,
+        owner: opp.ownerId?.first_name ? `${opp.ownerId.first_name} ${opp.ownerId.last_name || ''}`.trim() : (opp.ownerId?.username || 'Unassigned'),
+        team: teamName,
+        businessVertical: opp.businessVertical || 'Paramount',
+        stageBeforeLoss: stageBeforeLoss || 'lead',
+        lostReason: opp.closeReason || 'Other',
+        lostNotes: opp.closeNotes || '',
+        competitor: opp.competitor || 'N/A',
+        lostDate: lostDate || opp.updatedAt,
+        createdAt: opp.createdAt
+      };
+    });
+
+    res.json({
+      success: true,
+      count: report.length,
+      data: report
+    });
+  } catch (error) {
+    console.error('Error fetching detailed lost report:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// FR-20: Sales Leaderboard
+// Ranks users and teams by Deals Won, Revenue Won, and Pipeline Generated with period filters
+router.get('/leaderboard', async (req, res) => {
+  try {
+    const { periodType = 'this_month', date, month, quarter, year, teamId, businessVertical } = req.query;
+
+    let startDate, endDate;
+    const now = new Date();
+
+    if (periodType === 'this_month') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else if (periodType === 'last_month') {
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    } else if (periodType === 'this_quarter') {
+      const qMonth = Math.floor(now.getMonth() / 3) * 3;
+      startDate = new Date(now.getFullYear(), qMonth, 1);
+      endDate = new Date(now.getFullYear(), qMonth + 3, 0, 23, 59, 59, 999);
+    } else if (periodType === 'this_year') {
+      startDate = new Date(now.getFullYear(), 0, 1);
+      endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+    } else if (periodType === 'custom_month' && month) {
+      const [y, m] = month.split('-');
+      startDate = new Date(y, parseInt(m) - 1, 1);
+      endDate = new Date(y, parseInt(m), 0, 23, 59, 59, 999);
+    } else if (periodType === 'all_time') {
+      startDate = new Date(2020, 0, 1);
+      endDate = new Date(2030, 11, 31);
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
+
+    const query = {
+      updatedAt: { $gte: startDate, $lte: endDate }
+    };
+
+    if (businessVertical && businessVertical !== 'all') {
+      query.businessVertical = new RegExp(`^${businessVertical.trim()}$`, 'i');
+    }
+
+    const allDeals = await Opportunity.find(query)
+      .populate('ownerId', 'username first_name last_name email')
+      .lean();
+
+    const teams = await SalesTeam.find({ isActive: true })
+      .populate('managerId', 'username first_name last_name')
+      .populate('memberIds', 'username first_name last_name')
+      .lean();
+
+    const teamMap = new Map();
+    const userTeamMap = new Map();
+    teams.forEach(t => {
+      teamMap.set(t._id.toString(), {
+        _id: t._id,
+        name: t.name,
+        dealsWon: 0,
+        wonRevenue: 0,
+        totalDeals: 0,
+        totalPipeline: 0
+      });
+      if (t.managerId?._id) userTeamMap.set(t.managerId._id.toString(), t._id.toString());
+      (t.memberIds || []).forEach(m => {
+        if (m._id) userTeamMap.set(m._id.toString(), t._id.toString());
+      });
+    });
+
+    const userStatsMap = new Map();
+
+    allDeals.forEach(deal => {
+      if (!deal.ownerId) return;
+      const uid = deal.ownerId._id.toString();
+      const val = deal.value || 0;
+      const isWon = deal.stage === 'won';
+
+      if (!userStatsMap.has(uid)) {
+        const name = deal.ownerId.first_name
+          ? `${deal.ownerId.first_name} ${deal.ownerId.last_name || ''}`.trim()
+          : deal.ownerId.username;
+        const tid = userTeamMap.get(uid);
+        const teamObj = tid ? teamMap.get(tid) : null;
+        userStatsMap.set(uid, {
+          userId: uid,
+          name,
+          username: deal.ownerId.username,
+          teamName: teamObj?.name || 'Unassigned',
+          teamId: tid || null,
+          dealsWon: 0,
+          wonRevenue: 0,
+          totalDeals: 0,
+          totalPipeline: 0
+        });
+      }
+
+      const uStat = userStatsMap.get(uid);
+      uStat.totalDeals += 1;
+      uStat.totalPipeline += val;
+
+      const tid = userTeamMap.get(uid);
+      const tStat = tid ? teamMap.get(tid) : null;
+      if (tStat) {
+        tStat.totalDeals += 1;
+        tStat.totalPipeline += val;
+      }
+
+      if (isWon) {
+        uStat.dealsWon += 1;
+        uStat.wonRevenue += val;
+        if (tStat) {
+          tStat.dealsWon += 1;
+          tStat.wonRevenue += val;
+        }
+      }
+    });
+
+    let individualRankings = Array.from(userStatsMap.values());
+    // Sort primarily by wonRevenue, secondary by dealsWon
+    individualRankings.sort((a, b) => b.wonRevenue - a.wonRevenue || b.dealsWon - a.dealsWon);
+    individualRankings = individualRankings.map((u, idx) => ({
+      ...u,
+      rank: idx + 1,
+      winRate: u.totalDeals > 0 ? Math.round((u.dealsWon / u.totalDeals) * 100) : 0
+    }));
+
+    let teamRankings = Array.from(teamMap.values()).filter(t => t.totalDeals > 0 || t.wonRevenue > 0);
+    teamRankings.sort((a, b) => b.wonRevenue - a.wonRevenue || b.dealsWon - a.dealsWon);
+    teamRankings = teamRankings.map((t, idx) => ({
+      ...t,
+      rank: idx + 1,
+      winRate: t.totalDeals > 0 ? Math.round((t.dealsWon / t.totalDeals) * 100) : 0
+    }));
+
+    res.json({
+      success: true,
+      period: { periodType, startDate, endDate },
+      individualRankings,
+      teamRankings
+    });
+  } catch (error) {
+    console.error('Error generating leaderboard:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

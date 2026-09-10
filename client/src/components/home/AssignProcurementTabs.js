@@ -35,7 +35,7 @@ function AssignProcurementTabs({ selectedUser }) {
         setMessage(null);
         try {
           const res = await axios.get(
-            `/api/tyre-procurement/user-tabs/${selectedUser}`
+            `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${selectedUser}`
           );
           if (res.data?.success) {
             setUserTabPermissions(res.data.allowed_tabs || []);
@@ -65,10 +65,13 @@ function AssignProcurementTabs({ selectedUser }) {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await axios.post("/api/tyre-procurement/assign-user-tabs", {
-        username: selectedUser,
-        allowed_tabs: userTabPermissions,
-      });
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/tyre-procurement/assign-user-tabs`,
+        {
+          username: selectedUser,
+          allowed_tabs: userTabPermissions,
+        }
+      );
       if (res.data?.success) {
         setMessage({
           type: "success",

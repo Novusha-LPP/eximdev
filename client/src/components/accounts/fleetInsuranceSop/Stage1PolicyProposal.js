@@ -68,17 +68,14 @@ function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, 
         </Typography>
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6} md={3}>
-            <TextField label="Sr. No." type="number" value={formData.srNo ?? ""} onChange={(e) => handleChange("srNo", e.target.value)} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField 
-              label="Registration No. *" 
-              value={formData.registrationNo ?? ""} 
-              onChange={(e) => handleChange("registrationNo", e.target.value)} 
+            <TextField
+              label="Registration No. *"
+              value={formData.registrationNo ?? ""}
+              onChange={(e) => handleChange("registrationNo", e.target.value)}
               onBlur={handleRegistrationBlur}
-              fullWidth 
-              size="small" 
-              required 
+              fullWidth
+              size="small"
+              required
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>

@@ -512,8 +512,8 @@ const OpenPointsHome = () => {
                                             </thead>
                                             <tbody>
                                                 {visibleProjects.map(project => (
-                                                    <tr 
-                                                        key={project._id} 
+                                                    <tr
+                                                        key={project._id}
                                                         onClick={() => navigate(`/open-points/project/${project._id}`)}
                                                         style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer', transition: 'background 0.2s' }}
                                                         onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}

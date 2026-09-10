@@ -320,7 +320,48 @@ export default function CRMKanbanBoard() {
     return Array.from(membersMap.values());
   };
 
-  const visibleMembers = getTeamMembers();
+  // FR-11: Restrict member filter to users who have created at least one lead/deal,
+  // and who are members of the CRM/team the pipeline belongs to.
+  const activeMembersWithDeals = React.useMemo(() => {
+    const rawMembers = getTeamMembers();
+    const dealUserIds = new Set();
+    
+    // Check all deals in current board/list
+    Object.values(board).forEach(stageOpps => {
+      if (Array.isArray(stageOpps)) {
+        stageOpps.forEach(opp => {
+          if (opp.ownerId) {
+            const id = typeof opp.ownerId === 'object' ? (opp.ownerId._id || opp.ownerId.id) : opp.ownerId;
+            if (id) dealUserIds.add(id.toString());
+          }
+          if (opp.createdBy) {
+            const id = typeof opp.createdBy === 'object' ? (opp.createdBy._id || opp.createdBy.id) : opp.createdBy;
+            if (id) dealUserIds.add(id.toString());
+          }
+        });
+      }
+    });
+
+    // Also check dealsList if stage view is active
+    (dealsList || []).forEach(opp => {
+      if (opp.ownerId) {
+        const id = typeof opp.ownerId === 'object' ? (opp.ownerId._id || opp.ownerId.id) : opp.ownerId;
+        if (id) dealUserIds.add(id.toString());
+      }
+      if (opp.createdBy) {
+        const id = typeof opp.createdBy === 'object' ? (opp.createdBy._id || opp.createdBy.id) : opp.createdBy;
+        if (id) dealUserIds.add(id.toString());
+      }
+    });
+
+    // Filter to only those members who have created or own deals, fallback to rawMembers if board is still empty/loading
+    if (dealUserIds.size === 0) return rawMembers;
+    const filtered = rawMembers.filter(m => dealUserIds.has((m._id || m.id)?.toString()));
+    return filtered.length > 0 ? filtered : rawMembers;
+  }, [board, dealsList, teams, users, selectedTeam, seeAllData, isAdmin]);
+
+  const visibleMembers = activeMembersWithDeals;
+  const searchIsActive = Boolean(searchQuery.trim());
 
   const fetchMyTeams = async (all = false) => {
     try {
@@ -754,6 +795,7 @@ export default function CRMKanbanBoard() {
             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Stage:</span>
             <select
               value={selectedStage}
+              disabled={searchIsActive}
               onChange={e => setSelectedStage(e.target.value)}
               style={{
                 padding: '8px 14px',
@@ -763,7 +805,8 @@ export default function CRMKanbanBoard() {
                 color: '#334155',
                 background: '#ffffff',
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: searchIsActive ? 'not-allowed' : 'pointer',
+                opacity: searchIsActive ? 0.5 : 1,
                 outline: 'none'
               }}
             >
@@ -779,6 +822,7 @@ export default function CRMKanbanBoard() {
             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Source:</span>
             <select
               value={selectedSource}
+              disabled={searchIsActive}
               onChange={e => setSelectedSource(e.target.value)}
               style={{
                 padding: '8px 14px',
@@ -788,7 +832,8 @@ export default function CRMKanbanBoard() {
                 color: '#334155',
                 background: '#ffffff',
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: searchIsActive ? 'not-allowed' : 'pointer',
+                opacity: searchIsActive ? 0.5 : 1,
                 outline: 'none'
               }}
             >
@@ -807,6 +852,7 @@ export default function CRMKanbanBoard() {
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Team:</span>
               <select
                 value={selectedTeam}
+                disabled={searchIsActive}
                 onChange={e => {
                   setSelectedTeam(e.target.value);
                   setSelectedOwner('all'); // Reset owner on team change
@@ -819,7 +865,8 @@ export default function CRMKanbanBoard() {
                   color: '#334155',
                   background: '#ffffff',
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: searchIsActive ? 'not-allowed' : 'pointer',
+                  opacity: searchIsActive ? 0.5 : 1,
                   outline: 'none'
                 }}
               >
@@ -837,6 +884,7 @@ export default function CRMKanbanBoard() {
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Member:</span>
               <select
                 value={selectedOwner}
+                disabled={searchIsActive}
                 onChange={e => setSelectedOwner(e.target.value)}
                 style={{
                   padding: '8px 14px',
@@ -846,7 +894,8 @@ export default function CRMKanbanBoard() {
                   color: '#334155',
                   background: '#ffffff',
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: searchIsActive ? 'not-allowed' : 'pointer',
+                  opacity: searchIsActive ? 0.5 : 1,
                   outline: 'none'
                 }}
               >
@@ -952,7 +1001,7 @@ export default function CRMKanbanBoard() {
             </div>
           </div>
         ) : (
-          <FilterBar moduleName="pipeline" onChange={handleFilterChange} />
+          <FilterBar moduleName="pipeline" onChange={handleFilterChange} disabled={searchIsActive} />
         )}
       </div>
 
@@ -1389,8 +1438,8 @@ export default function CRMKanbanBoard() {
                         )}
 
                         {/* CR-008 Source badge on deal card */}
-                        {opp.source && (
-                          <div style={{ marginBottom: '8px' }}>
+                        <div style={{ marginBottom: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+                          {opp.source && (
                             <span style={{
                               fontSize: '0.65rem',
                               background: opp.source === 'IndiaMart Lead' ? '#ffedd5'
@@ -1418,8 +1467,27 @@ export default function CRMKanbanBoard() {
                             }}>
                               {opp.source}
                             </span>
-                          </div>
-                        )}
+                          )}
+                          {(() => {
+                            const actDate = opp.lastActivityAt ? new Date(opp.lastActivityAt) : (opp.updatedAt ? new Date(opp.updatedAt) : null);
+                            if (!actDate || Number.isNaN(actDate.getTime())) return null;
+                            const diffDays = Math.floor((Date.now() - actDate.getTime()) / (1000 * 60 * 60 * 24));
+                            if (diffDays < 2) return null;
+                            return (
+                              <span style={{
+                                fontSize: '0.62rem',
+                                background: '#fef2f2',
+                                color: '#b91c1c',
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                fontWeight: 800,
+                                border: '1px solid #fecaca'
+                              }}>
+                                ⚠ Stagnant ({diffDays}d)
+                              </span>
+                            );
+                          })()}
+                        </div>
 
                         {/* Pricing Request Status / Price on Kanban Card */}
                         {(() => {

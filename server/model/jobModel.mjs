@@ -463,6 +463,7 @@ const jobSchema = new mongoose.Schema({
       container_gross_weight: { type: String, trim: true },
       actual_weight: { type: String, trim: true },
       transporter: { type: String, trim: true },
+      transporter_date_time: { type: String, trim: true },
       vehicle_no: { type: String, trim: true },
       driver_name: { type: String, trim: true },
       driver_phone: { type: String, trim: true },
@@ -890,7 +891,7 @@ jobSchema.pre("save", async function (next) {
       .replace(/_+/g, "_")
       .replace(/^_|_$/g, "");
   }
-  
+
   // Automatically mark job as completed if fully billed (both Agency and Reimbursement)
   const billNos = (this.bill_no || "").split(",");
   if (billNos[0]?.trim() && billNos[1]?.trim()) {
@@ -972,7 +973,7 @@ jobSchema.index({ branch_id: 1, year: 1, trade_type: 1, mode: 1, job_no: 1 }, { 
 
 // New indexes for structured job numbers and branch management
 jobSchema.index({ job_number: 1 }, { unique: true, sparse: true });
-jobSchema.index({ branch_id: 1 });
+jobSchema.index({ type_of_b_e: 1 }); // Atlas suggested: speeds up In-Bond/Home Consumption queries from 2.5s to <5ms
 jobSchema.index({ branch_id: 1, createdAt: 1 });
 jobSchema.index({ branch_code: 1, trade_type: 1, mode: 1, financial_year: 1 });
 
@@ -1052,6 +1053,8 @@ jobSchema.index({ custom_house: 1, mode: 1, status: 1, year: 1 });
 jobSchema.index({ "containers._id": 1 });
 jobSchema.index({ "cth_documents.document_name": 1, custom_house: 1, mode: 1, out_of_charge: 1 });
 jobSchema.index({ billing_completed_date: 1, mode: 1, year: 1, bill_document_sent_to_accounts: 1, billing_confirmation_date: 1 });
+jobSchema.index({ branch_id: 1, year: 1, trade_type: 1, mode: 1, sequence_number: -1 });
+jobSchema.index({ branch_id: 1, year: 1, importer: 1 });
 
 jobSchema.plugin(auditPlugin, { documentType: "Job" });
 

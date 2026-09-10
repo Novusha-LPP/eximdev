@@ -8,10 +8,10 @@ const activitySchema = new mongoose.Schema({
   },
   type: { 
     type: String, 
-    enum: ['call', 'email', 'meeting', 'demo', 'note'], 
+    enum: ['call', 'email', 'meeting', 'demo', 'note', 'visit'], 
     required: true 
   },
-  subject: { type: String, required: true },
+  subject: { type: String, trim: true },
   description: { type: String },
   duration: { type: Number },
   activityDate: { type: Date, default: Date.now },
@@ -19,7 +19,13 @@ const activitySchema = new mongoose.Schema({
     type: String, 
     enum: ['positive', 'neutral', 'negative'] 
   },
-  nextSteps: { type: String }
+  nextSteps: { type: String },
+  attachments: [{
+    name: { type: String, required: true },
+    url: { type: String },
+    mimeType: { type: String },
+    size: { type: Number, default: 0 }
+  }]
 }, { timestamps: true });
 
 export default mongoose.model('Activity', activitySchema);

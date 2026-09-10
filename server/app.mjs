@@ -429,7 +429,7 @@ const MONGODB_URI =
 //     ? process.env.SERVER_CLIENT_URI
 //     : process.env.DEV_CLIENT_URI;
 
-const numOfCPU = os.availableParallelism();
+const numOfCPU = Math.min(os.availableParallelism(), 2); // Cap at 2 workers to prevent MongoDB connection exhaustion
 
 // Export app for Testing
 export const app = express();
@@ -864,11 +864,12 @@ app.use(function onError(err, req, res, next) {
 const disableCluster = process.env.DISABLE_CLUSTER === "true";
 
 if (!disableCluster && cluster.isPrimary) {
-  console.log(`🚀 Primary Process running. Detected ${numOfCPU} CPUs. Forking ${numOfCPU} workers...`);
+  console.log(`🚀 Primary Process running. Detected ${os.availableParallelism()} CPUs. Forking ${numOfCPU} workers (capped)...`);
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
   }
-  cluster.on("exit", (worker) => {
+  cluster.on("exit", (worker, code, signal) => {
+    console.error(`⚠️ Worker ${worker.process.pid} exited (code: ${code}, signal: ${signal}). Restarting...`);
     cluster.fork();
   });
 } else {
@@ -929,7 +930,7 @@ if (!disableCluster && cluster.isPrimary) {
         // useNewUrlParser: true,
         // useUnifiedTopology: true,
         minPoolSize: 0,
-        maxPoolSize: 30, // Reduced from 30 to 5 to prevent connection spikes in clustered mode
+        maxPoolSize: 5, // Reduced to prevent connection exhaustion in clustered mode (2 workers × 5 = 10 max connections)
         maxIdleTimeMS: 30000,
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,

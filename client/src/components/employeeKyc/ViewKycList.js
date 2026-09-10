@@ -26,6 +26,22 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+// Date formatter helper for DOB
+const formatDate = (dateString) => {
+  if (!dateString) return '—';
+  if (/^\d{2}-\d{2}-\d{4}$/.test(dateString)) return dateString;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    const [year, month, day] = dateString.split('-');
+    return `${day}-${month}-${year}`;
+  }
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
 function ViewKycList() {
   const selectMenuProps = {
     MenuProps: {
@@ -72,6 +88,8 @@ function ViewKycList() {
     const lastName = (row.last_name || "").toLowerCase();
     const fullName = `${firstName} ${lastName}`;
     const username = (row.username || "").toLowerCase();
+    const dobFormatted = formatDate(row.dob || row.date_of_birth).toLowerCase();
+    const rawDob = (row.dob || row.date_of_birth || "").toLowerCase();
     
     // Hide 'dev_master' by default (when search is empty)
     if (row.username === 'dev_master' && !searchTerm.trim()) {
@@ -86,17 +104,16 @@ function ViewKycList() {
     // Company Logic
     const matchesCompany = companyFilter === 'All' || row.company === companyFilter;
     
-    const matchesSearch = fullName.includes(term) || username.includes(term);
+    const matchesSearch = fullName.includes(term) || username.includes(term) || dobFormatted.includes(term) || rawDob.includes(term);
     return matchesSearch && matchesStatus && matchesCompany;
   });
-
- 
 
   const renderRow = (row, index) => (
     <tr key={row.username || index}>
       <td>{row.first_name || '—'}</td>
       <td>{row.middle_name || '—'}</td>
       <td>{row.last_name || '—'}</td>
+      <td>{formatDate(row.dob || row.date_of_birth)}</td>
       <td>{row.email || '—'}</td>
       <td>{row.company || '—'}</td>
       <td><StatusBadge status={row.kyc_approval} /></td>
@@ -194,6 +211,7 @@ function ViewKycList() {
                 <th>First Name</th>
                 <th>Middle Name</th>
                 <th>Last Name</th>
+                <th>DOB</th>
                 <th>Email</th>
                 <th>Company</th>
                 <th>Status</th>
@@ -203,7 +221,7 @@ function ViewKycList() {
             <tbody>
               {filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
                     {loading ? "Loading records..." : "No matching records found"}
                   </td>
                 </tr>

@@ -183,6 +183,7 @@ export const syncActionPlanToOpenPoint = async (mrmItem, reqUser = null) => {
             status: pointStatus,
             priority: mrmItem.status === 'Red' ? 'High' : 'Medium',
             created_by: reqUser?._id || mrmItem.createdBy,
+            creation_date: new Date(),
             completion_date: pointStatus === 'Green' ? new Date() : null,
             originModule: 'MRM',
             originContext: {

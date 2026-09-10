@@ -269,6 +269,11 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
         delete sanitizedUpdate.financial_year;
         delete sanitizedUpdate.cth_documents;
         delete sanitizedUpdate.documents;
+        delete sanitizedUpdate.container_nos;
+
+        const existingContainers = Array.isArray(matchingJob.container_nos)
+          ? matchingJob.container_nos.map(c => (typeof c.toObject === 'function' ? c.toObject() : { ...c }))
+          : [];
 
         // ✅ Support legacy address formats (strings) by converting them to objects before assignment
         if (typeof sanitizedUpdate.importer_address === 'string') {
@@ -284,33 +289,59 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
           matchingJob.markModified('other_charges_details');
         }
 
-        if (checked) {
-          matchingJob.container_nos = container_nos.map((container) => {
-            const detentionDate =
-              arrival_date === ""
-                ? ""
-                : addDaysToDate(arrival_date, parseInt(free_time));
-            return {
-              ...container,
-              arrival_date: arrival_date,
-              detention_from: detentionDate,
-              do_validity_upto_container_level: subtractOneDay(detentionDate),
-            };
-          });
-        } else {
-          matchingJob.container_nos = container_nos.map((container) => {
-            const detentionDate =
-              container.arrival_date === ""
-                ? ""
-                : addDaysToDate(container.arrival_date, parseInt(free_time));
+        const incomingContainers = Array.isArray(container_nos) ? container_nos : [];
 
-            return {
-              ...container,
-              arrival_date: container.arrival_date,
-              detention_from: detentionDate,
-              do_validity_upto_container_level: subtractOneDay(detentionDate),
-            };
-          });
+        const mapContainerWithTimestamps = (container, index, computedArrivalDate) => {
+          const targetArrivalDate = computedArrivalDate !== undefined ? computedArrivalDate : container.arrival_date;
+          const detentionDate =
+            targetArrivalDate === ""
+              ? ""
+              : addDaysToDate(targetArrivalDate, parseInt(free_time));
+
+          let existingContainer = null;
+          if (container._id) {
+            existingContainer = existingContainers.find(c => c._id && String(c._id) === String(container._id));
+          }
+          if (!existingContainer && container.container_number) {
+            existingContainer = existingContainers.find(
+              c => c.container_number && String(c.container_number).trim().toUpperCase() === String(container.container_number).trim().toUpperCase()
+            );
+          }
+          if (!existingContainer && existingContainers[index]) {
+            existingContainer = existingContainers[index];
+          }
+
+          const existingTransporter = (existingContainer?.transporter || "").trim();
+          const incomingTransporter = (container.transporter || "").trim();
+
+          let transporter_date_time = container.transporter_date_time || existingContainer?.transporter_date_time || "";
+
+          // Transporter timestamp logic (records for both SRCC and third-party transporters)
+          if (incomingTransporter) {
+            if (incomingTransporter !== existingTransporter || !transporter_date_time) {
+              transporter_date_time = new Date().toISOString();
+            }
+          } else {
+            transporter_date_time = "";
+          }
+
+          return {
+            ...container,
+            arrival_date: targetArrivalDate,
+            detention_from: detentionDate,
+            do_validity_upto_container_level: subtractOneDay(detentionDate),
+            transporter_date_time,
+          };
+        };
+
+        if (checked) {
+          matchingJob.container_nos = incomingContainers.map((container, index) =>
+            mapContainerWithTimestamps(container, index, arrival_date)
+          );
+        } else {
+          matchingJob.container_nos = incomingContainers.map((container, index) =>
+            mapContainerWithTimestamps(container, index, container.arrival_date)
+          );
         }
 
         if (Array.isArray(cth_documents)) {
@@ -523,6 +554,45 @@ router.put("/api/admin/update-job-static/:branch_code/:trade_type/:mode/:year/:j
             const cleanedAmt = updateData.bill_amount.split(",").map(a => a.trim()).filter(Boolean);
             updateData.bill_amount = cleanedAmt.length > 0 ? updateData.bill_amount.trim() : "";
             if (updateData.bill_amount === ",") updateData.bill_amount = "";
+        }
+
+        if (Array.isArray(updateData.container_nos)) {
+          const existingContainers = Array.isArray(matchingJob.container_nos)
+            ? matchingJob.container_nos.map(c => (typeof c.toObject === 'function' ? c.toObject() : { ...c }))
+            : [];
+
+          updateData.container_nos = updateData.container_nos.map((container, index) => {
+            let existingContainer = null;
+            if (container._id) {
+              existingContainer = existingContainers.find(c => c._id && String(c._id) === String(container._id));
+            }
+            if (!existingContainer && container.container_number) {
+              existingContainer = existingContainers.find(
+                c => c.container_number && String(c.container_number).trim().toUpperCase() === String(container.container_number).trim().toUpperCase()
+              );
+            }
+            if (!existingContainer && existingContainers[index]) {
+              existingContainer = existingContainers[index];
+            }
+
+            const existingTransporter = (existingContainer?.transporter || "").trim();
+            const incomingTransporter = (container.transporter || "").trim();
+
+            let transporter_date_time = container.transporter_date_time || existingContainer?.transporter_date_time || "";
+
+            if (incomingTransporter) {
+              if (incomingTransporter !== existingTransporter || !transporter_date_time) {
+                transporter_date_time = new Date().toISOString();
+              }
+            } else {
+              transporter_date_time = "";
+            }
+
+            return {
+              ...container,
+              transporter_date_time,
+            };
+          });
         }
 
         Object.assign(matchingJob, updateData);

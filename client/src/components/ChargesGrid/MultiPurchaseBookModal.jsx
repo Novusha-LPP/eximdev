@@ -118,9 +118,18 @@ const MultiPurchaseBookModal = ({ isOpen, onClose, chargesData, jobNumber, jobDi
                     revenueSgst: revSgst,
                     revenueIgst: revIgst,
                     revenueTotal: revTot,
+                    revenueRate: Number(c.revenueRate !== undefined && c.revenueRate !== null ? c.revenueRate : (c.revenueRateAmount || c.revenue?.rate || (c.qty ? revAmt / c.qty : revAmt))),
+                    revenueCurrencyAmount: Number(c.revenueCurrencyAmount !== undefined && c.revenueCurrencyAmount !== null ? c.revenueCurrencyAmount : (c.revenueCurrencyAmountVal || c.revenue?.currencyAmount || (c.revenueCurrency && c.revenueCurrency !== 'INR' ? (c.revenueAmount || c.revenueBasicAmount) : 0))),
+                    "Revenue Rate": Number(c.revenueRate !== undefined && c.revenueRate !== null ? c.revenueRate : (c.revenueRateAmount || c.revenue?.rate || (c.qty ? revAmt / c.qty : revAmt))),
+                    "Revenue Currency Amount": Number(c.revenueCurrencyAmount !== undefined && c.revenueCurrencyAmount !== null ? c.revenueCurrencyAmount : (c.revenueCurrencyAmountVal || c.revenue?.currencyAmount || (c.revenueCurrency && c.revenueCurrency !== 'INR' ? (c.revenueAmount || c.revenueBasicAmount) : 0))),
 
                     invoiceNumber: c.invoice_number || '',
-                    invoiceDate: c.invoice_date || ''
+                    invoiceDate: c.invoice_date || '',
+                    qty: c.qty !== undefined && c.qty !== null ? Number(c.qty) : 1,
+                    rate: c.rate !== undefined && c.rate !== null ? Number(c.rate) : Number(c.basicAmount || c.amount || 0),
+                    currency: c.costCurrency || (c.cost && c.cost.currency) || 'INR',
+                    currencyAmount: Number(c.currencyAmount || c.foreignCurrencyAmount || (c.currency && c.currency !== 'INR' ? (c.amount || c.basicAmount) : 0)),
+                    exchangeRate: Number(c.exchangeRate || c.exRate || 1)
                 };
             });
             setChargeItems(items);
@@ -224,6 +233,15 @@ const MultiPurchaseBookModal = ({ isOpen, onClose, chargesData, jobNumber, jobDi
                 revenueSgst: totalRevSGST,
                 revenueIgst: totalRevIGST,
                 revenueTotal: totalRevTotal,
+                "Revenue Rate": firstCharge.revenueRate !== undefined && firstCharge.revenueRate !== null ? firstCharge.revenueRate : (firstCharge.revenueRateAmount || firstCharge.revenue?.rate || ''),
+                "Revenue Currency Amount": firstCharge.revenueCurrencyAmount !== undefined && firstCharge.revenueCurrencyAmount !== null ? firstCharge.revenueCurrencyAmount : (firstCharge.revenueCurrencyAmountVal || firstCharge.revenue?.currencyAmount || ''),
+                revenueRate: firstCharge.revenueRate !== undefined && firstCharge.revenueRate !== null ? firstCharge.revenueRate : (firstCharge.revenueRateAmount || firstCharge.revenue?.rate || ''),
+                revenueCurrencyAmount: firstCharge.revenueCurrencyAmount !== undefined && firstCharge.revenueCurrencyAmount !== null ? firstCharge.revenueCurrencyAmount : (firstCharge.revenueCurrencyAmountVal || firstCharge.revenue?.currencyAmount || ''),
+                "Qty": firstCharge.qty !== undefined && firstCharge.qty !== null ? firstCharge.qty : 1,
+                "Rate": firstCharge.rate !== undefined && firstCharge.rate !== null ? firstCharge.rate : (firstCharge.amount || 0),
+                "Currency": firstCharge.costCurrency || (firstCharge.cost && firstCharge.cost.currency) || 'INR',
+                "Currency Amount": firstCharge.currencyAmount || firstCharge.foreignCurrencyAmount || (firstCharge.currency && firstCharge.currency !== 'INR' ? (firstCharge.amount || firstCharge.basicAmount || '') : ''),
+                "Exchange Rate": firstCharge.exchangeRate || firstCharge.exRate || 1,
                 "Charge Head Category": firstCharge.chargeHeadCategory || '',
                 "TDS Category": '94C_1',
                 "chargeRef": chargesData.map(c => c.chargeId).filter(Boolean).join(','),

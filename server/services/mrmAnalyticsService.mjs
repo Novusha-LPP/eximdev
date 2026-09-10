@@ -880,7 +880,13 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
         if (hasUnsubmitted) {
             finalRag = 'Red';
             segmentScore = 0;
-            reasonBadge = `[Missed Submission: ${unsubmittedMembers.join(', ')}]`;
+            if (unsubmittedMembers.length === members.length) {
+                reasonBadge = `[All ${unsubmittedMembers.length} Submissions Pending]`;
+            } else if (unsubmittedMembers.length > 2) {
+                reasonBadge = `[${unsubmittedMembers.length} Pending Submissions]`;
+            } else {
+                reasonBadge = `[Missed Submission: ${unsubmittedMembers.join(', ')}]`;
+            }
         } else if (isColdStart) {
             if (flagStatus === 'Red') {
                 finalRag = 'Red';

@@ -1727,16 +1727,7 @@ const MRMHome = () => {
                                 </button>
                             </>
                         )}
-                        {rollupFeatureEnabled && canManagePresenters && (
-                            <button
-                                className="action-btn secondary"
-                                onClick={() => setSubTeamManagerOpen(true)}
-                                title="Manage department sub-teams and assign team members"
-                                style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe', fontWeight: '600' }}
-                            >
-                                👥 Sub-Teams
-                            </button>
-                        )}
+
                         {items.length > 0 && (
                             <>
                                 {/* Export Dropdown Button */}

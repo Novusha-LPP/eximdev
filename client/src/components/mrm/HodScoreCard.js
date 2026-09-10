@@ -86,7 +86,7 @@ const HodScoreCard = ({ scoreData }) => {
                             )}
                         </Box>
                         <Typography variant="caption" color="#64748b">
-                            70% Sub-Team KPI Execution ({segments_count} Segments) + 30% Strategic Focus Areas ({focus_areas_count} Objectives)
+                            70% Team KPI Execution + 30% Strategic Focus Areas ({focus_areas_count} Objectives)
                         </Typography>
                     </Box>
                 </Box>
@@ -94,7 +94,7 @@ const HodScoreCard = ({ scoreData }) => {
                 {/* Right: Component Breakdown & Annual Business Loss */}
                 <Box display="flex" alignItems="center" gap={3} flexWrap="wrap">
                     {/* Component 1: Team KPI (70%) */}
-                    <Tooltip title={`Average score across all ${segments_count} sub-team segments. Weighted at 70%.`} arrow>
+                    <Tooltip title="Department Team KPI performance score. Weighted at 70%." arrow>
                         <Box sx={{ textAlign: 'center', minWidth: 100 }}>
                             <Box display="flex" alignItems="center" justifyContent="center" gap={0.5} mb={0.2}>
                                 <GroupsIcon sx={{ fontSize: 16, color: '#2563eb' }} />

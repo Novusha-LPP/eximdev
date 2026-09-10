@@ -1224,6 +1224,8 @@ function JobDetails() {
         container_gross_weight: "",
         weight_shortage: "",
         transporter: "",
+        transporter_date_time: "",
+        srcc_date_time: "",
         delivery_date: "",
         emptyContainerOffLoadDate: "",
         container_rail_out_date: "",

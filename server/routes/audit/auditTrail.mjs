@@ -381,7 +381,7 @@ router.get("/api/audit-trail", authMiddleware, async (req, res) => {
       ];
     }
 
-    // Date range filter
+    // Date range filter: default to today if no dates are provided (prevents full-collection historical scans)
     const from = fromDate || startDate;
     const to = toDate || endDate;
     if (from || to) {
@@ -396,37 +396,73 @@ router.get("/api/audit-trail", authMiddleware, async (req, res) => {
         toD.setHours(23, 59, 59, 999);
         filter.timestamp.$lte = toD;
       }
-    } else if (allDates === "true" || noDateFilter === "true" || req.query.timestamp) {
-      // Allow all historical logs
+    } else if (allDates === "true" || noDateFilter === "true") {
+      // Explicitly allow all historical logs only when requested by admin
+    } else {
+      // Default to today to bound the query and utilize index
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      filter.timestamp = { $gte: todayStart, $lte: todayEnd };
     }
 
-    // Fetch audit trail data and counts concurrently (optimized to avoid full collection scans)
     const isFilterEmpty = Object.keys(filter).length === 0;
 
+    // Fast total count (uses estimated count if completely unfiltered)
     const totalCountPromise = isFilterEmpty
       ? AuditTrailModel.estimatedDocumentCount()
       : AuditTrailModel.countDocuments(filter);
 
-    const createCountPromise = AuditTrailModel.countDocuments({
-      ...filter,
-      action: { $in: ["CREATE", "INSERT", "BULK_CREATE_UPDATE"] },
-    });
+    // Primary data fetch using timestamp index
+    const dataPromise = AuditTrailModel.find(filter)
+      .sort({ timestamp: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
 
-    const updateCountPromise = AuditTrailModel.countDocuments({
-      ...filter,
-      action: { $in: ["UPDATE", "EDIT"] },
-    });
+    // Single-pass aggregation for stats (only when date-bounded or scoped to avoid full historical scans)
+    let statsPromise;
+    if (filter.timestamp) {
+      statsPromise = AuditTrailModel.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: {
+              $cond: [
+                { $in: ["$action", ["CREATE", "INSERT", "BULK_CREATE_UPDATE"]] },
+                "create",
+                {
+                  $cond: [
+                    { $in: ["$action", ["UPDATE", "EDIT"]] },
+                    "update",
+                    "other",
+                  ],
+                },
+              ],
+            },
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+    } else {
+      statsPromise = Promise.resolve([]);
+    }
 
-    const [auditTrail, total, createCount, updateCount] = await Promise.all([
-      AuditTrailModel.find(filter)
-        .sort({ timestamp: -1, createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .lean(),
+    const [auditTrail, total, statsAgg] = await Promise.all([
+      dataPromise,
       totalCountPromise,
-      createCountPromise,
-      updateCountPromise,
+      statsPromise,
     ]);
+
+    let createCount = 0;
+    let updateCount = 0;
+    if (Array.isArray(statsAgg)) {
+      statsAgg.forEach((s) => {
+        if (s._id === "create") createCount = s.count;
+        if (s._id === "update") updateCount = s.count;
+      });
+    }
 
     const totalPages = Math.max(1, Math.ceil(total / limitNum));
 

@@ -6,36 +6,31 @@ const auditTrailSchema = new mongoose.Schema(
     documentId: {
       type: mongoose.Schema.Types.ObjectId,
       required: false, // Made optional to support bulk operations
-      index: true,
     },
     documentType: {
       type: String,
       required: true,
-      index: true,
     }, // e.g., 'Job', 'User', etc.
 
     // Job specific identifiers for easier tracking
-    job_no: { type: String, index: true },
-    year: { type: String, index: true },
+    job_no: { type: String },
+    year: { type: String },
 
     // Branch information for isolation
     branchId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Branch",
-      index: true,
     },
-    branch_code: { type: String, index: true },
+    branch_code: { type: String },
 
     // User information
     userId: {
       type: String, // Changed from ObjectId to String to support username-based IDs
       required: true,
-      index: true,
     },
     username: {
       type: String,
       required: true,
-      index: true,
     },
     userRole: { type: String },
 
@@ -44,7 +39,6 @@ const auditTrailSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: ["CREATE", "UPDATE", "DELETE", "BULK_CREATE_UPDATE", "VIEW", "FILTER", "MODULE_ACCESS", "CUSTOM", "EXPORT", "IMPORT"],
-      index: true,
     },
 
     heading: { type: String, required: true }, // Proper heading for the audit entry
@@ -73,7 +67,6 @@ const auditTrailSchema = new mongoose.Schema(
     timestamp: {
       type: Date,
       default: Date.now,
-      index: true,
     },
 
     // Additional context
@@ -92,6 +85,7 @@ auditTrailSchema.index({ username: 1, timestamp: -1 });
 auditTrailSchema.index({ branchId: 1, timestamp: -1 });
 auditTrailSchema.index({ branch_code: 1, timestamp: -1 });
 auditTrailSchema.index({ action: 1, timestamp: -1 });
+auditTrailSchema.index({ documentType: 1, timestamp: -1 });
 auditTrailSchema.index({ timestamp: -1, createdAt: -1 });
 
 const AuditTrailModel = mongoose.model("AuditTrail", auditTrailSchema);

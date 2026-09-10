@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Eye, Edit2, Trash2 } from "lucide-react";
 import { scorecardAPI } from "../api/scorecardAPI";
+import useDebounce from "../hooks/useDebounce";
 import { getRatingLabel, getStatusClass, fmtDate } from "../utils";
 import "../styles/scorecard.scss";
 
@@ -12,7 +13,13 @@ export default function ScorecardList() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [filters, setFilters] = useState({ branch: "", status: "", supplierName: "" });
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const debouncedSupplierSearch = useDebounce(supplierSearch, 350);
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10 });
+
+  useEffect(() => {
+    setFilters((f) => ({ ...f, supplierName: debouncedSupplierSearch }));
+  }, [debouncedSupplierSearch]);
 
   // View Modal state
   const [showViewModal, setShowViewModal] = useState(false);
@@ -168,8 +175,8 @@ export default function ScorecardList() {
                 <input
                   type="text"
                   placeholder="Search…"
-                  value={filters.supplierName}
-                  onChange={(e) => setFilters((f) => ({ ...f, supplierName: e.target.value }))}
+                  value={supplierSearch}
+                  onChange={(e) => setSupplierSearch(e.target.value)}
                 />
               </div>
               <div className="form-field">
@@ -197,7 +204,10 @@ export default function ScorecardList() {
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setFilters({ branch: "", status: "", supplierName: "" })}
+                  onClick={() => {
+                    setSupplierSearch("");
+                    setFilters({ branch: "", status: "", supplierName: "" });
+                  }}
                   style={{
                     height: "38px",
                     display: "inline-flex",

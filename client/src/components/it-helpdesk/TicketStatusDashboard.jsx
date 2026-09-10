@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
+import useDebounce from "../../hooks/useDebounce";
 import ITPagination from "./ITPagination";
 import {
   Box,
@@ -62,6 +63,12 @@ export default function TicketStatusDashboard() {
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [filters, setFilters] = useState({ status: "", category: "", priority: "", search: "" });
+  const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 350);
+
+  useEffect(() => {
+    setFilters((f) => ({ ...f, search: debouncedSearch }));
+  }, [debouncedSearch]);
   const [stats, setStats] = useState({
     total: 0,
     open: 0,
@@ -473,8 +480,8 @@ export default function TicketStatusDashboard() {
                 label="Search Title / ID"
                 size="small"
                 fullWidth
-                value={filters.search}
-                onChange={(e) => setFilters(f => ({ ...f, search: e.target.value }))}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">

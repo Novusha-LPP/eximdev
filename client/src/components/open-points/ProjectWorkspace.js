@@ -370,7 +370,8 @@ const ProjectWorkspace = () => {
                 status: newPoint.status || 'Red',
                 remarks: newPoint.remarks || '',
                 priority: newPoint.priority || 'Low',
-                review_date: newPoint.review_date || ''
+                review_date: newPoint.review_date || '',
+                creation_date: new Date()
             };
 
             if (newPoint.target_date) {
@@ -1072,7 +1073,7 @@ const ProjectWorkspace = () => {
                                     />
                                 </td>
                                 <td style={{ textAlign: 'center', fontSize: '12px', color: '#475569', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                                    {point.creation_date ? (
+                                    {point.creation_date && !isNaN(new Date(point.creation_date).getTime()) ? (
                                         new Date(point.creation_date).toLocaleDateString('en-GB')
                                     ) : (
                                         <span style={{ color: '#94a3b8' }}>-</span>

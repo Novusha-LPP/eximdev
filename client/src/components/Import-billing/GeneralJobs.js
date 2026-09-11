@@ -262,8 +262,8 @@ function GeneralJobs() {
           const { job_no, job_number, year, branch_code, trade_type, mode } = cell.row.original;
           return (
             <Link
-              to={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
-              state={{ workMode: 'Payment' }}
+              to={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?currentTab=2`}
+              state={{ workMode: 'Payment', currentTab: 2 }}
               target="_blank"
               rel="noopener noreferrer"
               style={{

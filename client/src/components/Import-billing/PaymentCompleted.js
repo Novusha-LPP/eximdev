@@ -630,8 +630,8 @@ function PaymentCompleted({ workMode = "Payment" }) {
 
           return (
             <Link
-              to={`/view-payment-request-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?selectedJobId=${_id}`}
-              state={{ workMode }}
+              to={`/view-payment-request-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?selectedJobId=${_id}&currentTab=5`}
+              state={{ workMode, currentTab: 5 }}
               target="_blank"
               rel="noopener noreferrer"
               style={{

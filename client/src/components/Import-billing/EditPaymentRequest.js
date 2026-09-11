@@ -96,7 +96,19 @@ function EditPaymentRequest() {
 
   // Handle back click function
   const handleBackClick = () => {
-    const tabIndex = storedSearchParams?.currentTab ?? 3;
+    // Priority: URL query param > route state > default 3 (Payment Requested)
+    const urlTab = param.get("currentTab");
+    let tabIndex;
+    if (urlTab !== null) {
+      tabIndex = Number(urlTab);
+    } else if (storedSearchParams?.currentTab !== undefined) {
+      tabIndex = storedSearchParams.currentTab;
+    } else {
+      tabIndex = 3;
+    }
+
+    // Sync sessionStorage so ImportBillingTab restores correctly
+    sessionStorage.setItem("import_billing_tab", tabIndex.toString());
 
     navigate("/import-billing", {
       state: {

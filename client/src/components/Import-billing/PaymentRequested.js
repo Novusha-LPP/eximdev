@@ -563,8 +563,8 @@ function PaymentRequested({ workMode = "Payment" }) {
           const { job_no, year, _id, type_of_b_e, consignment_type, custom_house, branch_code, trade_type, mode } = cell.row.original;
           return (
             <Link
-              to={`/view-payment-request-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?selectedJobId=${_id}`}
-              state={{ workMode }}
+              to={`/view-payment-request-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?selectedJobId=${_id}&currentTab=3`}
+              state={{ workMode, currentTab: 3 }}
               target="_blank"
               rel="noopener noreferrer"
               style={{ display: "inline-block", padding: "10px", textAlign: "center", textDecoration: "none", color: 'blue', whiteSpace: "nowrap" }}

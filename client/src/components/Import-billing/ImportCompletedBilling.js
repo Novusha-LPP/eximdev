@@ -381,8 +381,8 @@ function ImportCompletedBilling({ workMode = 'Payment' }) {
 
           return currentTab === 0 ? (
             <Link
-              to={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
-              state={{ workMode }}
+              to={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?currentTab=6`}
+              state={{ workMode, currentTab: 6 }}
               target="_blank"
               rel="noopener noreferrer"
               style={{

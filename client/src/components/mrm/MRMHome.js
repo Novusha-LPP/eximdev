@@ -9,7 +9,7 @@ import {
     submitMRM, approveMRM, requestMRMRevision, reopenMRM, updateObjectiveConfig,
     fetchMRMFeatureStatus, fetchSegmentRollup, fetchHodScore 
 } from '../../services/mrmService';
-import { IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Autocomplete, TextField, Menu, MenuItem, Tooltip, Checkbox, FormControlLabel, Snackbar, Alert, Box, Typography, Chip } from '@mui/material';
+import { IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Autocomplete, TextField, Menu, MenuItem, Tooltip, Checkbox, FormControlLabel, Snackbar, Alert, Box, Typography, Chip, Paper } from '@mui/material';
 import { Reorder, useDragControls } from "framer-motion";
 import SaveIcon from '@mui/icons-material/Save';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
@@ -21,10 +21,10 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import SendIcon from '@mui/icons-material/Send';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import GroupsIcon from '@mui/icons-material/Groups';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
@@ -561,6 +561,8 @@ const MRMHome = () => {
     const [segmentRollupData, setSegmentRollupData] = useState(null);
     const [hodScoreData, setHodScoreData] = useState(null);
     const [subTeamManagerOpen, setSubTeamManagerOpen] = useState(false);
+    // Executive View Switcher: 'EXECUTIVE_MEETING' (Reds First), 'TEAM_SEGMENTS' (70%), 'HOD_OBJECTIVES' (30%), 'ALL' (Unified)
+    const [mrmViewMode, setMrmViewMode] = useState('EXECUTIVE_MEETING');
 
     const selectedUserObj = mrmUsers.find(u => String(u._id) === String(selectedUserId)) || user;
     const activeDepartment = selectedUserObj?.department || user?.department || 'Import';
@@ -2011,92 +2013,363 @@ const MRMHome = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* MRM 2.0 — HOD Monthly Scorecard (Feature-Flagged) */}
+            {/* MRM 2.0 — HOD Monthly Scorecard (Feature-Flagged) with Interactive View Switches */}
             {rollupFeatureEnabled && hodScoreData && (
-                <HodScoreCard scoreData={hodScoreData} />
+                <HodScoreCard 
+                    scoreData={hodScoreData} 
+                    activeView={mrmViewMode}
+                    onSelectView={(mode) => setMrmViewMode(mode)}
+                />
             )}
 
+            {/* Executive View Switcher Bar */}
             {rollupFeatureEnabled && (
-                <Box mb={1} display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
-                    <Typography variant="h6" fontWeight={800} color="#0f172a">
-                        Section 1: HOD Strategic Focus Areas
-                    </Typography>
-                    <Chip 
-                        label="Weight: 30% of Monthly HOD Score | Target-Based RAG" 
-                        size="small" 
-                        sx={{ bgcolor: '#f1f5f9', fontWeight: 600, fontSize: '11px' }} 
+                <Box sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 1.5,
+                    mb: 2.5,
+                    p: 0.8,
+                    bgcolor: '#f1f5f9',
+                    borderRadius: '10px',
+                    border: '1px solid #e2e8f0'
+                }}>
+                    <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                        <Button
+                            size="small"
+                            variant={mrmViewMode === 'EXECUTIVE_MEETING' ? 'contained' : 'text'}
+                            onClick={() => setMrmViewMode('EXECUTIVE_MEETING')}
+                            sx={{
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                fontSize: '12.5px',
+                                borderRadius: '8px',
+                                bgcolor: mrmViewMode === 'EXECUTIVE_MEETING' ? '#b91c1c' : 'transparent',
+                                color: mrmViewMode === 'EXECUTIVE_MEETING' ? '#ffffff' : '#991b1b',
+                                px: 1.8,
+                                py: 0.6,
+                                boxShadow: mrmViewMode === 'EXECUTIVE_MEETING' ? '0 2px 6px rgba(185, 28, 28, 0.25)' : 'none',
+                                '&:hover': { bgcolor: mrmViewMode === 'EXECUTIVE_MEETING' ? '#991b1b' : '#fee2e2' }
+                            }}
+                        >
+                            🔴 Executive Meeting Focus (Reds First)
+                        </Button>
+
+                        <Button
+                            size="small"
+                            variant={mrmViewMode === 'TEAM_SEGMENTS' ? 'contained' : 'text'}
+                            onClick={() => setMrmViewMode('TEAM_SEGMENTS')}
+                            sx={{
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                fontSize: '12.5px',
+                                borderRadius: '8px',
+                                bgcolor: mrmViewMode === 'TEAM_SEGMENTS' ? '#2563eb' : 'transparent',
+                                color: mrmViewMode === 'TEAM_SEGMENTS' ? '#ffffff' : '#1e40af',
+                                px: 1.8,
+                                py: 0.6,
+                                boxShadow: mrmViewMode === 'TEAM_SEGMENTS' ? '0 2px 6px rgba(37, 99, 235, 0.25)' : 'none',
+                                '&:hover': { bgcolor: mrmViewMode === 'TEAM_SEGMENTS' ? '#1d4ed8' : '#dbeafe' }
+                            }}
+                        >
+                            👥 Team Sub-Teams & KPIs (70%)
+                        </Button>
+
+                        <Button
+                            size="small"
+                            variant={mrmViewMode === 'HOD_OBJECTIVES' ? 'contained' : 'text'}
+                            onClick={() => setMrmViewMode('HOD_OBJECTIVES')}
+                            sx={{
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                fontSize: '12.5px',
+                                borderRadius: '8px',
+                                bgcolor: mrmViewMode === 'HOD_OBJECTIVES' ? '#7c3aed' : 'transparent',
+                                color: mrmViewMode === 'HOD_OBJECTIVES' ? '#ffffff' : '#6d28d9',
+                                px: 1.8,
+                                py: 0.6,
+                                boxShadow: mrmViewMode === 'HOD_OBJECTIVES' ? '0 2px 6px rgba(124, 58, 237, 0.25)' : 'none',
+                                '&:hover': { bgcolor: mrmViewMode === 'HOD_OBJECTIVES' ? '#6d28d9' : '#ede9fe' }
+                            }}
+                        >
+                            🎯 HOD Strategic Focus Areas (30%)
+                        </Button>
+
+                        <Button
+                            size="small"
+                            variant={mrmViewMode === 'ALL' ? 'contained' : 'text'}
+                            onClick={() => setMrmViewMode('ALL')}
+                            sx={{
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                fontSize: '12px',
+                                borderRadius: '8px',
+                                bgcolor: mrmViewMode === 'ALL' ? '#334155' : 'transparent',
+                                color: mrmViewMode === 'ALL' ? '#ffffff' : '#475569',
+                                px: 1.5,
+                                py: 0.6,
+                                '&:hover': { bgcolor: mrmViewMode === 'ALL' ? '#1e293b' : '#e2e8f0' }
+                            }}
+                        >
+                            📋 Unified Full View
+                        </Button>
+                    </Box>
+
+                    {canManagePresenters && (
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => setSubTeamManagerOpen(true)}
+                            sx={{
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                fontSize: '11.5px',
+                                bgcolor: '#ffffff',
+                                borderColor: '#cbd5e1',
+                                color: '#475569',
+                                '&:hover': { bgcolor: '#f8fafc', borderColor: '#94a3b8' }
+                            }}
+                        >
+                            ⚙️ Configure Sub-Teams
+                        </Button>
+                    )}
+                </Box>
+            )}
+
+            {/* ═══ VIEW 1: EXECUTIVE MEETING FOCUS (REDS FIRST) ═══ */}
+            {rollupFeatureEnabled && mrmViewMode === 'EXECUTIVE_MEETING' && (() => {
+                const redSegments = (segmentRollupData?.segments || []).filter(s => s.final_rag === 'Red' || s.final_rag === 'Amber');
+                const redObjectives = items.filter(it => !it.isTitleRow && (it.status === 'Red' || it.status === 'Yellow' || it.status === 'Amber'));
+
+                return (
+                    <Box sx={{ mb: 4 }}>
+                        {/* Compact Pre-Deadline Tracker */}
+                        <PreDeadlineTracker 
+                            department={activeDepartment}
+                            month={String(selectedMonth).padStart(2, '0')}
+                            year={selectedYear}
+                            onReminderSent={(m) => showToast(`Reminder ping sent to ${m.name}`)}
+                        />
+
+                        {/* Sub-Team Red & Amber Segments */}
+                        <Box sx={{ mb: 3.5 }}>
+                            <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.2}>
+                                <Box display="flex" alignItems="center" gap={1}>
+                                    <Typography variant="subtitle1" fontWeight={800} color="#0f172a" fontSize="15px">
+                                        🚨 Sub-Team KPI Exceptions ({redSegments.length})
+                                    </Typography>
+                                    <Chip label="Weight: 70%" size="small" sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#fee2e2', color: '#991b1b' }} />
+                                </Box>
+                                <Button size="small" onClick={() => setMrmViewMode('TEAM_SEGMENTS')} sx={{ textTransform: 'none', fontSize: '12px', fontWeight: 600, color: '#2563eb' }}>
+                                    View All {segmentRollupData?.segments?.length || 0} Sub-Teams →
+                                </Button>
+                            </Box>
+
+                            {redSegments.length > 0 ? (
+                                <SegmentRollupView 
+                                    segments={redSegments}
+                                    department={activeDepartment}
+                                    month={String(selectedMonth).padStart(2, '0')}
+                                    year={selectedYear}
+                                    isHodOrAdmin={canManagePresenters}
+                                    onApprovalComplete={loadData}
+                                />
+                            ) : (
+                                <Paper sx={{ p: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 22 }} />
+                                    <Box>
+                                        <Typography variant="body2" fontWeight={700} color="#166534">
+                                            All {segmentRollupData?.segments?.length || 0} Sub-Teams are On-Track & Clean (Green)!
+                                        </Typography>
+                                        <Typography variant="caption" color="#15803d">
+                                            Zero blockers, rupee loss, or trend drops across team KPI sheets for {currentMonthName} {selectedYear}.
+                                        </Typography>
+                                    </Box>
+                                </Paper>
+                            )}
+                        </Box>
+
+                        {/* Strategic Focus Areas Off-Target */}
+                        <Box sx={{ mb: 3.5 }}>
+                            <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.2}>
+                                <Box display="flex" alignItems="center" gap={1}>
+                                    <Typography variant="subtitle1" fontWeight={800} color="#0f172a" fontSize="15px">
+                                        🎯 Strategic Focus Areas Requiring Action ({redObjectives.length})
+                                    </Typography>
+                                    <Chip label="Weight: 30%" size="small" sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#ede9fe', color: '#6d28d9' }} />
+                                </Box>
+                                <Button size="small" onClick={() => setMrmViewMode('HOD_OBJECTIVES')} sx={{ textTransform: 'none', fontSize: '12px', fontWeight: 600, color: '#7c3aed' }}>
+                                    View All {items.filter(i => !i.isTitleRow).length} Focus Areas →
+                                </Button>
+                            </Box>
+
+                            {redObjectives.length > 0 ? (
+                                <div className="data-grid-container">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: '30px' }}></th>
+                                                <th style={{ width: '250px' }}>Process Description</th>
+                                                <th style={{ width: '200px' }}>Objective</th>
+                                                <th style={{ width: '70px' }}>Target</th>
+                                                <th style={{ width: '80px' }}>Freq.</th>
+                                                <th style={{ width: '90px' }}>Resp.</th>
+                                                <th style={{ width: '90px' }}>Act.</th>
+                                                <th style={{ width: '90px' }}>Plan</th>
+                                                <th style={{ width: '220px' }}>Action Plan</th>
+                                                <th style={{ width: '125px' }}>Act. Resp.</th>
+                                                <th style={{ width: '100px' }}>Target Date</th>
+                                                <th style={{ width: '100px' }}>Status</th>
+                                                <th style={{ width: '200px' }}>Remarks</th>
+                                                <th style={{ width: '110px', textAlign: 'center' }}>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {redObjectives.map((item, index) => (
+                                                <ReorderRow 
+                                                    key={item._id} 
+                                                    item={item} 
+                                                    index={index}
+                                                    handleFieldChange={handleFieldChange}
+                                                    handleSaveItem={handleSaveItem}
+                                                    openDeleteDialog={openDeleteDialog}
+                                                    handleInsertItem={handleInsertItem}
+                                                    autoResizeTextarea={autoResizeTextarea}
+                                                    mrmUsers={mrmUsers}
+                                                    isLocked={metadata.isLocked}
+                                                    openBaselineDialog={openBaselineDialog}
+                                                    handleStatusChange={handleStatusChange}
+                                                    hasTileAnomaly={false}
+                                                />
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <Paper sx={{ p: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 22 }} />
+                                    <Box>
+                                        <Typography variant="body2" fontWeight={700} color="#166534">
+                                            All HOD Strategic Objectives are On-Target (Green) for this month!
+                                        </Typography>
+                                        <Typography variant="caption" color="#15803d">
+                                            No plan vs. actual shortfalls or off-target RAG statuses detected.
+                                        </Typography>
+                                    </Box>
+                                </Paper>
+                            )}
+                        </Box>
+                    </Box>
+                );
+            })()}
+
+            {/* ═══ VIEW 2: DEDICATED TEAM KPI SUB-TEAMS (70%) ═══ */}
+            {rollupFeatureEnabled && mrmViewMode === 'TEAM_SEGMENTS' && (
+                <Box sx={{ mb: 4 }}>
+                    <PreDeadlineTracker 
+                        department={activeDepartment}
+                        month={String(selectedMonth).padStart(2, '0')}
+                        year={selectedYear}
+                        onReminderSent={(m) => showToast(`Reminder ping sent to ${m.name}`)}
+                    />
+                    <SegmentRollupView 
+                        segments={segmentRollupData?.segments || []}
+                        department={activeDepartment}
+                        month={String(selectedMonth).padStart(2, '0')}
+                        year={selectedYear}
+                        isHodOrAdmin={canManagePresenters}
+                        onApprovalComplete={loadData}
                     />
                 </Box>
             )}
 
-            <div className="data-grid-container">
-                {loading ? <p style={{ padding: '20px', textAlign: 'center' }}>Loading...</p> : (
-                    <table>
-                        <thead>
-                            <tr>
-                                <th style={{ width: '30px' }}></th>
-                                <th style={{ width: '250px' }} title="Process Description">Process<br />Description</th>
-                                <th style={{ width: '200px' }} title="Objective">Objective</th>
-                                <th style={{ width: '70px' }} title="Target">Target</th>
-                                <th style={{ width: '80px' }} title="Monitoring Frequency">Monitoring<br />Freq.</th>
-                                <th style={{ width: '90px' }} title="Responsibility">Resp.</th>
-                                <th style={{ width: '90px' }} title={`Actual (${prevMonthName} ${prevYearVal})`}>Act.<br />({prevMonthName.substring(0, 3)}-{getYearShort(prevYearVal)})</th>
-                                <th style={{ width: '90px' }} title={`Plan (${currentMonthName} ${selectedYear})`}>Plan<br />({currentMonthName.substring(0, 3)}-{getYearShort(selectedYear)})</th>
-                                <th style={{ width: '220px' }} title="Action Plan">Action<br />Plan</th>
-                                <th style={{ width: '125px' }} title="Action Responsibility">Act.<br />Resp.</th>
-                                <th style={{ width: '100px' }} title="Target Date">Target<br />Date</th>
-                                <th style={{ width: '100px' }} title="Status">Status</th>
-                                <th style={{ width: '200px' }} title="Remarks">Remarks</th>
-                                <th style={{ width: '110px', textAlign: 'center' }} title="Actions">Actions</th>
-                            </tr>
-                        </thead>
-                        <Reorder.Group as="tbody" axis="y" values={filteredItems} onReorder={handleReorder}>
-                            {filteredItems.length === 0 ? (
-                                <tr>
-                                    <td colSpan="14" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
-                                        {items.length === 0
-                                            ? 'No entries for this month. Add a new row or import from previous month.'
-                                            : `No items with "${statusFilter}" status.`}
-                                    </td>
-                                </tr>
-                            ) : (() => {
-                                // Pre-calculate which title rows contain an objective with an anomaly
-                                const tileAnomalyMap = new Map();
-                                let activeTileId = null;
-                                filteredItems.forEach(it => {
-                                    if (it.isTitleRow) {
-                                        activeTileId = it._id;
-                                        tileAnomalyMap.set(activeTileId, false);
-                                    } else if (activeTileId && it.anomaly?.isAnomaly) {
-                                        tileAnomalyMap.set(activeTileId, true);
-                                    }
-                                });
+            {/* ═══ VIEW 3: DEDICATED HOD STRATEGIC FOCUS AREAS (30%) ═══ */}
+            {(!rollupFeatureEnabled || mrmViewMode === 'HOD_OBJECTIVES' || mrmViewMode === 'ALL') && (
+                <Box sx={{ mb: 4 }}>
+                    <Box mb={1} display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+                        <Typography variant="h6" fontWeight={800} color="#0f172a" fontSize="16px">
+                            Section 1: HOD Strategic Focus Areas
+                        </Typography>
+                        {rollupFeatureEnabled && (
+                            <Chip 
+                                label="Weight: 30% of Monthly HOD Score | Target-Based RAG" 
+                                size="small" 
+                                sx={{ bgcolor: '#f1f5f9', fontWeight: 600, fontSize: '11px' }} 
+                            />
+                        )}
+                    </Box>
 
-                                return filteredItems.map((item, index) => (
-                                    <ReorderRow 
-                                        key={item._id} 
-                                        item={item} 
-                                        index={index}
-                                        handleFieldChange={handleFieldChange}
-                                        handleSaveItem={handleSaveItem}
-                                        openDeleteDialog={openDeleteDialog}
-                                        handleInsertItem={handleInsertItem}
-                                        autoResizeTextarea={autoResizeTextarea}
-                                        mrmUsers={mrmUsers}
-                                        isLocked={metadata.isLocked}
-                                        openBaselineDialog={openBaselineDialog}
-                                        handleStatusChange={handleStatusChange}
-                                        hasTileAnomaly={item.isTitleRow ? Boolean(tileAnomalyMap.get(item._id)) : false}
-                                    />
-                                ));
-                            })()}
-                        </Reorder.Group>
-                    </table>
-                )}
-            </div>
+                    <div className="data-grid-container">
+                        {loading ? <p style={{ padding: '20px', textAlign: 'center' }}>Loading...</p> : (
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: '30px' }}></th>
+                                        <th style={{ width: '250px' }} title="Process Description">Process<br />Description</th>
+                                        <th style={{ width: '200px' }} title="Objective">Objective</th>
+                                        <th style={{ width: '70px' }} title="Target">Target</th>
+                                        <th style={{ width: '80px' }} title="Monitoring Frequency">Monitoring<br />Freq.</th>
+                                        <th style={{ width: '90px' }} title="Responsibility">Resp.</th>
+                                        <th style={{ width: '90px' }} title={`Actual (${prevMonthName} ${prevYearVal})`}>Act.<br />({prevMonthName.substring(0, 3)}-{getYearShort(prevYearVal)})</th>
+                                        <th style={{ width: '90px' }} title={`Plan (${currentMonthName} ${selectedYear})`}>Plan<br />({currentMonthName.substring(0, 3)}-{getYearShort(selectedYear)})</th>
+                                        <th style={{ width: '220px' }} title="Action Plan">Action<br />Plan</th>
+                                        <th style={{ width: '125px' }} title="Action Responsibility">Act.<br />Resp.</th>
+                                        <th style={{ width: '100px' }} title="Target Date">Target<br />Date</th>
+                                        <th style={{ width: '100px' }} title="Status">Status</th>
+                                        <th style={{ width: '200px' }} title="Remarks">Remarks</th>
+                                        <th style={{ width: '110px', textAlign: 'center' }} title="Actions">Actions</th>
+                                    </tr>
+                                </thead>
+                                <Reorder.Group as="tbody" axis="y" values={filteredItems} onReorder={handleReorder}>
+                                    {filteredItems.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="14" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
+                                                {items.length === 0
+                                                    ? 'No entries for this month. Add a new row or import from previous month.'
+                                                    : `No items with "${statusFilter}" status.`}
+                                            </td>
+                                        </tr>
+                                    ) : (() => {
+                                        const tileAnomalyMap = new Map();
+                                        let activeTileId = null;
+                                        filteredItems.forEach(it => {
+                                            if (it.isTitleRow) {
+                                                activeTileId = it._id;
+                                                tileAnomalyMap.set(activeTileId, false);
+                                            } else if (activeTileId && it.anomaly?.isAnomaly) {
+                                                tileAnomalyMap.set(activeTileId, true);
+                                            }
+                                        });
 
-            {/* ═══ SECTION 2: SUB-TEAM KPI PERFORMANCE SEGMENTS (FEATURE-FLAGGED) ═══ */}
-            {rollupFeatureEnabled && (
+                                        return filteredItems.map((item, index) => (
+                                            <ReorderRow 
+                                                key={item._id} 
+                                                item={item} 
+                                                index={index}
+                                                handleFieldChange={handleFieldChange}
+                                                handleSaveItem={handleSaveItem}
+                                                openDeleteDialog={openDeleteDialog}
+                                                handleInsertItem={handleInsertItem}
+                                                autoResizeTextarea={autoResizeTextarea}
+                                                mrmUsers={mrmUsers}
+                                                isLocked={metadata.isLocked}
+                                                openBaselineDialog={openBaselineDialog}
+                                                handleStatusChange={handleStatusChange}
+                                                hasTileAnomaly={item.isTitleRow ? Boolean(tileAnomalyMap.get(item._id)) : false}
+                                            />
+                                        ));
+                                    })()}
+                                </Reorder.Group>
+                            </table>
+                        )}
+                    </div>
+                </Box>
+            )}
+
+            {/* ═══ VIEW 4: UNIFIED FULL VIEW (SECTION 2 BELOW SECTION 1) ═══ */}
+            {rollupFeatureEnabled && mrmViewMode === 'ALL' && (
                 <Box sx={{ mt: 3, mb: 2 }}>
                     <PreDeadlineTracker 
                         department={activeDepartment}

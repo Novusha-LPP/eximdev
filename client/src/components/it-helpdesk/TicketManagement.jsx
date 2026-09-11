@@ -1136,28 +1136,19 @@ export default function TicketManagement() {
                       }}
                     />
                   </Grid>
-
                   {/* Category */}
                   <Grid item xs={12} sm={6}>
                     <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ mb: 0.75, display: "flex", alignItems: "center", gap: 0.75 }}>
                       <CategoryIcon fontSize="small" color="primary" />
                       Category <span style={{ color: "#dc2626" }}>*</span>
                     </Typography>
-                    <TextField
-                      select
-                      size="small"
-                      fullWidth
-                      required
+                    <CustomSelect
                       value={form.category}
-                      onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-                    >
-                      {TICKET_CATEGORIES.map((c) => (
-                        <MenuItem key={c} value={c}>
-                          {c}
-                        </MenuItem>
-                      ))}
-                    </TextField>
+                      onChange={(val) => setForm((f) => ({ ...f, category: val }))}
+                      options={TICKET_CATEGORIES.map((c) => ({ label: c, value: c }))}
+                      placeholder="Select Category"
+                      width="100%"
+                    />
                   </Grid>
 
                   {/* Priority */}
@@ -1166,40 +1157,16 @@ export default function TicketManagement() {
                       <PriorityHighIcon fontSize="small" color="warning" />
                       Priority (Optional)
                     </Typography>
-                    <TextField
-                      select
-                      size="small"
-                      fullWidth
+                    <CustomSelect
                       value={form.priority || ""}
-                      onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
-                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-                    >
-                      <MenuItem value="">
-                        <Typography variant="body2" color="text.secondary">
-                          <em>Not specified</em>
-                        </Typography>
-                      </MenuItem>
-                      {TICKET_PRIORITIES.map((p) => {
-                        const cfg = PRIORITY_CONFIG[p] || {};
-                        return (
-                          <MenuItem key={p} value={p}>
-                            <Box display="flex" alignItems="center" gap={1}>
-                              <Box
-                                sx={{
-                                  width: 8,
-                                  height: 8,
-                                  borderRadius: "50%",
-                                  bgcolor: cfg.dot || "#94a3b8",
-                                }}
-                              />
-                              <Typography variant="body2" fontWeight={500}>
-                                {p}
-                              </Typography>
-                            </Box>
-                          </MenuItem>
-                        );
-                      })}
-                    </TextField>
+                      onChange={(val) => setForm((f) => ({ ...f, priority: val }))}
+                      options={[
+                        { label: "Not specified", value: "" },
+                        ...TICKET_PRIORITIES.map((p) => ({ label: p, value: p })),
+                      ]}
+                      placeholder="Not specified"
+                      width="100%"
+                    />
                   </Grid>
 
                   {/* Assigned To */}
@@ -1209,47 +1176,47 @@ export default function TicketManagement() {
                       Assigned To
                     </Typography>
                     {isAdmin ? (
-                      <TextField
-                        select
-                        size="small"
-                        fullWidth
+                      <CustomSelect
                         value={form.assigned_to || ""}
-                        onChange={(e) =>
+                        onChange={(val) =>
                           setForm((f) => ({
                             ...f,
-                            assigned_to: e.target.value,
+                            assigned_to: val,
                           }))
                         }
-                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-                      >
-                        <MenuItem value="">Select User</MenuItem>
-                        {form.assigned_to === "Vikash" && <MenuItem value="Vikash">Vikash</MenuItem>}
-                        {users && users.length > 0 ? (
-                          users.map((user) => (
-                            <MenuItem key={user._id} value={user._id}>
-                              {user.username || user.first_name || user.email}
-                            </MenuItem>
-                          ))
-                        ) : (
-                          form.assigned_to !== "Vikash" && <MenuItem disabled>No Users Found</MenuItem>
-                        )}
-                      </TextField>
+                        options={[
+                          { label: "Select User", value: "" },
+                          ...(form.assigned_to === "Vikash" ? [{ label: "Vikash", value: "Vikash" }] : []),
+                          ...(users && users.length > 0
+                            ? users.map((user) => ({
+                                label: user.username || user.first_name || user.email,
+                                value: user._id,
+                              }))
+                            : []),
+                        ]}
+                        placeholder="Select User"
+                        width="100%"
+                      />
                     ) : (
-                      <TextField
-                        select
-                        size="small"
-                        fullWidth
-                        disabled
-                        value={form.assigned_to || "Vikash"}
-                        helperText="Default IT Assignee"
-                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                      <div
+                        style={{
+                          height: "38px",
+                          padding: "0 12px",
+                          borderRadius: "8px",
+                          border: "1px solid #cbd5e1",
+                          background: "#f1f5f9",
+                          color: "#64748b",
+                          fontSize: "13.5px",
+                          fontWeight: 500,
+                          display: "flex",
+                          alignItems: "center",
+                          boxSizing: "border-box",
+                        }}
                       >
-                        <MenuItem value={form.assigned_to || "Vikash"}>
-                          {form.assigned_to === "Vikash"
-                            ? "Vikash"
-                            : users?.find((u) => u._id === form.assigned_to)?.username || "Vikash"}
-                        </MenuItem>
-                      </TextField>
+                        {form.assigned_to === "Vikash"
+                          ? "Vikash (Default IT Assignee)"
+                          : users?.find((u) => u._id === form.assigned_to)?.username || "Vikash"}
+                      </div>
                     )}
                   </Grid>
 
@@ -1259,23 +1226,14 @@ export default function TicketManagement() {
                       <BusinessIcon fontSize="small" color="primary" />
                       Department <span style={{ color: "#dc2626" }}>*</span>
                     </Typography>
-                    <TextField
-                      select
-                      size="small"
-                      fullWidth
-                      required
+                    <CustomSelect
                       value={form.department}
-                      onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
-                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-                    >
-                      <MenuItem value="" disabled>Select Department</MenuItem>
-                      {TICKET_DEPARTMENTS.map((dept) => (
-                        <MenuItem key={dept} value={dept}>
-                          {dept}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
+                      onChange={(val) => setForm((f) => ({ ...f, department: val }))}
+                      options={TICKET_DEPARTMENTS.map((dept) => ({ label: dept, value: dept }))}
+                      placeholder="Select Department"
+                      width="100%"
+                    />
+                  </Grid>d>
 
                   {/* SLA Due Date */}
                   <Grid item xs={12} sm={6}>

@@ -17,17 +17,6 @@ const AuditFilters = ({
   colorPalette,
   handleResetFilters
 }) => {
-  // Helper: Check if any filter is applied (except page/limit)
-  const isAnyFilterApplied = () => {
-    const { action, username, field, fromDate, toDate, search } = filters;
-    // For admin, only consider date filter if username is selected
-    const hasUser = user.role === 'Admin' && username;
-    const hasDate = hasUser && (fromDate || toDate);
-    return Boolean(
-      action || field || search || (user.role === 'Admin' ? (hasUser || hasDate) : (fromDate || toDate))
-    );
-  };
-
   // Modified reset handler: clear username for admin
   const onReset = () => {
     setFilters({
@@ -48,14 +37,21 @@ const AuditFilters = ({
     }
   };
 
-  // When filters change, if no filter is applied, fetch stats for all users (admin)
+  // Debounce search input to avoid hitting the server on every keystroke
+  const [searchTerm, setSearchTerm] = React.useState(filters.search || '');
+
   React.useEffect(() => {
-    // For admin: if no user is selected, ignore date filter and show stats for all time (all users)
-    if (user.role === 'Admin' && (!filters.username || !isAnyFilterApplied())) {
-      fetchStats && fetchStats();
-    }
-    // eslint-disable-next-line
-  }, [filters]);
+    setSearchTerm(filters.search || '');
+  }, [filters.search]);
+
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      if (searchTerm !== (filters.search || '')) {
+        setFilters(prev => ({ ...prev, search: searchTerm, page: 1 }));
+      }
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchTerm, filters.search, setFilters]);
 
   return (
     <Grid container spacing={1} alignItems="center" sx={{ mb: 2 }}>
@@ -63,8 +59,8 @@ const AuditFilters = ({
         <TextField
           fullWidth
           label="Search"
-          value={filters.search}
-          onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
           size="small"
           InputProps={{
             startAdornment: (

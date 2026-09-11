@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useMemo,
   useCallback,
+  useRef,
 } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "../../styles/job-list.scss";
@@ -334,10 +335,20 @@ function JobList(props) {
     // eslint-disable-next-line
   }, []);
 
+  // Importer list client cache (60-second TTL)
+  const importerListClientCache = useRef(new Map());
+
   // Importer list
   useEffect(() => {
     async function getImporterList() {
       if (!selectedYearState) return;
+      const cacheKey = `${selectedYearState}_${detailedStatus || "all"}_${selectedBranch || "all"}_${selectedCategory || "all"}_${user?.role === "Admin" ? "admin" : user?.assigned_importer_name?.join(",") || ""}`;
+      const cached = importerListClientCache.current.get(cacheKey);
+      if (cached && Date.now() - cached.ts < 60000) {
+        setImporters(cached.data);
+        return;
+      }
+
       const params = new URLSearchParams();
       if (detailedStatus && detailedStatus !== "all") {
         params.append("detailedStatus", detailedStatus);
@@ -368,6 +379,7 @@ function JobList(props) {
         }
       }
 
+      importerListClientCache.current.set(cacheKey, { data: fetchedImporters, ts: Date.now() });
       setImporters(fetchedImporters);
     }
     getImporterList();

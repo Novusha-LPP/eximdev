@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { equipmentChecklistAPI } from "../api/equipmentChecklistAPI";
+import useDebounce from "../hooks/useDebounce";
 import { UserContext } from "../contexts/UserContext";
 import toast from "react-hot-toast";
 import "../styles/scorecard.scss";
@@ -62,6 +63,7 @@ export default function AdminEquipmentChecklist() {
   const [logs, setLogs] = useState([]);
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10 });
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 350);
   const [statusFilter, setStatusFilter] = useState(""); // "All", "OK", "Repairs"
   const [loading, setLoading] = useState(false);
 
@@ -111,7 +113,7 @@ export default function AdminEquipmentChecklist() {
       setLoading(true);
       try {
         const res = await equipmentChecklistAPI.getAll({
-          search: searchQuery,
+          search: debouncedSearchQuery,
           page,
           limit,
         });
@@ -140,12 +142,12 @@ export default function AdminEquipmentChecklist() {
         setLoading(false);
       }
     },
-    [searchQuery, pagination.limit]
+    [debouncedSearchQuery, pagination.limit]
   );
 
   useEffect(() => {
     fetchLogs(1, pagination.limit);
-  }, [searchQuery]);
+  }, [debouncedSearchQuery]);
 
   const handleLimitChange = (e) => {
     const newLimit = parseInt(e.target.value, 10);

@@ -52,17 +52,28 @@ const formatDateToIST = () => {
 // Example usage:
 const currentTimeIST = formatDateToIST();
 
+let inBondJobsCache = null;
+let inBondJobsCacheTs = 0;
+const IN_BOND_CACHE_TTL = 60 * 1000; // 1 minute
+
 // API to fetch job numbers with 'type_of_b_e' as 'In-Bond'
 router.post(
   "/api/jobs/add-job-all-In-bond",
   authMiddleware,
-  auditMiddleware("Job"),
   async (req, res) => {
     try {
+      if (inBondJobsCache && Date.now() - inBondJobsCacheTs < IN_BOND_CACHE_TTL) {
+        return res.status(200).json(inBondJobsCache);
+      }
+
       const jobs = await JobModel.find(
         { type_of_b_e: "In-Bond" },
-        { job_number: 1, job_no: 1, importer: 1, be_no: 1, be_date: 1, ooc_copies: 1, _id: 0 } // Fetch job_no, importer, be_no, be_date, ooc_copies
-      );
+        { job_number: 1, job_no: 1, importer: 1, be_no: 1, be_date: 1, ooc_copies: 1, _id: 0 }
+      ).lean();
+
+      inBondJobsCache = jobs;
+      inBondJobsCacheTs = Date.now();
+
       res.status(200).json(jobs);
     } catch (error) {
       console.error("Error fetching In-Bond jobs:", error);

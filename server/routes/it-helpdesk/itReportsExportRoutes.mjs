@@ -405,7 +405,8 @@ const handleReportExport = async (req, res) => {
       };
 
       const auditLogs = await AuditTrailModel.find({})
-        .sort({ timestamp: -1, createdAt: -1 })
+        .sort({ timestamp: -1 })
+        .limit(50000)
         .lean();
 
       worksheet.columns = [

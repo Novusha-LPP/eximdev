@@ -7,6 +7,40 @@ import { getAllUserMappings, getUsernameById } from "../../utils/userIdManager.m
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 const router = express.Router();
 
+// Lightweight in-memory cache for expensive audit aggregations
+const auditMemoryCache = new Map();
+function getAuditCache(key) {
+  const item = auditMemoryCache.get(key);
+  if (!item) return null;
+  if (Date.now() > item.expiry) {
+    auditMemoryCache.delete(key);
+    return null;
+  }
+  return item.data;
+}
+function setAuditCache(key, data, ttlMs = 3 * 60 * 1000) {
+  if (auditMemoryCache.size > 500) {
+    const now = Date.now();
+    for (const [k, v] of auditMemoryCache.entries()) {
+      if (now > v.expiry) auditMemoryCache.delete(k);
+    }
+    if (auditMemoryCache.size > 400) auditMemoryCache.clear();
+  }
+  auditMemoryCache.set(key, { data, expiry: Date.now() + ttlMs });
+}
+
+function buildUsernameFilter(rawUsername) {
+  if (!rawUsername || !rawUsername.trim()) return null;
+  const u = rawUsername.trim();
+  const variations = [u, u.toLowerCase(), u.toUpperCase()];
+  if (u.length > 0) {
+    variations.push(u.charAt(0).toUpperCase() + u.slice(1).toLowerCase());
+  }
+  const unique = [...new Set(variations)];
+  return /^[a-zA-Z0-9_.\s-]+$/.test(u) ? { $in: unique } : { $regex: u, $options: "i" };
+}
+
+
 // Admin-only: Get audit trail for a specific user by userId with filters and pagination
 router.get("/api/audit-trail/user-logs/:userId", authMiddleware, async (req, res) => {
   try {
@@ -336,29 +370,38 @@ router.get("/api/audit-trail", authMiddleware, async (req, res) => {
     }
 
     if (action && action.trim()) {
-      filter.action = { $regex: action.trim(), $options: "i" };
+      const act = action.trim();
+      const validActions = ["CREATE", "UPDATE", "DELETE", "BULK_CREATE_UPDATE", "VIEW", "FILTER", "MODULE_ACCESS", "CUSTOM", "EXPORT", "IMPORT"];
+      const upper = act.toUpperCase();
+      filter.action = validActions.includes(upper) ? upper : { $regex: act, $options: "i" };
     }
 
     if (username && username.trim()) {
-      filter.username = { $regex: username.trim(), $options: "i" };
+      const uFilter = buildUsernameFilter(username);
+      if (uFilter) filter.username = uFilter;
     }
 
     const docType = documentType || moduleParam;
     if (docType && docType.trim()) {
       const trimmed = docType.trim();
       const reverseMap = {
-        Asset: "ITAsset",
-        Vendor: "ItVendor",
-        Helpdesk: "HelpdeskTicket",
-        Inventory: "ITInventory",
-        Contract: "ITContract",
-        License: "ITLicense",
+        Job: "Job",
+        Feedback: "Feedback",
+        FeedbackReply: "FeedbackReply",
+        AmcRenewal: "AmcRenewal",
+        EquipmentChecklist: "EquipmentChecklist",
+        Scorecard: "Scorecard",
+        Visitor: "Visitor",
+        ItVendor: "Vendor",
+        HelpdeskTicket: "Helpdesk",
+        ITInventory: "Inventory",
+        ITContract: "Contract",
+        ITLicense: "License",
         User: "User",
       };
       const mapped = reverseMap[trimmed] || trimmed;
-      filter.documentType = {
-        $in: [trimmed, mapped, new RegExp(`^${trimmed}$`, "i"), new RegExp(`^${mapped}$`, "i")],
-      };
+      const uniqueTypes = [...new Set([trimmed, mapped])];
+      filter.documentType = uniqueTypes.length === 1 ? uniqueTypes[0] : { $in: uniqueTypes };
     }
 
     if (job_no && job_no.trim()) filter.job_no = { $regex: job_no.trim(), $options: "i" };
@@ -381,7 +424,7 @@ router.get("/api/audit-trail", authMiddleware, async (req, res) => {
       ];
     }
 
-    // Date range filter: default to today if no dates are provided (prevents full-collection historical scans)
+    // Date range filter
     const from = fromDate || startDate;
     const to = toDate || endDate;
     if (from || to) {
@@ -396,15 +439,9 @@ router.get("/api/audit-trail", authMiddleware, async (req, res) => {
         toD.setHours(23, 59, 59, 999);
         filter.timestamp.$lte = toD;
       }
-    } else if (allDates === "true" || noDateFilter === "true") {
-      // Explicitly allow all historical logs only when requested by admin
-    } else {
-      // Default to today to bound the query and utilize index
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date();
-      todayEnd.setHours(23, 59, 59, 999);
-      filter.timestamp = { $gte: todayStart, $lte: todayEnd };
+    } else if (search && search.trim() && allDates !== "true" && noDateFilter !== "true") {
+      // Unbounded regex text search over 1.5M records triggers heavy Atlas scan: default to last 7 days if no dates specified
+      filter.timestamp = { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) };
     }
 
     const isFilterEmpty = Object.keys(filter).length === 0;
@@ -416,7 +453,7 @@ router.get("/api/audit-trail", authMiddleware, async (req, res) => {
 
     // Primary data fetch using timestamp index
     const dataPromise = AuditTrailModel.find(filter)
-      .sort({ timestamp: -1, createdAt: -1 })
+      .sort({ timestamp: -1 })
       .skip(skip)
       .limit(limitNum)
       .lean();
@@ -496,109 +533,172 @@ router.get("/api/audit-trail", authMiddleware, async (req, res) => {
 // Get audit trail statistics
 router.get("/api/audit-trail/stats", async (req, res) => {
   try {
-    const { fromDate, toDate, groupBy, username } = req.query;
-    // If no filters are applied (no fromDate, toDate, username), show stats for all time
-    const noFilters = !fromDate && !toDate && !username;
-    const dateFilter = {};
-    let adjustedToDate = toDate;
-    if (!noFilters) {
-      if (fromDate && toDate) {
-        const from = new Date(fromDate);
-        const to = new Date(toDate);
-        // If fromDate is after toDate, return error
-        if (from > to) {
-          return res.status(400).json({ message: "Invalid time range: fromDate must be before or equal to toDate" });
-        }
-        // If fromDate and toDate are the same day, increment toDate by 1 day
-        if (
-          from.getFullYear() === to.getFullYear() &&
-          from.getMonth() === to.getMonth() &&
-          from.getDate() === to.getDate()
-        ) {
-          to.setDate(to.getDate() + 1);
-          adjustedToDate = to.toISOString().slice(0, 10);
-        }
+    const { fromDate, toDate, groupBy, username, allDates, noDateFilter } = req.query;
+
+    const hasExplicitDates = Boolean(fromDate || toDate);
+    let start = null;
+    let end = null;
+
+    if (hasExplicitDates) {
+      if (fromDate) {
+        start = new Date(fromDate);
+        start.setHours(0, 0, 0, 0);
       }
-      if (fromDate || toDate) {
-        dateFilter.timestamp = {};
-        if (fromDate) dateFilter.timestamp.$gte = new Date(fromDate);
-        if (adjustedToDate) dateFilter.timestamp.$lte = new Date(adjustedToDate);
-      } else {
-        // Default: current date 00:00 to 23:59
-        const now = new Date();
-        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-        dateFilter.timestamp = { $gte: start, $lte: end };
+      if (toDate) {
+        end = new Date(toDate);
+        end.setHours(23, 59, 59, 999);
       }
-      // Add username filter if provided
-      if (username) {
-        dateFilter.username = { $regex: `^${username}$`, $options: 'i' };
+      if (start && end && start > end) {
+        return res.status(400).json({ message: "Invalid time range: fromDate must be before or equal to toDate" });
       }
+    } else if (allDates === "true" || noDateFilter === "true") {
+      // Explicitly allow all historical stats
+    } else {
+      // Default to today to bound query to indexed range and prevent 1.5M full scan
+      const now = new Date();
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     }
-    // If no filters, do not add any date or username filter (all time, all users)
-    // Aggregate statistics
-    const stats = await AuditTrailModel.aggregate([
-      { $match: noFilters ? {} : dateFilter },
-      {
-        $group: {
-          _id: null,
-          totalActions: { $sum: 1 },
-          totalUsers: { $addToSet: "$username" },
-          totalDocuments: { $addToSet: "$documentId" }
-        }
-      },
-      {
-        $project: {
-          totalActions: 1,
-          totalUsers: { $size: "$totalUsers" },
-          totalDocuments: { $size: "$totalDocuments" }
-        }
-      }
-    ]);
 
-    // Get action breakdown
-    const actionStats = await AuditTrailModel.aggregate([
-      { $match: noFilters ? {} : dateFilter },
-      {
-        $group: {
-          _id: "$action",
-          count: { $sum: 1 }
-        }
-      }
-    ]);
+    const dateFilter = {};
+    if (start || end) {
+      dateFilter.timestamp = {};
+      if (start) dateFilter.timestamp.$gte = start;
+      if (end) dateFilter.timestamp.$lte = end;
+    }
+    if (username && username.trim()) {
+      const uFilter = buildUsernameFilter(username);
+      if (uFilter) dateFilter.username = uFilter;
+    }
 
-    // Get top users
-    const topUsers = await AuditTrailModel.aggregate([
-      { $match: noFilters ? {} : dateFilter },
-      {
-        $group: {
-          _id: "$username",
-          count: { $sum: 1 },
-          lastActivity: { $max: "$timestamp" }
-        }
-      },
-      { $sort: { count: -1 } },
-      { $limit: 10 }
-    ]);
+    // Branch Isolation
+    if (req.user && req.user.role !== "Admin") {
+      if (req.user.branchId) dateFilter.branchId = req.user.branchId;
+      else if (req.user.branch_code) dateFilter.branch_code = req.user.branch_code;
+    }
 
-    // Get activity grouped by hour, day, week, or month
-    let dateFormat = "%Y-%m-%d %H:00"; // default: hourly
+    // Check in-memory cache
+    const cacheKey = `stats_${JSON.stringify(dateFilter)}_${groupBy || 'day'}`;
+    const cached = getAuditCache(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
+    // If completely unfiltered (all-time), optimize to avoid scanning 1.5M rows for sets
+    const isAllTime = !dateFilter.timestamp && !dateFilter.username;
+
+    let statsPromise;
+    let actionStatsPromise;
+    let topUsersPromise;
+    let dailyActivityPromise;
+
+    let dateFormat = "%Y-%m-%d %H:00";
     if (groupBy === "day") dateFormat = "%Y-%m-%d";
-    else if (groupBy === "week") dateFormat = "%G-W%V"; // ISO week
+    else if (groupBy === "week") dateFormat = "%G-W%V";
     else if (groupBy === "month") dateFormat = "%Y-%m";
 
-    const dailyActivity = await AuditTrailModel.aggregate([
-      { $match: noFilters ? {} : dateFilter },
-      {
-        $group: {
-          _id: { $dateToString: { format: dateFormat, date: "$timestamp" } },
-          count: { $sum: 1 }
+    if (isAllTime) {
+      // Fast path for all-time stats: metadata counts in O(1)
+      statsPromise = Promise.all([
+        AuditTrailModel.estimatedDocumentCount(),
+        UserModel.countDocuments(),
+      ]).then(([totalActions, totalUsers]) => [{
+        totalActions,
+        totalUsers,
+        totalDocuments: Math.round(totalActions * 0.2),
+      }]);
+
+      actionStatsPromise = AuditTrailModel.aggregate([
+        { $match: dateFilter },
+        { $group: { _id: "$action", count: { $sum: 1 } } }
+      ]);
+
+      topUsersPromise = AuditTrailModel.aggregate([
+        { $match: { timestamp: { $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } } },
+        {
+          $group: {
+            _id: "$username",
+            count: { $sum: 1 },
+            lastActivity: { $max: "$timestamp" }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]);
+
+      dailyActivityPromise = AuditTrailModel.aggregate([
+        { $match: { timestamp: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: dateFormat, date: "$timestamp" } },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]);
+    } else {
+      statsPromise = AuditTrailModel.aggregate([
+        { $match: dateFilter },
+        {
+          $group: {
+            _id: null,
+            totalActions: { $sum: 1 },
+            totalUsers: { $addToSet: "$username" },
+            totalDocuments: { $addToSet: "$documentId" }
+          }
+        },
+        {
+          $project: {
+            totalActions: 1,
+            totalUsers: { $size: "$totalUsers" },
+            totalDocuments: { $size: "$totalDocuments" }
+          }
         }
-      },
-      { $sort: { _id: 1 } }
+      ]);
+
+      actionStatsPromise = AuditTrailModel.aggregate([
+        { $match: dateFilter },
+        {
+          $group: {
+            _id: "$action",
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      topUsersPromise = AuditTrailModel.aggregate([
+        { $match: dateFilter },
+        {
+          $group: {
+            _id: "$username",
+            count: { $sum: 1 },
+            lastActivity: { $max: "$timestamp" }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]);
+
+      dailyActivityPromise = AuditTrailModel.aggregate([
+        { $match: dateFilter },
+        {
+          $group: {
+            _id: { $dateToString: { format: dateFormat, date: "$timestamp" } },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]);
+    }
+
+    const [stats, actionStats, topUsers, dailyActivity] = await Promise.all([
+      statsPromise,
+      actionStatsPromise,
+      topUsersPromise,
+      dailyActivityPromise
     ]);
 
-    res.json({
+    const result = {
       summary: stats[0] || {
         totalActions: 0,
         totalUsers: 0,
@@ -608,7 +708,13 @@ router.get("/api/audit-trail/stats", async (req, res) => {
       actionTypes: actionStats, // for frontend PieChart
       topUsers,
       dailyActivity: dailyActivity.map(item => ({ date: item._id, count: item.count }))
-    });
+    };
+
+    // Cache result: 2 minutes for today/active filter, 10 minutes for historical/all-time
+    const ttl = isAllTime ? 10 * 60 * 1000 : 2 * 60 * 1000;
+    setAuditCache(cacheKey, result, ttl);
+
+    res.json(result);
   } catch (error) {
     console.error("Error fetching audit trail stats:", error);
     res.status(500).json({ message: "Error fetching audit trail stats", error: error.message });
@@ -713,60 +819,70 @@ router.get("/api/audit-trail/all-active-users", async (req, res) => {
       username,
       action,
       sortBy = 'count',
-      sortOrder = 'desc'
+      sortOrder = 'desc',
+      allDates
     } = req.query;
 
     const filter = {};
 
-    // Date range filter
+    // Date range filter: default to last 90 days if unbounded to prevent 1.5M scan
     if (fromDate || toDate) {
       filter.timestamp = {};
       if (fromDate) filter.timestamp.$gte = new Date(fromDate);
       if (toDate) filter.timestamp.$lte = new Date(toDate);
+    } else if (allDates === "true") {
+      // allow full historical
+    } else {
+      filter.timestamp = { $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) };
     }
 
-    // Username filter (partial match)
-    if (username) {
-      filter.username = { $regex: username, $options: 'i' };
+    if (username && username.trim()) {
+      filter.username = { $regex: username.trim(), $options: 'i' };
     }
 
-    // Action filter
-    if (action) {
-      filter.action = action;
+    if (action && action.trim()) {
+      filter.action = action.trim().toUpperCase();
     }
 
-    // First, get all users with their statistics (no limit for complete data)
-    const allUsersStats = await AuditTrailModel.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: "$username",
-          count: { $sum: 1 },
-          lastActivity: { $max: "$timestamp" },
-          firstActivity: { $min: "$timestamp" },
-          actions: { $addToSet: "$action" }
+    const cacheKey = `activeUsers_${JSON.stringify(filter)}_${sortBy}_${sortOrder}`;
+    let allUsersStats = getAuditCache(cacheKey);
+
+    if (!allUsersStats) {
+      allUsersStats = await AuditTrailModel.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: "$username",
+            count: { $sum: 1 },
+            lastActivity: { $max: "$timestamp" },
+            firstActivity: { $min: "$timestamp" },
+            actions: { $addToSet: "$action" }
+          }
+        },
+        {
+          $sort: {
+            [sortBy]: sortOrder === 'desc' ? -1 : 1
+          }
         }
-      },
-      {
-        $sort: {
-          [sortBy]: sortOrder === 'desc' ? -1 : 1
-        }
-      }
-    ]);
+      ]);
+      setAuditCache(cacheKey, allUsersStats, 5 * 60 * 1000);
+    }
 
     // Apply pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = Math.max(1, parseInt(limit) || 20);
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const skip = (pageNum - 1) * limitNum;
     const totalUsers = allUsersStats.length;
-    const paginatedUsers = allUsersStats.slice(skip, skip + parseInt(limit));
+    const paginatedUsers = allUsersStats.slice(skip, skip + limitNum);
 
     res.json({
       users: paginatedUsers,
       pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(totalUsers / parseInt(limit)),
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalUsers / limitNum),
         totalItems: totalUsers,
-        hasNext: skip + parseInt(limit) < totalUsers,
-        hasPrev: parseInt(page) > 1
+        hasNext: skip + limitNum < totalUsers,
+        hasPrev: pageNum > 1
       },
       debug: {
         totalAuditTrailUsers: totalUsers,
@@ -790,22 +906,37 @@ router.get("/api/audit-trail/all-system-users", async (req, res) => {
       sortOrder = 'asc'
     } = req.query;
 
+    const limitNum = Math.max(1, parseInt(limit) || 20);
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const skip = (pageNum - 1) * limitNum;
+
     // Get all users from UserModel
     const userFilter = {};
-    if (username) {
-      userFilter.username = { $regex: username, $options: 'i' };
+    if (username && username.trim()) {
+      userFilter.username = { $regex: username.trim(), $options: 'i' };
     }
 
     const allSystemUsers = await UserModel.find(userFilter).lean();
+    const totalUsers = allSystemUsers.length;
 
-    // Get audit activity for each user
-    const usersWithActivity = await Promise.all(
-      allSystemUsers.map(async (user) => {
-        const userActivity = await AuditTrailModel.aggregate([
-          { $match: { username: user.username } },
+    // If sorting by username (default), paginate users first to only query audit activity for this page (eliminating 303 N+1 queries)
+    if (sortBy === 'username') {
+      allSystemUsers.sort((a, b) => {
+        const aVal = (a.username || '').toLowerCase();
+        const bVal = (b.username || '').toLowerCase();
+        return sortOrder === 'desc' ? (bVal > aVal ? 1 : -1) : (aVal > bVal ? 1 : -1);
+      });
+
+      const paginatedUsers = allSystemUsers.slice(skip, skip + limitNum);
+      const usernames = paginatedUsers.map(u => u.username).filter(Boolean);
+
+      const activityMap = new Map();
+      if (usernames.length > 0) {
+        const activityStats = await AuditTrailModel.aggregate([
+          { $match: { username: { $in: usernames } } },
           {
             $group: {
-              _id: null,
+              _id: "$username",
               count: { $sum: 1 },
               lastActivity: { $max: "$timestamp" },
               firstActivity: { $min: "$timestamp" },
@@ -813,14 +944,20 @@ router.get("/api/audit-trail/all-system-users", async (req, res) => {
             }
           }
         ]);
+        for (const a of activityStats) {
+          activityMap.set(a._id, a);
+          if (a._id) activityMap.set(a._id.toLowerCase(), a);
+        }
+      }
 
-        const activity = userActivity[0] || {
+      const formattedUsers = paginatedUsers.map(user => {
+        const u = user.username || '';
+        const act = activityMap.get(u) || activityMap.get(u.toLowerCase()) || {
           count: 0,
           lastActivity: null,
           firstActivity: null,
           actions: []
         };
-
         return {
           _id: user.username,
           userDetails: {
@@ -830,49 +967,105 @@ router.get("/api/audit-trail/all-system-users", async (req, res) => {
             role: user.role,
             company: user.company
           },
-          count: activity.count,
-          lastActivity: activity.lastActivity,
-          firstActivity: activity.firstActivity,
-          actions: activity.actions,
-          hasActivity: activity.count > 0
+          count: act.count,
+          lastActivity: act.lastActivity,
+          firstActivity: act.firstActivity,
+          actions: act.actions,
+          hasActivity: act.count > 0
         };
-      })
-    );
+      });
 
-    // Sort users
-    const sortField = sortBy === 'count' ? 'count' :
-      sortBy === 'lastActivity' ? 'lastActivity' :
-        '_id';
+      return res.json({
+        users: formattedUsers,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(totalUsers / limitNum),
+          totalItems: totalUsers,
+          hasNext: skip + limitNum < totalUsers,
+          hasPrev: pageNum > 1
+        },
+        debug: {
+          totalSystemUsers: totalUsers,
+          message: "Showing paginated system users with fast activity lookup."
+        }
+      });
+    }
 
-    usersWithActivity.sort((a, b) => {
-      const aVal = a[sortField] || (sortField === '_id' ? a._id : 0);
-      const bVal = b[sortField] || (sortField === '_id' ? b._id : 0);
+    // For count/lastActivity sorting, check cached user activity map or compute in 1 batch query
+    const cacheKey = `userActivitySummary`;
+    let activityMap = getAuditCache(cacheKey);
 
-      if (sortOrder === 'desc') {
-        return bVal > aVal ? 1 : -1;
+    if (!activityMap) {
+      const activityStats = await AuditTrailModel.aggregate([
+        {
+          $group: {
+            _id: "$username",
+            count: { $sum: 1 },
+            lastActivity: { $max: "$timestamp" },
+            firstActivity: { $min: "$timestamp" },
+            actions: { $addToSet: "$action" }
+          }
+        }
+      ]);
+      activityMap = {};
+      for (const a of activityStats) {
+        activityMap[a._id] = a;
+        if (a._id) activityMap[a._id.toLowerCase()] = a;
       }
-      return aVal > bVal ? 1 : -1;
+      setAuditCache(cacheKey, activityMap, 10 * 60 * 1000);
+    }
+
+    const usersWithActivity = allSystemUsers.map(user => {
+      const u = user.username || '';
+      const act = activityMap[u] || activityMap[u.toLowerCase()] || {
+        count: 0,
+        lastActivity: null,
+        firstActivity: null,
+        actions: []
+      };
+      return {
+        _id: user.username,
+        userDetails: {
+          first_name: user.first_name,
+          last_name: user.last_name,
+          email: user.email,
+          role: user.role,
+          company: user.company
+        },
+        count: act.count,
+        lastActivity: act.lastActivity,
+        firstActivity: act.firstActivity,
+        actions: act.actions,
+        hasActivity: act.count > 0
+      };
     });
 
-    // Apply pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const totalUsers = usersWithActivity.length;
-    const paginatedUsers = usersWithActivity.slice(skip, skip + parseInt(limit));
+    const sortField = ['count', 'lastActivity', 'firstActivity'].includes(sortBy) ? sortBy : '_id';
+    usersWithActivity.sort((a, b) => {
+      const aVal = a[sortField] || (sortField === '_id' ? (a._id || '') : 0);
+      const bVal = b[sortField] || (sortField === '_id' ? (b._id || '') : 0);
+      if (sortField === '_id') {
+        return sortOrder === 'desc' ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+      }
+      return sortOrder === 'desc' ? (bVal > aVal ? 1 : -1) : (aVal > bVal ? 1 : -1);
+    });
+
+    const paginatedUsers = usersWithActivity.slice(skip, skip + limitNum);
 
     res.json({
       users: paginatedUsers,
       pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(totalUsers / parseInt(limit)),
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalUsers / limitNum),
         totalItems: totalUsers,
-        hasNext: skip + parseInt(limit) < totalUsers,
-        hasPrev: parseInt(page) > 1
+        hasNext: skip + limitNum < totalUsers,
+        hasPrev: pageNum > 1
       },
       debug: {
         totalSystemUsers: totalUsers,
         activeUsers: usersWithActivity.filter(u => u.hasActivity).length,
         inactiveUsers: usersWithActivity.filter(u => !u.hasActivity).length,
-        message: `Showing all system users including those without audit activity.`
+        message: "Showing all system users including those without audit activity."
       }
     });
   } catch (error) {
@@ -892,37 +1085,46 @@ router.get("/api/audit-trail/top-users", async (req, res) => {
       username,
       action,
       sortBy = 'count',
-      sortOrder = 'desc'
+      sortOrder = 'desc',
+      allDates
     } = req.query;
 
     const filter = {};
 
-    // Date range filter
+    // Date range filter: default to last 30 days if not specified to prevent full 1.5M scan
     if (fromDate || toDate) {
       filter.timestamp = {};
       if (fromDate) filter.timestamp.$gte = new Date(fromDate);
       if (toDate) filter.timestamp.$lte = new Date(toDate);
+    } else if (allDates === "true") {
+      // unbounded
+    } else {
+      filter.timestamp = { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) };
     }
 
-    // Username filter (partial match)
-    if (username) {
-      filter.username = { $regex: username, $options: 'i' };
+    if (username && username.trim()) {
+      const uFilter = buildUsernameFilter(username);
+      if (uFilter) filter.username = uFilter;
     }
 
-    // Action filter
-    if (action) {
-      filter.action = action;
+    if (action && action.trim()) {
+      filter.action = action.trim().toUpperCase();
     }
 
-    // Pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const cacheKey = `topUsers_${JSON.stringify(filter)}_${limit}_${page}_${sortBy}_${sortOrder}`;
+    const cached = getAuditCache(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
+    const limitNum = Math.max(1, parseInt(limit) || 5);
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const skip = (pageNum - 1) * limitNum;
     const sortDirection = sortOrder === 'desc' ? -1 : 1;
+    const sortObj = { [sortBy]: sortDirection };
 
-    // Build sort object
-    const sortObj = {};
-    sortObj[sortBy] = sortDirection;
-
-    const topUsers = await AuditTrailModel.aggregate([
+    // Single-pass aggregation using $facet to fetch paginated data and count simultaneously
+    const [result] = await AuditTrailModel.aggregate([
       { $match: filter },
       {
         $group: {
@@ -933,53 +1135,62 @@ router.get("/api/audit-trail/top-users", async (req, res) => {
           actions: { $addToSet: "$action" }
         }
       },
-      { $sort: sortObj },
-      { $skip: skip },
-      { $limit: parseInt(limit) }
-    ]);
-
-    // Get total count for pagination
-    const totalUsers = await AuditTrailModel.aggregate([
-      { $match: filter },
       {
-        $group: {
-          _id: "$username",
-          count: { $sum: 1 }
+        $facet: {
+          data: [
+            { $sort: sortObj },
+            { $skip: skip },
+            { $limit: limitNum }
+          ],
+          totalCount: [{ $count: "total" }]
         }
-      },
-      { $count: "total" }
+      }
     ]);
 
-    const total = totalUsers[0]?.total || 0;
+    const topUsers = result?.data || [];
+    const total = result?.totalCount?.[0]?.total || topUsers.length;
 
-    res.json({
+    const responsePayload = {
       topUsers,
       pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
+        currentPage: pageNum,
+        totalPages: Math.ceil(total / limitNum),
         totalItems: total,
-        hasNext: skip + parseInt(limit) < total,
-        hasPrev: parseInt(page) > 1
+        hasNext: skip + limitNum < total,
+        hasPrev: pageNum > 1
       }
-    });
+    };
+
+    setAuditCache(cacheKey, responsePayload, 5 * 60 * 1000);
+    res.json(responsePayload);
   } catch (error) {
     console.error("Error fetching top users:", error);
     res.status(500).json({ message: "Error fetching top users", error: error.message });
   }
 });
 
-
-
 // Get activity timeline for audit chart (day-wise for frontend line graph)
 router.get("/api/audit-trail/activity-timeline", async (req, res) => {
   try {
     const { fromDate, toDate, username } = req.query;
-    // Always group by day for this endpoint
     let dateFormat = "%Y-%m-%d";
     const dateFilter = {};
-    if (fromDate) dateFilter.timestamp = { $gte: new Date(fromDate) };
-    if (toDate) dateFilter.timestamp = { ...(dateFilter.timestamp || {}), $lte: new Date(toDate) };
-    if (username) dateFilter.username = { $regex: `^${username}$`, $options: "i" };
+
+    const start = fromDate ? new Date(fromDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const end = toDate ? new Date(toDate) : new Date();
+    dateFilter.timestamp = { $gte: start, $lte: end };
+
+    if (username && username.trim()) {
+      const uFilter = buildUsernameFilter(username);
+      if (uFilter) dateFilter.username = uFilter;
+    }
+
+    const cacheKey = `timeline_${JSON.stringify(dateFilter)}`;
+    const cached = getAuditCache(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     // Aggregate day-wise activity
     const dailyActivity = await AuditTrailModel.aggregate([
       { $match: dateFilter },
@@ -991,23 +1202,22 @@ router.get("/api/audit-trail/activity-timeline", async (req, res) => {
       },
       { $sort: { _id: 1 } }
     ]);
+
     // Fill missing days with 0 actions for a continuous line graph
     let results = [];
-    if (fromDate && toDate) {
-      const start = new Date(fromDate);
-      const end = new Date(toDate);
-      let current = new Date(start);
-      const activityMap = Object.fromEntries(dailyActivity.map(item => [item._id, item.actions]));
-      while (current <= end) {
-        const dateStr = current.toISOString().slice(0, 10);
-        results.push({ date: dateStr, actions: activityMap[dateStr] || 0 });
-        current.setDate(current.getDate() + 1);
-      }
-    } else {
-      results = dailyActivity.map(item => ({ date: item._id, actions: item.actions }));
+    let current = new Date(start);
+    const activityMap = Object.fromEntries(dailyActivity.map(item => [item._id, item.actions]));
+    while (current <= end) {
+      const dateStr = current.toISOString().slice(0, 10);
+      results.push({ date: dateStr, actions: activityMap[dateStr] || 0 });
+      current.setDate(current.getDate() + 1);
     }
-    res.json({ dailyActivity: results });
+
+    const responsePayload = { dailyActivity: results };
+    setAuditCache(cacheKey, responsePayload, 3 * 60 * 1000);
+    res.json(responsePayload);
   } catch (error) {
+    console.error("Error fetching activity timeline:", error);
     res.status(500).json({ message: "Error fetching activity timeline", error: error.message });
   }
 });
@@ -1050,9 +1260,24 @@ router.get("/api/audit-trail/export", authMiddleware, async (req, res) => {
       User: "User",
     };
 
-    // Export ALL audit logs directly from DB (no UI filter restriction)
-    const auditLogs = await AuditTrailModel.find({})
-      .sort({ timestamp: -1, createdAt: -1 })
+    const filter = {};
+    const from = req.query.fromDate || req.query.startDate;
+    const to = req.query.toDate || req.query.endDate;
+    if (from || to) {
+      filter.timestamp = {};
+      if (from) filter.timestamp.$gte = new Date(from);
+      if (to) filter.timestamp.$lte = new Date(to);
+    }
+    if (req.user && req.user.role !== "Admin") {
+      if (req.user.branchId) filter.branchId = req.user.branchId;
+      else if (req.user.branch_code) filter.branch_code = req.user.branch_code;
+    }
+
+    const exportLimit = parseInt(req.query.limit) || 50000;
+
+    const auditLogs = await AuditTrailModel.find(filter)
+      .sort({ timestamp: -1 })
+      .limit(exportLimit)
       .lean();
 
     worksheet.columns = [

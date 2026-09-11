@@ -184,6 +184,7 @@ import getImporterJobs from "./routes/import-dsr/getImporterJobs.mjs";
 import getImporterUsers from "./routes/import-dsr/getImporterUsers.mjs";
 import getJob from "./routes/import-dsr/getJob.mjs";
 import getJobList from "./routes/import-dsr/getJobList.mjs";
+import getJobTabCounts from "./routes/import-dsr/getJobTabCounts.mjs";
 import getJobsOverview from "./routes/import-dsr/getJobsOverview.mjs";
 import getLastJobsDate from "./routes/import-dsr/getLastJobsDate.mjs";
 import importerListToAssignJobs from "./routes/import-dsr/importerListToAssignJobs.mjs";
@@ -663,6 +664,7 @@ app.use(getImporterJobs);
 app.use(getImporterUsers);
 app.use(getJob);
 app.use(getJobList);
+app.use(getJobTabCounts);
 app.use(getJobsOverview);
 app.use(getLastJobsDate);
 app.use(importerListToAssignJobs);
@@ -929,8 +931,8 @@ if (!disableCluster && cluster.isPrimary) {
         appName: "exim", // Identifies this app in Atlas logs
         // useNewUrlParser: true,
         // useUnifiedTopology: true,
-        minPoolSize: 0,
-        maxPoolSize: 5, // Reduced to prevent connection exhaustion in clustered mode (2 workers × 5 = 10 max connections)
+        minPoolSize: 2,
+        maxPoolSize: 20, // Increased to prevent connection starvation during parallel requests (2 workers × 20 = 40 max connections)
         maxIdleTimeMS: 30000,
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,

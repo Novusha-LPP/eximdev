@@ -168,23 +168,32 @@ function useFetchJobList(
         console.debug(`[PERF] fetchJobs ${cacheKey} took ${duration}ms`);
       }
 
-      const { data, total, totalPages, currentPage, userImporters: responseUserImporters } = response.data;
+      const {
+        data,
+        total,
+        totalPages,
+        currentPage: respPage,
+        userImporters: responseUserImporters,
+        unresolvedCount: backendUnresolvedCount,
+      } = response.data;
       setRows(data);
       setTotal(total);
       setTotalPages(totalPages);
-      setCurrentPage(currentPage);
+      setCurrentPage(respPage || page);
 
       // Cache page 1 responses for quick repeated access (unless bypassing cache)
       if (!bypassCache) {
         try {
-          setToCache(cacheKey, { data, total, totalPages, currentPage });
+          setToCache(cacheKey, { data, total, totalPages, currentPage: respPage || page });
         } catch (e) {
           // ignore
         }
       }
 
-      // If this is the Pending status, update unresolved count from the total when unresolvedOnly is true
-      if (status === "Pending" && unresolved) {
+      // Update unresolved count directly from response or total
+      if (backendUnresolvedCount !== undefined) {
+        setUnresolvedCount(backendUnresolvedCount);
+      } else if (status === "Pending" && unresolved) {
         setUnresolvedCount(total);
       }
 
@@ -208,51 +217,58 @@ function useFetchJobList(
     }
   };
 
-  // Fetch initial unresolved count for Pending status
-  useEffect(() => {
-    async function fetchInitialUnresolvedCount() {
-      if (status === "Pending" && selectedYearState && user) {
-        try {
-          const queryParams = new URLSearchParams({
-            page: 1,
-            limit: 1,
-            search: '',
-            unresolvedOnly: true
-          });
-
-          if (selectedBranch && selectedBranch !== 'all') {
-            queryParams.append('branchId', selectedBranch);
-          }
-          if (selectedMode && selectedMode !== 'all') {
-            queryParams.append('mode', selectedMode);
-          }
-          if (category && category !== 'all') {
-            queryParams.append('category', category);
-          }
-
-          const response = await axios.get(
-            `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/${detailedStatus}/${selectedICD}/${selectedImporter || 'all'}?${queryParams}`,
-            {
-              headers: {
-                ...(user?.username ? { "x-username": user.username } : {}),
-              },
-            }
-          );
-          setUnresolvedCount(response.data.total || 0);
-        } catch (error) {
-          console.error("Error fetching initial unresolved count:", error);
-          setUnresolvedCount(0);
-        }
-      }
-    }
-    fetchInitialUnresolvedCount();
-  }, [status, selectedYearState, user, detailedStatus, selectedICD, selectedImporter, selectedBeType, selectedBranch, selectedMode, category]);
+  const prevFiltersRef = useRef({
+    detailedStatus,
+    selectedYearState,
+    status,
+    selectedICD,
+    searchQuery,
+    selectedImporter,
+    unresolvedOnly,
+    selectedBeType,
+    selectedBranch,
+    selectedMode,
+    category,
+  });
 
   // Auto-trigger search when filters change (including on page change)
   useEffect(() => {
-    if (selectedYearState && user) {
-      fetchJobs(currentPage, unresolvedOnly);
+    if (!selectedYearState || !user) return;
+
+    const prev = prevFiltersRef.current;
+    const filterChanged =
+      prev.detailedStatus !== detailedStatus ||
+      prev.selectedYearState !== selectedYearState ||
+      prev.status !== status ||
+      prev.selectedICD !== selectedICD ||
+      prev.searchQuery !== searchQuery ||
+      prev.selectedImporter !== selectedImporter ||
+      prev.unresolvedOnly !== unresolvedOnly ||
+      prev.selectedBeType !== selectedBeType ||
+      prev.selectedBranch !== selectedBranch ||
+      prev.selectedMode !== selectedMode ||
+      prev.category !== category;
+
+    prevFiltersRef.current = {
+      detailedStatus,
+      selectedYearState,
+      status,
+      selectedICD,
+      searchQuery,
+      selectedImporter,
+      unresolvedOnly,
+      selectedBeType,
+      selectedBranch,
+      selectedMode,
+      category,
+    };
+
+    if (filterChanged && currentPage !== 1) {
+      setCurrentPage(1);
+      return;
     }
+
+    fetchJobs(currentPage, unresolvedOnly);
   }, [
     detailedStatus,
     selectedYearState,
@@ -263,18 +279,11 @@ function useFetchJobList(
     selectedImporter,
     user,
     unresolvedOnly,
-    unresolvedOnly,
     selectedBeType,
     selectedBranch,
     selectedMode,
     category
   ]);
-
-  // Auto-reset to page 1 when search query or major filters change
-  // This ensures user doesn't stay on page 5 when filtering changes drastically
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [detailedStatus, selectedICD, selectedImporter, searchQuery, status, selectedBeType, selectedBranch, selectedMode, category]);
 
   const handlePageChange = (newPage) => setCurrentPage(newPage);
 

@@ -201,6 +201,10 @@ const compactInputSx = {
 };
 
 
+let cachedCurrencies = null;
+let cachedUnitOptions = null;
+let cachedTransportersList = null;
+
 const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSCTL", "TQ", "SIL", "SEZ", "EOU", "DFIA", "Jobbing"];
 
 function JobDetails() {
@@ -221,12 +225,17 @@ function JobDetails() {
 
   // State to track which containers have expanded seal number lists
   const [expandedSealIndices, setExpandedSealIndices] = useState({});
-  const [currencies, setCurrencies] = useState([]);
+  const [currencies, setCurrencies] = useState(() => cachedCurrencies || []);
 
   useEffect(() => {
+    if (cachedCurrencies && cachedCurrencies.length > 0) {
+      setCurrencies(cachedCurrencies);
+      return;
+    }
     const fetchCurrencies = async () => {
       try {
         const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-currencies`);
+        cachedCurrencies = res.data;
         setCurrencies(res.data);
       } catch (error) {
         console.error("Error fetching currencies:", error);
@@ -236,12 +245,18 @@ function JobDetails() {
   }, []);
 
   // Fetch units from master directory
-  const [unitOptions, setUnitOptions] = useState([]);
+  const [unitOptions, setUnitOptions] = useState(() => cachedUnitOptions || []);
   useEffect(() => {
+    if (cachedUnitOptions && cachedUnitOptions.length > 0) {
+      setUnitOptions(cachedUnitOptions);
+      return;
+    }
     const fetchUnits = async () => {
       try {
         const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-units`);
-        setUnitOptions(res.data || []);
+        const units = res.data || [];
+        cachedUnitOptions = units;
+        setUnitOptions(units);
       } catch (error) {
         console.error("Error fetching units:", error);
       }
@@ -250,13 +265,19 @@ function JobDetails() {
   }, []);
 
   // Fetch transporters from master directory
-  const [transportersList, setTransportersList] = useState([]);
+  const [transportersList, setTransportersList] = useState(() => cachedTransportersList || []);
   useEffect(() => {
+    if (cachedTransportersList && cachedTransportersList.length > 0) {
+      setTransportersList(cachedTransportersList);
+      return;
+    }
     const fetchTransporters = async () => {
       try {
         const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-transporters`);
         if (Array.isArray(res.data)) {
-          setTransportersList(res.data.map(t => t.name).filter(Boolean));
+          const trans = res.data.map(t => t.name).filter(Boolean);
+          cachedTransportersList = trans;
+          setTransportersList(trans);
         }
       } catch (error) {
         console.error("Error fetching transporters:", error);

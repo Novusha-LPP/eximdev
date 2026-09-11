@@ -6,6 +6,8 @@ import { useNavigate } from "react-router-dom";
 import AWS from "aws-sdk";
 import toast from "react-hot-toast";
 
+let cachedGlobalDocs = null;
+
 const getFormattedDateForRates = (dateInput) => {
   if (!dateInput) dateInput = new Date();
   if (dateInput instanceof Date) {
@@ -245,9 +247,10 @@ function useFetchJobDetails(
     ],
   };
 
-  // Fetch job details for Ex-Bond details.
+  // Fetch job details for Ex-Bond details only when needed
   useEffect(() => {
     async function fetchJobDetails() {
+      if (data?.type_of_b_e !== "Ex-Bond") return;
       try {
         const response = await axios.post(
           `${process.env.REACT_APP_API_STRING}/jobs/add-job-all-In-bond`
@@ -257,8 +260,10 @@ function useFetchJobDetails(
         console.error("Error fetching job details:", error);
       }
     }
-    fetchJobDetails();
-  }, []);
+    if (data?.type_of_b_e === "Ex-Bond") {
+      fetchJobDetails();
+    }
+  }, [data?.type_of_b_e]);
 
   const commonCthCodes = [
     "72041000",
@@ -314,17 +319,23 @@ function useFetchJobDetails(
     getJobDetails();
   }, [params.job_no, params.selected_year, params.year, params.mode, params.branch_code, params.trade_type]);
 
-  // Fetch documents
+  // Fetch documents with memory caching
   useEffect(() => {
     async function getDocuments() {
+      if (cachedGlobalDocs && Array.isArray(cachedGlobalDocs) && cachedGlobalDocs.length > 0) {
+        setDocuments(cachedGlobalDocs);
+        return;
+      }
       try {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-docs`
         );
-        setDocuments(Array.isArray(res.data) ? res.data : []); // Ensure data is an array
+        const docs = Array.isArray(res.data) ? res.data : [];
+        cachedGlobalDocs = docs;
+        setDocuments(docs);
       } catch (error) {
         console.error("Error fetching documents:", error);
-        setDocuments([]); // Fallback to an empty array
+        setDocuments([]);
       }
     }
 

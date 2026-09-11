@@ -22,6 +22,7 @@ const allModules = [
   "Export - Operation",
   "Accounts",
   "Billing Reports",
+  "Procurement & Insurance SOPs",
   "RM Procurement SOP",
   "Tyre Procurement SOP",
   "Fleet Insurance SOP",
@@ -138,6 +139,9 @@ function AssignModule({ selectedUser, allowedModules, allowInactive = false }) {
           titles={["Available", "Assigned"]}
           targetKeys={targetKeys}
           onChange={onChange}
+          filterOption={(inputValue, item) =>
+            item.title.toLowerCase().includes(inputValue.toLowerCase())
+          }
           render={(item) => item.title}
           listStyle={{
             width: '45%',

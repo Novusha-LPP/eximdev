@@ -364,6 +364,13 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
         }
       }
 
+      if (field === "paymentDate") {
+        if (val) {
+          next.renewalDate = val;
+          next.renewedDate = val;
+        }
+      }
+
       if (field === "prDate" || field === "paymentDate") {
         const targetPr = next.prDate;
         const targetPay = next.paymentDate || new Date().toISOString().split("T")[0];

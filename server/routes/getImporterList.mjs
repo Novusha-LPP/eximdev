@@ -6,12 +6,27 @@ import { applyUserBranchFilter } from "../middleware/branchMiddleware.mjs";
 
 const router = express.Router();
 
+// In-memory cache for importer lists (60-second TTL)
+const importerCache = new Map();
+const CACHE_TTL_MS = 60 * 1000;
+
+export const invalidateImporterCache = () => {
+  importerCache.clear();
+};
+
 // GET importers by year + status + detailedStatus
 // Example: /api/get-importer-list/25-26?status=Completed&detailedStatus=Discharged
 router.get("/api/get-importer-list/:year", authMiddleware, applyUserBranchFilter, async (req, res) => {
   try {
     const selectedYear = req.params.year;
     const { status, detailedStatus, branchId, category } = req.query;
+
+    const cacheKey = `${selectedYear || ""}_${status || ""}_${detailedStatus || ""}_${branchId || ""}_${category || ""}_${req.authorizedBranchIds?.join(",") || "all"}`;
+    const cached = importerCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      res.set("Cache-Control", "private, max-age=60");
+      return res.status(200).json(cached.data);
+    }
 
     // base match: empty object to fetch all importers irrespective of year, but filter out null/empty ones and exclude 24-25 as it had no IE codes
     const matchStage = {
@@ -63,6 +78,12 @@ router.get("/api/get-importer-list/:year", authMiddleware, applyUserBranchFilter
       { $sort: { importer: 1 } },
     ]);
 
+    importerCache.set(cacheKey, {
+      data: uniqueImporters,
+      timestamp: Date.now(),
+    });
+
+    res.set("Cache-Control", "private, max-age=60");
     res.status(200).json(uniqueImporters);
   } catch (error) {
     console.error(error);

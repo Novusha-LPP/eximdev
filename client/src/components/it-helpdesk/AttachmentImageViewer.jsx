@@ -39,6 +39,36 @@ const formatSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 };
 
+// Helper to resolve attachment file URL across localhost/LAN/relative paths
+export const resolveAttachmentUrl = (url) => {
+  if (!url) return "";
+  const backendBase = (process.env.REACT_APP_API_STRING || "http://localhost:9006")
+    .replace(/\/api\/?$/, "")
+    .replace(/\/$/, "");
+
+  // Relative path starting with /uploads/
+  if (url.startsWith("/uploads/")) {
+    return `${backendBase}${url}`;
+  }
+
+  // Absolute URL: adapt hostname if browser is accessing via specific host or IP
+  try {
+    const parsed = new URL(url);
+    if (typeof window !== "undefined" && window.location.hostname) {
+      if (
+        parsed.hostname === "localhost" ||
+        parsed.hostname === "127.0.0.1" ||
+        parsed.hostname === "0.0.0.0"
+      ) {
+        parsed.hostname = window.location.hostname;
+        return parsed.toString();
+      }
+    }
+  } catch (e) {}
+
+  return url;
+};
+
 export default function AttachmentImageViewer({
   open,
   onClose,
@@ -110,7 +140,8 @@ export default function AttachmentImageViewer({
   const currentFile = fileList[currentIndex] || {};
   const isImage = isImageAttachment(currentFile);
   const fileName = currentFile.file_name || currentFile.name || `Attachment-${currentIndex + 1}`;
-  const fileUrl = currentFile.file_url || currentFile.url || "";
+  const rawFileUrl = currentFile.file_url || currentFile.url || "";
+  const fileUrl = resolveAttachmentUrl(rawFileUrl);
   const totalCount = fileList.length;
 
   const toggleZoom = () => {
@@ -685,17 +716,32 @@ export default function AttachmentImageViewer({
               >
                 {itemIsImg && itemUrl ? (
                   <img
-                    src={itemUrl}
+                    src={resolveAttachmentUrl(itemUrl)}
                     alt={itemTitle}
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      const fallback = e.target.parentElement?.querySelector(".thumb-fallback");
+                      if (fallback) fallback.style.display = "flex";
+                    }}
                     style={{
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
                     }}
                   />
-                ) : (
-                  <Paperclip size={20} color="#94a3b8" />
-                )}
+                ) : null}
+                <Box
+                  className="thumb-fallback"
+                  sx={{
+                    display: itemIsImg && itemUrl ? "none" : "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "100%",
+                    height: "100%",
+                  }}
+                >
+                  {itemIsImg ? <ImageIcon size={20} color="#94a3b8" /> : <Paperclip size={20} color="#94a3b8" />}
+                </Box>
 
                 {/* Number Badge */}
                 <Box

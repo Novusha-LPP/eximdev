@@ -675,7 +675,7 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
               <Link
                 to={isDoView 
                   ? `/edit-billing-sheet/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?${queryParams}`
-                  : `/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`
+                  : `/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?currentTab=0`
                 }
                 state={{ workMode }}
                 target="_blank"

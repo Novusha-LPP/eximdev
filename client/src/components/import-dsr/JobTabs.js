@@ -170,17 +170,12 @@ function JobTabs() {
     Billing_Confirmation: 0
   });
 
-  // Fetch count of jobs for each status/tab
+  // Fetch count of jobs for each status/tab using fast dedicated endpoint
   React.useEffect(() => {
     async function fetchCounts() {
       if (selectedYearState && user) {
         try {
-          const queryParams = new URLSearchParams({
-            page: 1,
-            limit: 1,
-            search: "",
-          });
-
+          const queryParams = new URLSearchParams();
           if (selectedBranch && selectedBranch !== "all") {
             queryParams.append("branchId", selectedBranch);
           }
@@ -191,30 +186,23 @@ function JobTabs() {
             queryParams.append("category", selectedCategory);
           }
 
-          const statusesToFetch = ["Pending", "Completed", "Cancelled"];
-          if (user.role === "Admin" || user.modules?.includes("Billing Confirmation")) {
-            statusesToFetch.push("Billing_Confirmation");
-          }
-
-          const requests = statusesToFetch.map((status) =>
-            axios.get(
-              `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/all/all/all?${queryParams}`,
-              {
-                headers: {
-                  ...(user?.username ? { "x-username": user.username } : {}),
-                },
-              }
-            )
+          const response = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/${selectedYearState}/job-tab-counts?${queryParams}`,
+            {
+              headers: {
+                ...(user?.username ? { "x-username": user.username } : {}),
+              },
+            }
           );
 
-          const responses = await Promise.all(requests);
-          const newCounts = { Pending: 0, Completed: 0, Cancelled: 0, Billing_Confirmation: 0 };
-          
-          statusesToFetch.forEach((status, idx) => {
-            newCounts[status] = responses[idx].data.total || 0;
-          });
-
-          setCounts(newCounts);
+          if (response.data) {
+            setCounts({
+              Pending: response.data.Pending || 0,
+              Completed: response.data.Completed || 0,
+              Cancelled: response.data.Cancelled || 0,
+              Billing_Confirmation: response.data.Billing_Confirmation || 0,
+            });
+          }
         } catch (error) {
           console.error("Error fetching job tab counts:", error);
         }

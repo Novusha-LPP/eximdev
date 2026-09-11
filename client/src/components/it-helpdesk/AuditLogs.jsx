@@ -297,7 +297,7 @@ export const AuditLogProvider = ({ children }) => {
       setLoading(true);
       setIsRefreshing(isRefresh);
 
-      const params = { limit: 1000, timestamp: new Date().getTime(), allDates: 'true' };
+      const params = { limit: 50, timestamp: new Date().getTime() };
       if (module) params.documentType = reverseDocumentTypeMap[module] || module;
 
       const response = await api.get('/audit-trail', { params });
@@ -383,17 +383,8 @@ export const AuditLogProvider = ({ children }) => {
     }
   }, []);
 
-  // ✅ FIX 5: useEffect — NO redirect to /login, just set error message
+  // Only handle offline/online sync — DO NOT eagerly fetch 1,000 logs on global App mount
   useEffect(() => {
-    // ✅ Cookie is sent automatically - just fetch directly
-    fetchAuditLogs(false);
-
-    const reconnectInterval = setInterval(() => {
-      if (error) {
-        fetchAuditLogs(false);
-      }
-    }, 30000);
-
     const handleOffline = () => setOnlineStatus(false);
     const handleOnline = () => {
       setOnlineStatus(true);
@@ -404,12 +395,11 @@ export const AuditLogProvider = ({ children }) => {
     window.addEventListener('online', handleOnline);
 
     return () => {
-      clearInterval(reconnectInterval);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('online', handleOnline);
       processPendingLogs();
     };
-  }, []);  // ✅ FIX 6: Empty deps — don't re-run on every error change (was causing loops)
+  }, []);
 
   return (
     <AuditLogContext.Provider value={{

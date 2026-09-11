@@ -23,6 +23,11 @@ const EvaluationItemSchema = new mongoose.Schema({
 
 const ScorecardSchema = new mongoose.Schema(
   {
+    supplierId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Supplier",
+      default: null,
+    },
     supplierName: { type: String, required: true, trim: true },
     serviceType: { type: String, trim: true },
     evaluationPeriod: { type: String }, // e.g. "2024-06"
@@ -31,6 +36,11 @@ const ScorecardSchema = new mongoose.Schema(
       type: String,
       enum: ["All Branches", "SEA", "AIR", "HQ"],
       default: "All Branches",
+    },
+    branchId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Branch",
+      default: null,
     },
     date: { type: Date, default: Date.now },
     evaluationItems: [EvaluationItemSchema],
@@ -77,5 +87,24 @@ ScorecardSchema.pre("save", function (next) {
 
   next();
 });
+
+// ─── Indexes for High-Performance Queries ─────────────────────────────────────
+// 1. UNIQUE COMPOUND INDEX: Guarantees no duplicate evaluations per Period per Supplier per Branch
+ScorecardSchema.index(
+  { supplierName: 1, evaluationPeriod: 1, branch: 1 },
+  { unique: true, name: "UniqueSupplierPeriodEvaluation" }
+);
+
+// 2. Scorecard List & Filtering: (ESR: branch -> status -> sort createdAt desc)
+ScorecardSchema.index({ branch: 1, status: 1, createdAt: -1 });
+
+// 3. Leaderboard & Ranking Index: Top suppliers by evaluation period
+ScorecardSchema.index({ evaluationPeriod: 1, percentage: -1 });
+
+// 4. Supplier Historical Time-Series Analysis
+ScorecardSchema.index({ supplierName: 1, evaluationPeriod: -1 });
+
+// 5. Rating breakdown stats aggregation
+ScorecardSchema.index({ overallRating: 1, percentage: 1 });
 
 export default mongoose.model("Scorecard", ScorecardSchema);

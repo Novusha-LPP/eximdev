@@ -11,6 +11,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { amcVisitorAPI } from "../api/amcVisitorAPI";
+import useDebounce from "../hooks/useDebounce";
 import * as XLSX from "xlsx";
 import "../styles/scorecard.scss";
 
@@ -47,8 +48,14 @@ export default function AmcVisitorList() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({ status: "", search: "" });
+  const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 350);
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10 });
   const [qrBaseUrl, setQrBaseUrl] = useState(window.location.origin);
+
+  useEffect(() => {
+    setFilters((f) => ({ ...f, search: debouncedSearch }));
+  }, [debouncedSearch]);
 
   // Statistics
   const [stats, setStats] = useState({
@@ -372,8 +379,8 @@ export default function AmcVisitorList() {
                     <input
                       type="text"
                       placeholder="Search supplier, technician, mobile…"
-                      value={filters.search}
-                      onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
                   <div className="form-field">
@@ -392,7 +399,10 @@ export default function AmcVisitorList() {
                     <button
                       type="button"
                       className="btn btn-secondary"
-                      onClick={() => setFilters({ status: "", search: "" })}
+                      onClick={() => {
+                        setSearchTerm("");
+                        setFilters({ status: "", search: "" });
+                      }}
                       style={{
                         height: "38px",
                         display: "inline-flex",

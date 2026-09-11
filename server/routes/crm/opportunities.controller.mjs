@@ -101,12 +101,17 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 
   const objectIdUserId = new mongoose.Types.ObjectId(userId.toString());
 
+  const userDoc = await UserModel.findById(userId).select('isHod crmManagedTeams').lean();
+  const managedTeamIds = (userDoc?.crmManagedTeams || []).map(id => id.toString());
+  const isHodUser = isHOD || Boolean(userDoc?.isHod);
+
   if (requestedTeamId && requestedTeamId !== 'all' && mongoose.Types.ObjectId.isValid(requestedTeamId)) {
     const team = await SalesTeam.findById(requestedTeamId).lean();
     if (team) {
       const isManager = team.managerId?.toString() === userId?.toString();
       const isMember = team.memberIds?.some(m => m?.toString() === userId?.toString());
-      if (isAdmin || isManager || isMember || seeAll) {
+      const isHodForTeam = isHodUser && managedTeamIds.includes(team._id.toString());
+      if (isAdmin || isManager || isMember || isHodForTeam || seeAll) {
         const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
         if (team.managerId) {
           objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
@@ -122,11 +127,16 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 
   if (seeAll || isAdmin) return {};
 
+  const teamOrConditions = [
+    { managerId: userId },
+    { memberIds: userId }
+  ];
+  if (managedTeamIds.length > 0) {
+    teamOrConditions.push({ _id: { $in: managedTeamIds } });
+  }
+
   const myTeams = await SalesTeam.find({
-    $or: [
-      { managerId: userId },
-      { memberIds: userId }
-    ]
+    $or: teamOrConditions
   }).lean();
 
   const myTeamIds = myTeams.map(t => t._id);
@@ -135,7 +145,8 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
   if (myTeams && myTeams.length > 0) {
     myTeams.forEach(team => {
       const isManager = team.managerId?.toString() === userId?.toString();
-      if (isManager) {
+      const isHodForTeam = isHodUser && managedTeamIds.includes(team._id.toString());
+      if (isManager || isHodForTeam) {
         if (team.memberIds) {
           team.memberIds.forEach(m => visibleUserIds.push(new mongoose.Types.ObjectId(m.toString())));
         }
@@ -822,6 +833,8 @@ router.patch('/:id/stage', async (req, res) => {
       }
       opp.closeReason = closeReason;
       opp.closeNotes = closeNotes || '';
+      if (req.body.competitor) opp.competitor = req.body.competitor;
+      opp.lostStageBeforeLoss = req.body.lostFromStage || opp.stage || 'lead';
     }
 
     // Update history
@@ -877,6 +890,10 @@ router.patch('/:id/close', async (req, res) => {
     opp.stage = status;
     opp.closeReason = closeReason;
     opp.closeNotes = closeNotes || '';
+    if (status === 'lost') {
+      if (req.body.competitor) opp.competitor = req.body.competitor;
+      opp.lostStageBeforeLoss = req.body.lostFromStage || opp.stageHistory[opp.stageHistory.length - 2]?.stage || 'lead';
+    }
     opp.probability = status === 'won' ? 100 : 0;
     opp.forecastCategory = 'closed';
 

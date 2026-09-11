@@ -22,6 +22,8 @@ const userSchema = new Schema({
     enum: ['Admin', 'Manager', 'Sales Rep', 'Viewer'],
     default: 'Sales Rep'
   },
+  isHod: { type: Boolean, default: false },
+  crmManagedTeams: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SalesTeam' }],
   quota: { type: Number, default: 0 },
   teamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team' },
   gender: {

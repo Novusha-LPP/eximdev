@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Eye, Edit2, Trash2, ChevronLeft, ChevronRight, MoveHorizontal } from "lucide-react";
 import { amcRenewalAPI } from "../api/amcRenewalAPI";
+import useDebounce from "../hooks/useDebounce";
 import "../styles/scorecard.scss";
 
 const PENDING_THRESHOLD_DAYS = 30; // Number of days before expiry to mark as "Pending"
@@ -66,7 +67,13 @@ export default function AmcRenewalList() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [filters, setFilters] = useState({ status: "", search: "" });
+  const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 350);
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10 });
+
+  useEffect(() => {
+    setFilters((f) => ({ ...f, search: debouncedSearch }));
+  }, [debouncedSearch]);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -361,8 +368,8 @@ export default function AmcRenewalList() {
                 <input
                   type="text"
                   placeholder="Equipment / Vendor / Contract…"
-                  value={filters.search}
-                  onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
               <div className="form-field">
@@ -380,7 +387,10 @@ export default function AmcRenewalList() {
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setFilters({ status: "", search: "" })}
+                  onClick={() => {
+                    setSearchTerm("");
+                    setFilters({ status: "", search: "" });
+                  }}
                   style={{
                     height: "38px",
                     display: "inline-flex",

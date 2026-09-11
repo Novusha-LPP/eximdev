@@ -397,6 +397,9 @@ router.post("/api/open-points/points", authMiddleware, auditMiddleware("OpenPoin
         }
 
         pointData.created_by = req.user._id;
+        if (!pointData.creation_date) {
+            pointData.creation_date = new Date();
+        }
 
         // Fetch project and generate initials if missing
         const project = await OpenPointProject.findById(pointData.project_id);

@@ -32,6 +32,7 @@ process.on("unhandledRejection", (reason, promise) => {
 
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import cors from "cors";
 import mongoose from "mongoose";
@@ -183,6 +184,7 @@ import getImporterJobs from "./routes/import-dsr/getImporterJobs.mjs";
 import getImporterUsers from "./routes/import-dsr/getImporterUsers.mjs";
 import getJob from "./routes/import-dsr/getJob.mjs";
 import getJobList from "./routes/import-dsr/getJobList.mjs";
+import getJobTabCounts from "./routes/import-dsr/getJobTabCounts.mjs";
 import getJobsOverview from "./routes/import-dsr/getJobsOverview.mjs";
 import getLastJobsDate from "./routes/import-dsr/getLastJobsDate.mjs";
 import importerListToAssignJobs from "./routes/import-dsr/importerListToAssignJobs.mjs";
@@ -662,6 +664,7 @@ app.use(getImporterJobs);
 app.use(getImporterUsers);
 app.use(getJob);
 app.use(getJobList);
+app.use(getJobTabCounts);
 app.use(getJobsOverview);
 app.use(getLastJobsDate);
 app.use(importerListToAssignJobs);
@@ -831,6 +834,14 @@ app.use('/uploads/leaves', express.static(
 app.use('/uploads/it-helpdesk', express.static(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'it-helpdesk')
 ));
+app.use('/uploads/it-helpdesk', (req, res) => {
+  const ext = path.extname(req.path).toLowerCase();
+  const fallbackImg = path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'it-helpdesk', '1783326044383-564841636.png');
+  if (['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg'].includes(ext) && fs.existsSync(fallbackImg)) {
+    return res.sendFile(fallbackImg);
+  }
+  res.status(404).send('File not found');
+});
 // ─────────────────────────────────────────────────────────────────────────────
 // Client Queries API
 app.use("/api/client-queries", clientQueryRoutes);
@@ -920,8 +931,8 @@ if (!disableCluster && cluster.isPrimary) {
         appName: "exim", // Identifies this app in Atlas logs
         // useNewUrlParser: true,
         // useUnifiedTopology: true,
-        minPoolSize: 0,
-        maxPoolSize: 5, // Reduced to prevent connection exhaustion in clustered mode (2 workers × 5 = 10 max connections)
+        minPoolSize: 2,
+        maxPoolSize: 20, // Increased to prevent connection starvation during parallel requests (2 workers × 20 = 40 max connections)
         maxIdleTimeMS: 30000,
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,

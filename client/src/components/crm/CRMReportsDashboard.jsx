@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { BarChart2, Download, Table, TrendingUp, AlertTriangle, ChevronDown, ChevronRight, PieChart, Phone, Mail, Calendar, FileText, CheckCircle2, MinusCircle, XCircle } from 'lucide-react';
+import { BarChart2, Download, Table, TrendingUp, AlertTriangle, ChevronDown, ChevronRight, PieChart, Phone, Mail, Calendar, FileText, CheckCircle2, MinusCircle, XCircle, Trophy, ShieldAlert } from 'lucide-react';
 import FilterBar from './components/FilterBar';
 
 export default function CRMReportsDashboard() {
@@ -44,6 +44,61 @@ export default function CRMReportsDashboard() {
   // Stagnation Report States
   const [stagnationData, setStagnationData] = useState(null);
   const [stagnationLoading, setStagnationLoading] = useState(false);
+
+  // FR-19 Detailed Lost Report States
+  const [lostReportData, setLostReportData] = useState([]);
+  const [lostReportLoading, setLostReportLoading] = useState(false);
+  const [lostReasonFilter, setLostReasonFilter] = useState('all');
+
+  // FR-20 Leaderboard States
+  const [leaderboardData, setLeaderboardData] = useState(null);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardPeriod, setLeaderboardPeriod] = useState('this_month');
+  const [leaderboardView, setLeaderboardView] = useState('individual'); // 'individual' | 'team'
+
+  const fetchLostReport = async (activeFilters = filters) => {
+    setLostReportLoading(true);
+    try {
+      const params = {};
+      if (activeFilters?.startDate && activeFilters?.endDate) {
+        params.startDate = activeFilters.startDate;
+        params.endDate = activeFilters.endDate;
+      } else if (activeFilters?.month) {
+        params.period = activeFilters.month;
+      }
+      if (selectedTeam && selectedTeam !== 'all') params.teamId = selectedTeam;
+      if (selectedVertical && selectedVertical !== 'all') params.businessVertical = selectedVertical;
+      if (lostReasonFilter && lostReasonFilter !== 'all') params.reason = lostReasonFilter;
+
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/reports/lost-leads-detailed`,
+        { params, withCredentials: true }
+      );
+      setLostReportData(res.data?.data || []);
+    } catch (err) {
+      console.error('Error fetching detailed lost report:', err);
+    } finally {
+      setLostReportLoading(false);
+    }
+  };
+
+  const fetchLeaderboard = async () => {
+    setLeaderboardLoading(true);
+    try {
+      const params = { periodType: leaderboardPeriod };
+      if (selectedVertical && selectedVertical !== 'all') params.businessVertical = selectedVertical;
+
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/reports/leaderboard`,
+        { params, withCredentials: true }
+      );
+      setLeaderboardData(res.data);
+    } catch (err) {
+      console.error('Error fetching leaderboard:', err);
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  };
 
   const fetchStagnationReport = async () => {
     setStagnationLoading(true);
@@ -258,6 +313,18 @@ export default function CRMReportsDashboard() {
       fetchStagnationReport();
     }
   }, [activeTab, selectedTeam, selectedOwner]);
+
+  useEffect(() => {
+    if (activeTab === 'lost_report') {
+      fetchLostReport(filters);
+    }
+  }, [activeTab, filters, selectedTeam, selectedVertical, lostReasonFilter]);
+
+  useEffect(() => {
+    if (activeTab === 'leaderboard') {
+      fetchLeaderboard();
+    }
+  }, [activeTab, leaderboardPeriod, selectedVertical]);
 
   useEffect(() => {
     if (activeTab === 'reps_overview') {
@@ -695,7 +762,29 @@ export default function CRMReportsDashboard() {
                     boxShadow: activeTab === 'stagnation' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
                   }}
                 >
-                  <AlertTriangle size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom', color: '#f59e0b' }} /> Stagnation Report (2+ Days)
+                  <AlertTriangle size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom', color: '#f59e0b' }} /> Stagnation (2+ Days)
+                </button>
+                <button
+                  onClick={() => setActiveTab('lost_report')}
+                  style={{
+                    padding: '8px 16px', borderRadius: '8px', border: 'none', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                    background: activeTab === 'lost_report' ? '#ffffff' : 'transparent',
+                    color: activeTab === 'lost_report' ? '#1e293b' : '#64748b',
+                    boxShadow: activeTab === 'lost_report' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  <ShieldAlert size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom', color: '#ef4444' }} /> Detailed Lost Report
+                </button>
+                <button
+                  onClick={() => setActiveTab('leaderboard')}
+                  style={{
+                    padding: '8px 16px', borderRadius: '8px', border: 'none', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                    background: activeTab === 'leaderboard' ? '#ffffff' : 'transparent',
+                    color: activeTab === 'leaderboard' ? '#1e293b' : '#64748b',
+                    boxShadow: activeTab === 'leaderboard' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  <Trophy size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom', color: '#f59e0b' }} /> Leaderboard
                 </button>
                 {isAdmin && (
                   <button
@@ -1523,6 +1612,351 @@ export default function CRMReportsDashboard() {
                           </div>
                         </div>
                       )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* FR-19 Detailed Lost Report View */}
+              {activeTab === 'lost_report' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#0f172a' }}>
+                        Detailed Lost Leads & Deals Report
+                      </h3>
+                      <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                        In-depth analysis of lost opportunities with stage reached, reasons, competitors, and lost context.
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <select
+                        value={lostReasonFilter}
+                        onChange={e => setLostReasonFilter(e.target.value)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
+                      >
+                        <option value="all">All Lost Reasons</option>
+                        <option value="Price too high">Price too high</option>
+                        <option value="Competitor chosen">Competitor chosen</option>
+                        <option value="Lost to Competition">Lost to Competition</option>
+                        <option value="Budget constraints">Budget constraints</option>
+                        <option value="Timing not right">Timing not right</option>
+                        <option value="Features missing">Features missing</option>
+                        <option value="No response">No response</option>
+                        <option value="Other">Other</option>
+                      </select>
+
+                      <button
+                        onClick={() => {
+                          if (!lostReportData.length) return;
+                          let csv = 'Lead / Deal,Company,Owner,Team,Vertical,Stage Before Loss,Lost Reason,Competitor,Deal Value (INR),Lost Date,Notes\n';
+                          lostReportData.forEach(r => {
+                            csv += `"${r.name}","${r.company}","${r.owner}","${r.team}","${r.businessVertical}","${r.stageBeforeLoss}","${r.lostReason}","${r.competitor}","${r.dealValue}","${new Date(r.lostDate).toLocaleDateString('en-IN')}","${(r.lostNotes || '').replace(/"/g, '""')}"\n`;
+                          });
+                          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                          const link = document.createElement('a');
+                          link.href = URL.createObjectURL(blob);
+                          link.setAttribute('download', `detailed_lost_report_${new Date().toISOString().substring(0, 10)}.csv`);
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        }}
+                        disabled={!lostReportData.length}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '6px',
+                          padding: '8px 14px', background: '#ffffff', border: '1px solid #cbd5e1',
+                          borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, color: '#334155',
+                          cursor: lostReportData.length ? 'pointer' : 'not-allowed',
+                          opacity: lostReportData.length ? 1 : 0.5
+                        }}
+                      >
+                        <Download size={14} /> Export CSV
+                      </button>
+                    </div>
+                  </div>
+
+                  {lostReportLoading ? (
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>⏳ Loading Detailed Lost Report...</div>
+                  ) : lostReportData.length === 0 ? (
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                      No lost deals found for the selected timeframe and filters.
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                        <thead>
+                          <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                            <th style={{ padding: '12px 14px', textAlign: 'left' }}>Deal / Lead Name</th>
+                            <th style={{ padding: '12px 14px', textAlign: 'left' }}>Company</th>
+                            <th style={{ padding: '12px 14px', textAlign: 'left' }}>Owner</th>
+                            <th style={{ padding: '12px 14px', textAlign: 'left' }}>Team</th>
+                            <th style={{ padding: '12px 14px', textAlign: 'left' }}>Vertical</th>
+                            <th style={{ padding: '12px 14px', textAlign: 'center' }}>Stage Reached</th>
+                            <th style={{ padding: '12px 14px', textAlign: 'left' }}>Lost Reason</th>
+                            <th style={{ padding: '12px 14px', textAlign: 'left' }}>Competitor</th>
+                            <th style={{ padding: '12px 14px', textAlign: 'right' }}>Value</th>
+                            <th style={{ padding: '12px 14px', textAlign: 'left' }}>Lost Date</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lostReportData.map(item => (
+                            <tr key={item._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                              <td style={{ padding: '12px 14px', fontWeight: 700, color: '#1e293b' }}>
+                                {item.name}
+                                {item.lostNotes && (
+                                  <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400, marginTop: '2px' }}>
+                                    "{item.lostNotes}"
+                                  </div>
+                                )}
+                              </td>
+                              <td style={{ padding: '12px 14px', color: '#475569' }}>{item.company}</td>
+                              <td style={{ padding: '12px 14px', color: '#475569', fontWeight: 500 }}>{item.owner}</td>
+                              <td style={{ padding: '12px 14px', color: '#475569' }}>{item.team}</td>
+                              <td style={{ padding: '12px 14px', color: '#475569' }}>{item.businessVertical}</td>
+                              <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                                <span style={{
+                                  background: '#fef3c7', color: '#92400e', padding: '3px 8px',
+                                  borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'capitalize'
+                                }}>
+                                  {item.stageBeforeLoss}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 14px' }}>
+                                <span style={{
+                                  background: '#fee2e2', color: '#b91c1c', padding: '3px 8px',
+                                  borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700
+                                }}>
+                                  {item.lostReason}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 14px', color: item.competitor !== 'N/A' ? '#b91c1c' : '#94a3b8', fontWeight: item.competitor !== 'N/A' ? 600 : 400 }}>
+                                {item.competitor}
+                              </td>
+                              <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: '#1e293b' }}>
+                                ₹{Number(item.dealValue || 0).toLocaleString('en-IN')}
+                              </td>
+                              <td style={{ padding: '12px 14px', color: '#64748b', fontSize: '0.8rem' }}>
+                                {new Date(item.lostDate).toLocaleDateString('en-IN')}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* FR-20 Sales Leaderboard View */}
+              {activeTab === 'leaderboard' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Trophy color="#f59e0b" size={24} /> Sales Leaderboard
+                      </h3>
+                      <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                        Recognizing top sales performers and teams based on deals won, revenue, and pipeline generation.
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {/* Individual vs Team View toggle */}
+                      <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <button
+                          onClick={() => setLeaderboardView('individual')}
+                          style={{
+                            padding: '6px 14px', borderRadius: '6px', border: 'none', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
+                            background: leaderboardView === 'individual' ? '#fff' : 'transparent',
+                            color: leaderboardView === 'individual' ? '#1e293b' : '#64748b',
+                            boxShadow: leaderboardView === 'individual' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                          }}
+                        >
+                          Individual Reps
+                        </button>
+                        <button
+                          onClick={() => setLeaderboardView('team')}
+                          style={{
+                            padding: '6px 14px', borderRadius: '6px', border: 'none', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
+                            background: leaderboardView === 'team' ? '#fff' : 'transparent',
+                            color: leaderboardView === 'team' ? '#1e293b' : '#64748b',
+                            boxShadow: leaderboardView === 'team' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                          }}
+                        >
+                          Teams
+                        </button>
+                      </div>
+
+                      {/* Period selector */}
+                      <select
+                        value={leaderboardPeriod}
+                        onChange={e => setLeaderboardPeriod(e.target.value)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff', fontWeight: 600 }}
+                      >
+                        <option value="this_month">This Month</option>
+                        <option value="last_month">Last Month</option>
+                        <option value="this_quarter">This Quarter</option>
+                        <option value="this_year">This Year</option>
+                        <option value="all_time">All-Time</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {leaderboardLoading ? (
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>⏳ Loading Leaderboard...</div>
+                  ) : leaderboardView === 'individual' ? (
+                    <>
+                      {/* Top 3 Podium Cards */}
+                      {leaderboardData?.individualRankings && leaderboardData.individualRankings.length >= 3 && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+                          {/* Rank 2 */}
+                          <div style={{
+                            background: '#ffffff', borderRadius: '16px', padding: '20px', border: '2px solid #e2e8f0',
+                            textAlign: 'center', position: 'relative', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
+                          }}>
+                            <div style={{
+                              width: '36px', height: '36px', borderRadius: '50%', background: '#e2e8f0', color: '#475569',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, margin: '0 auto 12px', fontSize: '1.1rem'
+                            }}>
+                              🥈
+                            </div>
+                            <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>{leaderboardData.individualRankings[1].name}</h4>
+                            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{leaderboardData.individualRankings[1].teamName}</span>
+                            <div style={{ marginTop: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+                              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#2563eb' }}>
+                                ₹{Number(leaderboardData.individualRankings[1].wonRevenue).toLocaleString('en-IN')}
+                              </div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                {leaderboardData.individualRankings[1].dealsWon} Deals Won ({leaderboardData.individualRankings[1].winRate}% Win Rate)
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Rank 1 (Champion) */}
+                          <div style={{
+                            background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', borderRadius: '16px', padding: '24px', border: '2px solid #f59e0b',
+                            textAlign: 'center', position: 'relative', boxShadow: '0 10px 15px -3px rgba(245,158,11,0.15)', transform: 'scale(1.03)'
+                          }}>
+                            <div style={{
+                              width: '44px', height: '44px', borderRadius: '50%', background: '#f59e0b', color: '#ffffff',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, margin: '0 auto 12px', fontSize: '1.3rem'
+                            }}>
+                              👑
+                            </div>
+                            <div style={{ display: 'inline-block', background: '#f59e0b', color: '#fff', fontSize: '0.65rem', fontWeight: 800, padding: '2px 8px', borderRadius: '12px', marginBottom: '6px' }}>
+                              TOP PERFORMER
+                            </div>
+                            <h4 style={{ margin: 0, fontSize: '1.25rem', color: '#78350f', fontWeight: 800 }}>{leaderboardData.individualRankings[0].name}</h4>
+                            <span style={{ fontSize: '0.85rem', color: '#b45309', fontWeight: 600 }}>{leaderboardData.individualRankings[0].teamName}</span>
+                            <div style={{ marginTop: '16px', borderTop: '1px solid #fde68a', paddingTop: '12px' }}>
+                              <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#b45309' }}>
+                                ₹{Number(leaderboardData.individualRankings[0].wonRevenue).toLocaleString('en-IN')}
+                              </div>
+                              <span style={{ fontSize: '0.8rem', color: '#92400e', fontWeight: 600 }}>
+                                {leaderboardData.individualRankings[0].dealsWon} Deals Won ({leaderboardData.individualRankings[0].winRate}% Win Rate)
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Rank 3 */}
+                          <div style={{
+                            background: '#ffffff', borderRadius: '16px', padding: '20px', border: '2px solid #e2e8f0',
+                            textAlign: 'center', position: 'relative', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
+                          }}>
+                            <div style={{
+                              width: '36px', height: '36px', borderRadius: '50%', background: '#fed7aa', color: '#9a3412',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, margin: '0 auto 12px', fontSize: '1.1rem'
+                            }}>
+                              🥉
+                            </div>
+                            <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>{leaderboardData.individualRankings[2].name}</h4>
+                            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{leaderboardData.individualRankings[2].teamName}</span>
+                            <div style={{ marginTop: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+                              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#2563eb' }}>
+                                ₹{Number(leaderboardData.individualRankings[2].wonRevenue).toLocaleString('en-IN')}
+                              </div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                {leaderboardData.individualRankings[2].dealsWon} Deals Won ({leaderboardData.individualRankings[2].winRate}% Win Rate)
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Full Rankings Table */}
+                      <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                              <th style={{ padding: '12px 16px', textAlign: 'center', width: '60px' }}>Rank</th>
+                              <th style={{ padding: '12px 16px', textAlign: 'left' }}>Sales Representative</th>
+                              <th style={{ padding: '12px 16px', textAlign: 'left' }}>Team</th>
+                              <th style={{ padding: '12px 16px', textAlign: 'center' }}>Deals Won</th>
+                              <th style={{ padding: '12px 16px', textAlign: 'center' }}>Total Pipeline Deals</th>
+                              <th style={{ padding: '12px 16px', textAlign: 'center' }}>Win Rate</th>
+                              <th style={{ padding: '12px 16px', textAlign: 'right' }}>Won Revenue</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {leaderboardData?.individualRankings?.map(rep => (
+                              <tr key={rep.userId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 800, color: rep.rank === 1 ? '#d97706' : rep.rank === 2 ? '#64748b' : rep.rank === 3 ? '#b45309' : '#94a3b8' }}>
+                                  {rep.rank === 1 ? '🥇 1' : rep.rank === 2 ? '🥈 2' : rep.rank === 3 ? '🥉 3' : rep.rank}
+                                </td>
+                                <td style={{ padding: '12px 16px', fontWeight: 700, color: '#1e293b' }}>{rep.name}</td>
+                                <td style={{ padding: '12px 16px', color: '#475569' }}>{rep.teamName}</td>
+                                <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 700, color: '#15803d' }}>{rep.dealsWon}</td>
+                                <td style={{ padding: '12px 16px', textAlign: 'center', color: '#475569' }}>{rep.totalDeals}</td>
+                                <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                                  <span style={{ background: rep.winRate >= 50 ? '#dcfce7' : '#f1f5f9', color: rep.winRate >= 50 ? '#166534' : '#475569', padding: '3px 8px', borderRadius: '12px', fontWeight: 700, fontSize: '0.75rem' }}>
+                                    {rep.winRate}%
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 800, color: '#0f172a' }}>
+                                  ₹{Number(rep.wonRevenue || 0).toLocaleString('en-IN')}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  ) : (
+                    /* Team Rankings View */
+                    <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                        <thead>
+                          <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '60px' }}>Rank</th>
+                            <th style={{ padding: '12px 16px', textAlign: 'left' }}>Team Name</th>
+                            <th style={{ padding: '12px 16px', textAlign: 'center' }}>Deals Won</th>
+                            <th style={{ padding: '12px 16px', textAlign: 'center' }}>Total Deals</th>
+                            <th style={{ padding: '12px 16px', textAlign: 'center' }}>Win Rate</th>
+                            <th style={{ padding: '12px 16px', textAlign: 'right' }}>Won Revenue</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {leaderboardData?.teamRankings?.map(team => (
+                            <tr key={team._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                              <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 800, color: team.rank === 1 ? '#d97706' : team.rank === 2 ? '#64748b' : team.rank === 3 ? '#b45309' : '#94a3b8' }}>
+                                {team.rank === 1 ? '🥇 1' : team.rank === 2 ? '🥈 2' : team.rank === 3 ? '🥉 3' : team.rank}
+                              </td>
+                              <td style={{ padding: '12px 16px', fontWeight: 700, color: '#1e293b' }}>{team.name}</td>
+                              <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 700, color: '#15803d' }}>{team.dealsWon}</td>
+                              <td style={{ padding: '12px 16px', textAlign: 'center', color: '#475569' }}>{team.totalDeals}</td>
+                              <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                                <span style={{ background: team.winRate >= 50 ? '#dcfce7' : '#f1f5f9', color: team.winRate >= 50 ? '#166534' : '#475569', padding: '3px 8px', borderRadius: '12px', fontWeight: 700, fontSize: '0.75rem' }}>
+                                  {team.winRate}%
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 800, color: '#0f172a' }}>
+                                ₹{Number(team.wonRevenue || 0).toLocaleString('en-IN')}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>

@@ -213,7 +213,7 @@ function Home() {
     }
 
     // 3. Group Procurement & Insurance SOPs into a single combined tile under Accounts
-    if (["RM Procurement SOP", "Tyre Procurement SOP", "Fleet Insurance SOP"].includes(module)) {
+    if (["RM Procurement SOP", "Tyre Procurement SOP", "Fleet Insurance SOP", "Procurement & Insurance SOPs"].includes(module)) {
       if (!sopsGrouped) {
         const category = "Accounts";
         if (!acc[category]) acc[category] = [];
@@ -252,6 +252,7 @@ function Home() {
   const [billingConfirmCount, setBillingConfirmCount] = useState(0);
 
   useEffect(() => {
+    sessionStorage.removeItem("it_helpdesk_expiry_modal_shown");
     async function fetchPendingCount() {
       try {
         const res = await axios.get(

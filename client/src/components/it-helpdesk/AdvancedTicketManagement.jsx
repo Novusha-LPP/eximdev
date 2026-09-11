@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
+import useDebounce from "../../hooks/useDebounce";
 import ITPagination from "./ITPagination";
 import {
   Box,
@@ -101,6 +102,7 @@ export default function AdvancedTicketManagement() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 350);
   const [filterStatus, setFilterStatus] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
@@ -154,7 +156,7 @@ export default function AdvancedTicketManagement() {
     setLoading(true);
     try {
       const params = {};
-      if (searchTerm) params.search = searchTerm;
+      if (debouncedSearchTerm) params.search = debouncedSearchTerm;
       if (filterStatus) params.status = filterStatus;
       if (filterPriority) params.priority = filterPriority;
       if (filterCategory) params.category = filterCategory;
@@ -173,7 +175,7 @@ export default function AdvancedTicketManagement() {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, filterStatus, filterPriority, filterCategory, filterType, filterAssignee]);
+  }, [debouncedSearchTerm, filterStatus, filterPriority, filterCategory, filterType, filterAssignee]);
 
   // Fetch users for assignees
   const fetchUsers = async () => {

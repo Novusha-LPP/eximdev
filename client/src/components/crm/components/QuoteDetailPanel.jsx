@@ -61,6 +61,25 @@ export default function QuoteDetailPanel({ quote: initialQuote, onClose, onEdit,
     }
   };
 
+  const handleSendForInvoice = async () => {
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/crm/quotes/${quote._id}/send-for-invoice`,
+        {
+          companyTemplate: quote.companyTemplate || 'standard',
+          invoiceReference: quote.invoiceReference || `INV-${quote.quoteNumber.replace('QT', 'INV')}`
+        },
+        getHeaders()
+      );
+      setQuote(res.data.quote || quote);
+      message.success('Quote sent for invoice processing');
+      onRefresh();
+    } catch (err) {
+      console.error('Failed to send quote for invoice:', err);
+      message.error(err.response?.data?.message || 'Failed to send quote for invoicing');
+    }
+  };
+
   const getStatusBadgeColor = (status) => {
     const config = {
       draft: { bg: '#f1f5f9', text: '#475569' },
@@ -157,6 +176,18 @@ export default function QuoteDetailPanel({ quote: initialQuote, onClose, onEdit,
         >
           <Mail size={14} /> Send Email
         </button>
+        {quote.status !== 'invoice_requested' && (quote.status === 'accepted' || quote.status === 'converted' || quote.status === 'viewed') && (
+          <button
+            onClick={handleSendForInvoice}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px',
+              borderRadius: '6px', border: '1px solid #16a34a', background: '#ecfdf5',
+              fontSize: '0.8rem', fontWeight: 700, color: '#166534', cursor: 'pointer'
+            }}
+          >
+            <CheckCircle2 size={14} /> Send for Invoice
+          </button>
+        )}
       </div>
 
       {/* Panel Scrollable Body */}

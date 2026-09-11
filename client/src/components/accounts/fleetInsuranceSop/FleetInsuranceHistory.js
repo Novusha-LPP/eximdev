@@ -187,7 +187,8 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
     const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
 
     if (diffDays <= 0) return <Chip label="Expired" size="small" color="error" />;
-    if (diffDays <= 30) return <Chip label={`Expiring (${diffDays} days)`} size="small" color="warning" />;
+    if (diffDays <= 7) return <Chip label={`Expiring (${diffDays} days)`} size="small" color="error" />;
+    if (diffDays <= 15) return <Chip label={`Expiring (${diffDays} days)`} size="small" color="warning" />;
     return <Chip label="Active" size="small" color="success" />;
   };
 

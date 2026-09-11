@@ -66,6 +66,8 @@ const opportunitySchema = new mongoose.Schema({
   period: { type: String, default: () => new Date().toISOString().substring(0, 7) },
   closeReason: { type: String },
   closeNotes: { type: String },
+  competitor: { type: String },
+  lostStageBeforeLoss: { type: String },
   stageHistory: [{
     stage: { type: String },
     enteredAt: { type: Date, default: Date.now },

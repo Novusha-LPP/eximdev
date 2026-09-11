@@ -49,9 +49,11 @@ import {
   Plus,
   AlertTriangle,
   ChevronLeft,
+  X,
 } from "lucide-react";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
+import CustomSelect from "./CustomSelect";
 import "../../styles/scorecard.scss";
 
 const TICKET_CATEGORIES = [
@@ -510,8 +512,10 @@ export default function ITHHelpdeskHome() {
         .sort((a, b) => a.diffDays - b.diffDays);
 
       setExpiringLicenses(expList);
-      if (expList.length > 0) {
+      const alreadyShown = sessionStorage.getItem("it_helpdesk_expiry_modal_shown");
+      if (expList.length > 0 && !alreadyShown) {
         setShowExpiryModal(true);
+        sessionStorage.setItem("it_helpdesk_expiry_modal_shown", "true");
       }
 
       const newCount = ticketStats?.newCount || 0;
@@ -625,7 +629,10 @@ export default function ITHHelpdeskHome() {
         <div className="topbar-left">
           <button
             className="back-btn"
-            onClick={() => navigate("/")}
+            onClick={() => {
+              sessionStorage.removeItem("it_helpdesk_expiry_modal_shown");
+              navigate("/");
+            }}
             title="Back to Home"
           >
             <ChevronLeft size={20} />
@@ -1216,580 +1223,415 @@ export default function ITHHelpdeskHome() {
       </div>
 
       {/* ── Raise Support Ticket Modal ───────────────────────────────── */}
-      <Dialog
-        open={showTicketModal}
-        onClose={() => setShowTicketModal(false)}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            boxShadow:
-              "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-            overflow: "hidden",
-          },
-        }}
-      >
-        {/* Header */}
-        <Box
-          sx={{
+      {showTicketModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => !savingTicket && setShowTicketModal(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "rgba(15, 23, 42, 0.6)",
+            backdropFilter: "blur(4px)",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
-            px: 3,
-            py: 2.2,
-            background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
-            borderBottom: "1px solid #e2e8f0",
+            justifyContent: "center",
+            zIndex: 1400,
+            padding: "16px",
           }}
         >
-          <Box display="flex" alignItems="center" gap={1.75}>
-            <Box
-              sx={{
-                width: 44,
-                height: 44,
-                borderRadius: 2.5,
-                background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                color: "white",
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "680px",
+              maxHeight: "92vh",
+              display: "flex",
+              flexDirection: "column",
+              backgroundColor: "#ffffff",
+              borderRadius: "16px",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              overflow: "hidden",
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)",
+                justifyContent: "space-between",
+                padding: "18px 24px",
+                background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                color: "#ffffff",
               }}
             >
-              <ConfirmationNumberIcon fontSize="medium" />
-            </Box>
-            <Box>
-              <Typography
-                variant="h6"
-                fontWeight={700}
-                color="text.primary"
-                lineHeight={1.2}
-              >
-                Raise Support Ticket
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Fill in the details below to request IT assistance
-              </Typography>
-            </Box>
-          </Box>
-          <IconButton
-            onClick={() => setShowTicketModal(false)}
-            size="small"
-            sx={{
-              color: "text.secondary",
-              "&:hover": { bgcolor: "#e2e8f0", color: "text.primary" },
-            }}
-          >
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </Box>
-
-        {/* Form Content */}
-        <DialogContent sx={{ p: 3 }}>
-          <Grid container spacing={2.5}>
-            {/* Description */}
-            <Grid item xs={12}>
-              <Typography
-                variant="subtitle2"
-                fontWeight={600}
-                color="text.primary"
-                sx={{
-                  mb: 0.75,
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "20px" }}>🎫</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#ffffff", lineHeight: 1.2 }}>
+                    Raise Support Ticket
+                  </h3>
+                  <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "2px" }}>
+                    Fill in the details below to request IT assistance
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !savingTicket && setShowTicketModal(false)}
+                style={{
+                  background: "rgba(255, 255, 255, 0.1)",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: "32px",
+                  height: "32px",
                   display: "flex",
                   alignItems: "center",
-                  gap: 0.75,
-                }}
-              >
-                <DescriptionIcon fontSize="small" color="primary" />
-                Issue Description <span style={{ color: "#dc2626" }}>*</span>
-              </Typography>
-              <TextField
-                placeholder="Please describe the issue, symptoms, or request with as much detail as possible..."
-                size="small"
-                fullWidth
-                multiline
-                minRows={3}
-                required
-                value={ticketForm.description}
-                onChange={(e) =>
-                  setTicketForm((f) => ({ ...f, description: e.target.value }))
-                }
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 2,
-                    bgcolor: "#fafafa",
-                    "&:hover": { bgcolor: "#ffffff" },
-                    "&.Mui-focused": { bgcolor: "#ffffff" },
-                  },
-                }}
-              />
-            </Grid>
-
-            {/* Category */}
-            <Grid item xs={12} sm={6}>
-              <Typography
-                variant="subtitle2"
-                fontWeight={600}
-                color="text.primary"
-                sx={{
-                  mb: 0.75,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 0.75,
-                }}
-              >
-                <CategoryIcon fontSize="small" color="primary" />
-                Category <span style={{ color: "#dc2626" }}>*</span>
-              </Typography>
-              <TextField
-                select
-                size="small"
-                fullWidth
-                required
-                value={ticketForm.category}
-                onChange={(e) =>
-                  setTicketForm((f) => ({ ...f, category: e.target.value }))
-                }
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-              >
-                {TICKET_CATEGORIES.map((c) => (
-                  <MenuItem key={c} value={c}>
-                    {c}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-
-            {/* Priority */}
-            <Grid item xs={12} sm={6}>
-              <Typography
-                variant="subtitle2"
-                fontWeight={600}
-                color="text.primary"
-                sx={{
-                  mb: 0.75,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 0.75,
-                }}
-              >
-                <PriorityHighIcon fontSize="small" color="warning" />
-                Priority (Optional)
-              </Typography>
-              <TextField
-                select
-                size="small"
-                fullWidth
-                value={ticketForm.priority || ""}
-                onChange={(e) =>
-                  setTicketForm((f) => ({ ...f, priority: e.target.value }))
-                }
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-              >
-                <MenuItem value="">
-                  <Typography variant="body2" color="text.secondary">
-                    <em>Not specified</em>
-                  </Typography>
-                </MenuItem>
-                {TICKET_PRIORITIES.map((p) => {
-                  const cfg = PRIORITY_CONFIG[p] || {};
-                  return (
-                    <MenuItem key={p} value={p}>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box
-                          sx={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            bgcolor: cfg.dot || "#94a3b8",
-                          }}
-                        />
-                        <Typography variant="body2" fontWeight={500}>
-                          {p}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  );
-                })}
-              </TextField>
-            </Grid>
-
-            {/* Assigned To */}
-            <Grid item xs={12} sm={6}>
-              <Typography
-                variant="subtitle2"
-                fontWeight={600}
-                color="text.primary"
-                sx={{
-                  mb: 0.75,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 0.75,
-                }}
-              >
-                <PersonIcon fontSize="small" color="primary" />
-                Assigned To
-              </Typography>
-              {isAdmin ? (
-                <TextField
-                  select
-                  size="small"
-                  fullWidth
-                  value={ticketForm.assigned_to || ""}
-                  onChange={(e) =>
-                    setTicketForm((f) => ({
-                      ...f,
-                      assigned_to: e.target.value,
-                    }))
-                  }
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-                >
-                  <MenuItem value="">Select User</MenuItem>
-                  {ticketForm.assigned_to === "Vikash" && (
-                    <MenuItem value="Vikash">Vikash</MenuItem>
-                  )}
-                  {users && users.length > 0 ? (
-                    users.map((u) => (
-                      <MenuItem key={u._id} value={u._id}>
-                        {u.username || u.first_name || u.email}
-                      </MenuItem>
-                    ))
-                  ) : (
-                    ticketForm.assigned_to !== "Vikash" && (
-                      <MenuItem disabled>No Users Found</MenuItem>
-                    )
-                  )}
-                </TextField>
-              ) : (
-                <TextField
-                  select
-                  size="small"
-                  fullWidth
-                  disabled
-                  value={ticketForm.assigned_to || "Vikash"}
-                  helperText="Default IT Assignee"
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-                >
-                  <MenuItem value={ticketForm.assigned_to || "Vikash"}>
-                    {ticketForm.assigned_to === "Vikash"
-                      ? "Vikash"
-                      : users?.find((u) => u._id === ticketForm.assigned_to)
-                        ?.username || "Vikash"}
-                  </MenuItem>
-                </TextField>
-              )}
-            </Grid>
-
-            {/* Department */}
-            <Grid item xs={12} sm={6}>
-              <Typography
-                variant="subtitle2"
-                fontWeight={600}
-                color="text.primary"
-                sx={{
-                  mb: 0.75,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 0.75,
-                }}
-              >
-                <BusinessIcon fontSize="small" color="primary" />
-                Department <span style={{ color: "#dc2626" }}>*</span>
-              </Typography>
-              <TextField
-                select
-                size="small"
-                fullWidth
-                required
-                value={ticketForm.department}
-                onChange={(e) =>
-                  setTicketForm((f) => ({ ...f, department: e.target.value }))
-                }
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-              >
-                <MenuItem value="" disabled>Select Department</MenuItem>
-                {TICKET_DEPARTMENTS.map((dept) => (
-                  <MenuItem key={dept} value={dept}>
-                    {dept}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-
-            {/* SLA Due Date */}
-            <Grid item xs={12} sm={6}>
-              <Typography
-                variant="subtitle2"
-                fontWeight={600}
-                color="text.primary"
-                sx={{
-                  mb: 0.75,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 0.75,
-                }}
-              >
-                <CalendarMonthIcon fontSize="small" color="primary" />
-                SLA Due Date <span style={{ color: "#dc2626" }}>*</span>
-              </Typography>
-              <TextField
-                type="date"
-                size="small"
-                required
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                value={
-                  ticketForm.sla_due_date
-                    ? ticketForm.sla_due_date.substring(0, 10)
-                    : (() => {
-                      const n = new Date();
-                      return `${n.getFullYear()}-${String(
-                        n.getMonth() + 1
-                      ).padStart(2, "0")}-${String(n.getDate()).padStart(
-                        2,
-                        "0"
-                      )}`;
-                    })()
-                }
-                disabled
-                helperText="Auto-set to today's date"
-                onChange={(e) =>
-                  setTicketForm((prev) => ({
-                    ...prev,
-                    sla_due_date: e.target.value,
-                  }))
-                }
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-              />
-            </Grid>
-
-            {/* Status */}
-            <Grid item xs={12} sm={6}>
-              <Typography
-                variant="subtitle2"
-                fontWeight={600}
-                color="text.primary"
-                sx={{
-                  mb: 0.75,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 0.75,
-                }}
-              >
-                <CheckCircleOutlineIcon fontSize="small" color="success" />
-                Initial Status
-              </Typography>
-              <Box
-                sx={{
-                  p: 1.1,
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 2,
-                  bgcolor: "#f8fafc",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Chip
-                  label="New"
-                  size="small"
-                  color="info"
-                  sx={{ fontWeight: 600 }}
-                />
-                <Typography variant="caption" color="text.secondary">
-                  Starts automatically as New
-                </Typography>
-              </Box>
-            </Grid>
-
-            {/* Attachments Section */}
-            <Grid item xs={12}>
-              <Typography
-                variant="subtitle2"
-                fontWeight={600}
-                color="text.primary"
-                sx={{
-                  mb: 0.75,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 0.75,
-                }}
-              >
-                <UploadFileIcon fontSize="small" color="primary" />
-                Attachments (Optional)
-              </Typography>
-
-              {/* Hidden Native File Input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept=".png,.jpg,.jpeg"
-                onChange={(e) => handleFilesSelected(e.target.files)}
-                style={{ display: "none" }}
-              />
-
-              {/* Modern Dropzone Area */}
-              <Box
-                onClick={() =>
-                  fileInputRef.current && fileInputRef.current.click()
-                }
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                sx={{
-                  border: isDragging
-                    ? "2px dashed #2563eb"
-                    : "2px dashed #cbd5e1",
-                  borderRadius: 2.5,
-                  p: 2.5,
-                  textAlign: "center",
-                  bgcolor: isDragging ? "#eff6ff" : "#f8fafc",
+                  justifyContent: "center",
+                  color: "#ffffff",
                   cursor: "pointer",
-                  transition: "all 0.2s ease-in-out",
-                  "&:hover": {
-                    borderColor: "primary.main",
-                    bgcolor: "#f0f7ff",
-                  },
+                  transition: "all 0.15s ease",
                 }}
               >
-                <CloudUploadIcon
-                  sx={{
-                    fontSize: 36,
-                    color: isDragging ? "primary.main" : "#94a3b8",
-                    mb: 0.5,
-                  }}
-                />
-                <Typography
-                  variant="body2"
-                  fontWeight={600}
-                  color="text.primary"
-                >
-                  Click to upload or drag & drop screenshots / files
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Supported: PNG, JPG, JPEG (Max 10MB each)
-                </Typography>
-              </Box>
+                <X size={16} />
+              </button>
+            </div>
 
-              {/* Attached Files Preview List */}
-              {ticketForm.files && ticketForm.files.length > 0 && (
-                <Box
-                  sx={{
-                    mt: 1.5,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 1,
-                  }}
-                >
-                  {ticketForm.files.map((file, idx) => (
-                    <Box
-                      key={idx}
-                      sx={{
+            {/* Modal Body */}
+            <div style={{ padding: "22px 24px", overflowY: "auto", flex: 1 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                {/* Issue Description */}
+                <div className="form-field" style={{ gridColumn: "span 2" }}>
+                  <label>Issue Description *</label>
+                  <textarea
+                    placeholder="Please describe the issue, symptoms, or request with as much detail as possible..."
+                    rows={3}
+                    value={ticketForm.description}
+                    onChange={(e) =>
+                      setTicketForm((f) => ({ ...f, description: e.target.value }))
+                    }
+                    style={{ minHeight: "80px" }}
+                  />
+                </div>
+
+                {/* Category */}
+                <div className="form-field">
+                  <label>Category *</label>
+                  <CustomSelect
+                    value={ticketForm.category}
+                    onChange={(val) =>
+                      setTicketForm((f) => ({ ...f, category: val }))
+                    }
+                    options={TICKET_CATEGORIES.map((c) => ({ label: c, value: c }))}
+                    placeholder="Select Category"
+                    width="100%"
+                  />
+                </div>
+
+                {/* Priority */}
+                <div className="form-field">
+                  <label>Priority (Optional)</label>
+                  <CustomSelect
+                    value={ticketForm.priority}
+                    onChange={(val) =>
+                      setTicketForm((f) => ({ ...f, priority: val }))
+                    }
+                    options={[
+                      { label: "Not specified", value: "" },
+                      ...TICKET_PRIORITIES.map((p) => ({ label: p, value: p })),
+                    ]}
+                    placeholder="Not specified"
+                    width="100%"
+                  />
+                </div>
+
+                {/* Assigned To */}
+                <div className="form-field">
+                  <label>Assigned To</label>
+                  {isAdmin ? (
+                    <CustomSelect
+                      value={ticketForm.assigned_to || ""}
+                      onChange={(val) =>
+                        setTicketForm((f) => ({
+                          ...f,
+                          assigned_to: val,
+                        }))
+                      }
+                      options={[
+                        { label: "Select User", value: "" },
+                        ...(ticketForm.assigned_to === "Vikash"
+                          ? [{ label: "Vikash", value: "Vikash" }]
+                          : []),
+                        ...(users && users.length > 0
+                          ? users.map((u) => ({
+                              label: u.username || u.first_name || u.email,
+                              value: u._id,
+                            }))
+                          : []),
+                      ]}
+                      placeholder="Select User"
+                      width="100%"
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        height: "38px",
+                        padding: "0 12px",
+                        borderRadius: "8px",
+                        border: "1px solid #cbd5e1",
+                        background: "#f1f5f9",
+                        color: "#64748b",
+                        fontSize: "13.5px",
+                        fontWeight: 500,
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "space-between",
-                        p: 1.2,
-                        borderRadius: 2,
-                        border: "1px solid #e2e8f0",
-                        bgcolor: "#ffffff",
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                        boxSizing: "border-box",
                       }}
                     >
-                      <Box
-                        display="flex"
-                        alignItems="center"
-                        gap={1.2}
-                        sx={{ minWidth: 0 }}
-                      >
-                        <InsertDriveFileIcon color="primary" fontSize="small" />
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography
-                            variant="body2"
-                            fontWeight={500}
-                            noWrap
-                            sx={{ maxWidth: 320 }}
-                          >
-                            {file.name}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {formatFileSize(file.size)}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveFile(idx);
-                        }}
-                        title="Remove file"
-                      >
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-            </Grid>
-          </Grid>
-        </DialogContent>
+                      {ticketForm.assigned_to === "Vikash"
+                        ? "Vikash (Default IT Assignee)"
+                        : users?.find((u) => u._id === ticketForm.assigned_to)
+                            ?.username || "Vikash (Default IT Assignee)"}
+                    </div>
+                  )}
+                </div>
 
-        {/* Actions */}
-        <DialogActions
-          sx={{
-            px: 3,
-            py: 2,
-            borderTop: "1px solid #e2e8f0",
-            bgcolor: "#fafbfc",
-            display: "flex",
-            justifyContent: "space-between",
-          }}
-        >
-          <Button
-            onClick={() => setShowTicketModal(false)}
-            disabled={savingTicket}
-            variant="outlined"
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              fontWeight: 600,
-              px: 2.5,
-              borderColor: "#cbd5e1",
-              color: "text.secondary",
-              "&:hover": { borderColor: "#94a3b8", bgcolor: "#f1f5f9" },
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSaveTicket}
-            variant="contained"
-            disabled={savingTicket}
-            startIcon={
-              savingTicket ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : (
-                <SendIcon />
-              )
-            }
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              fontWeight: 600,
-              px: 3,
-              background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-              boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
-              "&:hover": {
-                background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
-              },
-            }}
-          >
-            {savingTicket ? "Saving..." : "Raise Ticket"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+                {/* Department */}
+                <div className="form-field">
+                  <label>Department *</label>
+                  <CustomSelect
+                    value={ticketForm.department}
+                    onChange={(val) =>
+                      setTicketForm((f) => ({ ...f, department: val }))
+                    }
+                    options={TICKET_DEPARTMENTS.map((dept) => ({ label: dept, value: dept }))}
+                    placeholder="Select Department"
+                    width="100%"
+                  />
+                </div>
+
+                {/* SLA Due Date */}
+                <div className="form-field">
+                  <label>SLA Due Date</label>
+                  <input
+                    type="date"
+                    disabled
+                    value={
+                      ticketForm.sla_due_date
+                        ? ticketForm.sla_due_date.substring(0, 10)
+                        : (() => {
+                            const n = new Date();
+                            return `${n.getFullYear()}-${String(
+                              n.getMonth() + 1
+                            ).padStart(2, "0")}-${String(n.getDate()).padStart(
+                              2,
+                              "0"
+                            )}`;
+                          })()
+                    }
+                  />
+                  <span style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>
+                    Auto-set to today's date
+                  </span>
+                </div>
+
+                {/* Status */}
+                <div className="form-field">
+                  <label>Initial Status</label>
+                  <div
+                    style={{
+                      height: "38px",
+                      padding: "7px 12px",
+                      borderRadius: "8px",
+                      border: "1px solid #e2e8f0",
+                      backgroundColor: "#f8fafc",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      fontSize: "13px",
+                    }}
+                  >
+                    <span className="badge badge-info" style={{ fontWeight: 600 }}>
+                      New
+                    </span>
+                    <span style={{ fontSize: "11.5px", color: "#64748b" }}>
+                      Starts automatically as New
+                    </span>
+                  </div>
+                </div>
+
+                {/* Attachments Section */}
+                <div className="form-field" style={{ gridColumn: "span 2" }}>
+                  <label>Attachments (Optional)</label>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".png,.jpg,.jpeg,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+                    onChange={(e) => handleFilesSelected(e.target.files)}
+                    style={{ display: "none" }}
+                  />
+
+                  <div
+                    onClick={() =>
+                      fileInputRef.current && fileInputRef.current.click()
+                    }
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    style={{
+                      border: isDragging
+                        ? "2px dashed #2563eb"
+                        : "2px dashed #cbd5e1",
+                      borderRadius: "10px",
+                      padding: "20px",
+                      textAlign: "center",
+                      backgroundColor: isDragging ? "#eff6ff" : "#f8fafc",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <CloudUploadIcon
+                      sx={{
+                        fontSize: 32,
+                        color: isDragging ? "#2563eb" : "#94a3b8",
+                        mb: 0.5,
+                      }}
+                    />
+                    <div style={{ fontSize: "13px", fontWeight: 600, color: "#1e293b" }}>
+                      Click to upload or drag &amp; drop screenshots / files
+                    </div>
+                    <div style={{ fontSize: "11.5px", color: "#64748b", marginTop: "2px" }}>
+                      Supported: PNG, JPG, JPEG, PDF, Excel, Word (Max 10MB each)
+                    </div>
+                  </div>
+
+                  {/* Attached Files Preview List */}
+                  {ticketForm.files && ticketForm.files.length > 0 && (
+                    <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {ticketForm.files.map((file, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "8px 12px",
+                            borderRadius: "8px",
+                            border: "1px solid #e2e8f0",
+                            backgroundColor: "#ffffff",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                            <InsertDriveFileIcon color="primary" fontSize="small" />
+                            <div style={{ minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontSize: "12.5px",
+                                  fontWeight: 600,
+                                  color: "#1e293b",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  maxWidth: "360px",
+                                }}
+                              >
+                                {file.name}
+                              </div>
+                              <div style={{ fontSize: "11px", color: "#64748b" }}>
+                                {formatFileSize(file.size)}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveFile(idx);
+                            }}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              color: "#ef4444",
+                              cursor: "pointer",
+                              padding: "4px",
+                            }}
+                            title="Remove file"
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px 24px",
+                borderTop: "1px solid #e2e8f0",
+                backgroundColor: "#fafbfc",
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowTicketModal(false)}
+                disabled={savingTicket}
+                style={{
+                  padding: "8px 20px",
+                  borderRadius: "8px",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  background: "#ffffff",
+                  border: "1px solid #cbd5e1",
+                  color: "#475569",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSaveTicket}
+                disabled={savingTicket}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 24px",
+                  borderRadius: "8px",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                  color: "#ffffff",
+                  border: "none",
+                  boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
+                  cursor: savingTicket ? "not-allowed" : "pointer",
+                }}
+              >
+                {savingTicket ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <SendIcon fontSize="small" />
+                )}
+                <span>{savingTicket ? "Saving..." : "Raise Ticket"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Software License Expiry & Expired Pop-up Notification Dialog ──────── */}
       <Dialog

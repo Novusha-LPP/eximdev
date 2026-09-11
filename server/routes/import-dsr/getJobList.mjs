@@ -10,6 +10,8 @@ import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { applyUserBranchFilter } from "../../middleware/branchMiddleware.mjs";
 import { recalculateLicenseUtilizationForJob, validateLicenseUtilization, getUsdImportRate } from "../../services/licenseUtilizationService.mjs";
 import { validateRodtepUtilization } from "../../services/rodtepService.mjs";
+import ClientQuery from "../../model/clientQueryModel.mjs";
+import { invalidateJobTabCountsCache } from "./getJobTabCounts.mjs";
 
 const router = express.Router();
 
@@ -143,7 +145,7 @@ const buildAllContainerDateExists = (field) => ({
 const criticalFields = `
   _id job_no job_number branch_id branch_code trade_type mode ie_code_no cth_no year importer custom_house importer_reference_no hawb_hbl_no awb_bl_no 
   container_nos vessel_berthing etd etd_date etdDate detailed_status be_no be_date type_of_Do billing_completed_date
-  gateway_igm_date igm_date igm_no discharge_date shipping_line_airline do_doc_recieved_date 
+  gateway_igm gateway_igm_date igm_date igm_no discharge_date shipping_line_airline do_doc_recieved_date 
   is_do_doc_recieved obl_recieved_date is_obl_recieved do_copies do_list status
   do_validity do_completed is_og_doc_recieved og_doc_recieved_date
   do_shipping_line_invoice port_of_reporting type_of_b_e consignment_type
@@ -155,7 +157,7 @@ const criticalFields = `
   invoice_number invoice_date delivery_chalan_file fine_amount penalty_amount 
   penalty_by_us penalty_by_importer other_do_documents intrest_ammount sws_ammount igst_ammount 
   bcd_ammount assessable_ammount total_inv_value product_value freight insurance other_charges inv_currency detention_from 
-  gross_weight job_net_weight payment_method
+  gross_weight job_net_weight payment_method no_of_pkgs delivery_completed_date job_date
   shipping_line_invoice_imgs obl_telex_bl document_received_date
   concor_invoice_and_receipt_copy thar_invoices hasti_invoices icd_cfs_invoice_img cfs_name charges
   invoice_details description_details
@@ -392,12 +394,36 @@ router.get(
           ? statusMapping[detailedStatus] || detailedStatus
           : null;
 
+      if (requestedDetailedStatus) {
+        query.detailed_status = {
+          $in: [
+            requestedDetailedStatus,
+            requestedDetailedStatus.toLowerCase(),
+            requestedDetailedStatus.toUpperCase(),
+          ],
+        };
+      }
+
       // 6) search
       if (searchTerm) {
+        query.$and = query.$and || [];
         query.$and.push(buildSearchQuery(searchTerm));
       }
 
-      // 7) unresolvedOnly (handled in dataPipeline after __query_score calculation)
+      // 7) unresolvedOnly
+      if (unresolvedOnly === "true") {
+        const openQueryJobNos = await ClientQuery.distinct("job_no", {
+          module_type: "import",
+          $or: [{ status: "open" }, { seenByAdmin: false }],
+        });
+        query.$and = query.$and || [];
+        query.$and.push({
+          $or: [
+            { dsr_queries: { $elemMatch: { select_module: "DSR", resolved: { $ne: true } } } },
+            { job_no: { $in: openQueryJobNos } },
+          ],
+        });
+      }
 
       if (query.$and && query.$and.length === 0) {
         delete query.$and;
@@ -428,539 +454,67 @@ router.get(
         }
       }
 
-      const matchStage = { $match: query };
-
-      // 10) projection
+      // 9) projection
       const selectedFieldsStr = getSelectedFields(
         detailedStatus === "all" ? "all" : detailedStatus,
         false
       );
-      const projection = {};
-      selectedFieldsStr.split(/\s+/).forEach((f) => {
-        if (f) projection[f] = 1;
-      });
 
-      // always keep fields needed for status
-      projection.be_no = 1;
-      projection.job_no = 1;
-      projection.type_of_b_e = 1;
-      projection.consignment_type = 1;
-      projection.out_of_charge = 1;
-      projection.pcv_date = 1;
-      projection.discharge_date = 1;
-      projection.gateway_igm_date = 1;
-      projection.vessel_berthing = 1;
-      projection.container_nos = 1;
-      projection.branch_info = 1;
-      projection.mode = 1;
-      projection.__client_queries = 1;
-      projection.dsr_queries = 1;
+      // 10) Fast indexed parallel count + find
+      let findQuery = JobModel.find(query)
+        .select(selectedFieldsStr + " row_color status_rank status_sort_date detailed_status")
+        .sort({ status_rank: 1, status_sort_date: 1, _id: 1 })
+        .skip(parseInt(skip))
+        .limit(parseInt(limit))
+        .lean();
 
-      const preProjectStage = { $project: projection };
-
-      // 11) effective detailed_status
-      const effectiveDetailedStatusExpression = {
-        $let: {
-          vars: {
-            bePresent: {
-              $gt: [{ $strLenCP: { $ifNull: ["$be_no", ""] } }, 0],
-            },
-            anyArrival: buildAnyContainerDateExists("arrival_date"),
-            anyRailOut: buildAnyContainerDateExists("container_rail_out_date"),
-            allDelivery: buildAllContainerDateExists("delivery_date"),
-            allEmptyOffload: buildAllContainerDateExists(
-              "emptyContainerOffLoadDate"
-            ),
-            validOutOfCharge: buildValidDateExpression("$out_of_charge"),
-            validPcv: buildValidDateExpression("$pcv_date"),
-            validDischarge: buildValidDateExpression("$discharge_date"),
-            validGateway: buildValidDateExpression("$gateway_igm_date"),
-            validVessel: buildValidDateExpression("$vessel_berthing"),
-            validDoCompleted: buildValidDateExpression("$do_completed"),
-            isExBond: {
-              $eq: [
-                {
-                  $toLower: { $ifNull: ["$type_of_b_e", ""] },
-                },
-                "ex-bond",
-              ],
-            },
-            railoutDisabled: {
-              $eq: ["$branch_info.configuration.railout_enabled", false],
-            },
-            gatewayIgmDisabled: {
-              $eq: ["$branch_info.configuration.gateway_igm_enabled", false],
-            },
-            validIgmDate: buildValidDateExpression("$igm_date"),
-            igmNoPresent: {
-              $gt: [{ $strLenCP: { $ifNull: ["$igm_no", ""] } }, 0],
-            },
-            isInBond: {
-              $eq: [
-                {
-                  $toLower: { $ifNull: ["$type_of_b_e", ""] },
-                },
-                "in-bond",
-              ],
-            },
-            isLcl: {
-              $eq: [
-                {
-                  $toLower: { $ifNull: ["$consignment_type", ""] },
-                },
-                "lcl",
-              ],
-            },
-            isTypeDoIcd: {
-              $eq: [
-                {
-                  $toLower: { $ifNull: ["$type_of_Do", ""] },
-                },
-                "icd",
-              ],
-            },
-            isAir: {
-              $eq: [
-                {
-                  $toLower: { $ifNull: ["$mode", ""] },
-                },
-                "air",
-              ],
-            },
-            isBilled: {
-              $let: {
-                vars: {
-                  billParts: { $split: [{ $ifNull: ["$bill_no", ""] }, ","] },
-                },
-                in: {
-                  $and: [
-                    { $gt: [{ $strLenCP: { $trim: { input: { $ifNull: [{ $arrayElemAt: ["$$billParts", 0] }, ""] } } } }, 0] },
-                    { $gt: [{ $strLenCP: { $trim: { input: { $ifNull: [{ $arrayElemAt: ["$$billParts", 1] }, ""] } } } }, 0] },
-                  ],
-                },
-              },
-            },
-          },
-          in: {
-            $cond: [
-              "$$isBilled",
-              "Billed",
-              {
-                $cond: [
-                  { $and: ["$$isAir", "$$validOutOfCharge", "$$allDelivery"] },
-                  "Billing Pending",
-                  {
-                    $cond: [
-                      { $and: ["$$isLcl", "$$isInBond", "$$validOutOfCharge"] },
-                      "Billing Pending",
-                      {
-                        $cond: [
-                          "$$isExBond",
-                          {
-                            // Ex-bond
-                            $switch: {
-                              branches: [
-                                {
-                                  case: {
-                                    $and: [
-                                      "$$bePresent",
-                                      "$$validOutOfCharge",
-                                      "$$allDelivery",
-                                    ],
-                                  },
-                                  then: "Billing Pending",
-                                },
-                                {
-                                  case: {
-                                    $and: [
-                                      "$$validDoCompleted",
-                                      "$$validOutOfCharge",
-                                      { $eq: ["$$allDelivery", false] },
-                                    ],
-                                  },
-                                  then: "Do completed and Delivery pending",
-                                },
-                                {
-                                  case: {
-                                    $and: ["$$bePresent", "$$validOutOfCharge"],
-                                  },
-                                  then: "Custom Clearance Completed",
-                                },
-                                {
-                                  case: {
-                                    $and: ["$$bePresent", "$$validPcv"],
-                                  },
-                                  then: "PCV Done, Duty Payment Pending",
-                                },
-                              ],
-                              default: "ETA Date Pending",
-                            },
-                          },
-                          {
-                            // Non Ex-bond (Home + In-Bond etc)
-                            $let: {
-                              vars: {
-                                billingComplete: {
-                                  $cond: [
-                                    "$$isInBond",
-                                    // In-Bond Logic
-                                    {
-                                      $cond: [
-                                        "$$isTypeDoIcd",
-                                        "$$allEmptyOffload", // In-Bond ICD: wait for EmptyOff
-                                        { $and: ["$$allEmptyOffload", "$$allDelivery"] } // In-Bond Factory: wait for EmptyOff AND Delivery
-                                      ]
-                                    },
-                                    // Standard Logic (Home Consumption etc)
-                                    {
-                                      $cond: [
-                                        { $or: ["$$isLcl", "$$isTypeDoIcd"] },
-                                        "$$allDelivery", // LCL/ICD: wait for Delivery
-                                        "$$allEmptyOffload" // Container: wait for EmptyOff
-                                      ]
-                                    }
-                                  ]
-                                },
-                              },
-                              in: {
-                                $switch: {
-                                  branches: [
-                                    {
-                                      case: {
-                                        $and: [
-                                          "$$bePresent",
-                                          "$$anyArrival",
-                                          "$$validOutOfCharge",
-                                          "$$billingComplete",
-                                        ],
-                                      },
-                                      then: "Billing Pending",
-                                    },
-                                    {
-                                      case: {
-                                        $and: [
-                                          "$$validDoCompleted",
-                                          "$$validOutOfCharge",
-                                          { $eq: ["$$allDelivery", false] },
-                                        ],
-                                      },
-                                      then: "Do completed and Delivery pending",
-                                    },
-                                    {
-                                      case: {
-                                        $and: [
-                                          "$$bePresent",
-                                          "$$anyArrival",
-                                          "$$validOutOfCharge",
-                                        ],
-                                      },
-                                      then: "Custom Clearance Completed",
-                                    },
-                                    {
-                                      case: {
-                                        $and: ["$$bePresent", "$$anyArrival", "$$validPcv"],
-                                      },
-                                      then: "PCV Done, Duty Payment Pending",
-                                    },
-                                    {
-                                      case: {
-                                        $and: ["$$bePresent", "$$anyArrival"],
-                                      },
-                                      then: "BE Noted, Clearance Pending",
-                                    },
-                                    {
-                                      case: {
-                                        $and: [{ $not: ["$$bePresent"] }, "$$anyArrival"],
-                                      },
-                                      then: "Arrived, BE Note Pending",
-                                    },
-                                    {
-                                      case: "$$bePresent",
-                                      then: "BE Noted, Arrival Pending",
-                                    },
-                                    {
-                                      case: "$$anyRailOut",
-                                      then: "Rail Out",
-                                    },
-                                    {
-                                      case: "$$validDischarge",
-                                      then: "Discharged",
-                                    },
-                                    {
-                                      case: {
-                                        $or: [
-                                          "$$validGateway",
-                                          {
-                                            $and: [
-                                              "$$railoutDisabled",
-                                              "$$gatewayIgmDisabled",
-                                              "$$validIgmDate",
-                                              "$$igmNoPresent",
-                                            ],
-                                          },
-                                        ],
-                                      },
-                                      then: "Gateway IGM Filed",
-                                    },
-                                    {
-                                      case: "$$validVessel",
-                                      then: "Estimated Time of Arrival",
-                                    },
-                                  ],
-                                  default: "ETA Date Pending",
-                                },
-                              },
-                            },
-                          },
-                        ],
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        },
-      };
-
-      const statusRankEntries = Object.entries(statusRank);
-
-      const statusRankBranches = statusRankEntries.map(
-        ([statusName, { rank }]) => ({
-          case: { $eq: ["$__effective_detailed_status", statusName] },
-          then: rank,
-        })
-      );
-
-      const statusDateBranches = statusRankEntries.map(
-        ([statusName, { field }]) => ({
-          case: { $eq: ["$__effective_detailed_status", statusName] },
-          then: {
-            $ifNull: [
-              buildDateFromField(`$container_nos.0.${field}`),
-              buildDateFromField(`$${field}`),
-            ],
-          },
-        })
-      );
-
-      const defaultDateExpression = {
-        $ifNull: [
-          buildDateFromField("$container_nos.0.detention_from"),
-          buildDateFromField("$detention_from"),
-        ],
-      };
-
-      const firstAddFields = {
-        __effective_detailed_status: effectiveDetailedStatusExpression,
-      };
-
-      const baseAddFields = {
-        __query_score: {
-          $cond: [
-            {
-              $gt: [
-                {
-                  $size: {
-                    $filter: {
-                      input: { $ifNull: ["$__client_queries", []] },
-                      as: "q",
-                      cond: { $eq: ["$$q.seenByAdmin", false] },
-                    },
-                  },
-                },
-                0,
-              ],
-            },
-            3,
-            {
-              $cond: [
-                {
-                  $gt: [
-                    {
-                      $size: {
-                        $filter: {
-                          input: { $ifNull: ["$__client_queries", []] },
-                          as: "q",
-                          cond: { $eq: ["$$q.status", "open"] },
-                        },
-                      },
-                    },
-                    0,
-                  ],
-                },
-                2,
-                0,
-              ],
-            },
-          ],
-        },
-        __status_rank: {
-          $switch: {
-            branches: statusRankBranches,
-            default: 999,
-          },
-        },
-        __status_sort_date: {
-          $ifNull: [
-            {
-              $switch: {
-                branches: statusDateBranches,
-                default: defaultDateExpression,
-              },
-            },
-            FAR_FUTURE_DATE,
-          ],
-        },
-      };
-
-      const dataPipeline = [];
-
-      dataPipeline.push({ $addFields: firstAddFields });
-
-      if (requestedDetailedStatus) {
-        dataPipeline.push({
-          $match: { __effective_detailed_status: requestedDetailedStatus },
-        });
+      // Use index hint on broad status queries without selective filters to avoid heavy in-memory sort
+      if (
+        !search &&
+        (!detailedStatus || detailedStatus === "all") &&
+        (!importer || importer.toLowerCase() === "all") &&
+        (!selectedICD || selectedICD === "all")
+      ) {
+        findQuery = findQuery.hint("year_1_status_rank_1_status_sort_date_1");
       }
 
-      dataPipeline.push({ $addFields: baseAddFields });
+      const [totalCount, jobs] = await Promise.all([
+        JobModel.countDocuments(query),
+        findQuery,
+      ]);
 
-      if (unresolvedOnly === "true") {
-        dataPipeline.push({
-          $match: {
-            $or: [
-              { dsr_queries: { $elemMatch: { resolved: { $ne: true } } } },
-              { __query_score: { $gte: 2 } },
-            ],
-          },
-        });
-      }
-
-      dataPipeline.push({
-        $addFields: {
-          detailed_status: "$__effective_detailed_status",
-        },
+      // Ensure detailed_status and row_color are set consistently
+      jobs.forEach((job) => {
+        if (!job.detailed_status) {
+          job.detailed_status = "ETA Date Pending";
+        }
+        if (!job.row_color) {
+          job.row_color = getRowColorFromStatus(job.detailed_status);
+        }
       });
 
-      const sortStage = {
-        $sort: {
-          __query_score: -1,
-          __status_rank: 1,
-          __status_sort_date: 1,
-          _id: 1,
-        },
-      };
-
-      const basePipeline = [...dataPipeline];
-
-      const pagedPipeline = [
-        ...basePipeline,
-        sortStage,
-        { $skip: parseInt(skip) },
-        { $limit: parseInt(limit) },
-      ];
-
-      const metadataPipeline = [...basePipeline, { $count: "total" }];
-
-      const pipeline = [
-        matchStage,
-        {
-          $lookup: {
-            from: "branches",
-            localField: "branch_id",
-            foreignField: "_id",
-            as: "branch_info",
-          },
-        },
-        {
-          $unwind: { path: "$branch_info", preserveNullAndEmptyArrays: true },
-        },
-        {
-          $lookup: {
-            from: "clientqueries",
-            localField: "job_no",
-            foreignField: "job_no",
-            as: "__client_queries",
-          },
-        },
-        preProjectStage,
-        {
-          $facet: {
-            metadata: metadataPipeline,
-            data: pagedPipeline,
-          },
-        },
-      ];
-
-      const aggResult = await JobModel.aggregate(pipeline)
-        .allowDiskUse(true)
-        .exec();
-
-      const metadata = aggResult[0]?.metadata || [];
-      const jobs = aggResult[0]?.data || [];
-      const totalCount = (metadata[0] && metadata[0].total) || 0;
-
-      // Background lazy-sync: if any of the jobs returned on this page
-      // have a stored `detailed_status` that differs from the
-      // computed/effective one, persist the effective value in DB
-      // asynchronously. This avoids a full migration while keeping
-      // counts accurate over time. Do not block the response on this.
-      try {
-        (async () => {
-          try {
-            if (!jobs || jobs.length === 0) return;
-            const ids = jobs.map((j) => j._id).filter(Boolean);
-            if (ids.length === 0) return;
-
-            const storedDocs = await JobModel.find({ _id: { $in: ids } })
-              .select("detailed_status year _id")
-              .lean();
-
-            const storedMap = new Map();
-            storedDocs.forEach((d) => storedMap.set(String(d._id), d));
-
-            const bulkOps = [];
-            for (const j of jobs) {
-              const idStr = String(j._id);
-              const stored = storedMap.get(idStr);
-              const effective =
-                j.detailed_status || j.__effective_detailed_status;
-              const storedVal =
-                stored && stored.detailed_status
-                  ? String(stored.detailed_status)
-                  : null;
-              if (storedVal !== effective) {
-                bulkOps.push({
-                  updateOne: {
-                    filter: { _id: j._id },
-                    update: {
-                      $set: {
-                        detailed_status: effective,
-                        row_color: getRowColorFromStatus(effective),
-                      },
-                    },
-                  },
-                });
-              }
-            }
-
-            if (bulkOps.length > 0) {
-              try {
-                await JobModel.bulkWrite(bulkOps, { ordered: false });
-                // Invalidate cache for the year(s) touched so subsequent reads see updated values
-                // Use a simple invalidate to be safe.
-                invalidateCache();
-              } catch (err) {
-                console.error("Lazy-sync bulkWrite error:", err);
-              }
-            }
-          } catch (err) {
-            console.error("Lazy-sync error:", err);
+      // 11) Calculate unresolvedCount for Pending status without extra client request
+      let unresolvedCount = 0;
+      if (statusLower === "pending") {
+        try {
+          const openQueryJobNos = await ClientQuery.distinct("job_no", {
+            module_type: "import",
+            $or: [{ status: "open" }, { seenByAdmin: false }],
+          });
+          const unresCond = [
+            { dsr_queries: { $elemMatch: { select_module: "DSR", resolved: { $ne: true } } } },
+            { job_no: { $in: openQueryJobNos } },
+          ];
+          const unresQuery = { ...query };
+          if (unresQuery.$and) {
+            unresQuery.$and = [...unresQuery.$and, { $or: unresCond }];
+          } else {
+            unresQuery.$or = unresCond;
           }
-        })();
-      } catch (err) {
-        console.error("Error scheduling lazy-sync:", err);
+          unresolvedCount = await JobModel.countDocuments(unresQuery);
+        } catch (e) {
+          console.error("Error calculating unresolvedCount:", e);
+        }
       }
 
       const responsePayload = {
@@ -969,6 +523,7 @@ router.get(
         currentPage: parseInt(page),
         totalPages: Math.ceil(totalCount / limit),
         userImporters: req.currentUser?.assignedImporterName || [],
+        unresolvedCount,
       };
 
       if (!bypassCache) {
@@ -1121,6 +676,7 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
 
     if (finalDoc?.year) invalidateCache(finalDoc.year);
     else invalidateCache();
+    invalidateJobTabCountsCache();
 
     // Recalculate license utilization asynchronously (non-blocking)
     if (finalDoc) {
@@ -1149,7 +705,7 @@ router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
     const job = await JobModel.findOne({
       year,
       job_no: jobNo,
-    });
+    }).lean();
 
     if (!job) {
       return res.status(404).json({ message: "Job not found" });

@@ -92,10 +92,17 @@ router.get('/my-teams', async (req, res) => {
     let query = { isActive: true };
     const seeAll = req.query.all === 'true' || req.query.seeAll === 'true';
     if (!isAdmin && !seeAll && userId) {
-      query.$or = [
+      const userDoc = await UserModel.findById(userId).select('isHod crmManagedTeams').lean();
+      const managedTeamIds = (userDoc?.crmManagedTeams || []).map(id => id.toString());
+      
+      const orConditions = [
         { managerId: userId },
         { memberIds: userId }
       ];
+      if (managedTeamIds.length > 0) {
+        orConditions.push({ _id: { $in: managedTeamIds } });
+      }
+      query.$or = orConditions;
     }
 
     const teams = await SalesTeam.find(query)
@@ -204,6 +211,58 @@ router.get('/:id/performance', async (req, res) => {
         revenue: Math.round((team.performance.currentRevenue / (team.quotas.monthlyRevenue || 1)) * 100),
         deals: team.quotas.dealCount > 0 ? Math.round((team.performance.currentDeals / team.quotas.dealCount) * 100) : 0
       }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// FR-12: HOD Multi-Team Management Endpoints
+// GET all HODs and their assigned teams
+router.get('/hod-assignments', async (req, res) => {
+  try {
+    const hods = await UserModel.find({
+      $or: [
+        { isHod: true },
+        { role: { $in: ['HOD', 'Head_of_Department'] } }
+      ]
+    })
+    .select('first_name last_name username email role crmRole isHod crmManagedTeams')
+    .populate('crmManagedTeams', 'name businessVertical')
+    .lean();
+
+    res.json({ success: true, hods });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Admin updates HOD designation and multi-team assignments
+router.post('/assign-hod-teams', async (req, res) => {
+  try {
+    const { userId, isHod, teamIds = [] } = req.body;
+    if (!userId) {
+      return res.status(400).json({ message: 'userId is required' });
+    }
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      userId,
+      {
+        isHod: Boolean(isHod),
+        crmManagedTeams: teamIds
+      },
+      { new: true }
+    ).select('first_name last_name username email role crmRole isHod crmManagedTeams')
+    .populate('crmManagedTeams', 'name businessVertical');
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'HOD teams updated successfully',
+      user: updatedUser
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

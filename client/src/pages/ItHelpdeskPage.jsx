@@ -39,11 +39,16 @@ export default function ItHelpdeskPage() {
         <Route path="/licenses" element={<LicenseManagement />} />
         <Route path="/reports" element={<ITReports />} />
         <Route path="/notifications" element={<ITNotifications />} />
+        <Route path="/administration/audit" element={<AuditLogs />} />
+        <Route path="/audit" element={<AuditLogs />} />
         <Route path="/administration/roles" element={<RolesPermissions />} />
+        <Route path="/roles" element={<RolesPermissions />} />
+        <Route path="/administration/users" element={<UserManagement />} />
+        <Route path="/users" element={<UserManagement />} />
         {/* <Route path="/administration/settings" element={<SystemSettings />} /> */}
         <Route path="/administration/settings" element={<Navigate to="/it-helpdesk" replace />} />
         <Route path="/administration/setting" element={<Navigate to="/it-helpdesk" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/it-helpdesk" replace />} />
       </Routes>
 
     </Box>

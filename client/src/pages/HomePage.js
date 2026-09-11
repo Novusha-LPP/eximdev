@@ -1055,7 +1055,7 @@ function HomePageContent() {
               <Route
                 path="/rm-procurement"
                 element={
-                  <ProtectedRoute requiredModule="RM Procurement SOP">
+                  <ProtectedRoute requiredModule={["Accounts", "RM Procurement SOP", "Procurement & Insurance SOPs"]}>
                     <RmProcurementSop />
                   </ProtectedRoute>
                 }
@@ -1064,7 +1064,7 @@ function HomePageContent() {
               <Route
                 path="/tyre-procurement/*"
                 element={
-                  <ProtectedRoute requiredModule="Tyre Procurement SOP">
+                  <ProtectedRoute requiredModule={["Accounts", "Tyre Procurement SOP", "Procurement & Insurance SOPs"]}>
                     <TyreProcurementSop />
                   </ProtectedRoute>
                 }
@@ -1073,7 +1073,7 @@ function HomePageContent() {
               <Route
                 path="/fleet-insurance/*"
                 element={
-                  <ProtectedRoute requiredModule="Accounts">
+                  <ProtectedRoute requiredModule={["Accounts", "Fleet Insurance SOP", "Procurement & Insurance SOPs"]}>
                     <FleetInsuranceSop />
                   </ProtectedRoute>
                 }
@@ -1082,7 +1082,7 @@ function HomePageContent() {
               <Route
                 path="/procurement-insurance-sops/*"
                 element={
-                  <ProtectedRoute requiredModule="Accounts">
+                  <ProtectedRoute requiredModule={["Accounts", "Procurement & Insurance SOPs", "RM Procurement SOP", "Tyre Procurement SOP", "Fleet Insurance SOP"]}>
                     <ProcurementInsuranceSopsContainer />
                   </ProtectedRoute>
                 }
@@ -1091,7 +1091,7 @@ function HomePageContent() {
               <Route
                 path="/fleet-insurance-history"
                 element={
-                  <ProtectedRoute requiredModule="Accounts">
+                  <ProtectedRoute requiredModule={["Accounts", "Fleet Insurance SOP", "Procurement & Insurance SOPs"]}>
                     <FleetInsuranceHistory />
                   </ProtectedRoute>
                 }

@@ -51,42 +51,128 @@ function numberToIndianWords(num) {
   return 'Rupees ' + result.trim() + ' Only';
 }
 
+const getTradeChargeRows = (tradeType = 'import') => {
+  if (tradeType === 'export') {
+    return [
+      { label: 'Agency Charges', amount: 2200 },
+      { label: 'Shipping Line Documentation Charges', amount: 1800 },
+      { label: 'Customs Filing Charges', amount: 1200 },
+      { label: 'EDI Charges', amount: 60 },
+      { label: 'CFS / Gate Charges', amount: 13000 },
+      { label: 'Transport to Port / ICD', amount: 9500 },
+      { label: 'Terminal Handling Charges', amount: 6000 },
+      { label: 'Lift on / Lift off Charges', amount: 1800 },
+      { label: 'Seal / Security Charges', amount: 1200 },
+      { label: 'Documentation / Insurance', amount: 1500 }
+    ];
+  }
+
+  return [
+    { label: 'Agency Charges', amount: 2750 },
+    { label: 'VGM/ESB/FORM-13 filing through ODEX/MMD3', amount: 1500 },
+    { label: 'Certificate of Origin - Non Preferential', amount: 500 },
+    { label: 'EDI Charges', amount: 70 },
+    { label: 'CFS charges at MUNDRA', amount: 15000 },
+    { label: 'Unseal for Non Factory stuffing permission', amount: 8000 },
+    { label: 'Transportation charges (ICD Khediyari to Amman)', amount: 10000 },
+    { label: 'Lift on lift off charges', amount: 2000 },
+    { label: 'Detention Charges', amount: 1500 },
+    { label: 'Transportation charges (Amman to Mundra)', amount: 25000 },
+    { label: 'Loaded Container Shifting charges', amount: 5000 }
+  ];
+};
+
 export const buildQuotePDF = (doc, quote) => {
   // Page width and height limits
   const pageWidth = 210;
   const pageHeight = 297;
+  const customRows = getTradeChargeRows(quote?.tradeType || 'import');
 
   // Draw Page Border (8mm margins)
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.3);
   doc.rect(8, 8, pageWidth - 16, pageHeight - 16);
 
-  // --- Company Header Details (Top Left) ---
-  // Logo placeholder text logo matching PARAMOUNT branding
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.setTextColor(239, 68, 68); // Red logo highlight
-  doc.text('P', 14, 18);
-  doc.setTextColor(30, 41, 59); // Slate-800
-  doc.text('PARAMOUNT', 19, 18);
-  doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139); // Slate-500
-  doc.text('PROPACK PVT. LTD.', 19, 21.5);
+  // Company Template Branding Selection
+  const template = (quote?.companyTemplate || 'paramount').toLowerCase();
 
-  // Corporate details next to logo
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text('Paramount Propack Pvt Ltd', 58, 16);
+  if (template === 'elock' || template === 'e-lock') {
+    // eLock Branding
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.setTextColor(14, 165, 233); // Cyan/sky blue
+    doc.text('e', 14, 18);
+    doc.setTextColor(30, 41, 59);
+    doc.text('LOCK', 18, 18);
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('ELECTRONIC CARGO SECURITY', 14, 22);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105);
-  doc.text('A-306, Wall Street 2, Opp. Orient Club,', 58, 20.5);
-  doc.text('Nr. Gujarat College, Ellis Bridge,', 58, 24.5);
-  doc.text('Ahmedabad, Gujarat 380006', 58, 28.5);
-  doc.text('India. Phone : 9924304363, Mo.9924330777', 58, 32.5);
-  doc.text('GSTIN 24AAHCP4599D1Z8', 58, 36.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('eLock Solutions Pvt Ltd', 65, 16);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text('Cargo Tracking & Smart Security Division,', 65, 20.5);
+    doc.text('301-304, Navrangpura Business Hub,', 65, 24.5);
+    doc.text('Ahmedabad, Gujarat 380009', 65, 28.5);
+    doc.text('India. Phone: +91 79 4000 5566, Email: ops@elock.in', 65, 32.5);
+    doc.text('GSTIN 24AABCE1234F1Z5', 65, 36.5);
+  } else if (template === 'exim' || template === 'standard') {
+    // Exim Logistics / Freight Forwarding Branding
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(37, 99, 235); // Royal Blue
+    doc.text('EXIM', 14, 18);
+    doc.setTextColor(30, 41, 59);
+    doc.text('LOGISTICS', 32, 18);
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('GLOBAL FREIGHT & EXIM SOLUTIONS', 14, 22);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Exim Logistics Pvt Ltd', 68, 16);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text('International Freight & Customs Broking Division,', 68, 20.5);
+    doc.text('Mundra Port Road, Sector 8, Gandhidham,', 68, 24.5);
+    doc.text('Kutch, Gujarat 370201', 68, 28.5);
+    doc.text('India. Phone: +91 2836 234567, Email: quotes@eximlogistics.com', 68, 32.5);
+    doc.text('GSTIN 24AABCE9876G1Z2', 68, 36.5);
+  } else {
+    // Default: Paramount Propack Branding
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(239, 68, 68); // Red logo highlight
+    doc.text('P', 14, 18);
+    doc.setTextColor(30, 41, 59); // Slate-800
+    doc.text('PARAMOUNT', 19, 18);
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139); // Slate-500
+    doc.text('PROPACK PVT. LTD.', 19, 21.5);
+
+    // Corporate details next to logo
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Paramount Propack Pvt Ltd', 58, 16);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text('A-306, Wall Street 2, Opp. Orient Club,', 58, 20.5);
+    doc.text('Nr. Gujarat College, Ellis Bridge,', 58, 24.5);
+    doc.text('Ahmedabad, Gujarat 380006', 58, 28.5);
+    doc.text('India. Phone : 9924304363, Mo.9924330777', 58, 32.5);
+    doc.text('GSTIN 24AAHCP4599D1Z8', 58, 36.5);
+  }
 
   // --- Document Title (Top Right) ---
   doc.setFont('helvetica', 'normal');
@@ -150,71 +236,31 @@ export const buildQuotePDF = (doc, quote) => {
   doc.line(8, 80, 202, 80);
 
   // --- Line Items Table ---
-  // Double-row header structure to match CGST and SGST subheadings
-  const tableHeaders = [
+  const customsTableHeaders = [
     [
-      { content: '#', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
-      { content: 'Item & Description', rowSpan: 2, styles: { valign: 'middle' } },
-      { content: 'HSN/SAC', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
-      { content: 'Qty', rowSpan: 2, styles: { valign: 'middle', halign: 'center' } },
-      { content: 'Rate', rowSpan: 2, styles: { valign: 'middle', halign: 'right' } },
-      { content: 'CGST', colSpan: 2, styles: { halign: 'center' } },
-      { content: 'SGST', colSpan: 2, styles: { halign: 'center' } },
-      { content: 'Amount', rowSpan: 2, styles: { valign: 'middle', halign: 'right' } }
-    ],
-    [
-      { content: '%', styles: { halign: 'center' } },
-      { content: 'Amt', styles: { halign: 'right' } },
-      { content: '%', styles: { halign: 'center' } },
-      { content: 'Amt', styles: { halign: 'right' } }
+      { content: 'Customs Clearance Cost', colSpan: 2, styles: { halign: 'center', fillColor: [191, 219, 254], textColor: [15, 23, 42], fontStyle: 'bold' } },
+      { content: 'Amount (Rs)', styles: { halign: 'center', fillColor: [191, 219, 254], textColor: [15, 23, 42], fontStyle: 'bold' } },
+      { content: 'Remarks', styles: { halign: 'center', fillColor: [191, 219, 254], textColor: [15, 23, 42], fontStyle: 'bold' } }
     ]
   ];
 
-  let calculatedCgstSum = 0;
-  let calculatedSgstSum = 0;
-
-  const tableRows = quote.lineItems.map((item, index) => {
-    const lineSubtotal = item.quantity * item.unitPrice;
-    const discountAmt = lineSubtotal * ((item.discount || 0) / 100);
-    const baseForTax = lineSubtotal - discountAmt;
-    const taxRate = item.tax || 0;
-    
-    // Split GST equally into CGST & SGST
-    const cgstRate = taxRate / 2;
-    const sgstRate = taxRate / 2;
-    
-    const cgstAmt = baseForTax * (cgstRate / 100);
-    const sgstAmt = baseForTax * (sgstRate / 100);
-
-    calculatedCgstSum += cgstAmt;
-    calculatedSgstSum += sgstAmt;
-
-    return [
-      index + 1,
-      item.productName + (item.description ? `\n${item.description}` : ''),
-      item.hsnSac || '392310',
-      Number(item.quantity).toFixed(2),
-      Number(item.unitPrice).toFixed(2),
-      cgstRate ? `${cgstRate}%` : '0%',
-      cgstAmt ? cgstAmt.toFixed(2) : '0.00',
-      sgstRate ? `${sgstRate}%` : '0%',
-      sgstAmt ? sgstAmt.toFixed(2) : '0.00',
-      Number(item.lineTotal).toFixed(2)
-    ];
-  });
+  const customsTableRows = customRows.map((row) => [
+    row.label,
+    '',
+    Number(row.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    quote?.tradeType === 'export' ? 'Container / port related export charges' : 'Per container / GST as applicable'
+  ]);
 
   doc.autoTable({
     startY: 80,
-    head: tableHeaders,
-    body: tableRows,
+    head: customsTableHeaders,
+    body: customsTableRows,
     theme: 'grid',
     headStyles: {
-      fillColor: [248, 250, 252],
-      textColor: [30, 41, 59],
-      fontSize: 7.5,
-      fontStyle: 'bold',
-      lineWidth: 0.15,
-      lineColor: [200, 200, 200]
+      fillColor: [191, 219, 254],
+      textColor: [15, 23, 42],
+      fontSize: 8,
+      fontStyle: 'bold'
     },
     bodyStyles: {
       fontSize: 7.5,
@@ -223,123 +269,102 @@ export const buildQuotePDF = (doc, quote) => {
       lineColor: [200, 200, 200]
     },
     columnStyles: {
-      0: { cellWidth: 7, halign: 'center' },
-      1: { cellWidth: 62 },
-      2: { cellWidth: 16, halign: 'center' },
-      3: { cellWidth: 14, halign: 'center' },
-      4: { cellWidth: 18, halign: 'right' },
-      5: { cellWidth: 10, halign: 'center' },
-      6: { cellWidth: 18, halign: 'right' },
-      7: { cellWidth: 10, halign: 'center' },
-      8: { cellWidth: 18, halign: 'right' },
-      9: { cellWidth: 21, halign: 'right' }
+      0: { cellWidth: 94 },
+      1: { cellWidth: 15 },
+      2: { cellWidth: 28, halign: 'right' },
+      3: { cellWidth: 42 }
     },
     margin: { left: 8, right: 8 }
   });
 
-  // --- Calculations & Notes Footer Block ---
-  const finalY = doc.lastAutoTable.finalY;
-  
-  // Calculate average tax percentage for labels
-  const avgTaxRate = quote.lineItems.length > 0 ? (quote.lineItems[0].tax || 0) : 0;
-  const avgCgstRate = avgTaxRate / 2;
-  const avgSgstRate = avgTaxRate / 2;
+  const shippingLineRows = [
+    ['Ocean Freight', 118800, 211300],
+    ['Terminal Handling Charge (THC)', 18500, 23500],
+    ['Bill of Lading Charges (BL)', 4500, 4500],
+    ['Seal Charges', 1500, 1500],
+    ['Mandatory User Charges', 170, 170],
+    ['VTS Charges', 500, 500]
+  ];
 
-  const roundedTotal = Math.round(quote.total || 0);
-  const roundingDiff = roundedTotal - (quote.total || 0);
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY + 6,
+    head: [[{ content: 'Shipping Line Cost', colSpan: 3, styles: { halign: 'center', fillColor: [147, 197, 253], textColor: [15, 23, 42], fontStyle: 'bold' } }, { content: 'Amount (Rs)', styles: { halign: 'center', fillColor: [147, 197, 253], textColor: [15, 23, 42], fontStyle: 'bold' } }]],
+    body: shippingLineRows.map((row) => [row[0], Number(row[1]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), Number(row[2]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })]),
+    theme: 'grid',
+    headStyles: {
+      fillColor: [147, 197, 253],
+      textColor: [15, 23, 42],
+      fontSize: 8,
+      fontStyle: 'bold'
+    },
+    bodyStyles: {
+      fontSize: 7.5,
+      textColor: [51, 65, 85],
+      lineWidth: 0.15,
+      lineColor: [200, 200, 200]
+    },
+    columnStyles: {
+      0: { cellWidth: 94 },
+      1: { cellWidth: 42, halign: 'right' },
+      2: { cellWidth: 42, halign: 'right' }
+    },
+    margin: { left: 8, right: 8 }
+  });
 
-  // Main vertical block separation line
-  doc.line(116, finalY, 116, 281);
+  const totalA = customRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const totalB = shippingLineRows.reduce((sum, row) => sum + Number(row[2] || 0), 0);
+  const grandTotal = totalA + totalB;
 
-  // --- Right side calculations box ---
+  doc.setFillColor(140, 92, 180);
+  doc.rect(8, doc.lastAutoTable.finalY + 4, 194, 9, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(9);
+  doc.setTextColor(255, 255, 255);
+  doc.text('GRAND TOTAL', 14, doc.lastAutoTable.finalY + 10.5);
+  doc.text(`₹ ${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 176, doc.lastAutoTable.finalY + 10.5, { align: 'right' });
 
-  let rightY = finalY + 6;
-  doc.text('Sub Total', 148, rightY);
-  doc.text(`CGST${avgCgstRate} (${avgCgstRate}%)`, 148, rightY + 6);
-  doc.text(`SGST${avgSgstRate} (${avgSgstRate}%)`, 148, rightY + 12);
-  doc.text('Rounding', 148, rightY + 18);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.text('Total', 148, rightY + 26);
-
-  // Print values right-aligned
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.text(Number(quote.subtotal || 0).toFixed(2), 196, rightY, { align: 'right' });
-  doc.text(Number(calculatedCgstSum || 0).toFixed(2), 196, rightY + 6, { align: 'right' });
-  doc.text(Number(calculatedSgstSum || 0).toFixed(2), 196, rightY + 12, { align: 'right' });
-  doc.text(Number(roundingDiff || 0).toFixed(2), 196, rightY + 18, { align: 'right' });
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.text(`Rs.${Number(roundedTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 196, rightY + 26, { align: 'right' });
-
-  // Divider lines inside calculations box
+  // --- Footer summary area ---
+  const footerY = doc.lastAutoTable.finalY + 8;
   doc.setDrawColor(200, 200, 200);
-  doc.line(116, rightY + 21, 202, rightY + 21);
-  doc.line(116, rightY + 29, 202, rightY + 29);
+  doc.line(8, footerY, 202, footerY);
 
-  // Authorized Signature bottom box
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105);
-  doc.text('Authorized Signature', 159, 276, { align: 'center' });
-
-  // --- Left side notes & terms ---
-  let leftY = finalY + 6;
-  
-  // Total in Words
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
-  doc.text('Total In Words', 12, leftY);
+  doc.text('Total In Words', 12, footerY + 6);
 
-  doc.setFont('helvetica', 'bolditalic');
-  doc.setFontSize(8);
+  doc.setFont('helvetica', 'italic');
   doc.setTextColor(15, 23, 42);
-  doc.text(numberToIndianWords(roundedTotal), 12, leftY + 5, { maxWidth: 100 });
+  doc.text(numberToIndianWords(Number(grandTotal || 0)), 12, footerY + 12, { maxWidth: 110 });
 
-  // Notes
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
-  doc.text('Notes', 12, leftY + 14);
-
+  doc.text('Payment Terms', 135, footerY + 6);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105);
-  doc.text(quote.terms?.notes || 'Looking forward for your business.', 12, leftY + 19, { maxWidth: 100 });
+  doc.text(quote.terms?.paymentTerms || '100% Advance', 135, footerY + 12);
 
-  // Terms and conditions
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
-  doc.text('Terms & Conditions', 12, leftY + 28);
+  doc.text('Authorized Signature', 155, 276, { align: 'center' });
 
   const defaultTerms = [
-    `Payment Terms: ${quote.terms?.paymentTerms || '100% Advance.'}`,
-    'Freight charges will be extra.',
-    'Delivery Within 10 -12 Working Days.',
-    'Prices: The price is quoted in INR.',
-    'Bank Detail: Kotak Mahindra Bank,',
-    'Branch: Chandan House, Opp.Abhijit 3, Ahmedabad.',
-    'A/c. No.1512264287, IFSC Code : KKBK0000812',
-    'Other Detail: PAN No. AAHCP4599D',
-    'GSTIN No.- 24AAHCP4599D1Z8'
+    '>>> Payment: 100% Advance',
+    '>>> The above terms are subject to local conditions on both sides',
+    '>>> The above terms are subject to space availability, equipment, rate approval, and acceptance.',
+    '>>> Booking cancellation fees as per liner tariff.',
+    '>>> The above terms apply to only hazarodus cargo only.',
+    '>>> Exchange rate taken only for calculation purpose. (Final exchange rate will be differ)',
+    '>>> Wooden Packaging: If wooden packaging is used, fumigation with an ISPM-15 stamp is mandatory. This will be the responsibility of the exporter.',
+    '>>> Additional Services: Any landing, chocking, greasing, forklift, or crane services required will incur extra charges.',
+    '>>> Hidden Charges: Any hidden charges incurred at the time of clearance and forwarding will be charged at actual costs, subject to prior approval.',
+    '>>> GST: Extra, as applicable.'
   ];
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
+  doc.setFontSize(7.2);
   doc.setTextColor(71, 85, 105);
-  
-  let currentTermY = leftY + 33;
-  defaultTerms.forEach(term => {
-    doc.text(term, 12, currentTermY);
-    currentTermY += 4;
+  defaultTerms.forEach((term, idx) => {
+    doc.text(term, 12, footerY + 20 + idx * 4.2, { maxWidth: 185 });
   });
 };
 

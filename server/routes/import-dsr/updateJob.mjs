@@ -6,6 +6,7 @@ import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { sanitizeJobPayload } from "../../utils/modeLogic.mjs";
 import { recalculateLicenseUtilizationForJob, validateLicenseUtilization, getUsdImportRate } from "../../services/licenseUtilizationService.mjs";
 import { validateRodtepUtilization } from "../../services/rodtepService.mjs";
+import { calculateDetentionFrom, subtractOneDay } from "../../utils/detentionHelper.mjs";
 
 const getUnitForCurrency = (currencyCode) => {
   if (!currencyCode) return 1;
@@ -57,26 +58,6 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
       checked,
       do_validity_upto_job_level,
     } = req.body;
-
-    function addDaysToDate(dateString, days) {
-      var date = new Date(dateString);
-      date.setDate(date.getDate() + days);
-      var year = date.getFullYear();
-      var month = String(date.getMonth() + 1).padStart(2, "0");
-      var day = String(date.getDate()).padStart(2, "0");
-      return year + "-" + month + "-" + day;
-    }
-
-    // Helper function to subtract one day from a date
-    function subtractOneDay(dateString) {
-      if (!dateString) return "";
-      const date = new Date(dateString);
-      date.setDate(date.getDate() - 1);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    }
 
     try {
       const updatedJob = await runWithTransaction(async (session) => {
@@ -291,12 +272,17 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
 
         const incomingContainers = Array.isArray(container_nos) ? container_nos : [];
 
+        const effectiveFreeTime = parseInt(
+          free_time !== undefined && free_time !== "" ? free_time : matchingJob.free_time,
+          10
+        ) || 0;
+
         const mapContainerWithTimestamps = (container, index, computedArrivalDate) => {
-          const targetArrivalDate = computedArrivalDate !== undefined ? computedArrivalDate : container.arrival_date;
-          const detentionDate =
-            targetArrivalDate === ""
-              ? ""
-              : addDaysToDate(targetArrivalDate, parseInt(free_time));
+          const targetArrivalDate =
+            computedArrivalDate !== undefined && computedArrivalDate !== null
+              ? String(computedArrivalDate).trim()
+              : (container.arrival_date ? String(container.arrival_date).trim() : "");
+          const detentionDate = calculateDetentionFrom(targetArrivalDate, effectiveFreeTime);
 
           let existingContainer = null;
           if (container._id) {
@@ -329,7 +315,7 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
             ...container,
             arrival_date: targetArrivalDate,
             detention_from: detentionDate,
-            do_validity_upto_container_level: subtractOneDay(detentionDate),
+            do_validity_upto_container_level: detentionDate ? subtractOneDay(detentionDate) : "",
             transporter_date_time,
           };
         };
@@ -386,7 +372,13 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
             }
           });
         }
-        matchingJob.do_validity_upto_job_level = do_validity_upto_job_level;
+        const earliestDetention = (matchingJob.container_nos || []).reduce((earliest, c) => {
+          const det = c.detention_from ? String(c.detention_from).trim() : "";
+          return det && (!earliest || det < earliest) ? det : earliest;
+        }, "");
+        matchingJob.do_validity_upto_job_level = earliestDetention
+          ? subtractOneDay(earliestDetention)
+          : (do_validity_upto_job_level || matchingJob.do_validity_upto_job_level || "");
         // Step 8: Save the updated job document
         await matchingJob.save({ session });
 
@@ -456,7 +448,23 @@ router.patch("/api/update-job/fields/:branch_code/:trade_type/:mode/:year/:jobNo
       // Update container arrival_date if provided along with a valid container_index
       if (arrival_date && typeof container_index === "number") {
         if (matchingJob.container_nos[container_index]) {
-          matchingJob.container_nos[container_index].arrival_date = arrival_date;
+          const trimmedArrival = String(arrival_date).trim();
+          matchingJob.container_nos[container_index].arrival_date = trimmedArrival;
+
+          const freeDays = parseInt(matchingJob.free_time, 10) || 0;
+          const detentionDate = calculateDetentionFrom(trimmedArrival, freeDays);
+          matchingJob.container_nos[container_index].detention_from = detentionDate;
+          matchingJob.container_nos[container_index].do_validity_upto_container_level = detentionDate
+            ? subtractOneDay(detentionDate)
+            : "";
+
+          const earliestDet = (matchingJob.container_nos || []).reduce((earliest, c) => {
+            const det = c.detention_from ? String(c.detention_from).trim() : "";
+            return det && (!earliest || det < earliest) ? det : earliest;
+          }, "");
+          if (earliestDet) {
+            matchingJob.do_validity_upto_job_level = subtractOneDay(earliestDet);
+          }
         } else {
           return res.status(400).json({ error: "Invalid container index" });
         }

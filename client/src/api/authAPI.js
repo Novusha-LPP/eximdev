@@ -6,7 +6,6 @@ const api = axios.create({
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
-    "Authorization": `Bearer ${localStorage.getItem('token')}`
   },
 });
 
@@ -24,15 +23,16 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle 401 errors
+// Response interceptor to handle errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Handle 401 errors (e.g., redirect to login page)
-      console.error("Authentication failed. Please log in again.");
-      // You might want to redirect to login page here
-      // window.location.href = '/login';
+      const authMsg = error.response.data?.message || error.response.data?.error || "Your session has expired. Please log in again.";
+      sessionStorage.setItem('auth_error_message', authMsg);
+      localStorage.removeItem('token');
+      localStorage.removeItem('exim_user');
+      window.location.href = '/';
     }
     return Promise.reject(error);
   }

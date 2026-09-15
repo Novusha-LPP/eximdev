@@ -777,7 +777,7 @@ router.post('/api/mrm', authMiddleware, async (req, res) => {
         }
 
         // Trigger safe Save-time OpenPoint sync
-        if (item.actionPlan) {
+        if (item.actionPlan || item.remarks || item.responsibility) {
             const point = await syncActionPlanToOpenPoint(item, req.user);
             if (point) {
                 item.openPointId = point._id;
@@ -850,7 +850,7 @@ router.put('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async (r
         }
 
         // Trigger safe Save-time OpenPoint sync
-        if (item && (item.actionPlan || item.openPointId)) {
+        if (item && (item.actionPlan || item.remarks || item.responsibility || item.openPointId)) {
             const point = await syncActionPlanToOpenPoint(item, req.user);
             if (point) {
                 item.openPointId = point._id;
@@ -1015,10 +1015,10 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
 
         const insertedItems = await MRMItem.insertMany(newItems);
 
-        // If mode === 'as-is', safely trigger OpenPoints sync on all inserted items with an actionPlan
+        // If mode === 'as-is', safely trigger OpenPoints sync on all inserted items with an actionPlan or remarks
         if (mode === 'as-is' && Array.isArray(insertedItems)) {
             for (const item of insertedItems) {
-                if (item.actionPlan && item.actionPlan.trim()) {
+                if ((item.actionPlan && item.actionPlan.trim()) || (item.remarks && item.remarks.trim())) {
                     try {
                         const point = await syncActionPlanToOpenPoint(item, req.user);
                         if (point) {

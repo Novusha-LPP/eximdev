@@ -1319,9 +1319,7 @@ const MRMAdminDashboard = () => {
                                                                         ))}
                                                                     </div>
                                                                 ) : (
-                                                                    <span style={{ fontSize: '0.7rem', padding: '2px 5px', borderRadius: '4px', background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}>
-                                                                        No baseline
-                                                                    </span>
+                                                                    <span style={{ color: '#94a3b8' }}>—</span>
                                                                 )}
                                                             </td>
                                                             {/* 12 Monthly Strip */}
@@ -1363,7 +1361,7 @@ const MRMAdminDashboard = () => {
                                                                         {obj.yoyDelta.formattedText || (obj.yoyDelta.pctDelta != null ? (obj.yoyDelta.pctDelta > 0 ? `+${obj.yoyDelta.pctDelta}%` : `${obj.yoyDelta.pctDelta}%`) : (obj.yoyDelta.absDelta > 0 ? `+${obj.yoyDelta.absDelta}` : obj.yoyDelta.absDelta))}
                                                                     </span>
                                                                 ) : (
-                                                                    <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>No baseline</span>
+                                                                    <span style={{ color: '#94a3b8' }}>—</span>
                                                                 )}
                                                             </td>
                                                             <td style={{ textAlign: 'center', fontWeight: '700', color: '#166534', background: '#f0fdf4' }}>

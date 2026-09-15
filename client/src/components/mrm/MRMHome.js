@@ -60,6 +60,11 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 style={{ backgroundColor: item.bgColor || '#f8fafc' }}
+                onBlur={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget) && item.isDirty) {
+                        handleSaveItem(item, true);
+                    }
+                }}
             >
                 <td className="drag-handle-cell">
                     {!isLocked && (
@@ -130,6 +135,11 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2 }}
+            onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget) && item.isDirty) {
+                    handleSaveItem(item, true);
+                }
+            }}
         >
             <td className="drag-handle-cell">
                 {!isLocked && (
@@ -201,23 +211,7 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                         >
                             vs LY: {item.yoyDelta.formattedText || (item.yoyDelta.pctDelta != null ? `${item.yoyDelta.absDelta > 0 ? `+${item.yoyDelta.absDelta}` : item.yoyDelta.absDelta} (${item.yoyDelta.pctDelta > 0 ? `+${item.yoyDelta.pctDelta}%` : `${item.yoyDelta.pctDelta}%`})` : (item.yoyDelta.absDelta > 0 ? `+${item.yoyDelta.absDelta}` : item.yoyDelta.absDelta))}
                         </span>
-                    ) : (
-                        <span 
-                            style={{ 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                fontSize: '0.65rem', 
-                                padding: '1px 4px', 
-                                borderRadius: '4px', 
-                                background: '#f1f5f9', 
-                                color: '#64748b', 
-                                border: '1px solid #e2e8f0'
-                            }}
-                            title="No last-year baseline configured. Click baseline button to add."
-                        >
-                            No baseline
-                        </span>
-                    )}
+                    ) : null}
 
                     {/* Macro Reference Data Points Display */}
                     {item.macroReferences && item.macroReferences.filter(m => m.label && m.value !== null && m.value !== undefined).map((m, mIdx) => (
@@ -1090,7 +1084,7 @@ const MRMHome = () => {
     };
 
     // Performs the API call
-    const handleSaveItem = async (item) => {
+    const handleSaveItem = async (item, silent = false) => {
         try {
             // Remove isDirty before sending if API is strict, but usually extra fields are ignored
             const { isDirty, ...dataToSend } = item;
@@ -1098,10 +1092,10 @@ const MRMHome = () => {
 
             // Reset dirty flag on success and merge returned item (includes openPointId)
             setItems(prev => prev.map(i => i._id === item._id ? { ...(saved || i), isDirty: false } : i));
-            showToast("Row saved successfully", 'success');
+            if (!silent) showToast("Row saved successfully", 'success');
         } catch (err) {
             console.error("Failed to save", err);
-            showToast("Failed to save row", 'error');
+            if (!silent) showToast("Failed to save row", 'error');
         }
     };
 

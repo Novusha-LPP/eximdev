@@ -67,8 +67,11 @@ export const syncActionPlanToOpenPoint = async (mrmItem, reqUser = null) => {
             return null;
         }
 
-        // If no action plan text exists and no existing point, nothing to create
-        if ((!mrmItem.actionPlan || !mrmItem.actionPlan.trim()) && !mrmItem.openPointId) {
+        const hasActionPlan = Boolean(mrmItem.actionPlan && mrmItem.actionPlan.trim());
+        const hasRemarks = Boolean(mrmItem.remarks && mrmItem.remarks.trim());
+
+        // If no action plan text exists, no remarks exist, and no existing point, nothing to create
+        if (!hasActionPlan && !hasRemarks && !mrmItem.openPointId) {
             return null;
         }
 
@@ -96,26 +99,45 @@ export const syncActionPlanToOpenPoint = async (mrmItem, reqUser = null) => {
             tileName = 'General';
         }
 
-        // Resolve responsible user by username or full name if provided
+        // Resolve responsibility: Prioritize MRM "Resp." (responsibility), fallback to "Act. Resp." (responsibilityAction)
+        const rawResp = String(mrmItem.responsibility || mrmItem.responsibilityAction || '').trim();
         let resolvedUser = null;
-        if (mrmItem.responsibilityAction) {
-            const respStr = String(mrmItem.responsibilityAction).trim();
+        if (rawResp) {
+            const safeResp = rawResp.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const userQuery = [
-                { username: { $regex: new RegExp(`^${respStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+                { username: { $regex: new RegExp(`^${safeResp}$`, 'i') } },
+                { first_name: { $regex: new RegExp(`^${safeResp}$`, 'i') } },
                 { 
                     $expr: {
                         $eq: [
                             { $toLower: { $trim: { input: { $concat: ["$first_name", " ", "$last_name"] } } } },
-                            respStr.toLowerCase()
+                            rawResp.toLowerCase()
                         ]
                     }
                 }
             ];
-            if (respStr.match(/^[0-9a-fA-F]{24}$/)) {
-                userQuery.push({ _id: respStr });
+            if (rawResp.match(/^[0-9a-fA-F]{24}$/)) {
+                userQuery.push({ _id: rawResp });
             }
-            resolvedUser = await UserModel.findOne({ $or: userQuery });
+            resolvedUser = await UserModel.findOne({ $or: userQuery, status: { $ne: 'Inactive' } });
+
+            // If not found, try first token (e.g. "Rahul Patel" -> "Rahul", "Alpesh/Anup" -> "Alpesh")
+            if (!resolvedUser) {
+                const firstWord = rawResp.split(/[\s/+,&]+/)[0]?.trim();
+                if (firstWord && firstWord.length > 2) {
+                    const safeFirstWord = firstWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    resolvedUser = await UserModel.findOne({
+                        $or: [
+                            { first_name: { $regex: new RegExp(`^${safeFirstWord}$`, 'i') } },
+                            { username: { $regex: new RegExp(`^${safeFirstWord}`, 'i') } }
+                        ],
+                        status: { $ne: 'Inactive' }
+                    });
+                }
+            }
         }
+
+        const assignedResp = resolvedUser ? resolvedUser.username : (rawResp || 'Unassigned');
 
         let existingPoint = null;
 
@@ -142,10 +164,14 @@ export const syncActionPlanToOpenPoint = async (mrmItem, reqUser = null) => {
 
         if (existingPoint) {
             // Update existing Open Point (deduplicated across recurring months)
-            existingPoint.description = mrmItem.actionPlan;
+            existingPoint.gap_action = mrmItem.actionPlan || '';
+            existingPoint.remarks = mrmItem.remarks || '';
+            existingPoint.description = mrmItem.actionPlan || mrmItem.remarks || '';
             if (mrmItem.targetDate) existingPoint.target_date = mrmItem.targetDate;
-            if (mrmItem.responsibilityAction) existingPoint.responsibility = mrmItem.responsibilityAction;
-            if (resolvedUser) existingPoint.responsible_person = resolvedUser._id;
+            if (rawResp) {
+                existingPoint.responsibility = assignedResp;
+                existingPoint.responsible_person = resolvedUser ? resolvedUser._id : null;
+            }
             
             // Only update status if explicitly changed
             if (pointStatus && existingPoint.status !== pointStatus) {
@@ -183,11 +209,13 @@ export const syncActionPlanToOpenPoint = async (mrmItem, reqUser = null) => {
 
         const newPoint = new OpenPoint({
             project_id: mrmProject._id,
-            title: `[MRM] ${targetObjective || 'Action Plan'}`,
-            description: mrmItem.actionPlan,
+            title: `[MRM] ${targetObjective || mrmItem.actionPlan || mrmItem.remarks || 'Action Plan'}`,
+            description: mrmItem.actionPlan || mrmItem.remarks || '',
+            gap_action: mrmItem.actionPlan || '',
+            remarks: mrmItem.remarks || '',
             seq_id: nextSeqId,
             unique_id: uniqueId,
-            responsibility: mrmItem.responsibilityAction || (resolvedUser ? `${resolvedUser.first_name} ${resolvedUser.last_name || ''}`.trim() : 'Unassigned'),
+            responsibility: assignedResp,
             responsible_person: resolvedUser ? resolvedUser._id : null,
             target_date: mrmItem.targetDate || null,
             status: pointStatus,
@@ -221,7 +249,7 @@ export const syncActionPlanToOpenPoint = async (mrmItem, reqUser = null) => {
 };
 
 /**
- * Reverse sync hook: Updates linked MRMItem status when an Open Point is updated.
+ * Reverse sync hook: Updates linked MRMItem status, actionPlan, remarks, and targetDate when an Open Point is updated.
  */
 export const syncOpenPointStatusToMRM = async (openPoint) => {
     try {
@@ -235,9 +263,23 @@ export const syncOpenPointStatusToMRM = async (openPoint) => {
         if (openPoint._id) filter.push({ openPointId: openPoint._id });
 
         if (filter.length > 0) {
+            const updateFields = { status: mappedStatus };
+            if (openPoint.gap_action !== undefined) {
+                updateFields.actionPlan = openPoint.gap_action;
+            }
+            if (openPoint.remarks !== undefined) {
+                updateFields.remarks = openPoint.remarks;
+            }
+            if (openPoint.target_date !== undefined) {
+                updateFields.targetDate = openPoint.target_date;
+            }
+            if (openPoint.responsibility !== undefined) {
+                updateFields.responsibility = openPoint.responsibility;
+            }
+
             await MRMItem.updateMany(
                 { $or: filter },
-                { status: mappedStatus }
+                updateFields
             );
         }
     } catch (err) {

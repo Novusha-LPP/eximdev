@@ -12,6 +12,7 @@ import { recalculateLicenseUtilizationForJob, validateLicenseUtilization, getUsd
 import { validateRodtepUtilization } from "../../services/rodtepService.mjs";
 import ClientQuery from "../../model/clientQueryModel.mjs";
 import { invalidateJobTabCountsCache } from "./getJobTabCounts.mjs";
+import { recalculateContainersDetention } from "../../utils/detentionHelper.mjs";
 
 const router = express.Router();
 
@@ -653,14 +654,61 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
       merged.container_nos = updateData.container_nos;
     }
 
-    const recomputedStatus = determineDetailedStatus(merged);
-    const rowColor = getRowColorFromStatus(recomputedStatus);
+    // Automatically recalculate container detention and DO validity whenever arrival dates or free_time are involved
+    const isArrivalOrFreeTimeTouched = Object.keys(updateData).some((k) =>
+      k === "free_time" ||
+      k === "arrival_date" ||
+      k === "container_nos" ||
+      /^container_nos\.\d+\.(arrival_date|detention_from)$/.test(k)
+    );
 
     const updateSet = {
       ...updateData,
-      detailed_status: recomputedStatus,
-      row_color: rowColor,
     };
+
+    if (
+      (isArrivalOrFreeTimeTouched || (Array.isArray(merged.container_nos) && parseInt(merged.free_time, 10) > 0)) &&
+      Array.isArray(merged.container_nos)
+    ) {
+      const { containers: recalculatedContainers, do_validity_upto_job_level } = recalculateContainersDetention(
+        merged.container_nos,
+        merged.free_time,
+        {
+          mode: merged.mode,
+          consignment_type: merged.consignment_type,
+          type_of_b_e: merged.type_of_b_e,
+        }
+      );
+
+      if (updateData.container_nos && Array.isArray(updateData.container_nos)) {
+        updateSet.container_nos = recalculatedContainers;
+        merged.container_nos = recalculatedContainers;
+      } else {
+        recalculatedContainers.forEach((c, i) => {
+          const origDet = merged.container_nos?.[i]?.detention_from || "";
+          const newDet = c.detention_from || "";
+          const origVal = merged.container_nos?.[i]?.do_validity_upto_container_level || "";
+          const newVal = c.do_validity_upto_container_level || "";
+
+          if (origDet !== newDet || origVal !== newVal || isArrivalOrFreeTimeTouched) {
+            updateSet[`container_nos.${i}.detention_from`] = newDet;
+            updateSet[`container_nos.${i}.do_validity_upto_container_level`] = newVal;
+          }
+        });
+        merged.container_nos = recalculatedContainers;
+      }
+
+      if (do_validity_upto_job_level && !updateData.do_validity_upto_job_level) {
+        updateSet.do_validity_upto_job_level = do_validity_upto_job_level;
+        merged.do_validity_upto_job_level = do_validity_upto_job_level;
+      }
+    }
+
+    const recomputedStatus = determineDetailedStatus(merged);
+    const rowColor = getRowColorFromStatus(recomputedStatus);
+
+    updateSet.detailed_status = recomputedStatus;
+    updateSet.row_color = rowColor;
 
     if (recomputedStatus === "Billed") {
       updateSet.status = "Completed";

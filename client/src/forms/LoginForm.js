@@ -17,6 +17,15 @@ function LoginForm() {
   const closeErrorDialog = () => setErrorDialog({ open: false, title: "", message: "" });
   const showError = (title, message) => setErrorDialog({ open: true, title, message });
 
+  // Surface any session expiration or authentication notices stored from API interceptors
+  React.useEffect(() => {
+    const authMessage = sessionStorage.getItem('auth_error_message');
+    if (authMessage) {
+      sessionStorage.removeItem('auth_error_message');
+      showError("Session Notice", authMessage);
+    }
+  }, []);
+
   const formik = useFormik({
     initialValues: { username: "", password: "" },
 
@@ -44,15 +53,24 @@ function LoginForm() {
         }
       } catch (error) {
         if (error.response) {
-          if (error.response.status === 400) {
-            showError("Login Failed", error.response.data.message || "Invalid username or password.");
-          } else if (error.response.status === 403) {
-            showError("Account Deactivated", "Your account has been deactivated. Please contact the administrator.");
+          const serverMessage = error.response.data?.message || error.response.data?.error;
+          const status = error.response.status;
+
+          if (status === 400) {
+            showError("Login Failed", serverMessage || "Invalid username or password.");
+          } else if (status === 401) {
+            showError("Authentication Failed", serverMessage || "Invalid credentials. Please check your username and password.");
+          } else if (status === 403) {
+            showError("Access Denied", serverMessage || "Your account has been deactivated. Please contact the administrator.");
+          } else if (status === 500) {
+            showError("Server Error", serverMessage || "An internal error occurred on the server. Please contact support.");
           } else {
-            showError("Error", "An unexpected error occurred. Please try again later.");
+            showError("Error", serverMessage || `Login failed with status ${status}. Please try again.`);
           }
+        } else if (error.request) {
+          showError("Network Error", "Unable to connect to the server. Please check your internet connection or server status.");
         } else {
-          showError("Network Error", "Unable to connect to the server. Please check your internet connection.");
+          showError("Error", error.message || "An unexpected error occurred during login.");
         }
       }
     },

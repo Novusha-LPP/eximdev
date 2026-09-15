@@ -37,62 +37,6 @@ const userSchema = new Schema({
   deactivatedAt: {
     type: Date,
   },
-  can_access_exim_bot: {
-    type: Boolean,
-    default: false,
-  },
-  modules: {
-    type: [String],
-    default: ["Attendance"]
-  },
-  tyre_procurement_tabs: {
-    type: [String],
-    default: [],
-  },
-  assigned_importer_name: [
-    {
-      type: String,
-    },
-  ],
-  assigned_importer: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Importer", // References the Importer model
-    },
-  ],
-  ////////////////////////////////////////////////////////////////// Onboarding
-  first_name: {
-    type: String,
-  },
-  middle_name: {
-    type: String,
-  },
-  last_name: {
-    type: String,
-  },
-  company: {
-    type: String,
-  },
-  email: {
-    type: String,
-  },
-  employment_type: { type: String },
-
-  // ─── Attendance-specific fields ───────────────────────────────────────────
-  company_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
-  department_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', index: true },
-  branch_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', index: true },
-  shift_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift', index: true },
-  shift_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Shift' }],
-  hod_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  employee_code: { type: String, unique: true, sparse: true },
-
-  // ─── Policy Overrides (explicit assignment) ─────────────────────────────
-  weekoff_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'WeekOffPolicy' },
-  holiday_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'HolidayPolicy' },
-
-  // Employment timeline
-  date_of_joining: { type: Date },
   probation_end_date: { type: Date },
   confirmation_date: { type: Date },
   notice_period_days: { type: Number },

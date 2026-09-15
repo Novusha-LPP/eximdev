@@ -1,24 +1,9 @@
 import React from "react";
 import {
   Box,
-  Grid,
-  TextField,
   Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  MenuItem,
-  Button,
-  IconButton,
-  Alert,
-  Checkbox,
   Chip,
 } from "@mui/material";
-import { Add, Delete, CheckCircle } from "@mui/icons-material";
 
 const yesNoOptions = ["Yes", "No"];
 const acceptedOptions = ["Accepted", "Rejected"];
@@ -115,7 +100,6 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
     current[idx] = { ...current[idx], [field]: val };
     onChange({ approvals: current });
 
-    // If Purchase Officer review (idx === 2) is updated with date or signature/name, advance status to "GRN Received"
     const poReview = current[2];
     if (poReview && (poReview.date || poReview.signature || poReview.name)) {
       if (onGlobalChange) onGlobalChange("status", "GRN Received");
@@ -150,441 +134,370 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
     onChange({ approvals: current });
   };
 
-  const handleMockGrn = () => {
-    const today = new Date().toISOString().split("T")[0];
-    const mockItems = Array.from({ length: 10 }).map((_, i) => ({
-      sNo: i + 1,
-      tyreNumber: `TYR-2026-000${i + 147}`,
-      tyreBrand: i % 2 === 0 ? "MRF" : "APOLLO",
-      sizeSpec: "10.00R20",
-      type: i < 4 ? "New" : "Remould",
-      hotStampDone: "Yes",
-      photoTaken: "Yes",
-      acceptedRejected: "Accepted",
-      remarks: "CHECKED AND VERIFIED.",
-    }));
-
-    onChange({
-      grnSeriesNo: "GRN/TYRE/01/AUG/26-27",
-      dateOfReceipt: today,
-      itemsReceived: mockItems,
-      qualityConformanceCheck: {
-        tyresVerified: "Yes",
-        tyreNumbersMatched: "Yes",
-        invoiceVerified: "Yes",
-        returnClauseReviewed: "Yes",
-      },
-      inspectionNotes: "ALL 10 TYRES RECEIVED IN GOOD CONDITION.",
-      approvals: [
-        { role: "Received By (Site Person)", name: "JISHNU KUMAR", date: today, signature: "J.K." },
-        { role: "Validated by – Maintenance Manager", name: "SURESH P.", date: today, signature: "S.P." },
-        { role: "Reviewed by – Purchase Officer", name: "AJAY DEV", date: today, signature: "A.D." },
-      ],
-    });
-    if (onGlobalChange) onGlobalChange("status", "GRN Received");
-  };
-
   return (
-    <Box>
-      <Alert severity="info" sx={{ mb: 3 }} action={
-        <Button color="inherit" size="small" startIcon={<CheckCircle />} onClick={handleMockGrn}>
-          Run Mock GRN Verification
-        </Button>
-      }>
-        <strong>Transport/Fleet App Integration (Mock)</strong>: In production, Site GRNs are processed directly via the driver-app and warehouse scan endpoints. Click "Run Mock GRN Verification" to simulate successful delivery logs.
-      </Alert>
-
+    <Box className="sop-container">
       {/* ─── 1. Reference & Delivery Information ─── */}
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        1. Reference & Delivery Information
-      </Typography>
+      <Box className="sop-card" sx={{ mb: 1.5 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+          <Typography className="sop-card-title">Reference & Delivery Details</Typography>
+        </Box>
 
-      {/* Common GRN Header */}
-      <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: "#fafafa" }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={3}>
-            <TextField
-              label="GRN Series No. (Common)"
+        <Box className="sop-grid-4" sx={{ mb: 1.2 }}>
+          <Box>
+            <label className="sop-label">GRN SERIES NO.</label>
+            <input
+              type="text"
+              className="sop-input"
               value={data.grnSeriesNo || ""}
               onChange={(e) => updateField("grnSeriesNo", e.target.value.toUpperCase())}
-              fullWidth
-              size="small"
               placeholder="GRN/TYRE/01/AUG/26-27"
-              InputProps={{ sx: { fontWeight: "bold", color: "#1e40af" } }}
+              style={{ fontWeight: 700, color: "#1e40af" }}
             />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              label="Date of Receipt"
+          </Box>
+          <Box>
+            <label className="sop-label">DATE OF RECEIPT</label>
+            <input
               type="date"
-              InputLabelProps={{ shrink: true }}
+              className="sop-input"
               value={data.dateOfReceipt ? data.dateOfReceipt.split("T")[0] : ""}
               onChange={(e) => updateField("dateOfReceipt", e.target.value)}
-              fullWidth
-              size="small"
             />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              label="PR Number"
-              value={globalData?.prNumber || ""}
-              InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
-              fullWidth
-              size="small"
+          </Box>
+          <Box>
+            <label className="sop-label">PR NUMBER</label>
+            <input
+              type="text"
+              className="sop-input readonly"
+              readOnly
+              value={globalData?.prNumber || "-"}
             />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              label="PO Number"
-              value={globalData?.poNumber || ""}
-              InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
-              fullWidth
-              size="small"
+          </Box>
+          <Box>
+            <label className="sop-label">PO NUMBER</label>
+            <input
+              type="text"
+              className="sop-input readonly"
+              readOnly
+              value={globalData?.poNumber || "-"}
             />
-          </Grid>
-        </Grid>
-      </Paper>
+          </Box>
+        </Box>
 
-      {/* Per-Supplier Reference Information Table */}
-      <TableContainer component={Paper} sx={{ mb: 3 }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell sx={{ fontWeight: "bold", width: 220 }}>Supplier Field</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const supName = supObj.supplierName || `SUPPLIER ${idx + 1}`;
-                return (
-                  <TableCell key={idx} sx={{ fontWeight: "bold", color: "#1976d2", minWidth: 260 }}>
-                    {supName}
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {/* Supplier Contact No */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Supplier Contact No.</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const info = referenceInfos[idx] || {};
-                const val = info.supplierContactNo ?? (supObj.phoneNumber || data.supplierContactNo || "");
-
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={val}
-                      onChange={(e) => updateSupplierRefInfo(idx, "supplierContactNo", e.target.value)}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-
-            {/* Delivery Note / DC No */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Delivery Note / DC No.</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const info = referenceInfos[idx] || {};
-                const sd = globalData?.stage5?.supplierDispatches?.[idx] || {};
-                const val = info.deliveryNoteDcNo ?? (sd.dispatchDetails?.dcNumber || globalData?.stage5?.dispatchDetails?.dcNumber || data.deliveryNoteDcNo || "");
-
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={val}
-                      onChange={(e) => updateSupplierRefInfo(idx, "deliveryNoteDcNo", e.target.value)}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-
-            {/* LR Number */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>LR Number</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const info = referenceInfos[idx] || {};
-                const sd = globalData?.stage5?.supplierDispatches?.[idx] || {};
-                const val = info.lrNumber ?? (sd.dispatchDetails?.lrNumber || globalData?.stage5?.dispatchDetails?.lrNumber || data.lrNumber || "");
-
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={val}
-                      onChange={(e) => updateSupplierRefInfo(idx, "lrNumber", e.target.value)}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-
-            {/* Vehicle Number */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Vehicle Number</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const info = referenceInfos[idx] || {};
-                const sd = globalData?.stage5?.supplierDispatches?.[idx] || {};
-                const val = info.vehicleNumber ?? (sd.dispatchDetails?.vehicleNumber || globalData?.stage5?.dispatchDetails?.vehicleNumber || data.vehicleNumber || "");
-
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={val}
-                      onChange={(e) => updateSupplierRefInfo(idx, "vehicleNumber", e.target.value)}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-
-            {/* Delivery Location */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Delivery Location</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const info = referenceInfos[idx] || {};
-                const val = info.deliveryLocation ?? (supObj.deliveryLocation || data.deliveryLocation || "");
-
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={val}
-                      onChange={(e) => updateSupplierRefInfo(idx, "deliveryLocation", e.target.value)}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
+        {/* Per-Supplier Reference Information Table */}
+        <Box className="sop-table-container">
+          <table className="sop-table">
+            <thead>
+              <tr>
+                <th style={{ width: 180 }}>Supplier Parameter</th>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const supName = supObj.supplierName || `SUPPLIER ${idx + 1}`;
+                  return (
+                    <th key={idx} style={{ color: "#93c5fd" }}>
+                      {supName}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ fontWeight: 600 }}>Supplier Contact No.</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const info = referenceInfos[idx] || {};
+                  const val = info.supplierContactNo ?? (supObj.phoneNumber || data.supplierContactNo || "");
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="text"
+                        className="sop-input"
+                        value={val}
+                        onChange={(e) => updateSupplierRefInfo(idx, "supplierContactNo", e.target.value)}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <td style={{ fontWeight: 600 }}>Delivery Note / DC No.</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const info = referenceInfos[idx] || {};
+                  const sd = globalData?.stage5?.supplierDispatches?.[idx] || {};
+                  const val = info.deliveryNoteDcNo ?? (sd.dispatchDetails?.dcNumber || globalData?.stage5?.dispatchDetails?.dcNumber || data.deliveryNoteDcNo || "");
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="text"
+                        className="sop-input"
+                        value={val}
+                        onChange={(e) => updateSupplierRefInfo(idx, "deliveryNoteDcNo", e.target.value)}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <td style={{ fontWeight: 600 }}>LR Number</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const info = referenceInfos[idx] || {};
+                  const sd = globalData?.stage5?.supplierDispatches?.[idx] || {};
+                  const val = info.lrNumber ?? (sd.dispatchDetails?.lrNumber || globalData?.stage5?.dispatchDetails?.lrNumber || data.lrNumber || "");
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="text"
+                        className="sop-input"
+                        value={val}
+                        onChange={(e) => updateSupplierRefInfo(idx, "lrNumber", e.target.value)}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <td style={{ fontWeight: 600 }}>Vehicle Number</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const info = referenceInfos[idx] || {};
+                  const sd = globalData?.stage5?.supplierDispatches?.[idx] || {};
+                  const val = info.vehicleNumber ?? (sd.dispatchDetails?.vehicleNumber || globalData?.stage5?.dispatchDetails?.vehicleNumber || data.vehicleNumber || "");
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="text"
+                        className="sop-input"
+                        value={val}
+                        onChange={(e) => updateSupplierRefInfo(idx, "vehicleNumber", e.target.value)}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <td style={{ fontWeight: 600 }}>Delivery Location</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const info = referenceInfos[idx] || {};
+                  const val = info.deliveryLocation ?? (supObj.deliveryLocation || data.deliveryLocation || "");
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="text"
+                        className="sop-input"
+                        value={val}
+                        onChange={(e) => updateSupplierRefInfo(idx, "deliveryLocation", e.target.value)}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+            </tbody>
+          </table>
+        </Box>
+      </Box>
 
       {/* ─── 2. Items Received – Tyre-wise Entry ─── */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-          2. Items Received – Tyre-wise Entry
-        </Typography>
-        <Button variant="outlined" size="small" startIcon={<Add />} onClick={addItem}>
-          Add Item / Tyre
-        </Button>
+      <Box className="sop-card" sx={{ mb: 1.5 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+          <Typography className="sop-card-title">Items Received – Tyre-wise Entry</Typography>
+          <button
+            type="button"
+            className="sop-btn sop-btn-primary"
+            style={{ padding: "3px 10px", fontSize: "11px" }}
+            onClick={addItem}
+          >
+            + Add Tyre Item
+          </button>
+        </Box>
+
+        <Box className="sop-table-container">
+          <table className="sop-table">
+            <thead>
+              <tr>
+                <th style={{ width: 35, textAlign: "center" }}>#</th>
+                <th>Tyre Number (Unique ID)</th>
+                <th>Brand</th>
+                <th>Size & Spec</th>
+                <th style={{ width: 90 }}>Type</th>
+                <th style={{ width: 100 }}>Status</th>
+                <th>Remarks</th>
+                <th style={{ width: 45, textAlign: "center" }}>Act</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itemsReceived.map((item, idx) => (
+                <tr key={idx}>
+                  <td style={{ textAlign: "center", fontWeight: 600 }}>{idx + 1}</td>
+                  <td>
+                    <input
+                      type="text"
+                      className="sop-input"
+                      value={item.tyreNumber || ""}
+                      onChange={(e) => updateItem(idx, "tyreNumber", e.target.value)}
+                      placeholder="e.g. TYR-2026-..."
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      className="sop-input"
+                      value={item.tyreBrand || ""}
+                      onChange={(e) => updateItem(idx, "tyreBrand", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      className="sop-input"
+                      value={item.sizeSpec || ""}
+                      onChange={(e) => updateItem(idx, "sizeSpec", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <select
+                      className="sop-select"
+                      value={item.type || "New"}
+                      onChange={(e) => updateItem(idx, "type", e.target.value)}
+                    >
+                      {typeOptions.map((o) => (
+                        <option key={o} value={o}>{o}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      className="sop-select"
+                      value={item.acceptedRejected || ""}
+                      onChange={(e) => updateItem(idx, "acceptedRejected", e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      {acceptedOptions.map((o) => (
+                        <option key={o} value={o}>{o}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      className="sop-input"
+                      value={item.remarks || ""}
+                      onChange={(e) => updateItem(idx, "remarks", e.target.value)}
+                    />
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    {itemsReceived.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeItem(idx)}
+                        style={{ border: "none", background: "transparent", color: "#dc2626", cursor: "pointer", fontWeight: "bold" }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Box>
       </Box>
-      <TableContainer component={Paper} sx={{ mb: 3 }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell sx={{ width: 50 }}>#</TableCell>
-              <TableCell>Tyre Number (Unique ID)</TableCell>
-              <TableCell>Tyre Brand</TableCell>
-              <TableCell>Size & Spec</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Remarks</TableCell>
-              <TableCell align="center" sx={{ width: 60 }}>Action</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {itemsReceived.map((item, idx) => (
-              <TableRow key={idx}>
-                <TableCell sx={{ fontWeight: 500 }}>{idx + 1}</TableCell>
-                <TableCell>
-                  <TextField
-                    value={item.tyreNumber || ""}
-                    onChange={(e) => updateItem(idx, "tyreNumber", e.target.value)}
-                    size="small"
-                    variant="standard"
-                    fullWidth
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    value={item.tyreBrand || ""}
-                    onChange={(e) => updateItem(idx, "tyreBrand", e.target.value)}
-                    size="small"
-                    variant="standard"
-                    fullWidth
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    value={item.sizeSpec || ""}
-                    onChange={(e) => updateItem(idx, "sizeSpec", e.target.value)}
-                    size="small"
-                    variant="standard"
-                    fullWidth
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    select
-                    value={item.type || "New"}
-                    onChange={(e) => updateItem(idx, "type", e.target.value)}
-                    size="small"
-                    variant="standard"
-                    sx={{ minWidth: 90 }}
-                  >
-                    {typeOptions.map((o) => (
-                      <MenuItem key={o} value={o}>
-                        {o}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    select
-                    value={item.acceptedRejected || ""}
-                    onChange={(e) => updateItem(idx, "acceptedRejected", e.target.value)}
-                    size="small"
-                    variant="standard"
-                    sx={{ minWidth: 110 }}
-                  >
-                    {acceptedOptions.map((o) => (
-                      <MenuItem key={o} value={o}>
-                        {o}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    value={item.remarks || ""}
-                    onChange={(e) => updateItem(idx, "remarks", e.target.value)}
-                    size="small"
-                    variant="standard"
-                    fullWidth
-                  />
-                </TableCell>
-                <TableCell align="center">
-                  {itemsReceived.length > 1 && (
-                    <IconButton size="small" color="error" onClick={() => removeItem(idx)}>
-                      <Delete fontSize="small" />
-                    </IconButton>
-                  )}
-                </TableCell>
-              </TableRow>
+
+      {/* ─── 3 & 4. Conformance & Notes side-by-side ─── */}
+      <Box className="sop-grid-2" sx={{ mb: 1.5 }}>
+        <Box className="sop-card">
+          <Typography className="sop-card-title" sx={{ mb: 1 }}>Quality & Conformance Check</Typography>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.8 }}>
+            {[
+              ["1. Tyres verified against PR/PO specs", "tyresVerified"],
+              ["2. Tyre numbers matched and recorded", "tyreNumbersMatched"],
+              ["3. Invoice verified with PO quantity/value", "invoiceVerified"],
+              ["4. Return clause reviewed for supplier action", "returnClauseReviewed"],
+            ].map(([label, field]) => (
+              <Box key={field} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "11.5px", color: "#334155" }}>{label}</span>
+                <select
+                  className="sop-select"
+                  style={{ width: 80 }}
+                  value={data.qualityConformanceCheck?.[field] || ""}
+                  onChange={(e) => updateNested("qualityConformanceCheck", field, e.target.value)}
+                >
+                  <option value="">Select</option>
+                  {yesNoOptions.map((o) => (
+                    <option key={o} value={o}>{o}</option>
+                  ))}
+                </select>
+              </Box>
             ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+          </Box>
+        </Box>
 
-      {/* ─── 3. Quality & Conformance Check ─── */}
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        3. Quality & Conformance Check
-      </Typography>
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2}>
-          {[
-            ["1. Tyres verified against PR / PO specifications (size, brand, quantity)", "tyresVerified"],
-            ["2. Unique tyre numbers matched and recorded in register", "tyreNumbersMatched"],
-            ["3. Invoice verified – quantity and value match with PO", "invoiceVerified"],
-            ["4. Return clause reviewed – discrepancy noted for supplier action", "returnClauseReviewed"],
-          ].map(([label, field]) => (
-            <Grid item xs={12} md={6} key={field} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography variant="body2">{label}</Typography>
-              <TextField
-                select
-                value={data.qualityConformanceCheck?.[field] || ""}
-                onChange={(e) => updateNested("qualityConformanceCheck", field, e.target.value)}
-                size="small"
-                sx={{ width: 100 }}
-              >
-                {yesNoOptions.map((o) => (
-                  <MenuItem key={o} value={o}>
-                    {o}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-          ))}
-        </Grid>
-      </Paper>
-
-      {/* ─── 4. Inspection Notes ─── */}
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        4. Inspection Notes
-      </Typography>
-      <TextField
-        value={data.inspectionNotes || ""}
-        onChange={(e) => updateField("inspectionNotes", e.target.value)}
-        fullWidth
-        multiline
-        rows={3}
-        size="small"
-        sx={{ mb: 3 }}
-      />
+        <Box className="sop-card">
+          <Typography className="sop-card-title" sx={{ mb: 0.8 }}>Inspection Notes</Typography>
+          <textarea
+            className="sop-textarea"
+            rows={4}
+            value={data.inspectionNotes || ""}
+            onChange={(e) => updateField("inspectionNotes", e.target.value)}
+            placeholder="Enter physical condition, warranty marks, site verification remarks..."
+          />
+        </Box>
+      </Box>
 
       {/* ─── 5. Approvals & Sign-Off ─── */}
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        5. Approvals & Sign-Off
-      </Typography>
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell sx={{ width: 80, fontWeight: "bold" }}>Check</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Role</TableCell>
-              <TableCell sx={{ fontWeight: "bold", width: 180 }}>Date</TableCell>
-              <TableCell sx={{ fontWeight: "bold", width: 120 }}>Status</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {[
-              "Received By (Site Person)",
-              "Validated by – Maintenance Manager",
-              "Reviewed by – Purchase Officer",
-            ].map((role, idx) => {
-              const item = approvals[idx] || {};
-              const isChecked = item.status === "Done" || item.checked || Boolean(item.date);
+      <Box className="sop-card">
+        <Typography className="sop-card-title" sx={{ mb: 1 }}>Approvals & Sign-Off</Typography>
+        <Box className="sop-table-container">
+          <table className="sop-table">
+            <thead>
+              <tr>
+                <th style={{ width: 50, textAlign: "center" }}>Check</th>
+                <th>Role / Authority</th>
+                <th style={{ width: 140 }}>Date Completed</th>
+                <th style={{ width: 100, textAlign: "center" }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                "Received By (Site Person)",
+                "Validated by – Maintenance Manager",
+                "Reviewed by – Purchase Officer",
+              ].map((role, idx) => {
+                const item = approvals[idx] || {};
+                const isChecked = item.status === "Done" || item.checked || Boolean(item.date);
 
-              return (
-                <TableRow key={idx} sx={idx === 2 ? { backgroundColor: "#f0f7ff" } : {}}>
-                  <TableCell>
-                    <Checkbox
-                      checked={isChecked}
-                      onChange={(e) => handleApprovalToggle(idx, e.target.checked)}
-                      color="primary"
-                    />
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: idx === 2 ? "bold" : "500", color: idx === 2 ? "#1e40af" : "inherit" }}>
-                    {role} {idx === 2 ? "(Finalizes GRN Received)" : ""}
-                  </TableCell>
-                  <TableCell>
-                    <TextField
-                      type="date"
-                      InputLabelProps={{ shrink: true }}
-                      value={item.date ? item.date.split("T")[0] : ""}
-                      onChange={(e) => updateApproval(idx, "date", e.target.value)}
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={isChecked ? "Done" : "Pending"}
-                      color={isChecked ? "success" : "default"}
-                      size="small"
-                    />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                return (
+                  <tr key={idx} style={idx === 2 ? { backgroundColor: "#eff6ff" } : {}}>
+                    <td style={{ textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => handleApprovalToggle(idx, e.target.checked)}
+                        style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#2563eb" }}
+                      />
+                    </td>
+                    <td style={{ fontWeight: idx === 2 ? 700 : 500, color: idx === 2 ? "#1d4ed8" : "inherit" }}>
+                      {role} {idx === 2 ? "(Finalizes GRN Status)" : ""}
+                    </td>
+                    <td>
+                      <input
+                        type="date"
+                        className="sop-input"
+                        value={item.date ? item.date.split("T")[0] : ""}
+                        onChange={(e) => updateApproval(idx, "date", e.target.value)}
+                      />
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      <Chip
+                        label={isChecked ? "Done" : "Pending"}
+                        color={isChecked ? "success" : "default"}
+                        size="small"
+                        sx={{ height: 18, fontSize: "10px", fontWeight: 700 }}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Box>
+      </Box>
     </Box>
   );
 }

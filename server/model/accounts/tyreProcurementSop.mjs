@@ -218,6 +218,8 @@ const supplierDispatchSchema = new mongoose.Schema(
     orderPlacedDate: Date,
     orderConfirmation: String,
     modeOfConfirmation: String,
+    dispatchDone: { type: Boolean, default: false },
+    isDispatchDone: { type: Boolean, default: false },
     dispatchDetails: {
       dispatchDate: Date,
       expectedDeliveryDate: Date,
@@ -238,6 +240,8 @@ const supplierDispatchSchema = new mongoose.Schema(
 
 const stage5Schema = new mongoose.Schema(
   {
+    dispatchDone: { type: Boolean, default: false },
+    isDispatchDone: { type: Boolean, default: false },
     prNumber: String,
     poNumber: String,
     supplierName: String,

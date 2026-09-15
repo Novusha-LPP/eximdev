@@ -4,16 +4,12 @@ import {
   Box,
   Tabs,
   Tab,
-  Button,
-  TextField,
-  MenuItem,
   Typography,
   Paper,
   Stack,
   CircularProgress,
   Chip,
 } from "@mui/material";
-import { Save, Cancel } from "@mui/icons-material";
 import useTabs from "../../../customHooks/useTabs";
 import Stage1PurchaseRequest from "./Stage1PurchaseRequest";
 import Stage2SupplierQuotation from "./Stage2SupplierQuotation";
@@ -21,17 +17,7 @@ import Stage3FinanceApproval from "./Stage3FinanceApproval";
 import Stage4PaymentUtr from "./Stage4PaymentUtr";
 import Stage5OrderDispatch from "./Stage5OrderDispatch";
 import Stage6Grn from "./Stage6Grn";
-
-const statusOptions = [
-  "Draft",
-  "PR Raised",
-  "Quotation Received",
-  "Finance Approved",
-  "Payment Done",
-  "Order Placed",
-  "GRN Done",
-  "Closed",
-];
+import "../../../styles/enterprise-sop.scss";
 
 const emptyPr = {
   prNumber: "",
@@ -40,7 +26,6 @@ const emptyPr = {
   stage1: {
     itemsRequired: [],
     routingChecklist: [],
-    hodValidation: {},
   },
   stage2: {
     suppliers: [{}, {}, {}],
@@ -190,73 +175,43 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
   }
 
   return (
-    <Box sx={{ pb: 10 }}>
-      {/* Floating Save/Cancel Buttons */}
-      <Box
-        sx={{
-          position: "fixed",
-          bottom: 24,
-          right: 24,
-          display: "flex",
-          gap: 1.5,
-          zIndex: 1200,
-        }}
-      >
-        {!isView && (
-          <Button
-            variant="contained"
-            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
-            onClick={handleSave}
-            disabled={saving}
-            sx={{ boxShadow: 4, borderRadius: 2, px: 3 }}
-          >
-            Save PR
-          </Button>
-        )}
-        <Button
-          variant="outlined"
-          startIcon={<Cancel />}
-          onClick={onCancel}
-          disabled={saving}
-          sx={{ boxShadow: 4, borderRadius: 2, px: 3, backgroundColor: "white" }}
-        >
-          {isView ? "Back" : "Cancel"}
-        </Button>
-      </Box>
-
+    <Box sx={{ pb: 8 }}>
+      {/* Compact Top Header Surface Card */}
       <Paper
         elevation={0}
         sx={{
-          p: 2.5,
-          mb: 3,
-          borderRadius: "12px",
+          p: 1.2,
+          mb: 1.5,
+          borderRadius: "6px",
           border: "1px solid",
-          borderColor: "divider",
-          background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+          borderColor: "#e3e7ee",
+          background: "#ffffff",
         }}
       >
-        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={2}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a", letterSpacing: "-0.3px" }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#0f172a", fontSize: "0.95rem" }}>
               {isView ? "View Tyre Purchase Request" : prId ? "Edit Tyre Purchase Request" : "Create Tyre Purchase Request"}
             </Typography>
             {formData.prNumber && (
-              <Typography variant="body2" sx={{ color: "#64748b", mt: 0.5 }}>
-                PR Reference: <strong>{formData.prNumber}</strong> {formData.poNumber ? `| PO: ${formData.poNumber}` : ""}
+              <Typography variant="caption" sx={{ color: "#64748b" }}>
+                PR: <strong>{formData.prNumber}</strong> {formData.poNumber ? `| PO: ${formData.poNumber}` : ""}
               </Typography>
             )}
           </Box>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
-              Stage Status:
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600 }}>
+              STATUS:
             </Typography>
             <Chip
               label={formData.status || "Draft"}
+              size="small"
               sx={{
                 fontWeight: 700,
-                fontSize: "0.8rem",
-                borderRadius: "8px",
-                px: 1,
+                fontSize: "0.75rem",
+                borderRadius: "6px",
+                height: 22,
+                px: 0.5,
                 bgcolor:
                   formData.status === "Closed" || formData.status === "GRN Done"
                     ? "#dcfce7"
@@ -276,8 +231,8 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
       </Paper>
 
       {/* Styled Stage Stepper Tabs */}
-      <Paper elevation={0} sx={{ borderRadius: "12px", border: "1px solid", borderColor: "divider", mb: 3, overflow: "hidden" }}>
-        <Box sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "#f8fafc", px: 1 }}>
+      <Paper elevation={0} sx={{ borderRadius: "6px", border: "1px solid", borderColor: "#e3e7ee", mb: 2, overflow: "hidden", background: "#ffffff" }}>
+        <Box sx={{ borderBottom: 1, borderColor: "#e2e8f0", bgcolor: "#f8fafc", px: 0.5 }}>
           <Tabs
             value={value}
             onChange={handleChangeTab}
@@ -285,11 +240,10 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
             scrollButtons="auto"
             aria-label="tyre procurement stage tabs"
             sx={{
-              minHeight: 48,
+              minHeight: 34,
               "& .MuiTabs-indicator": {
                 backgroundColor: "#2563eb",
-                height: 3,
-                borderRadius: "3px 3px 0 0",
+                height: 2.5,
               },
             }}
           >
@@ -301,11 +255,12 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
                 value={idx}
                 sx={{
                   fontWeight: 600,
-                  fontSize: "0.875rem",
+                  fontSize: "0.8rem",
                   textTransform: "none",
                   color: value === idx ? "#2563eb" : "#64748b",
-                  py: 1.5,
-                  px: 2.5,
+                  py: 0.5,
+                  px: 1.8,
+                  minHeight: 34,
                   "&.Mui-selected": {
                     fontWeight: 700,
                   },
@@ -315,7 +270,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
           </Tabs>
         </Box>
 
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: 2 }}>
           {stageTabs.map((tab, idx) => {
             const Component = tab.component;
             return (
@@ -328,6 +283,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
                     onChange={(stageData) => handleStageChange(`stage${idx + 1}`, stageData)}
                   />
                 </fieldset>
+
               </CustomTabPanel>
             );
           })}
@@ -340,62 +296,38 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
         sx={{
           position: "fixed",
           bottom: 24,
-          right: 24,
-          p: 1.5,
-          borderRadius: "16px",
+          right: 32,
+          p: 1.2,
+          borderRadius: "30px",
           display: "flex",
-          gap: 1.5,
-          zIndex: 1200,
+          alignItems: "center",
+          gap: 2,
+          zIndex: 9999,
           bgcolor: "#ffffff",
-          border: "1px solid",
-          borderColor: "divider",
-          boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)",
+          border: "1.5px solid #cbd5e1",
+          boxShadow: "0 6px 20px rgba(0,0,0,0.18)",
         }}
       >
+        <button
+          type="button"
+          className="sop-btn pill-close"
+          onClick={onCancel}
+        >
+          CLOSE
+        </button>
         {!isView && (
-          <Button
-            variant="contained"
-            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
+          <button
+            type="button"
+            className="sop-btn pill-save"
             onClick={handleSave}
             disabled={saving}
-            sx={{
-              borderRadius: "10px",
-              px: 3,
-              py: 1,
-              fontWeight: 600,
-              textTransform: "none",
-              background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-              boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
-              "&:hover": {
-                background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
-              },
-            }}
           >
-            Save PR
-          </Button>
+            {saving ? "SAVING..." : prId ? "UPDATE PR" : "SAVE PR"}
+          </button>
         )}
-        <Button
-          variant="outlined"
-          startIcon={<Cancel />}
-          onClick={onCancel}
-          disabled={saving}
-          sx={{
-            borderRadius: "10px",
-            px: 3,
-            py: 1,
-            fontWeight: 600,
-            textTransform: "none",
-            borderColor: "#cbd5e1",
-            color: "#475569",
-            "&:hover": { borderColor: "#94a3b8", bgcolor: "#f8fafc" },
-          }}
-        >
-          {isView ? "Back to List" : "Cancel"}
-        </Button>
       </Paper>
     </Box>
   );
 }
 
 export default React.memo(TyreProcurementForm);
-

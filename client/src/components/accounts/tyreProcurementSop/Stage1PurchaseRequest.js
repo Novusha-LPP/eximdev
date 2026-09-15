@@ -1,38 +1,14 @@
 import React from "react";
 import axios from "axios";
-import {
-  Box,
-  Grid,
-  TextField,
-  Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
-  Button,
-  MenuItem,
-  Alert,
-  Checkbox,
-  Chip,
-} from "@mui/material";
-import { Add, Delete, CloudDownload, CheckCircle } from "@mui/icons-material";
+import { Add, Delete } from "@mui/icons-material";
+import "../../../styles/enterprise-sop.scss";
 
-const approvalOptions = ["WhatsApp", "Phone Call", "Email", "In-Person"];
 const tyreTypeOptions = ["New Tyre", "Remould Tyre"];
 
-function Stage1PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
+function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalChange }) {
   const updateField = (field, value) => {
-    const val = typeof value === "string" && field !== "approvalMode" ? value.toUpperCase() : value;
+    const val = typeof value === "string" ? value.toUpperCase() : value;
     onChange({ [field]: val });
-  };
-
-  const updateNested = (group, field, value) => {
-    const val = typeof value === "string" && field !== "approvalMode" ? value.toUpperCase() : value;
-    onChange({ [group]: { ...data[group], [field]: val } });
   };
 
   const itemsRequired = data.itemsRequired || [];
@@ -56,7 +32,6 @@ function Stage1PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
     const today = new Date().toISOString().split("T")[0];
     const defaultSteps = [
       { step: "Step 1", action: "PR Raised by Requester", responsible: "Operations Team" },
-      { step: "Step 2", action: "Validated by HoD", responsible: "Head of Department" },
     ];
     const current = [...routingChecklist];
     while (current.length <= idx) {
@@ -66,9 +41,6 @@ function Stage1PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
     if (checked) {
       current[idx] = { ...current[idx], date: today, status: "Done" };
       if (idx === 0) {
-        if (onGlobalChange) onGlobalChange("status", "PR Raised");
-      } else if (idx === 1) {
-        // HoD Approval: Auto-generate PR Number & PO Number if not set or mock
         let generatedPr = globalData?.prNumber;
         let generatedPo = globalData?.poNumber;
 
@@ -95,16 +67,12 @@ function Stage1PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
         if (onGlobalChange) {
           if (generatedPr) onGlobalChange("prNumber", generatedPr);
           if (generatedPo) onGlobalChange("poNumber", generatedPo);
-          onGlobalChange("status", "Preparing for Quotation");
+          onGlobalChange("status", "PR Raised");
         }
 
         onChange({
           routingChecklist: current,
           prDate: today,
-          hodValidation: {
-            ...(data.hodValidation || {}),
-            dateTimeOfApproval: today,
-          },
         });
         return;
       }
@@ -112,49 +80,9 @@ function Stage1PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
       current[idx] = { ...current[idx], date: "", status: "Pending" };
       if (idx === 0) {
         if (onGlobalChange) onGlobalChange("status", "Draft");
-      } else if (idx === 1) {
-        const isStep1Done = current[0]?.status === "Done";
-        if (onGlobalChange) onGlobalChange("status", isStep1Done ? "PR Raised" : "Draft");
       }
     }
     onChange({ routingChecklist: current });
-  };
-
-  const handleMockPull = () => {
-    const today = new Date().toISOString().split("T")[0];
-    const mShort = new Date(today).toLocaleString("en-US", { month: "short" }).toUpperCase();
-    if (onGlobalChange) {
-      onGlobalChange("prNumber", `TT/TYRE/${mShort}/01/26-27`);
-      onGlobalChange("poNumber", `TYRE/${mShort}-01/26-27`);
-    }
-    onChange({
-      prDate: today,
-      preparedBy: "Jishnu",
-      contactNumber: "+91 98765 43210",
-      departmentLocation: "Logistics Hub - Delhi",
-      neededByDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      hodValidation: {
-        validatedBy: "Mohit Singh",
-        designation: "Fleet HOD",
-        approvalMode: "WhatsApp",
-        dateTimeOfApproval: today,
-        hodSignature: "M.S.",
-      },
-      itemsRequired: [
-        { sNo: 1, tyreType: "New Tyre", brandPreference: "MRF", sizeSpec: "10.00R20", loadRating: "146/143K", rimSize: "20", qty: 4, estUnitCost: 18500 },
-        { sNo: 2, tyreType: "Remould Tyre", brandPreference: "Apollo", sizeSpec: "10.00R20", loadRating: "146/143K", rimSize: "20", qty: 6, estUnitCost: 9200 },
-      ],
-      specificationDetails: "Heavy load radial tyres. Cold remould spec required for trailer operations.",
-      preferredSupplier: "Delhi Tyre Care",
-      supplierContact: "info@delhityrecare.com",
-      currentStockNew: 2,
-      currentStockUsedRemould: 5,
-      comments: "Urgent purchase request due to seasonal trailer servicing backlog.",
-      routingChecklist: [
-        { step: "Step 1", action: "PR Raised by Requester", responsible: "Operations Team", date: today, status: "Done" },
-        { step: "Step 2", action: "Validated by HoD", responsible: "Head of Department", date: today, status: "Done" },
-      ],
-    });
   };
 
   // Compute total
@@ -164,373 +92,346 @@ function Stage1PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
   });
 
   return (
-    <Box>
-      <Alert severity="info" sx={{ mb: 3 }} action={
-        <Button color="inherit" size="small" startIcon={<CloudDownload />} onClick={handleMockPull}>
-          Pull Transport Data
-        </Button>
-      }>
-        <strong>Transport API Integration (Mock)</strong>: In production, Tyre Purchase Requests are fetched directly from the Fleet Management API. You can click "Pull Transport Data" to populate mock PR details.
-      </Alert>
+    <div className="sop-container">
+      {/* Section A: Purchase Request Identity (Full Width Header Card) */}
+      <div className="sop-card">
+        <div className="sop-card-title">
+          <span>A. Purchase Request Identity</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 700,
+                padding: "2px 8px",
+                borderRadius: "10px",
+                backgroundColor: "#eff6ff",
+                color: "#1d4ed8",
+                border: "1px solid #bfdbfe",
+              }}
+            >
+              {globalData?.status || "Draft"}
+            </span>
+          </div>
+        </div>
 
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        A. Purchase Request Identity
-      </Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={4}>
-          <TextField
-            label="PR Number"
-            value={globalData?.prNumber || ""}
-            onChange={(e) => onGlobalChange("prNumber", e.target.value)}
-            fullWidth
-            size="small"
-            placeholder="TT/TYRE/AUG/01/26-27"
-            helperText="Format: TT/TYRE/AUG/01/26-27 (Auto-generated after HoD Approval)"
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <TextField
-            label="PR Date"
-            type="date"
-            InputLabelProps={{ shrink: true }}
-            value={data.prDate ? data.prDate.split("T")[0] : ""}
-            onChange={(e) => updateField("prDate", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <TextField
-            label="Needed By Date"
-            type="date"
-            InputLabelProps={{ shrink: true }}
-            value={data.neededByDate ? data.neededByDate.split("T")[0] : ""}
-            onChange={(e) => updateField("neededByDate", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <TextField
-            label="Prepared By (Name)"
-            value={data.preparedBy || ""}
-            onChange={(e) => updateField("preparedBy", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <TextField
-            label="Contact Number"
-            value={data.contactNumber || ""}
-            onChange={(e) => updateField("contactNumber", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <TextField
-            label="Department / Location"
-            value={data.departmentLocation || ""}
-            onChange={(e) => updateField("departmentLocation", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-      </Grid>
+        <div className="sop-grid-4">
+          <div className="sop-field-group">
+            <label className="sop-field-label">PR Number</label>
+            <input
+              className="sop-input"
+              value={globalData?.prNumber || ""}
+              onChange={(e) => onGlobalChange("prNumber", e.target.value)}
+              placeholder="TT/TYRE/AUG/01/26-27"
+            />
+          </div>
+          <div className="sop-field-group">
+            <label className="sop-field-label">PO Number (Auto)</label>
+            <input
+              className="sop-input"
+              value={globalData?.poNumber || ""}
+              readOnly
+              placeholder="TYRE/AUG-01/26-27"
+            />
+          </div>
+          <div className="sop-field-group">
+            <label className="sop-field-label">PR Date</label>
+            <input
+              type="date"
+              className="sop-input"
+              value={data.prDate ? data.prDate.split("T")[0] : ""}
+              onChange={(e) => updateField("prDate", e.target.value)}
+            />
+          </div>
+          <div className="sop-field-group">
+            <label className="sop-field-label">Needed By Date</label>
+            <input
+              type="date"
+              className="sop-input"
+              value={data.neededByDate ? data.neededByDate.split("T")[0] : ""}
+              onChange={(e) => updateField("neededByDate", e.target.value)}
+            />
+          </div>
+        </div>
 
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        B. HoD Validation
-      </Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={4}>
-          <TextField
-            label="Validated By (HoD Name)"
-            value={data.hodValidation?.validatedBy || ""}
-            onChange={(e) => updateNested("hodValidation", "validatedBy", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <TextField
-            label="Designation"
-            value={data.hodValidation?.designation || ""}
-            onChange={(e) => updateNested("hodValidation", "designation", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <TextField
-            select
-            label="Approval Mode"
-            value={data.hodValidation?.approvalMode || ""}
-            onChange={(e) => updateNested("hodValidation", "approvalMode", e.target.value)}
-            fullWidth
-            size="small"
-          >
-            {approvalOptions.map((o) => (
-              <MenuItem key={o} value={o}>
-                {o}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            label="Date & Time of Approval"
-            type="date"
-            InputLabelProps={{ shrink: true }}
-            value={data.hodValidation?.dateTimeOfApproval ? data.hodValidation.dateTimeOfApproval.split("T")[0] : ""}
-            onChange={(e) => updateNested("hodValidation", "dateTimeOfApproval", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            label="HoD Signature / Initials"
-            value={data.hodValidation?.hodSignature || ""}
-            onChange={(e) => updateNested("hodValidation", "hodSignature", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-      </Grid>
+        <div className="sop-grid-3">
+          <div className="sop-field-group">
+            <label className="sop-field-label">Prepared By</label>
+            <input
+              className="sop-input"
+              value={data.preparedBy || ""}
+              onChange={(e) => updateField("preparedBy", e.target.value)}
+            />
+          </div>
+          <div className="sop-field-group">
+            <label className="sop-field-label">Contact Number</label>
+            <input
+              className="sop-input"
+              value={data.contactNumber || ""}
+              onChange={(e) => updateField("contactNumber", e.target.value)}
+            />
+          </div>
+          <div className="sop-field-group">
+            <label className="sop-field-label">Department / Location</label>
+            <input
+              className="sop-input"
+              value={data.departmentLocation || ""}
+              onChange={(e) => updateField("departmentLocation", e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
 
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        C. Items Required
-      </Typography>
-      <TableContainer component={Paper} sx={{ mb: 2 }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell>Tyre Type</TableCell>
-              <TableCell>Brand Preference</TableCell>
-              <TableCell>Size / Spec</TableCell>
-              <TableCell>Load Rating</TableCell>
-              <TableCell>Rim Size</TableCell>
-              <TableCell>Qty</TableCell>
-              <TableCell>Est. Unit Cost (₹)</TableCell>
-              <TableCell>Est. Total (₹)</TableCell>
-              <TableCell></TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {itemsRequired.map((item, idx) => {
-              const total = (Number(item.qty) || 0) * (Number(item.estUnitCost) || 0);
-              return (
-                <TableRow key={idx}>
-                  <TableCell>
-                    <TextField
-                      select
-                      value={item.tyreType || "New Tyre"}
-                      onChange={(e) => updateItem(idx, "tyreType", e.target.value)}
-                      size="small"
-                      sx={{ minWidth: 120 }}
-                    >
-                      {tyreTypeOptions.map((o) => (
-                        <MenuItem key={o} value={o}>
-                          {o}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </TableCell>
-                  <TableCell>
-                    <TextField
-                      value={item.brandPreference || ""}
-                      onChange={(e) => updateItem(idx, "brandPreference", e.target.value)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <TextField
-                      value={item.sizeSpec || ""}
-                      onChange={(e) => updateItem(idx, "sizeSpec", e.target.value)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <TextField
-                      value={item.loadRating || ""}
-                      onChange={(e) => updateItem(idx, "loadRating", e.target.value)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <TextField
-                      value={item.rimSize || ""}
-                      onChange={(e) => updateItem(idx, "rimSize", e.target.value)}
-                      size="small"
-                      sx={{ width: 80 }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <TextField
-                      type="number"
-                      value={item.qty || ""}
-                      onChange={(e) => updateItem(idx, "qty", e.target.value)}
-                      size="small"
-                      sx={{ width: 80 }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <TextField
-                      type="number"
-                      value={item.estUnitCost || ""}
-                      onChange={(e) => updateItem(idx, "estUnitCost", e.target.value)}
-                      size="small"
-                      sx={{ width: 120 }}
-                    />
-                  </TableCell>
-                  <TableCell>{total.toLocaleString("en-IN", { style: "currency", currency: "INR" })}</TableCell>
-                  <TableCell>
-                    <IconButton size="small" color="error" onClick={() => removeItem(idx)}>
-                      <Delete fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <Button variant="outlined" size="small" startIcon={<Add />} onClick={addItem} sx={{ mb: 3 }}>
-        Add Tyre Line
-      </Button>
+      {/* Middle Section: Items Required Table */}
+      <div className="sop-card">
+        <div className="sop-card-title">
+          <span>B. Items Required</span>
+          <button type="button" className="sop-btn primary" onClick={addItem}>
+            <Add style={{ fontSize: "14px" }} /> Add Line
+          </button>
+        </div>
+        <div className="sop-table-container">
+          <table className="sop-table">
+            <thead>
+              <tr>
+                <th style={{ width: "130px" }}>Tyre Type</th>
+                <th>Brand Preference</th>
+                <th style={{ width: "110px" }}>Size / Spec</th>
+                <th style={{ width: "100px" }}>Load Rating</th>
+                <th style={{ width: "80px" }}>Rim Size</th>
+                <th style={{ width: "70px" }}>Qty</th>
+                <th style={{ width: "110px" }}>Est. Unit (₹)</th>
+                <th style={{ width: "110px" }}>Est. Total (₹)</th>
+                <th style={{ width: "40px", textAlign: "center" }}>Del</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itemsRequired.map((item, idx) => {
+                const total = (Number(item.qty) || 0) * (Number(item.estUnitCost) || 0);
+                return (
+                  <tr key={idx}>
+                    <td>
+                      <select
+                        className="sop-select"
+                        value={item.tyreType || "New Tyre"}
+                        onChange={(e) => updateItem(idx, "tyreType", e.target.value)}
+                      >
+                        {tyreTypeOptions.map((o) => (
+                          <option key={o} value={o}>{o}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        className="sop-input"
+                        value={item.brandPreference || ""}
+                        onChange={(e) => updateItem(idx, "brandPreference", e.target.value)}
+                        placeholder="e.g. MRF, Apollo"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="sop-input"
+                        value={item.sizeSpec || ""}
+                        onChange={(e) => updateItem(idx, "sizeSpec", e.target.value)}
+                        placeholder="10.00R20"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="sop-input"
+                        value={item.loadRating || ""}
+                        onChange={(e) => updateItem(idx, "loadRating", e.target.value)}
+                        placeholder="146/143K"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="sop-input"
+                        value={item.rimSize || ""}
+                        onChange={(e) => updateItem(idx, "rimSize", e.target.value)}
+                        placeholder="20"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        className="sop-input"
+                        value={item.qty || ""}
+                        onChange={(e) => updateItem(idx, "qty", e.target.value)}
+                        style={{ textAlign: "right" }}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        className="sop-input"
+                        value={item.estUnitCost || ""}
+                        onChange={(e) => updateItem(idx, "estUnitCost", e.target.value)}
+                        style={{ textAlign: "right" }}
+                      />
+                    </td>
+                    <td style={{ textAlign: "right", fontWeight: 700, color: "#1e293b" }}>
+                      {total.toLocaleString("en-IN", { style: "currency", currency: "INR" })}
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(idx)}
+                        style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: "2px" }}
+                      >
+                        <Delete style={{ fontSize: "15px" }} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
 
-      <Paper sx={{ p: 2, mb: 3, display: "flex", justifyContent: "space-between", alignItems: "center", bgcolor: "#fbe9e7" }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-          ESTIMATED TOTAL COST:
-        </Typography>
-        <Typography variant="h6" color="error" sx={{ fontWeight: "bold" }}>
-          {totalCost.toLocaleString("en-IN", { style: "currency", currency: "INR" })}
-        </Typography>
-      </Paper>
+        {/* Compact Estimated Total Cost Strip */}
+        <div className="sop-total-strip">
+          <span>ESTIMATED TOTAL COST:</span>
+          <span style={{ fontSize: "14px" }}>
+            {totalCost.toLocaleString("en-IN", { style: "currency", currency: "INR" })}
+          </span>
+        </div>
+      </div>
 
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        D. Specification & Supplier Preference
-      </Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12}>
-          <TextField
-            label="Specification Details"
-            value={data.specificationDetails || ""}
-            onChange={(e) => updateField("specificationDetails", e.target.value)}
-            fullWidth
-            size="small"
-            placeholder="Brand, Load Rating, Rim Size, Remould Spec, etc."
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            label="Preferred Supplier (if any)"
-            value={data.preferredSupplier || ""}
-            onChange={(e) => updateField("preferredSupplier", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            label="Supplier Contact"
-            value={data.supplierContact || ""}
-            onChange={(e) => updateField("supplierContact", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-      </Grid>
+      {/* Bottom 2-Column Row: Specification & Stock Status */}
+      <div className="sop-grid-2">
+        {/* Left: Specification & Supplier Preference */}
+        <div className="sop-card">
+          <div className="sop-card-title">C. Specification & Supplier Preference</div>
+          <div className="sop-field-group">
+            <label className="sop-field-label">Specification Details</label>
+            <input
+              className="sop-input"
+              value={data.specificationDetails || ""}
+              onChange={(e) => updateField("specificationDetails", e.target.value)}
+              placeholder="Brand, Load Rating, Rim Size, Remould Spec, etc."
+            />
+          </div>
+          <div className="sop-grid-2">
+            <div className="sop-field-group">
+              <label className="sop-field-label">Preferred Supplier (if any)</label>
+              <input
+                className="sop-input"
+                value={data.preferredSupplier || ""}
+                onChange={(e) => updateField("preferredSupplier", e.target.value)}
+                placeholder="e.g. Delhi Tyre Care"
+              />
+            </div>
+            <div className="sop-field-group">
+              <label className="sop-field-label">Supplier Contact</label>
+              <input
+                className="sop-input"
+                value={data.supplierContact || ""}
+                onChange={(e) => updateField("supplierContact", e.target.value)}
+                placeholder="Phone or Email"
+              />
+            </div>
+          </div>
+        </div>
 
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        E. Current Stock Status
-      </Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={6}>
-          <TextField
-            label="Current Stock – New Tyres"
-            type="number"
-            value={data.currentStockNew || 0}
-            onChange={(e) => updateField("currentStockNew", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            label="Current Stock – Used / Remould"
-            type="number"
-            value={data.currentStockUsedRemould || 0}
-            onChange={(e) => updateField("currentStockUsedRemould", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-      </Grid>
+        {/* Right: Current Stock Status & Comments */}
+        <div className="sop-card">
+          <div className="sop-card-title">D. Current Stock & Comments</div>
+          <div className="sop-grid-2">
+            <div className="sop-field-group">
+              <label className="sop-field-label">Current Stock – New</label>
+              <input
+                type="number"
+                className="sop-input"
+                value={data.currentStockNew || 0}
+                onChange={(e) => updateField("currentStockNew", e.target.value)}
+              />
+            </div>
+            <div className="sop-field-group">
+              <label className="sop-field-label">Current Stock – Used / Remould</label>
+              <input
+                type="number"
+                className="sop-input"
+                value={data.currentStockUsedRemould || 0}
+                onChange={(e) => updateField("currentStockUsedRemould", e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="sop-field-group">
+            <label className="sop-field-label">Comments / Additional Information</label>
+            <textarea
+              rows={2}
+              className="sop-textarea"
+              value={data.comments || ""}
+              onChange={(e) => updateField("comments", e.target.value)}
+              placeholder="Urgent purchase request remarks..."
+            />
+          </div>
+        </div>
+      </div>
 
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        F. Comments / Additional Information
-      </Typography>
-      <TextField
-        value={data.comments || ""}
-        onChange={(e) => updateField("comments", e.target.value)}
-        fullWidth
-        multiline
-        rows={3}
-        size="small"
-        sx={{ mb: 3 }}
-      />
-
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        G. Routing Checklist
-      </Typography>
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell sx={{ fontWeight: "bold" }}>Check</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Step</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Action</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Responsible</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Date Completed</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {[
-              ["Step 1", "PR Raised by Requester", "Operations Team"],
-              ["Step 2", "Validated by HoD", "Head of Department"],
-            ].map(([step, action, resp], idx) => {
-              const isDone = routingChecklist[idx]?.status === "Done";
-              const dateVal = routingChecklist[idx]?.date ? routingChecklist[idx].date.split("T")[0] : "";
-              return (
-                <TableRow key={idx}>
-                  <TableCell>
-                    <Checkbox
-                      checked={isDone}
-                      onChange={(e) => handleChecklistToggle(idx, e.target.checked)}
-                      color="primary"
-                    />
-                  </TableCell>
-                  <TableCell>{step}</TableCell>
-                  <TableCell sx={{ fontWeight: 500 }}>{action}</TableCell>
-                  <TableCell>{resp}</TableCell>
-                  <TableCell>{dateVal || "-"}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={isDone ? "Done" : "Pending"}
-                      color={isDone ? "success" : "default"}
-                      size="small"
-                    />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Box>
+      {/* Bottom Section: Routing Checklist & Stage 1 Sign-Off */}
+      <div className="sop-card">
+        <div className="sop-card-title">
+          <span>E. Routing Checklist & Stage 1 Sign-Off</span>
+        </div>
+        <div className="sop-table-container">
+          <table className="sop-table">
+            <thead>
+              <tr>
+                <th style={{ width: "45px", textAlign: "center" }}>Check</th>
+                <th style={{ width: "75px" }}>Step</th>
+                <th>Action</th>
+                <th>Responsible</th>
+                <th style={{ width: "120px" }}>Date</th>
+                <th style={{ width: "80px" }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["Step 1", "PR Raised by Requester", "Operations Team"],
+              ].map(([step, action, resp], idx) => {
+                const isDone = routingChecklist[idx]?.status === "Done";
+                const dateVal = routingChecklist[idx]?.date ? routingChecklist[idx].date.split("T")[0] : "";
+                return (
+                  <tr key={idx}>
+                    <td style={{ textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={isDone}
+                        onChange={(e) => handleChecklistToggle(idx, e.target.checked)}
+                        style={{ cursor: "pointer", width: "15px", height: "15px" }}
+                      />
+                    </td>
+                    <td style={{ fontWeight: 600 }}>{step}</td>
+                    <td>{action}</td>
+                    <td>{resp}</td>
+                    <td>{dateVal || "-"}</td>
+                    <td>
+                      <span
+                        style={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          padding: "2px 8px",
+                          borderRadius: "10px",
+                          backgroundColor: isDone ? "#dcfce7" : "#f1f5f9",
+                          color: isDone ? "#15803d" : "#64748b",
+                        }}
+                      >
+                        {isDone ? "Done" : "Pending"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ fontSize: "11.5px", color: "#64748b", marginTop: "4px" }}>
+          * Checking <strong>Step 1</strong> locks requester identity and auto-generates official PR / PO sequence numbers.
+        </div>
+      </div>
+    </div>
   );
 }
 

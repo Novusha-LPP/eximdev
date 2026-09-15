@@ -1,19 +1,7 @@
 import React from "react";
 import {
   Box,
-  Button,
-  Grid,
-  TextField,
   Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  MenuItem,
-  Checkbox,
   Chip,
   Alert,
   AlertTitle,
@@ -139,211 +127,209 @@ function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
   });
 
   return (
-    <Box>
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        A. Reference Details
-      </Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="PO Number"
-            value={globalData?.poNumber || ""}
-            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="Finance Approval Date"
-            value={financeApprovalDateStr}
-            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="Supplier Name(s)"
-            value={supplierNamesStr}
-            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="Total Payment Amount (₹)"
-            value={totalPaymentAmount ? `₹${totalPaymentAmount.toLocaleString("en-IN")}` : "₹0"}
-            InputProps={{ readOnly: true, sx: { backgroundColor: "#eef2ff", fontWeight: "bold" } }}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-      </Grid>
+    <Box className="sop-container">
+      {/* ─── A. Reference Details ─── */}
+      <Box className="sop-card" sx={{ mb: 1.5 }}>
+        <Typography className="sop-card-title" sx={{ mb: 1 }}>
+          Reference Details
+        </Typography>
+        <Box className="sop-grid-4">
+          <Box>
+            <label className="sop-label">PO NUMBER</label>
+            <input
+              type="text"
+              className="sop-input readonly"
+              readOnly
+              value={globalData?.poNumber || "-"}
+            />
+          </Box>
+          <Box>
+            <label className="sop-label">FINANCE APPROVAL DATE</label>
+            <input
+              type="text"
+              className="sop-input readonly"
+              readOnly
+              value={financeApprovalDateStr}
+            />
+          </Box>
+          <Box>
+            <label className="sop-label">SUPPLIER NAME(S)</label>
+            <input
+              type="text"
+              className="sop-input readonly"
+              readOnly
+              value={supplierNamesStr}
+            />
+          </Box>
+          <Box>
+            <label className="sop-label">TOTAL PAYMENT AMOUNT (₹)</label>
+            <input
+              type="text"
+              className="sop-input readonly"
+              readOnly
+              style={{ fontWeight: "bold", color: "#1e3a8a" }}
+              value={totalPaymentAmount ? `₹${totalPaymentAmount.toLocaleString("en-IN")}` : "₹0"}
+            />
+          </Box>
+        </Box>
+      </Box>
 
       {/* ─── Credit Days Notifications / Warnings ─── */}
       {creditWarnings.map((cw, i) => (
         <Alert
           key={i}
           severity={cw.isUrgent ? "warning" : "info"}
-          sx={{ mb: 2, fontWeight: 500 }}
+          sx={{ mb: 1.5, py: 0.5, fontSize: "11.5px" }}
         >
-          <AlertTitle sx={{ fontWeight: "bold" }}>
+          <AlertTitle sx={{ fontWeight: "bold", fontSize: "12px", mb: 0.2 }}>
             {cw.isUrgent
               ? `⚠️ Credit Payment Reminder: ${cw.supplierName}`
               : `ℹ️ Credit Payment Terms Active: ${cw.supplierName}`}
           </AlertTitle>
-          Payment Terms: <strong>{cw.creditDays} Days Credit</strong> (Counted from {cw.usedInvoiceDate ? "Invoice Date" : "Approval Date"}: {cw.baseDateStr}).
+          Payment Terms: <strong>{cw.creditDays} Days Credit</strong> (from {cw.usedInvoiceDate ? "Invoice Date" : "Approval Date"}: {cw.baseDateStr}).
           {" "}Due Date: <strong>{cw.dueDateStr}</strong> ({cw.diffDays > 0 ? `${cw.diffDays} days remaining` : "Due today / overdue"}).
-          {" "}<em>This entry skips Stage 4 payment waiting and moves straight to Stage 5 Order & Dispatch.</em>
         </Alert>
       ))}
 
       {/* ─── B. Supplier Bank Details & Payment Table ─── */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-          B. Supplier Bank & Payment Details
-        </Typography>
-        <Button
-          variant="contained"
-          color="success"
-          size="small"
-          onClick={() => {
-            const today = new Date().toISOString().split("T")[0];
-            const updated = bankSuppliers.map((sup, idx) => {
-              const existing = supplierPayments[idx] || {};
-              return {
-                supplierName: sup.supplierName || `Supplier ${idx + 1}`,
-                paymentTerms: sup.paymentTerms || "100% ADVANCE",
-                paymentMethod: existing.paymentMethod || "NEFT",
-                utrNumber: existing.utrNumber || `UTR${Date.now().toString().slice(-8)}`,
-                paymentDate: existing.paymentDate || today,
-                isPaid: true,
-              };
-            });
-            onChange({
-              ...data,
-              supplierPayments: updated,
-            });
-            if (onGlobalChange) {
-              onGlobalChange("status", "Payment Done");
-            }
-          }}
-          sx={{ fontWeight: "bold", textTransform: "none" }}
-        >
-          ✓ Mark All as Paid
-        </Button>
+      <Box className="sop-card">
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+          <Typography className="sop-card-title">
+            Supplier Bank & Payment Details
+          </Typography>
+          <button
+            type="button"
+            className="sop-btn sop-btn-success"
+            style={{ padding: "3px 10px", fontSize: "11px" }}
+            onClick={() => {
+              const today = new Date().toISOString().split("T")[0];
+              const updated = bankSuppliers.map((sup, idx) => {
+                const existing = supplierPayments[idx] || {};
+                return {
+                  supplierName: sup.supplierName || `Supplier ${idx + 1}`,
+                  paymentTerms: sup.paymentTerms || "100% ADVANCE",
+                  paymentMethod: existing.paymentMethod || "NEFT",
+                  utrNumber: existing.utrNumber || `UTR${Date.now().toString().slice(-8)}`,
+                  paymentDate: existing.paymentDate || today,
+                  isPaid: true,
+                };
+              });
+              onChange({
+                ...data,
+                supplierPayments: updated,
+              });
+              if (onGlobalChange) {
+                onGlobalChange("status", "Payment Done");
+              }
+            }}
+          >
+            ✓ Mark All as Paid
+          </button>
+        </Box>
+
+        <Box className="sop-table-container">
+          <table className="sop-table">
+            <thead>
+              <tr>
+                <th>Supplier Name</th>
+                <th>Name in Bank</th>
+                <th>Bank Name</th>
+                <th>Account No.</th>
+                <th>IFSC</th>
+                <th>Terms</th>
+                <th style={{ textAlign: "right", width: 110 }}>Amount (₹)</th>
+                <th style={{ width: 70, textAlign: "center" }}>Paid?</th>
+                <th style={{ width: 100 }}>Method</th>
+                <th style={{ width: 140 }}>UTR / Ref No.</th>
+                <th style={{ width: 120 }}>Payment Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bankSuppliers.length > 0 ? (
+                bankSuppliers.map((sup, idx) => {
+                  const sp = supplierPayments[idx] || {};
+                  const cDays = parseCreditDays(sup.paymentTerms);
+                  const isCredit = cDays > 0;
+                  const termsLabel = sup.paymentTerms || (isCredit ? `${cDays}d Credit` : "ADVANCE");
+
+                  const matchedSelected = selectedSuppliers.find(
+                    (sel) => sel.selectedSupplier === sup.supplierName || sel.selectedSupplier === sup._id
+                  );
+                  const supplierOrderVal = matchedSelected?.totalOrderValue || sup.totalOrderValue || 0;
+
+                  return (
+                    <tr key={idx}>
+                      <td style={{ fontWeight: 600, color: "#1d4ed8" }}>
+                        {sup.supplierName || `Supplier ${idx + 1}`}
+                      </td>
+                      <td>{sup.supplierNameInBank || sup.supplierName || "-"}</td>
+                      <td>{sup.bankName || "-"}</td>
+                      <td style={{ fontWeight: 500 }}>{sup.bankAccountNo || "-"}</td>
+                      <td>{sup.bankIfscCode || "-"}</td>
+                      <td>
+                        <Chip
+                          label={termsLabel}
+                          size="small"
+                          color={isCredit ? "warning" : "default"}
+                          variant={isCredit ? "filled" : "outlined"}
+                          sx={{ height: 18, fontSize: "10px", fontWeight: 600 }}
+                        />
+                      </td>
+                      <td style={{ textAlign: "right", fontWeight: 700, color: "#166534" }}>
+                        {supplierOrderVal > 0 ? `₹${Number(supplierOrderVal).toLocaleString("en-IN")}` : "-"}
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(sp.isPaid)}
+                          onChange={(e) => handleSupplierPaymentChange(idx, "isPaid", e.target.checked)}
+                          style={{ width: 15, height: 15, cursor: "pointer", accentColor: "#16a34a" }}
+                        />
+                      </td>
+                      <td>
+                        <select
+                          className="sop-select"
+                          value={sp.paymentMethod || "NEFT"}
+                          onChange={(e) => handleSupplierPaymentChange(idx, "paymentMethod", e.target.value)}
+                        >
+                          {methodOptions.map((m) => (
+                            <option key={m} value={m}>
+                              {m}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="sop-input"
+                          placeholder="UTR No."
+                          value={sp.utrNumber || ""}
+                          onChange={(e) => handleSupplierPaymentChange(idx, "utrNumber", e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="date"
+                          className="sop-input"
+                          value={sp.paymentDate ? String(sp.paymentDate).split("T")[0] : ""}
+                          onChange={(e) => handleSupplierPaymentChange(idx, "paymentDate", e.target.value)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={11} style={{ textAlign: "center", color: "#64748b", padding: 12 }}>
+                    No bank details provided in Stage 2 Supplier Quotation.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </Box>
       </Box>
-
-      <TableContainer component={Paper} sx={{ mb: 3, overflowX: "auto" }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell sx={{ fontWeight: "bold" }}>Supplier Name</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Name in Bank</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Bank Name</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Account Number</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>IFSC Code</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Branch Code</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Payment Terms</TableCell>
-              <TableCell sx={{ fontWeight: "bold", width: 130 }}>Payment Amount (₹)</TableCell>
-              <TableCell sx={{ fontWeight: "bold", width: 110, backgroundColor: "#e8f5e9" }} align="center">
-                Payment Done?
-              </TableCell>
-              <TableCell sx={{ fontWeight: "bold", width: 140 }}>Payment Method</TableCell>
-              <TableCell sx={{ fontWeight: "bold", width: 160 }}>UTR / Ref No.</TableCell>
-              <TableCell sx={{ fontWeight: "bold", width: 150 }}>Payment Date</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {bankSuppliers.length > 0 ? (
-              bankSuppliers.map((sup, idx) => {
-                const sp = supplierPayments[idx] || {};
-                const cDays = parseCreditDays(sup.paymentTerms);
-                const isCredit = cDays > 0;
-                const termsLabel = sup.paymentTerms || (isCredit ? `${cDays} Days Credit` : "100% ADVANCE");
-
-                const matchedSelected = selectedSuppliers.find(
-                  (sel) => sel.selectedSupplier === sup.supplierName || sel.selectedSupplier === sup._id
-                );
-                const supplierOrderVal = matchedSelected?.totalOrderValue || sup.totalOrderValue || 0;
-
-                return (
-                  <TableRow key={idx} hover>
-                    <TableCell sx={{ fontWeight: 600, color: "#1976d2" }}>
-                      {sup.supplierName || `Supplier ${idx + 1}`}
-                    </TableCell>
-                    <TableCell>{sup.supplierNameInBank || sup.supplierName || "-"}</TableCell>
-                    <TableCell>{sup.bankName || "-"}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>{sup.bankAccountNo || "-"}</TableCell>
-                    <TableCell>{sup.bankIfscCode || "-"}</TableCell>
-                    <TableCell>{sup.bankBranchCode || "-"}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={termsLabel}
-                        size="small"
-                        color={isCredit ? "warning" : "default"}
-                        variant={isCredit ? "filled" : "outlined"}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: "bold", color: "#2e7d32" }}>
-                      {supplierOrderVal > 0 ? `₹${Number(supplierOrderVal).toLocaleString("en-IN")}` : "-"}
-                    </TableCell>
-                    <TableCell align="center" sx={{ backgroundColor: "#f1f8e9" }}>
-                      <Checkbox
-                        checked={Boolean(sp.isPaid)}
-                        onChange={(e) => handleSupplierPaymentChange(idx, "isPaid", e.target.checked)}
-                        color="success"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        select
-                        value={sp.paymentMethod || "NEFT"}
-                        onChange={(e) => handleSupplierPaymentChange(idx, "paymentMethod", e.target.value)}
-                        fullWidth
-                        size="small"
-                      >
-                        {methodOptions.map((m) => (
-                          <MenuItem key={m} value={m}>
-                            {m}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        placeholder="Enter UTR No."
-                        value={sp.utrNumber || ""}
-                        onChange={(e) => handleSupplierPaymentChange(idx, "utrNumber", e.target.value)}
-                        fullWidth
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        type="date"
-                        InputLabelProps={{ shrink: true }}
-                        value={sp.paymentDate ? String(sp.paymentDate).split("T")[0] : ""}
-                        onChange={(e) => handleSupplierPaymentChange(idx, "paymentDate", e.target.value)}
-                        fullWidth
-                        size="small"
-                      />
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={11} align="center" sx={{ color: "text.secondary", py: 3 }}>
-                  No bank details provided in Stage 2 Supplier Quotation.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
     </Box>
   );
 }

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
+import { UserContext } from "../../../contexts/UserContext";
 import {
   Box,
   Button,
@@ -25,11 +26,27 @@ import {
   Chip,
   Grid,
   Avatar,
-  Tooltip
+  Tooltip,
+  InputAdornment
 } from "@mui/material";
 import { toast } from "react-hot-toast";
 
-import { Edit, Delete, GetApp, Add, FileDownload, Visibility, Autorenew, CheckCircle, HourglassEmpty, History, DirectionsCar } from "@mui/icons-material";
+import {
+  Edit,
+  Delete,
+  GetApp,
+  Add,
+  FileDownload,
+  Visibility,
+  Autorenew,
+  CheckCircle,
+  HourglassEmpty,
+  History,
+  DirectionsCar,
+  Sync,
+  Search,
+  Clear
+} from "@mui/icons-material";
 
 import FleetInsuranceHistory from "./FleetInsuranceHistory";
 
@@ -45,6 +62,52 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
   const [paymentUtrRecords, setPaymentUtrRecords] = useState([]);
   const [paymentUtrLoading, setPaymentUtrLoading] = useState(false);
 
+  const { user } = useContext(UserContext);
+  const isAdmin = user?.role === "Admin" || user?.role === "admin";
+  const [allowedUserTabs, setAllowedUserTabs] = useState([]);
+
+  useEffect(() => {
+    async function fetchUserTabs() {
+      if (user?.username && !isAdmin) {
+        try {
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/user-tabs/${user.username}`
+          );
+          if (res.data?.success && Array.isArray(res.data.allowed_tabs)) {
+            setAllowedUserTabs(res.data.allowed_tabs);
+          }
+        } catch (err) {
+          console.error("Error fetching fleet insurance user tabs:", err);
+        }
+      }
+    }
+    fetchUserTabs();
+  }, [user, isAdmin]);
+
+  const isTabVisible = React.useCallback((tabIndex) => {
+    if (isAdmin || allowedUserTabs.length === 0) return true;
+    switch (tabIndex) {
+      case 0: // Vehicle Records
+      case 1: // Policy History & Dashboard (auto-included with Vehicle Records)
+        return allowedUserTabs.includes("Vehicle Records");
+      case 2: // Approval
+        return allowedUserTabs.includes("Approval");
+      case 3: // Payment & UTR
+        return allowedUserTabs.includes("Payment & UTR");
+      default:
+        return true;
+    }
+  }, [isAdmin, allowedUserTabs]);
+
+  useEffect(() => {
+    if (!isAdmin && allowedUserTabs.length > 0 && !isTabVisible(mainTab)) {
+      const firstAllowed = [0, 1, 2, 3].find((idx) => isTabVisible(idx));
+      if (firstAllowed !== undefined) {
+        setMainTab(firstAllowed);
+      }
+    }
+  }, [allowedUserTabs, mainTab, isAdmin, isTabVisible]);
+
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
 
@@ -54,6 +117,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
   const [month, setMonth] = useState(String(currentMonth));
   const [year, setYear] = useState(String(currentYear));
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const [filters, setFilters] = useState({
     regNo: "",
@@ -223,6 +287,21 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
     }
   };
 
+  const handleSyncVehicles = async () => {
+    setSyncing(true);
+    try {
+      const res = await axios.post(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/sync-from-vehicles`);
+      toast.success(res.data?.message || "Vehicles synced from directory!");
+      fetchRecords();
+      fetchFilterOptions();
+    } catch (err) {
+      console.error("Error syncing vehicles:", err);
+      toast.error(err.response?.data?.message || "Failed to sync vehicles");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!id) return;
     if (!window.confirm("Are you sure you want to delete this fleet insurance record?")) return;
@@ -263,10 +342,26 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
 
   // Determine which stage a record is currently at
   const getStageStatus = (row) => {
-    if (String(row.renewed).toUpperCase() === "YES" || row.renewalStatus === "Renewed") {
+    // 1-Month Before Expiry Rule:
+    // If active policy expires within 30 days (1 month) or is already expired,
+    // the "Renewed" status must be removed to initiate next year's renewal workflow.
+    const expStr = row.policyToDate || row.newPolicyToDate || row.newExpiryDate;
+    let isWithinOneMonth = false;
+    if (expStr) {
+      const exp = new Date(expStr);
+      const now = new Date();
+      exp.setHours(0, 0, 0, 0);
+      now.setHours(0, 0, 0, 0);
+      const diff = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (diff <= 30) {
+        isWithinOneMonth = true;
+      }
+    }
+
+    if (!isWithinOneMonth && (String(row.renewed).toUpperCase() === "YES" || row.renewalStatus === "Renewed")) {
       return { label: "Renewed", color: "success" };
     }
-    if (row.paymentUtr) {
+    if (!isWithinOneMonth && row.paymentUtr) {
       return { label: "Payment Done", color: "success" };
     }
     if (row.financialApprovalStatus === "Approved") {
@@ -283,7 +378,6 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
     }
     return { label: "Policy Proposal", color: "default" };
   };
-
 
   // Compute contextual row values based on selected Month and Year filter
   const getContextualRowDetails = (row, filterMonth, filterYear) => {
@@ -334,9 +428,27 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
       }
     }
 
-    const isOldRenewed = String(row.renewed).toUpperCase() === "YES" ||
+    // 1-Month Before Expiry Rule:
+    // If active expiry date is within 30 days from now or past due, it is due for upcoming renewal
+    // so the "Renewed" status must be removed.
+    const activeExpiry = pDate || nDate;
+    let isWithinOneMonthOfExpiry = false;
+    if (activeExpiry) {
+      const exp = new Date(activeExpiry);
+      const now = new Date();
+      exp.setHours(0, 0, 0, 0);
+      now.setHours(0, 0, 0, 0);
+      const daysToExpiry = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysToExpiry <= 30) {
+        isWithinOneMonthOfExpiry = true;
+      }
+    }
+
+    const isOldRenewed = !isWithinOneMonthOfExpiry && (
+      String(row.renewed).toUpperCase() === "YES" ||
       row.renewalStatus === "Renewed" ||
-      Boolean(row.paymentUtr);
+      Boolean(row.paymentUtr)
+    );
 
     let rowTat = null;
     if (row.tat !== undefined && row.tat !== null && row.tat !== "") {
@@ -391,30 +503,29 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
   return (
     <Box sx={{ width: "100%" }}>
       {/* Top Fleet Operational Metrics Header Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      {/* Top Operational Metrics Header Cards */}
+      <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Paper
             elevation={0}
             sx={{
-              p: 2,
-              borderRadius: "12px",
-              border: "1px solid",
-              borderColor: "divider",
+              p: 1.8,
+              borderRadius: "8px",
+              border: "1px solid #e2e8f0",
               background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
               display: "flex",
               alignItems: "center",
               gap: 2,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
             }}
           >
-            <Avatar sx={{ bgcolor: "rgba(37, 99, 235, 0.1)", color: "#2563eb", width: 48, height: 48 }}>
-              <DirectionsCar />
+            <Avatar sx={{ bgcolor: "rgba(37, 99, 235, 0.1)", color: "#2563eb", width: 44, height: 44 }}>
+              <DirectionsCar sx={{ fontSize: 22 }} />
             </Avatar>
             <Box>
-              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Total Fleet Records
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: "#0f172a" }}>
+              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
                 {total}
               </Typography>
             </Box>
@@ -425,25 +536,23 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
           <Paper
             elevation={0}
             sx={{
-              p: 2,
-              borderRadius: "12px",
-              border: "1px solid",
-              borderColor: "divider",
+              p: 1.8,
+              borderRadius: "8px",
+              border: "1px solid #e2e8f0",
               background: "linear-gradient(135deg, #ffffff 0%, #fffbe6 100%)",
               display: "flex",
               alignItems: "center",
               gap: 2,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
             }}
           >
-            <Avatar sx={{ bgcolor: "rgba(217, 119, 6, 0.1)", color: "#d97706", width: 48, height: 48 }}>
-              <HourglassEmpty />
+            <Avatar sx={{ bgcolor: "rgba(217, 119, 6, 0.1)", color: "#d97706", width: 44, height: 44 }}>
+              <HourglassEmpty sx={{ fontSize: 22 }} />
             </Avatar>
             <Box>
-              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Expiring Soon (7 Days)
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: expiringRecords.length > 0 ? "#dc2626" : "#0f172a" }}>
+              <Typography sx={{ fontWeight: 700, color: expiringRecords.length > 0 ? "#dc2626" : "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
                 {expiringRecords.length}
               </Typography>
             </Box>
@@ -454,25 +563,23 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
           <Paper
             elevation={0}
             sx={{
-              p: 2,
-              borderRadius: "12px",
-              border: "1px solid",
-              borderColor: "divider",
+              p: 1.8,
+              borderRadius: "8px",
+              border: "1px solid #e2e8f0",
               background: "linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)",
               display: "flex",
               alignItems: "center",
               gap: 2,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
             }}
           >
-            <Avatar sx={{ bgcolor: "rgba(2, 132, 199, 0.1)", color: "#0284c7", width: 48, height: 48 }}>
-              <CheckCircle />
+            <Avatar sx={{ bgcolor: "rgba(2, 132, 199, 0.1)", color: "#0284c7", width: 44, height: 44 }}>
+              <CheckCircle sx={{ fontSize: 22 }} />
             </Avatar>
             <Box>
-              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Approval Pending
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: "#0f172a" }}>
+              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
                 {approvalRecords.length}
               </Typography>
             </Box>
@@ -483,25 +590,23 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
           <Paper
             elevation={0}
             sx={{
-              p: 2,
-              borderRadius: "12px",
-              border: "1px solid",
-              borderColor: "divider",
+              p: 1.8,
+              borderRadius: "8px",
+              border: "1px solid #e2e8f0",
               background: "linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)",
               display: "flex",
               alignItems: "center",
               gap: 2,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
             }}
           >
-            <Avatar sx={{ bgcolor: "rgba(22, 163, 74, 0.1)", color: "#16a34a", width: 48, height: 48 }}>
-              <Autorenew />
+            <Avatar sx={{ bgcolor: "rgba(22, 163, 74, 0.1)", color: "#16a34a", width: 44, height: 44 }}>
+              <Autorenew sx={{ fontSize: 22 }} />
             </Avatar>
             <Box>
-              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Payment & UTR Pending
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: "#0f172a" }}>
+              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
                 {paymentUtrRecords.filter((r) => !r.paymentUtr).length}
               </Typography>
             </Box>
@@ -510,13 +615,13 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
       </Grid>
 
       {/* Main Surface Card */}
-      <Paper elevation={0} sx={{ p: 2.5, mb: 3, borderRadius: "12px", border: "1px solid", borderColor: "divider" }}>
-        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 2.5 }}>
+      <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 2 }}>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a", letterSpacing: "-0.3px" }}>
+            <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "17px", letterSpacing: "-0.2px" }}>
               Fleet Insurance Tracker
             </Typography>
-            <Typography variant="body2" sx={{ color: "#64748b" }}>
+            <Typography sx={{ color: "#64748b", fontSize: "12.5px" }}>
               Monitor vehicle policies, renewals, financial approvals, and payment UTRs
             </Typography>
           </Box>
@@ -524,13 +629,38 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
             <Button
               variant="outlined"
-              color="success"
-              startIcon={<FileDownload />}
-              onClick={handleBulkExport}
+              color="primary"
+              size="medium"
+              startIcon={syncing ? <CircularProgress size={16} /> : <Sync sx={{ fontSize: 18 }} />}
+              disabled={syncing}
+              onClick={handleSyncVehicles}
               sx={{
-                borderRadius: "8px",
+                borderRadius: "6px",
                 textTransform: "none",
                 fontWeight: 600,
+                fontSize: "12.5px",
+                height: "36px",
+                px: 2,
+                borderColor: "#bfdbfe",
+                color: "#1d4ed8",
+                "&:hover": { borderColor: "#93c5fd", bgcolor: "#eff6ff" },
+              }}
+            >
+              {syncing ? "Syncing..." : "Sync Directory"}
+            </Button>
+            <Button
+              variant="outlined"
+              color="success"
+              size="medium"
+              startIcon={<FileDownload sx={{ fontSize: 18 }} />}
+              onClick={handleBulkExport}
+              sx={{
+                borderRadius: "6px",
+                textTransform: "none",
+                fontWeight: 600,
+                fontSize: "12.5px",
+                height: "36px",
+                px: 2,
                 borderColor: "#bbf7d0",
                 color: "#166534",
                 "&:hover": { borderColor: "#86efac", bgcolor: "#f0fdf4" },
@@ -540,12 +670,16 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
             </Button>
             <Button
               variant="outlined"
-              startIcon={<FileDownload />}
+              size="medium"
+              startIcon={<FileDownload sx={{ fontSize: 18 }} />}
               onClick={handleDownloadTemplate}
               sx={{
-                borderRadius: "8px",
+                borderRadius: "6px",
                 textTransform: "none",
                 fontWeight: 600,
+                fontSize: "12.5px",
+                height: "36px",
+                px: 2,
                 borderColor: "#cbd5e1",
                 color: "#475569",
                 "&:hover": { borderColor: "#94a3b8", bgcolor: "#f8fafc" },
@@ -553,28 +687,33 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
             >
               Excel Template
             </Button>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={onCreate}
-              sx={{
-                borderRadius: "8px",
-                textTransform: "none",
-                fontWeight: 600,
-                background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
-                "&:hover": {
-                  background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
-                },
-              }}
-            >
-              Add Vehicle Record
-            </Button>
+            {isTabVisible(0) && (
+              <Button
+                variant="contained"
+                size="medium"
+                startIcon={<Add sx={{ fontSize: 18 }} />}
+                onClick={onCreate}
+                sx={{
+                  borderRadius: "6px",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: "12.5px",
+                  height: "36px",
+                  px: 2.2,
+                  background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                  "&:hover": {
+                    background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
+                  },
+                }}
+              >
+                Add Vehicle Record
+              </Button>
+            )}
           </Stack>
         </Stack>
 
         {/* Four Subtabs: Vehicle Records, Policy History & Dashboard, Approval, Payment & UTR */}
-        <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2.5 }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 1.8 }}>
           <Tabs
             value={mainTab}
             onChange={(e, val) => setMainTab(val)}
@@ -584,54 +723,82 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
               "& .MuiTabs-indicator": {
                 backgroundColor: "#2563eb",
                 height: 2.5,
-                borderRadius: 2,
+                borderRadius: 1,
               },
             }}
           >
-            <Tab
-              label="Vehicle Records"
-              id="fleet-tab-0"
-              sx={{ fontWeight: 600, textTransform: "none", color: "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
-            />
-            <Tab
-              label="Policy History & Dashboard"
-              id="fleet-tab-1"
-              sx={{ fontWeight: 600, textTransform: "none", color: "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
-            />
-            <Tab
-              label={
-                <Badge badgeContent={approvalRecords.length} color="error" offset={[10, 0]}>
-                  Approval
-                </Badge>
-              }
-              id="fleet-tab-2"
-              sx={{ fontWeight: 600, textTransform: "none", color: "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
-            />
-            <Tab
-              label={
-                <Badge badgeContent={paymentUtrRecords.filter((r) => !r.paymentUtr).length} color="success" offset={[10, 0]}>
-                  Payment & UTR
-                </Badge>
-              }
-              id="fleet-tab-3"
-              sx={{ fontWeight: 600, textTransform: "none", color: "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
-            />
+            {isTabVisible(0) && (
+              <Tab
+                label="Vehicle Records"
+                value={0}
+                id="fleet-tab-0"
+                sx={{ fontWeight: 600, fontSize: "13px", minHeight: 40, py: 1, px: 2, textTransform: "none", color: "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
+              />
+            )}
+            {isTabVisible(1) && (
+              <Tab
+                label="Policy History & Dashboard"
+                value={1}
+                id="fleet-tab-1"
+                sx={{ fontWeight: 600, fontSize: "13px", minHeight: 40, py: 1, px: 2, textTransform: "none", color: "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
+              />
+            )}
+            {isTabVisible(2) && (
+              <Tab
+                label={
+                  <Badge badgeContent={approvalRecords.length} color="error" offset={[10, 0]}>
+                    Approval
+                  </Badge>
+                }
+                value={2}
+                id="fleet-tab-2"
+                sx={{ fontWeight: 600, fontSize: "13px", minHeight: 40, py: 1, px: 2, textTransform: "none", color: "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
+              />
+            )}
+            {isTabVisible(3) && (
+              <Tab
+                label={
+                  <Badge badgeContent={paymentUtrRecords.filter((r) => !r.paymentUtr).length} color="success" offset={[10, 0]}>
+                    Payment & UTR
+                  </Badge>
+                }
+                value={3}
+                id="fleet-tab-3"
+                sx={{ fontWeight: 600, fontSize: "13px", minHeight: 40, py: 1, px: 2, textTransform: "none", color: "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
+              />
+            )}
           </Tabs>
         </Box>
 
         {mainTab === 0 && (
-          <Grid container spacing={2}>
+          <Grid container spacing={1.5}>
             <Grid item xs={12} sm={6} md={6}>
               <TextField
                 placeholder="Search by Reg No, Owner, Insurer..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 fullWidth
-                size="small"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search sx={{ color: "#94a3b8", fontSize: 20 }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: search ? (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setSearch("")}>
+                        <Clear sx={{ color: "#94a3b8", fontSize: 18 }} />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null,
+                }}
                 sx={{
                   "& .MuiOutlinedInput-root": {
-                    borderRadius: "8px",
-                    bgcolor: "#f8fafc",
+                    borderRadius: "6px",
+                    bgcolor: "#fafaff",
+                    height: 38,
+                    fontSize: "13px",
+                    "& fieldset": { borderColor: "#cbd5e1" },
                   },
                 }}
               />
@@ -639,53 +806,55 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
             <Grid item xs={12} sm={3} md={3}>
               <TextField
                 select
-                label="Month"
                 value={month}
                 onChange={(e) => setMonth(e.target.value)}
-                size="small"
                 fullWidth
                 sx={{
                   "& .MuiOutlinedInput-root": {
-                    borderRadius: "8px",
-                    bgcolor: "#f8fafc",
+                    borderRadius: "6px",
+                    bgcolor: "#fafaff",
+                    height: 38,
+                    fontSize: "13px",
+                    "& fieldset": { borderColor: "#cbd5e1" },
                   },
                 }}
               >
-                <MenuItem value="">All Months</MenuItem>
-                <MenuItem value="1">January</MenuItem>
-                <MenuItem value="2">February</MenuItem>
-                <MenuItem value="3">March</MenuItem>
-                <MenuItem value="4">April</MenuItem>
-                <MenuItem value="5">May</MenuItem>
-                <MenuItem value="6">June</MenuItem>
-                <MenuItem value="7">July</MenuItem>
-                <MenuItem value="8">August</MenuItem>
-                <MenuItem value="9">September</MenuItem>
-                <MenuItem value="10">October</MenuItem>
-                <MenuItem value="11">November</MenuItem>
-                <MenuItem value="12">December</MenuItem>
+                <MenuItem value="" sx={{ fontSize: "13px" }}>All Months</MenuItem>
+                <MenuItem value="1" sx={{ fontSize: "13px" }}>January</MenuItem>
+                <MenuItem value="2" sx={{ fontSize: "13px" }}>February</MenuItem>
+                <MenuItem value="3" sx={{ fontSize: "13px" }}>March</MenuItem>
+                <MenuItem value="4" sx={{ fontSize: "13px" }}>April</MenuItem>
+                <MenuItem value="5" sx={{ fontSize: "13px" }}>May</MenuItem>
+                <MenuItem value="6" sx={{ fontSize: "13px" }}>June</MenuItem>
+                <MenuItem value="7" sx={{ fontSize: "13px" }}>July</MenuItem>
+                <MenuItem value="8" sx={{ fontSize: "13px" }}>August</MenuItem>
+                <MenuItem value="9" sx={{ fontSize: "13px" }}>September</MenuItem>
+                <MenuItem value="10" sx={{ fontSize: "13px" }}>October</MenuItem>
+                <MenuItem value="11" sx={{ fontSize: "13px" }}>November</MenuItem>
+                <MenuItem value="12" sx={{ fontSize: "13px" }}>December</MenuItem>
               </TextField>
             </Grid>
             <Grid item xs={12} sm={3} md={3}>
               <TextField
                 select
-                label="Year"
                 value={year}
                 onChange={(e) => setYear(e.target.value)}
-                size="small"
                 fullWidth
                 sx={{
                   "& .MuiOutlinedInput-root": {
-                    borderRadius: "8px",
-                    bgcolor: "#f8fafc",
+                    borderRadius: "6px",
+                    bgcolor: "#fafaff",
+                    height: 38,
+                    fontSize: "13px",
+                    "& fieldset": { borderColor: "#cbd5e1" },
                   },
                 }}
               >
-                <MenuItem value="">All Years</MenuItem>
-                <MenuItem value="2024">2024</MenuItem>
-                <MenuItem value="2025">2025</MenuItem>
-                <MenuItem value="2026">2026</MenuItem>
-                <MenuItem value="2027">2027</MenuItem>
+                <MenuItem value="" sx={{ fontSize: "13px" }}>All Years</MenuItem>
+                <MenuItem value="2024" sx={{ fontSize: "13px" }}>2024</MenuItem>
+                <MenuItem value="2025" sx={{ fontSize: "13px" }}>2025</MenuItem>
+                <MenuItem value="2026" sx={{ fontSize: "13px" }}>2026</MenuItem>
+                <MenuItem value="2027" sx={{ fontSize: "13px" }}>2027</MenuItem>
               </TextField>
             </Grid>
           </Grid>
@@ -713,73 +882,83 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
 
       {/* TAB 1: VEHICLE RECORDS */}
       {mainTab === 0 && (
-        <Paper elevation={0} sx={{ borderRadius: "12px", border: "1px solid", borderColor: "divider", overflow: "hidden" }}>
+        <Paper elevation={0} sx={{ borderRadius: "6px", border: "1px solid #e2e8f0", overflow: "hidden" }}>
           {loading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", p: 5 }}>
-              <CircularProgress size={32} sx={{ color: "#2563eb" }} />
+            <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+              <CircularProgress size={28} sx={{ color: "#2563eb" }} />
             </Box>
           ) : (
             <TableContainer>
-              <Table size="medium">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#0f172a" }}>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Reg No</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Owner</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Size</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Model</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Previous Premium (₹)</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Renewed Premium (₹)</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Expiry Date</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Renewal Date</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }} align="center">TAT (Days)</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Renewed?</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Stage Status</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }} align="center">
-                      Actions
-                    </TableCell>
+              <Table>
+                <TableHead
+                  sx={{
+                    "& .MuiTableCell-head": {
+                      bgcolor: "#0f172a !important",
+                      color: "#ffffff !important",
+                      fontWeight: "700 !important",
+                      fontSize: "12.5px !important",
+                      py: "10px !important",
+                      px: "12px !important",
+                      borderBottom: "none",
+                    },
+                  }}
+                >
+                  <TableRow>
+                    <TableCell>Reg No</TableCell>
+                    <TableCell>Owner</TableCell>
+                    <TableCell>Size</TableCell>
+                    <TableCell>Model</TableCell>
+                    <TableCell>Previous Premium (₹)</TableCell>
+                    <TableCell>Renewed Premium (₹)</TableCell>
+                    <TableCell>Expiry Date</TableCell>
+                    <TableCell>Renewal Date</TableCell>
+                    <TableCell align="center">TAT (Days)</TableCell>
+                    <TableCell>Renewed?</TableCell>
+                    <TableCell>Stage Status</TableCell>
+                    <TableCell align="center">Actions</TableCell>
                   </TableRow>
-                  <TableRow sx={{ bgcolor: "#f8fafc" }}>
-                    <TableCell padding="none" sx={{ px: 1, py: 0.5 }}>
-                      <TextField size="small" placeholder="Filter..." value={filters.regNo} onChange={(e) => handleFilterChange("regNo", e.target.value)} variant="standard" fullWidth />
+                  <TableRow sx={{ "& .MuiTableCell-head": { bgcolor: "#f8fafc !important", color: "#334155 !important", py: "4px !important", px: "6px !important" } }}>
+                    <TableCell padding="none" sx={{ px: 0.5, py: 0.3 }}>
+                      <TextField size="small" placeholder="Filter..." value={filters.regNo} onChange={(e) => handleFilterChange("regNo", e.target.value)} variant="standard" fullWidth inputProps={{ style: { fontSize: "11px" } }} />
                     </TableCell>
-                    <TableCell padding="none" sx={{ px: 1, py: 0.5 }}>
-                      <TextField select size="small" value={filters.owner} onChange={(e) => handleFilterChange("owner", e.target.value)} variant="standard" fullWidth SelectProps={{ displayEmpty: true }}>
-                        <MenuItem value="">All</MenuItem>
-                        {filterOptions.owners.map((opt) => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                    <TableCell padding="none" sx={{ px: 0.5, py: 0.3 }}>
+                      <TextField select size="small" value={filters.owner} onChange={(e) => handleFilterChange("owner", e.target.value)} variant="standard" fullWidth SelectProps={{ displayEmpty: true, style: { fontSize: "11px" } }}>
+                        <MenuItem value="" sx={{ fontSize: "11px" }}>All</MenuItem>
+                        {filterOptions.owners.map((opt) => <MenuItem key={opt} value={opt} sx={{ fontSize: "11px" }}>{opt}</MenuItem>)}
                       </TextField>
                     </TableCell>
-                    <TableCell padding="none" sx={{ px: 1, py: 0.5 }}>
-                      <TextField select size="small" value={filters.size} onChange={(e) => handleFilterChange("size", e.target.value)} variant="standard" fullWidth SelectProps={{ displayEmpty: true }}>
-                        <MenuItem value="">All</MenuItem>
-                        {filterOptions.sizes.map((opt) => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                    <TableCell padding="none" sx={{ px: 0.5, py: 0.3 }}>
+                      <TextField select size="small" value={filters.size} onChange={(e) => handleFilterChange("size", e.target.value)} variant="standard" fullWidth SelectProps={{ displayEmpty: true, style: { fontSize: "11px" } }}>
+                        <MenuItem value="" sx={{ fontSize: "11px" }}>All</MenuItem>
+                        {filterOptions.sizes.map((opt) => <MenuItem key={opt} value={opt} sx={{ fontSize: "11px" }}>{opt}</MenuItem>)}
                       </TextField>
                     </TableCell>
-                    <TableCell padding="none" sx={{ px: 1, py: 0.5 }}>
-                      <TextField select size="small" value={filters.modelType} onChange={(e) => handleFilterChange("modelType", e.target.value)} variant="standard" fullWidth SelectProps={{ displayEmpty: true }}>
-                        <MenuItem value="">All</MenuItem>
-                        {filterOptions.models.map((opt) => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                    <TableCell padding="none" sx={{ px: 0.5, py: 0.3 }}>
+                      <TextField select size="small" value={filters.modelType} onChange={(e) => handleFilterChange("modelType", e.target.value)} variant="standard" fullWidth SelectProps={{ displayEmpty: true, style: { fontSize: "11px" } }}>
+                        <MenuItem value="" sx={{ fontSize: "11px" }}>All</MenuItem>
+                        {filterOptions.models.map((opt) => <MenuItem key={opt} value={opt} sx={{ fontSize: "11px" }}>{opt}</MenuItem>)}
                       </TextField>
                     </TableCell>
-                    <TableCell padding="none" sx={{ px: 1, py: 0.5 }}>
-                      <TextField size="small" placeholder="Filter..." value={filters.premiumAmount} onChange={(e) => handleFilterChange("premiumAmount", e.target.value)} variant="standard" fullWidth />
+                    <TableCell padding="none" sx={{ px: 0.5, py: 0.3 }}>
+                      <TextField size="small" placeholder="Filter..." value={filters.premiumAmount} onChange={(e) => handleFilterChange("premiumAmount", e.target.value)} variant="standard" fullWidth inputProps={{ style: { fontSize: "11px" } }} />
                     </TableCell>
-                    <TableCell padding="none" sx={{ px: 1, py: 0.5 }}>
-                      <TextField size="small" placeholder="Filter..." value={filters.newTotalPolicyPremium} onChange={(e) => handleFilterChange("newTotalPolicyPremium", e.target.value)} variant="standard" fullWidth />
+                    <TableCell padding="none" sx={{ px: 0.5, py: 0.3 }}>
+                      <TextField size="small" placeholder="Filter..." value={filters.newTotalPolicyPremium} onChange={(e) => handleFilterChange("newTotalPolicyPremium", e.target.value)} variant="standard" fullWidth inputProps={{ style: { fontSize: "11px" } }} />
                     </TableCell>
-                    <TableCell padding="none" sx={{ px: 1, py: 0.5 }}>
-                      <TextField size="small" placeholder="Filter date..." value={filters.expiryDate} onChange={(e) => handleFilterChange("expiryDate", e.target.value)} variant="standard" fullWidth />
+                    <TableCell padding="none" sx={{ px: 0.5, py: 0.3 }}>
+                      <TextField size="small" placeholder="Filter date..." value={filters.expiryDate} onChange={(e) => handleFilterChange("expiryDate", e.target.value)} variant="standard" fullWidth inputProps={{ style: { fontSize: "11px" } }} />
                     </TableCell>
-                    <TableCell padding="none" sx={{ px: 1, py: 0.5 }}>
-                      <TextField size="small" placeholder="Filter date..." value={filters.renewalDate} onChange={(e) => handleFilterChange("renewalDate", e.target.value)} variant="standard" fullWidth />
+                    <TableCell padding="none" sx={{ px: 0.5, py: 0.3 }}>
+                      <TextField size="small" placeholder="Filter date..." value={filters.renewalDate} onChange={(e) => handleFilterChange("renewalDate", e.target.value)} variant="standard" fullWidth inputProps={{ style: { fontSize: "11px" } }} />
                     </TableCell>
-                    <TableCell padding="none" sx={{ px: 1, py: 0.5 }}>
-                      <TextField size="small" placeholder="Filter..." value={filters.tat} onChange={(e) => handleFilterChange("tat", e.target.value)} variant="standard" fullWidth />
+                    <TableCell padding="none" sx={{ px: 0.5, py: 0.3 }}>
+                      <TextField size="small" placeholder="Filter..." value={filters.tat} onChange={(e) => handleFilterChange("tat", e.target.value)} variant="standard" fullWidth inputProps={{ style: { fontSize: "11px" } }} />
                     </TableCell>
-                    <TableCell padding="none" sx={{ px: 1, py: 0.5 }}>
-                      <TextField select size="small" value={filters.renewed} onChange={(e) => handleFilterChange("renewed", e.target.value)} variant="standard" fullWidth SelectProps={{ displayEmpty: true }}>
-                        <MenuItem value="">All</MenuItem>
-                        <MenuItem value="YES">Yes</MenuItem>
-                        <MenuItem value="NO">No</MenuItem>
+                    <TableCell padding="none" sx={{ px: 0.5, py: 0.3 }}>
+                      <TextField select size="small" value={filters.renewed} onChange={(e) => handleFilterChange("renewed", e.target.value)} variant="standard" fullWidth SelectProps={{ displayEmpty: true, style: { fontSize: "11px" } }}>
+                        <MenuItem value="" sx={{ fontSize: "11px" }}>All</MenuItem>
+                        <MenuItem value="YES" sx={{ fontSize: "11px" }}>Yes</MenuItem>
+                        <MenuItem value="NO" sx={{ fontSize: "11px" }}>No</MenuItem>
                       </TextField>
                     </TableCell>
                     <TableCell></TableCell>
@@ -789,7 +968,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                 <TableBody>
                   {data.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={12} align="center" sx={{ py: 6, color: "#64748b" }}>
+                      <TableCell colSpan={12} align="center" sx={{ py: 4, color: "#64748b", fontSize: "12px" }}>
                         No fleet insurance records found
                       </TableCell>
                     </TableRow>
@@ -799,35 +978,38 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                       return (
                         <TableRow key={row._id} hover sx={{ "&:hover": { bgcolor: "#f8fafc" } }}>
                           <TableCell
-                            sx={{ fontWeight: 700, color: "#2563eb", cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                            sx={{ fontWeight: 700, color: "#2563eb", cursor: "pointer", fontSize: "11.5px", py: 0.4, px: 0.8, "&:hover": { textDecoration: "underline" } }}
                             onClick={() => onEdit(row)}
                             title="Click to Edit Current Details"
                           >
                             {row.registrationNo}
                           </TableCell>
-                          <TableCell sx={{ color: "#334155" }}>{row.owner || "-"}</TableCell>
-                          <TableCell sx={{ color: "#334155" }}>{row.size || "-"}</TableCell>
-                          <TableCell sx={{ color: "#334155" }}>{row.modelType || "-"}</TableCell>
-                          <TableCell sx={{ color: "#0f172a", fontWeight: 600 }}>
+                          <TableCell sx={{ color: "#334155", fontSize: "11.5px", py: 0.4, px: 0.8 }}>{row.owner || "-"}</TableCell>
+                          <TableCell sx={{ color: "#334155", fontSize: "11.5px", py: 0.4, px: 0.8 }}>{row.size || "-"}</TableCell>
+                          <TableCell sx={{ color: "#334155", fontSize: "11.5px", py: 0.4, px: 0.8 }}>{row.modelType || "-"}</TableCell>
+                          <TableCell sx={{ color: "#0f172a", fontWeight: 600, fontSize: "11.5px", py: 0.4, px: 0.8 }}>
                             {ctx.previousPremium
                               ? Number(ctx.previousPremium).toLocaleString("en-IN", { style: "currency", currency: "INR" })
                               : "-"}
                           </TableCell>
                           <TableCell
                             sx={{
+                              fontSize: "11.5px",
+                              py: 0.4,
+                              px: 0.8,
                               color: ctx.renewedPremium && ctx.previousPremium ? (Number(ctx.renewedPremium) > Number(ctx.previousPremium) ? "#dc2626" : Number(ctx.renewedPremium) < Number(ctx.previousPremium) ? "#16a34a" : "inherit") : "inherit",
                               fontWeight: ctx.renewedPremium && ctx.previousPremium && Number(ctx.renewedPremium) !== Number(ctx.previousPremium) ? 700 : 400,
                             }}
                           >
                             {ctx.renewedPremium ? Number(ctx.renewedPremium).toLocaleString("en-IN", { style: "currency", currency: "INR" }) : "-"}
                           </TableCell>
-                          <TableCell sx={{ color: getExpiryDateColor(ctx.displayExpiry), fontWeight: 700 }}>
+                          <TableCell sx={{ color: getExpiryDateColor(ctx.displayExpiry), fontWeight: 700, fontSize: "11.5px", py: 0.4, px: 0.8 }}>
                             {ctx.displayExpiry ? new Date(ctx.displayExpiry).toLocaleDateString("en-IN") : "-"}
                           </TableCell>
-                          <TableCell sx={{ color: "#16a34a", fontWeight: 700 }}>
+                          <TableCell sx={{ color: "#16a34a", fontWeight: 700, fontSize: "11.5px", py: 0.4, px: 0.8 }}>
                             {ctx.displayRenewalDate ? new Date(ctx.displayRenewalDate).toLocaleDateString("en-IN") : "-"}
                           </TableCell>
-                          <TableCell align="center">
+                          <TableCell align="center" sx={{ py: 0.4, px: 0.8 }}>
                             {ctx.tat !== null && ctx.tat !== undefined ? (
                               <Chip
                                 label={`${ctx.tat} ${ctx.tat === 1 ? "day" : "days"}`}
@@ -836,14 +1018,16 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                                   bgcolor: "#f1f5f9",
                                   color: "#334155",
                                   fontWeight: 700,
-                                  borderRadius: "6px",
+                                  fontSize: "10px",
+                                  height: 19,
+                                  borderRadius: "4px",
                                 }}
                               />
                             ) : (
                               "-"
                             )}
                           </TableCell>
-                          <TableCell sx={{ fontWeight: 700, color: ctx.isRenewed ? "#16a34a" : "#64748b" }}>
+                          <TableCell sx={{ fontWeight: 700, fontSize: "11.5px", py: 0.4, px: 0.8, color: ctx.isRenewed ? "#16a34a" : "#64748b" }}>
                             <Chip
                               label={ctx.isRenewed ? "YES" : "NO"}
                               size="small"
@@ -851,64 +1035,66 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                                 bgcolor: ctx.isRenewed ? "#dcfce7" : "#f1f5f9",
                                 color: ctx.isRenewed ? "#15803d" : "#475569",
                                 fontWeight: 700,
-                                borderRadius: "6px",
+                                fontSize: "10px",
+                                height: 19,
+                                borderRadius: "4px",
                               }}
                             />
                           </TableCell>
-                          <TableCell>
+                          <TableCell sx={{ py: 0.4, px: 0.8 }}>
                             <Chip
                               label={ctx.stageStatus.label}
                               size="small"
                               sx={{
-                                borderRadius: "6px",
+                                borderRadius: "4px",
                                 fontWeight: 600,
-                                fontSize: "0.75rem",
+                                fontSize: "10px",
+                                height: 20,
                               }}
                               color={ctx.stageStatus.color}
                             />
                           </TableCell>
-                          <TableCell align="center">
+                          <TableCell align="center" sx={{ py: 0.4, px: 0.5 }}>
 
-                          <Stack direction="row" spacing={0.5} justifyContent="center">
-                            <Tooltip title="Edit Details">
-                              <IconButton size="small" onClick={() => onEdit(row)} sx={{ color: "#2563eb", "&:hover": { bgcolor: "#eff6ff" } }}>
-                                <Edit fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Renew Policy">
-                              <IconButton size="small" onClick={() => onRenew(row)} sx={{ color: "#16a34a", "&:hover": { bgcolor: "#f0fdf4" } }}>
-                                <Autorenew fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="History Dashboard">
-                              <IconButton
-                                size="small"
-                                onClick={() => {
-                                  setSelectedHistoryRegNo(row.registrationNo);
-                                  setMainTab(1);
-                                }}
-                                sx={{ color: "#0284c7", "&:hover": { bgcolor: "#e0f2fe" } }}
-                              >
-                                <History fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Export Record">
-                              <IconButton size="small" onClick={() => handleExport(row._id, row.registrationNo)} sx={{ color: "#64748b", "&:hover": { bgcolor: "#f1f5f9" } }}>
-                                <GetApp fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete Record">
-                              <IconButton size="small" onClick={() => handleDelete(row._id)} sx={{ color: "#dc2626", "&:hover": { bgcolor: "#fef2f2" } }}>
-                                <Delete fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-
+                            <Stack direction="row" spacing={0.3} justifyContent="center">
+                              <Tooltip title="Edit Details">
+                                <IconButton size="small" onClick={() => onEdit(row)} sx={{ p: 0.3, color: "#2563eb" }}>
+                                  <Edit sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Renew Policy">
+                                <IconButton size="small" onClick={() => onRenew(row)} sx={{ p: 0.3, color: "#16a34a" }}>
+                                  <Autorenew sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="History Dashboard">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => {
+                                    setSelectedHistoryRegNo(row.registrationNo);
+                                    setMainTab(1);
+                                  }}
+                                  sx={{ p: 0.3, color: "#0284c7" }}
+                                >
+                                  <History sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Export Record">
+                                <IconButton size="small" onClick={() => handleExport(row._id, row.registrationNo)} sx={{ p: 0.3, color: "#64748b" }}>
+                                  <GetApp sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Delete Record">
+                                <IconButton size="small" onClick={() => handleDelete(row._id)} sx={{ p: 0.3, color: "#dc2626" }}>
+                                  <Delete sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -936,79 +1122,92 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
         />
       )}
 
-      {/* TAB 3: APPROVAL */}
+      {/* TAB 3: APPROVAL STAGE */}
       {mainTab === 2 && (
-        <Paper elevation={0} sx={{ borderRadius: "12px", border: "1px solid", borderColor: "divider", overflow: "hidden" }}>
-          <Box sx={{ p: 2.5, bgcolor: "#f8fafc", borderBottom: "1px solid", borderColor: "divider" }}>
-            <Typography variant="subtitle1" fontWeight={700} color="#0f172a">
-              Financial Approvals Stage
+        <Paper elevation={0} sx={{ borderRadius: "6px", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+          <Box sx={{ p: 1.5, bgcolor: "#f8fafc", borderBottom: "1px solid", borderColor: "divider" }}>
+            <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "14px" }}>
+              Pending Financial Approvals
             </Typography>
-            <Typography variant="body2" color="#64748b">
-              Entries requiring approval assigned to Finance Manager. Click "Review & Approve" to navigate directly to the approval stage.
+            <Typography sx={{ color: "#64748b", fontSize: "11px" }}>
+              Approve or reject PRs generated for vehicle insurance renewals.
             </Typography>
           </Box>
 
           {approvalLoading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", p: 5 }}>
+            <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
               <CircularProgress size={32} sx={{ color: "#2563eb" }} />
             </Box>
           ) : (
             <TableContainer>
-              <Table size="medium">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#0f172a" }}>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>Reg No</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>Owner</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>PR Number</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>PR Date</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>Premium Amount (₹)</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>Approval Stage</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>Assigned Role</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>Status</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }} align="center">
-                      Action
-                    </TableCell>
+              <Table>
+                <TableHead
+                  sx={{
+                    "& .MuiTableCell-head": {
+                      bgcolor: "#0f172a !important",
+                      color: "#ffffff !important",
+                      fontWeight: "700 !important",
+                      fontSize: "12.5px !important",
+                      py: "10px !important",
+                      px: "12px !important",
+                      borderBottom: "none",
+                    },
+                  }}
+                >
+                  <TableRow>
+                    <TableCell>Reg No</TableCell>
+                    <TableCell>Owner</TableCell>
+                    <TableCell>PR Number</TableCell>
+                    <TableCell>PR Date</TableCell>
+                    <TableCell>Premium Amount (₹)</TableCell>
+                    <TableCell>Approval Stage</TableCell>
+                    <TableCell>Assigned Role</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="center">Action</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {approvalRecords.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} align="center" sx={{ py: 6, color: "#64748b" }}>
+                      <TableCell colSpan={9} align="center" sx={{ py: 4, color: "#64748b", fontSize: "13px" }}>
                         No pending approvals at this time
                       </TableCell>
                     </TableRow>
                   ) : (
                     approvalRecords.map((row) => (
                       <TableRow key={row._id} hover style={{ cursor: "pointer" }} onClick={() => onOpenApproval(row)}>
-                        <TableCell sx={{ fontWeight: 700, color: "#2563eb" }}>{row.registrationNo}</TableCell>
-                        <TableCell sx={{ color: "#334155" }}>{row.owner || "-"}</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>{row.prNumber || "N/A"}</TableCell>
-                        <TableCell>{row.prDate ? new Date(row.prDate).toLocaleDateString("en-IN") : "-"}</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: "#0f172a" }}>
+                        <TableCell sx={{ fontWeight: 700, color: "#2563eb", fontSize: "13px", py: 1, px: 1.2 }}>{row.registrationNo}</TableCell>
+                        <TableCell sx={{ color: "#334155", fontSize: "12.5px", py: 1, px: 1.2 }}>{row.owner || "-"}</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: "12.5px", py: 1, px: 1.2 }}>{row.prNumber || "N/A"}</TableCell>
+                        <TableCell sx={{ fontSize: "12.5px", py: 1, px: 1.2 }}>{row.prDate ? new Date(row.prDate).toLocaleDateString("en-IN") : "-"}</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: "#0f172a", fontSize: "13px", py: 1, px: 1.2 }}>
                           ₹ {Number(row.newTotalPolicyPremium || row.newPremiumAmount || row.newPremium || row.totalPolicyPremium || row.premiumQuote || row.premiumAmount || 0).toLocaleString("en-IN")}
                         </TableCell>
-                        <TableCell>
-                          <Chip label="3. Finance Approval" size="small" variant="outlined" sx={{ color: "#2563eb", borderColor: "#bfdbfe" }} />
+                        <TableCell sx={{ py: 1, px: 1.2 }}>
+                          <Chip label="3. Finance Approval" size="small" variant="outlined" sx={{ color: "#2563eb", borderColor: "#bfdbfe", fontSize: "11px", height: 22 }} />
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, color: "#16a34a" }}>Finance Manager</TableCell>
-                        <TableCell>
+                        <TableCell sx={{ fontWeight: 600, color: "#16a34a", fontSize: "12.5px", py: 1, px: 1.2 }}>Finance Manager</TableCell>
+                        <TableCell sx={{ py: 1, px: 1.2 }}>
                           <Chip
                             label={row.financialApprovalStatus || "Pending"}
                             size="small"
                             color={row.financialApprovalStatus === "Approved" ? "success" : row.financialApprovalStatus === "Rejected" ? "error" : "warning"}
-                            sx={{ fontWeight: 600, borderRadius: "6px" }}
+                            sx={{ fontWeight: 700, borderRadius: "6px", fontSize: "11px", height: 22 }}
                           />
                         </TableCell>
-                        <TableCell align="center" onClick={(e) => e.stopPropagation()}>
+                        <TableCell align="center" sx={{ py: 1, px: 1.2 }} onClick={(e) => e.stopPropagation()}>
                           <Button
                             variant="contained"
                             size="small"
-                            startIcon={<CheckCircle fontSize="small" />}
+                            startIcon={<CheckCircle sx={{ fontSize: 16 }} />}
                             onClick={() => onOpenApproval(row)}
                             sx={{
-                              borderRadius: "8px",
+                              borderRadius: "6px",
                               textTransform: "none",
                               fontWeight: 600,
+                              fontSize: "12px",
+                              height: "30px",
+                              px: 1.5,
                               background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
                             }}
                           >
@@ -1027,82 +1226,95 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
 
       {/* TAB 4: PAYMENT & UTR STAGE */}
       {mainTab === 3 && (
-        <Paper elevation={0} sx={{ borderRadius: "12px", border: "1px solid", borderColor: "divider", overflow: "hidden" }}>
-          <Box sx={{ p: 2.5, bgcolor: "#f8fafc", borderBottom: "1px solid", borderColor: "divider" }}>
-            <Typography variant="subtitle1" fontWeight={700} color="#0f172a">
+        <Paper elevation={0} sx={{ borderRadius: "8px", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+          <Box sx={{ p: 2, bgcolor: "#f8fafc", borderBottom: "1px solid", borderColor: "divider" }}>
+            <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "15px" }}>
               Payment & UTR Stage (Approved Policies)
             </Typography>
-            <Typography variant="body2" color="#64748b">
+            <Typography sx={{ color: "#64748b", fontSize: "12.5px" }}>
               Policies approved by Finance Manager. Enter UTR details to complete renewal.
             </Typography>
           </Box>
 
           {paymentUtrLoading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", p: 5 }}>
+            <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
               <CircularProgress size={32} sx={{ color: "#2563eb" }} />
             </Box>
           ) : (
             <TableContainer>
-              <Table size="medium">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#0f172a" }}>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>Reg No</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>Owner</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>PR Number</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>Financial Approval</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>Renewed Premium (₹)</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>Payment UTR</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>Payment Date</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }}>Renewal Status</TableCell>
-                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700 }} align="center">
-                      Action
-                    </TableCell>
+              <Table>
+                <TableHead
+                  sx={{
+                    "& .MuiTableCell-head": {
+                      bgcolor: "#0f172a !important",
+                      color: "#ffffff !important",
+                      fontWeight: "700 !important",
+                      fontSize: "12.5px !important",
+                      py: "10px !important",
+                      px: "12px !important",
+                      borderBottom: "none",
+                    },
+                  }}
+                >
+                  <TableRow>
+                    <TableCell>Reg No</TableCell>
+                    <TableCell>Owner</TableCell>
+                    <TableCell>PR Number</TableCell>
+                    <TableCell>Financial Approval</TableCell>
+                    <TableCell>Renewed Premium (₹)</TableCell>
+                    <TableCell>Payment UTR</TableCell>
+                    <TableCell>Payment Date</TableCell>
+                    <TableCell>Renewal Status</TableCell>
+                    <TableCell align="center">Action</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {paymentUtrRecords.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} align="center" sx={{ py: 6, color: "#64748b" }}>
+                      <TableCell colSpan={9} align="center" sx={{ py: 4, color: "#64748b", fontSize: "12px" }}>
                         No approved policies pending payment UTR at this time
                       </TableCell>
                     </TableRow>
                   ) : (
                     paymentUtrRecords.map((row) => (
                       <TableRow key={row._id} hover style={{ cursor: "pointer" }} onClick={() => onOpenPaymentUtr && onOpenPaymentUtr(row)}>
-                        <TableCell sx={{ fontWeight: 700, color: "#2563eb" }}>{row.registrationNo}</TableCell>
-                        <TableCell sx={{ color: "#334155" }}>{row.owner || "-"}</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>{row.prNumber || "N/A"}</TableCell>
-                        <TableCell>
-                          <Chip label={row.financialApprovalStatus || "Approved"} size="small" color="success" sx={{ borderRadius: "6px", fontWeight: 600 }} />
+                        <TableCell sx={{ fontWeight: 700, color: "#2563eb", fontSize: "11.5px", py: 0.4, px: 0.8 }}>{row.registrationNo}</TableCell>
+                        <TableCell sx={{ color: "#334155", fontSize: "11.5px", py: 0.4, px: 0.8 }}>{row.owner || "-"}</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: "11.5px", py: 0.4, px: 0.8 }}>{row.prNumber || "N/A"}</TableCell>
+                        <TableCell sx={{ py: 0.4, px: 0.8 }}>
+                          <Chip label={row.financialApprovalStatus || "Approved"} size="small" color="success" sx={{ borderRadius: "4px", fontWeight: 600, fontSize: "10px", height: 19 }} />
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: "#0f172a" }}>
+                        <TableCell sx={{ fontWeight: 700, color: "#0f172a", fontSize: "11.5px", py: 0.4, px: 0.8 }}>
                           ₹ {Number(row.newTotalPolicyPremium || row.totalPolicyPremium || row.premiumQuote || 0).toLocaleString("en-IN")}
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>{row.paymentUtr || "Pending UTR"}</TableCell>
-                        <TableCell>{row.paymentDate ? new Date(row.paymentDate).toLocaleDateString("en-IN") : "-"}</TableCell>
-                        <TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: "11.5px", py: 0.4, px: 0.8 }}>{row.paymentUtr || "Pending UTR"}</TableCell>
+                        <TableCell sx={{ fontSize: "11.5px", py: 0.4, px: 0.8 }}>{row.paymentDate ? new Date(row.paymentDate).toLocaleDateString("en-IN") : "-"}</TableCell>
+                        <TableCell sx={{ py: 0.4, px: 0.8 }}>
                           <Chip
                             label={row.renewalStatus || (row.paymentUtr ? "Renewed" : "Pending")}
                             size="small"
                             color={row.renewalStatus === "Renewed" || row.paymentUtr ? "success" : "warning"}
-                            sx={{ borderRadius: "6px", fontWeight: 600 }}
+                            sx={{ borderRadius: "4px", fontWeight: 600, fontSize: "10px", height: 19 }}
                           />
                         </TableCell>
-                        <TableCell align="center" onClick={(e) => e.stopPropagation()}>
+                        <TableCell align="center" sx={{ py: 0.4, px: 0.8 }} onClick={(e) => e.stopPropagation()}>
                           <Button
                             variant="contained"
                             color="success"
                             size="small"
-                            startIcon={<CheckCircle fontSize="small" />}
+                            startIcon={<CheckCircle sx={{ fontSize: 14 }} />}
                             onClick={() => onOpenPaymentUtr && onOpenPaymentUtr(row)}
                             sx={{
-                              borderRadius: "8px",
+                              borderRadius: "4px",
                               textTransform: "none",
                               fontWeight: 600,
+                              fontSize: "11px",
+                              height: "26px",
+                              px: 1.2,
                               background: "linear-gradient(135deg, #16a34a 0%, #15803d 100%)",
                             }}
                           >
-                            {row.paymentUtr ? "View / Edit UTR" : "Enter UTR & Complete"}
+                            {row.paymentUtr ? "View / Edit UTR" : "Enter UTR"}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -1119,4 +1331,5 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
 }
 
 export default React.memo(FleetInsuranceList);
+
 

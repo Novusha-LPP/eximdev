@@ -116,9 +116,13 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
         if (team.managerId) {
           objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
         }
+        const reqTeamObjectId = new mongoose.Types.ObjectId(requestedTeamId);
         const orConditions = [
           { ownerId: { $in: objectIdMemberIds } },
-          { createdBy: { $in: objectIdMemberIds } }
+          { createdBy: { $in: objectIdMemberIds } },
+          { referredByUserId: { $in: objectIdMemberIds } },
+          { referredFromTeamId: reqTeamObjectId },
+          { referredToTeamId: reqTeamObjectId }
         ];
         return { $or: orConditions };
       }
@@ -144,15 +148,11 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 
   if (myTeams && myTeams.length > 0) {
     myTeams.forEach(team => {
-      const isManager = team.managerId?.toString() === userId?.toString();
-      const isHodForTeam = isHodUser && managedTeamIds.includes(team._id.toString());
-      if (isManager || isHodForTeam) {
-        if (team.memberIds) {
-          team.memberIds.forEach(m => visibleUserIds.push(new mongoose.Types.ObjectId(m.toString())));
-        }
-        if (team.managerId) {
-          visibleUserIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
-        }
+      if (team.memberIds) {
+        team.memberIds.forEach(m => visibleUserIds.push(new mongoose.Types.ObjectId(m.toString())));
+      }
+      if (team.managerId) {
+        visibleUserIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
       }
     });
   }
@@ -162,9 +162,24 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
   const orConditions = [
     { ownerId: { $in: uniqueUserIds } },
     { createdBy: { $in: uniqueUserIds } },
+    { referredByUserId: { $in: uniqueUserIds } },
     { stage: 'sales_visit' },
     { plannedVisits: { $elemMatch: { isCompleted: false, isCancelled: { $ne: true } } } }
   ];
+
+  const taskOppIds = await Task.find({
+    assignedTo: objectIdUserId,
+    'relatedTo.model': 'Opportunity'
+  }).distinct('relatedTo.id');
+
+  if (taskOppIds && taskOppIds.length > 0) {
+    const validTaskOppObjectIds = taskOppIds
+      .filter(id => id && mongoose.Types.ObjectId.isValid(id.toString()))
+      .map(id => new mongoose.Types.ObjectId(id.toString()));
+    if (validTaskOppObjectIds.length > 0) {
+      orConditions.push({ _id: { $in: validTaskOppObjectIds } });
+    }
+  }
 
   if (myTeamIds.length > 0) {
     orConditions.push({ referredFromTeamId: { $in: myTeamIds } });
@@ -672,23 +687,61 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// PUT /api/crm/opportunities/:id/refer - Transfer/Refer opportunity/deal to internal team
+// PUT /api/crm/opportunities/:id/refer - Transfer/Refer opportunity/deal to internal team or individual
 router.put('/:id/refer', async (req, res) => {
   try {
-    const { targetTeamId, fromTeamId } = req.body;
-    const userId = req.user?._id || req.headers['user-id'];
-
-    if (!targetTeamId) {
-      return res.status(400).json({ success: false, message: 'Target team ID is required' });
-    }
+    const { targetTeamId, targetUserId, targetOwnerId, fromTeamId } = req.body;
+    const userId = req.user?._id || req.user?.id || req.headers['user-id'];
 
     const opp = await Opportunity.findById(req.params.id);
     if (!opp) {
       return res.status(404).json({ success: false, message: 'Opportunity not found' });
     }
 
-    opp.referredToTeamId = targetTeamId;
-    if (fromTeamId) opp.referredFromTeamId = fromTeamId;
+    const assignedTargetUser = targetUserId || targetOwnerId;
+
+    // Determine referring team (Team A)
+    let referringTeamId = fromTeamId;
+    if (!referringTeamId && userId && mongoose.Types.ObjectId.isValid(userId)) {
+      const referringTeam = await SalesTeam.findOne({
+        $or: [
+          { managerId: userId },
+          { memberIds: userId }
+        ]
+      }).lean();
+      if (referringTeam) {
+        referringTeamId = referringTeam._id;
+      }
+    }
+
+    // Determine target team (Team B) and target owner
+    let receivingTeamId = targetTeamId;
+    if (assignedTargetUser && mongoose.Types.ObjectId.isValid(assignedTargetUser)) {
+      opp.ownerId = assignedTargetUser;
+      if (!receivingTeamId) {
+        const targetTeam = await SalesTeam.findOne({
+          $or: [
+            { managerId: assignedTargetUser },
+            { memberIds: assignedTargetUser }
+          ]
+        }).lean();
+        if (targetTeam) {
+          receivingTeamId = targetTeam._id;
+        }
+      }
+    } else if (receivingTeamId && mongoose.Types.ObjectId.isValid(receivingTeamId)) {
+      const targetTeam = await SalesTeam.findById(receivingTeamId).lean();
+      if (targetTeam && targetTeam.managerId && !opp.ownerId) {
+        opp.ownerId = targetTeam.managerId;
+      }
+    }
+
+    if (!receivingTeamId && !assignedTargetUser) {
+      return res.status(400).json({ success: false, message: 'Target team or target user is required' });
+    }
+
+    if (referringTeamId) opp.referredFromTeamId = referringTeamId;
+    if (receivingTeamId) opp.referredToTeamId = receivingTeamId;
     if (userId) opp.referredByUserId = userId;
     opp.isReferral = true;
     opp.lastActivityAt = new Date();
@@ -698,11 +751,12 @@ router.put('/:id/refer', async (req, res) => {
     const updatedOpp = await Opportunity.findById(opp._id)
       .populate('accountId', 'name')
       .populate('ownerId', 'username first_name last_name')
-      .populate('referredFromTeamId', 'nameCode teamName')
-      .populate('referredToTeamId', 'nameCode teamName')
+      .populate('createdBy', 'username first_name last_name')
+      .populate('referredFromTeamId', 'nameCode teamName name')
+      .populate('referredToTeamId', 'nameCode teamName name')
       .populate('referredByUserId', 'username first_name last_name');
 
-    res.json({ success: true, message: 'Opportunity referred successfully to target team', opportunity: updatedOpp });
+    res.json({ success: true, message: 'Opportunity referred successfully. Deal is now visible to both referring and target teams.', opportunity: updatedOpp });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -711,7 +765,18 @@ router.put('/:id/refer', async (req, res) => {
 // POST /api/crm/opportunities
 router.post('/', async (req, res) => {
   try {
-    const newOpp = new Opportunity({ ...req.body, createdBy: req.user?._id });
+    const userId = req.user?._id || req.user?.id || req.headers['user-id'];
+    const oppData = {
+      ...req.body,
+      createdBy: req.body.createdBy || req.user?._id || userId,
+      ownerId: req.body.ownerId || userId
+    };
+    if (Array.isArray(oppData.services) && oppData.services.some(s => typeof s === 'string' && s.toLowerCase().includes('auto rack'))) {
+      if (!oppData.businessVertical || oppData.businessVertical === 'all') {
+        oppData.businessVertical = 'Paramount';
+      }
+    }
+    const newOpp = new Opportunity(oppData);
     await newOpp.save();
     res.status(201).json(newOpp);
   } catch (error) {

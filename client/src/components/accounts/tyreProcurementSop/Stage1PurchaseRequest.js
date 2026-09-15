@@ -1,11 +1,25 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Add, Delete } from "@mui/icons-material";
 import "../../../styles/enterprise-sop.scss";
 
-const tyreTypeOptions = ["New Tyre", "Remould Tyre"];
-
 function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalChange }) {
+  const [savedProducts, setSavedProducts] = useState([]);
+
+  useEffect(() => {
+    // Fetch saved generic procurement products from backend
+    axios
+      .get(`${process.env.REACT_APP_API_STRING}/procurement-products`)
+      .then((res) => {
+        if (res.data?.products) {
+          setSavedProducts(res.data.products);
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching saved procurement products:", err);
+      });
+  }, []);
+
   const updateField = (field, value) => {
     const val = typeof value === "string" ? value.toUpperCase() : value;
     onChange({ [field]: val });
@@ -16,12 +30,45 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
 
   const updateItem = (idx, field, value) => {
     const val = typeof value === "string" ? value.toUpperCase() : value;
-    const updated = itemsRequired.map((item, i) => (i === idx ? { ...item, [field]: val } : item));
+
+    // Immediately save new product to backend and local state if defining productName or tyreType
+    if ((field === "productName" || field === "tyreType") && val.trim()) {
+      const prodUpper = val.trim();
+      if (!savedProducts.some((p) => (p.productName || "").toUpperCase() === prodUpper)) {
+        setSavedProducts((prev) => [...prev, { productName: prodUpper }]);
+        axios
+          .post(`${process.env.REACT_APP_API_STRING}/procurement-products`, {
+            productName: prodUpper,
+          })
+          .catch((err) => {
+            console.error("Error auto-saving new procurement product in Stage 1:", err);
+          });
+      }
+    }
+
+    const updated = itemsRequired.map((item, i) => {
+      if (i === idx) {
+        const nextItem = { ...item, [field]: val };
+        // Sync productName with tyreType for backward compatibility
+        if (field === "productName") {
+          nextItem.tyreType = val;
+        } else if (field === "tyreType") {
+          nextItem.productName = val;
+        }
+        return nextItem;
+      }
+      return item;
+    });
     onChange({ itemsRequired: updated });
   };
 
   const addItem = () => {
-    onChange({ itemsRequired: [...itemsRequired, { sNo: itemsRequired.length + 1, tyreType: "New Tyre" }] });
+    onChange({
+      itemsRequired: [
+        ...itemsRequired,
+        { sNo: itemsRequired.length + 1, productName: "", tyreType: "" },
+      ],
+    });
   };
 
   const removeItem = (idx) => {
@@ -47,6 +94,7 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
         const isMockOrEmpty =
           !generatedPr ||
           generatedPr.startsWith("TT-TYRE-") ||
+          generatedPr.startsWith("TT/TYRE/") ||
           !generatedPr.includes("/");
 
         if (isMockOrEmpty) {
@@ -59,8 +107,8 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
           } catch (err) {
             console.error("Error generating PR/PO numbers:", err);
             const mShort = new Date(today).toLocaleString("en-US", { month: "short" }).toUpperCase();
-            generatedPr = `TT/TYRE/${mShort}/01/26-27`;
-            generatedPo = `TYRE/${mShort}-01/26-27`;
+            generatedPr = `PR/${mShort}/01/26-27`;
+            generatedPo = `PO/${mShort}-01/26-27`;
           }
         }
 
@@ -121,7 +169,7 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
               className="sop-input"
               value={globalData?.prNumber || ""}
               onChange={(e) => onGlobalChange("prNumber", e.target.value)}
-              placeholder="TT/TYRE/AUG/01/26-27"
+              placeholder="PR/SEP/01/26-27"
             />
           </div>
           <div className="sop-field-group">
@@ -130,7 +178,7 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
               className="sop-input"
               value={globalData?.poNumber || ""}
               readOnly
-              placeholder="TYRE/AUG-01/26-27"
+              placeholder="PO/SEP-01/26-27"
             />
           </div>
           <div className="sop-field-group">
@@ -190,10 +238,15 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
           </button>
         </div>
         <div className="sop-table-container">
+          <datalist id="saved-procurement-products-list">
+            {savedProducts.map((p, pIdx) => (
+              <option key={pIdx} value={p.productName} />
+            ))}
+          </datalist>
           <table className="sop-table">
             <thead>
               <tr>
-                <th style={{ width: "130px" }}>Tyre Type</th>
+                <th style={{ width: "160px" }}>Product Name / Item</th>
                 <th>Brand Preference</th>
                 <th style={{ width: "110px" }}>Size / Spec</th>
                 <th style={{ width: "100px" }}>Load Rating</th>
@@ -210,22 +263,20 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
                 return (
                   <tr key={idx}>
                     <td>
-                      <select
-                        className="sop-select"
-                        value={item.tyreType || "New Tyre"}
-                        onChange={(e) => updateItem(idx, "tyreType", e.target.value)}
-                      >
-                        {tyreTypeOptions.map((o) => (
-                          <option key={o} value={o}>{o}</option>
-                        ))}
-                      </select>
+                      <input
+                        className="sop-input"
+                        list="saved-procurement-products-list"
+                        value={item.productName || item.tyreType || ""}
+                        onChange={(e) => updateItem(idx, "productName", e.target.value)}
+                        placeholder="e.g. Paper, Ink, Tyre"
+                      />
                     </td>
                     <td>
                       <input
                         className="sop-input"
                         value={item.brandPreference || ""}
                         onChange={(e) => updateItem(idx, "brandPreference", e.target.value)}
-                        placeholder="e.g. MRF, Apollo"
+                        placeholder="e.g. HP, JK Tyre, JK Paper"
                       />
                     </td>
                     <td>

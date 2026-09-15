@@ -17,7 +17,8 @@ const statusEnum = [
 const tyreItemSchema = new mongoose.Schema(
   {
     sNo: { type: Number, default: 1 },
-    tyreType: { type: String, default: "New Tyre" }, // New Tyre / Remould Tyre
+    productName: { type: String, default: "" }, // Generic product name (e.g. Paper, Ink, Printer, Tyre, etc.)
+    tyreType: { type: String, default: "" }, // Kept for backward compatibility
     brandPreference: String,
     sizeSpec: String,
     loadRating: String,
@@ -77,6 +78,7 @@ const supplierQuoteSchema = new mongoose.Schema(
     emailWhatsApp: String,
     gstNumber: String,
     selectedTyreType: String,
+    selectedProduct: String,
     bankAccountNo: String,
     bankName: String,
     bankIfscCode: String,
@@ -101,6 +103,7 @@ const supplierQuoteSchema = new mongoose.Schema(
 const selectedSupplierSchema = new mongoose.Schema(
   {
     selectedSupplier: String,
+    poNumber: String,
     priceQuoted: { type: Number, default: 0 },
     totalOrderValue: { type: Number, default: 0 },
     reasonForSelection: String,

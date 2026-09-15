@@ -95,12 +95,28 @@ function Stage3FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
         <Box className="sop-grid-4">
           <Box>
             <label className="sop-label">PO NUMBER</label>
-            <input
-              type="text"
-              className="sop-input readonly"
-              readOnly
-              value={globalData?.poNumber || data.poNumber || "-"}
-            />
+            {(() => {
+              const allPos = Array.from(
+                new Set(
+                  (selectedSuppliers || [])
+                    .map((s) => s.poNumber)
+                    .filter(Boolean)
+                )
+              );
+              const poDisplay =
+                allPos.length > 0
+                  ? allPos.join(", ")
+                  : (globalData?.poNumber || data.poNumber || "-");
+              return (
+                <input
+                  type="text"
+                  className="sop-input readonly"
+                  readOnly
+                  value={poDisplay}
+                  style={{ fontWeight: 600, color: "#1d4ed8" }}
+                />
+              );
+            })()}
           </Box>
           <Box>
             <label className="sop-label">PO DATE</label>
@@ -151,6 +167,7 @@ function Stage3FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
               <tr>
                 <th style={{ width: 40, textAlign: "center" }}>#</th>
                 <th>Selected Supplier</th>
+                <th style={{ width: 140 }}>PO Number</th>
                 <th style={{ textAlign: "right", width: 140 }}>Price Quoted (₹)</th>
                 <th style={{ textAlign: "right", width: 160 }}>Total Order Value (₹)</th>
                 <th>Reason for Selection</th>
@@ -163,6 +180,9 @@ function Stage3FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
                   <td style={{ textAlign: "center", fontWeight: 600 }}>{idx + 1}</td>
                   <td style={{ fontWeight: 600, color: "#1d4ed8" }}>
                     {sup.selectedSupplier || "Not Specified"}
+                  </td>
+                  <td style={{ fontWeight: 600, color: "#047857" }}>
+                    {sup.poNumber || globalData?.poNumber || "-"}
                   </td>
                   <td style={{ textAlign: "right" }}>₹{(Number(sup.priceQuoted) || 0).toLocaleString("en-IN")}</td>
                   <td style={{ textAlign: "right", fontWeight: 700, color: "#0f172a" }}>

@@ -48,9 +48,13 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
         if (team.managerId) {
           objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
         }
+        const reqTeamObjectId = new mongoose.Types.ObjectId(requestedTeamId);
         const orConditions = [
           { ownerId: { $in: objectIdMemberIds } },
-          { createdBy: { $in: objectIdMemberIds } }
+          { createdBy: { $in: objectIdMemberIds } },
+          { referredByUserId: { $in: objectIdMemberIds } },
+          { referredFromTeamId: reqTeamObjectId },
+          { referredToTeamId: reqTeamObjectId }
         ];
         return { $or: orConditions };
       }
@@ -76,15 +80,11 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 
   if (myTeams && myTeams.length > 0) {
     myTeams.forEach(team => {
-      const isManager = team.managerId?.toString() === userId?.toString();
-      const isHodForTeam = isHodUser && managedTeamIds.includes(team._id.toString());
-      if (isManager || isHodForTeam) {
-        if (team.memberIds) {
-          team.memberIds.forEach(m => visibleUserIds.push(new mongoose.Types.ObjectId(m.toString())));
-        }
-        if (team.managerId) {
-          visibleUserIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
-        }
+      if (team.memberIds) {
+        team.memberIds.forEach(m => visibleUserIds.push(new mongoose.Types.ObjectId(m.toString())));
+      }
+      if (team.managerId) {
+        visibleUserIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
       }
     });
   }
@@ -94,6 +94,7 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
   const orConditions = [
     { ownerId: { $in: uniqueUserIds } },
     { createdBy: { $in: uniqueUserIds } },
+    { referredByUserId: { $in: uniqueUserIds } },
     { hasPlannedVisit: true },
     { status: 'sales_visit' },
     { 'plannedVisits.0': { $exists: true } }
@@ -187,23 +188,59 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// PUT /api/crm/leads/:id/refer - Transfer/Refer lead to internal team
+// PUT /api/crm/leads/:id/refer - Transfer/Refer lead to internal team or individual
 router.put('/:id/refer', async (req, res) => {
   try {
-    const { targetTeamId, fromTeamId } = req.body;
-    const userId = req.user?._id || req.headers['user-id'];
-    
-    if (!targetTeamId) {
-      return res.status(400).json({ success: false, message: 'Target team ID is required' });
-    }
+    const { targetTeamId, targetUserId, targetOwnerId, fromTeamId } = req.body;
+    const userId = req.user?._id || req.user?.id || req.headers['user-id'];
 
     const lead = await Lead.findById(req.params.id);
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead not found' });
     }
 
-    lead.referredToTeamId = targetTeamId;
-    if (fromTeamId) lead.referredFromTeamId = fromTeamId;
+    const assignedTargetUser = targetUserId || targetOwnerId;
+
+    let referringTeamId = fromTeamId;
+    if (!referringTeamId && userId && mongoose.Types.ObjectId.isValid(userId)) {
+      const referringTeam = await SalesTeam.findOne({
+        $or: [
+          { managerId: userId },
+          { memberIds: userId }
+        ]
+      }).lean();
+      if (referringTeam) {
+        referringTeamId = referringTeam._id;
+      }
+    }
+
+    let receivingTeamId = targetTeamId;
+    if (assignedTargetUser && mongoose.Types.ObjectId.isValid(assignedTargetUser)) {
+      lead.ownerId = assignedTargetUser;
+      if (!receivingTeamId) {
+        const targetTeam = await SalesTeam.findOne({
+          $or: [
+            { managerId: assignedTargetUser },
+            { memberIds: assignedTargetUser }
+          ]
+        }).lean();
+        if (targetTeam) {
+          receivingTeamId = targetTeam._id;
+        }
+      }
+    } else if (receivingTeamId && mongoose.Types.ObjectId.isValid(receivingTeamId)) {
+      const targetTeam = await SalesTeam.findById(receivingTeamId).lean();
+      if (targetTeam && targetTeam.managerId && !lead.ownerId) {
+        lead.ownerId = targetTeam.managerId;
+      }
+    }
+
+    if (!receivingTeamId && !assignedTargetUser) {
+      return res.status(400).json({ success: false, message: 'Target team or target user is required' });
+    }
+
+    if (referringTeamId) lead.referredFromTeamId = referringTeamId;
+    if (receivingTeamId) lead.referredToTeamId = receivingTeamId;
     if (userId) lead.referredByUserId = userId;
     lead.isReferral = true;
     lead.lastActivityAt = new Date();
@@ -212,11 +249,11 @@ router.put('/:id/refer', async (req, res) => {
 
     const updatedLead = await Lead.findById(lead._id)
       .populate('ownerId', 'username first_name last_name')
-      .populate('referredFromTeamId', 'nameCode teamName')
-      .populate('referredToTeamId', 'nameCode teamName')
+      .populate('referredFromTeamId', 'nameCode teamName name')
+      .populate('referredToTeamId', 'nameCode teamName name')
       .populate('referredByUserId', 'username first_name last_name');
 
-    res.json({ success: true, message: 'Lead referred successfully to target team', lead: updatedLead });
+    res.json({ success: true, message: 'Lead referred successfully. Lead is now visible to both referring and target teams.', lead: updatedLead });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -314,14 +351,21 @@ router.post('/:id/convert', async (req, res) => {
     await contact.save();
 
     // 3. Create Opportunity
+    const userId = req.user?._id || req.user?.id || req.headers['user-id'];
+    const oppOwnerId = lead.ownerId || userId;
+    let bv = lead.businessVertical;
+    if (!bv || bv === 'all' || (Array.isArray(lead.interestedServices) && lead.interestedServices.some(s => typeof s === 'string' && s.toLowerCase().includes('auto rack')))) {
+      if (!bv || bv === 'all') bv = 'Paramount';
+    }
+
     const opportunity = new Opportunity({
       accountId: account._id,
       primaryContactId: contact._id,
       name: `${lead.company} - Deal`,
       stage: 'lead',
       services: lead.interestedServices || [],
-      ownerId: lead.ownerId,
-      createdBy: req.user?._id,
+      ownerId: oppOwnerId,
+      createdBy: userId,
       convertedFromLead: lead._id,
       probability: 10,
       stageHistory: [{ stage: 'lead', enteredAt: new Date() }],
@@ -343,7 +387,7 @@ router.post('/:id/convert', async (req, res) => {
       referralSourceName: lead.referralSourceName,
       monthlyVolume: lead.monthlyVolume,
       monthlyRevenue: lead.monthlyRevenue,
-      businessVertical: lead.businessVertical
+      businessVertical: bv
     });
     await opportunity.save();
 

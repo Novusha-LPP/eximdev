@@ -55,6 +55,7 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
       totalOrderValue: Number(targetSupplier.totalOrderValue) || 0,
       priceQuoted: Number(targetSupplier.priceQuoted) || 0,
       reasonForSelection: targetSupplier.reasonForSelection || "",
+      poNumber: targetSupplier.poNumber || globalData?.poNumber || "-",
       ...full,
     }];
   } else if (stage2Selected && stage2Selected.length > 0) {
@@ -68,6 +69,7 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
         totalOrderValue: Number(sel.totalOrderValue) || 0,
         priceQuoted: Number(sel.priceQuoted) || 0,
         reasonForSelection: sel.reasonForSelection || "",
+        poNumber: sel.poNumber || globalData?.poNumber || "-",
         ...full,
       };
     });
@@ -322,7 +324,9 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
                   <tbody>
                     <tr>
                       <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%" }}>PO Number</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold" }}>{poNumber}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold" }}>
+                        {currentVendor.poNumber || poNumber}
+                      </td>
                     </tr>
                     <tr>
                       <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold" }}>PO Date</td>
@@ -432,9 +436,9 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
           <thead>
             <tr style={{ backgroundColor: "#e8ecef" }}>
               <th style={{ border: "1px solid #333333", padding: "5px", width: "6%" }}>Sr.No</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "24%" }}>Brand / Description</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "18%" }}>Size / Spec</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "16%" }}>Type / Category</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "24%" }}>Product / Item</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "18%" }}>Brand / Spec</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "16%" }}>Size / Category</th>
               <th style={{ border: "1px solid #333333", padding: "5px", width: "10%" }}>Qty</th>
               <th style={{ border: "1px solid #333333", padding: "5px", width: "13%" }}>Rate (₹)</th>
               <th style={{ border: "1px solid #333333", padding: "5px", width: "13%" }}>Total (₹)</th>
@@ -450,13 +454,13 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
                   <tr key={idx}>
                     <td style={{ border: "1px solid #333333", padding: "5px" }}>{idx + 1}</td>
                     <td style={{ border: "1px solid #333333", padding: "5px", fontWeight: "bold" }}>
-                      {item.brandPreference || item.tyreBrand || currentVendor.tyreBrand || "Tyre Item"}
+                      {item.productName || item.tyreType || currentVendor.selectedProduct || "Item"}
+                    </td>
+                    <td style={{ border: "1px solid #333333", padding: "5px" }}>
+                      {item.brandPreference || item.tyreBrand || currentVendor.tyreBrand || "-"}
                     </td>
                     <td style={{ border: "1px solid #333333", padding: "5px" }}>
                       {item.sizeSpec || item.sizeSpecification || currentVendor.sizeSpecification || "-"}
-                    </td>
-                    <td style={{ border: "1px solid #333333", padding: "5px" }}>
-                      {item.tyreType || item.type || "-"}
                     </td>
                     <td style={{ border: "1px solid #333333", padding: "5px" }}>{itemQty}</td>
                     <td style={{ border: "1px solid #333333", padding: "5px" }}>

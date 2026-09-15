@@ -330,7 +330,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 2 }}>
           <Box>
             <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "17px", letterSpacing: "-0.2px" }}>
-              Tyre Procurement SOP
+              Procurement SOP
             </Typography>
             <Typography sx={{ color: "#64748b", fontSize: "12.5px" }}>
               Manage purchase requests, supplier quotations, finance approvals, and GRNs
@@ -375,7 +375,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                 },
               }}
             >
-              Create Tyre PR
+              Create Purchase Request
             </Button>
           </Stack>
         </Stack>
@@ -542,7 +542,21 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                             {row.prNumber}
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ color: "#334155", fontWeight: 500, fontSize: "12.5px", py: 1, px: 1.5 }}>{row.poNumber || "-"}</TableCell>
+                        <TableCell sx={{ color: "#334155", fontWeight: 600, fontSize: "12.5px", py: 1, px: 1.5 }}>
+                          {(() => {
+                            const supPos = Array.from(
+                              new Set(
+                                (row.stage2?.selectedSuppliers || [])
+                                  .map((s) => s.poNumber)
+                                  .filter(Boolean)
+                              )
+                            );
+                            if (supPos.length > 0) {
+                              return supPos.join(", ");
+                            }
+                            return row.poNumber || "-";
+                          })()}
+                        </TableCell>
                         <TableCell sx={{ color: "#334155", fontSize: "12.5px", py: 1, px: 1.5 }}>{row.stage1?.preparedBy || "-"}</TableCell>
                         <TableCell sx={{ color: "#334155", fontWeight: 500, fontSize: "12.5px", py: 1, px: 1.5 }}>{row.stage2?.selectedSupplierL1 || "-"}</TableCell>
                         <TableCell sx={{ color: "#0f172a", fontWeight: 700, fontSize: "13px", py: 1, px: 1.5 }}>

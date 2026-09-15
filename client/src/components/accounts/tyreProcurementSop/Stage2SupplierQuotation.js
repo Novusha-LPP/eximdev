@@ -5,6 +5,7 @@ import "../../../styles/enterprise-sop.scss";
 
 function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange }) {
   const [savedSuppliers, setSavedSuppliers] = useState([]);
+  const [savedProducts, setSavedProducts] = useState([]);
 
   useEffect(() => {
     // Fetch saved suppliers list from backend API
@@ -17,6 +18,18 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
       })
       .catch((err) => {
         console.error("Error fetching saved tyre suppliers:", err);
+      });
+
+    // Fetch saved products list from backend API
+    axios
+      .get(`${process.env.REACT_APP_API_STRING}/procurement-products`)
+      .then((res) => {
+        if (res.data?.products) {
+          setSavedProducts(res.data.products);
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching saved procurement products:", err);
       });
   }, []);
 
@@ -106,42 +119,100 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
     onChange({ suppliers: updated });
   };
 
-  // Get available Tyre Types from Stage 1 items
+  // Get available Products from Stage 1 items + Saved Procurement Products
   const stage1Items = globalData?.stage1?.itemsRequired || [];
-  const availableTyreTypes = Array.from(
-    new Set(stage1Items.map((item) => item.tyreType).filter(Boolean))
-  );
-  if (availableTyreTypes.length === 0) {
-    availableTyreTypes.push("New Tyre", "Remould Tyre");
-  }
+  const stage1ProductNames = stage1Items
+    .map((item) => (item.productName || item.tyreType || "").trim().toUpperCase())
+    .filter(Boolean);
+  const masterProductNames = savedProducts
+    .map((p) => (p.productName || "").trim().toUpperCase())
+    .filter(Boolean);
 
-  // Handle Tyre Type selection for a supplier -> Auto-fetch item details from Stage 1
-  const handleTyreTypeSelect = (idx, selectedType) => {
-    const matchedItem = stage1Items.find((item) => item.tyreType === selectedType) || stage1Items[0];
+  const availableProducts = Array.from(
+    new Set([...stage1ProductNames, ...masterProductNames])
+  );
+
+  // Handle Product selection/typing for a supplier -> Auto-fetch item details from Stage 1 if available and auto-save product
+  const handleProductSelect = (idx, selectedProduct) => {
+    const rawVal = typeof selectedProduct === "string" ? selectedProduct : (selectedProduct?.productName || "");
+    const prodUpper = rawVal.toUpperCase();
+
+    // Immediately save new product to backend and local state if not empty
+    if (prodUpper.trim()) {
+      if (!savedProducts.some((p) => (p.productName || "").toUpperCase() === prodUpper.trim())) {
+        setSavedProducts((prev) => [...prev, { productName: prodUpper.trim() }]);
+        axios
+          .post(`${process.env.REACT_APP_API_STRING}/procurement-products`, {
+            productName: prodUpper.trim(),
+          })
+          .catch((err) => {
+            console.error("Error auto-saving new procurement product:", err);
+          });
+      }
+    }
+
+    const matchedItem = stage1Items.find(
+      (item) => (item.productName || item.tyreType || "").trim().toUpperCase() === prodUpper
+    );
+
     const current = [...suppliers];
     const existing = current[idx] || {};
 
     current[idx] = {
       ...existing,
-      selectedTyreType: selectedType,
+      selectedProduct: prodUpper,
+      selectedTyreType: prodUpper,
       tyreBrand: (matchedItem?.brandPreference || existing.tyreBrand || "").toUpperCase(),
       sizeSpecification: (matchedItem?.sizeSpec || existing.sizeSpecification || "").toUpperCase(),
       qtyAvailable: matchedItem?.qty || existing.qtyAvailable || 0,
-      unitPriceNew:
-        selectedType === "New Tyre"
-          ? matchedItem?.estUnitCost || existing.unitPriceNew || 0
-          : existing.unitPriceNew || 0,
-      unitPriceRemould:
-        selectedType === "Remould Tyre"
-          ? matchedItem?.estUnitCost || existing.unitPriceRemould || 0
-          : existing.unitPriceRemould || 0,
+      unitPriceNew: matchedItem?.estUnitCost || existing.unitPriceNew || 0,
     };
     onChange({ suppliers: current });
   };
 
+  // Helper to ensure each distinct supplier in selectedSuppliers gets a valid sequential PO number
+  const ensureSupplierPoNumbers = async (suppliersList) => {
+    const validSuppliers = suppliersList.filter((s) => s.selectedSupplier && s.selectedSupplier.trim());
+    if (validSuppliers.length === 0) return suppliersList;
+
+    const suppliersPayload = validSuppliers.map((s) => ({
+      selectedSupplier: s.selectedSupplier.trim(),
+    }));
+
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/tyre-procurement/next-po-numbers`,
+        {
+          suppliers: suppliersPayload,
+          date: data?.poDate || globalData?.createdAt || new Date().toISOString(),
+          currentId: globalData?._id || undefined,
+        }
+      );
+
+      if (res.data?.success && res.data?.supplierToPo) {
+        const supplierToPo = res.data.supplierToPo;
+        const updatedWithPo = suppliersList.map((s) => {
+          const sName = (s.selectedSupplier || "").trim().toUpperCase();
+          const assignedPo = supplierToPo[sName] || s.poNumber || globalData?.poNumber || "";
+          return { ...s, poNumber: assignedPo };
+        });
+
+        // Also sync the first supplier's PO to globalData.poNumber if empty or legacy
+        if (updatedWithPo[0]?.poNumber && onGlobalChange) {
+          onGlobalChange("poNumber", updatedWithPo[0].poNumber);
+        }
+
+        return updatedWithPo;
+      }
+    } catch (err) {
+      console.error("Error auto-fetching supplier PO numbers:", err);
+    }
+    return suppliersList;
+  };
+
   // Update a selected supplier entry in Section C
-  const updateSelectedSupplier = (idx, field, value) => {
-    const current = [...selectedSuppliers];
+  const updateSelectedSupplier = async (idx, field, value) => {
+    let current = [...selectedSuppliers];
     const val = typeof value === "string" ? value.toUpperCase() : value;
     current[idx] = { ...current[idx], [field]: val };
 
@@ -164,6 +235,9 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
         current[idx].priceQuoted = price;
         current[idx].totalOrderValue = total;
       }
+
+      // Automatically generate/assign continuous sequential PO numbers per unique supplier
+      current = await ensureSupplierPoNumbers(current);
     }
 
     const overallTotal = current.reduce((acc, item) => acc + (Number(item.totalOrderValue) || 0), 0);
@@ -179,7 +253,7 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
   const addSelectedSupplier = () => {
     const updated = [
       ...selectedSuppliers,
-      { selectedSupplier: "", priceQuoted: 0, totalOrderValue: 0, reasonForSelection: "" },
+      { selectedSupplier: "", priceQuoted: 0, totalOrderValue: 0, reasonForSelection: "", poNumber: "" },
     ];
     onChange({ selectedSuppliers: updated });
   };
@@ -233,11 +307,25 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
           </div>
           <div className="sop-field-group">
             <label className="sop-field-label">PO Number</label>
-            <input
-              className="sop-input"
-              value={globalData?.poNumber || ""}
-              onChange={(e) => onGlobalChange("poNumber", e.target.value.toUpperCase())}
-            />
+            {(() => {
+              const allPos = Array.from(
+                new Set(
+                  (selectedSuppliers || [])
+                    .map((s) => s.poNumber)
+                    .filter(Boolean)
+                )
+              );
+              const poDisplay = allPos.length > 0 ? allPos.join(", ") : (globalData?.poNumber || "");
+              return (
+                <input
+                  className="sop-input"
+                  value={poDisplay}
+                  onChange={(e) => onGlobalChange("poNumber", e.target.value.toUpperCase())}
+                  placeholder="PO/SEP-01/26-27"
+                  style={{ fontWeight: 600, color: "#1d4ed8" }}
+                />
+              );
+            })()}
           </div>
           <div className="sop-field-group">
             <label className="sop-field-label">Purchase Officer Name</label>
@@ -291,21 +379,24 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
               </tr>
             </thead>
             <tbody>
-              {/* Tyre Type Selection */}
+              {/* Product / Item Selection with Autocomplete */}
+              <datalist id="saved-products-quotation-list">
+                {availableProducts.map((p, pIdx) => (
+                  <option key={pIdx} value={p} />
+                ))}
+              </datalist>
               <tr style={{ backgroundColor: "#f0f7ff" }}>
-                <td style={{ fontWeight: 700, color: "#1d4ed8" }}>Select Tyre Type</td>
+                <td style={{ fontWeight: 700, color: "#1d4ed8" }}>Select / Type Product</td>
                 {suppliers.map((sup, idx) => (
                   <td key={idx}>
-                    <select
-                      className="sop-select"
-                      value={sup?.selectedTyreType || ""}
-                      onChange={(e) => handleTyreTypeSelect(idx, e.target.value)}
-                    >
-                      <option value="">Select Tyre Type</option>
-                      {availableTyreTypes.map((type) => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
+                    <input
+                      className="sop-input"
+                      list="saved-products-quotation-list"
+                      value={sup?.selectedProduct || sup?.selectedTyreType || ""}
+                      onChange={(e) => handleProductSelect(idx, e.target.value)}
+                      placeholder="Type or select product (e.g. Paper, Ink)"
+                      style={{ fontWeight: 600, color: "#1d4ed8" }}
+                    />
                   </td>
                 ))}
               </tr>
@@ -517,7 +608,7 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
                 </button>
               )}
             </div>
-            <div className="sop-grid-4">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
               <div className="sop-field-group">
                 <label className="sop-field-label">Selected Supplier</label>
                 <select
@@ -536,6 +627,16 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
                     );
                   })}
                 </select>
+              </div>
+              <div className="sop-field-group">
+                <label className="sop-field-label">PO Number</label>
+                <input
+                  className="sop-input"
+                  value={item.poNumber || globalData?.poNumber || ""}
+                  onChange={(e) => updateSelectedSupplier(idx, "poNumber", e.target.value.toUpperCase())}
+                  placeholder="PO/SEP-01/26-27"
+                  style={{ fontWeight: 600, color: "#1d4ed8" }}
+                />
               </div>
               <div className="sop-field-group">
                 <label className="sop-field-label">Price Quoted (₹)</label>

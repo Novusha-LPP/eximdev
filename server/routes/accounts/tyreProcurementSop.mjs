@@ -147,6 +147,78 @@ function parseCreditDays(terms) {
   if (match && match[1]) {
     return parseInt(match[1], 10);
   }
+  return 0;
+}
+
+function deriveStatus(doc) {
+  if (!doc) return "Draft";
+  const s6 = doc.stage6 || {};
+  const s5 = doc.stage5 || {};
+  const s4 = doc.stage4 || {};
+  const s3 = doc.stage3 || {};
+  const s2 = doc.stage2 || {};
+  const s1 = doc.stage1 || {};
+
+  const s6Approvals = s6.approvals || [];
+  const purchaseOfficerReview = s6Approvals[2] || s6Approvals.find((a) => a && (a.role?.includes("Purchase Officer") || a.reviewedByPurchaseOfficer));
+  const isPurchaseOfficerDone = Boolean(purchaseOfficerReview?.date || purchaseOfficerReview?.signature || purchaseOfficerReview?.name || s6.reviewedByPurchaseOfficer);
+
+  if (doc.status === "Closed" || doc.status === "GRN Received" || isPurchaseOfficerDone) {
+    return "GRN Received";
+  }
+
+  const isFinanceApproved = s3.decision?.decision === "APPROVED" || Boolean(s3.signOff?.dateOfApproval);
+
+  const supplierPayments = s4.supplierPayments || [];
+  const allPaid =
+    supplierPayments.length > 0
+      ? supplierPayments.every((sp) => Boolean(sp.isPaid) && Boolean(sp.utrNumber?.trim()))
+      : Boolean(
+          s4.paymentDetails?.paymentReferenceUtr?.trim() &&
+          s4.paymentDetails?.paymentDate
+        );
+
+  if (isFinanceApproved) {
+    if (!allPaid) {
+      return "Finance Approved";
+    }
+    if (s5.dispatchDone || s5.isDispatchDone || s6.grnSeriesNo || s5.orderPlacedDate || s5.dispatchDetails?.dispatchDate) {
+      return "Order Placed";
+    }
+    return "Payment Done";
+  }
+
+  if (s2.routingChecklist?.[0]?.status === "Done" || s2.routingChecklist?.[0]?.status === "DONE" || s2.routingChecklist?.[0]?.date) {
+    return "Quotation Received";
+  }
+
+  if (s1.routingChecklist?.[1]?.status === "Done" || s1.routingChecklist?.[1]?.status === "DONE" || s1.routingChecklist?.[1]?.date || s1.hodValidation?.dateTimeOfApproval) {
+    return "Preparing for Quotation";
+  }
+
+  if (s1.routingChecklist?.[0]?.status === "Done" || s1.routingChecklist?.[0]?.status === "DONE" || s1.routingChecklist?.[0]?.date) {
+    return "PR Raised";
+  }
+
+  return doc.status || "Draft";
+}
+
+function computeDoc(doc) {
+  if (!doc) return doc;
+  const clone = JSON.parse(JSON.stringify(doc));
+
+  // Compute estTotal for Stage 1 items
+  let estTotalCost = 0;
+  clone.stage1?.itemsRequired?.forEach((item) => {
+    item.estTotal = (Number(item.qty) || 0) * (Number(item.estUnitCost) || 0);
+    estTotalCost += item.estTotal;
+  });
+  if (clone.stage1) {
+    clone.stage1.estimatedTotalCost = estTotalCost;
+  }
+
+  clone.status = deriveStatus(clone);
+
   return clone;
 }
 

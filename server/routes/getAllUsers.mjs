@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import bcryptjs from "bcryptjs";
 import UserModel from "../model/userModel.mjs";
 import Company from "../model/attendance/Company.js";
+import BranchModel from "../model/branchModel.mjs";
 
 const router = express.Router();
 
@@ -43,28 +44,33 @@ router.post("/api/users", async (req, res) => {
 });
 
 router.get("/api/get-all-users", async (req, res) => {
-  const { status, q } = req.query;
-  const query = {};
-  if (q) query.username = { $regex: q, $options: "i" };
-  if (status === "inactive") {
-    query.isActive = false;
-  } else if (status === "active" || !status) {
-    query.isActive = { $ne: false };
+  try {
+    const { status, q } = req.query;
+    const query = {};
+    if (q) query.username = { $regex: q, $options: "i" };
+    if (status === "inactive") {
+      query.isActive = false;
+    } else if (status === "active" || !status) {
+      query.isActive = { $ne: false };
+    }
+
+    // Filter out drivers always, and dev_master in production
+    query.role = { $nin: ['driver', 'Driver'] };
+    if (process.env.NODE_ENV === 'production') {
+      query.username = { $ne: 'dev_master' };
+    }
+
+    const users = await UserModel.find(query)
+      .select(
+        "username role _id first_name last_name isActive deactivatedAt modules department employee_code designation userAssets isAttendanceAllowedAdmin is_operator category company company_id"
+      )
+      .lean();
+
+    res.json(users);
+  } catch (err) {
+    console.error("Error in get-all-users:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
-
-  // Filter out drivers always, and dev_master in production
-  query.role = { $nin: ['driver', 'Driver'] };
-  if (process.env.NODE_ENV === 'production') {
-    query.username = { $ne: 'dev_master' };
-  }
-
-  const users = await UserModel.find(query)
-    .select(
-      "username role _id first_name last_name isActive deactivatedAt modules department employee_code designation userAssets isAttendanceAllowedAdmin is_operator category company company_id"
-    )
-    .populate("company_id", "company_name");
-
-  res.send(users);
 });
 
 // Update user IT Helpdesk access (for IT admin)

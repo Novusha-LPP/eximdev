@@ -23,6 +23,14 @@ const userSchema = new Schema({
     default: 'Sales Rep'
   },
   isHod: { type: Boolean, default: false },
+  hod_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  company_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
+  branch_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
+  department_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
+  shift_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift' },
+  shift_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Shift' }],
+  weekoff_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'WeekOffPolicy' },
+  holiday_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'HolidayPolicy' },
   crmManagedTeams: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SalesTeam' }],
   quota: { type: Number, default: 0 },
   teamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team' },
@@ -362,7 +370,7 @@ const userSchema = new Schema({
     type: Date,
     default: null,
   },
-});
+}, { strictPopulate: false });
 
 userSchema.plugin(auditPlugin, { documentType: "User" });
 

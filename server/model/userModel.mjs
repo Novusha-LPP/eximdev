@@ -45,6 +45,48 @@ const userSchema = new Schema({
   deactivatedAt: {
     type: Date,
   },
+  can_access_exim_bot: {
+    type: Boolean,
+    default: false,
+  },
+  modules: {
+    type: [String],
+    default: ["Attendance"],
+  },
+  tyre_procurement_tabs: {
+    type: [String],
+    default: [],
+  },
+  assigned_importer_name: [
+    {
+      type: String,
+    },
+  ],
+  assigned_importer: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Importer", // References the Importer model
+    },
+  ],
+  ////////////////////////////////////////////////////////////////// Onboarding
+  first_name: {
+    type: String,
+  },
+  middle_name: {
+    type: String,
+  },
+  last_name: {
+    type: String,
+  },
+  company: {
+    type: String,
+  },
+  email: {
+    type: String,
+  },
+  employment_type: { type: String },
+  employee_code: { type: String, unique: true, sparse: true },
+  date_of_joining: { type: Date },
   probation_end_date: { type: Date },
   confirmation_date: { type: Date },
   notice_period_days: { type: Number },

@@ -53,7 +53,10 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
     const [rowWeights, setRowWeights] = useState({});
 
     // Add Row Dialog State
-    const [addRowDialog, setAddRowDialog] = useState({ open: false, label: '' });
+    const [addRowDialog, setAddRowDialog] = useState({ open: false, label: '', target: '' });
+
+    // Optional Target & Actual Visibility State
+    const [showTargets, setShowTargets] = useState(false);
 
     // Submit Confirmation Dialog State
     const [confirmSubmit, setConfirmSubmit] = useState(false);
@@ -126,6 +129,14 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
             setSheet(res.data);
             if (res.data.summary) setSummary(res.data.summary);
 
+            // Determine if Targets & Actuals should be displayed
+            const hasTargets = Boolean(
+                res.data.has_targets ||
+                res.data.template_version?.has_targets ||
+                res.data.rows?.some(r => r.target !== null && r.target !== undefined && r.target !== '')
+            );
+            setShowTargets(hasTargets);
+
             // Set initial row weights
             const initialWeights = {};
             if (res.data.rows) {
@@ -163,9 +174,62 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
 
                 sum += (Number(val) || 0);
             }
-            return { ...row, total: sum };
+            return { ...row, total: sum, actual: sum };
         });
         return { ...currentSheet, rows: newRows };
+    };
+
+    const handleTargetChange = (rowId, value) => {
+        const numericVal = (value === '' || value === null || value === undefined) ? null : Number(value);
+        if (numericVal !== null && numericVal < 0) return;
+
+        // Update local state first (Optimistic UI)
+        const newRows = sheet.rows.map(r => {
+            if (r.row_id === rowId) {
+                return { ...r, target: numericVal };
+            }
+            return r;
+        });
+
+        setSheet({ ...sheet, rows: newRows });
+
+        // Debounce API call
+        const key = `target-${rowId}`;
+        if (debounceRef.current[key]) {
+            clearTimeout(debounceRef.current[key]);
+        }
+
+        debounceRef.current[key] = setTimeout(async () => {
+            try {
+                await axios.put(`${process.env.REACT_APP_API_STRING}/kpi/sheet/target`, {
+                    sheetId,
+                    rowId,
+                    target: numericVal
+                }, { withCredentials: true });
+            } catch (error) {
+                console.error("Failed to save target", error);
+                showMessage("Failed to save target: " + (error.response?.data?.message || error.message), 'error');
+            }
+            delete debounceRef.current[key];
+        }, 500);
+    };
+
+    const handleToggleTargets = async () => {
+        const nextVal = !showTargets;
+        setShowTargets(nextVal);
+
+        if (sheet?._id && (sheet.status === 'DRAFT' || sheet.status === 'REJECTED')) {
+            try {
+                await axios.put(`${process.env.REACT_APP_API_STRING}/kpi/sheet/toggle-targets`, {
+                    sheetId: sheet._id,
+                    has_targets: nextVal
+                }, { withCredentials: true });
+                setSheet(prev => prev ? ({ ...prev, has_targets: nextVal }) : prev);
+                showMessage(nextVal ? "Target & Actual columns enabled" : "Target & Actual columns hidden", "info");
+            } catch (err) {
+                console.error("Failed to update target tracking preference", err);
+            }
+        }
     };
 
     const handleCellChange = async (rowId, day, value) => {
@@ -443,9 +507,14 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
         }
 
         const newRowId = `custom_${Date.now()}`;
+        const parsedTarget = addRowDialog.target !== '' && addRowDialog.target !== null && addRowDialog.target !== undefined
+            ? Number(addRowDialog.target)
+            : null;
         const newRow = {
             row_id: newRowId,
             label: addRowDialog.label.trim(),
+            target: parsedTarget,
+            actual: 0,
             daily_values: {},
             total: 0,
             is_custom: true // Mark as custom row
@@ -454,7 +523,10 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
         // Optimistic UI update
         const newRows = [...sheet.rows, newRow];
         setSheet({ ...sheet, rows: newRows });
-        setAddRowDialog({ open: false, label: '' });
+        if (parsedTarget !== null) {
+            setShowTargets(true);
+        }
+        setAddRowDialog({ open: false, label: '', target: '' });
 
         try {
             await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/row`, {
@@ -493,9 +565,14 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
         }, 0);
     };
 
+    const getTargetTotal = () => {
+        if (!sheet || !sheet.rows) return 0;
+        return sheet.rows.reduce((sum, row) => sum + (Number(row.target) || 0), 0);
+    };
+
     const getGrandTotal = () => {
-        if (!sheet) return 0;
-        return sheet.rows.reduce((sum, row) => sum + row.total, 0);
+        if (!sheet || !sheet.rows) return 0;
+        return sheet.rows.reduce((sum, row) => sum + (Number(row.actual ?? row.total) || 0), 0);
     };
 
     const handleSubmit = async () => {
@@ -741,38 +818,72 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                         * Click on a date header to manage status
                     </span>
                 </div>
-                {/* Language Toggle */}
-                <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', borderRadius: '8px', padding: '2px', alignSelf: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', alignSelf: 'center' }}>
+                    {/* Optional Target Tracking Toggle */}
                     <button
-                        onClick={() => { setDisplayLang('en'); localStorage.setItem('kpi_lang_pref', 'en'); }}
+                        type="button"
+                        onClick={handleToggleTargets}
+                        title={showTargets ? "Target & Actual columns enabled - Click to hide" : "Click to show Target & Actual columns"}
                         style={{
-                            padding: '4px 10px', fontSize: '0.7rem', fontWeight: 600,
-                            border: 'none', borderRadius: '6px', cursor: 'pointer',
-                            background: displayLang === 'en' ? '#0F172A' : 'transparent',
-                            color: displayLang === 'en' ? '#fff' : '#64748B',
-                            transition: 'all 0.2s'
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 10px',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            border: showTargets ? '1px solid #818CF8' : '1px solid #CBD5E1',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            background: showTargets ? '#EEF2FF' : '#F8FAFC',
+                            color: showTargets ? '#3730A3' : '#64748B',
+                            boxShadow: showTargets ? '0 1px 2px rgba(99, 102, 241, 0.15)' : 'none',
+                            transition: 'all 0.2s ease'
                         }}
-                    >English</button>
-                    <button
-                        onClick={() => { setDisplayLang('gu'); localStorage.setItem('kpi_lang_pref', 'gu'); }}
-                        style={{
-                            padding: '4px 10px', fontSize: '0.7rem', fontWeight: 600,
-                            border: 'none', borderRadius: '6px', cursor: 'pointer',
-                            background: displayLang === 'gu' ? '#C2410C' : 'transparent',
-                            color: displayLang === 'gu' ? '#fff' : '#64748B',
-                            transition: 'all 0.2s'
-                        }}
-                    >ગુજરાતી</button>
-                    <button
-                        onClick={() => { setDisplayLang('hi'); localStorage.setItem('kpi_lang_pref', 'hi'); }}
-                        style={{
-                            padding: '4px 10px', fontSize: '0.7rem', fontWeight: 600,
-                            border: 'none', borderRadius: '6px', cursor: 'pointer',
-                            background: displayLang === 'hi' ? '#BE123C' : 'transparent',
-                            color: displayLang === 'hi' ? '#fff' : '#64748B',
-                            transition: 'all 0.2s'
-                        }}
-                    >हिंदी</button>
+                    >
+                        <span style={{ fontSize: '12px' }}>🎯</span>
+                        <span>{showTargets ? 'Targets: ON' : 'Show Targets'}</span>
+                        <span style={{
+                            display: 'inline-block',
+                            width: '7px',
+                            height: '7px',
+                            borderRadius: '50%',
+                            backgroundColor: showTargets ? '#10B981' : '#CBD5E1'
+                        }}></span>
+                    </button>
+
+                    {/* Language Toggle */}
+                    <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', borderRadius: '8px', padding: '2px' }}>
+                        <button
+                            onClick={() => { setDisplayLang('en'); localStorage.setItem('kpi_lang_pref', 'en'); }}
+                            style={{
+                                padding: '4px 10px', fontSize: '0.7rem', fontWeight: 600,
+                                border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                background: displayLang === 'en' ? '#0F172A' : 'transparent',
+                                color: displayLang === 'en' ? '#fff' : '#64748B',
+                                transition: 'all 0.2s'
+                            }}
+                        >English</button>
+                        <button
+                            onClick={() => { setDisplayLang('gu'); localStorage.setItem('kpi_lang_pref', 'gu'); }}
+                            style={{
+                                padding: '4px 10px', fontSize: '0.7rem', fontWeight: 600,
+                                border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                background: displayLang === 'gu' ? '#C2410C' : 'transparent',
+                                color: displayLang === 'gu' ? '#fff' : '#64748B',
+                                transition: 'all 0.2s'
+                            }}
+                        >ગુજરાતી</button>
+                        <button
+                            onClick={() => { setDisplayLang('hi'); localStorage.setItem('kpi_lang_pref', 'hi'); }}
+                            style={{
+                                padding: '4px 10px', fontSize: '0.7rem', fontWeight: 600,
+                                border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                background: displayLang === 'hi' ? '#BE123C' : 'transparent',
+                                color: displayLang === 'hi' ? '#fff' : '#64748B',
+                                transition: 'all 0.2s'
+                            }}
+                        >हिंदी</button>
+                    </div>
                 </div>
             </div>
 
@@ -782,6 +893,11 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                         <tr>
                             <th>{new Date(sheet.year, sheet.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}</th>
                             {(user?.role === 'Admin' || user?.role === 'Head_of_Department') && <th style={{ width: '60px' }}>Weight</th>}
+                            {showTargets && (
+                                <th className="target-col-header" style={{ width: '75px', minWidth: '75px', backgroundColor: '#eef2ff', color: '#1e40af' }}>
+                                    Target
+                                </th>
+                            )}
                             {daysInMonth.map(d => {
                                 const isSun = isSunday(d);
                                 const isWS = isWorkingSunday(d);
@@ -807,7 +923,9 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                                     </th>
                                 );
                             })}
-                            <th>Total</th>
+                            <th className={showTargets ? "actual-col-header" : "total-col-header"} style={{ width: '75px', minWidth: '75px', backgroundColor: '#f0fdf4', color: '#166534' }}>
+                                {showTargets ? 'Actual' : 'Total'}
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -847,6 +965,35 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                                         )}
                                     </td>
                                 )}
+                                {/* Static Target Column */}
+                                {showTargets && (
+                                    <td className="target-cell" style={{ backgroundColor: '#f8fafc', padding: 0, textAlign: 'center', minWidth: '75px' }}>
+                                        {(sheet.status === 'DRAFT' || sheet.status === 'REJECTED') ? (
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                placeholder="—"
+                                                value={row.target ?? ''}
+                                                onChange={(e) => handleTargetChange(row.row_id, e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    textAlign: 'center',
+                                                    border: 'none',
+                                                    background: 'transparent',
+                                                    fontWeight: 700,
+                                                    fontSize: '12px',
+                                                    color: '#1e40af',
+                                                    outline: 'none',
+                                                    padding: '6px 2px'
+                                                }}
+                                            />
+                                        ) : (
+                                            <span style={{ fontWeight: 700, color: row.target ? '#1e40af' : '#94a3b8' }}>
+                                                {row.target ?? '—'}
+                                            </span>
+                                        )}
+                                    </td>
+                                )}
                                 {daysInMonth.map(day => {
                                     const isSun = isSunday(day);
                                     const isWS = isWorkingSunday(day);
@@ -864,39 +1011,38 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                                     return (
                                         <td key={day} className={cellClass}>
                                             {!isBlocked && (
-                                                row.type === 'checkbox' ? (
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={Number(row.daily_values[day] || 0) === 1}
-                                                        onChange={(e) => handleCellChange(row.row_id, day, e.target.checked ? 1 : 0)}
-                                                        disabled={isLocked(day)}
-                                                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                                                    />
-                                                ) : (
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        onKeyPress={(e) => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
-                                                        value={row.daily_values[day] ?? ''}
-                                                        onChange={(e) => handleCellChange(row.row_id, day, e.target.value)}
-                                                        disabled={isLocked(day)}
-                                                    />
-                                                )
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    onKeyPress={(e) => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
+                                                    value={row.daily_values[day] ?? ''}
+                                                    onChange={(e) => handleCellChange(row.row_id, day, e.target.value)}
+                                                    disabled={isLocked(day)}
+                                                />
                                             )}
                                         </td>
                                     );
                                 })}
-                                <td className="total-col">{row.total}</td>
+                                <td className={`total-col ${showTargets ? 'actual-col' : ''}`} style={{ backgroundColor: '#f0fdf4', color: '#166534', fontWeight: 800, minWidth: '75px' }}>
+                                    {row.actual ?? row.total ?? 0}
+                                </td>
                             </tr>
                         ))}
                     </tbody>
                     <tfoot>
-                        <tr >
+                        <tr>
                             <td colSpan={(user?.role === 'Admin' || user?.role === 'Head_of_Department') ? 2 : 1} style={{ textAlign: 'right', paddingRight: '10px' }}>TOTAL:</td>
+                            {showTargets && (
+                                <td style={{ fontWeight: 700, color: '#1e40af', backgroundColor: '#eef2ff' }}>
+                                    {getTargetTotal() > 0 ? getTargetTotal() : '—'}
+                                </td>
+                            )}
                             {daysInMonth.map(day => (
                                 <td key={day}>{getColumnTotal(day)}</td>
                             ))}
-                            <td>{getGrandTotal()}</td>
+                            <td style={{ fontWeight: 800, color: '#166534', backgroundColor: '#dcfce7' }}>
+                                {getGrandTotal()}
+                            </td>
                         </tr>
                     </tfoot>
                 </table>
@@ -906,7 +1052,7 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                     <div className="add-row-section">
                         <button
                             className="btn btn-secondary btn-sm"
-                            onClick={() => setAddRowDialog({ open: true, label: '' })}
+                            onClick={() => setAddRowDialog({ open: true, label: '', target: '' })}
                         >
                             + Add Custom Row
                         </button>
@@ -915,7 +1061,7 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
             </div>
 
             {/* Add Row Dialog */}
-            <Dialog open={addRowDialog.open} onClose={() => setAddRowDialog({ open: false, label: '' })} maxWidth="sm" fullWidth>
+            <Dialog open={addRowDialog.open} onClose={() => setAddRowDialog({ open: false, label: '', target: '' })} maxWidth="sm" fullWidth>
                 <DialogTitle>Add Custom Row</DialogTitle>
                 <DialogContent>
                     <TextField
@@ -928,12 +1074,24 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                         placeholder="e.g., New Task, Custom Metric..."
                         onKeyPress={(e) => { if (e.key === 'Enter') addNewRow(); }}
                     />
+                    <TextField
+                        margin="dense"
+                        label="Monthly Target (Optional)"
+                        type="number"
+                        inputProps={{ min: 0 }}
+                        fullWidth
+                        value={addRowDialog.target}
+                        onChange={(e) => setAddRowDialog({ ...addRowDialog, target: e.target.value })}
+                        placeholder="e.g., 100 (leave blank if no target)"
+                        onKeyPress={(e) => { if (e.key === 'Enter') addNewRow(); }}
+                        sx={{ mt: 1.5 }}
+                    />
                     <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
                         This row will be added to your sheet only and won't affect the template.
                     </Typography>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setAddRowDialog({ open: false, label: '' })}>Cancel</Button>
+                    <Button onClick={() => setAddRowDialog({ open: false, label: '', target: '' })}>Cancel</Button>
                     <button className="btn btn-primary" onClick={addNewRow}>Add Row</button>
                 </DialogActions>
             </Dialog>

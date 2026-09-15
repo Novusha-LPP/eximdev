@@ -82,7 +82,9 @@ const PreDeadlineTracker = ({ department, month, year, onReminderSent }) => {
                 borderRadius: '10px', 
                 px: 2, 
                 py: 1, 
-                mb: 2,
+                mb: 0,
+                width: '100%',
+                boxSizing: 'border-box',
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'space-between',
@@ -123,41 +125,44 @@ const PreDeadlineTracker = ({ department, month, year, onReminderSent }) => {
     // ─── CASE B: PENDING SUBMISSIONS (ACTIONABLE ALERT BANNER) ───
     return (
         <Box sx={{ 
-            background: 'linear-gradient(135deg, #ffffff 0%, #fffbfb 100%)', 
-            borderRadius: '12px', 
-            border: '1.5px solid #fecaca', 
-            p: 1.8, 
-            mb: 2.2,
-            boxShadow: '0 2px 6px rgba(185, 28, 28, 0.04)',
-            transition: 'all 0.2s ease'
+            background: '#ffffff', 
+            borderRadius: '10px', 
+            border: '1px solid #fee2e2', 
+            borderLeft: '3px solid #ef4444',
+            p: 1.5, 
+            mb: 0,
+            width: '100%',
+            boxSizing: 'border-box',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
+            transition: 'all 0.15s ease'
         }}>
             {/* Top Bar: Title, Progress Status, and Quick Actions */}
             <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1.5}>
                 <Box display="flex" alignItems="center" gap={1.2}>
                     <Box sx={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: '8px',
-                        bgcolor: '#fee2e2',
-                        color: '#b91c1c',
+                        width: 28,
+                        height: 28,
+                        borderRadius: '6px',
+                        bgcolor: '#fef2f2',
+                        color: '#dc2626',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        border: '1px solid #fca5a5'
+                        border: '1px solid #fecaca'
                     }}>
-                        <ScheduleIcon sx={{ fontSize: 18 }} />
+                        <ScheduleIcon sx={{ fontSize: 16 }} />
                     </Box>
                     <Box>
-                        <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-                            <Typography variant="subtitle2" fontWeight={800} color="#991b1b" fontSize="13.5px">
+                        <Box display="flex" alignItems="center" gap={0.8} flexWrap="wrap">
+                            <Typography variant="subtitle2" fontWeight={700} color="#991b1b" fontSize="13px">
                                 {pendingCount} Submission{pendingCount > 1 ? 's' : ''} Pending ({submissionRate}% Complete)
                             </Typography>
                             <Typography variant="caption" color="#64748b">
                                 • {submittedCount}/{totalMembers} Submitted
                             </Typography>
                         </Box>
-                        <Typography variant="caption" color="#475569" sx={{ display: 'block' }}>
-                            Pending: {pending.map(p => p.name).join(', ')}
+                        <Typography variant="caption" color="#64748b" sx={{ display: 'block', fontSize: '11.5px' }}>
+                            Pending: <span style={{ color: '#475569', fontWeight: 600 }}>{pending.map(p => p.name).join(', ')}</span>
                         </Typography>
                     </Box>
                 </Box>
@@ -170,14 +175,15 @@ const PreDeadlineTracker = ({ department, month, year, onReminderSent }) => {
                         onClick={handleRemindAll}
                         disabled={pingingAll}
                         sx={{
-                            bgcolor: '#b91c1c',
-                            '&:hover': { bgcolor: '#991b1b' },
+                            bgcolor: '#dc2626',
+                            '&:hover': { bgcolor: '#b91c1c' },
                             fontSize: '11px',
-                            fontWeight: 700,
+                            fontWeight: 600,
                             textTransform: 'none',
                             height: '28px',
-                            px: 1.5,
-                            borderRadius: '6px'
+                            px: 1.4,
+                            borderRadius: '6px',
+                            boxShadow: 'none'
                         }}
                     >
                         {pingingAll ? 'Pinging All...' : `Remind All (${pendingCount})`}
@@ -191,11 +197,12 @@ const PreDeadlineTracker = ({ department, month, year, onReminderSent }) => {
                         sx={{ 
                             textTransform: 'none', 
                             color: '#475569', 
-                            borderColor: '#cbd5e1',
+                            borderColor: '#e2e8f0',
                             fontSize: '11.5px', 
                             fontWeight: 600,
                             height: '28px',
-                            '&:hover': { borderColor: '#94a3b8', bgcolor: '#f1f5f9' }
+                            borderRadius: '6px',
+                            '&:hover': { borderColor: '#cbd5e1', bgcolor: '#f8fafc' }
                         }}
                     >
                         {expanded ? 'Hide Roster' : `View Roster (${totalMembers})`}
@@ -204,16 +211,16 @@ const PreDeadlineTracker = ({ department, month, year, onReminderSent }) => {
             </Box>
 
             {/* Micro Progress Bar */}
-            <Box sx={{ width: '100%', mt: 1.2, mb: 0.2 }}>
+            <Box sx={{ width: '100%', mt: 1, mb: 0.2 }}>
                 <LinearProgress 
                     variant="determinate" 
                     value={Math.min(submissionRate, 100)} 
                     color={progressColor}
                     sx={{ 
-                        height: 5, 
-                        borderRadius: 3, 
+                        height: 3, 
+                        borderRadius: 2, 
                         bgcolor: '#fee2e2',
-                        '& .MuiLinearProgress-bar': { borderRadius: 3 }
+                        '& .MuiLinearProgress-bar': { borderRadius: 2 }
                     }}
                 />
             </Box>

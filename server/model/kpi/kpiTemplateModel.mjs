@@ -23,7 +23,7 @@ const KPIRowSchema = new Schema({
     },
     type: {
         type: String,
-        enum: ["numeric", "calculated", "checkbox"],
+        enum: ["numeric", "calculated"],
         default: "numeric",
     },
     is_high_volume: {
@@ -35,6 +35,10 @@ const KPIRowSchema = new Schema({
         min: 1,
         max: 5,
         default: 3,
+    },
+    target: {
+        type: Number,
+        default: null, // Optional target
     },
 });
 
@@ -54,6 +58,10 @@ const KPITemplateSchema = new Schema(
             required: true,
         },
         rows: [KPIRowSchema],
+        has_targets: {
+            type: Boolean,
+            default: false,
+        },
         version: {
             type: Number,
             default: 1,

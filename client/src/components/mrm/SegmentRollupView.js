@@ -31,14 +31,20 @@ const SegmentRollupView = ({
     month, 
     year, 
     isHodOrAdmin = false, 
-    onApprovalComplete 
+    onApprovalComplete,
+    title,
+    weightChip,
+    actionExtra,
+    hideHeader = false
 }) => {
     const [filter, setFilter] = useState('REDS_FIRST'); // 'ALL', 'REDS_FIRST', 'RED', 'AMBER', 'GREEN'
     const [expandedSegments, setExpandedSegments] = useState({});
     const [taskDrawerSegment, setTaskDrawerSegment] = useState(null);
+    const [selectedMemberId, setSelectedMemberId] = useState('ALL');
     const [hideZeroTasks, setHideZeroTasks] = useState(true);
     const [showTemplateMatrix, setShowTemplateMatrix] = useState({});
     const [taskSearch, setTaskSearch] = useState('');
+    const [drawerTargetToggle, setDrawerTargetToggle] = useState(null); // null = auto, true = force ON, false = force OFF
     const [approving, setApproving] = useState(false);
     const [openApproveDialog, setOpenApproveDialog] = useState(false);
     const [approvalSuccess, setApprovalSuccess] = useState('');
@@ -92,8 +98,10 @@ const SegmentRollupView = ({
         switch (rag) {
             case 'Red':
                 return {
-                    border: '#f87171',
-                    bg: '#fff8f8',
+                    border: '#fecaca',
+                    accentBorder: '#ef4444',
+                    bg: '#ffffff',
+                    headerBg: '#fffbfb',
                     badgeBg: '#fee2e2',
                     badgeText: '#991b1b',
                     dot: '#ef4444',
@@ -101,8 +109,10 @@ const SegmentRollupView = ({
                 };
             case 'Amber':
                 return {
-                    border: '#fde047',
-                    bg: '#fffdf5',
+                    border: '#fde68a',
+                    accentBorder: '#f59e0b',
+                    bg: '#ffffff',
+                    headerBg: '#fffdf5',
                     badgeBg: '#fef3c7',
                     badgeText: '#92400e',
                     dot: '#f59e0b',
@@ -111,8 +121,10 @@ const SegmentRollupView = ({
             case 'Green':
             default:
                 return {
-                    border: '#86efac',
-                    bg: '#f8fdf9',
+                    border: '#bbf7d0',
+                    accentBorder: '#10b981',
+                    bg: '#ffffff',
+                    headerBg: '#f8fdf9',
                     badgeBg: '#dcfce7',
                     badgeText: '#166534',
                     dot: '#10b981',
@@ -185,63 +197,78 @@ const SegmentRollupView = ({
         return segment.reason_badge || 'Automated RAG';
     };
 
-    const sectionTitle = 'Sub-Team KPI Performance Segments';
-    const segmentCountLabel = `${department || 'Department'} (${segments.length} Sub-Teams)`;
+    const sectionTitle = title || 'Sub-Team KPI Performance Segments';
+    const segmentCountLabel = `${department || 'Department'} (${segments.length} Sub-Team${segments.length === 1 ? '' : 's'})`;
 
     return (
-        <Box sx={{ mt: 1.5, mb: 4 }}>
+        <Box sx={{ mt: 0, mb: 0, width: '100%', boxSizing: 'border-box' }}>
             {/* Section Header & View Controls */}
-            <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1.5} mb={2}>
-                <Box>
-                    <Box display="flex" alignItems="center" gap={1}>
-                        <Typography variant="h6" fontWeight={800} color="#0f172a" fontSize="17px" lineHeight={1.2}>
-                            {sectionTitle}
+            {!hideHeader && (
+                <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1.5} mb={1.5}>
+                    <Box>
+                        <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                            <Typography variant="h6" fontWeight={800} color="#0f172a" fontSize="16px" lineHeight={1.2}>
+                                {sectionTitle}
+                            </Typography>
+                            {weightChip ? weightChip : (
+                                <Chip 
+                                    label="Weight: 70%" 
+                                    size="small" 
+                                    sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#fee2e2', color: '#991b1b', height: '22px' }} 
+                                />
+                            )}
+                            <Chip 
+                                label={segmentCountLabel}
+                                size="small"
+                                sx={{ fontWeight: 600, fontSize: '11px', bgcolor: '#f1f5f9', color: '#475569', height: '22px' }}
+                            />
+                        </Box>
+                        <Typography variant="caption" color="#64748b" sx={{ display: 'block', mt: 0.3 }}>
+                            Weight: 70% of Monthly HOD Score • Derived 2-Signal RAG (Trend Deviation + Operational Flags)
                         </Typography>
-                        <Chip 
-                            label={segmentCountLabel}
-                            size="small"
-                            sx={{ fontWeight: 700, fontSize: '11px', bgcolor: '#f1f5f9', color: '#475569' }}
-                        />
                     </Box>
-                    <Typography variant="caption" color="#64748b">
-                        Weight: 70% of Monthly HOD Score • Derived 2-Signal RAG (Trend Deviation + Operational Flags)
-                    </Typography>
-                </Box>
 
-                {/* Filter Controls & Approval Action */}
-                <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                    {/* Filter Controls & Approval Action */}
+                    <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                        {actionExtra}
                     {segments.length > 1 && (
-                        <>
+                        <Box sx={{ display: 'inline-flex', bgcolor: '#f1f5f9', p: '3px', borderRadius: '9px', border: '1px solid #e2e8f0', gap: '3px' }}>
                             <Button
                                 size="small"
-                                variant={filter === 'REDS_FIRST' ? 'contained' : 'outlined'}
                                 onClick={() => setFilter('REDS_FIRST')}
                                 sx={{
                                     textTransform: 'none',
-                                    fontWeight: 700,
-                                    fontSize: '12px',
-                                    bgcolor: filter === 'REDS_FIRST' ? '#b91c1c' : 'transparent',
-                                    color: filter === 'REDS_FIRST' ? '#ffffff' : '#b91c1c',
-                                    borderColor: '#f87171',
-                                    height: '30px',
-                                    '&:hover': { bgcolor: filter === 'REDS_FIRST' ? '#991b1b' : '#fee2e2' }
+                                    fontWeight: filter === 'REDS_FIRST' ? 600 : 500,
+                                    fontSize: '11.5px',
+                                    height: '28px',
+                                    borderRadius: '6px',
+                                    bgcolor: filter === 'REDS_FIRST' ? '#ffffff' : 'transparent',
+                                    color: filter === 'REDS_FIRST' ? '#991b1b' : '#64748b',
+                                    boxShadow: filter === 'REDS_FIRST' ? '0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.04)' : 'none',
+                                    px: 1.2,
+                                    transition: 'all 0.15s ease',
+                                    '&:hover': { bgcolor: filter === 'REDS_FIRST' ? '#ffffff' : 'rgba(255,255,255,0.7)', color: '#0f172a' }
                                 }}
                             >
-                                🔴 Reds First ({redCount})
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', display: 'inline-block', marginRight: 5 }} />
+                                Reds First ({redCount})
                             </Button>
 
                             <Button
                                 size="small"
-                                variant={filter === 'ALL' ? 'contained' : 'outlined'}
                                 onClick={() => setFilter('ALL')}
                                 sx={{ 
                                     textTransform: 'none', 
-                                    fontWeight: 600, 
-                                    fontSize: '12px',
-                                    height: '30px',
-                                    color: filter === 'ALL' ? '#ffffff' : '#475569',
-                                    bgcolor: filter === 'ALL' ? '#334155' : 'transparent',
-                                    borderColor: '#cbd5e1'
+                                    fontWeight: filter === 'ALL' ? 600 : 500, 
+                                    fontSize: '11.5px',
+                                    height: '28px',
+                                    borderRadius: '6px',
+                                    bgcolor: filter === 'ALL' ? '#ffffff' : 'transparent',
+                                    color: filter === 'ALL' ? '#0f172a' : '#64748b',
+                                    boxShadow: filter === 'ALL' ? '0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.04)' : 'none',
+                                    px: 1.2,
+                                    transition: 'all 0.15s ease',
+                                    '&:hover': { bgcolor: filter === 'ALL' ? '#ffffff' : 'rgba(255,255,255,0.7)', color: '#0f172a' }
                                 }}
                             >
                                 All ({segments.length})
@@ -249,56 +276,85 @@ const SegmentRollupView = ({
 
                             <Button
                                 size="small"
-                                variant={filter === 'AMBER' ? 'contained' : 'outlined'}
                                 onClick={() => setFilter('AMBER')}
                                 sx={{
                                     textTransform: 'none',
-                                    fontWeight: 600,
-                                    fontSize: '12px',
-                                    height: '30px',
-                                    color: filter === 'AMBER' ? '#ffffff' : '#b45309',
-                                    bgcolor: filter === 'AMBER' ? '#b45309' : 'transparent',
-                                    borderColor: '#fde68a',
-                                    '&:hover': { bgcolor: filter === 'AMBER' ? '#92400e' : '#fef3c7' }
+                                    fontWeight: filter === 'AMBER' ? 600 : 500,
+                                    fontSize: '11.5px',
+                                    height: '28px',
+                                    borderRadius: '6px',
+                                    bgcolor: filter === 'AMBER' ? '#ffffff' : 'transparent',
+                                    color: filter === 'AMBER' ? '#b45309' : '#64748b',
+                                    boxShadow: filter === 'AMBER' ? '0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.04)' : 'none',
+                                    px: 1.2,
+                                    transition: 'all 0.15s ease',
+                                    '&:hover': { bgcolor: filter === 'AMBER' ? '#ffffff' : 'rgba(255,255,255,0.7)', color: '#0f172a' }
                                 }}
                             >
-                                ⚠️ Ambers ({amberCount})
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', display: 'inline-block', marginRight: 5 }} />
+                                Ambers ({amberCount})
                             </Button>
 
                             <Button
                                 size="small"
-                                variant={filter === 'GREEN' ? 'contained' : 'outlined'}
                                 onClick={() => setFilter('GREEN')}
                                 sx={{
                                     textTransform: 'none',
-                                    fontWeight: 600,
-                                    fontSize: '12px',
-                                    height: '30px',
-                                    color: filter === 'GREEN' ? '#ffffff' : '#047857',
-                                    bgcolor: filter === 'GREEN' ? '#047857' : 'transparent',
-                                    borderColor: '#a7f3d0',
-                                    '&:hover': { bgcolor: filter === 'GREEN' ? '#065f46' : '#dcfce7' }
+                                    fontWeight: filter === 'GREEN' ? 600 : 500,
+                                    fontSize: '11.5px',
+                                    height: '28px',
+                                    borderRadius: '6px',
+                                    bgcolor: filter === 'GREEN' ? '#ffffff' : 'transparent',
+                                    color: filter === 'GREEN' ? '#047857' : '#64748b',
+                                    boxShadow: filter === 'GREEN' ? '0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.04)' : 'none',
+                                    px: 1.2,
+                                    transition: 'all 0.15s ease',
+                                    '&:hover': { bgcolor: filter === 'GREEN' ? '#ffffff' : 'rgba(255,255,255,0.7)', color: '#0f172a' }
                                 }}
                             >
-                                🟢 Greens ({greenCount})
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', display: 'inline-block', marginRight: 5 }} />
+                                Greens ({greenCount})
                             </Button>
-                        </>
+                        </Box>
                     )}
 
                     {isHodOrAdmin && (
                         <Button
                             size="small"
                             variant="contained"
-                            color="success"
                             startIcon={<LockIcon sx={{ fontSize: 14 }} />}
                             onClick={() => setOpenApproveDialog(true)}
-                            sx={{ textTransform: 'none', fontWeight: 700, fontSize: '12px', height: '30px', ml: 0.5 }}
+                            sx={{
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                fontSize: '12px',
+                                height: '34px',
+                                px: 2,
+                                borderRadius: '8px',
+                                background: 'linear-gradient(180deg, #10b981 0%, #059669 100%)',
+                                border: '1px solid #047857',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 2px 5px rgba(5,150,105,0.25), inset 0 1px 0 rgba(255,255,255,0.25)',
+                                color: '#ffffff',
+                                transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                                '&:hover': {
+                                    background: 'linear-gradient(180deg, #34d399 0%, #059669 100%)',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 4px 12px rgba(5,150,105,0.35), inset 0 1px 0 rgba(255,255,255,0.35)',
+                                    transform: 'translateY(-1px)'
+                                },
+                                '&:active': {
+                                    background: 'linear-gradient(180deg, #059669 0%, #047857 100%)',
+                                    transform: 'translateY(1px)',
+                                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
+                                },
+                                ml: 0.5
+                            }}
                         >
                             Approve & Roll Up to MRM
                         </Button>
                     )}
                 </Box>
             </Box>
+            )}
 
             {approvalSuccess && (
                 <Box sx={{ p: 1.5, mb: 2, bgcolor: '#ecfdf5', color: '#065f46', borderRadius: '8px', border: '1px solid #a7f3d0', fontSize: '13px', fontWeight: 600 }}>
@@ -338,41 +394,59 @@ const SegmentRollupView = ({
                                 key={segment.sub_team}
                                 elevation={0}
                                 sx={{
-                                    border: `1.5px solid ${ragTheme.border}`,
-                                    borderRadius: '12px',
+                                    border: '1px solid #e2e8f0',
+                                    borderLeft: `4px solid ${ragTheme.accentBorder}`,
+                                    borderRadius: '10px',
                                     overflow: 'hidden',
-                                    boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-                                    transition: 'all 0.2s ease',
-                                    '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                                    width: '100%',
+                                    boxSizing: 'border-box',
+                                    transition: 'all 0.15s ease',
+                                    '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.05)', borderColor: '#cbd5e1' }
                                 }}
                             >
-                                {/* ═══ 1. SEGMENT HEADER: Status Dot, Sub-Team + Bracketed Members, Reason, Score ═══ */}
+                                {/* ═══ 1. SEGMENT HEADER: Status Dot, Sub-Team, Clean Member Chip, Reason, Score ═══ */}
                                 <Box
                                     sx={{
                                         px: 2,
-                                        py: 1.5,
-                                        bgcolor: ragTheme.bg,
-                                        borderBottom: `1px solid ${ragTheme.border}`,
+                                        py: 1.2,
+                                        bgcolor: ragTheme.headerBg,
+                                        borderBottom: '1px solid #f1f5f9',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'space-between',
                                         flexWrap: 'wrap',
-                                        gap: 1.5
+                                        gap: 1.2
                                     }}
                                 >
-                                    {/* Left: Dot + Title + Bracketed Attribution + Reason */}
-                                    <Box display="flex" alignItems="center" gap={1.2} flexWrap="wrap">
+                                    {/* Left: Dot + Title + Members Tooltip + Reason */}
+                                    <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
                                         <Box sx={{
-                                            width: 13,
-                                            height: 13,
+                                            width: 8,
+                                            height: 8,
                                             borderRadius: '50%',
-                                            bgcolor: ragTheme.dot,
-                                            boxShadow: `0 0 0 3px ${ragTheme.badgeBg}`
+                                            bgcolor: ragTheme.dot
                                         }} />
 
-                                        <Typography variant="subtitle1" fontWeight={800} color="#0f172a" fontSize="15px" sx={{ letterSpacing: '-0.2px' }}>
-                                            {teamDisplayName} <span style={{ fontWeight: 600, color: '#475569', fontSize: '13px' }}>[{memberNamesList}]</span>
+                                        <Typography variant="subtitle1" fontWeight={700} color="#0f172a" fontSize="14.5px" sx={{ letterSpacing: '-0.2px' }}>
+                                            {teamDisplayName}
                                         </Typography>
+
+                                        <Tooltip title={`Contributing Members: ${memberNamesList}`} arrow>
+                                            <Chip
+                                                label={`${members.length} Members`}
+                                                size="small"
+                                                sx={{
+                                                    bgcolor: '#f1f5f9',
+                                                    color: '#475569',
+                                                    fontWeight: 600,
+                                                    fontSize: '10.5px',
+                                                    height: '20px',
+                                                    border: '1px solid #e2e8f0',
+                                                    cursor: 'pointer'
+                                                }}
+                                            />
+                                        </Tooltip>
 
                                         <Chip
                                             label={cleanReason}
@@ -380,10 +454,10 @@ const SegmentRollupView = ({
                                             sx={{
                                                 bgcolor: ragTheme.badgeBg,
                                                 color: ragTheme.badgeText,
-                                                fontWeight: 700,
+                                                fontWeight: 600,
                                                 fontSize: '11px',
                                                 border: `1px solid ${ragTheme.border}`,
-                                                height: '22px'
+                                                height: '20px'
                                             }}
                                         />
                                     </Box>
@@ -393,16 +467,16 @@ const SegmentRollupView = ({
                                         display: 'flex',
                                         alignItems: 'baseline',
                                         gap: 0.5,
-                                        px: 1.5,
-                                        py: 0.4,
+                                        px: 1.2,
+                                        py: 0.3,
                                         bgcolor: '#ffffff',
                                         borderRadius: '6px',
-                                        border: '1px solid #cbd5e1'
+                                        border: '1px solid #e2e8f0'
                                     }}>
-                                        <Typography variant="body2" fontWeight={800} color="#0f172a" fontSize="13px">
+                                        <Typography variant="body2" fontWeight={700} color="#0f172a" fontSize="12.5px" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                                             {segment.segment_score || 0}
                                         </Typography>
-                                        <Typography variant="caption" color="#64748b" fontSize="10px" fontWeight={600}>
+                                        <Typography variant="caption" color="#64748b" fontSize="9.5px" fontWeight={600}>
                                             / 100 pts
                                         </Typography>
                                     </Box>
@@ -538,6 +612,7 @@ const SegmentRollupView = ({
                                         startIcon={<AssessmentOutlinedIcon sx={{ fontSize: 15 }} />}
                                         onClick={() => {
                                             setTaskDrawerSegment(segment);
+                                            setSelectedMemberId('ALL');
                                             setTaskSearch('');
                                         }}
                                         sx={{
@@ -689,27 +764,55 @@ const SegmentRollupView = ({
 
                                                         {/* Action */}
                                                         <TableCell align="center" sx={{ py: 1.2 }}>
-                                                            {!m.submitted && (
+                                                            <Box display="flex" alignItems="center" justifyContent="center" gap={0.8}>
                                                                 <Button
                                                                     size="small"
-                                                                    variant="outlined"
-                                                                    startIcon={<NotificationsActiveIcon sx={{ fontSize: 11 }} />}
-                                                                    onClick={() => handlePingMember(m.name)}
+                                                                    variant="text"
+                                                                    onClick={() => {
+                                                                        setTaskDrawerSegment(segment);
+                                                                        setSelectedMemberId(m.userId);
+                                                                        setTaskSearch('');
+                                                                    }}
                                                                     sx={{
-                                                                        fontSize: '10px',
-                                                                        py: '1px',
-                                                                        px: '6px',
+                                                                        fontSize: '10.5px',
+                                                                        py: '2px',
+                                                                        px: '7px',
                                                                         minWidth: 'unset',
                                                                         textTransform: 'none',
                                                                         fontWeight: 600,
-                                                                        color: '#b91c1c',
-                                                                        borderColor: '#fca5a5',
-                                                                        '&:hover': { bgcolor: '#fee2e2' }
+                                                                        color: '#2563eb',
+                                                                        bgcolor: '#eff6ff',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #dbeafe',
+                                                                        '&:hover': { bgcolor: '#dbeafe' }
                                                                     }}
+                                                                    title={`Inspect ${m.name}'s task breakdown`}
                                                                 >
-                                                                    Ping
+                                                                    Tasks ↗
                                                                 </Button>
-                                                            )}
+                                                                {!m.submitted && (
+                                                                    <Button
+                                                                        size="small"
+                                                                        variant="outlined"
+                                                                        startIcon={<NotificationsActiveIcon sx={{ fontSize: 11 }} />}
+                                                                        onClick={() => handlePingMember(m.name)}
+                                                                        sx={{
+                                                                            fontSize: '10px',
+                                                                            py: '1px',
+                                                                            px: '6px',
+                                                                            minWidth: 'unset',
+                                                                            textTransform: 'none',
+                                                                            fontWeight: 600,
+                                                                            color: '#b91c1c',
+                                                                            borderColor: '#fca5a5',
+                                                                            borderRadius: '6px',
+                                                                            '&:hover': { bgcolor: '#fee2e2' }
+                                                                        }}
+                                                                    >
+                                                                        Ping
+                                                                    </Button>
+                                                                )}
+                                                            </Box>
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}
@@ -751,10 +854,13 @@ const SegmentRollupView = ({
             <Drawer
                 anchor="right"
                 open={Boolean(taskDrawerSegment)}
-                onClose={() => setTaskDrawerSegment(null)}
+                onClose={() => {
+                    setTaskDrawerSegment(null);
+                    setDrawerTargetToggle(null);
+                }}
                 PaperProps={{
                     sx: {
-                        width: { xs: '100%', sm: 680, md: 840 },
+                        width: { xs: '100%', sm: 720, md: 880, lg: 960 },
                         p: 0,
                         bgcolor: '#ffffff'
                     }
@@ -765,37 +871,413 @@ const SegmentRollupView = ({
                     const members = seg.contributing_members || [];
                     const allTasksZero = (seg.task_breakdown || []).every(t => (t.total_count || 0) === 0);
 
+                    // Helper to get detailed task metrics for a specific member
+                    const getMemberTaskData = (task, member) => {
+                        if (!task?.member_counts || !member) {
+                            return { count: 0, actual: 0, target: null, has_target: false };
+                        }
+                        const match = task.member_counts.find(mc =>
+                            (mc.userId && member.userId && mc.userId.toString() === member.userId.toString()) ||
+                            (mc.name && member.name && mc.name.trim().toLowerCase() === member.name.trim().toLowerCase())
+                        );
+                        if (!match) return { count: 0, actual: 0, target: null, has_target: false };
+                        const count = Number(match.count) || 0;
+                        const actual = Number(match.actual !== undefined && match.actual !== null ? match.actual : count) || 0;
+                        const hasTarget = Boolean(
+                            match.has_target || 
+                            (match.target !== null && match.target !== undefined && match.target !== '' && !isNaN(Number(match.target)))
+                        );
+                        const target = hasTarget ? Number(match.target) : null;
+                        return { count, actual, target, has_target: hasTarget };
+                    };
+
+                    const isAll = selectedMemberId === 'ALL';
+                    const currentMemberIndex = members.findIndex(m => m.userId?.toString() === selectedMemberId?.toString());
+                    const activeMember = currentMemberIndex >= 0 ? members[currentMemberIndex] : null;
+
+                    // Determine if targets are enabled for this segment / member
+                    const segmentHasTargets = Boolean(
+                        seg.has_targets ||
+                        (seg.contributing_members || []).some(m => m.has_targets) ||
+                        (seg.task_breakdown || []).some(t => t.has_target)
+                    );
+
+                    const activeMemberHasTargets = Boolean(
+                        activeMember && (
+                            activeMember.has_targets ||
+                            (seg.task_breakdown || []).some(t => getMemberTaskData(t, activeMember).has_target)
+                        )
+                    );
+
+                    // When target is ON: either explicitly toggled by user or auto-detected from data
+                    const isTargetOn = drawerTargetToggle !== null
+                        ? drawerTargetToggle
+                        : (activeMember ? activeMemberHasTargets : segmentHasTargets);
+
+                    // Compute totals for active member
+                    const memberTotalTasks = activeMember 
+                        ? (seg.task_breakdown || []).reduce((acc, t) => acc + getMemberTaskData(t, activeMember).count, 0) || activeMember.task_count || 0
+                        : 0;
+
+                    const memberTargetSum = activeMember
+                        ? (seg.task_breakdown || []).reduce((acc, t) => {
+                            const d = getMemberTaskData(t, activeMember);
+                            return acc + (d.has_target && d.target !== null ? d.target : 0);
+                        }, 0)
+                        : 0;
+
+                    const memberActualSum = activeMember
+                        ? (seg.task_breakdown || []).reduce((acc, t) => {
+                            const d = getMemberTaskData(t, activeMember);
+                            return acc + (d.has_target ? d.actual : 0);
+                        }, 0)
+                        : 0;
+
+                    const memberActiveCategories = activeMember
+                        ? (seg.task_breakdown || []).filter(t => {
+                            const d = getMemberTaskData(t, activeMember);
+                            return d.count > 0 || (isTargetOn && d.has_target);
+                        }).length
+                        : 0;
+
                     let filteredTasks = seg.task_breakdown || [];
                     if (hideZeroTasks && !showTemplateMatrix[seg.sub_team]) {
-                        filteredTasks = filteredTasks.filter(t => (t.total_count || 0) > 0);
+                        if (!isAll && activeMember) {
+                            filteredTasks = filteredTasks.filter(t => {
+                                const d = getMemberTaskData(t, activeMember);
+                                return d.count > 0 || (isTargetOn && d.has_target);
+                            });
+                        } else {
+                            filteredTasks = filteredTasks.filter(t => (t.total_count || 0) > 0 || (isTargetOn && t.has_target));
+                        }
                     }
                     if (taskSearch.trim()) {
                         const q = taskSearch.toLowerCase();
                         filteredTasks = filteredTasks.filter(t => t.task_name.toLowerCase().includes(q));
                     }
 
+                    // Sort individual member tasks with highest count / target first
+                    if (!isAll && activeMember) {
+                        filteredTasks = [...filteredTasks].sort((a, b) => {
+                            const da = getMemberTaskData(a, activeMember);
+                            const db = getMemberTaskData(b, activeMember);
+                            const scoreB = db.count + (db.target || 0);
+                            const scoreA = da.count + (da.target || 0);
+                            return scoreB - scoreA;
+                        });
+                    }
+
                     return (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                            {/* Drawer Header */}
-                            <Box sx={{ p: 2.5, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#ffffff' }}>
+                            {/* 1. Sleek Minimalist Drawer Header */}
+                            <Box sx={{
+                                px: 3,
+                                py: 2.2,
+                                bgcolor: '#ffffff',
+                                borderBottom: '1px solid #e2e8f0',
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                justifyContent: 'space-between',
+                                gap: 2
+                            }}>
                                 <Box>
-                                    <Typography variant="h6" fontWeight={800} color="#0f172a" fontSize="16px">
-                                        Task Breakdown Matrix — {seg.sub_team} Sub-Team
-                                    </Typography>
-                                    <Typography variant="caption" color="#64748b">
-                                        {department} Department • Total {seg.total_tasks || 0} tasks logged across {members.length} team members
+                                    <Box display="flex" alignItems="center" gap={1} mb={0.4} flexWrap="wrap">
+                                        <Typography variant="h6" fontWeight={800} color="#0f172a" fontSize="16px" letterSpacing="-0.01em">
+                                            Task Breakdown Matrix
+                                        </Typography>
+                                        <Chip 
+                                            label={`${seg.sub_team} Sub-Team`} 
+                                            size="small" 
+                                            sx={{ 
+                                                bgcolor: '#ecfdf5', 
+                                                color: '#047857', 
+                                                border: '1px solid #a7f3d0', 
+                                                fontWeight: 700, 
+                                                fontSize: '11px', 
+                                                height: '22px' 
+                                            }} 
+                                        />
+                                        {isTargetOn && (
+                                            <Chip 
+                                                label="🎯 Targets Active" 
+                                                size="small" 
+                                                sx={{ 
+                                                    bgcolor: '#eff6ff', 
+                                                    color: '#1d4ed8', 
+                                                    border: '1px solid #bfdbfe', 
+                                                    fontWeight: 700, 
+                                                    fontSize: '11px', 
+                                                    height: '22px' 
+                                                }} 
+                                            />
+                                        )}
+                                    </Box>
+                                    <Typography variant="caption" color="#64748b" fontSize="12px">
+                                        {department} Department • Total {seg.total_tasks?.toLocaleString() || 0} tasks logged across {members.length} team members
                                     </Typography>
                                 </Box>
-                                <IconButton onClick={() => setTaskDrawerSegment(null)} size="small">
-                                    <CloseIcon />
+                                <IconButton 
+                                    onClick={() => {
+                                        setTaskDrawerSegment(null);
+                                        setDrawerTargetToggle(null);
+                                    }} 
+                                    size="small"
+                                    sx={{ 
+                                        color: '#64748b', 
+                                        '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' } 
+                                    }}
+                                >
+                                    <CloseIcon sx={{ fontSize: 20 }} />
                                 </IconButton>
                             </Box>
 
-                            {/* Controls inside Drawer */}
-                            <Box sx={{ p: 2, borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+                            {/* 2. Member Selector Navigation Bar */}
+                            <Box sx={{
+                                px: 3,
+                                py: 1.2,
+                                bgcolor: '#f8fafc',
+                                borderBottom: '1px solid #e2e8f0',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 1
+                            }}>
+                                {/* Member Pill Tabs */}
+                                <Box sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 0.8,
+                                    overflowX: 'auto',
+                                    py: 0.4,
+                                    '::-webkit-scrollbar': { height: '4px' },
+                                    '::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: '4px' }
+                                }}>
+                                    <Button
+                                        size="small"
+                                        onClick={() => setSelectedMemberId('ALL')}
+                                        sx={{
+                                            textTransform: 'none',
+                                            fontWeight: isAll ? 700 : 500,
+                                            fontSize: '11.5px',
+                                            height: '28px',
+                                            px: 1.3,
+                                            borderRadius: '6px',
+                                            whiteSpace: 'nowrap',
+                                            bgcolor: isAll ? '#0f172a' : '#ffffff',
+                                            color: isAll ? '#ffffff' : '#475569',
+                                            border: `1px solid ${isAll ? '#0f172a' : '#cbd5e1'}`,
+                                            boxShadow: isAll ? '0 1px 3px rgba(0,0,0,0.15)' : '0 1px 2px rgba(0,0,0,0.03)',
+                                            '&:hover': {
+                                                bgcolor: isAll ? '#1e293b' : '#f1f5f9'
+                                            }
+                                        }}
+                                    >
+                                        All Members ({members.length})
+                                    </Button>
+                                    {members.map(m => {
+                                        const isSel = selectedMemberId?.toString() === m.userId?.toString();
+                                        return (
+                                            <Button
+                                                key={m.userId}
+                                                size="small"
+                                                onClick={() => setSelectedMemberId(m.userId)}
+                                                sx={{
+                                                    textTransform: 'none',
+                                                    fontWeight: isSel ? 700 : 500,
+                                                    fontSize: '11.5px',
+                                                    height: '28px',
+                                                    px: 1.2,
+                                                    borderRadius: '6px',
+                                                    whiteSpace: 'nowrap',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 0.6,
+                                                    bgcolor: isSel ? '#059669' : '#ffffff',
+                                                    color: isSel ? '#ffffff' : '#334155',
+                                                    border: `1px solid ${isSel ? '#047857' : '#cbd5e1'}`,
+                                                    boxShadow: isSel ? '0 1px 3px rgba(5,150,105,0.25)' : '0 1px 2px rgba(0,0,0,0.03)',
+                                                    '&:hover': {
+                                                        bgcolor: isSel ? '#047857' : '#f1f5f9'
+                                                    }
+                                                }}
+                                            >
+                                                <span style={{
+                                                    width: 6,
+                                                    height: 6,
+                                                    borderRadius: '50%',
+                                                    background: m.submitted ? (isSel ? '#86efac' : '#10b981') : (isSel ? '#fca5a5' : '#ef4444'),
+                                                    display: 'inline-block'
+                                                }} />
+                                                <span>{m.name.split(' ')[0]}</span>
+                                                {m.has_targets && (
+                                                    <span title="Target tracking enabled" style={{ fontSize: '10px' }}>🎯</span>
+                                                )}
+                                                <span style={{
+                                                    fontSize: '10px',
+                                                    fontWeight: 700,
+                                                    opacity: isSel ? 1 : 0.8,
+                                                    background: isSel ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
+                                                    color: isSel ? '#ffffff' : '#475569',
+                                                    padding: '1px 5px',
+                                                    borderRadius: '4px'
+                                                }}>
+                                                    {m.task_count || 0}
+                                                </span>
+                                            </Button>
+                                        );
+                                    })}
+                                </Box>
+
+                                {activeMember && (
+                                    <Box display="flex" alignItems="center" gap={0.5} sx={{ flexShrink: 0, pl: 1 }}>
+                                        <Button
+                                            size="small"
+                                            disabled={currentMemberIndex <= 0}
+                                            onClick={() => setSelectedMemberId(members[currentMemberIndex - 1].userId)}
+                                            sx={{
+                                                minWidth: '48px',
+                                                height: '28px',
+                                                textTransform: 'none',
+                                                fontSize: '11px',
+                                                fontWeight: 600,
+                                                color: '#475569',
+                                                border: '1px solid #cbd5e1',
+                                                borderRadius: '6px',
+                                                bgcolor: '#ffffff',
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                                                '&:disabled': { opacity: 0.4 }
+                                            }}
+                                        >
+                                            ‹ Prev
+                                        </Button>
+                                        <Typography variant="caption" color="#64748b" fontWeight={700} sx={{ px: 0.5, fontSize: '11px', whiteSpace: 'nowrap' }}>
+                                            {currentMemberIndex + 1}/{members.length}
+                                        </Typography>
+                                        <Button
+                                            size="small"
+                                            disabled={currentMemberIndex >= members.length - 1}
+                                            onClick={() => setSelectedMemberId(members[currentMemberIndex + 1].userId)}
+                                            sx={{
+                                                minWidth: '48px',
+                                                height: '28px',
+                                                textTransform: 'none',
+                                                fontSize: '11px',
+                                                fontWeight: 600,
+                                                color: '#475569',
+                                                border: '1px solid #cbd5e1',
+                                                borderRadius: '6px',
+                                                bgcolor: '#ffffff',
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                                                '&:disabled': { opacity: 0.4 }
+                                            }}
+                                        >
+                                            Next ›
+                                        </Button>
+                                    </Box>
+                                )}
+                            </Box>
+
+                            {/* 3. Member Profile Summary Strip (Only when individual member selected) */}
+                            {activeMember && (
+                                <Box sx={{
+                                    mx: 3,
+                                    mt: 2,
+                                    p: 1.8,
+                                    bgcolor: '#ffffff',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '10px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    flexWrap: 'wrap',
+                                    gap: 1.5,
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                                }}>
+                                    <Box display="flex" alignItems="center" gap={1.4}>
+                                        <Avatar sx={{
+                                            width: 38,
+                                            height: 38,
+                                            fontSize: '13px',
+                                            fontWeight: 800,
+                                            bgcolor: activeMember.submitted ? '#dcfce7' : '#fee2e2',
+                                            color: activeMember.submitted ? '#166534' : '#991b1b',
+                                            border: `1px solid ${activeMember.submitted ? '#86efac' : '#fca5a5'}`
+                                        }}>
+                                            {getInitials(activeMember.name)}
+                                        </Avatar>
+                                        <Box>
+                                            <Typography variant="subtitle2" fontWeight={800} color="#0f172a" fontSize="13.5px" lineHeight={1.2}>
+                                                {activeMember.name}
+                                            </Typography>
+                                            <Typography variant="caption" color="#64748b" fontSize="11px" display="flex" alignItems="center" gap={0.5} mt={0.3}>
+                                                {activeMember.submitted ? (
+                                                    <span style={{ color: '#166534', fontWeight: 700 }}>✓ Submitted</span>
+                                                ) : (
+                                                    <span style={{ color: '#b91c1c', fontWeight: 700 }}>⚠️ Pending Submission</span>
+                                                )}
+                                                <span>•</span>
+                                                <span>Sub-Team: {seg.sub_team}</span>
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+
+                                    <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+                                        {isTargetOn && memberTargetSum > 0 && (
+                                            <>
+                                                <Box sx={{ textAlign: 'center', px: 1 }}>
+                                                    <Typography variant="caption" color="#2563eb" fontSize="10px" fontWeight={700} display="block" sx={{ textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                                                        Target Total
+                                                    </Typography>
+                                                    <Typography variant="body2" fontWeight={800} color="#1d4ed8" fontSize="14px">
+                                                        {memberTargetSum.toLocaleString()}
+                                                    </Typography>
+                                                </Box>
+                                                <Box sx={{ width: '1px', minWidth: '1px', height: '24px', bgcolor: '#e2e8f0', flexShrink: 0 }} />
+                                                <Box sx={{ textAlign: 'center', px: 1 }}>
+                                                    <Typography variant="caption" color="#047857" fontSize="10px" fontWeight={700} display="block" sx={{ textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                                                        Target Actual
+                                                    </Typography>
+                                                    <Typography variant="body2" fontWeight={800} color="#047857" fontSize="14px">
+                                                        {memberActualSum.toLocaleString()}
+                                                    </Typography>
+                                                </Box>
+                                                <Box sx={{ width: '1px', minWidth: '1px', height: '24px', bgcolor: '#e2e8f0', flexShrink: 0 }} />
+                                            </>
+                                        )}
+                                        <Box sx={{ textAlign: 'center', px: 1 }}>
+                                            <Typography variant="caption" color="#64748b" fontSize="10px" fontWeight={600} display="block" sx={{ textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                                                {isTargetOn ? 'Grand Total' : 'Tasks Logged'}
+                                            </Typography>
+                                            <Typography variant="body2" fontWeight={800} color="#0f172a" fontSize="14px">
+                                                {memberTotalTasks.toLocaleString()}
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{ width: '1px', minWidth: '1px', height: '24px', bgcolor: '#e2e8f0', flexShrink: 0 }} />
+                                        <Box sx={{ textAlign: 'center', px: 1 }}>
+                                            <Typography variant="caption" color="#64748b" fontSize="10px" fontWeight={600} display="block" sx={{ textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                                                Active Categories
+                                            </Typography>
+                                            <Typography variant="body2" fontWeight={800} color="#2563eb" fontSize="14px">
+                                                {memberActiveCategories}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                </Box>
+                            )}
+
+                            {/* 4. Controls inside Drawer */}
+                            <Box sx={{
+                                px: 3,
+                                py: 1.5,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                flexWrap: 'wrap',
+                                gap: 1.5
+                            }}>
                                 <TextField
                                     size="small"
-                                    placeholder="Filter task categories..."
+                                    placeholder={activeMember ? `Filter ${activeMember.name.split(' ')[0]}'s tasks...` : "Filter task categories..."}
                                     value={taskSearch}
                                     onChange={(e) => setTaskSearch(e.target.value)}
                                     InputProps={{
@@ -804,12 +1286,36 @@ const SegmentRollupView = ({
                                                 <SearchIcon sx={{ fontSize: 16, color: '#94a3b8' }} />
                                             </InputAdornment>
                                         ),
-                                        sx: { height: 32, fontSize: '12px' }
+                                        sx: { height: 32, fontSize: '12px', borderRadius: '7px' }
                                     }}
-                                    sx={{ width: 240 }}
+                                    sx={{ width: 220 }}
                                 />
 
-                                <Box display="flex" alignItems="center" gap={2}>
+                                <Box display="flex" alignItems="center" gap={1.5} flexWrap="wrap">
+                                    <Button
+                                        size="small"
+                                        variant={isTargetOn ? "contained" : "outlined"}
+                                        onClick={() => setDrawerTargetToggle(prev => prev !== null ? !prev : !isTargetOn)}
+                                        sx={{
+                                            textTransform: 'none',
+                                            fontSize: '11.5px',
+                                            fontWeight: 700,
+                                            height: '30px',
+                                            borderRadius: '7px',
+                                            px: 1.4,
+                                            bgcolor: isTargetOn ? '#2563eb' : '#ffffff',
+                                            color: isTargetOn ? '#ffffff' : '#475569',
+                                            borderColor: isTargetOn ? '#1d4ed8' : '#cbd5e1',
+                                            boxShadow: isTargetOn ? '0 1px 3px rgba(37,99,235,0.3)' : '0 1px 2px rgba(0,0,0,0.04)',
+                                            '&:hover': {
+                                                bgcolor: isTargetOn ? '#1d4ed8' : '#f8fafc',
+                                                borderColor: isTargetOn ? '#1e40af' : '#94a3b8'
+                                            }
+                                        }}
+                                    >
+                                        {isTargetOn ? '🎯 Target: ON' : '🎯 Target: OFF'}
+                                    </Button>
+
                                     <FormControlLabel
                                         control={
                                             <Checkbox
@@ -819,7 +1325,11 @@ const SegmentRollupView = ({
                                                 sx={{ p: 0.5 }}
                                             />
                                         }
-                                        label={<Typography variant="caption" color="#475569" fontWeight={600}>Hide zero-count tasks</Typography>}
+                                        label={
+                                            <Typography variant="caption" color="#475569" fontWeight={600}>
+                                                {activeMember ? `Hide zero-count tasks` : 'Hide zero-count tasks'}
+                                            </Typography>
+                                        }
                                         sx={{ m: 0 }}
                                     />
                                     {allTasksZero && (
@@ -839,8 +1349,8 @@ const SegmentRollupView = ({
                                 </Box>
                             </Box>
 
-                            {/* Drawer Table Content */}
-                            <Box sx={{ p: 2, flex: 1, overflowY: 'auto' }}>
+                            {/* 5. Drawer Table Content */}
+                            <Box sx={{ px: 3, pb: 3, flex: 1, overflowY: 'auto' }}>
                                 {allTasksZero && !showTemplateMatrix[seg.sub_team] ? (
                                     <Paper sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '8px' }}>
                                         <AssessmentOutlinedIcon sx={{ fontSize: 40, color: '#94a3b8', mb: 1 }} />
@@ -854,69 +1364,302 @@ const SegmentRollupView = ({
                                             size="small"
                                             variant="outlined"
                                             onClick={() => setShowTemplateMatrix(prev => ({ ...prev, [seg.sub_team]: true }))}
-                                            sx={{ textTransform: 'none', fontSize: '12px', fontWeight: 600 }}
+                                            sx={{ textTransform: 'none', fontSize: '12px', fontWeight: 600, borderRadius: '7px' }}
                                         >
                                             Preview Template Categories ({seg.task_breakdown?.length || 0})
                                         </Button>
                                     </Paper>
-                                ) : (
+                                ) : activeMember ? (
+                                    /* ═══ INDIVIDUAL MEMBER FOCUSED VIEW ═══ */
                                     <Table size="small" sx={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
-                                        <TableHead sx={{ bgcolor: '#f1f5f9' }}>
+                                        <TableHead sx={{ bgcolor: '#f8fafc' }}>
                                             <TableRow>
-                                                <TableCell sx={{ fontWeight: 700, fontSize: '11px', color: '#475569', minWidth: 200 }}>
-                                                    TASK ITEM / CATEGORY
+                                                <TableCell sx={{ fontWeight: 700, fontSize: '11px', color: '#475569' }}>
+                                                    TASK CATEGORY
                                                 </TableCell>
-                                                <TableCell sx={{ fontWeight: 700, fontSize: '11px', color: '#475569' }} align="center">
-                                                    SEGMENT TOTAL
-                                                </TableCell>
-                                                {members.map(m => (
-                                                    <TableCell key={m.userId} sx={{ fontWeight: 700, fontSize: '11px', color: '#475569' }} align="center">
-                                                        {m.name.split(' ')[0]}
+                                                {isTargetOn && (
+                                                    <TableCell sx={{ fontWeight: 700, fontSize: '11px', color: '#2563eb', textAlign: 'right', width: 120 }}>
+                                                        TARGET
                                                     </TableCell>
-                                                ))}
-                                                <TableCell sx={{ fontWeight: 700, fontSize: '11px', color: '#475569' }} align="center">
-                                                    HISTORICAL 3M TREND
+                                                )}
+                                                <TableCell sx={{ fontWeight: 700, fontSize: '11px', color: '#047857', textAlign: 'right', width: isTargetOn ? 140 : 150, pr: 3 }}>
+                                                    {isTargetOn ? 'ACTUAL / TOTAL' : `${activeMember.name.split(' ')[0].toUpperCase()}'S COUNT`}
                                                 </TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
                                             {filteredTasks.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={members.length + 3} align="center" sx={{ py: 3, color: '#94a3b8' }}>
-                                                        No task categories match the search filter.
+                                                    <TableCell colSpan={isTargetOn ? 3 : 2} align="center" sx={{ py: 4, color: '#94a3b8' }}>
+                                                        No task categories match the criteria for {activeMember.name}.
                                                     </TableCell>
                                                 </TableRow>
                                             ) : (
                                                 filteredTasks.map((task, tIdx) => {
-                                                    const memberCountsMap = new Map();
-                                                    (task.member_counts || []).forEach(mc => {
-                                                        memberCountsMap.set(mc.userId?.toString() || mc.name, mc.count);
-                                                    });
+                                                    const tData = getMemberTaskData(task, activeMember);
+                                                    const hasRowTarget = tData.has_target && tData.target !== null && tData.target !== undefined;
 
                                                     return (
                                                         <TableRow key={tIdx} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                                            <TableCell sx={{ py: 1, fontWeight: 600, fontSize: '12px', color: '#1e293b' }}>
-                                                                {task.task_name}
+                                                            <TableCell sx={{ py: 1.2, fontWeight: 600, fontSize: '12.5px', color: '#1e293b' }}>
+                                                                <Box display="flex" alignItems="center" gap={1}>
+                                                                    <span>{task.task_name}</span>
+                                                                    {isTargetOn && (
+                                                                        hasRowTarget ? (
+                                                                            <Chip 
+                                                                                label="Target Set" 
+                                                                                size="small" 
+                                                                                sx={{ 
+                                                                                    height: '18px', 
+                                                                                    fontSize: '9.5px', 
+                                                                                    fontWeight: 700, 
+                                                                                    bgcolor: '#eff6ff', 
+                                                                                    color: '#2563eb', 
+                                                                                    border: '1px solid #bfdbfe' 
+                                                                                }} 
+                                                                            />
+                                                                        ) : (
+                                                                            <Chip 
+                                                                                label="No Target" 
+                                                                                size="small" 
+                                                                                sx={{ 
+                                                                                    height: '18px', 
+                                                                                    fontSize: '9.5px', 
+                                                                                    fontWeight: 500, 
+                                                                                    bgcolor: '#f1f5f9', 
+                                                                                    color: '#64748b' 
+                                                                                }} 
+                                                                            />
+                                                                        )
+                                                                    )}
+                                                                </Box>
                                                             </TableCell>
-                                                            <TableCell align="center" sx={{ py: 1, fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>
-                                                                {task.total_count || 0}
-                                                            </TableCell>
-                                                            {members.map(m => {
-                                                                const count = memberCountsMap.get(m.userId.toString()) || 0;
-                                                                return (
-                                                                    <TableCell key={m.userId} align="center" sx={{ py: 1, fontSize: '12px', color: count > 0 ? '#0f172a' : '#94a3b8' }}>
-                                                                        {count > 0 ? count : '—'}
-                                                                    </TableCell>
-                                                                );
-                                                            })}
-                                                            <TableCell align="center" sx={{ py: 1, fontSize: '11px', color: '#64748b' }}>
-                                                                {task.historical_3m_trend ? `${task.historical_3m_trend} avg` : '—'}
+
+                                                            {isTargetOn && (
+                                                                <TableCell align="right" sx={{ py: 1.2 }}>
+                                                                    {hasRowTarget ? (
+                                                                        <Typography variant="body2" fontWeight={800} color="#2563eb" fontSize="13px">
+                                                                            {tData.target.toLocaleString()}
+                                                                        </Typography>
+                                                                    ) : (
+                                                                        <Typography variant="body2" color="#94a3b8" fontSize="13px">
+                                                                            —
+                                                                        </Typography>
+                                                                    )}
+                                                                </TableCell>
+                                                            )}
+
+                                                            <TableCell align="right" sx={{ py: 1.2, pr: 3 }}>
+                                                                {isTargetOn ? (
+                                                                    hasRowTarget ? (
+                                                                        <Box display="flex" flexDirection="column" alignItems="flex-end">
+                                                                            <Typography variant="body2" fontWeight={800} color={tData.actual > 0 ? '#047857' : '#94a3b8'} fontSize="13px">
+                                                                                {tData.actual > 0 ? tData.actual.toLocaleString() : '0'}
+                                                                            </Typography>
+                                                                            <Typography variant="caption" color="#059669" fontSize="9.5px" fontWeight={600}>
+                                                                                Actual
+                                                                            </Typography>
+                                                                        </Box>
+                                                                    ) : (
+                                                                        <Box display="flex" flexDirection="column" alignItems="flex-end">
+                                                                            <Typography variant="body2" fontWeight={800} color={tData.count > 0 ? '#047857' : '#94a3b8'} fontSize="13px">
+                                                                                {tData.count > 0 ? tData.count.toLocaleString() : '—'}
+                                                                            </Typography>
+                                                                            <Typography variant="caption" color="#64748b" fontSize="9.5px" fontWeight={500}>
+                                                                                Total
+                                                                            </Typography>
+                                                                        </Box>
+                                                                    )
+                                                                ) : (
+                                                                    <Typography variant="body2" fontWeight={800} color={tData.count > 0 ? '#047857' : '#94a3b8'} fontSize="13px">
+                                                                        {tData.count > 0 ? tData.count.toLocaleString() : '—'}
+                                                                    </Typography>
+                                                                )}
                                                             </TableCell>
                                                         </TableRow>
                                                     );
                                                 })
                                             )}
                                         </TableBody>
+                                        <TableFooter sx={{ bgcolor: '#f8fafc', borderTop: '2px solid #e2e8f0', position: 'sticky', bottom: 0, zIndex: 2 }}>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>
+                                                    Total for {activeMember.name}
+                                                </TableCell>
+                                                {isTargetOn && (
+                                                    <TableCell align="right" sx={{ fontWeight: 800, fontSize: '13px', color: '#2563eb' }}>
+                                                        {memberTargetSum > 0 ? memberTargetSum.toLocaleString() : '—'}
+                                                    </TableCell>
+                                                )}
+                                                <TableCell align="right" sx={{ fontWeight: 800, fontSize: '14px', color: '#047857', pr: 3 }}>
+                                                    {isTargetOn ? (
+                                                        <Box display="flex" flexDirection="column" alignItems="flex-end">
+                                                            <Typography variant="body2" fontWeight={800} color="#0f172a" fontSize="14px">
+                                                                {memberTotalTasks.toLocaleString()}
+                                                            </Typography>
+                                                            {memberActualSum > 0 && (
+                                                                <Typography variant="caption" color="#047857" fontWeight={700} fontSize="10px">
+                                                                    Actual: {memberActualSum.toLocaleString()}
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                    ) : (
+                                                        memberTotalTasks.toLocaleString()
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        </TableFooter>
+                                    </Table>
+                                ) : (
+                                    /* ═══ ALL MEMBERS FULL MATRIX VIEW ═══ */
+                                    <Table size="small" sx={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                                        <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: 700, fontSize: '11px', color: '#475569', minWidth: 200 }}>
+                                                    TASK ITEM / CATEGORY
+                                                </TableCell>
+                                                <TableCell sx={{ fontWeight: 700, fontSize: '11px', color: '#0f172a', bgcolor: '#f1f5f9' }} align="center">
+                                                    SEGMENT TOTAL
+                                                </TableCell>
+                                                {members.map(m => (
+                                                    <TableCell 
+                                                        key={m.userId} 
+                                                        onClick={() => setSelectedMemberId(m.userId)}
+                                                        sx={{ 
+                                                            fontWeight: 700, 
+                                                            fontSize: '11px', 
+                                                            color: '#475569', 
+                                                            cursor: 'pointer',
+                                                            '&:hover': { bgcolor: '#e2e8f0', color: '#0f172a' } 
+                                                        }} 
+                                                        align="center"
+                                                        title={`Click to focus on ${m.name}`}
+                                                    >
+                                                        <Box display="flex" flexDirection="column" alignItems="center" gap={0.2}>
+                                                            <span>{m.name.split(' ')[0]}</span>
+                                                            {m.has_targets && (
+                                                                <span style={{ fontSize: '9px', fontWeight: 700, color: '#2563eb' }}>🎯 Target</span>
+                                                            )}
+                                                            <span style={{ fontSize: '9px', fontWeight: 500, color: '#2563eb' }}>🔍 focus</span>
+                                                        </Box>
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {filteredTasks.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={members.length + 2} align="center" sx={{ py: 4, color: '#94a3b8' }}>
+                                                        No task categories match the search filter.
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                filteredTasks.map((task, tIdx) => {
+                                                    const hasTaskTarget = Boolean(task.has_target && task.total_target !== null);
+
+                                                    return (
+                                                        <TableRow key={tIdx} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                                            <TableCell sx={{ py: 1, fontWeight: 600, fontSize: '12px', color: '#1e293b' }}>
+                                                                <Box display="flex" alignItems="center" gap={1}>
+                                                                    <span>{task.task_name}</span>
+                                                                    {isTargetOn && (
+                                                                        hasTaskTarget ? (
+                                                                            <Chip 
+                                                                                label="Target Set" 
+                                                                                size="small" 
+                                                                                sx={{ height: '17px', fontSize: '9px', fontWeight: 700, bgcolor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' }} 
+                                                                            />
+                                                                        ) : (
+                                                                            <Chip 
+                                                                                label="No Target" 
+                                                                                size="small" 
+                                                                                sx={{ height: '17px', fontSize: '9px', fontWeight: 500, bgcolor: '#f1f5f9', color: '#64748b' }} 
+                                                                            />
+                                                                        )
+                                                                    )}
+                                                                </Box>
+                                                            </TableCell>
+                                                            <TableCell align="center" sx={{ py: 1, bgcolor: '#f8fafc' }}>
+                                                                {isTargetOn && hasTaskTarget ? (
+                                                                    <Box display="flex" flexDirection="column" alignItems="center">
+                                                                        <Typography variant="body2" fontWeight={800} color="#047857" fontSize="12px">
+                                                                            {(task.total_actual ?? task.total_count ?? 0).toLocaleString()}
+                                                                        </Typography>
+                                                                        <Typography variant="caption" color="#2563eb" fontWeight={700} fontSize="9.5px">
+                                                                            Target: {task.total_target.toLocaleString()}
+                                                                        </Typography>
+                                                                    </Box>
+                                                                ) : (
+                                                                    <Box display="flex" flexDirection="column" alignItems="center">
+                                                                        <Typography variant="body2" fontWeight={800} color="#0f172a" fontSize="12px">
+                                                                            {(task.total_count || 0).toLocaleString()}
+                                                                        </Typography>
+                                                                        {isTargetOn && (
+                                                                            <Typography variant="caption" color="#64748b" fontWeight={500} fontSize="9.5px">
+                                                                                Total
+                                                                            </Typography>
+                                                                        )}
+                                                                    </Box>
+                                                                )}
+                                                            </TableCell>
+                                                            {members.map(m => {
+                                                                const mData = getMemberTaskData(task, m);
+                                                                const hasMTarget = mData.has_target && mData.target !== null;
+
+                                                                return (
+                                                                    <TableCell 
+                                                                        key={m.userId} 
+                                                                        align="center" 
+                                                                        onClick={() => setSelectedMemberId(m.userId)}
+                                                                        sx={{ 
+                                                                            py: 1, 
+                                                                            fontSize: '12px', 
+                                                                            cursor: 'pointer',
+                                                                            '&:hover': { bgcolor: '#f0fdf4' }
+                                                                        }} 
+                                                                        title={`Click to inspect ${m.name}`}
+                                                                    >
+                                                                        {isTargetOn && hasMTarget ? (
+                                                                            <Box display="flex" flexDirection="column" alignItems="center">
+                                                                                <Typography variant="body2" fontWeight={800} color={mData.actual > 0 ? '#047857' : '#94a3b8'} fontSize="11.5px">
+                                                                                    {mData.actual > 0 ? mData.actual : '0'}
+                                                                                </Typography>
+                                                                                <Typography variant="caption" color="#2563eb" fontWeight={600} fontSize="9px">
+                                                                                    T: {mData.target}
+                                                                                </Typography>
+                                                                            </Box>
+                                                                        ) : (
+                                                                            <Typography variant="body2" fontWeight={mData.count > 0 ? 600 : 400} color={mData.count > 0 ? '#0f172a' : '#94a3b8'} fontSize="12px">
+                                                                                {mData.count > 0 ? mData.count : '—'}
+                                                                            </Typography>
+                                                                        )}
+                                                                    </TableCell>
+                                                                );
+                                                            })}
+                                                        </TableRow>
+                                                    );
+                                                })
+                                            )}
+                                        </TableBody>
+                                        <TableFooter sx={{ bgcolor: '#f8fafc', borderTop: '2px solid #e2e8f0', position: 'sticky', bottom: 0, zIndex: 2 }}>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: 800, fontSize: '11px', color: '#0f172a' }}>
+                                                    SEGMENT TOTALS
+                                                </TableCell>
+                                                <TableCell align="center" sx={{ py: 1, bgcolor: '#f1f5f9' }}>
+                                                    <Typography variant="body2" fontWeight={800} color="#0f172a" fontSize="12.5px">
+                                                        {(seg.total_tasks || 0).toLocaleString()}
+                                                    </Typography>
+                                                </TableCell>
+                                                {members.map(m => (
+                                                    <TableCell key={m.userId} align="center" sx={{ py: 1 }}>
+                                                        <Typography variant="body2" fontWeight={800} color="#047857" fontSize="12px">
+                                                            {(m.task_count || 0).toLocaleString()}
+                                                        </Typography>
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                        </TableFooter>
                                     </Table>
                                 )}
                             </Box>

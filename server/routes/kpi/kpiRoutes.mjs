@@ -215,7 +215,7 @@ const autoCalculateKPIScores = async (sheet) => {
 // Create or Update Template
 router.post("/api/kpi/template", verifyToken, auditMiddleware("KPI_Template"), async (req, res) => {
     try {
-        const { id, name, department, rows } = req.body;
+        const { id, name, department, rows, has_targets } = req.body;
         console.log("POST /api/kpi/template called", req.body);
         let targetDept = department;
         if (Array.isArray(targetDept)) targetDept = targetDept[0];
@@ -265,6 +265,7 @@ router.post("/api/kpi/template", verifyToken, auditMiddleware("KPI_Template"), a
                 owner: existing.owner, // Keep original owner
                 name: name || existing.name,
                 department: targetDept || (Array.isArray(existing.department) ? existing.department[0] : existing.department) || "General",
+                has_targets: has_targets !== undefined ? Boolean(has_targets) : Boolean(existing.has_targets),
                 rows: rows,
                 version: (existing.version || 1) + 1,
                 parent_template: existing._id
@@ -278,6 +279,7 @@ router.post("/api/kpi/template", verifyToken, auditMiddleware("KPI_Template"), a
                 owner: req.user._id,
                 name,
                 department: targetDept || "General",
+                has_targets: Boolean(has_targets),
                 rows
             });
             await newTemplate.save();
@@ -495,13 +497,15 @@ router.post("/api/kpi/import-template", verifyToken, auditMiddleware("KPI_Templa
         const newTemplate = new KPITemplate({
             name: templateName,
             department: sourceTemplate.department,
+            has_targets: Boolean(sourceTemplate.has_targets),
             rows: sourceTemplate.rows.map(row => ({
                 id: row.id,
                 label: row.label,
                 type: row.type || 'numeric',
                 category: row.category,
                 is_high_volume: row.is_high_volume,
-                weight: row.weight || 3
+                weight: row.weight || 3,
+                target: row.target !== undefined && row.target !== null ? row.target : null
             })),
             owner: req.user._id,
             is_active: true,
@@ -908,6 +912,8 @@ router.post("/api/kpi/sheet/generate", verifyToken, auditMiddleware("KPI_Sheet")
             label_hi: r.label_hi || '',
             type: r.type || 'numeric',
             weight: r.weight || 3,
+            target: r.target !== undefined && r.target !== null ? r.target : null,
+            actual: 0,
             daily_values: {},
             total: 0
         }));
@@ -950,6 +956,7 @@ router.post("/api/kpi/sheet/generate", verifyToken, auditMiddleware("KPI_Sheet")
             year,
             month,
             template_version: template._id,
+            has_targets: Boolean(template.has_targets),
             rows: sheetRows,
             status: "DRAFT",
             signatures: {
@@ -1098,7 +1105,8 @@ router.put("/api/kpi/sheet/entry", verifyToken, auditMiddleware("KPI_Sheet"), as
         // Build atomic update
         const updateDoc = {
             $set: {
-                "rows.$.total": sum
+                "rows.$.total": sum,
+                "rows.$.actual": sum
             },
             $push: {
                 audit_log: {
@@ -1944,6 +1952,8 @@ router.post("/api/kpi/sheet/row", verifyToken, async (req, res) => {
             label: row.label,
             daily_values: new Map(),
             total: 0,
+            actual: 0,
+            target: row.target !== undefined && row.target !== null && row.target !== '' ? Number(row.target) : null,
             is_custom: true,
             weight: 3
         });
@@ -2019,7 +2029,85 @@ router.delete("/api/kpi/sheet/row/:sheetId/:rowId", verifyToken, async (req, res
     }
 });
 
-// DELETE Template (Admin Only)
+// Update Target for a Row in Sheet
+router.put("/api/kpi/sheet/target", verifyToken, auditMiddleware("KPI_Sheet"), async (req, res) => {
+    try {
+        console.log("PUT /api/kpi/sheet/target called", req.body);
+        const { sheetId, rowId, target } = req.body;
+
+        const sheet = await KPISheet.findById(sheetId);
+        if (!sheet) return res.status(404).json({ message: "Sheet not found" });
+
+        // Security: Check User
+        if (sheet.user.toString() !== req.user._id.toString() && req.user.role !== 'Admin' && req.user.role !== 'Head_of_Department') {
+            return res.status(403).json({ message: "Not authorized to edit this sheet" });
+        }
+
+        // Locking Checks
+        if (sheet.status !== "DRAFT" && sheet.status !== "REJECTED") {
+            return res.status(400).json({ message: "Sheet is locked due to status" });
+        }
+
+        const numericTarget = (target === "" || target === null || target === undefined) ? null : Number(target);
+        if (numericTarget !== null && numericTarget < 0) {
+            return res.status(400).json({ message: "Negative targets are not allowed" });
+        }
+
+        const row = sheet.rows.find(r => r.row_id === rowId);
+        if (!row) return res.status(404).json({ message: "Row not found" });
+
+        const oldTarget = row.target;
+
+        const updatedSheet = await KPISheet.findOneAndUpdate(
+            { _id: sheetId, "rows.row_id": rowId },
+            {
+                $set: { "rows.$.target": numericTarget },
+                $push: {
+                    audit_log: {
+                        field: `row:${row.label}:target`,
+                        old_value: oldTarget,
+                        new_value: numericTarget,
+                        changed_by: req.user._id,
+                        action: "UPDATE_TARGET"
+                    }
+                }
+            },
+            { new: true }
+        );
+
+        console.log("PUT /api/kpi/sheet/target - Success");
+        res.json(updatedSheet || sheet);
+    } catch (err) {
+        console.error("PUT /api/kpi/sheet/target ERROR:", err);
+        res.status(500).json({ message: "Server Error: " + err.message });
+    }
+});
+
+// Toggle Target & Actual tracking on Sheet
+router.put("/api/kpi/sheet/toggle-targets", verifyToken, auditMiddleware("KPI_Sheet"), async (req, res) => {
+    try {
+        console.log("PUT /api/kpi/sheet/toggle-targets called", req.body);
+        const { sheetId, has_targets } = req.body;
+
+        const sheet = await KPISheet.findById(sheetId);
+        if (!sheet) return res.status(404).json({ message: "Sheet not found" });
+
+        // Security: Check User
+        if (sheet.user.toString() !== req.user._id.toString() && req.user.role !== 'Admin' && req.user.role !== 'Head_of_Department') {
+            return res.status(403).json({ message: "Not authorized to edit this sheet" });
+        }
+
+        sheet.has_targets = Boolean(has_targets);
+        await sheet.save();
+
+        console.log("PUT /api/kpi/sheet/toggle-targets - Success:", sheet.has_targets);
+        res.json({ success: true, has_targets: sheet.has_targets });
+    } catch (err) {
+        console.error("PUT /api/kpi/sheet/toggle-targets ERROR:", err);
+        res.status(500).json({ message: "Server Error: " + err.message });
+    }
+});
+
 // DELETE Template (Admin or Owner)
 router.delete("/api/kpi/template/:id", verifyToken, async (req, res) => {
     try {

@@ -19,7 +19,8 @@ import {
     detectRecurringBlockers,
     getPreDeadlineSubmissionStatus,
     calculateAnnualBusinessLossRollup,
-    getDepartmentFilterRegex
+    getDepartmentFilterRegex,
+    getTrueHodUsers
 } from '../../services/mrmAnalyticsService.mjs';
 import { isFeatureEnabled } from '../../config/featureFlags.mjs';
 
@@ -42,17 +43,20 @@ const isAuthorizedApprover = (reqUser) => {
 // Get users who have MRM module assigned or are presenters/HODs/Admins
 router.get('/api/mrm/users', authMiddleware, async (req, res) => {
     try {
+        const trueHods = await getTrueHodUsers();
+        const trueHodIds = trueHods.map(h => h._id);
         const distinctMetadataUsers = await MRMMetadata.distinct('userId');
         const users = await UserModel.find(
             {
                 isActive: { $ne: false },
                 $or: [
+                    { _id: { $in: trueHodIds } },
                     { modules: 'MRM' },
                     { role: { $regex: /^(head_of_department|admin|hod)$/i } },
                     { _id: { $in: distinctMetadataUsers } }
                 ]
             },
-            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1, department: 1 }
+            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1, department: 1, designation: 1 }
         ).lean();
 
         // Format clean display name and filter out any blank user records
@@ -60,10 +64,12 @@ router.get('/api/mrm/users', authMiddleware, async (req, res) => {
             .map(u => {
                 const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
                 const displayName = fullName || u.username || '';
+                const matchedHod = trueHods.find(h => h._id.toString() === u._id.toString());
                 return {
                     ...u,
                     first_name: u.first_name || displayName,
                     last_name: u.last_name || '',
+                    department: u.department || matchedHod?.department || '',
                     displayName
                 };
             })
@@ -87,11 +93,11 @@ router.get('/api/mrm/dashboard', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: "Month and Year are required" });
         }
 
-        // Determine user filter: Approvers see all HODs/Admins; HODs see their team + self
-        let userQuery = {
-            modules: 'MRM',
-            isActive: { $ne: false }
-        };
+        const trueHods = await getTrueHodUsers();
+        const trueHodIds = trueHods.map(h => h._id);
+
+        // Determine user filter: Approvers see all true HODs + any admins with MRM; HODs see their team + self
+        let userQuery = { isActive: { $ne: false } };
 
         if (!isApprover && requestingRole !== 'admin') {
             const orConditions = [{ _id: req.user._id }];
@@ -103,12 +109,13 @@ router.get('/api/mrm/dashboard', authMiddleware, async (req, res) => {
             }
             userQuery.$or = orConditions;
         } else {
-            userQuery.role = { $in: ['Head_of_Department', 'head_of_department', 'Admin', 'admin'] };
+            // For Executive Approvers (Suraj Rajan / Admin): Show only true reporting departmental HODs
+            userQuery._id = { $in: trueHodIds };
         }
 
         const mrmUsers = await UserModel.find(
             userQuery,
-            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1 }
+            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1, department: 1, designation: 1 }
         ).sort({ first_name: 1 });
 
         const allMetadata = await MRMMetadata.find({ month, year });
@@ -140,11 +147,14 @@ router.get('/api/mrm/dashboard', authMiddleware, async (req, res) => {
             }
             const isLocked = userMeta?.isLocked || userMeta?.meetingDone || (status === 'Approved');
 
+            const matchedHod = trueHods.find(h => h._id.toString() === user._id.toString());
             return {
                 userId: user._id,
                 firstName: user.first_name,
                 lastName: user.last_name,
                 username: user.username,
+                department: user.department || matchedHod?.department || '',
+                designation: user.designation || '',
                 reviewDate: userMeta?.reviewDate || null,
                 meetingDate: userMeta?.meetingDate || null,
                 meetingDone: userMeta?.meetingDone || false,
@@ -1003,7 +1013,24 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
             }));
         }
 
-        await MRMItem.insertMany(newItems);
+        const insertedItems = await MRMItem.insertMany(newItems);
+
+        // If mode === 'as-is', safely trigger OpenPoints sync on all inserted items with an actionPlan
+        if (mode === 'as-is' && Array.isArray(insertedItems)) {
+            for (const item of insertedItems) {
+                if (item.actionPlan && item.actionPlan.trim()) {
+                    try {
+                        const point = await syncActionPlanToOpenPoint(item, req.user);
+                        if (point) {
+                            item.openPointId = point._id;
+                        }
+                    } catch (syncErr) {
+                        console.error(`Safe warning: Failed to sync imported MRM item ${item._id} to OpenPoint:`, syncErr.message);
+                    }
+                }
+            }
+        }
+
         const result = await MRMItem.find({ month: targetMonth, year: targetYear, createdBy: targetUserId });
         res.json(result);
     } catch (error) {
@@ -1157,10 +1184,25 @@ router.get('/api/mrm/hod-score', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: 'department, month, and year are required query parameters' });
         }
 
-        const resolvedHodId = hodId || req.user._id;
+        const trueHods = await getTrueHodUsers();
+        let targetHod = null;
+        if (hodId) {
+            targetHod = trueHods.find(h => h._id.toString() === hodId.toString());
+        }
+        if (!targetHod && department) {
+            const deptRegex = getDepartmentFilterRegex(department);
+            targetHod = trueHods.find(h => deptRegex.test(h.department) || h.department?.toLowerCase() === department.toLowerCase());
+        }
+        if (!targetHod) {
+            targetHod = trueHods.find(h => h._id.toString() === req.user._id.toString());
+        }
+
+        const resolvedHodId = targetHod?._id || hodId || req.user._id;
+        const resolvedDept = targetHod?.department || department;
+
         const result = await calculateHodMonthlyScore({
             hodId: resolvedHodId,
-            department,
+            department: resolvedDept,
             month,
             year
         });
@@ -1190,44 +1232,56 @@ router.get('/api/mrm/hod-scores/rankings', authMiddleware, async (req, res) => {
         const monthStr = String(month).padStart(2, '0');
         const yearNum = parseInt(year, 10);
 
+        const trueHods = await getTrueHodUsers();
+        const trueHodIds = trueHods.map(h => h._id);
+
+        // Delete any invalid non-HOD records for this period to keep the leaderboard clean
+        await MRMHodScore.deleteMany({
+            month: monthStr,
+            year: yearNum,
+            hodId: { $nin: trueHodIds }
+        });
+
+        // Ensure every active true HOD has an up-to-date computed score record for this month
+        for (const hod of trueHods) {
+            try {
+                await calculateHodMonthlyScore({
+                    hodId: hod._id,
+                    department: hod.department,
+                    month: monthStr,
+                    year: yearNum
+                });
+            } catch (err) {
+                console.warn(`Auto-compute score skipped for ${hod.username}:`, err.message);
+            }
+        }
+
         let rankings = await MRMHodScore.find({
             month: monthStr,
-            year: yearNum
+            year: yearNum,
+            hodId: { $in: trueHodIds }
         })
         .populate('hodId', 'first_name last_name username email designation department')
         .sort({ final_score: -1 })
         .lean();
 
-        // If no scores exist yet, compute live scores for active HODs
-        if (rankings.length === 0) {
-            const hodUsers = await UserModel.find({
-                isActive: { $ne: false },
-                role: { $regex: /^(head_of_department|hod)$/i }
-            }).lean();
-
-            for (const hod of hodUsers) {
-                if (hod.department) {
-                    try {
-                        await calculateHodMonthlyScore({
-                            hodId: hod._id,
-                            department: hod.department,
-                            month: monthStr,
-                            year: yearNum
-                        });
-                    } catch (e) {
-                        console.warn(`Auto-compute score skipped for ${hod.username}:`, e.message);
-                    }
-                }
-            }
-
-            rankings = await MRMHodScore.find({
-                month: monthStr,
-                year: yearNum
-            })
-            .populate('hodId', 'first_name last_name username email designation department')
-            .sort({ final_score: -1 })
-            .lean();
-        }
+        // Assign clean sequential ranks and fallback department from trueHods
+        rankings = await Promise.all(rankings.map(async (item, idx) => {
+            const matchedHod = trueHods.find(h => h._id.toString() === item.hodId?._id?.toString());
+            const cleanRank = idx + 1;
+            const dept = item.department || matchedHod?.department || item.hodId?.department;
+            await MRMHodScore.findByIdAndUpdate(item._id, {
+                monthly_rank: cleanRank,
+                total_hods_ranked: rankings.length,
+                department: dept
+            });
+            return {
+                ...item,
+                department: dept,
+                monthly_rank: cleanRank,
+                total_hods_ranked: rankings.length
+            };
+        }));
 
         res.json(rankings);
     } catch (error) {

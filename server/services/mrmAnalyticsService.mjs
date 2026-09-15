@@ -2,10 +2,72 @@ import MRMItem from '../model/mrm/mrmItemModel.mjs';
 import MRMMetadata from '../model/mrm/mrmMetadataModel.mjs';
 import OpenPoint from '../model/openPoints/openPointModel.mjs';
 import UserModel from '../model/userModel.mjs';
+import TeamModel from '../model/teamModel.mjs';
 import KPISheet from '../model/kpi/kpiSheetModel.mjs';
 import MRMSegmentRollup from '../model/mrm/mrmSegmentRollupModel.mjs';
 import MRMHodScore from '../model/mrm/mrmHodScoreModel.mjs';
 import { isFeatureEnabled } from '../config/featureFlags.mjs';
+
+/**
+ * Resolves the clean, authoritative list of active Department HODs across the organization.
+ * Discovers HODs from active TeamModel configurations as well as UserModel role definitions,
+ * while strictly filtering out non-HOD administrative executives or developers.
+ */
+export const getTrueHodUsers = async () => {
+    const teams = await TeamModel.find({ isActive: true }).lean();
+    const teamHodIdMap = new Map();
+    for (const team of teams) {
+        const hId = team.hodId || team.hod_id;
+        if (hId) {
+            teamHodIdMap.set(hId.toString(), team.department || team.name);
+        }
+    }
+
+    const hodRoleFilter = { $regex: /^(head_of_department|hod)$/i };
+
+    const candidates = await UserModel.find({
+        isActive: { $ne: false },
+        $or: [
+            { _id: { $in: Array.from(teamHodIdMap.keys()) } },
+            { role: hodRoleFilter }
+        ]
+    })
+    .select('first_name last_name username email role department designation')
+    .lean();
+
+    // Specific accounts that are executive leadership or admins, not departmental HOD presenters
+    const EXCLUDED_USERNAMES = [
+        'suraj_rajan', 'uday_zope', 'afzal_ghanchi', 'riya_saini',
+        'shalini_arun', 'geethanjali_b', 'masood_raza', 'dev_master',
+        'rajan_aranamkatte', 'manu_pillai'
+    ];
+
+    const validHods = [];
+    const seenUsernames = new Set();
+
+    for (const user of candidates) {
+        if (EXCLUDED_USERNAMES.includes(user.username)) continue;
+
+        // Exclude if designation explicitly indicates non-HOD executive
+        const desig = (user.designation || '').toLowerCase();
+        if (desig.includes('executive') && !teamHodIdMap.has(user._id.toString())) {
+            continue;
+        }
+
+        const dept = user.department || teamHodIdMap.get(user._id.toString()) || '';
+        if (!dept) continue;
+
+        if (!seenUsernames.has(user.username)) {
+            seenUsernames.add(user.username);
+            validHods.push({
+                ...user,
+                department: dept
+            });
+        }
+    }
+
+    return validHods;
+};
 
 /**
  * Parses numeric value safely from strings (handles percentages, commas, currency)
@@ -680,7 +742,7 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
     const candidateUsers = await UserModel.find({
         department: { $regex: deptRegex },
         isActive: { $ne: false }
-    }).select('_id first_name last_name username sub_team sub_team_role department joining_date role').lean();
+    }).select('_id first_name last_name username sub_team sub_team_role department joining_date role is_operator category').lean();
 
     // 2. Fetch KPISheets for current month for candidate users
     const candidateIds = candidateUsers.map(u => u._id);
@@ -693,15 +755,41 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
     const sheetByUserMap = new Map();
     currentSheets.forEach(s => sheetByUserMap.set(s.user.toString(), s));
 
-    // 3. Filter members: exclude users who joined after this month (unless they submitted),
-    // exclude system test accounts like dev_master (unless they submitted),
-    // and exclude HOD reviewer from subordinate pending list if they have no personal sheet.
+    const userIdsWithAnySheet = new Set(
+        (await KPISheet.distinct('user', { user: { $in: candidateIds } })).map(id => id.toString())
+    );
+
+    // 3. Filter members:
+    // - Include anyone who has a current month sheet
+    // - Exclude HOD reviewer
+    // - Exclude system test accounts like dev_master
+    // - Exclude shopfloor operators and housekeeping who never have KPI sheets
+    // - Only include users who ever had a KPI sheet or have an assigned sub-team
+    let resolvedHodId = hodId;
+    if (!resolvedHodId) {
+        const trueHods = await getTrueHodUsers();
+        const found = trueHods.find(h => deptRegex.test(h.department));
+        if (found) resolvedHodId = found._id;
+    }
+
     const deptUsers = candidateUsers.filter(u => {
         const uIdStr = u._id.toString();
-        const hasSheet = sheetByUserMap.has(uIdStr);
-        if (hasSheet) return true;
 
         if (u.username === 'dev_master') return false;
+
+        const hasSheetThisMonth = sheetByUserMap.has(uIdStr);
+
+        const isHodUser = (resolvedHodId && uIdStr === resolvedHodId.toString()) ||
+            /^(head_of_department|hod)$/i.test(String(u.role || '')) ||
+            ['suraj_rajan', 'uday_zope', 'afzal_ghanchi', 'ajith_sivadasan', 'chirag_shah', 'deepak_singh', 'mahesh_patil', 'majhar_khan', 'punit_pandey', 'kinjal_khatri', 'sojith_mammuttil', 'sreekumar_pillai', 'anurag_pillai', 'krishnapal_puvar', 'mohit_singh'].includes(u.username);
+        if (isHodUser && !hasSheetThisMonth) {
+            return false;
+        }
+
+        if (u.is_operator) return false;
+        if (['housekeeping', 'helper', 'operator'].includes(String(u.category || '').toLowerCase())) {
+            return false;
+        }
 
         if (u.joining_date) {
             const jDate = new Date(u.joining_date);
@@ -710,14 +798,20 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
             }
         }
 
-        const isHodUser = (hodId && uIdStr === hodId.toString()) ||
-            /^(head_of_department|hod)$/i.test(String(u.role || ''));
-        if (isHodUser) {
-            return false;
-        }
+        const hasSheet = sheetByUserMap.has(uIdStr);
+        if (hasSheet) return true;
 
-        return true;
+        const hasEverHadSheet = userIdsWithAnySheet.has(uIdStr);
+        if (hasEverHadSheet) return true;
+        if (u.sub_team && u.sub_team !== 'General') return true;
+
+        return false;
     });
+
+    const now = new Date();
+    // Monthly submission deadline: 5th of following month (e.g. Oct 5 for Sept)
+    const deadlineDate = new Date(yearNum, monthNum, 5, 23, 59, 59, 999);
+    const isDeadlinePassed = now > deadlineDate;
 
     if (!deptUsers || deptUsers.length === 0) {
         return {
@@ -782,9 +876,13 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
         let hasBlockers = false;
         let totalBlockersCount = 0;
         let hasUnsubmitted = false;
+        let hasMissedDeadline = false;
         const unsubmittedMembers = [];
+        const missedDeadlineMembers = [];
         const contributingMembers = [];
         const taskSumMap = new Map();
+
+        let segmentHasTargets = false;
 
         members.forEach(member => {
             const mIdStr = member._id.toString();
@@ -804,10 +902,22 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
             const isSubmitted = sheet ? ['SUBMITTED', 'APPROVED', 'CHECKED', 'VERIFIED'].includes(sheet.status) : false;
             const isSubmittedOnTime = sheet?.summary?.is_submitted_on_time !== false;
 
+            const sheetHasTargets = Boolean(
+                sheet?.has_targets || 
+                (Array.isArray(sheet?.rows) && sheet.rows.some(r => r.target !== null && r.target !== undefined && r.target !== '' && !isNaN(Number(r.target))))
+            );
+            if (sheetHasTargets) {
+                segmentHasTargets = true;
+            }
+
             if (sheet) {
                 if (Array.isArray(sheet.rows)) {
                     sheet.rows.forEach(r => {
                         const rowTotal = Number(r.total) || 0;
+                        const rowActual = Number(r.actual !== undefined && r.actual !== null ? r.actual : r.total) || 0;
+                        const hasRowTarget = (r.target !== null && r.target !== undefined && r.target !== '' && !isNaN(Number(r.target)));
+                        const rowTarget = hasRowTarget ? Number(r.target) : null;
+
                         memberTasks += rowTotal;
 
                         const taskLabel = r.label || r.row_id || 'Other';
@@ -815,15 +925,26 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
                             taskSumMap.set(taskLabel, {
                                 task_name: taskLabel,
                                 total_count: 0,
+                                total_target: null,
+                                total_actual: 0,
+                                has_target: false,
                                 member_counts: []
                             });
                         }
                         const tObj = taskSumMap.get(taskLabel);
                         tObj.total_count += rowTotal;
+                        tObj.total_actual += rowActual;
+                        if (hasRowTarget) {
+                            tObj.total_target = (tObj.total_target === null ? 0 : tObj.total_target) + rowTarget;
+                            tObj.has_target = true;
+                        }
                         tObj.member_counts.push({
                             userId: member._id,
                             name: memberFullName,
-                            count: rowTotal
+                            count: rowTotal,
+                            actual: rowActual,
+                            target: rowTarget,
+                            has_target: hasRowTarget
                         });
                     });
                 }
@@ -856,6 +977,10 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
             if (!isSubmitted) {
                 hasUnsubmitted = true;
                 unsubmittedMembers.push(memberFullName);
+                if (isDeadlinePassed) {
+                    hasMissedDeadline = true;
+                    missedDeadlineMembers.push(memberFullName);
+                }
             }
 
             totalSegmentTasks += memberTasks;
@@ -874,7 +999,8 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
                 open_points_items: memberOpenPointsItems,
                 submitted: isSubmitted,
                 submitted_at: sheet?.summary?.submission_date || sheet?.updatedAt,
-                is_submitted_on_time: isSubmittedOnTime
+                is_submitted_on_time: isSubmittedOnTime,
+                has_targets: sheetHasTargets
             });
         });
 
@@ -918,23 +1044,23 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
             }
         }
 
-        // Flag Status
-        const flagStatus = (hasBusinessLoss || hasBlockers || hasUnsubmitted) ? 'Red' : 'Green';
+        // Flag Status: Only trigger Red for unsubmitted if the monthly deadline has passed
+        const flagStatus = (hasBusinessLoss || hasBlockers || hasMissedDeadline) ? 'Red' : 'Green';
 
         // Final RAG & Score & Reason Badge
         let finalRag = 'Green';
         let segmentScore = 100;
         let reasonBadge = '';
 
-        if (hasUnsubmitted) {
+        if (hasMissedDeadline) {
             finalRag = 'Red';
             segmentScore = 0;
-            if (unsubmittedMembers.length === members.length) {
-                reasonBadge = `[All ${unsubmittedMembers.length} Submissions Pending]`;
-            } else if (unsubmittedMembers.length > 2) {
-                reasonBadge = `[${unsubmittedMembers.length} Pending Submissions]`;
+            if (missedDeadlineMembers.length === members.length) {
+                reasonBadge = `[All ${missedDeadlineMembers.length} Submissions Missed Deadline]`;
+            } else if (missedDeadlineMembers.length > 2) {
+                reasonBadge = `[${missedDeadlineMembers.length} Missed Submissions]`;
             } else {
-                reasonBadge = `[Missed Submission: ${unsubmittedMembers.join(', ')}]`;
+                reasonBadge = `[Missed Submission: ${missedDeadlineMembers.join(', ')}]`;
             }
         } else if (isColdStart) {
             if (flagStatus === 'Red') {
@@ -947,21 +1073,41 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
             } else {
                 finalRag = 'Green';
                 segmentScore = 100;
-                reasonBadge = '[Clean (Cold Start)]';
+                reasonBadge = isDeadlinePassed ? '[Clean (Cold Start)]' : '[Clean (In-Progress)]';
             }
         } else {
-            const isTrendRed = trendStatus === 'Red';
-            const isTrendAmber = trendStatus === 'Amber';
+            let effectiveTrendStatus = trendStatus;
+            let effectiveDeviationPct = trendDeviationPct;
+
+            // In an in-progress month, pro-rate the trailing 3M target by the elapsed days in the month
+            if (!isDeadlinePassed && trailing3mAvg > 0) {
+                const daysInMonth = monthEndDate.getDate();
+                const currentDay = Math.min(now.getDate(), daysInMonth);
+                const proratedTarget = (trailing3mAvg / daysInMonth) * currentDay;
+                if (proratedTarget > 0) {
+                    effectiveDeviationPct = Number((((totalSegmentTasks - proratedTarget) / proratedTarget) * 100).toFixed(1));
+                    if (effectiveDeviationPct <= -20.0) {
+                        effectiveTrendStatus = 'Red';
+                    } else if (effectiveDeviationPct <= -10.0) {
+                        effectiveTrendStatus = 'Amber';
+                    } else {
+                        effectiveTrendStatus = 'Green';
+                    }
+                }
+            }
+
+            const isTrendRed = effectiveTrendStatus === 'Red';
+            const isTrendAmber = effectiveTrendStatus === 'Amber';
             const isFlagRed = flagStatus === 'Red';
 
             if (isTrendRed && isFlagRed) {
                 finalRag = 'Red';
                 segmentScore = 20;
-                reasonBadge = `[Trend Deviation (${trendDeviationPct}%) & Operational Flags]`;
+                reasonBadge = `[Trend Deviation (${effectiveDeviationPct}%) & Operational Flags]`;
             } else if (isTrendRed && !isFlagRed) {
                 finalRag = 'Red';
                 segmentScore = 40;
-                reasonBadge = `[Trend Deviation (${trendDeviationPct}%)]`;
+                reasonBadge = `[Trend Deviation (${effectiveDeviationPct}%)]`;
             } else if (!isTrendRed && isFlagRed) {
                 finalRag = 'Red';
                 segmentScore = 40;
@@ -972,11 +1118,11 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
             } else if (isTrendAmber && !isFlagRed) {
                 finalRag = 'Amber';
                 segmentScore = 70;
-                reasonBadge = `[Trend Deviation (${trendDeviationPct}%)]`;
+                reasonBadge = `[Trend Deviation (${effectiveDeviationPct}%)]`;
             } else {
                 finalRag = 'Green';
                 segmentScore = 100;
-                reasonBadge = '[On Trend & Clean]';
+                reasonBadge = isDeadlinePassed ? '[On Trend & Clean]' : '[On Trend & Clean (In-Progress)]';
             }
         }
 
@@ -987,8 +1133,9 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
             year: yearNum,
             department,
             sub_team: subTeamName,
-            hodId: hodId || members[0]?._id,
+            hodId: resolvedHodId || hodId || members[0]?._id,
             contributing_members: contributingMembers,
+            has_targets: segmentHasTargets,
             total_tasks: totalSegmentTasks,
             trailing_3m_avg: trailing3mAvg,
             trend_deviation_pct: trendDeviationPct,
@@ -1000,7 +1147,10 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
                 has_blockers: hasBlockers,
                 blockers_count: totalBlockersCount,
                 has_unsubmitted: hasUnsubmitted,
-                unsubmitted_members: unsubmittedMembers
+                unsubmitted_members: unsubmittedMembers,
+                has_missed_deadline: hasMissedDeadline,
+                missed_deadline_members: missedDeadlineMembers,
+                is_deadline_passed: isDeadlinePassed
             },
             flag_status: flagStatus,
             final_rag: finalRag,
@@ -1047,18 +1197,29 @@ export const calculateHodMonthlyScore = async ({ hodId, department, month, year 
 
     const monthStr = String(month).padStart(2, '0');
     const yearNum = parseInt(year, 10);
-    const deptRegex = getDepartmentFilterRegex(department);
+
+    const trueHods = await getTrueHodUsers();
+    let targetHod = trueHods.find(h => h._id.toString() === hodId?.toString());
+    if (!targetHod && department) {
+        const dRegex = getDepartmentFilterRegex(department);
+        targetHod = trueHods.find(h => dRegex.test(h.department) || h.department?.toLowerCase() === department.toLowerCase());
+    }
+
+    const effectiveHodId = targetHod ? targetHod._id : hodId;
+    const effectiveDept = targetHod?.department || department;
+    const isTrueHod = Boolean(targetHod);
+    const deptRegex = getDepartmentFilterRegex(effectiveDept);
 
     // 1. Team KPI Performance Score (S_Team, 70% weight)
-    let rollups = await MRMSegmentRollup.find({
-        department: { $regex: deptRegex },
-        month: monthStr,
-        year: yearNum
-    }).lean();
+    const computed = await calculateSegmentRollup({ department: effectiveDept, hodId: effectiveHodId, month: monthStr, year: yearNum });
+    let rollups = computed?.segments || [];
 
     if (!rollups || rollups.length === 0) {
-        const computed = await calculateSegmentRollup({ department, hodId, month: monthStr, year: yearNum });
-        rollups = computed?.segments || [];
+        rollups = await MRMSegmentRollup.find({
+            department: { $regex: deptRegex },
+            month: monthStr,
+            year: yearNum
+        }).lean();
     }
 
     let teamScore = 100;
@@ -1071,7 +1232,7 @@ export const calculateHodMonthlyScore = async ({ hodId, department, month, year 
     const hodItems = await MRMItem.find({
         month: monthStr,
         year: yearNum,
-        createdBy: hodId,
+        createdBy: effectiveHodId,
         isTitleRow: { $ne: true }
     }).lean();
 
@@ -1136,25 +1297,34 @@ export const calculateHodMonthlyScore = async ({ hodId, department, month, year 
         annual_business_loss_incident_count: annualLossIncidents
     };
 
-    const savedScore = await MRMHodScore.findOneAndUpdate(
-        { month: monthStr, year: yearNum, hodId },
-        { $set: scoreData },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
+    scoreData.department = effectiveDept;
+    scoreData.hodId = effectiveHodId;
 
-    // Compute rankings across all HODs for this month
-    const allMonthlyScores = await MRMHodScore.find({
-        month: monthStr,
-        year: yearNum
-    }).sort({ final_score: -1 }).lean();
+    let rank = 1;
+    const trueHodIds = trueHods.map(h => h._id);
+    const totalRanked = trueHods.length;
 
-    const rank = allMonthlyScores.findIndex(s => s.hodId.toString() === hodId.toString()) + 1;
-    const totalRanked = allMonthlyScores.length;
+    if (isTrueHod) {
+        const savedScore = await MRMHodScore.findOneAndUpdate(
+            { month: monthStr, year: yearNum, hodId: effectiveHodId },
+            { $set: scoreData },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
 
-    await MRMHodScore.findByIdAndUpdate(savedScore._id, {
-        monthly_rank: rank,
-        total_hods_ranked: totalRanked
-    });
+        const allMonthlyScores = await MRMHodScore.find({
+            month: monthStr,
+            year: yearNum,
+            hodId: { $in: trueHodIds }
+        }).sort({ final_score: -1 }).lean();
+
+        const rankIdx = allMonthlyScores.findIndex(s => s.hodId.toString() === effectiveHodId.toString());
+        rank = rankIdx >= 0 ? rankIdx + 1 : 1;
+
+        await MRMHodScore.findByIdAndUpdate(savedScore._id, {
+            monthly_rank: rank,
+            total_hods_ranked: totalRanked
+        });
+    }
 
     return {
         ...scoreData,
@@ -1250,7 +1420,7 @@ export const getPreDeadlineSubmissionStatus = async ({ department, month, year }
     const rawUsers = await UserModel.find({
         department: { $regex: deptRegex },
         isActive: { $ne: false }
-    }).select('_id first_name last_name username email sub_team sub_team_role joining_date role').lean();
+    }).select('_id first_name last_name username email sub_team sub_team_role joining_date role is_operator category').lean();
 
     const rawUserIds = rawUsers.map(u => u._id);
     const sheets = await KPISheet.find({
@@ -1262,12 +1432,29 @@ export const getPreDeadlineSubmissionStatus = async ({ department, month, year }
     const sheetMap = new Map();
     sheets.forEach(s => sheetMap.set(s.user.toString(), s));
 
+    const userIdsWithAnySheet = new Set(
+        (await KPISheet.distinct('user', { user: { $in: rawUserIds } })).map(id => id.toString())
+    );
+
+    const trueHods = await getTrueHodUsers();
+    const resolvedHod = trueHods.find(h => deptRegex.test(h.department));
+
     const users = rawUsers.filter(u => {
         const uIdStr = u._id.toString();
-        const hasSheet = sheetMap.has(uIdStr);
-        if (hasSheet) return true;
 
         if (u.username === 'dev_master') return false;
+
+        const isHodUser = (resolvedHod && uIdStr === resolvedHod._id.toString()) ||
+            /^(head_of_department|hod)$/i.test(String(u.role || '')) ||
+            ['suraj_rajan', 'uday_zope', 'afzal_ghanchi', 'ajith_sivadasan', 'chirag_shah', 'deepak_singh', 'mahesh_patil', 'majhar_khan', 'punit_pandey', 'kinjal_khatri', 'sojith_mammuttil', 'sreekumar_pillai', 'anurag_pillai', 'krishnapal_puvar', 'mohit_singh'].includes(u.username);
+        if (isHodUser) {
+            return false;
+        }
+
+        if (u.is_operator) return false;
+        if (['housekeeping', 'helper', 'operator'].includes(String(u.category || '').toLowerCase())) {
+            return false;
+        }
 
         if (u.joining_date) {
             const jDate = new Date(u.joining_date);
@@ -1276,11 +1463,14 @@ export const getPreDeadlineSubmissionStatus = async ({ department, month, year }
             }
         }
 
-        if (/^(head_of_department|hod)$/i.test(String(u.role || ''))) {
-            return false;
-        }
+        const hasSheet = sheetMap.has(uIdStr);
+        if (hasSheet) return true;
 
-        return true;
+        const hasEverHadSheet = userIdsWithAnySheet.has(uIdStr);
+        if (hasEverHadSheet) return true;
+        if (u.sub_team && u.sub_team !== 'General') return true;
+
+        return false;
     });
 
     const submitted = [];

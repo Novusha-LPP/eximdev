@@ -17,7 +17,7 @@ const KPISheetRowSchema = new Schema({
     label_hi: {
         type: String, // Hindi translated label (copied from template)
     },
-    type: { // "numeric" | "checkbox" - copied from template
+    type: { // "numeric"
         type: String,
         default: "numeric"
     },
@@ -29,6 +29,14 @@ const KPISheetRowSchema = new Schema({
     total: {
         type: Number,
         default: 0,
+    },
+    actual: {
+        type: Number,
+        default: 0, // Row-wise sum of all days (matches total)
+    },
+    target: {
+        type: Number,
+        default: null, // Optional target
     },
     is_custom: {
         type: Boolean,
@@ -65,6 +73,10 @@ const KPISheetSchema = new Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "KPITemplate",
             required: true,
+        },
+        has_targets: {
+            type: Boolean,
+            default: false,
         },
         rows: [KPISheetRowSchema],
 

@@ -20,7 +20,8 @@ import {
     calculateHodMonthlyScore,
     detectRecurringBlockers,
     getPreDeadlineSubmissionStatus,
-    calculateAnnualBusinessLossRollup
+    calculateAnnualBusinessLossRollup,
+    getTrueHodUsers
 } from '../services/mrmAnalyticsService.mjs';
 
 async function runTests() {
@@ -62,14 +63,11 @@ async function runTests() {
         }
     }
 
-    // Find test department and active HOD
-    const hod = await UserModel.findOne({
-        isActive: { $ne: false },
-        role: { $regex: /^(head_of_department|hod|admin)$/i },
-        department: { $exists: true, $ne: '' }
-    }).lean();
+    // Find test department and active HOD using getTrueHodUsers
+    const trueHods = await getTrueHodUsers();
+    const hod = trueHods.find(h => h.department === 'Accounts') || trueHods[0];
 
-    const targetDept = hod?.department || 'Operations';
+    const targetDept = hod?.department || 'Accounts';
     const targetMonth = '09';
     const targetYear = 2026;
     console.log(`Testing with Department: "${targetDept}", HOD: "${hod?.username || 'admin'}", Period: ${targetMonth}/${targetYear}\n`);

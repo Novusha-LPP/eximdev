@@ -27,9 +27,11 @@ const mrmSegmentRollupSchema = new mongoose.Schema({
         }],
         submitted: { type: Boolean, default: false },
         submitted_at: { type: Date },
-        is_submitted_on_time: { type: Boolean, default: true }
+        is_submitted_on_time: { type: Boolean, default: true },
+        has_targets: { type: Boolean, default: false }
     }],
 
+    has_targets: { type: Boolean, default: false },
     total_tasks: { type: Number, default: 0 },
     trailing_3m_avg: { type: Number, default: null },
     trend_deviation_pct: { type: Number, default: null },
@@ -57,10 +59,16 @@ const mrmSegmentRollupSchema = new mongoose.Schema({
     task_breakdown: [{
         task_name: { type: String },
         total_count: { type: Number, default: 0 },
+        total_target: { type: Number, default: null },
+        total_actual: { type: Number, default: 0 },
+        has_target: { type: Boolean, default: false },
         member_counts: [{
             userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
             name: { type: String },
-            count: { type: Number, default: 0 }
+            count: { type: Number, default: 0 },
+            actual: { type: Number, default: 0 },
+            target: { type: Number, default: null },
+            has_target: { type: Boolean, default: false }
         }],
         historical_3m_trend: { type: Number, default: null }
     }],

@@ -690,6 +690,37 @@ table.kpi-table {
     background-color: #e0e0e0;
     font-weight: bold;
   }
+
+  th.target-col-header,
+  td.target-cell {
+    min-width: 75px;
+    background-color: #f8fafc;
+    color: #1e40af;
+    font-weight: 600;
+
+    input {
+      width: 100%;
+      border: none;
+      text-align: center;
+      background: transparent;
+      outline: none;
+      font-weight: 700;
+      color: #1e40af;
+      padding: 6px 2px;
+
+      &:focus {
+        background-color: #eef2ff;
+      }
+    }
+  }
+
+  th.actual-col-header,
+  td.actual-col {
+    min-width: 75px;
+    background-color: #f0fdf4 !important;
+    color: #166534 !important;
+    font-weight: 800;
+  }
 }
 
 .summary-section {

@@ -125,13 +125,22 @@ const MRMAdminDashboard = () => {
     const [rankingSort, setRankingSort] = useState('rank_asc');
     const [expandedHodId, setExpandedHodId] = useState(null);
 
-    // Load initial users list & check feature flag
+    // Load initial users list & check feature flag, and pre-fetch executive KPI metrics
     useEffect(() => {
         if (isAuthorized) {
             fetchMRMUsers().then(users => setMrmUsers(users)).catch(console.error);
             fetchMRMFeatureStatus().then(st => setFeatureEnabled(Boolean(st?.enabled))).catch(() => setFeatureEnabled(false));
+            loadSubmissionsMatrix();
+            loadMRMOpenPoints();
         }
     }, [isAuthorized]);
+
+    // Keep global summary cards (Active Presenters, Health Index) in sync when month/year changes on non-matrix tabs
+    useEffect(() => {
+        if (isAuthorized && activeTab !== 1) {
+            loadSubmissionsMatrix();
+        }
+    }, [selectedMonth, selectedYear, isAuthorized]);
 
     // Reload tab data whenever tab or filters change
     useEffect(() => {
@@ -387,20 +396,25 @@ const MRMAdminDashboard = () => {
             {/* Title Bar */}
             <div className="title-bar">
                 <div className="title-center">
-                    <h1>Executive MRM & Operations Governance</h1>
+                    <div className="title-heading-row">
+                        <h1>Executive MRM & Operations Governance</h1>
+                        <span className="mrm-pill-badge">Executive View</span>
+                    </div>
                     <span className="user-name">
                         {isApprover ? 'Executive Approver View — Suraj Rajan / Admin' : `Department Management — ${user?.first_name} ${user?.last_name}`}
                     </span>
                 </div>
                 <div className="title-buttons">
                     <button className="help-btn" onClick={() => navigate('/mrm')}>
-                        <span>📋</span> My MRM Sheet
+                        <AssignmentIcon sx={{ fontSize: 16 }} />
+                        <span>My MRM Sheet</span>
                     </button>
                 </div>
             </div>
 
-            {/* Executive KPI Summary Cards */}
-            <div className="mrm-kpi-grid">
+            <div className="mrm-page-body">
+                {/* Executive KPI Summary Cards */}
+                <div className="mrm-kpi-grid">
                 <div className={`kpi-card ${pendingCount > 0 ? 'warning' : 'success'}`}>
                     <div className="kpi-header">
                         <span className="kpi-title">Pending Approvals</span>
@@ -703,7 +717,11 @@ const MRMAdminDashboard = () => {
                                             <td style={{ textAlign: 'center' }}>{idx + 1}</td>
                                             <td style={{ fontWeight: '600' }}>
                                                 {row.firstName} {row.lastName}
-                                                <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{row.username}</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                                    <span>{row.department || '—'}</span>
+                                                    {row.designation && <span style={{ color: '#64748b', fontWeight: 400 }}>&bull; {row.designation}</span>}
+                                                </div>
+                                                <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 400 }}>@{row.username}</div>
                                             </td>
                                             <td style={{ textAlign: 'center' }}>{formatDate(row.reviewDate)}</td>
                                             <td style={{ textAlign: 'center' }}>{formatDate(row.meetingDate)}</td>
@@ -1869,7 +1887,16 @@ const MRMAdminDashboard = () => {
                         </div>
 
                         {/* Leaderboard Table Container */}
-                        <div className="data-grid-container" style={{ borderRadius: '12px', background: 'white', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                        <div className="data-grid-container" style={{ 
+                            borderRadius: '12px', 
+                            background: 'white', 
+                            overflowX: 'auto', 
+                            overflowY: 'auto', 
+                            maxHeight: 'calc(100vh - 260px)',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                            margin: '0',
+                            width: '100%'
+                        }}>
                             {loading ? (
                                 <div style={{ padding: '60px 20px', textAlign: 'center', color: '#64748b' }}>
                                     <AutorenewIcon sx={{ fontSize: 32, animation: 'spin 1s linear infinite', mb: 1, color: '#16a34a' }} />
@@ -1884,25 +1911,25 @@ const MRMAdminDashboard = () => {
                                     </p>
                                 </div>
                             ) : (
-                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                    <thead>
-                                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
-                                            <th style={{ padding: '12px 16px', width: '80px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Rank</th>
-                                            <th style={{ padding: '12px 16px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>HOD & Department</th>
-                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '140px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                                <table style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse' }}>
+                                    <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                                        <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                                            <th style={{ padding: '12px 16px', width: '80px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', background: '#f8fafc' }}>Rank</th>
+                                            <th style={{ padding: '12px 16px', minWidth: '220px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', background: '#f8fafc' }}>HOD & Department</th>
+                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '140px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', background: '#f8fafc' }}>
                                                 Final Score (70/30)
                                             </th>
-                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '150px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '150px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', background: '#f8fafc' }}>
                                                 Team KPI (70%)
                                             </th>
-                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '150px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '150px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', background: '#f8fafc' }}>
                                                 HOD Focus (30%)
                                             </th>
-                                            <th style={{ padding: '12px 16px', textAlign: 'right', width: '160px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                                            <th style={{ padding: '12px 16px', textAlign: 'right', width: '160px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', background: '#f8fafc' }}>
                                                 Annual Team Loss
                                             </th>
-                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '100px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Status</th>
-                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '130px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Action</th>
+                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '100px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', background: '#f8fafc' }}>Status</th>
+                                            <th style={{ padding: '12px 16px', textAlign: 'center', width: '130px', fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', background: '#f8fafc' }}>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -2155,6 +2182,7 @@ const MRMAdminDashboard = () => {
                     </div>
                 );
             })()}
+            </div>
 
             {/* Executive Approve & Lock Confirmation Dialog */}
             <Dialog 

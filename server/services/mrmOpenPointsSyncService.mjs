@@ -16,13 +16,23 @@ export const getOrCreateMRMProject = async () => {
                           await UserModel.findOne({ role: { $in: ['Admin', 'admin'] } }) ||
                           await UserModel.findOne();
 
+        const activeUsers = await UserModel.find({ 
+            status: { $ne: 'Inactive' },
+            role: { $nin: ['driver'] }
+        }).select('_id');
+
+        const teamMembers = activeUsers.map(u => ({
+            user: u._id,
+            role: 'L2'
+        }));
+
         project = new OpenPointProject({
             name: 'MRM Action Points',
             initials: 'MRM',
             description: 'Automated action points originating from Monthly Review Meetings (MRM).',
             owner: ownerUser?._id,
             status: 'Active',
-            team_members: []
+            team_members: teamMembers
         });
         await project.save();
     }

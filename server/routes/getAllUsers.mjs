@@ -64,9 +64,9 @@ router.get("/api/get-all-users", async (req, res) => {
       .select(
         "username role _id first_name last_name isActive deactivatedAt modules department employee_code designation userAssets isAttendanceAllowedAdmin is_operator category company company_id"
       )
-      .populate("company_id", "company_name");
+      .lean();
 
-    res.send(users);
+    res.json(users);
   } catch (err) {
     console.error("Error in get-all-users:", err);
     res.status(500).json({ success: false, message: err.message });

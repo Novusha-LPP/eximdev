@@ -2,26 +2,17 @@ import React from "react";
 import axios from "axios";
 import {
   Box,
-  TextField,
   Typography,
-  MenuItem,
-  Divider,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  FormControlLabel,
-  Checkbox,
 } from "@mui/material";
 
 const confirmationOptions = ["WhatsApp", "Email", "Call"];
 
 function Stage5OrderDispatch({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => {
-    onChange({ [field]: typeof value === "string" ? value.toUpperCase() : value });
+    onChange({
+      ...data,
+      [field]: typeof value === "string" ? value.toUpperCase() : value,
+    });
   };
 
   // Get awarded suppliers from Stage 2
@@ -44,7 +35,6 @@ function Stage5OrderDispatch({ data, onChange, globalData, onGlobalChange }) {
     const updated = [...supplierDispatches];
     const val = typeof value === "string" ? value.toUpperCase() : value;
 
-    // Ensure array is populated up to index
     while (updated.length <= index) {
       const sup = awardedSuppliers[updated.length] || {};
       const sp = globalData?.stage4?.supplierPayments?.[updated.length] || {};
@@ -88,456 +78,387 @@ function Stage5OrderDispatch({ data, onChange, globalData, onGlobalChange }) {
   };
 
   const handleDispatchDoneToggle = async (checked) => {
-    updateField("dispatchDone", checked);
+    const updatedSuppliers = (data.supplierDispatches || []).map((sd) => ({
+      ...sd,
+      dispatchDone: checked,
+      isDispatchDone: checked,
+    }));
 
-    if (checked) {
-      if (onGlobalChange) onGlobalChange("status", "Order Placed");
+    onChange({
+      ...data,
+      dispatchDone: checked,
+      isDispatchDone: checked,
+      supplierDispatches: updatedSuppliers.length > 0 ? updatedSuppliers : data.supplierDispatches,
+    });
 
-      // Auto-generate GRN series number if not already present
-      if (!globalData?.stage6?.grnSeriesNo) {
-        try {
-          const today = new Date().toISOString().split("T")[0];
-          const res = await axios.get(`${process.env.REACT_APP_API_STRING}/tyre-procurement/next-grn-number?date=${today}`);
-          if (res.data?.success && res.data?.grnSeriesNo) {
-            const grnNo = res.data.grnSeriesNo;
-            if (onGlobalChange) {
-              onGlobalChange("stage6", {
-                ...(globalData?.stage6 || {}),
-                grnSeriesNo: grnNo,
-                dateOfReceipt: today,
-              });
-            }
+    if (onGlobalChange) {
+      onGlobalChange("status", checked ? "Order Placed" : "Payment Done");
+    }
+
+    if (checked && !globalData?.stage6?.grnSeriesNo) {
+      try {
+        const today = new Date().toISOString().split("T")[0];
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/tyre-procurement/next-grn-number?date=${today}`);
+        if (res.data?.success && res.data?.grnSeriesNo) {
+          const grnNo = res.data.grnSeriesNo;
+          if (onGlobalChange) {
+            onGlobalChange("stage6", {
+              ...(globalData?.stage6 || {}),
+              grnSeriesNo: grnNo,
+              dateOfReceipt: today,
+            });
           }
-        } catch (err) {
-          console.error("Error generating GRN Number on Dispatch Done:", err);
         }
+      } catch (err) {
+        console.error("Error generating GRN Number on Dispatch Done:", err);
       }
     }
   };
 
   return (
-    <Box>
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        A. Order & Dispatch Summary (Per Supplier)
-      </Typography>
+    <Box className="sop-container">
+      {/* ─── A. Order & Dispatch Summary (Per Supplier) ─── */}
+      <Box className="sop-card" sx={{ mb: 1.5 }}>
+        <Typography className="sop-card-title" sx={{ mb: 1 }}>
+          Order & Dispatch Details (Per Supplier)
+        </Typography>
 
-      <TableContainer component={Paper} sx={{ mb: 3 }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell sx={{ fontWeight: "bold", width: 220 }}>Field Name</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const supName = supObj.supplierName || `SUPPLIER ${idx + 1}`;
-                return (
-                  <TableCell key={idx} sx={{ fontWeight: "bold", color: "#1976d2", minWidth: 260 }}>
-                    {supName}
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {/* PR & PO Number Reference */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>PR & PO Reference</TableCell>
-              {awardedSuppliers.map((supObj, idx) => (
-                <TableCell key={idx} sx={{ fontWeight: 600, fontSize: "0.85rem" }}>
-                  PR: {globalData?.prNumber || "-"} | PO: {globalData?.poNumber || "-"}
-                </TableCell>
-              ))}
-            </TableRow>
+        <Box className="sop-table-container">
+          <table className="sop-table">
+            <thead>
+              <tr>
+                <th style={{ width: 200 }}>Parameter</th>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const supName = supObj.supplierName || `SUPPLIER ${idx + 1}`;
+                  return (
+                    <th key={idx} style={{ color: "#93c5fd" }}>
+                      {supName}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {/* PR & PO Number Reference */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>PR & PO Reference</td>
+                {awardedSuppliers.map((supObj, idx) => (
+                  <td key={idx} style={{ fontWeight: 600, color: "#1e3a8a" }}>
+                    PR: {globalData?.prNumber || "-"} | PO: {globalData?.poNumber || "-"}
+                  </td>
+                ))}
+              </tr>
 
-            {/* UTR Number */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>UTR Number (Payment Ref)</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const spStage4 = globalData?.stage4?.supplierPayments?.[idx] || {};
-                const utrVal = sdEntry.utrNumber ?? (spStage4.utrNumber || globalData?.stage4?.paymentDetails?.paymentReferenceUtr || data.utrNumber || "");
+              {/* UTR Number */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>UTR Number (Payment Ref)</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const sdEntry = supplierDispatches[idx] || {};
+                  const spStage4 = globalData?.stage4?.supplierPayments?.[idx] || {};
+                  const utrVal = sdEntry.utrNumber ?? (spStage4.utrNumber || globalData?.stage4?.paymentDetails?.paymentReferenceUtr || data.utrNumber || "");
 
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={utrVal}
-                      onChange={(e) => updateSupplierDispatch(idx, "utrNumber", e.target.value)}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="text"
+                        className="sop-input"
+                        value={utrVal}
+                        onChange={(e) => updateSupplierDispatch(idx, "utrNumber", e.target.value)}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
 
-            {/* Order Placed By */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Order Placed By</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const placedByVal = sdEntry.orderPlacedBy ?? (globalData?.stage2?.purchaseOfficerName || data.orderPlacedBy || "");
+              {/* Order Placed By */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Order Placed By</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const sdEntry = supplierDispatches[idx] || {};
+                  const placedByVal = sdEntry.orderPlacedBy ?? (globalData?.stage2?.purchaseOfficerName || data.orderPlacedBy || "");
 
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={placedByVal}
-                      onChange={(e) => updateSupplierDispatch(idx, "orderPlacedBy", e.target.value)}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="text"
+                        className="sop-input"
+                        value={placedByVal}
+                        onChange={(e) => updateSupplierDispatch(idx, "orderPlacedBy", e.target.value)}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
 
-            {/* Order Placed Date */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Order Placed Date</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const placedDateVal = sdEntry.orderPlacedDate ?? (data.orderPlacedDate || "");
+              {/* Order Placed Date */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Order Placed Date</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const sdEntry = supplierDispatches[idx] || {};
+                  const placedDateVal = sdEntry.orderPlacedDate ?? (data.orderPlacedDate || "");
 
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      type="date"
-                      InputLabelProps={{ shrink: true }}
-                      value={placedDateVal ? String(placedDateVal).split("T")[0] : ""}
-                      onChange={(e) => updateSupplierDispatch(idx, "orderPlacedDate", e.target.value)}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="date"
+                        className="sop-input"
+                        value={placedDateVal ? String(placedDateVal).split("T")[0] : ""}
+                        onChange={(e) => updateSupplierDispatch(idx, "orderPlacedDate", e.target.value)}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
 
-            {/* Order Confirmation Ref */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Order Confirmation Ref</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const confirmationVal = sdEntry.orderConfirmation ?? (data.orderConfirmation || "");
+              {/* Order Confirmation Ref */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Order Confirmation Ref</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const sdEntry = supplierDispatches[idx] || {};
+                  const confirmationVal = sdEntry.orderConfirmation ?? (data.orderConfirmation || "");
 
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={confirmationVal}
-                      onChange={(e) => updateSupplierDispatch(idx, "orderConfirmation", e.target.value)}
-                      placeholder="e.g. CONFIRMED ON EMAIL"
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="text"
+                        className="sop-input"
+                        placeholder="e.g. CONFIRMED ON EMAIL"
+                        value={confirmationVal}
+                        onChange={(e) => updateSupplierDispatch(idx, "orderConfirmation", e.target.value)}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
 
-            {/* Mode of Confirmation */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Mode of Confirmation</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const modeVal = sdEntry.modeOfConfirmation ?? (data.modeOfConfirmation || "WhatsApp");
+              {/* Mode of Confirmation */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Mode of Confirmation</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const sdEntry = supplierDispatches[idx] || {};
+                  const modeVal = sdEntry.modeOfConfirmation ?? (data.modeOfConfirmation || "WhatsApp");
 
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      select
-                      value={modeVal}
-                      onChange={(e) => updateSupplierDispatch(idx, "modeOfConfirmation", e.target.value)}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    >
-                      {confirmationOptions.map((o) => (
-                        <MenuItem key={o} value={o}>
-                          {o}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </TableCell>
-                );
-              })}
-            </TableRow>
+                  return (
+                    <td key={idx}>
+                      <select
+                        className="sop-select"
+                        value={modeVal}
+                        onChange={(e) => updateSupplierDispatch(idx, "modeOfConfirmation", e.target.value)}
+                      >
+                        {confirmationOptions.map((o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  );
+                })}
+              </tr>
 
-            {/* Dispatch Date */}
-            <TableRow sx={{ backgroundColor: "#f0f7ff" }}>
-              <TableCell sx={{ fontWeight: "bold", color: "#1565c0" }}>Dispatch Date</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
+              {/* Dispatch Date */}
+              <tr style={{ backgroundColor: "#f8fafc" }}>
+                <td style={{ fontWeight: 700, color: "#1d4ed8" }}>Dispatch Date</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const sdEntry = supplierDispatches[idx] || {};
+                  const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
 
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      type="date"
-                      InputLabelProps={{ shrink: true }}
-                      value={dispatchObj.dispatchDate ? String(dispatchObj.dispatchDate).split("T")[0] : ""}
-                      onChange={(e) => updateSupplierDispatch(idx, "dispatchDate", e.target.value, "dispatchDetails")}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="date"
+                        className="sop-input"
+                        value={dispatchObj.dispatchDate ? String(dispatchObj.dispatchDate).split("T")[0] : ""}
+                        onChange={(e) => updateSupplierDispatch(idx, "dispatchDate", e.target.value, "dispatchDetails")}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
 
-            {/* Vehicle Number */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Vehicle Number</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
+              {/* Vehicle Number */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Vehicle Number</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const sdEntry = supplierDispatches[idx] || {};
+                  const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
 
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={dispatchObj.vehicleNumber || ""}
-                      onChange={(e) => updateSupplierDispatch(idx, "vehicleNumber", e.target.value, "dispatchDetails")}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="text"
+                        className="sop-input"
+                        value={dispatchObj.vehicleNumber || ""}
+                        onChange={(e) => updateSupplierDispatch(idx, "vehicleNumber", e.target.value, "dispatchDetails")}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
 
-            {/* Transporter Name */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Transporter Name</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
+              {/* Transporter Name */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Transporter Name</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const sdEntry = supplierDispatches[idx] || {};
+                  const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
 
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={dispatchObj.transporterName || ""}
-                      onChange={(e) => updateSupplierDispatch(idx, "transporterName", e.target.value, "dispatchDetails")}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="text"
+                        className="sop-input"
+                        value={dispatchObj.transporterName || ""}
+                        onChange={(e) => updateSupplierDispatch(idx, "transporterName", e.target.value, "dispatchDetails")}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
 
-            {/* Driver Name */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Driver Name</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
+              {/* Driver Name & Contact */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Driver Name / Contact</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const sdEntry = supplierDispatches[idx] || {};
+                  const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
 
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={dispatchObj.driverName || ""}
-                      onChange={(e) => updateSupplierDispatch(idx, "driverName", e.target.value, "dispatchDetails")}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
+                  return (
+                    <td key={idx}>
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <input
+                          type="text"
+                          className="sop-input"
+                          placeholder="Driver Name"
+                          value={dispatchObj.driverName || ""}
+                          onChange={(e) => updateSupplierDispatch(idx, "driverName", e.target.value, "dispatchDetails")}
+                        />
+                        <input
+                          type="text"
+                          className="sop-input"
+                          placeholder="Contact No"
+                          value={dispatchObj.driverContactNo || ""}
+                          onChange={(e) => updateSupplierDispatch(idx, "driverContactNo", e.target.value, "dispatchDetails")}
+                        />
+                      </Box>
+                    </td>
+                  );
+                })}
+              </tr>
 
-            {/* Driver Contact Number */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Driver Contact Number</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
+              {/* DC Number & LR Number */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>DC Number / LR Number</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const sdEntry = supplierDispatches[idx] || {};
+                  const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
 
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={dispatchObj.driverContactNumber || ""}
-                      onChange={(e) => updateSupplierDispatch(idx, "driverContactNumber", e.target.value, "dispatchDetails")}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
+                  return (
+                    <td key={idx}>
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <input
+                          type="text"
+                          className="sop-input"
+                          placeholder="DC Number"
+                          value={dispatchObj.dcNumber || ""}
+                          onChange={(e) => updateSupplierDispatch(idx, "dcNumber", e.target.value, "dispatchDetails")}
+                        />
+                        <input
+                          type="text"
+                          className="sop-input"
+                          placeholder="LR Number"
+                          value={dispatchObj.lrNumber || ""}
+                          onChange={(e) => updateSupplierDispatch(idx, "lrNumber", e.target.value, "dispatchDetails")}
+                        />
+                      </Box>
+                    </td>
+                  );
+                })}
+              </tr>
 
-            {/* DC Number */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>DC Number (Delivery Challan)</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
+              {/* Invoice Number & Amount */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Invoice Number / Amount (₹)</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const sdEntry = supplierDispatches[idx] || {};
+                  const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
 
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={dispatchObj.dcNumber || ""}
-                      onChange={(e) => updateSupplierDispatch(idx, "dcNumber", e.target.value, "dispatchDetails")}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
+                  return (
+                    <td key={idx}>
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <input
+                          type="text"
+                          className="sop-input"
+                          placeholder="Invoice No"
+                          value={dispatchObj.invoiceNumber || ""}
+                          onChange={(e) => updateSupplierDispatch(idx, "invoiceNumber", e.target.value, "dispatchDetails")}
+                        />
+                        <input
+                          type="number"
+                          className="sop-input"
+                          placeholder="Amount"
+                          value={dispatchObj.invoiceAmount || 0}
+                          onChange={(e) => updateSupplierDispatch(idx, "invoiceAmount", e.target.value, "dispatchDetails")}
+                        />
+                      </Box>
+                    </td>
+                  );
+                })}
+              </tr>
 
-            {/* LR Number */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>LR Number (Lorry Receipt)</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
+              {/* Invoice Date */}
+              <tr style={{ backgroundColor: "#eff6ff" }}>
+                <td style={{ fontWeight: 700, color: "#1d4ed8" }}>Invoice Date (For Credit Terms)</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const sdEntry = supplierDispatches[idx] || {};
+                  const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
+                  const invDate = dispatchObj.invoiceDate || sdEntry.invoiceDate || "";
 
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={dispatchObj.lrNumber || ""}
-                      onChange={(e) => updateSupplierDispatch(idx, "lrNumber", e.target.value, "dispatchDetails")}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="date"
+                        className="sop-input"
+                        value={invDate ? String(invDate).split("T")[0] : ""}
+                        onChange={(e) => updateSupplierDispatch(idx, "invoiceDate", e.target.value, "dispatchDetails")}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+            </tbody>
+          </table>
+        </Box>
+      </Box>
 
-            {/* No. of Tyres Dispatched */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>No. of Tyres Dispatched</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
+      {/* ─── B. Remarks & Dispatch Done ─── */}
+      <Box className="sop-grid-2">
+        <Box className="sop-card">
+          <Typography className="sop-card-title" sx={{ mb: 0.8 }}>Remarks / Tracking Notes</Typography>
+          <textarea
+            className="sop-textarea"
+            rows={2}
+            value={data.remarks || ""}
+            onChange={(e) => updateField("remarks", e.target.value)}
+            placeholder="Enter tracking details, transporter contact, remarks..."
+          />
+        </Box>
 
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      type="number"
-                      value={dispatchObj.noOfTyresDispatched || 0}
-                      onChange={(e) => updateSupplierDispatch(idx, "noOfTyresDispatched", e.target.value, "dispatchDetails")}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-
-            {/* Invoice Number */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Invoice Number</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
-
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      value={dispatchObj.invoiceNumber || ""}
-                      onChange={(e) => updateSupplierDispatch(idx, "invoiceNumber", e.target.value, "dispatchDetails")}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-
-            {/* Invoice Amount */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Invoice Amount (₹)</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
-
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      type="number"
-                      value={dispatchObj.invoiceAmount || 0}
-                      onChange={(e) => updateSupplierDispatch(idx, "invoiceAmount", e.target.value, "dispatchDetails")}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-
-            {/* Invoice Date */}
-            <TableRow sx={{ backgroundColor: "#eef2ff" }}>
-              <TableCell sx={{ fontWeight: "bold", color: "#1d4ed8" }}>Invoice Date (Used for Credit Terms)</TableCell>
-              {awardedSuppliers.map((supObj, idx) => {
-                const sdEntry = supplierDispatches[idx] || {};
-                const dispatchObj = sdEntry.dispatchDetails || (idx === 0 ? data.dispatchDetails : {}) || {};
-                const invDate = dispatchObj.invoiceDate || sdEntry.invoiceDate || "";
-
-                return (
-                  <TableCell key={idx}>
-                    <TextField
-                      type="date"
-                      InputLabelProps={{ shrink: true }}
-                      value={invDate ? String(invDate).split("T")[0] : ""}
-                      onChange={(e) => updateSupplierDispatch(idx, "invoiceDate", e.target.value, "dispatchDetails")}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        B. Remarks / Tracking Notes
-      </Typography>
-      <TextField
-        value={data.remarks || ""}
-        onChange={(e) => updateField("remarks", e.target.value)}
-        fullWidth
-        multiline
-        rows={3}
-        size="small"
-        sx={{ mb: 2 }}
-      />
-
-      <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: "#f0f7ff", borderColor: "#bfdbfe" }}>
-        <FormControlLabel
-          control={
-            <Checkbox
+        <Box className="sop-card" style={{ display: "flex", flexDirection: "column", justifyContent: "center", backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontWeight: 700, color: "#166534", fontSize: "13px" }}>
+            <input
+              type="checkbox"
               checked={Boolean(data.dispatchDone)}
               onChange={(e) => handleDispatchDoneToggle(e.target.checked)}
-              color="primary"
+              style={{ width: 18, height: 18, accentColor: "#16a34a", cursor: "pointer" }}
             />
-          }
-          label={
-            <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1d4ed8" }}>
-              Dispatch Done (Check to generate GRN Number and proceed to Site GRN)
-            </Typography>
-          }
-        />
-      </Paper>
-
-      <Divider sx={{ my: 3 }} />
-      <Typography variant="caption" color="textSecondary" display="block">
-        * Once goods are received at the site, the concerned person will raise the GRN (Stage 6) to close this PR.
-      </Typography>
+            Dispatch Done (Auto-generates GRN Number & Forwards to Site GRN)
+          </label>
+          <Typography variant="caption" sx={{ color: "#15803d", mt: 0.5, fontSize: "11px", display: "block" }}>
+            * Check once materials have been confirmed dispatched by the supplier.
+          </Typography>
+        </Box>
+      </Box>
     </Box>
   );
 }

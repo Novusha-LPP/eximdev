@@ -1,25 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import {
-  Box,
-  Grid,
-  TextField,
-  Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  MenuItem,
-  Button,
-  IconButton,
-  Checkbox,
-  Chip,
-  Autocomplete,
-} from "@mui/material";
 import { Add, Delete } from "@mui/icons-material";
+import "../../../styles/enterprise-sop.scss";
 
 function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange }) {
   const [savedSuppliers, setSavedSuppliers] = useState([]);
@@ -45,7 +27,7 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
   const suppliers =
     data.suppliers && data.suppliers.length > 0
       ? data.suppliers
-      : [{ supplierName: "Supplier 1" }, { supplierName: "Supplier 2" }, { supplierName: "Supplier 3" }];
+      : [{ supplierName: "SUPPLIER 1" }, { supplierName: "SUPPLIER 2" }, { supplierName: "SUPPLIER 3" }];
 
   const routingChecklist = data.routingChecklist || [];
 
@@ -72,7 +54,7 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
     [suppliers, onChange]
   );
 
-  // Handle Autocomplete selection or typing for Supplier Name
+  // Handle selection or typing for Supplier Name
   const handleSupplierNameSelect = (index, selectedVal) => {
     const rawName = typeof selectedVal === "string" ? selectedVal : (selectedVal?.supplierName || "");
     const nameUpper = rawName.toUpperCase();
@@ -166,7 +148,9 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
     if (field === "selectedSupplier") {
       const selectedName = val;
       const foundIdx = suppliers.findIndex(
-        (s, i) => s.supplierName?.toUpperCase() === selectedName || `SUPPLIER ${i + 1}` === selectedName
+        (s, i) =>
+          (s.supplierName || `SUPPLIER ${i + 1}`).toUpperCase() === selectedName ||
+          `SUPPLIER ${i + 1}` === selectedName
       );
       if (foundIdx !== -1) {
         const s = suppliers[foundIdx];
@@ -234,310 +218,417 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
   };
 
   return (
-    <Box>
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        A. Reference Details
-      </Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="PR Number"
-            value={globalData?.prNumber || ""}
-            onChange={() => {}}
-            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="PO Number"
-            value={globalData?.poNumber || ""}
-            onChange={(e) => onGlobalChange("poNumber", e.target.value.toUpperCase())}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="Purchase Officer Name"
-            value={data.purchaseOfficerName || ""}
-            onChange={(e) => updateField("purchaseOfficerName", e.target.value.toUpperCase())}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="PO Date"
-            type="date"
-            InputLabelProps={{ shrink: true }}
-            value={data.poDate ? data.poDate.split("T")[0] : ""}
-            onChange={(e) => updateField("poDate", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-      </Grid>
+    <div className="sop-container">
+      {/* Section A: Reference Details */}
+      <div className="sop-card">
+        <div className="sop-card-title">A. Reference Details</div>
+        <div className="sop-grid-4">
+          <div className="sop-field-group">
+            <label className="sop-field-label">PR Number</label>
+            <input
+              className="sop-input"
+              value={globalData?.prNumber || ""}
+              readOnly
+            />
+          </div>
+          <div className="sop-field-group">
+            <label className="sop-field-label">PO Number</label>
+            <input
+              className="sop-input"
+              value={globalData?.poNumber || ""}
+              onChange={(e) => onGlobalChange("poNumber", e.target.value.toUpperCase())}
+            />
+          </div>
+          <div className="sop-field-group">
+            <label className="sop-field-label">Purchase Officer Name</label>
+            <input
+              className="sop-input"
+              value={data.purchaseOfficerName || ""}
+              onChange={(e) => updateField("purchaseOfficerName", e.target.value.toUpperCase())}
+            />
+          </div>
+          <div className="sop-field-group">
+            <label className="sop-field-label">PO Date</label>
+            <input
+              type="date"
+              className="sop-input"
+              value={data.poDate ? data.poDate.split("T")[0] : ""}
+              onChange={(e) => updateField("poDate", e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
 
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-          B. Supplier Details & Quotation
-        </Typography>
-        <Button variant="outlined" size="small" startIcon={<Add />} onClick={addSupplier}>
-          Add Supplier
-        </Button>
-      </Box>
-      <TableContainer component={Paper} sx={{ mb: 3 }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell sx={{ fontWeight: "bold", width: 220 }}>Field</TableCell>
-              {suppliers.map((sup, idx) => (
-                <TableCell key={idx} sx={{ fontWeight: "bold" }}>
-                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span>{sup.supplierName || `Supplier ${idx + 1}`}</span>
-                    {suppliers.length > 3 && (
-                      <IconButton size="small" color="error" onClick={() => removeSupplier(idx)}>
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    )}
-                  </Box>
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {/* Tyre Type Selection Row */}
-            <TableRow sx={{ backgroundColor: "#f0f7ff" }}>
-              <TableCell sx={{ fontWeight: "bold", color: "#1976d2" }}>Select Tyre Type</TableCell>
-              {suppliers.map((sup, idx) => (
-                <TableCell key={idx}>
-                  <TextField
-                    select
-                    value={sup?.selectedTyreType || ""}
-                    onChange={(e) => handleTyreTypeSelect(idx, e.target.value)}
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    SelectProps={{ displayEmpty: true }}
-                  >
-                    <MenuItem value="">
-                      <em>Select Tyre Type</em>
-                    </MenuItem>
-                    {availableTyreTypes.map((type) => (
-                      <MenuItem key={type} value={type}>
-                        {type}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </TableCell>
-              ))}
-            </TableRow>
-
-            {/* Supplier Name Autocomplete Row */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: "500" }}>Supplier Name</TableCell>
-              {suppliers.map((sup, idx) => (
-                <TableCell key={idx}>
-                  <Autocomplete
-                    freeSolo
-                    options={savedSuppliers}
-                    getOptionLabel={(option) => typeof option === "string" ? option : (option.supplierName || "")}
-                    value={sup.supplierName || ""}
-                    onInputChange={(e, newInputValue) => {
-                      if (e && e.type === "change") {
-                        handleSupplierNameSelect(idx, newInputValue);
-                      }
-                    }}
-                    onChange={(e, newValue) => {
-                      handleSupplierNameSelect(idx, newValue);
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        placeholder="Type or Search Supplier"
-                        size="small"
-                        variant="standard"
-                        fullWidth
-                      />
-                    )}
-                  />
-                </TableCell>
-              ))}
-            </TableRow>
-
-            {[
-              ["Contact Person", "contactPerson", "text"],
-              ["Phone Number", "phoneNumber", "text"],
-              ["Email / WhatsApp", "emailWhatsApp", "text"],
-              ["GST Number", "gstNumber", "text"],
-              ["Bank Account No", "bankAccountNo", "text"],
-              ["Bank Name", "bankName", "text"],
-              ["Bank IFSC Code", "bankIfscCode", "text"],
-              ["Bank Branch Code", "bankBranchCode", "text"],
-              ["Supplier Name in Bank", "supplierNameInBank", "text"],
-              ["Tyre Brand", "tyreBrand", "text"],
-              ["Size & Specification", "sizeSpecification", "text"],
-              ["Unit Price – New Tyre (₹)", "unitPriceNew", "number"],
-              ["Unit Price – Remould Tyre (₹)", "unitPriceRemould", "number"],
-              ["Qty Available", "qtyAvailable", "number"],
-              ["Freight Charges", "freightCharges", "number"],
-              ["Delivery Timeline", "deliveryTimeline", "text"],
-              ["Delivery Location", "deliveryLocation", "text"],
-              ["Warranty / Guarantee", "warrantyGuarantee", "text"],
-              ["Payment Terms : Adv / Days", "paymentTerms", "text"],
-              ["Discount Offered", "discountOffered", "number"],
-              ["Remarks", "remarks", "text"],
-            ].map(([label, field, type]) => (
-              <TableRow key={field}>
-                <TableCell sx={{ fontWeight: "500" }}>{label}</TableCell>
+      {/* Section B: Supplier Details & Quotation Comparative Table */}
+      <div className="sop-card">
+        <div className="sop-card-title">
+          <span>B. Supplier Details & Comparative Quotation</span>
+          <button type="button" className="sop-btn primary" onClick={addSupplier}>
+            <Add style={{ fontSize: "14px" }} /> Add Supplier
+          </button>
+        </div>
+        <div className="sop-table-container">
+          <table className="sop-table">
+            <thead>
+              <tr>
+                <th style={{ width: "200px" }}>Field</th>
                 {suppliers.map((sup, idx) => (
-                  <TableCell key={idx}>
-                    <TextField
-                      type={type}
-                      value={sup?.[field] ?? ""}
-                      onChange={(e) => updateSupplierField(idx, field, type === "text" ? e.target.value.toUpperCase() : e.target.value)}
-                      fullWidth
-                      size="small"
-                      variant="standard"
-                    />
-                  </TableCell>
+                  <th key={idx}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span>{(sup.supplierName || `SUPPLIER ${idx + 1}`).toUpperCase()}</span>
+                      {suppliers.length > 3 && (
+                        <button
+                          type="button"
+                          onClick={() => removeSupplier(idx)}
+                          style={{ background: "none", border: "none", color: "#fca5a5", cursor: "pointer" }}
+                        >
+                          <Delete style={{ fontSize: "14px" }} />
+                        </button>
+                      )}
+                    </div>
+                  </th>
                 ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Tyre Type Selection */}
+              <tr style={{ backgroundColor: "#f0f7ff" }}>
+                <td style={{ fontWeight: 700, color: "#1d4ed8" }}>Select Tyre Type</td>
+                {suppliers.map((sup, idx) => (
+                  <td key={idx}>
+                    <select
+                      className="sop-select"
+                      value={sup?.selectedTyreType || ""}
+                      onChange={(e) => handleTyreTypeSelect(idx, e.target.value)}
+                    >
+                      <option value="">Select Tyre Type</option>
+                      {availableTyreTypes.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </td>
+                ))}
+              </tr>
 
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-          C. Selected / Awarded Supplier(s) Selection (Lowest Qualified Bidder / Split Orders)
-        </Typography>
-        <Button variant="outlined" size="small" startIcon={<Add />} onClick={addSelectedSupplier}>
-          Add Selected Supplier
-        </Button>
-      </Box>
+              {/* Supplier Name */}
+              <datalist id="saved-tyre-suppliers-list">
+                {savedSuppliers.map((s, sIdx) => (
+                  <option key={sIdx} value={(s.supplierName || "").toUpperCase()} />
+                ))}
+              </datalist>
+              <tr>
+                <td style={{ fontWeight: 600 }}>Supplier Name</td>
+                {suppliers.map((sup, idx) => (
+                  <td key={idx}>
+                    <input
+                      className="sop-input"
+                      list="saved-tyre-suppliers-list"
+                      value={sup.supplierName || ""}
+                      onChange={(e) => handleSupplierNameSelect(idx, e.target.value)}
+                      placeholder="Type or select supplier"
+                    />
+                  </td>
+                ))}
+              </tr>
 
-      {selectedSuppliers.map((item, idx) => (
-        <Paper key={idx} variant="outlined" sx={{ p: 2, mb: 2, bgcolor: "#fafafa" }}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: "bold", color: "#1976d2" }}>
-              Selected Supplier #{idx + 1}
-            </Typography>
-            {selectedSuppliers.length > 1 && (
-              <IconButton size="small" color="error" onClick={() => removeSelectedSupplier(idx)}>
-                <Delete fontSize="small" />
-              </IconButton>
-            )}
-          </Box>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={3}>
-              <TextField
-                select
-                label="Selected Supplier"
-                value={item.selectedSupplier || ""}
-                onChange={(e) => updateSelectedSupplier(idx, "selectedSupplier", e.target.value)}
-                fullWidth
-                size="small"
-                SelectProps={{ displayEmpty: true }}
-              >
-                <MenuItem value="">
-                  <em>Select Supplier</em>
-                </MenuItem>
-                {suppliers.map((s, i) => {
-                  const sName = s.supplierName || `Supplier ${i + 1}`;
+              {/* Contact Person */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Contact Person</td>
+                {suppliers.map((sup, idx) => (
+                  <td key={idx}>
+                    <input
+                      className="sop-input"
+                      value={sup.contactPerson || ""}
+                      onChange={(e) => updateSupplierField(idx, "contactPerson", e.target.value)}
+                    />
+                  </td>
+                ))}
+              </tr>
+
+              {/* Phone / Mobile */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Phone / Mobile</td>
+                {suppliers.map((sup, idx) => (
+                  <td key={idx}>
+                    <input
+                      className="sop-input"
+                      value={sup.phoneNumber || ""}
+                      onChange={(e) => updateSupplierField(idx, "phoneNumber", e.target.value)}
+                    />
+                  </td>
+                ))}
+              </tr>
+
+              {/* Email / WhatsApp */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Email / WhatsApp</td>
+                {suppliers.map((sup, idx) => (
+                  <td key={idx}>
+                    <input
+                      className="sop-input"
+                      value={sup.emailWhatsApp || ""}
+                      onChange={(e) => updateSupplierField(idx, "emailWhatsApp", e.target.value)}
+                    />
+                  </td>
+                ))}
+              </tr>
+
+              {/* GST Number */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>GST Number</td>
+                {suppliers.map((sup, idx) => (
+                  <td key={idx}>
+                    <input
+                      className="sop-input"
+                      value={sup.gstNumber || ""}
+                      onChange={(e) => updateSupplierField(idx, "gstNumber", e.target.value)}
+                    />
+                  </td>
+                ))}
+              </tr>
+
+              {/* Bank Account No. */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Bank Account No.</td>
+                {suppliers.map((sup, idx) => (
+                  <td key={idx}>
+                    <input
+                      className="sop-input"
+                      value={sup.bankAccountNo || ""}
+                      onChange={(e) => updateSupplierField(idx, "bankAccountNo", e.target.value)}
+                    />
+                  </td>
+                ))}
+              </tr>
+
+              {/* Bank Name */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Bank Name</td>
+                {suppliers.map((sup, idx) => (
+                  <td key={idx}>
+                    <input
+                      className="sop-input"
+                      value={sup.bankName || ""}
+                      onChange={(e) => updateSupplierField(idx, "bankName", e.target.value)}
+                    />
+                  </td>
+                ))}
+              </tr>
+
+              {/* Bank IFSC Code */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Bank IFSC Code</td>
+                {suppliers.map((sup, idx) => (
+                  <td key={idx}>
+                    <input
+                      className="sop-input"
+                      value={sup.bankIfscCode || ""}
+                      onChange={(e) => updateSupplierField(idx, "bankIfscCode", e.target.value)}
+                    />
+                  </td>
+                ))}
+              </tr>
+
+              {/* Bank Branch Code */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Bank Branch Code</td>
+                {suppliers.map((sup, idx) => (
+                  <td key={idx}>
+                    <input
+                      className="sop-input"
+                      value={sup.bankBranchCode || ""}
+                      onChange={(e) => updateSupplierField(idx, "bankBranchCode", e.target.value)}
+                    />
+                  </td>
+                ))}
+              </tr>
+
+              {/* Supplier Name in Bank */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Supplier Name in Bank</td>
+                {suppliers.map((sup, idx) => (
+                  <td key={idx}>
+                    <input
+                      className="sop-input"
+                      value={sup.supplierNameInBank || ""}
+                      onChange={(e) => updateSupplierField(idx, "supplierNameInBank", e.target.value)}
+                    />
+                  </td>
+                ))}
+              </tr>
+
+              {/* Quote Parameters Rows */}
+              {[
+                ["Tyre Brand", "tyreBrand", "text"],
+                ["Size & Specification", "sizeSpecification", "text"],
+                ["Unit Price – New Tyre (₹)", "unitPriceNew", "number"],
+                ["Unit Price – Remould Tyre (₹)", "unitPriceRemould", "number"],
+                ["Qty Available", "qtyAvailable", "number"],
+                ["Freight Charges", "freightCharges", "number"],
+                ["Delivery Timeline", "deliveryTimeline", "text"],
+                ["Delivery Location", "deliveryLocation", "text"],
+                ["Warranty / Guarantee", "warrantyGuarantee", "text"],
+                ["Payment Terms : Adv / Days", "paymentTerms", "text"],
+                ["Discount Offered", "discountOffered", "number"],
+                ["Remarks", "remarks", "text"],
+              ].map(([label, field, type]) => (
+                <tr key={field}>
+                  <td style={{ fontWeight: 600 }}>{label}</td>
+                  {suppliers.map((sup, idx) => (
+                    <td key={idx}>
+                      <input
+                        type={type}
+                        className="sop-input"
+                        value={sup?.[field] ?? ""}
+                        onChange={(e) => updateSupplierField(idx, field, type === "text" ? e.target.value.toUpperCase() : e.target.value)}
+                        style={type === "number" ? { textAlign: "right" } : {}}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Section C: Selected / Awarded Supplier(s) Selection */}
+      <div className="sop-card">
+        <div className="sop-card-title">
+          <span>C. Selected / Awarded Supplier(s) Selection</span>
+          <button type="button" className="sop-btn primary" onClick={addSelectedSupplier}>
+            <Add style={{ fontSize: "14px" }} /> Add Awarded Supplier
+          </button>
+        </div>
+
+        {selectedSuppliers.map((item, idx) => (
+          <div key={idx} style={{ background: "#f8fafc", padding: "10px", borderRadius: "4px", border: "1px solid #e2e8f0", marginBottom: "8px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <span style={{ fontWeight: 700, fontSize: "12px", color: "#1d4ed8" }}>
+                Awarded Supplier #{idx + 1}
+              </span>
+              {selectedSuppliers.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeSelectedSupplier(idx)}
+                  style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer" }}
+                >
+                  <Delete style={{ fontSize: "14px" }} />
+                </button>
+              )}
+            </div>
+            <div className="sop-grid-4">
+              <div className="sop-field-group">
+                <label className="sop-field-label">Selected Supplier</label>
+                <select
+                  className="sop-select"
+                  value={(item.selectedSupplier || "").toUpperCase()}
+                  onChange={(e) => updateSelectedSupplier(idx, "selectedSupplier", e.target.value)}
+                >
+                  <option value="">Select Supplier</option>
+                  {suppliers.map((s, i) => {
+                    const rawName = s.supplierName || `SUPPLIER ${i + 1}`;
+                    const sName = rawName.toUpperCase();
+                    return (
+                      <option key={i} value={sName}>
+                        {sName}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div className="sop-field-group">
+                <label className="sop-field-label">Price Quoted (₹)</label>
+                <input
+                  type="number"
+                  className="sop-input"
+                  value={item.priceQuoted ?? 0}
+                  onChange={(e) => updateSelectedSupplier(idx, "priceQuoted", e.target.value)}
+                  style={{ textAlign: "right" }}
+                />
+              </div>
+              <div className="sop-field-group">
+                <label className="sop-field-label">Total Order Value (₹)</label>
+                <input
+                  type="number"
+                  className="sop-input"
+                  value={item.totalOrderValue ?? 0}
+                  onChange={(e) => updateSelectedSupplier(idx, "totalOrderValue", e.target.value)}
+                  style={{ textAlign: "right", fontWeight: 700 }}
+                />
+              </div>
+              <div className="sop-field-group">
+                <label className="sop-field-label">Reason for Selection</label>
+                <input
+                  className="sop-input"
+                  value={item.reasonForSelection || ""}
+                  onChange={(e) => updateSelectedSupplier(idx, "reasonForSelection", e.target.value.toUpperCase())}
+                  placeholder="e.g. LOWER PRICE"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Section D: Routing & Checklist */}
+      <div className="sop-card">
+        <div className="sop-card-title">D. Routing & Checklist</div>
+        <div className="sop-table-container">
+          <table className="sop-table">
+            <thead>
+              <tr>
+                <th style={{ width: "40px", textAlign: "center" }}>Check</th>
+                <th style={{ width: "65px" }}>Step</th>
+                <th>Action</th>
+                <th>Responsible</th>
+                <th style={{ width: "100px" }}>Date</th>
+                <th style={{ width: "65px" }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[{ step: "Step 1", action: "Sent to Finance Manager for approval", responsible: "Purchase Officer" }].map(
+                (step, idx) => {
+                  const item = routingChecklist[idx] || {};
+                  const isChecked = item.status === "Done";
+
                   return (
-                    <MenuItem key={i} value={sName}>
-                      {sName}
-                    </MenuItem>
+                    <tr key={idx}>
+                      <td style={{ textAlign: "center" }}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => handleChecklistToggle(idx, e.target.checked)}
+                          style={{ cursor: "pointer" }}
+                        />
+                      </td>
+                      <td style={{ fontWeight: 600 }}>{step.step}</td>
+                      <td>{step.action}</td>
+                      <td>{step.responsible}</td>
+                      <td>{item.date || "-"}</td>
+                      <td>
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            padding: "1px 6px",
+                            borderRadius: "8px",
+                            backgroundColor: isChecked ? "#dcfce7" : "#f1f5f9",
+                            color: isChecked ? "#15803d" : "#64748b",
+                          }}
+                        >
+                          {isChecked ? "Done" : "Pending"}
+                        </span>
+                      </td>
+                    </tr>
                   );
-                })}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Price Quoted (₹)"
-                type="number"
-                value={item.priceQuoted ?? 0}
-                onChange={(e) => updateSelectedSupplier(idx, "priceQuoted", e.target.value)}
-                fullWidth
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Total Order Value (₹)"
-                type="number"
-                value={item.totalOrderValue ?? 0}
-                onChange={(e) => updateSelectedSupplier(idx, "totalOrderValue", e.target.value)}
-                fullWidth
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Reason for Selection"
-                value={item.reasonForSelection || ""}
-                onChange={(e) => updateSelectedSupplier(idx, "reasonForSelection", e.target.value.toUpperCase())}
-                placeholder="e.g. LOWER PRICE"
-                fullWidth
-                size="small"
-              />
-            </Grid>
-          </Grid>
-        </Paper>
-      ))}
-
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        D. Routing & Checklist
-      </Typography>
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell sx={{ fontWeight: "bold", width: 80 }}>Check</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Step</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Action</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Responsible</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Date</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {[{ step: "Step 1", action: "Sent to Finance Manager for approval", responsible: "Purchase Officer" }].map(
-              (step, idx) => {
-                const item = routingChecklist[idx] || {};
-                const isChecked = item.status === "Done";
-
-                return (
-                  <TableRow key={idx}>
-                    <TableCell>
-                      <Checkbox
-                        checked={isChecked}
-                        onChange={(e) => handleChecklistToggle(idx, e.target.checked)}
-                        color="primary"
-                      />
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>{step.step}</TableCell>
-                    <TableCell>{step.action}</TableCell>
-                    <TableCell>{step.responsible}</TableCell>
-                    <TableCell>{item.date || "-"}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={isChecked ? "Done" : "Pending"}
-                        color={isChecked ? "success" : "default"}
-                        size="small"
-                      />
-                    </TableCell>
-                  </TableRow>
-                );
-              }
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Box>
+                }
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   );
 }
 

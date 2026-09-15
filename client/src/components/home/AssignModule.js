@@ -23,9 +23,6 @@ const allModules = [
   "Accounts",
   "Billing Reports",
   "Procurement & Insurance SOPs",
-  "RM Procurement SOP",
-  "Tyre Procurement SOP",
-  "Fleet Insurance SOP",
   "Employee Onboarding",
   "Employee KYC",
   "HR",
@@ -87,7 +84,14 @@ function AssignModule({ selectedUser, allowedModules, allowInactive = false }) {
           `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}${allowInactive ? "?includeInactive=true" : ""}`,
           { withCredentials: true }
         );
-        const userModules = res.data.modules || [];
+        let userModules = res.data.modules || [];
+        // Map legacy individual procurement sub-module entries to the unified module
+        const hasProcurement = userModules.some(m =>
+          ["Procurement & Insurance SOPs", "RM Procurement SOP", "Tyre Procurement SOP", "Fleet Insurance SOP"].includes(m)
+        );
+        if (hasProcurement && !userModules.includes("Procurement & Insurance SOPs")) {
+          userModules = [...userModules, "Procurement & Insurance SOPs"];
+        }
         // Filter out any modules that might be in DB but not in our static list effectively ensures valid keys
         setTargetKeys(userModules.filter(m => allModules.includes(m)));
       } catch (error) {
@@ -114,9 +118,13 @@ function AssignModule({ selectedUser, allowedModules, allowInactive = false }) {
         }, { withCredentials: true });
         message.success(`Assigned ${moveKeys.length} module(s)`);
       } else {
-        // Unassign modules
+        // Unassign modules - if removing Procurement, also clean up legacy sub-module keys
+        let keysToRemove = [...moveKeys];
+        if (moveKeys.includes("Procurement & Insurance SOPs")) {
+          keysToRemove.push("RM Procurement SOP", "Tyre Procurement SOP", "Fleet Insurance SOP");
+        }
         await axios.post(`${process.env.REACT_APP_API_STRING}/unassign-modules`, {
-          modules: moveKeys,
+          modules: keysToRemove,
           username: selectedUser,
         }, { withCredentials: true });
         message.success(`Removed ${moveKeys.length} module(s)`);

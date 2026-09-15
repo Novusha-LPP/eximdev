@@ -92,9 +92,9 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
     if (value === "0") return total;
     switch (value) {
       case "1":
-        return data.filter((d) => d.status === "PR Raised" || !d.status).length;
+        return data.filter((d) => d.status === "Draft" || !d.status).length;
       case "2":
-        return data.filter((d) => d.status === "HoD Validated" || d.status === "Preparing for Quotation").length;
+        return data.filter((d) => d.status === "PR Raised" || d.status === "Preparing for Quotation" || d.status === "HoD Validated").length;
       case "3":
         return data.filter((d) => d.status === "Quotation Received" || d.status === "Quotation Updated").length;
       case "4":
@@ -218,30 +218,28 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   return (
     <Box sx={{ width: "100%" }}>
       {/* Top Operational Metrics Header Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Paper
             elevation={0}
             sx={{
-              p: 2,
-              borderRadius: "12px",
-              border: "1px solid",
-              borderColor: "divider",
+              p: 1.8,
+              borderRadius: "8px",
+              border: "1px solid #e2e8f0",
               background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
               display: "flex",
               alignItems: "center",
               gap: 2,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
             }}
           >
-            <Avatar sx={{ bgcolor: "rgba(37, 99, 235, 0.1)", color: "#2563eb", width: 48, height: 48 }}>
-              <Assignment />
+            <Avatar sx={{ bgcolor: "rgba(37, 99, 235, 0.1)", color: "#2563eb", width: 44, height: 44 }}>
+              <Assignment sx={{ fontSize: 22 }} />
             </Avatar>
             <Box>
-              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Total PRs
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: "#0f172a" }}>
+              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
                 {totalCount}
               </Typography>
             </Box>
@@ -251,25 +249,23 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           <Paper
             elevation={0}
             sx={{
-              p: 2,
-              borderRadius: "12px",
-              border: "1px solid",
-              borderColor: "divider",
+              p: 1.8,
+              borderRadius: "8px",
+              border: "1px solid #e2e8f0",
               background: "linear-gradient(135deg, #ffffff 0%, #fffbe6 100%)",
               display: "flex",
               alignItems: "center",
               gap: 2,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
             }}
           >
-            <Avatar sx={{ bgcolor: "rgba(217, 119, 6, 0.1)", color: "#d97706", width: 48, height: 48 }}>
-              <MonetizationOn />
+            <Avatar sx={{ bgcolor: "rgba(217, 119, 6, 0.1)", color: "#d97706", width: 44, height: 44 }}>
+              <MonetizationOn sx={{ fontSize: 22 }} />
             </Avatar>
             <Box>
-              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 In Quotation / Review
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: "#0f172a" }}>
+              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
                 {pendingQuotationCount}
               </Typography>
             </Box>
@@ -279,25 +275,23 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           <Paper
             elevation={0}
             sx={{
-              p: 2,
-              borderRadius: "12px",
-              border: "1px solid",
-              borderColor: "divider",
+              p: 1.8,
+              borderRadius: "8px",
+              border: "1px solid #e2e8f0",
               background: "linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)",
               display: "flex",
               alignItems: "center",
               gap: 2,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
             }}
           >
-            <Avatar sx={{ bgcolor: "rgba(2, 132, 199, 0.1)", color: "#0284c7", width: 48, height: 48 }}>
-              <LocalShipping />
+            <Avatar sx={{ bgcolor: "rgba(2, 132, 199, 0.1)", color: "#0284c7", width: 44, height: 44 }}>
+              <LocalShipping sx={{ fontSize: 22 }} />
             </Avatar>
             <Box>
-              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Payment & Order Active
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: "#0f172a" }}>
+              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
                 {paymentDoneCount}
               </Typography>
             </Box>
@@ -307,25 +301,23 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           <Paper
             elevation={0}
             sx={{
-              p: 2,
-              borderRadius: "12px",
-              border: "1px solid",
-              borderColor: "divider",
+              p: 1.8,
+              borderRadius: "8px",
+              border: "1px solid #e2e8f0",
               background: "linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)",
               display: "flex",
               alignItems: "center",
               gap: 2,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
             }}
           >
-            <Avatar sx={{ bgcolor: "rgba(22, 163, 74, 0.1)", color: "#16a34a", width: 48, height: 48 }}>
-              <CheckCircle />
+            <Avatar sx={{ bgcolor: "rgba(22, 163, 74, 0.1)", color: "#16a34a", width: 44, height: 44 }}>
+              <CheckCircle sx={{ fontSize: 22 }} />
             </Avatar>
             <Box>
-              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 GRN Completed
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: "#0f172a" }}>
+              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
                 {grnCompletedCount}
               </Typography>
             </Box>
@@ -334,13 +326,13 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
       </Grid>
 
       {/* Main Surface Card */}
-      <Paper elevation={0} sx={{ p: 2.5, mb: 3, borderRadius: "12px", border: "1px solid", borderColor: "divider" }}>
-        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 2.5 }}>
+      <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 2 }}>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a", letterSpacing: "-0.3px" }}>
+            <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "17px", letterSpacing: "-0.2px" }}>
               Tyre Procurement SOP
             </Typography>
-            <Typography variant="body2" sx={{ color: "#64748b" }}>
+            <Typography sx={{ color: "#64748b", fontSize: "12.5px" }}>
               Manage purchase requests, supplier quotations, finance approvals, and GRNs
             </Typography>
           </Box>
@@ -348,12 +340,16 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           <Stack direction="row" spacing={1.5}>
             <Button
               variant="outlined"
-              startIcon={<FileDownload />}
+              size="medium"
+              startIcon={<FileDownload sx={{ fontSize: 18 }} />}
               onClick={handleDownloadTemplate}
               sx={{
-                borderRadius: "8px",
+                borderRadius: "6px",
                 textTransform: "none",
                 fontWeight: 600,
+                fontSize: "12.5px",
+                height: "36px",
+                px: 2,
                 borderColor: "#cbd5e1",
                 color: "#475569",
                 "&:hover": { borderColor: "#94a3b8", bgcolor: "#f8fafc" },
@@ -363,14 +359,17 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
             </Button>
             <Button
               variant="contained"
-              startIcon={<Add />}
+              size="medium"
+              startIcon={<Add sx={{ fontSize: 18 }} />}
               onClick={onCreate}
               sx={{
-                borderRadius: "8px",
+                borderRadius: "6px",
                 textTransform: "none",
                 fontWeight: 600,
+                fontSize: "12.5px",
+                height: "36px",
+                px: 2.2,
                 background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
                 "&:hover": {
                   background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
                 },
@@ -382,7 +381,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
         </Stack>
 
         {/* Stage Filter Tabs */}
-        <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2.5 }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 1.8 }}>
           <Tabs
             value={stageTab}
             onChange={(e, val) => {
@@ -396,7 +395,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
               "& .MuiTabs-indicator": {
                 backgroundColor: "#2563eb",
                 height: 2.5,
-                borderRadius: 2,
+                borderRadius: 1,
               },
             }}
           >
@@ -405,42 +404,43 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
               return (
                 <Tab
                   key={tab.value}
-                label={
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <span>{tab.label}</span>
-                    <Box
-                      component="span"
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        px: 0.8,
-                        py: 0.2,
-                        borderRadius: "10px",
-                        backgroundColor: stageTab === tab.value ? "#eff6ff" : "#f1f5f9",
-                        color: stageTab === tab.value ? "#1d4ed8" : "#64748b",
-                      }}
-                    >
-                      {getTabCount(tab.value)}
+                  label={
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <span>{tab.label}</span>
+                      <Box
+                        component="span"
+                        sx={{
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          px: 0.8,
+                          py: 0.2,
+                          borderRadius: "10px",
+                          backgroundColor: stageTab === tab.value ? "#eff6ff" : "#f1f5f9",
+                          color: stageTab === tab.value ? "#1d4ed8" : "#64748b",
+                        }}
+                      >
+                        {getTabCount(tab.value)}
+                      </Box>
                     </Box>
-                  </Box>
-                }
-                value={tab.value}
-                sx={{
-                  fontWeight: 600,
-                  fontSize: "0.875rem",
-                  textTransform: "none",
-                  color: "#64748b",
-                  minHeight: 40,
-                  px: 2,
-                  "&.Mui-selected": {
-                    color: "#2563eb",
-                    fontWeight: 700,
-                  },
-                }}
-              />
-            );
-          })}
-        </Tabs>
+                  }
+                  value={tab.value}
+                  sx={{
+                    fontWeight: 600,
+                    fontSize: "13px",
+                    textTransform: "none",
+                    color: "#64748b",
+                    minHeight: 40,
+                    py: 1,
+                    px: 2,
+                    "&.Mui-selected": {
+                      color: "#2563eb",
+                      fontWeight: 700,
+                    },
+                  }}
+                />
+              );
+            })}
+          </Tabs>
         </Box>
 
         {/* Search Bar */}
@@ -449,60 +449,70 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           fullWidth
-          size="small"
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <Search sx={{ color: "#94a3b8" }} />
+                <Search sx={{ color: "#94a3b8", fontSize: 20 }} />
               </InputAdornment>
             ),
             endAdornment: search ? (
               <InputAdornment position="end">
                 <IconButton size="small" onClick={() => setSearch("")}>
-                  <Clear fontSize="small" sx={{ color: "#94a3b8" }} />
+                  <Clear sx={{ color: "#94a3b8", fontSize: 18 }} />
                 </IconButton>
               </InputAdornment>
             ) : null,
           }}
           sx={{
             "& .MuiOutlinedInput-root": {
-              borderRadius: "8px",
-              bgcolor: "#f8fafc",
-              "&:hover": { bgcolor: "#ffffff" },
-              "&.Mui-focused": { bgcolor: "#ffffff" },
+              borderRadius: "6px",
+              bgcolor: "#fafaff",
+              height: 38,
+              fontSize: "13px",
+              "& fieldset": { borderColor: "#cbd5e1" },
             },
           }}
         />
       </Paper>
 
       {/* Table Container */}
-      <Paper elevation={0} sx={{ borderRadius: "12px", border: "1px solid", borderColor: "divider", overflow: "hidden" }}>
+      <Paper elevation={0} sx={{ borderRadius: "8px", border: "1px solid #e2e8f0", overflow: "hidden" }}>
         {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", p: 5 }}>
+          <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
             <CircularProgress size={32} sx={{ color: "#2563eb" }} />
           </Box>
         ) : (
           <TableContainer>
-            <Table size="medium">
-              <TableHead>
-                <TableRow sx={{ bgcolor: "#0f172a" }}>
-                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>PR Number</TableCell>
-                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>PO Number</TableCell>
-                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Prepared By</TableCell>
-                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>L1 Supplier</TableCell>
-                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Total Value (₹)</TableCell>
-                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Status</TableCell>
-                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Created At</TableCell>
-                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }} align="center">
-                    Actions
-                  </TableCell>
+            <Table>
+              <TableHead
+                sx={{
+                  "& .MuiTableCell-head": {
+                    bgcolor: "#0f172a !important",
+                    color: "#ffffff !important",
+                    fontWeight: "700 !important",
+                    fontSize: "12.5px !important",
+                    py: "10px !important",
+                    px: "14px !important",
+                    borderBottom: "none",
+                  },
+                }}
+              >
+                <TableRow>
+                  <TableCell>PR Number</TableCell>
+                  <TableCell>PO Number</TableCell>
+                  <TableCell>Prepared By</TableCell>
+                  <TableCell>L1 Supplier</TableCell>
+                  <TableCell>Total Value (₹)</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Created At</TableCell>
+                  <TableCell align="center">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {data.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 6, color: "#64748b" }}>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4, color: "#64748b" }}>
+                      <Typography sx={{ fontWeight: 500, fontSize: "13px" }}>
                         No procurement records found for this view.
                       </Typography>
                     </TableCell>
@@ -519,7 +529,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                           "&:hover": { bgcolor: "#f8fafc" },
                         }}
                       >
-                        <TableCell sx={{ fontWeight: 700, fontSize: "0.875rem" }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: "13px", py: 1, px: 1.5 }}>
                           <Box
                             component="span"
                             onClick={() => onEdit(row)}
@@ -532,15 +542,15 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                             {row.prNumber}
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ color: "#334155", fontWeight: 500 }}>{row.poNumber || "-"}</TableCell>
-                        <TableCell sx={{ color: "#334155" }}>{row.stage1?.preparedBy || "-"}</TableCell>
-                        <TableCell sx={{ color: "#334155", fontWeight: 500 }}>{row.stage2?.selectedSupplierL1 || "-"}</TableCell>
-                        <TableCell sx={{ color: "#0f172a", fontWeight: 600 }}>
+                        <TableCell sx={{ color: "#334155", fontWeight: 500, fontSize: "12.5px", py: 1, px: 1.5 }}>{row.poNumber || "-"}</TableCell>
+                        <TableCell sx={{ color: "#334155", fontSize: "12.5px", py: 1, px: 1.5 }}>{row.stage1?.preparedBy || "-"}</TableCell>
+                        <TableCell sx={{ color: "#334155", fontWeight: 500, fontSize: "12.5px", py: 1, px: 1.5 }}>{row.stage2?.selectedSupplierL1 || "-"}</TableCell>
+                        <TableCell sx={{ color: "#0f172a", fontWeight: 700, fontSize: "13px", py: 1, px: 1.5 }}>
                           {row.stage2?.totalOrderValue
                             ? Number(row.stage2.totalOrderValue).toLocaleString("en-IN", { style: "currency", currency: "INR" })
                             : "-"}
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ py: 1, px: 1.5 }}>
                           <Chip
                             label={chipStyle.label}
                             size="small"
@@ -548,35 +558,67 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                               bgcolor: chipStyle.bg,
                               color: chipStyle.color,
                               fontWeight: 700,
-                              fontSize: "0.75rem",
+                              fontSize: "11.5px",
+                              height: 24,
                               borderRadius: "6px",
-                              px: 0.5,
                             }}
                           />
                         </TableCell>
-                        <TableCell sx={{ color: "#64748b", fontSize: "0.85rem" }}>
-                          {new Date(row.createdAt).toLocaleDateString("en-GB")}
+                        <TableCell sx={{ color: "#64748b", fontSize: "12.5px", py: 1, px: 1.5 }}>
+                          {row.createdAt ? new Date(row.createdAt).toLocaleDateString("en-GB") : "-"}
                         </TableCell>
-                        <TableCell align="center">
-                          <Stack direction="row" spacing={0.5} justifyContent="center">
-                            <Tooltip title="View Details">
-                              <IconButton size="small" onClick={() => onView(row)} sx={{ color: "#0284c7", "&:hover": { bgcolor: "#e0f2fe" } }}>
-                                <Visibility fontSize="small" />
+                        <TableCell align="center" sx={{ py: 1, px: 1.5 }}>
+                          <Stack direction="row" spacing={0.8} justifyContent="center">
+                            <Tooltip title="View PR">
+                              <IconButton
+                                size="small"
+                                onClick={() => onView(row)}
+                                sx={{
+                                  color: "#0284c7",
+                                  bgcolor: "#e0f2fe",
+                                  "&:hover": { bgcolor: "#bae6fd" },
+                                }}
+                              >
+                                <Visibility sx={{ fontSize: 16 }} />
                               </IconButton>
                             </Tooltip>
                             <Tooltip title="Edit PR">
-                              <IconButton size="small" onClick={() => onEdit(row)} sx={{ color: "#2563eb", "&:hover": { bgcolor: "#eff6ff" } }}>
-                                <Edit fontSize="small" />
+                              <IconButton
+                                size="small"
+                                onClick={() => onEdit(row)}
+                                sx={{
+                                  color: "#2563eb",
+                                  bgcolor: "#eff6ff",
+                                  "&:hover": { bgcolor: "#dbeafe" },
+                                }}
+                              >
+                                <Edit sx={{ fontSize: 16 }} />
                               </IconButton>
                             </Tooltip>
                             <Tooltip title="Download Excel">
-                              <IconButton size="small" onClick={() => handleExport(row._id, row.prNumber)} sx={{ color: "#16a34a", "&:hover": { bgcolor: "#f0fdf4" } }}>
-                                <GetApp fontSize="small" />
+                              <IconButton
+                                size="small"
+                                onClick={() => handleExport(row._id, row.prNumber)}
+                                sx={{
+                                  color: "#16a34a",
+                                  bgcolor: "#f0fdf4",
+                                  "&:hover": { bgcolor: "#dcfce7" },
+                                }}
+                              >
+                                <GetApp sx={{ fontSize: 16 }} />
                               </IconButton>
                             </Tooltip>
                             <Tooltip title="Delete PR">
-                              <IconButton size="small" onClick={() => handleDelete(row._id)} sx={{ color: "#dc2626", "&:hover": { bgcolor: "#fef2f2" } }}>
-                                <Delete fontSize="small" />
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDelete(row._id)}
+                                sx={{
+                                  color: "#ef4444",
+                                  bgcolor: "#fef2f2",
+                                  "&:hover": { bgcolor: "#fee2e2" },
+                                }}
+                              >
+                                <Delete sx={{ fontSize: 16 }} />
                               </IconButton>
                             </Tooltip>
                           </Stack>

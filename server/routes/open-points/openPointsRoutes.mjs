@@ -52,25 +52,24 @@ const verifyProjectAccess = async (req, res, next) => {
         const { projectId } = req.params;
         const userId = req.user._id;
 
-
-
         if (!userId) {
-            // console.log("Debug Auth: Missing User ID");
             return res.status(401).json({ error: "Unauthorized" });
         }
 
         const project = await OpenPointProject.findById(projectId);
         if (!project) return res.status(404).json({ error: "Project not found" });
 
-        const isOwner = project.owner.toString() === userId;
-        const isMember = project.team_members.some(m => m.user.toString() === userId);
+        const isOwner = project.owner && project.owner.toString() === userId.toString();
+        const isMember = project.team_members && project.team_members.some(m => m.user && m.user.toString() === userId.toString());
+        const isAdmin = ['Admin', 'admin'].includes(req.user.role);
+        const isSystemMRM = (project.initials === 'MRM' || project.name === 'MRM Action Points');
 
-        if (!isOwner && !isMember) {
+        if (!isOwner && !isMember && !isAdmin && !isSystemMRM) {
             return res.status(403).json({ error: "Access Denied: You are not part of this project" });
         }
 
         req.project = project;
-        req.userRole = isOwner ? 'L4' : project.team_members.find(m => m.user.toString() === userId)?.role;
+        req.userRole = (isOwner || isAdmin) ? 'L4' : (project.team_members?.find(m => m.user && m.user.toString() === userId.toString())?.role || 'L2');
         next();
     } catch (error) {
         console.error("Access Verify Error", error);
@@ -262,12 +261,18 @@ router.get("/api/open-points/my-projects", authMiddleware, async (req, res) => {
             return res.status(404).json({ error: "User not found" });
         }
 
-        const projects = await OpenPointProject.find({
+        const projectQuery = {
             $or: [
                 { owner: user._id },
-                { "team_members.user": user._id }
+                { "team_members.user": user._id },
+                { initials: 'MRM' },
+                { name: 'MRM Action Points' }
             ]
-        }).populate('owner', 'username').populate('team_members.user', 'username employee_photo first_name last_name');
+        };
+
+        const projects = await OpenPointProject.find(projectQuery)
+            .populate('owner', 'username')
+            .populate('team_members.user', 'username employee_photo first_name last_name');
 
 
         // Calculate health stats for each project

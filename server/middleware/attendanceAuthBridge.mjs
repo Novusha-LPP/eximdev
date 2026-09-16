@@ -86,11 +86,30 @@ const attendanceAuthBridge = async (req, res, next) => {
     // fields (company_id, shift_id, department_id) are current.
     // This prevents stale JWT payloads from causing "Company not found" errors.
     const freshUser = await UserModel.findById(verified._id)
-      .select('_id username first_name last_name role company company_id department_id shift_id shift_ids weekoff_policy_id holiday_policy_id attendance_settings current_status last_punch_date last_punch_type employment_type gender leave_settings isAttendanceAllowedAdmin is_operator category work_pattern_override')
+      .select('_id username first_name last_name role company company_id department_id shift_id shift_ids weekoff_policy_id holiday_policy_id attendance_settings current_status last_punch_date last_punch_type employment_type gender leave_settings isAttendanceAllowedAdmin is_operator category work_pattern_override tokenVersion')
       .lean();
 
+    const cookieClearOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
+    };
+
     if (!freshUser) {
+      res.clearCookie("token", cookieClearOptions);
       return res.status(401).json({ message: "Access Denied: User account not found. Please log in again." });
+    }
+
+    // Validate tokenVersion to support universal multi-device logout
+    const userTokenVersion = freshUser.tokenVersion || 0;
+    const tokenVersion = verified.tokenVersion || 0;
+    if (tokenVersion !== userTokenVersion) {
+      res.clearCookie("token", cookieClearOptions);
+      return res.status(401).json({
+        success: false,
+        message: "Session expired or logged out from another device. Please log in again.",
+      });
     }
 
     const resolvedCompanyId = await resolveLegacyCompany(freshUser);

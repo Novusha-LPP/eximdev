@@ -69,6 +69,29 @@ const verifyToken = async (req, res, next) => {
         const { calculateProfileCompletion } = await import("../utils/profileCompletion.mjs");
         
         const fullUser = await UserModel.findById(verified._id).lean();
+        const cookieClearOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            path: "/",
+        };
+
+        if (!fullUser) {
+            res.clearCookie("token", cookieClearOptions);
+            return res.status(401).json({ success: false, message: "User account not found or deactivated. Please log in again." });
+        }
+
+        // Validate tokenVersion to support universal multi-device logout
+        const userTokenVersion = fullUser.tokenVersion || 0;
+        const tokenVersion = verified.tokenVersion || 0;
+        if (tokenVersion !== userTokenVersion) {
+            res.clearCookie("token", cookieClearOptions);
+            return res.status(401).json({
+                success: false,
+                message: "Session expired or logged out from another device. Please log in again."
+            });
+        }
+
         if (fullUser) {
             const completion = calculateProfileCompletion(fullUser);
             req.user.profileCompletion = completion;

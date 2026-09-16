@@ -52,6 +52,55 @@ axios.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+let isRedirectingToLogin = false;
+
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      const requestUrl = error.config?.url || "";
+      // Exclude login endpoints so invalid password/credential errors are handled by LoginForm
+      const isAuthEndpoint =
+        requestUrl.includes("/login") || requestUrl.includes("/auth/login");
+
+      // Only perform session-expiration cleanup if user was authenticated
+      const hasAuthData =
+        Boolean(localStorage.getItem("token")) ||
+        Boolean(localStorage.getItem("exim_user"));
+
+      if (!isAuthEndpoint && hasAuthData) {
+        if (!isRedirectingToLogin) {
+          isRedirectingToLogin = true;
+
+          const authMsg =
+            error.response.data?.message ||
+            error.response.data?.error ||
+            "Your session has expired. Please log in again.";
+
+          sessionStorage.setItem("auth_error_message", authMsg);
+
+          // Clear client authentication storage
+          localStorage.removeItem("token");
+          localStorage.removeItem("exim_user");
+
+          // Do not redirect if user is on a public page
+          const isPublicPage = window.location.pathname.startsWith("/amc-entry");
+          if (!isPublicPage) {
+            if (window.location.pathname !== "/") {
+              window.location.href = "/";
+            } else {
+              window.location.reload();
+            }
+          } else {
+            isRedirectingToLogin = false;
+          }
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Prevent mouse wheel scrolling from changing number input values globally
 if (typeof window !== "undefined") {
   window.addEventListener(

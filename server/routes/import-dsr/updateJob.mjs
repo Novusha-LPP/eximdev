@@ -7,6 +7,8 @@ import { sanitizeJobPayload } from "../../utils/modeLogic.mjs";
 import { recalculateLicenseUtilizationForJob, validateLicenseUtilization, getUsdImportRate } from "../../services/licenseUtilizationService.mjs";
 import { validateRodtepUtilization } from "../../services/rodtepService.mjs";
 import { calculateDetentionFrom, subtractOneDay } from "../../utils/detentionHelper.mjs";
+import { invalidateJobCache } from "./getJobList.mjs";
+import { invalidateJobTabCountsCache } from "./getJobTabCounts.mjs";
 
 const getUnitForCurrency = (currencyCode) => {
   if (!currencyCode) return 1;
@@ -386,6 +388,13 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
 
         return matchingJob;
       });
+
+      if (updatedJob?.year) {
+        invalidateJobCache(updatedJob.year);
+      } else {
+        invalidateJobCache();
+      }
+      invalidateJobTabCountsCache();
 
       res.status(200).json(updatedJob);
       } catch (error) {

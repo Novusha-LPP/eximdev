@@ -1021,7 +1021,8 @@ router.get("/api/scmCube/get-imexcube-job-details", async (req, res) => {
         details: "This job has likely not been uploaded to IMEXCUBE (TEST) yet. Please upload the job first by clicking the 'Upload to IMEXCUBE (TEST)' button."
       });
     }
-    return res.status(error?.response?.status || 500).json({
+    const statusCode = error?.response?.status === 401 ? 502 : (error?.response?.status || 500);
+    return res.status(statusCode).json({
       error: "Failed to fetch job details from IMEXCUBE",
       details: error?.response?.data || error.message
     });
@@ -1685,7 +1686,8 @@ router.post("/api/scmCube/sync-imexcube-job", authMiddleware, auditMiddleware('J
 
   } catch (error) {
     console.error("[IMEXCUBE Sync Error]:", error?.response?.data || error.message);
-    return res.status(error?.response?.status || 500).json({
+    const statusCode = error?.response?.status === 401 ? 502 : (error?.response?.status || 500);
+    return res.status(statusCode).json({
       error: "Failed to synchronize job details from IMEXCUBE",
       details: error?.response?.data || error.message
     });

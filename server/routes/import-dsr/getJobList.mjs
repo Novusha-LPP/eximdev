@@ -13,6 +13,7 @@ import { validateRodtepUtilization } from "../../services/rodtepService.mjs";
 import ClientQuery from "../../model/clientQueryModel.mjs";
 import { invalidateJobTabCountsCache } from "./getJobTabCounts.mjs";
 import { recalculateContainersDetention } from "../../utils/detentionHelper.mjs";
+import { reconcileJobStatuses } from "../../services/jobStatusReconciliationService.mjs";
 
 const router = express.Router();
 
@@ -766,6 +767,33 @@ router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
   } catch (error) {
     console.error("Error fetching job for delivery note:", error);
     res.status(500).json({ message: "Server Error" });
+  }
+});
+
+// ---------------- RECONCILE / SYNC STATUSES ----------------
+
+router.post("/api/jobs/sync-detailed-status", authMiddleware, async (req, res) => {
+  try {
+    const { year, job_no, job_number } = req.body || {};
+    const filter = {};
+    if (year) filter.year = year;
+    if (job_number) {
+      filter.job_number = job_number;
+    } else if (job_no) {
+      filter.$or = [{ job_no }, { job_number: job_no }];
+    }
+
+    const queryFilter = Object.keys(filter).length > 0 ? filter : null;
+    const result = await reconcileJobStatuses(queryFilter, { invalidateCache: true });
+
+    res.json({
+      success: true,
+      message: `Reconciled ${result.updated} of ${result.scanned} jobs.`,
+      result,
+    });
+  } catch (error) {
+    console.error("Error in sync-detailed-status endpoint:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

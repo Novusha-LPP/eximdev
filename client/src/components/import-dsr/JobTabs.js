@@ -305,6 +305,15 @@ function JobTabs() {
           data: data,
           url: url,
         });
+
+        // Trigger backend reconciliation to recompute statuses and flush cache
+        try {
+          await axios.post(`${process.env.REACT_APP_API_STRING}/jobs/sync-detailed-status`, {
+            job_no: apiFilters.job_no || undefined,
+          });
+        } catch (syncErr) {
+          console.error("Post-bot status sync warning:", syncErr);
+        }
       }
     } catch (error) {
       setApiResponse({

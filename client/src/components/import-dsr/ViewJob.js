@@ -985,7 +985,7 @@ function JobDetails() {
         formik.setFieldValue("detailed_status", "Billing Pending");
         return;
       }
-      if (validDoCompleted && !isDeliveryCompleted) {
+      if (validDoCompleted && validOOC && !isDeliveryCompleted) {
         formik.setFieldValue("detailed_status", "Do completed and Delivery pending");
         return;
       }
@@ -1017,12 +1017,13 @@ function JobDetails() {
       }
     } else {
       // Standard Logic (Home Consumption, etc.)
+      // If type_of_Do is 'icd', we treat it like LCL (wait for delivery date)
       billingComplete = (isLCL || isTypeDoIcd) ? isDeliveryCompleted : allEmptyOffloaded;
     }
 
     if (be_no && anyArrival && validOOC && billingComplete) {
       formik.setFieldValue("detailed_status", "Billing Pending");
-    } else if (validDoCompleted && !isDeliveryCompleted) {
+    } else if (validDoCompleted && validOOC && !isDeliveryCompleted) {
       formik.setFieldValue("detailed_status", "Do completed and Delivery pending");
     } else if (be_no && anyArrival && validOOC) {
       formik.setFieldValue("detailed_status", "Custom Clearance Completed");

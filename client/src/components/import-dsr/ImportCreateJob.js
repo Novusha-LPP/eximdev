@@ -60,6 +60,8 @@ import InventoryIcon from "@mui/icons-material/Inventory";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import toast from "react-hot-toast";
 import useImportJobForm from "../../customHooks/useImportJobForm.js";
 import axios from "axios";
 import {
@@ -3704,104 +3706,170 @@ const ImportCreateJob = () => {
       </Dialog>
 
       {/* JOB REVIEW DIALOG */}
-      <Dialog
-        open={reviewDialogOpen}
-        onClose={() => setReviewDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: { borderRadius: '16px', p: 1 }
-        }}
-        BackdropProps={{
-          sx: {
-            backdropFilter: 'none !important',
-            WebkitBackdropFilter: 'none !important',
-          }
-        }}
-        slotProps={{
-          backdrop: {
-            sx: {
-              backdropFilter: 'none !important',
-              WebkitBackdropFilter: 'none !important',
+      {(() => {
+        const handleCopyFormattedJobDetails = () => {
+          const jobNoVal = nextJobNumber || formik.values.job_no || formik.values.job_number || "";
+          const importerVal = (importer || formik.values.importer || "").trim();
+          const blVal = (awb_bl_no || formik.values.awb_bl_no || "").trim();
+          const rawEta = vessel_berthing || formik.values.vessel_berthing || "";
+
+          let etaFormatted = "N/A";
+          if (rawEta && rawEta !== "N/A") {
+            const cleanEta = String(rawEta).trim();
+            const ymd = cleanEta.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+            if (ymd) {
+              const [, y, m, d] = ymd;
+              etaFormatted = `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${y}`;
+            } else {
+              const dmy = cleanEta.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+              if (dmy) {
+                const [, d, m, y] = dmy;
+                etaFormatted = `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${y}`;
+              } else {
+                etaFormatted = cleanEta;
+              }
             }
           }
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 800, color: 'primary.main', borderBottom: '1px solid #eee', mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Confirm Job Details
-          <Typography variant="h6" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-            Job No: {nextJobNumber}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={3}>
-            {/* Row 1: General Info */}
-            <Grid item xs={12} md={4}>
-              <Typography variant="overline" color="text.secondary" fontWeight={700}>Branch & Mode</Typography>
-              <Typography variant="body2"><b>Branch:</b> {branches.find(b => b._id === branch_id)?.branch_name || 'N/A'}</Typography>
-              <Typography variant="body2"><b>Mode:</b> {mode}</Typography>
-              <Typography variant="body2"><b>Trade Type:</b> {trade_type}</Typography>
-              <Typography variant="body2"><b>Year:</b> {selectedYear}</Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Typography variant="overline" color="text.secondary" fontWeight={700}>Parties</Typography>
-              <Typography variant="body2"><b>Importer:</b> {importer}</Typography>
-              <Typography variant="body2"><b>Importer Type:</b> {importerTypeOptions.find(opt => opt.value === importer_type)?.label || 'N/A'}</Typography>
-              <Typography variant="body2"><b>Commercial Tax Type:</b> {commercialTaxTypeOptions.find(opt => opt.value === commercial_tax_type)?.label || 'N/A'}</Typography>
-              <Typography variant="body2"><b>Supplier:</b> {supplier_exporter}</Typography>
-              <Typography variant="body2"><b>Custom House:</b> {custom_house}</Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Typography variant="overline" color="text.secondary" fontWeight={700}>Shipping</Typography>
-              <Typography variant="body2"><b>B/L No:</b> {awb_bl_no}</Typography>
-              <Typography variant="body2"><b>B/L Date:</b> {awb_bl_date}</Typography>
-              <Typography variant="body2"><b>{isAirMode(mode) ? "Flight" : "Vessel"}:</b> {vessel_flight || "N/A"}{voyage_no ? ` • Voy: ${voyage_no}` : ""}</Typography>
-              <Typography variant="body2"><b>ETA Date:</b> {vessel_berthing || "N/A"}</Typography>
-            </Grid>
 
-            {/* Row 2: Cargo & Value */}
-            <Grid item xs={12} md={4}>
-              <Typography variant="overline" color="text.secondary" fontWeight={700}>Cargo Details</Typography>
-              <Typography variant="body2"><b>Gross Wt:</b> {gross_weight}</Typography>
-              <Typography variant="body2"><b>Net Wt:</b> {job_net_weight}</Typography>
-              <Typography variant="body2"><b>Consignment:</b> {consignment_type}</Typography>
-              <Typography variant="body2"><b>Containers:</b> {container_nos.length}</Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Typography variant="overline" color="text.secondary" fontWeight={700}>Value & Currency</Typography>
-              <Typography variant="body2"><b>Invoice Val:</b> {total_inv_value}</Typography>
-              <Typography variant="body2"><b>Currency:</b> {inv_currency}</Typography>
-              <Typography variant="body2"><b>Incoterm:</b> {import_terms}</Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Typography variant="overline" color="text.secondary" fontWeight={700}>Clearance</Typography>
-              <Typography variant="body2"><b>B/E Type:</b> {type_of_b_e}</Typography>
-              <Typography variant="body2"><b>Scheme:</b> {scheme}</Typography>
-            </Grid>
-          </Grid>
-          <Box sx={{ mt: 3, p: 2, bgcolor: '#fff9c4', borderRadius: '8px', border: '1px solid #fbc02d' }}>
-            <Typography variant="body2" sx={{ color: '#5f4b00', fontWeight: 500 }}>
-              Please carefully review the information above. Once created, some details may require administrative privileges to change.
-            </Typography>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2.5, gap: 1 }}>
-          <Button onClick={() => setReviewDialogOpen(false)} variant="outlined" sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>
-            Back to Edit
-          </Button>
-          <Button
-            onClick={() => {
-              setReviewDialogOpen(false);
-              formik.handleSubmit();
+          const copyText = `JOB NO: ${jobNoVal} *${importerVal}* BL: *${blVal}* ETA: *${etaFormatted}*`;
+
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(copyText).then(() => {
+              toast.success("Job details copied to clipboard!");
+            }).catch((err) => {
+              console.error("Clipboard copy error:", err);
+              toast.error("Failed to copy job details");
+            });
+          } else {
+            const textArea = document.createElement("textarea");
+            textArea.value = copyText;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+              document.execCommand("copy");
+              toast.success("Job details copied to clipboard!");
+            } catch (err) {
+              toast.error("Failed to copy job details");
+            }
+            document.body.removeChild(textArea);
+          }
+        };
+
+        return (
+          <Dialog
+            open={reviewDialogOpen}
+            onClose={() => setReviewDialogOpen(false)}
+            maxWidth="md"
+            fullWidth
+            PaperProps={{
+              sx: {
+                borderRadius: '16px',
+                p: 1,
+                backdropFilter: 'none !important',
+                WebkitBackdropFilter: 'none !important',
+              }
             }}
-            variant="contained"
-            color="primary"
-            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, px: 4 }}
+            BackdropProps={{
+              sx: {
+                backdropFilter: 'none !important',
+                WebkitBackdropFilter: 'none !important',
+              }
+            }}
+            slotProps={{
+              backdrop: {
+                sx: {
+                  backdropFilter: 'none !important',
+                  WebkitBackdropFilter: 'none !important',
+                }
+              }
+            }}
           >
-            {isEditMode ? 'Confirm Update' : 'Confirm & Create Job'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <DialogTitle sx={{ fontWeight: 800, color: 'primary.main', borderBottom: '1px solid #eee', mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              Confirm Job Details
+              <Typography variant="h6" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                Job No: {nextJobNumber}
+              </Typography>
+            </DialogTitle>
+            <DialogContent>
+              <Grid container spacing={3}>
+                {/* Row 1: General Info */}
+                <Grid item xs={12} md={4}>
+                  <Typography variant="overline" color="text.secondary" fontWeight={700}>Branch & Mode</Typography>
+                  <Typography variant="body2"><b>Branch:</b> {branches.find(b => b._id === branch_id)?.branch_name || 'N/A'}</Typography>
+                  <Typography variant="body2"><b>Mode:</b> {mode}</Typography>
+                  <Typography variant="body2"><b>Trade Type:</b> {trade_type}</Typography>
+                  <Typography variant="body2"><b>Year:</b> {selectedYear}</Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="overline" color="text.secondary" fontWeight={700}>Parties</Typography>
+                  <Typography variant="body2"><b>Importer:</b> {importer}</Typography>
+                  <Typography variant="body2"><b>Importer Type:</b> {importerTypeOptions.find(opt => opt.value === importer_type)?.label || 'N/A'}</Typography>
+                  <Typography variant="body2"><b>Commercial Tax Type:</b> {commercialTaxTypeOptions.find(opt => opt.value === commercial_tax_type)?.label || 'N/A'}</Typography>
+                  <Typography variant="body2"><b>Supplier:</b> {supplier_exporter}</Typography>
+                  <Typography variant="body2"><b>Custom House:</b> {custom_house}</Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="overline" color="text.secondary" fontWeight={700}>Shipping</Typography>
+                  <Typography variant="body2"><b>B/L No:</b> {awb_bl_no}</Typography>
+                  <Typography variant="body2"><b>B/L Date:</b> {awb_bl_date}</Typography>
+                  <Typography variant="body2"><b>{isAirMode(mode) ? "Flight" : "Vessel"}:</b> {vessel_flight || "N/A"}{voyage_no ? ` • Voy: ${voyage_no}` : ""}</Typography>
+                  <Typography variant="body2"><b>ETA Date:</b> {vessel_berthing || "N/A"}</Typography>
+                </Grid>
+
+                {/* Row 2: Cargo & Value */}
+                <Grid item xs={12} md={4}>
+                  <Typography variant="overline" color="text.secondary" fontWeight={700}>Cargo Details</Typography>
+                  <Typography variant="body2"><b>Gross Wt:</b> {gross_weight}</Typography>
+                  <Typography variant="body2"><b>Net Wt:</b> {job_net_weight}</Typography>
+                  <Typography variant="body2"><b>Consignment:</b> {consignment_type}</Typography>
+                  <Typography variant="body2"><b>Containers:</b> {container_nos.length}</Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="overline" color="text.secondary" fontWeight={700}>Value & Currency</Typography>
+                  <Typography variant="body2"><b>Invoice Val:</b> {total_inv_value}</Typography>
+                  <Typography variant="body2"><b>Currency:</b> {inv_currency}</Typography>
+                  <Typography variant="body2"><b>Incoterm:</b> {import_terms}</Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="overline" color="text.secondary" fontWeight={700}>Clearance</Typography>
+                  <Typography variant="body2"><b>B/E Type:</b> {type_of_b_e}</Typography>
+                  <Typography variant="body2"><b>Scheme:</b> {scheme}</Typography>
+                </Grid>
+              </Grid>
+              <Box sx={{ mt: 3, p: 2, bgcolor: '#fff9c4', borderRadius: '8px', border: '1px solid #fbc02d' }}>
+                <Typography variant="body2" sx={{ color: '#5f4b00', fontWeight: 500 }}>
+                  Please carefully review the information above. Once created, some details may require administrative privileges to change.
+                </Typography>
+              </Box>
+            </DialogContent>
+            <DialogActions sx={{ p: 2.5, gap: 1 }}>
+              <Button
+                onClick={handleCopyFormattedJobDetails}
+                variant="outlined"
+                color="secondary"
+                startIcon={<ContentCopyIcon />}
+                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, mr: 'auto' }}
+              >
+                Copy Details
+              </Button>
+              <Button onClick={() => setReviewDialogOpen(false)} variant="outlined" sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>
+                Back to Edit
+              </Button>
+              <Button
+                onClick={() => {
+                  setReviewDialogOpen(false);
+                  formik.handleSubmit();
+                }}
+                variant="contained"
+                color="primary"
+                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, px: 4 }}
+              >
+                {isEditMode ? 'Confirm Update' : 'Confirm & Create Job'}
+              </Button>
+            </DialogActions>
+          </Dialog>
+        );
+      })()}
     </Box >
   );
 };

@@ -463,21 +463,11 @@ router.get(
 
       // 10) Fast indexed parallel count + find
       let findQuery = JobModel.find(query)
-        .select(selectedFieldsStr + " row_color status_rank status_sort_date detailed_status")
-        .sort({ status_rank: 1, status_sort_date: 1, _id: 1 })
+        .select(selectedFieldsStr + " row_color status_rank is_lcl status_sort_date detailed_status consignment_type")
+        .sort({ is_lcl: 1, status_rank: 1, status_sort_date: 1, _id: 1 })
         .skip(parseInt(skip))
         .limit(parseInt(limit))
         .lean();
-
-      // Use index hint on broad status queries without selective filters to avoid heavy in-memory sort
-      if (
-        !search &&
-        (!detailedStatus || detailedStatus === "all") &&
-        (!importer || importer.toLowerCase() === "all") &&
-        (!selectedICD || selectedICD === "all")
-      ) {
-        findQuery = findQuery.hint("year_1_status_rank_1_status_sort_date_1");
-      }
 
       const [totalCount, jobs] = await Promise.all([
         JobModel.countDocuments(query),

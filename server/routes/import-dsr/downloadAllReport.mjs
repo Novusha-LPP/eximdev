@@ -68,12 +68,17 @@ router.get("/api/download-report/:years/:status", async (req, res) => {
         return a.year.localeCompare(b.year);
       }
 
-      // Sort by detailed status rank
+      // Priority 1: LCL jobs at top
+      const isLclA = String(a.consignment_type || "").trim().toUpperCase() === "LCL" ? 0 : 1;
+      const isLclB = String(b.consignment_type || "").trim().toUpperCase() === "LCL" ? 0 : 1;
+      if (isLclA !== isLclB) return isLclA - isLclB;
+
+      // Priority 2: Detailed status rank
       const rankA = statusRank[a.detailed_status]?.rank || Infinity;
       const rankB = statusRank[b.detailed_status]?.rank || Infinity;
       if (rankA !== rankB) return rankA - rankB;
 
-      // Sort by date within the same status
+      // Priority 3: Oldest date within status
       const field = statusRank[a.detailed_status]?.field;
       if (field) {
         const dateA = parseDate(a[field] || a.container_nos?.[0]?.[field]);
@@ -82,6 +87,11 @@ router.get("/api/download-report/:years/:status", async (req, res) => {
         if (dateA) return -1;
         if (dateB) return 1;
       }
+
+      // Fallback to job_date or createdAt for oldest date
+      const fallbackA = parseDate(a.job_date || a.createdAt);
+      const fallbackB = parseDate(b.job_date || b.createdAt);
+      if (fallbackA && fallbackB) return fallbackA - fallbackB;
 
       return 0;
     });

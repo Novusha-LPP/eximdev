@@ -979,6 +979,7 @@ function useFetchJobDetails(
           : safeValue(container.arrival_date)
             ? convertDateFormatForUI(container.arrival_date)
             : "",
+        detention_from: safeValue(container.detention_from, ""),
         container_number: safeValue(container.container_number),
         size: safeValue(container.size, "20"),
         seal_number: Array.isArray(container.seal_number) ? container.seal_number : (container.seal_number ? [container.seal_number] : []),
@@ -1497,76 +1498,98 @@ function useFetchJobDetails(
 
   // Update detention from dates and set do_validity_upto_job_level
   useEffect(() => {
-    function addDaysToDate(dateString, days) {
-      if (!dateString) return "";
+    function getDateOnly(dateInput) {
+      if (!dateInput) return "";
+      const str = String(dateInput).trim();
+      const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+      const d = new Date(dateInput);
+      if (isNaN(d.getTime())) return "";
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
 
-      const date = new Date(dateString);
-      date.setDate(date.getDate() + days);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
+    function addDaysToDate(dateString, days) {
+      const base = getDateOnly(dateString);
+      const free = parseInt(days, 10);
+      if (!base || isNaN(free) || free <= 0) return "";
+      const [y, m, d] = base.split("-").map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      if (isNaN(dt.getTime())) return "";
+      dt.setUTCDate(dt.getUTCDate() + free);
+      const yy = dt.getUTCFullYear();
+      const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(dt.getUTCDate()).padStart(2, "0");
+      return `${yy}-${mm}-${dd}`;
+    }
+
+    function subtractOneDay(dateString) {
+      const base = getDateOnly(dateString);
+      if (!base) return "";
+      const [y, m, d] = base.split("-").map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      if (isNaN(dt.getTime())) return "";
+      dt.setUTCDate(dt.getUTCDate() - 1);
+      const yy = dt.getUTCFullYear();
+      const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(dt.getUTCDate()).padStart(2, "0");
+      return `${yy}-${mm}-${dd}`;
     }
 
     if (formik.values.container_nos?.length > 0) {
+      const freeDays = parseInt(formik.values.free_time, 10) || 0;
       let updatedDate = [];
 
       // If all containers arrive at the same time, use the common arrival date
       if (formik.values.checked) {
         const commonDate = formik.values.arrival_date;
         updatedDate = formik.values.container_nos.map(() =>
-          addDaysToDate(commonDate, parseInt(formik.values.free_time) || 0)
+          freeDays > 0 ? addDaysToDate(commonDate, freeDays) : ""
         );
       } else {
         // Use individual container arrival dates
         updatedDate = formik.values.container_nos.map((container) =>
-          addDaysToDate(
-            container.arrival_date,
-            parseInt(formik.values.free_time) || 0
-          )
+          freeDays > 0 ? addDaysToDate(container.arrival_date, freeDays) : ""
         );
       }
 
       setDetentionFrom(updatedDate);
 
-      // Find the earliest date from updatedDate
-      // Find the earliest date from updatedDate
-      const earliestDate = updatedDate.reduce((earliest, current) => {
-        return current < earliest ? current : earliest;
-      }, "9999-12-31");
+      // Keep container_nos in sync with calculated detention_from
+      const hasDetentionDiff = formik.values.container_nos.some((c, i) => {
+        const cur = c.detention_from || "";
+        const expected = updatedDate[i] || "";
+        return cur !== expected;
+      });
 
-      // Helper to subtract one day safely
-      function subtractOneDay(dateString) {
-        if (!dateString) return "";
-        const date = new Date(dateString);
-        date.setDate(date.getDate() - 1);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        return `${year}-${month}-${day}`;
+      if (hasDetentionDiff) {
+        const updatedContainers = formik.values.container_nos.map((c, i) => ({
+          ...c,
+          detention_from: updatedDate[i] || "",
+          do_validity_upto_container_level: updatedDate[i]
+            ? subtractOneDay(updatedDate[i])
+            : (c.do_validity_upto_container_level || ""),
+        }));
+        formik.setFieldValue("container_nos", updatedContainers);
       }
 
-      if (earliestDate !== "9999-12-31") {
-        const earliest = new Date(earliestDate);
-        const oneDayBefore = new Date(earliest);
-        oneDayBefore.setDate(oneDayBefore.getDate() - 1);
+      // Find the earliest date from updatedDate
+      const validDates = updatedDate.filter(Boolean);
+      const earliestDate = validDates.reduce((earliest, current) => {
+        return !earliest || current < earliest ? current : earliest;
+      }, "");
 
-        // If difference between earliestDate and oneDayBefore is > 0, use oneDayBefore
-        const diffDays = (earliest - oneDayBefore) / (1000 * 60 * 60 * 24);
-
-        const validityDate =
-          diffDays > 0
-            ? subtractOneDay(earliestDate)
-            : earliestDate;
-
+      if (earliestDate) {
+        const validityDate = subtractOneDay(earliestDate);
         formik.setFieldValue("do_validity_upto_job_level", validityDate);
-      } else {
+      } else if (data?.do_validity_upto_job_level) {
         formik.setFieldValue(
           "do_validity_upto_job_level",
           data.do_validity_upto_job_level
         );
       }
-
     }
     // eslint-disable-next-line
   }, [

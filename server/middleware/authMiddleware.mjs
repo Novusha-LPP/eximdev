@@ -113,11 +113,23 @@ const verifyToken = async (req, res, next) => {
         // Run subsequent middleware and controller in the user context
         context.run({ user: req.user, req }, next);
     } catch (err) {
+        const cookieClearOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            path: "/",
+        };
+
         if (err.name === 'TokenExpiredError') {
-            return res.status(401).json({ message: "Session expired. Please log in again." });
+            res.clearCookie("token", cookieClearOptions);
+            return res.status(401).json({ success: false, message: "Session expired. Please log in again." });
+        }
+        if (err.name === 'JsonWebTokenError') {
+            res.clearCookie("token", cookieClearOptions);
+            return res.status(401).json({ success: false, message: "Invalid authentication token. Please log in again." });
         }
         console.error("Auth token verification failed:", err.message || err);
-        return res.status(401).json({ message: "Invalid Token" });
+        return res.status(401).json({ success: false, message: "Invalid Token" });
     }
 };
 

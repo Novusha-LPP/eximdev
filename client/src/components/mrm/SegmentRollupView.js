@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
     Box, Typography, Chip, Button, IconButton, Collapse, Table, TableHead, 
     TableRow, TableCell, TableBody, TableFooter, Paper, Tooltip, Dialog, 
     DialogTitle, DialogContent, DialogActions, Avatar, Drawer, FormControlLabel,
-    Checkbox, TextField, InputAdornment
+    Checkbox, TextField, InputAdornment, Select, MenuItem, FormControl, Divider
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -17,8 +17,29 @@ import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import SearchIcon from '@mui/icons-material/Search';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import CloseIcon from '@mui/icons-material/Close';
+import TableChartIcon from '@mui/icons-material/TableChart';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import RecurringBlockerBadge from './RecurringBlockerBadge';
 import { approveSegmentsRollup } from '../../services/mrmService';
+
+// Helper to format member display names cleanly (e.g. "Rambhai", "Jitendrakumar")
+const formatMemberDisplayName = (member, allMembers = []) => {
+    if (!member?.name) return 'Member';
+    const trimmed = member.name.trim();
+    const parts = trimmed.split(/\s+/);
+    const firstName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+    
+    // Disambiguate duplicate first names within the same team
+    const duplicates = allMembers.filter(m => 
+        m && m.name && m.name.trim().split(/\s+/)[0].toLowerCase() === parts[0].toLowerCase()
+    );
+    if (duplicates.length > 1 && parts.length > 1) {
+        const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
+        return `${firstName} ${lastInitial}.`;
+    }
+    return firstName;
+};
 
 /**
  * Section 2: Sub-Team KPI Performance Segments
@@ -49,6 +70,31 @@ const SegmentRollupView = ({
     const [openApproveDialog, setOpenApproveDialog] = useState(false);
     const [approvalSuccess, setApprovalSuccess] = useState('');
     const [toastMessage, setToastMessage] = useState('');
+    const memberScrollRef = useRef(null);
+
+    const handleScrollMembers = (direction) => {
+        if (memberScrollRef.current) {
+            const offset = direction === 'left' ? -240 : 240;
+            memberScrollRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+        }
+    };
+
+    // Auto-scroll selected member pill into view when selection changes
+    useEffect(() => {
+        if (selectedMemberId && selectedMemberId !== 'ALL') {
+            const el = document.getElementById(`member-tab-${selectedMemberId}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+        }
+    }, [selectedMemberId]);
+
+    // Reset scroll when drawer opens
+    useEffect(() => {
+        if (taskDrawerSegment && memberScrollRef.current) {
+            memberScrollRef.current.scrollLeft = 0;
+        }
+    }, [taskDrawerSegment]);
 
     const toggleExpand = (subTeam) => {
         setExpandedSegments(prev => ({
@@ -860,7 +906,7 @@ const SegmentRollupView = ({
                 }}
                 PaperProps={{
                     sx: {
-                        width: { xs: '100%', sm: 720, md: 880, lg: 960 },
+                        width: { xs: '100%', sm: 760, md: 920, lg: 1060, xl: 1180 },
                         p: 0,
                         bgcolor: '#ffffff'
                     }
@@ -982,6 +1028,7 @@ const SegmentRollupView = ({
                             }}>
                                 <Box>
                                     <Box display="flex" alignItems="center" gap={1} mb={0.4} flexWrap="wrap">
+                                        <AssessmentOutlinedIcon sx={{ fontSize: 20, color: '#059669' }} />
                                         <Typography variant="h6" fontWeight={800} color="#0f172a" fontSize="16px" letterSpacing="-0.01em">
                                             Task Breakdown Matrix
                                         </Typography>
@@ -1033,148 +1080,282 @@ const SegmentRollupView = ({
 
                             {/* 2. Member Selector Navigation Bar */}
                             <Box sx={{
-                                px: 3,
+                                px: 2.5,
                                 py: 1.2,
                                 bgcolor: '#f8fafc',
                                 borderBottom: '1px solid #e2e8f0',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                gap: 1
+                                gap: 1.5,
+                                minHeight: '52px'
                             }}>
-                                {/* Member Pill Tabs */}
+                                {/* Member Pill Tabs & Scroll Navigation */}
                                 <Box sx={{
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: 0.8,
-                                    overflowX: 'auto',
-                                    py: 0.4,
-                                    '::-webkit-scrollbar': { height: '4px' },
-                                    '::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: '4px' }
+                                    flex: 1,
+                                    minWidth: 0
                                 }}>
+                                    {/* All Members Button */}
                                     <Button
                                         size="small"
+                                        startIcon={<TableChartIcon sx={{ fontSize: 15 }} />}
                                         onClick={() => setSelectedMemberId('ALL')}
                                         sx={{
+                                            flexShrink: 0,
                                             textTransform: 'none',
-                                            fontWeight: isAll ? 700 : 500,
+                                            fontWeight: isAll ? 700 : 600,
                                             fontSize: '11.5px',
-                                            height: '28px',
-                                            px: 1.3,
-                                            borderRadius: '6px',
+                                            height: '32px',
+                                            px: 1.5,
+                                            borderRadius: '8px',
                                             whiteSpace: 'nowrap',
                                             bgcolor: isAll ? '#0f172a' : '#ffffff',
-                                            color: isAll ? '#ffffff' : '#475569',
+                                            color: isAll ? '#ffffff' : '#334155',
                                             border: `1px solid ${isAll ? '#0f172a' : '#cbd5e1'}`,
-                                            boxShadow: isAll ? '0 1px 3px rgba(0,0,0,0.15)' : '0 1px 2px rgba(0,0,0,0.03)',
+                                            boxShadow: isAll ? '0 2px 4px rgba(15,23,42,0.18)' : '0 1px 2px rgba(0,0,0,0.03)',
                                             '&:hover': {
-                                                bgcolor: isAll ? '#1e293b' : '#f1f5f9'
+                                                bgcolor: isAll ? '#1e293b' : '#f1f5f9',
+                                                borderColor: isAll ? '#1e293b' : '#94a3b8'
                                             }
                                         }}
                                     >
-                                        All Members ({members.length})
+                                        All Matrix ({members.length})
                                     </Button>
-                                    {members.map(m => {
-                                        const isSel = selectedMemberId?.toString() === m.userId?.toString();
-                                        return (
-                                            <Button
-                                                key={m.userId}
-                                                size="small"
-                                                onClick={() => setSelectedMemberId(m.userId)}
-                                                sx={{
-                                                    textTransform: 'none',
-                                                    fontWeight: isSel ? 700 : 500,
-                                                    fontSize: '11.5px',
-                                                    height: '28px',
-                                                    px: 1.2,
-                                                    borderRadius: '6px',
-                                                    whiteSpace: 'nowrap',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: 0.6,
-                                                    bgcolor: isSel ? '#059669' : '#ffffff',
-                                                    color: isSel ? '#ffffff' : '#334155',
-                                                    border: `1px solid ${isSel ? '#047857' : '#cbd5e1'}`,
-                                                    boxShadow: isSel ? '0 1px 3px rgba(5,150,105,0.25)' : '0 1px 2px rgba(0,0,0,0.03)',
-                                                    '&:hover': {
-                                                        bgcolor: isSel ? '#047857' : '#f1f5f9'
-                                                    }
-                                                }}
-                                            >
-                                                <span style={{
-                                                    width: 6,
-                                                    height: 6,
-                                                    borderRadius: '50%',
-                                                    background: m.submitted ? (isSel ? '#86efac' : '#10b981') : (isSel ? '#fca5a5' : '#ef4444'),
-                                                    display: 'inline-block'
-                                                }} />
-                                                <span>{m.name.split(' ')[0]}</span>
-                                                {m.has_targets && (
-                                                    <span title="Target tracking enabled" style={{ fontSize: '10px' }}>🎯</span>
-                                                )}
-                                                <span style={{
-                                                    fontSize: '10px',
-                                                    fontWeight: 700,
-                                                    opacity: isSel ? 1 : 0.8,
-                                                    background: isSel ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
-                                                    color: isSel ? '#ffffff' : '#475569',
-                                                    padding: '1px 5px',
-                                                    borderRadius: '4px'
-                                                }}>
-                                                    {m.task_count || 0}
-                                                </span>
-                                            </Button>
-                                        );
-                                    })}
+
+                                    <Divider orientation="vertical" flexItem sx={{ mx: 0.3, my: 0.6, borderColor: '#cbd5e1' }} />
+
+                                    {/* Left Scroll Arrow */}
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => handleScrollMembers('left')}
+                                        sx={{
+                                            flexShrink: 0,
+                                            width: 26,
+                                            height: 26,
+                                            p: 0,
+                                            color: '#64748b',
+                                            bgcolor: '#ffffff',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '6px',
+                                            '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' }
+                                        }}
+                                        title="Scroll roster left"
+                                    >
+                                        <ChevronLeftIcon sx={{ fontSize: 18 }} />
+                                    </IconButton>
+
+                                    {/* Scrollable Member Pills Container */}
+                                    <Box
+                                        ref={memberScrollRef}
+                                        onWheel={(e) => {
+                                            if (e.deltaY !== 0 && memberScrollRef.current) {
+                                                memberScrollRef.current.scrollLeft += e.deltaY * 0.8;
+                                            }
+                                        }}
+                                        sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 0.8,
+                                            overflowX: 'auto',
+                                            flex: 1,
+                                            minWidth: 0,
+                                            py: 0.4,
+                                            scrollBehavior: 'smooth',
+                                            scrollbarWidth: 'thin',
+                                            scrollbarColor: '#cbd5e1 transparent',
+                                            '&::-webkit-scrollbar': { height: '4px' },
+                                            '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
+                                            '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: '4px' },
+                                            '&::-webkit-scrollbar-thumb:hover': { bgcolor: '#94a3b8' }
+                                        }}
+                                    >
+                                        {members.map(m => {
+                                            const isSel = selectedMemberId?.toString() === m.userId?.toString();
+                                            const displayName = formatMemberDisplayName(m, members);
+
+                                            return (
+                                                <Button
+                                                    key={m.userId}
+                                                    id={`member-tab-${m.userId}`}
+                                                    size="small"
+                                                    onClick={() => setSelectedMemberId(m.userId)}
+                                                    title={`${m.name} • ${m.task_count || 0} tasks • ${m.submitted ? 'Submitted' : 'Pending'}`}
+                                                    sx={{
+                                                        flexShrink: 0,
+                                                        minWidth: 'max-content',
+                                                        textTransform: 'none',
+                                                        fontWeight: isSel ? 700 : 500,
+                                                        fontSize: '11.5px',
+                                                        height: '32px',
+                                                        px: 1.3,
+                                                        borderRadius: '8px',
+                                                        whiteSpace: 'nowrap',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: 0.7,
+                                                        bgcolor: isSel ? '#059669' : '#ffffff',
+                                                        color: isSel ? '#ffffff' : '#334155',
+                                                        border: `1px solid ${isSel ? '#047857' : '#cbd5e1'}`,
+                                                        boxShadow: isSel ? '0 2px 5px rgba(5,150,105,0.25)' : '0 1px 2px rgba(0,0,0,0.03)',
+                                                        transition: 'all 0.15s ease',
+                                                        '&:hover': {
+                                                            bgcolor: isSel ? '#047857' : '#f8fafc',
+                                                            borderColor: isSel ? '#047857' : '#94a3b8'
+                                                        }
+                                                    }}
+                                                >
+                                                    <span style={{
+                                                        width: 7,
+                                                        height: 7,
+                                                        borderRadius: '50%',
+                                                        background: m.submitted 
+                                                            ? (isSel ? '#86efac' : '#10b981') 
+                                                            : (isSel ? '#fca5a5' : '#ef4444'),
+                                                        display: 'inline-block',
+                                                        boxShadow: m.submitted && isSel ? '0 0 4px #86efac' : 'none'
+                                                    }} />
+                                                    <span>{displayName}</span>
+                                                    {m.has_targets && (
+                                                        <span title="Target tracking enabled" style={{ fontSize: '10px', lineHeight: 1 }}>🎯</span>
+                                                    )}
+                                                    <span style={{
+                                                        fontSize: '10px',
+                                                        fontWeight: 700,
+                                                        background: isSel ? 'rgba(255,255,255,0.22)' : '#f1f5f9',
+                                                        color: isSel ? '#ffffff' : '#475569',
+                                                        padding: '1px 6px',
+                                                        borderRadius: '10px',
+                                                        border: isSel ? 'none' : '1px solid #e2e8f0',
+                                                        lineHeight: '14px'
+                                                    }}>
+                                                        {m.task_count || 0}
+                                                    </span>
+                                                </Button>
+                                            );
+                                        })}
+                                    </Box>
+
+                                    {/* Right Scroll Arrow */}
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => handleScrollMembers('right')}
+                                        sx={{
+                                            flexShrink: 0,
+                                            width: 26,
+                                            height: 26,
+                                            p: 0,
+                                            color: '#64748b',
+                                            bgcolor: '#ffffff',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '6px',
+                                            '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' }
+                                        }}
+                                        title="Scroll roster right"
+                                    >
+                                        <ChevronRightIcon sx={{ fontSize: 18 }} />
+                                    </IconButton>
                                 </Box>
 
-                                {activeMember && (
-                                    <Box display="flex" alignItems="center" gap={0.5} sx={{ flexShrink: 0, pl: 1 }}>
-                                        <Button
-                                            size="small"
-                                            disabled={currentMemberIndex <= 0}
-                                            onClick={() => setSelectedMemberId(members[currentMemberIndex - 1].userId)}
+                                {/* Right Side: Member Dropdown Quick-Jump + Pager */}
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, pl: 0.5 }}>
+                                    <FormControl size="small" sx={{ minWidth: 150 }}>
+                                        <Select
+                                            value={selectedMemberId}
+                                            onChange={(e) => setSelectedMemberId(e.target.value)}
+                                            displayEmpty
                                             sx={{
-                                                minWidth: '48px',
-                                                height: '28px',
-                                                textTransform: 'none',
+                                                height: 32,
                                                 fontSize: '11px',
                                                 fontWeight: 600,
-                                                color: '#475569',
-                                                border: '1px solid #cbd5e1',
-                                                borderRadius: '6px',
                                                 bgcolor: '#ffffff',
-                                                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                                                '&:disabled': { opacity: 0.4 }
+                                                borderRadius: '7px',
+                                                color: selectedMemberId === 'ALL' ? '#0f172a' : '#047857',
+                                                '& .MuiOutlinedInput-notchedOutline': {
+                                                    borderColor: '#cbd5e1'
+                                                },
+                                                '&:hover .MuiOutlinedInput-notchedOutline': {
+                                                    borderColor: '#94a3b8'
+                                                }
                                             }}
                                         >
-                                            ‹ Prev
-                                        </Button>
-                                        <Typography variant="caption" color="#64748b" fontWeight={700} sx={{ px: 0.5, fontSize: '11px', whiteSpace: 'nowrap' }}>
-                                            {currentMemberIndex + 1}/{members.length}
-                                        </Typography>
-                                        <Button
-                                            size="small"
-                                            disabled={currentMemberIndex >= members.length - 1}
-                                            onClick={() => setSelectedMemberId(members[currentMemberIndex + 1].userId)}
-                                            sx={{
-                                                minWidth: '48px',
-                                                height: '28px',
-                                                textTransform: 'none',
-                                                fontSize: '11px',
-                                                fontWeight: 600,
-                                                color: '#475569',
-                                                border: '1px solid #cbd5e1',
-                                                borderRadius: '6px',
-                                                bgcolor: '#ffffff',
-                                                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                                                '&:disabled': { opacity: 0.4 }
-                                            }}
-                                        >
-                                            Next ›
-                                        </Button>
-                                    </Box>
-                                )}
+                                            <MenuItem value="ALL" sx={{ fontSize: '11.5px', fontWeight: 600 }}>
+                                                <Box display="flex" alignItems="center" gap={1}>
+                                                    <TableChartIcon sx={{ fontSize: 15, color: '#64748b' }} />
+                                                    <span>All Members Matrix</span>
+                                                </Box>
+                                            </MenuItem>
+                                            {members.map((m, idx) => (
+                                                <MenuItem key={m.userId} value={m.userId} sx={{ fontSize: '11.5px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
+                                                    <Box display="flex" alignItems="center" gap={1}>
+                                                        <span style={{
+                                                            width: 7,
+                                                            height: 7,
+                                                            borderRadius: '50%',
+                                                            background: m.submitted ? '#10b981' : '#ef4444',
+                                                            display: 'inline-block'
+                                                        }} />
+                                                        <span>{idx + 1}. {m.name}</span>
+                                                    </Box>
+                                                    <span style={{
+                                                        fontSize: '10px',
+                                                        fontWeight: 700,
+                                                        color: '#64748b',
+                                                        bgcolor: '#f1f5f9',
+                                                        padding: '1px 6px',
+                                                        borderRadius: '8px'
+                                                    }}>
+                                                        {m.task_count || 0}
+                                                    </span>
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+
+                                    {activeMember && (
+                                        <Box display="flex" alignItems="center" gap={0.4} sx={{ bgcolor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '7px', p: '2px' }}>
+                                            <IconButton
+                                                size="small"
+                                                disabled={currentMemberIndex <= 0}
+                                                onClick={() => setSelectedMemberId(members[currentMemberIndex - 1].userId)}
+                                                sx={{
+                                                    width: 26,
+                                                    height: 26,
+                                                    p: 0,
+                                                    color: '#475569',
+                                                    borderRadius: '5px',
+                                                    '&:hover': { bgcolor: '#f1f5f9' },
+                                                    '&:disabled': { opacity: 0.3 }
+                                                }}
+                                                title="Previous member"
+                                            >
+                                                <ChevronLeftIcon sx={{ fontSize: 18 }} />
+                                            </IconButton>
+                                            <Typography variant="caption" color="#475569" fontWeight={700} sx={{ px: 0.6, fontSize: '11px', whiteSpace: 'nowrap' }}>
+                                                {currentMemberIndex + 1} / {members.length}
+                                            </Typography>
+                                            <IconButton
+                                                size="small"
+                                                disabled={currentMemberIndex >= members.length - 1}
+                                                onClick={() => setSelectedMemberId(members[currentMemberIndex + 1].userId)}
+                                                sx={{
+                                                    width: 26,
+                                                    height: 26,
+                                                    p: 0,
+                                                    color: '#475569',
+                                                    borderRadius: '5px',
+                                                    '&:hover': { bgcolor: '#f1f5f9' },
+                                                    '&:disabled': { opacity: 0.3 }
+                                                }}
+                                                title="Next member"
+                                            >
+                                                <ChevronRightIcon sx={{ fontSize: 18 }} />
+                                            </IconButton>
+                                        </Box>
+                                    )}
+                                </Box>
                             </Box>
 
                             {/* 3. Member Profile Summary Strip (Only when individual member selected) */}
@@ -1536,7 +1717,7 @@ const SegmentRollupView = ({
                                                         title={`Click to focus on ${m.name}`}
                                                     >
                                                         <Box display="flex" flexDirection="column" alignItems="center" gap={0.2}>
-                                                            <span>{m.name.split(' ')[0]}</span>
+                                                            <span style={{ whiteSpace: 'nowrap' }}>{formatMemberDisplayName(m, members)}</span>
                                                             {m.has_targets && (
                                                                 <span style={{ fontSize: '9px', fontWeight: 700, color: '#2563eb' }}>🎯 Target</span>
                                                             )}

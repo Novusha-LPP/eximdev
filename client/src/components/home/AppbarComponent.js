@@ -75,6 +75,14 @@ function AppbarComponent(props) {
       .map(b => b.category);
   }, [branches, selectedBranchGroup]);
 
+  const handleGoBack = () => {
+    if (window.history.state && typeof window.history.state.idx === "number" && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate("/");
+    }
+  };
+
   return (
     <AppBar
       position="fixed"
@@ -102,7 +110,7 @@ function AppbarComponent(props) {
             color="inherit"
             aria-label="go back"
             edge="start"
-            onClick={() => navigate("/")}
+            onClick={handleGoBack}
             sx={{ mr: 1 }}
           >
             <ArrowBackIcon sx={{ color: "#000" }} />

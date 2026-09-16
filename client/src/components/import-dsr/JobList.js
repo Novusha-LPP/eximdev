@@ -260,7 +260,7 @@ function JobList(props) {
     setViewMode(mode);
     try {
       localStorage.setItem("exim_joblist_view_mode", mode);
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   // Query Management States
@@ -437,7 +437,7 @@ function JobList(props) {
     }
   }, [rows, fetchQueryStatusForJobs]);
 
-  // Sort jobs list with active query priority at TOP (resolved queries do not bypass normal order), then LCL jobs first, status rank, and oldest date
+  // Sort jobs list with active query priority at TOP (resolved queries do not bypass normal order)
   const sortedRows = useMemo(() => {
     if (!rows || rows.length === 0) return [];
     return [...rows].sort((a, b) => {
@@ -447,47 +447,7 @@ function JobList(props) {
       const scoreA = statA.hasUnseen ? 3 : statA.hasOpenQueries ? 2 : 0;
       const scoreB = statB.hasUnseen ? 3 : statB.hasOpenQueries ? 2 : 0;
 
-      if (scoreA !== scoreB) {
-        return scoreB - scoreA;
-      }
-
-      // Priority 1: LCL jobs first
-      const isLclA = (a.is_lcl !== undefined ? a.is_lcl : (String(a.consignment_type || "").trim().toUpperCase() === "LCL" ? 0 : 1));
-      const isLclB = (b.is_lcl !== undefined ? b.is_lcl : (String(b.consignment_type || "").trim().toUpperCase() === "LCL" ? 0 : 1));
-      if (isLclA !== isLclB) return isLclA - isLclB;
-
-      // Priority 2: Detailed status rank (Billing Pending = 1, DO Completed = 2, Custom Clearance Completed = 3...)
-      const rankA = a.status_rank ?? 999;
-      const rankB = b.status_rank ?? 999;
-      if (rankA !== rankB) return rankA - rankB;
-
-      // Priority 3: Inside same status rank, sort by oldest ETA date (vessel_berthing), fallback to job_date / createdAt
-      const parseJobDate = (job) => {
-        const etaStr = job.vessel_berthing || job.eta || job.eta_date;
-        if (etaStr) {
-          const t = new Date(etaStr).getTime();
-          if (!isNaN(t)) return t;
-        }
-        if (job.status_sort_date) {
-          const t = new Date(job.status_sort_date).getTime();
-          if (!isNaN(t) && t < 253402214400000) return t; // not 9999-12-31
-        }
-        if (job.job_date) {
-          const t = new Date(job.job_date).getTime();
-          if (!isNaN(t)) return t;
-        }
-        if (job.createdAt) {
-          const t = new Date(job.createdAt).getTime();
-          if (!isNaN(t)) return t;
-        }
-        return Infinity;
-      };
-
-      const dateA = parseJobDate(a);
-      const dateB = parseJobDate(b);
-      if (dateA !== dateB) return dateA - dateB;
-
-      return 0;
+      return scoreB - scoreA;
     });
   }, [rows, clientQueriesStatus]);
 
@@ -1196,9 +1156,9 @@ function JobList(props) {
             variant="body1"
             sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
           >
-          {props.status} Jobs: {total}
-        </Typography>
-      </Box>
+            {props.status} Jobs: {total}
+          </Typography>
+        </Box>
 
         <TextField
           select

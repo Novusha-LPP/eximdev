@@ -546,7 +546,6 @@ const jobSchema = new mongoose.Schema({
   detailed_status: { type: String, trim: true },
   row_color: { type: String, trim: true },
   status_rank: { type: Number, default: 999 },
-  is_lcl: { type: Number, default: 1 },
   status_sort_date: {
     type: Date,
     default: () => new Date("9999-12-31T23:59:59.999Z"),
@@ -919,8 +918,6 @@ jobSchema.pre("save", async function (next) {
     this.detailed_status = detStatus;
     this.row_color = getRowColorFromStatus(detStatus);
     this.status_rank = getJobStatusRank(detStatus);
-    const normConsignment = String(jobObj.consignment_type || "").trim().toUpperCase();
-    this.is_lcl = normConsignment === "LCL" ? 0 : 1;
     this.status_sort_date = getJobSortDate(jobObj, detStatus);
 
     // Automatic Container Count Calculation
@@ -1010,7 +1007,6 @@ jobSchema.index({ year: 1, status: 1, "container_nos.detention_from": 1 });
 
 // NEW: Optimized indexes for Status Ranking and Sorting
 jobSchema.index({ year: 1, status_rank: 1, status_sort_date: 1 });
-jobSchema.index({ year: 1, is_lcl: 1, status_rank: 1, status_sort_date: 1 });
 
 // Indexes for Charge Lookups & Out of Charge Tracking (Atlas Query Profiler)
 jobSchema.index({ "charges._id": 1 });

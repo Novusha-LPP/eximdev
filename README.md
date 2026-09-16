@@ -16,6 +16,18 @@ AlVision Exim is a comprehensive application designed to streamline export-impor
 
 - **Document Management**: Ability to upload and manage documents via AWS S3.
 
+## 📚 Documentation
+
+All comprehensive documentation, module guides, workflow specifications, architecture documents, and test plans are organized in the [`docs/`](docs/README.md) directory:
+- **[Attendance & HR](docs/attendance-and-hr/)** — Attendance tracking, leave policies, shifts, geofencing, and HR framework.
+- **[Workflows & Operations](docs/workflows-and-operations/)** — Special approvals, operations, and maintenance workflows.
+- **[Feature Modules](docs/modules/)** — Guides for DGFT, CRM, KPI, MRM, OpenPoints, etc.
+- **[Integrations & APIs](docs/integrations-and-api/)** — Tally ERP API, SCMCube, and Analytics.
+- **[Architecture & Migration](docs/architecture-and-migration/)** — System architecture, deployment, and DB migrations.
+- **[Testing](docs/testing/)** — Functional, integration, regression, and smoke test suites across all modules.
+
+See the full **[Documentation Index (docs/README.md)](docs/README.md)** for more details.
+
 ## Modules
 
 1. **Import Daily Status Report (DSR)**

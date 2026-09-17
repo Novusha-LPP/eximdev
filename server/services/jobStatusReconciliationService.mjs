@@ -51,8 +51,11 @@ export async function reconcileJobStatuses(queryFilter = null, options = { inval
       const statusDiffers = jobObj.detailed_status !== computedStatus;
       const colorDiffers = jobObj.row_color !== computedColor;
       const rankDiffers = jobObj.status_rank !== computedRank;
+      const oldSortTime = jobObj.status_sort_date ? new Date(jobObj.status_sort_date).getTime() : 0;
+      const newSortTime = computedSortDate ? new Date(computedSortDate).getTime() : 0;
+      const sortDateDiffers = oldSortTime !== newSortTime;
 
-      if (statusDiffers || colorDiffers || rankDiffers) {
+      if (statusDiffers || colorDiffers || rankDiffers || sortDateDiffers) {
         const setFields = {
           detailed_status: computedStatus,
           row_color: computedColor,

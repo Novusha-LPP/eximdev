@@ -11,11 +11,8 @@ export function determineDetailedStatus(job, branchConfig = null) {
     consignment_type,
     type_of_Do,
     do_completed,
-    delivery_completed_date,
     mode,
     bill_no,
-    igm_no,
-    igm_date,
   } = job || {};
 
   // Check if billed (both Agency and Reimbursement bills required)
@@ -51,7 +48,6 @@ export function determineDetailedStatus(job, branchConfig = null) {
     ? container_nos.every((c) => isValidDate(c?.delivery_date))
     : false;
 
-  const isDeliveryCompleted = isValidDate(delivery_completed_date) || allDelivered;
 
   const allEmptyOffloaded = hasContainers
     ? container_nos.every((c) => isValidDate(c?.emptyContainerOffLoadDate))
@@ -62,19 +58,12 @@ export function determineDetailedStatus(job, branchConfig = null) {
   const validDischarge = isValidDate(discharge_date);
   const validIGM = isValidDate(gateway_igm_date);
   const validETA = isValidDate(vessel_berthing);
-  const validDoCompleted =
-    isValidDate(do_completed) ||
-    String(do_completed).trim().toLowerCase() === "yes" ||
-    do_completed === true;
+  const validDoCompleted = isValidDate(do_completed);
 
   // Check for alternative Gateway IGM trigger (IGM No/Date) if branch config disabling original features
   const railoutDisabled = branchConfig?.railout_enabled === false;
   const gatewayIgmDisabled = branchConfig?.gateway_igm_enabled === false;
-  const validAltIGM =
-    railoutDisabled &&
-    gatewayIgmDisabled &&
-    isValidDate(igm_date || job?.igm_date) &&
-    (igm_no || job?.igm_no);
+  const validAltIGM = railoutDisabled && gatewayIgmDisabled && isValidDate(job?.igm_date) && job?.igm_no;
 
   const norm = (s) => String(s || "").trim().toLowerCase();
   const isExBond = norm(type_of_b_e) === "ex-bond";
@@ -83,7 +72,7 @@ export function determineDetailedStatus(job, branchConfig = null) {
   const isTypeDoIcd = norm(type_of_Do) === "icd";
 
   // Special case for AIR: Delivery + OOC = Billing Pending
-  if (norm(mode) === "air" && validOOC && isDeliveryCompleted) {
+  if (norm(mode) === "air" && validOOC && allDelivered) {
     return "Billing Pending";
   }
 
@@ -94,10 +83,10 @@ export function determineDetailedStatus(job, branchConfig = null) {
 
   // Ex-Bond: return early to avoid fall-through
   if (isExBond) {
-    if (be_no && validOOC && isDeliveryCompleted) {
+    if (be_no && validOOC && allDelivered) {
       return "Billing Pending";
     }
-    if (validDoCompleted && validOOC && !isDeliveryCompleted) {
+    if (validDoCompleted && validOOC && !allDelivered) {
       return "Do completed and Delivery pending";
     }
     if (be_no && validOOC) {
@@ -118,18 +107,18 @@ export function determineDetailedStatus(job, branchConfig = null) {
       billingComplete = allEmptyOffloaded;
     } else {
       // In-Bond Factory: Needs EmptyOff AND Delivery
-      billingComplete = allEmptyOffloaded && isDeliveryCompleted;
+      billingComplete = allEmptyOffloaded && allDelivered;
     }
   } else {
     // Standard Logic (Home Consumption, etc.)
     // If type_of_Do is 'icd', we treat it like LCL (wait for delivery date)
-    billingComplete = (isLCL || isTypeDoIcd) ? isDeliveryCompleted : allEmptyOffloaded;
+    billingComplete = (isLCL || isTypeDoIcd) ? allDelivered : allEmptyOffloaded;
   }
 
   if (be_no && anyArrival && validOOC && billingComplete) {
     return "Billing Pending";
   }
-  if (validDoCompleted && validOOC && !isDeliveryCompleted) {
+  if (validDoCompleted && validOOC && !allDelivered) {
     return "Do completed and Delivery pending";
   }
   if (be_no && anyArrival && validOOC) {

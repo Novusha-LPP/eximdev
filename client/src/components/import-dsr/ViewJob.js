@@ -924,7 +924,27 @@ function JobDetails() {
       igm_no,
       igm_date,
       delivery_completed_date,
+      bill_no,
+      mode,
     } = formik.values;
+
+    // Check if billed (both Agency and Reimbursement bills required)
+    const billNos = typeof bill_no === "string"
+      ? bill_no.split(",")
+      : Array.isArray(bill_no)
+        ? bill_no
+        : [];
+    const giaNo = (billNos[0] || "").trim();
+    const girNo = (billNos[1] || "").trim();
+    if (giaNo && girNo) {
+      formik.setFieldValue("detailed_status", "Billed");
+      return;
+    }
+
+    if (formik.values?.isGeneralJob) {
+      formik.setFieldValue("detailed_status", "Billing Pending");
+      return;
+    }
 
     const isValidDate = (date) => {
       if (!date) return false;
@@ -947,7 +967,7 @@ function JobDetails() {
       ? container_nos.every((c) => isValidDate(c?.delivery_date))
       : false;
 
-    const isDeliveryCompleted = isValidDate(delivery_completed_date) || allDelivered;
+
 
     const allEmptyOffloaded = hasContainers
       ? container_nos.every((c) => isValidDate(c?.emptyContainerOffLoadDate))
@@ -973,6 +993,12 @@ function JobDetails() {
     const isLCL = norm(consignment_type) === "lcl";
     const isTypeDoIcd = norm(type_of_Do) === "icd";
 
+    // Special case for AIR: Delivery + OOC = Billing Pending
+    if (norm(mode) === "air" && validOOC && allDelivered) {
+      formik.setFieldValue("detailed_status", "Billing Pending");
+      return;
+    }
+
     // New logic for LCL In-Bond jobs with Out of Charge Date
     if (isLCL && isInBond && validOOC) {
       formik.setFieldValue("detailed_status", "Billing Pending");
@@ -981,11 +1007,11 @@ function JobDetails() {
 
     // Ex-Bond: return early to avoid fall-through
     if (isExBond) {
-      if (be_no && validOOC && isDeliveryCompleted) {
+      if (be_no && validOOC && allDelivered) {
         formik.setFieldValue("detailed_status", "Billing Pending");
         return;
       }
-      if (validDoCompleted && validOOC && !isDeliveryCompleted) {
+      if (validDoCompleted && validOOC && !allDelivered) {
         formik.setFieldValue("detailed_status", "Do completed and Delivery pending");
         return;
       }
@@ -1013,17 +1039,17 @@ function JobDetails() {
         billingComplete = allEmptyOffloaded;
       } else {
         // In-Bond Factory: Needs EmptyOff AND Delivery
-        billingComplete = allEmptyOffloaded && isDeliveryCompleted;
+        billingComplete = allEmptyOffloaded && allDelivered;
       }
     } else {
       // Standard Logic (Home Consumption, etc.)
       // If type_of_Do is 'icd', we treat it like LCL (wait for delivery date)
-      billingComplete = (isLCL || isTypeDoIcd) ? isDeliveryCompleted : allEmptyOffloaded;
+      billingComplete = (isLCL || isTypeDoIcd) ? allDelivered : allEmptyOffloaded;
     }
 
     if (be_no && anyArrival && validOOC && billingComplete) {
       formik.setFieldValue("detailed_status", "Billing Pending");
-    } else if (validDoCompleted && validOOC && !isDeliveryCompleted) {
+    } else if (validDoCompleted && validOOC && !allDelivered) {
       formik.setFieldValue("detailed_status", "Do completed and Delivery pending");
     } else if (be_no && anyArrival && validOOC) {
       formik.setFieldValue("detailed_status", "Custom Clearance Completed");
@@ -1086,6 +1112,8 @@ function JobDetails() {
     formik.values.delivery_date,
     formik.values.delivery_completed_date,
     formik.values.container_nos, // Include container_nos to track the changes in arrival_date for containers
+    formik.values.bill_no,
+    formik.values.mode,
   ]);
 
   // const handleRadioChange = (event) => {
@@ -3258,7 +3286,15 @@ function JobDetails() {
                             Do completed and Delivery pending
                           </MenuItem>
                           <MenuItem value="Billing Pending">Billing Pending</MenuItem>
-                          <MenuItem value="Status Completed">Status Completed</MenuItem>
+                          <MenuItem
+                            value={
+                              formik.values.detailed_status === "Status Completed"
+                                ? "Status Completed"
+                                : "Billed"
+                            }
+                          >
+                            Status Completed
+                          </MenuItem>
                         </TextField>
                       </Col>
 

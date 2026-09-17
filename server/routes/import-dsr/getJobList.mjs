@@ -14,6 +14,7 @@ import ClientQuery from "../../model/clientQueryModel.mjs";
 import { invalidateJobTabCountsCache } from "./getJobTabCounts.mjs";
 import { recalculateContainersDetention } from "../../utils/detentionHelper.mjs";
 import { reconcileJobStatuses } from "../../services/jobStatusReconciliationService.mjs";
+import { getJobSortDate } from "../../utils/jobRanking.mjs";
 
 const router = express.Router();
 
@@ -160,7 +161,7 @@ const criticalFields = `
   penalty_by_us penalty_by_importer other_do_documents intrest_ammount sws_ammount igst_ammount 
   bcd_ammount assessable_ammount total_inv_value product_value freight insurance other_charges inv_currency detention_from 
   gross_weight job_net_weight payment_method no_of_pkgs delivery_completed_date job_date
-  shipping_line_invoice_imgs obl_telex_bl document_received_date
+  shipping_line_invoice_imgs obl_telex_bl document_received_date bill_no isGeneralJob
   concor_invoice_and_receipt_copy thar_invoices hasti_invoices icd_cfs_invoice_img cfs_name charges
   invoice_details description_details
   checklist is_checklist_aprroved is_checklist_clicked is_checklist_aprroved_date remark_client
@@ -379,6 +380,9 @@ router.get(
       // 5) detailed status mapping
       const statusMapping = {
         billed: "Billed",
+        "status completed": "Billed",
+        "status_completed": "Billed",
+        "Status Completed": "Billed",
         billing_pending: "Billing Pending",
         eta_date_pending: "ETA Date Pending",
         estimated_time_of_arrival: "Estimated Time of Arrival",
@@ -389,20 +393,25 @@ router.get(
         be_noted_clearance_pending: "BE Noted, Clearance Pending",
         pcv_done_duty_payment_pending: "PCV Done, Duty Payment Pending",
         custom_clearance_completed: "Custom Clearance Completed",
+        do_completed_and_delivery_pending: "Do completed and Delivery pending",
       };
 
       const requestedDetailedStatus =
         detailedStatus !== "all"
-          ? statusMapping[detailedStatus] || detailedStatus
+          ? statusMapping[detailedStatus.toLowerCase()] || statusMapping[detailedStatus] || detailedStatus
           : null;
 
       if (requestedDetailedStatus) {
+        const matchingValues = [
+          requestedDetailedStatus,
+          requestedDetailedStatus.toLowerCase(),
+          requestedDetailedStatus.toUpperCase(),
+        ];
+        if (requestedDetailedStatus === "Billed") {
+          matchingValues.push("Status Completed", "status completed", "STATUS COMPLETED");
+        }
         query.detailed_status = {
-          $in: [
-            requestedDetailedStatus,
-            requestedDetailedStatus.toLowerCase(),
-            requestedDetailedStatus.toUpperCase(),
-          ],
+          $in: matchingValues,
         };
       }
 
@@ -462,23 +471,14 @@ router.get(
         false
       );
 
-      // 10) Fast indexed parallel count + find
+      // 10) Fast indexed parallel count + find (Pure Global ETA sort: oldest ETA date first)
       let findQuery = JobModel.find(query)
         .select(selectedFieldsStr + " row_color status_rank status_sort_date detailed_status")
-        .sort({ status_rank: 1, status_sort_date: 1, _id: 1 })
+        .sort({ status_sort_date: 1, _id: 1 })
         .skip(parseInt(skip))
         .limit(parseInt(limit))
         .lean();
 
-      // Use index hint on broad status queries without selective filters to avoid heavy in-memory sort
-      if (
-        !search &&
-        (!detailedStatus || detailedStatus === "all") &&
-        (!importer || importer.toLowerCase() === "all") &&
-        (!selectedICD || selectedICD === "all")
-      ) {
-        findQuery = findQuery.hint("year_1_status_rank_1_status_sort_date_1");
-      }
 
       const [totalCount, jobs] = await Promise.all([
         JobModel.countDocuments(query),
@@ -494,6 +494,7 @@ router.get(
           job.row_color = getRowColorFromStatus(job.detailed_status);
         }
       });
+
 
       // 11) Calculate unresolvedCount for Pending status without extra client request
       let unresolvedCount = 0;
@@ -710,6 +711,7 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
 
     updateSet.detailed_status = recomputedStatus;
     updateSet.row_color = rowColor;
+    updateSet.status_sort_date = getJobSortDate(merged);
 
     if (recomputedStatus === "Billed") {
       updateSet.status = "Completed";

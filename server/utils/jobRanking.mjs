@@ -17,31 +17,36 @@ export const getJobStatusRank = (status) => {
     return STATUS_RANK_MAP[status]?.rank || 999;
 };
 
-export const getJobSortDate = (job, status) => {
-    const config = STATUS_RANK_MAP[status];
-    // Default to far future if no status or unknown status
-    if (!config) return new Date("9999-12-31T23:59:59.999Z");
-
-    const field = config.field;
-    let dateVal = null;
-
-    // 1. Try root level
-    if (job[field]) {
-        dateVal = job[field];
+const parseDateString = (dateStr) => {
+    if (!dateStr) return null;
+    if (typeof dateStr !== "string") {
+        if (dateStr instanceof Date && !isNaN(dateStr.getTime())) return dateStr;
+        return null;
     }
-    // 2. Try first container (common pattern in existing aggregation)
-    else if (job.container_nos && job.container_nos.length > 0 && job.container_nos[0][field]) {
-        dateVal = job.container_nos[0][field];
+    const clean = dateStr.trim();
+    if (!clean || clean.toLowerCase() === "invalid date") return null;
+    let d = new Date(clean);
+    if (!isNaN(d.getTime())) return d;
+    const ddmmyyyyMatch = clean.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (ddmmyyyyMatch) {
+        const [, day, month, year] = ddmmyyyyMatch;
+        d = new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
+        if (!isNaN(d.getTime())) return d;
+    }
+    return null;
+};
+
+export const getJobSortDate = (job, status = null) => {
+    if (!job) return new Date("9999-12-31T23:59:59.999Z");
+
+    // Pure Global ETA Sort: Primary sort date is ETA (vessel_berthing / eta / eta_date)
+    const etaStr = job.vessel_berthing || job.eta || job.eta_date;
+    if (etaStr) {
+        const parsedEta = parseDateString(etaStr);
+        if (parsedEta) return parsedEta;
     }
 
-    // 3. Try parsing
-    if (dateVal) {
-        const d = new Date(dateVal);
-        if (!isNaN(d.getTime())) {
-            return d;
-        }
-    }
-
-    // Default
+    // Default to far future so jobs with missing ETA appear at the end
     return new Date("9999-12-31T23:59:59.999Z");
 };
+

@@ -380,6 +380,32 @@ router.get("/", async (req, res) => {
   }
 });
 
+export async function generateNextAssetTag() {
+  const currentYear = new Date().getFullYear();
+  const prefix = `AST-${currentYear}-`;
+  const regex = new RegExp(`^AST-${currentYear}-(\\d+)$`, "i");
+
+  const assets = await Asset.find({ asset_tag: { $regex: `^AST-${currentYear}-\\d+`, $options: "i" } })
+    .select("asset_tag")
+    .lean();
+
+  let maxSeq = 0;
+  for (const asset of assets) {
+    if (asset.asset_tag) {
+      const match = asset.asset_tag.match(regex);
+      if (match) {
+        const seq = parseInt(match[1], 10);
+        if (!isNaN(seq) && seq > maxSeq) {
+          maxSeq = seq;
+        }
+      }
+    }
+  }
+
+  const nextSeq = maxSeq + 1;
+  return `${prefix}${String(nextSeq).padStart(3, "0")}`;
+}
+
 router.get("/stats", async (_req, res) => {
   try {
     const [total, assigned, available, inRepair] = await Promise.all([
@@ -395,14 +421,53 @@ router.get("/stats", async (_req, res) => {
   }
 });
 
+router.get("/next-tag", async (_req, res) => {
+  try {
+    const nextTag = await generateNextAssetTag();
+    res.json({ success: true, data: { nextTag } });
+  } catch (err) {
+    logger.error(`Error generating next asset tag: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+export function formatUserFriendlyError(err) {
+  if (!err) return "An unexpected error occurred.";
+  const rawMessage = String(err.message || "");
+  if (err.code === 11000 || rawMessage.includes("E11000")) {
+    if (err.keyValue) {
+      if (err.keyValue.asset_tag) {
+        return `Asset Tag '${err.keyValue.asset_tag}' already exists. Please use a unique Asset Tag.`;
+      }
+      if (err.keyValue.serial_number) {
+        return `Serial Number '${err.keyValue.serial_number}' already exists. Please use a unique Serial Number.`;
+      }
+      const keys = Object.keys(err.keyValue).join(", ");
+      return `An asset with this ${keys} already exists.`;
+    }
+    const match = rawMessage.match(/dup key:\s*\{\s*(\w+):\s*"([^"]+)"\s*\}/);
+    if (match) {
+      const field = match[1] === "asset_tag" ? "Asset Tag" : match[1] === "serial_number" ? "Serial Number" : match[1];
+      return `${field} '${match[2]}' already exists. Please use a unique value.`;
+    }
+    return "An asset with this Asset Tag or identifier already exists.";
+  }
+  return err.message || "An unexpected error occurred.";
+}
+
 router.post("/", validateAssetPayload, async (req, res) => {
   try {
+    if (!req.body.asset_tag || !String(req.body.asset_tag).trim()) {
+      req.body.asset_tag = await generateNextAssetTag();
+    }
     const asset = new Asset(req.body);
     await asset.save();
     res.status(201).json({ success: true, data: asset });
   } catch (err) {
     logger.error(`Error creating asset: ${err.message}`);
-    res.status(500).json({ success: false, message: err.message });
+    const isDup = err.code === 11000 || String(err.message).includes("E11000");
+    const userMsg = formatUserFriendlyError(err);
+    res.status(isDup ? 409 : 500).json({ success: false, message: userMsg });
   }
 });
 
@@ -412,7 +477,9 @@ router.put("/:id", validateId, validateAssetPayload, async (req, res) => {
     res.json({ success: true, data: asset });
   } catch (err) {
     logger.error(`Error updating asset: ${err.message}`);
-    res.status(500).json({ success: false, message: err.message });
+    const isDup = err.code === 11000 || String(err.message).includes("E11000");
+    const userMsg = formatUserFriendlyError(err);
+    res.status(isDup ? 409 : 500).json({ success: false, message: userMsg });
   }
 });
 
@@ -422,7 +489,7 @@ router.delete("/:id", validateId, async (req, res) => {
     res.json({ success: true, message: "Asset deleted" });
   } catch (err) {
     logger.error(`Error deleting asset: ${err.message}`);
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: formatUserFriendlyError(err) });
   }
 });
 

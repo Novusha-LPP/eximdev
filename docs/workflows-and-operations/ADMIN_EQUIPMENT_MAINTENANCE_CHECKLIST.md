@@ -153,7 +153,7 @@ Implemented in [`client/src/pages/AdminEquipmentChecklist.jsx`](file:///c:/eximd
 
 ### Standard Default Equipment Template
 When creating a new checklist, the system automatically pre-populates default inspection line-items:
-1. **Washroom**
+1. **Air Conditioner**
 2. **Water Dispenser / RO**
 3. **Refrigerator / Microwave Oven**
 4. **Biometric Device**

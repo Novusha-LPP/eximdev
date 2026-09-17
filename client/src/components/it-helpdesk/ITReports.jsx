@@ -281,13 +281,9 @@ export default function ITReports() {
     }
 
     if (reportType === "licenses") {
-      let totalSeatsSum = 0;
-      let allocatedSeatsSum = 0;
       let expiring30Days = 0;
 
       sourceList.forEach((l) => {
-        totalSeatsSum += Number(l.total_seats || l.seats || 0);
-        allocatedSeatsSum += Number(l.allocated_seats || l.used_seats || 0);
         if (l.expiry_date) {
           const exp = new Date(l.expiry_date);
           const diffDays = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
@@ -297,7 +293,6 @@ export default function ITReports() {
 
       return [
         { label: "Total Subscriptions", count: total, color: "#0f172a", bg: "#f8fafc", icon: Key },
-        { label: "Total Allocated Seats", count: `${allocatedSeatsSum} / ${totalSeatsSum || "—"}`, color: "#0284c7", bg: "#f0f9ff", icon: Users },
         { label: "Expiring in < 30 Days", count: expiring30Days, color: expiring30Days > 0 ? "#dc2626" : "#059669", bg: expiring30Days > 0 ? "#fef2f2" : "#ecfdf5", icon: AlertTriangle },
         { label: "Active Licenses", count: Math.max(0, total - expiring30Days), color: "#059669", bg: "#ecfdf5", icon: CheckCircle2 },
       ];
@@ -395,7 +390,6 @@ export default function ITReports() {
           { name: "License Key", minWidth: "180px" },
           { name: "License Type", minWidth: "130px" },
           { name: "Vendor", minWidth: "160px" },
-          { name: "Allocated Seats", minWidth: "140px" },
           { name: "Expiry Date", minWidth: "150px" },
           { name: "Status", minWidth: "110px" },
         ];
@@ -618,7 +612,6 @@ export default function ITReports() {
             <td>{getCodeTag(item.license_code)}</td>
             <td style={{ color: "#334155", fontSize: "13px" }}>{item.license_type || "Standard"}</td>
             <td style={{ color: "#334155" }}>{item.vendor?.name || item.vendor_name || "—"}</td>
-            <td style={{ color: "#059669", fontWeight: 700 }}>{`${item.allocated_seats || 0} / ${item.total_seats || "—"}`}</td>
             <td>{getWarrantyBadge(item.expiry_date)}</td>
             <td>{getStatusBadge(item.status || "Active")}</td>
           </tr>
@@ -923,62 +916,64 @@ export default function ITReports() {
             </div>
 
             {/* Separator & Quick Presets Row */}
-            <div style={{ borderTop: "1px solid #f1f5f9", marginTop: "4px", paddingTop: "12px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-              <span style={{ fontSize: "12px", color: "#64748b", fontWeight: 700, marginRight: "4px" }}>Quick Presets:</span>
-              <button
-                type="button"
-                onClick={() => updateQueryParams({ quick_filter: "ALL", page: 1 })}
-                style={{
-                  padding: "5px 14px",
-                  borderRadius: "20px",
-                  border: quickFilter === "ALL" ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
-                  background: quickFilter === "ALL" ? "#eff6ff" : "#ffffff",
-                  color: quickFilter === "ALL" ? "#1d4ed8" : "#475569",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                All Records ({pagination.total})
-              </button>
+            {reportType === "licenses" && (
+              <div style={{ borderTop: "1px solid #f1f5f9", marginTop: "4px", paddingTop: "12px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                <span style={{ fontSize: "12px", color: "#64748b", fontWeight: 700, marginRight: "4px" }}>Quick Presets:</span>
+                <button
+                  type="button"
+                  onClick={() => updateQueryParams({ quick_filter: "ALL", page: 1 })}
+                  style={{
+                    padding: "5px 14px",
+                    borderRadius: "20px",
+                    border: quickFilter === "ALL" ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
+                    background: quickFilter === "ALL" ? "#eff6ff" : "#ffffff",
+                    color: quickFilter === "ALL" ? "#1d4ed8" : "#475569",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  All Records ({pagination.total})
+                </button>
 
-              <button
-                type="button"
-                onClick={() => updateQueryParams({ quick_filter: "EXPIRING_SOON", page: 1 })}
-                style={{
-                  padding: "5px 14px",
-                  borderRadius: "20px",
-                  border: quickFilter === "EXPIRING_SOON" ? "1.5px solid #d97706" : "1px solid #e2e8f0",
-                  background: quickFilter === "EXPIRING_SOON" ? "#fffbeb" : "#ffffff",
-                  color: quickFilter === "EXPIRING_SOON" ? "#b45309" : "#475569",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                ⚠️ Expiring Soon / Due (&lt; 30d)
-              </button>
+                <button
+                  type="button"
+                  onClick={() => updateQueryParams({ quick_filter: "EXPIRING_SOON", page: 1 })}
+                  style={{
+                    padding: "5px 14px",
+                    borderRadius: "20px",
+                    border: quickFilter === "EXPIRING_SOON" ? "1.5px solid #d97706" : "1px solid #e2e8f0",
+                    background: quickFilter === "EXPIRING_SOON" ? "#fffbeb" : "#ffffff",
+                    color: quickFilter === "EXPIRING_SOON" ? "#b45309" : "#475569",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  ⚠️ Expiring Soon / Due (&lt; 30d)
+                </button>
 
-              <button
-                type="button"
-                onClick={() => updateQueryParams({ quick_filter: "ACTION_REQUIRED", page: 1 })}
-                style={{
-                  padding: "4px 12px",
-                  borderRadius: "20px",
-                  border: quickFilter === "ACTION_REQUIRED" ? "1.5px solid #dc2626" : "1px solid #e2e8f0",
-                  background: quickFilter === "ACTION_REQUIRED" ? "#fef2f2" : "#ffffff",
-                  color: quickFilter === "ACTION_REQUIRED" ? "#b91c1c" : "#475569",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                🚨 Action Required / Repair Needed
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => updateQueryParams({ quick_filter: "ACTION_REQUIRED", page: 1 })}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "20px",
+                    border: quickFilter === "ACTION_REQUIRED" ? "1.5px solid #dc2626" : "1px solid #e2e8f0",
+                    background: quickFilter === "ACTION_REQUIRED" ? "#fef2f2" : "#ffffff",
+                    color: quickFilter === "ACTION_REQUIRED" ? "#b91c1c" : "#475569",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  🚨 Action Required / Repair Needed
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

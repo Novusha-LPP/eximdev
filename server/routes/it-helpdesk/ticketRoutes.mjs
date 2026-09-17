@@ -265,14 +265,14 @@ router.post("/", handleUpload, async (req, res) => {
     const {
       title, description, category, subcategory, type, priority, severity,
       requester_name, department, contact_information, location,
-      sla_due_date, resolution_notes, assigned_to,
+      sla_due_date, resolution_notes, assigned_to, status,
     } = req.body;
 
     const ticket_id = await generateTicketId();
     const userId = req.user?._id || req.user?.id;
 
-    // Determine initial status: "Assigned" if assigned_to is provided, else "New"
-    const initialStatus = assigned_to ? "Assigned" : "New";
+    // Use requested status (defaults to "New")
+    const initialStatus = status || "New";
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
     const initialAttachments = (req.files || []).map((file) => ({

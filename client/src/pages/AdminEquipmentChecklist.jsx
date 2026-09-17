@@ -17,7 +17,7 @@ import toast from "react-hot-toast";
 import "../styles/scorecard.scss";
 
 const EQUIPMENT_ITEMS = [
-  { name: "Washroom", functionalChecks: ["OK", "Not OK"] },
+  { name: "Air Conditioner", functionalChecks: ["OK", "Not OK"] },
   { name: "Water Dispenser / RO", functionalChecks: ["OK", "Not OK"] },
   { name: "Refrigerator / Microwave Oven", functionalChecks: ["OK", "Not OK"] },
   { name: "Biometric Device", functionalChecks: ["OK", "Not OK"] },

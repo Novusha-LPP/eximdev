@@ -47,3 +47,14 @@ input[type="number"]::-webkit-inner-spin-button {
 input[type="number"] {
   -moz-appearance: textfield !important;
 }
+
+/* Prevent dropdown menus, select popovers, and menus from blurring or darkening background modals/pages */
+.MuiPopover-root .MuiBackdrop-root,
+.MuiPopover-root .MuiBackdrop-invisible,
+.MuiMenu-root .MuiBackdrop-root,
+.MuiMenu-root .MuiBackdrop-invisible,
+.MuiModal-root:not(.MuiDialog-root) .MuiBackdrop-root[class*="invisible"] {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}

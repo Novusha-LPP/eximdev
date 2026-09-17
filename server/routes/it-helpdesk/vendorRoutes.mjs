@@ -14,6 +14,59 @@ const validateId = (req, res, next) => {
   next();
 };
 
+export async function generateNextVendorCode() {
+  const prefix = "VND-IT-";
+  const regex = /^VND-IT-(\d+)$/i;
+
+  const vendors = await Vendor.find({ vendor_code: { $regex: "^VND-IT-\\d+", $options: "i" } })
+    .select("vendor_code")
+    .lean();
+
+  let maxSeq = 0;
+  for (const v of vendors) {
+    if (v.vendor_code) {
+      const match = v.vendor_code.match(regex);
+      if (match) {
+        const seq = parseInt(match[1], 10);
+        if (!isNaN(seq) && seq > maxSeq) {
+          maxSeq = seq;
+        }
+      }
+    }
+  }
+
+  if (maxSeq === 0) {
+    const allVendors = await Vendor.find({ vendor_code: { $exists: true, $ne: "" } })
+      .select("vendor_code")
+      .lean();
+    for (const v of allVendors) {
+      if (v.vendor_code) {
+        const numMatch = v.vendor_code.match(/\d+/);
+        if (numMatch) {
+          const seq = parseInt(numMatch[0], 10);
+          if (!isNaN(seq) && seq > maxSeq) {
+            maxSeq = seq;
+          }
+        }
+      }
+    }
+  }
+
+  const nextSeq = maxSeq + 1;
+  return `${prefix}${String(nextSeq).padStart(3, "0")}`;
+}
+
+// ── GET next vendor code ──────────────────────────────────────────────────────
+router.get("/next-code", async (_req, res) => {
+  try {
+    const nextCode = await generateNextVendorCode();
+    res.json({ success: true, data: { nextCode } });
+  } catch (err) {
+    logger.error(`Error generating next vendor code: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ── GET vendor stats ──────────────────────────────────────────────────────────
 router.get("/stats", async (req, res) => {
   try {
@@ -328,6 +381,11 @@ router.post("/", async (req, res) => {
         message: firstError,
         errors: duplicateErrors
       });
+    }
+
+    // Auto-generate vendor_code if missing or empty
+    if (!sanitized.vendor_code || !sanitized.vendor_code.trim()) {
+      sanitized.vendor_code = await generateNextVendorCode();
     }
 
     // Ensure is_active is set to true for new vendors

@@ -121,9 +121,6 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
         checked: true,
         date: current[idx]?.date || today,
       };
-      if (idx === 2) {
-        if (onGlobalChange) onGlobalChange("status", "GRN Received");
-      }
     } else {
       current[idx] = {
         ...current[idx],
@@ -132,6 +129,15 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
       };
     }
     onChange({ approvals: current });
+
+    const allApproved = current.every((a) => a && (a.checked || a.status === "Done" || a.status === "DONE"));
+    if (onGlobalChange) {
+      if (allApproved) {
+        onGlobalChange("status", "GRN Done");
+      } else if (current.some((a) => a && (a.checked || a.status === "Done" || a.status === "DONE"))) {
+        onGlobalChange("status", "GRN Ready");
+      }
+    }
   };
 
   return (

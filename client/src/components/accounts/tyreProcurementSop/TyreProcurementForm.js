@@ -67,15 +67,23 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
         return 0; // Stage 1: Purchase Request
       case "PR Raised":
       case "Preparing for Quotation":
+      case "HoD Validated":
         return 1; // Stage 2: Supplier Quotation
       case "Quotation Received":
+      case "Quotation Updated":
         return 2; // Stage 3: Finance Approval
       case "Finance Approved":
         return 3; // Stage 4: Payment & UTR
       case "Payment Done":
-      case "Order Placed":
         return 4; // Stage 5: Order & Dispatch
+      case "Order Placed":
+      case "Dispatched":
+      case "Dispatched / Site GRN Ready":
+      case "GRN Ready":
+      case "GRN Received":
+        return 5; // Stage 6: Site GRN
       case "GRN Done":
+      case "GRN Completed":
       case "Closed":
         return 5; // Stage 6: Site GRN
       default:
@@ -137,7 +145,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
         res = await axios.post(`${process.env.REACT_APP_API_STRING}/tyre-procurement`, formData);
       }
       const savedData = res.data?.data || res.data;
-      alert(res.data?.message || "Tyre Purchase Request saved successfully!");
+      alert(res.data?.message || "Purchase Request saved successfully!");
 
       if (savedData && savedData._id) {
         setFormData(mergeWithEmpty(savedData));
@@ -191,7 +199,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#0f172a", fontSize: "0.95rem" }}>
-              {isView ? "View Tyre Purchase Request" : prId ? "Edit Tyre Purchase Request" : "Create Tyre Purchase Request"}
+              {isView ? "View Purchase Request" : prId ? "Edit Purchase Request" : "Create Purchase Request"}
             </Typography>
             {formData.prNumber && (
               <Typography variant="caption" sx={{ color: "#64748b" }}>

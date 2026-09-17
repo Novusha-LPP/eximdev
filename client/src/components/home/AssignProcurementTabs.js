@@ -14,7 +14,7 @@ import {
   Stack,
 } from "@mui/material";
 import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
-import TireRepairIcon from "@mui/icons-material/TireRepair";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import axios from "axios";
 
 const TYRE_PROC_TABS = [
@@ -115,14 +115,14 @@ function AssignProcurementTabs({ selectedUser }) {
       if (res.data?.success) {
         setTyreMessage({
           type: "success",
-          text: `Successfully updated Tyre Procurement tab permissions for "${selectedUser}".`,
+          text: `Successfully updated Procurement tab permissions for "${selectedUser}".`,
         });
       }
     } catch (err) {
-      console.error("Error saving tyre tab permissions:", err);
+      console.error("Error saving procurement tab permissions:", err);
       setTyreMessage({
         type: "error",
-        text: "Failed to update Tyre Procurement tab permissions.",
+        text: "Failed to update Procurement tab permissions.",
       });
     } finally {
       setSavingTyre(false);
@@ -277,9 +277,9 @@ function AssignProcurementTabs({ selectedUser }) {
       {/* ─── SECTION 2: TYRE PROCUREMENT SOP TAB PERMISSIONS ─── */}
       <Card sx={{ p: 3, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", borderRadius: "10px" }}>
         <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 0.5 }}>
-          <TireRepairIcon sx={{ color: "#d97706", fontSize: 26 }} />
+          <ShoppingCartIcon sx={{ color: "#2563eb", fontSize: 26 }} />
           <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a" }}>
-            Tyre Procurement SOP Tab Permissions
+            Procurement SOP Tab Permissions
           </Typography>
         </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
@@ -354,7 +354,7 @@ function AssignProcurementTabs({ selectedUser }) {
                   "&:hover": { bgcolor: "#0f172a" },
                 }}
               >
-                {savingTyre ? "Saving..." : "Save Tyre Permissions"}
+                {savingTyre ? "Saving..." : "Save Procurement Permissions"}
               </Button>
             </Box>
           </>

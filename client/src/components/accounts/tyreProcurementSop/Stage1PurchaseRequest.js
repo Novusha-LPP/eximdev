@@ -28,23 +28,38 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
   const itemsRequired = data.itemsRequired || [];
   const routingChecklist = data.routingChecklist || [];
 
+  const saveProductDetails = (item) => {
+    if (!item) return;
+    const prodName = (item.productName || item.tyreType || "").trim().toUpperCase();
+    if (!prodName) return;
+
+    axios
+      .post(`${process.env.REACT_APP_API_STRING}/procurement-products`, {
+        productName: prodName,
+        brandPreference: (item.brandPreference || "").trim().toUpperCase(),
+        specification: (item.specification || item.sizeSpec || "").trim().toUpperCase(),
+        estUnitCost: Number(item.estUnitCost) || 0,
+      })
+      .then((res) => {
+        if (res.data?.product) {
+          setSavedProducts((prev) => {
+            const exists = prev.some((p) => (p.productName || "").toUpperCase() === prodName);
+            if (exists) {
+              return prev.map((p) =>
+                (p.productName || "").toUpperCase() === prodName ? res.data.product : p
+              );
+            }
+            return [...prev, res.data.product];
+          });
+        }
+      })
+      .catch((err) => {
+        console.error("Error auto-saving procurement product:", err);
+      });
+  };
+
   const updateItem = (idx, field, value) => {
     const val = typeof value === "string" ? value.toUpperCase() : value;
-
-    // Immediately save new product to backend and local state if defining productName or tyreType
-    if ((field === "productName" || field === "tyreType") && val.trim()) {
-      const prodUpper = val.trim();
-      if (!savedProducts.some((p) => (p.productName || "").toUpperCase() === prodUpper)) {
-        setSavedProducts((prev) => [...prev, { productName: prodUpper }]);
-        axios
-          .post(`${process.env.REACT_APP_API_STRING}/procurement-products`, {
-            productName: prodUpper,
-          })
-          .catch((err) => {
-            console.error("Error auto-saving new procurement product in Stage 1:", err);
-          });
-      }
-    }
 
     const updated = itemsRequired.map((item, i) => {
       if (i === idx) {
@@ -52,8 +67,28 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
         // Sync productName with tyreType for backward compatibility
         if (field === "productName") {
           nextItem.tyreType = val;
+          // If typed/selected product matches saved product, auto-fill empty fields
+          const matched = savedProducts.find(
+            (p) => (p.productName || "").toUpperCase() === val.trim().toUpperCase()
+          );
+          if (matched) {
+            if (!nextItem.brandPreference && matched.brandPreference) {
+              nextItem.brandPreference = matched.brandPreference;
+            }
+            if (!nextItem.specification && !nextItem.sizeSpec && matched.specification) {
+              nextItem.specification = matched.specification;
+              nextItem.sizeSpec = matched.specification;
+            }
+            if (!nextItem.estUnitCost && matched.estUnitCost) {
+              nextItem.estUnitCost = matched.estUnitCost;
+            }
+          }
         } else if (field === "tyreType") {
           nextItem.productName = val;
+        } else if (field === "specification") {
+          nextItem.sizeSpec = val;
+        } else if (field === "sizeSpec") {
+          nextItem.specification = val;
         }
         return nextItem;
       }
@@ -246,12 +281,10 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
           <table className="sop-table">
             <thead>
               <tr>
-                <th style={{ width: "160px" }}>Product Name / Item</th>
-                <th>Brand Preference</th>
-                <th style={{ width: "110px" }}>Size / Spec</th>
-                <th style={{ width: "100px" }}>Load Rating</th>
-                <th style={{ width: "80px" }}>Rim Size</th>
-                <th style={{ width: "70px" }}>Qty</th>
+                <th style={{ width: "180px" }}>Product Name / Item</th>
+                <th style={{ width: "180px" }}>Brand Preference</th>
+                <th>Specification</th>
+                <th style={{ width: "80px" }}>Qty</th>
                 <th style={{ width: "110px" }}>Est. Unit (₹)</th>
                 <th style={{ width: "110px" }}>Est. Total (₹)</th>
                 <th style={{ width: "40px", textAlign: "center" }}>Del</th>
@@ -268,6 +301,7 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
                         list="saved-procurement-products-list"
                         value={item.productName || item.tyreType || ""}
                         onChange={(e) => updateItem(idx, "productName", e.target.value)}
+                        onBlur={() => saveProductDetails(itemsRequired[idx])}
                         placeholder="e.g. Paper, Ink, Tyre"
                       />
                     </td>
@@ -276,31 +310,17 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
                         className="sop-input"
                         value={item.brandPreference || ""}
                         onChange={(e) => updateItem(idx, "brandPreference", e.target.value)}
+                        onBlur={() => saveProductDetails(itemsRequired[idx])}
                         placeholder="e.g. HP, JK Tyre, JK Paper"
                       />
                     </td>
                     <td>
                       <input
                         className="sop-input"
-                        value={item.sizeSpec || ""}
-                        onChange={(e) => updateItem(idx, "sizeSpec", e.target.value)}
-                        placeholder="10.00R20"
-                      />
-                    </td>
-                    <td>
-                      <input
-                        className="sop-input"
-                        value={item.loadRating || ""}
-                        onChange={(e) => updateItem(idx, "loadRating", e.target.value)}
-                        placeholder="146/143K"
-                      />
-                    </td>
-                    <td>
-                      <input
-                        className="sop-input"
-                        value={item.rimSize || ""}
-                        onChange={(e) => updateItem(idx, "rimSize", e.target.value)}
-                        placeholder="20"
+                        value={item.specification || item.sizeSpec || [item.loadRating, item.rimSize].filter(Boolean).join(" ") || ""}
+                        onChange={(e) => updateItem(idx, "specification", e.target.value)}
+                        onBlur={() => saveProductDetails(itemsRequired[idx])}
+                        placeholder="e.g. 10.00R20 146/143K 20 / 75 GSM / A4"
                       />
                     </td>
                     <td>
@@ -318,6 +338,7 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
                         className="sop-input"
                         value={item.estUnitCost || ""}
                         onChange={(e) => updateItem(idx, "estUnitCost", e.target.value)}
+                        onBlur={() => saveProductDetails(itemsRequired[idx])}
                         style={{ textAlign: "right" }}
                       />
                     </td>
@@ -360,7 +381,7 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
               className="sop-input"
               value={data.specificationDetails || ""}
               onChange={(e) => updateField("specificationDetails", e.target.value)}
-              placeholder="Brand, Load Rating, Rim Size, Remould Spec, etc."
+              placeholder="Brand, Specification, Grade, Remould Spec, etc."
             />
           </div>
           <div className="sop-grid-2">

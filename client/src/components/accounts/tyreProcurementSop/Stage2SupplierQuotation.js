@@ -61,11 +61,46 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
     (index, field, value) => {
       const current = [...suppliers];
       const val = typeof value === "string" ? value.toUpperCase() : value;
-      current[index] = { ...current[index], [field]: val };
+      const nextSupplier = { ...current[index], [field]: val };
+      if (field === "brand" || field === "tyreBrand") {
+        nextSupplier.brand = val;
+        nextSupplier.tyreBrand = val;
+      }
+      current[index] = nextSupplier;
       onChange({ suppliers: current });
     },
     [suppliers, onChange]
   );
+
+  const saveProductDetails = (sup) => {
+    if (!sup) return;
+    const prodName = (sup.selectedProduct || sup.selectedTyreType || "").trim().toUpperCase();
+    if (!prodName) return;
+
+    axios
+      .post(`${process.env.REACT_APP_API_STRING}/procurement-products`, {
+        productName: prodName,
+        brandPreference: (sup.brand || sup.tyreBrand || "").trim().toUpperCase(),
+        specification: (sup.sizeSpecification || "").trim().toUpperCase(),
+        estUnitCost: Number(sup.unitPriceNew) || 0,
+      })
+      .then((res) => {
+        if (res.data?.product) {
+          setSavedProducts((prev) => {
+            const exists = prev.some((p) => (p.productName || "").toUpperCase() === prodName);
+            if (exists) {
+              return prev.map((p) =>
+                (p.productName || "").toUpperCase() === prodName ? res.data.product : p
+              );
+            }
+            return [...prev, res.data.product];
+          });
+        }
+      })
+      .catch((err) => {
+        console.error("Error auto-saving procurement product from quotation:", err);
+      });
+  };
 
   // Handle selection or typing for Supplier Name
   const handleSupplierNameSelect = (index, selectedVal) => {
@@ -132,42 +167,90 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
     new Set([...stage1ProductNames, ...masterProductNames])
   );
 
+  // Auto-fill suppliers from Stage 1 items when suppliers are blank
+  useEffect(() => {
+    if (stage1Items.length > 0 && suppliers.some((s) => !s.selectedProduct && !s.selectedTyreType)) {
+      const firstItem = stage1Items[0];
+      const prodName = (firstItem.productName || firstItem.tyreType || "").trim().toUpperCase();
+      if (prodName) {
+        const brand = (firstItem.brandPreference || "").toUpperCase();
+        const spec = (firstItem.specification || firstItem.sizeSpec || [firstItem.loadRating, firstItem.rimSize].filter(Boolean).join(" ") || "").toUpperCase();
+        const qty = firstItem.qty || 0;
+        const price = firstItem.estUnitCost || 0;
+
+        const updated = suppliers.map((sup) => {
+          if (!sup.selectedProduct && !sup.selectedTyreType) {
+            return {
+              ...sup,
+              selectedProduct: prodName,
+              selectedTyreType: prodName,
+              brand: brand || sup.brand || sup.tyreBrand || "",
+              tyreBrand: brand || sup.tyreBrand || sup.brand || "",
+              sizeSpecification: spec || sup.sizeSpecification || "",
+              qtyAvailable: qty || sup.qtyAvailable || 0,
+              unitPriceNew: price || sup.unitPriceNew || 0,
+            };
+          }
+          return sup;
+        });
+        onChange({ suppliers: updated });
+      }
+    }
+  }, [stage1Items.length]);
+
   // Handle Product selection/typing for a supplier -> Auto-fetch item details from Stage 1 if available and auto-save product
   const handleProductSelect = (idx, selectedProduct) => {
     const rawVal = typeof selectedProduct === "string" ? selectedProduct : (selectedProduct?.productName || "");
     const prodUpper = rawVal.toUpperCase();
 
-    // Immediately save new product to backend and local state if not empty
-    if (prodUpper.trim()) {
-      if (!savedProducts.some((p) => (p.productName || "").toUpperCase() === prodUpper.trim())) {
-        setSavedProducts((prev) => [...prev, { productName: prodUpper.trim() }]);
-        axios
-          .post(`${process.env.REACT_APP_API_STRING}/procurement-products`, {
-            productName: prodUpper.trim(),
-          })
-          .catch((err) => {
-            console.error("Error auto-saving new procurement product:", err);
-          });
-      }
-    }
-
     const matchedItem = stage1Items.find(
       (item) => (item.productName || item.tyreType || "").trim().toUpperCase() === prodUpper
     );
+    const matchedSaved = savedProducts.find(
+      (p) => (p.productName || "").toUpperCase() === prodUpper
+    );
+
+    const resolvedBrand = (
+      matchedItem?.brandPreference ||
+      matchedSaved?.brandPreference ||
+      suppliers[idx]?.brand ||
+      suppliers[idx]?.tyreBrand ||
+      ""
+    ).toUpperCase();
+
+    const resolvedSpec = (
+      matchedItem?.specification ||
+      matchedItem?.sizeSpec ||
+      [matchedItem?.loadRating, matchedItem?.rimSize].filter(Boolean).join(" ") ||
+      matchedSaved?.specification ||
+      suppliers[idx]?.sizeSpecification ||
+      ""
+    ).toUpperCase();
+
+    const resolvedQty = matchedItem?.qty || suppliers[idx]?.qtyAvailable || 0;
+    const resolvedPrice = matchedItem?.estUnitCost || matchedSaved?.estUnitCost || suppliers[idx]?.unitPriceNew || 0;
 
     const current = [...suppliers];
     const existing = current[idx] || {};
 
-    current[idx] = {
+    const updatedSup = {
       ...existing,
       selectedProduct: prodUpper,
       selectedTyreType: prodUpper,
-      tyreBrand: (matchedItem?.brandPreference || existing.tyreBrand || "").toUpperCase(),
-      sizeSpecification: (matchedItem?.sizeSpec || existing.sizeSpecification || "").toUpperCase(),
-      qtyAvailable: matchedItem?.qty || existing.qtyAvailable || 0,
-      unitPriceNew: matchedItem?.estUnitCost || existing.unitPriceNew || 0,
+      brand: resolvedBrand,
+      tyreBrand: resolvedBrand,
+      sizeSpecification: resolvedSpec,
+      qtyAvailable: resolvedQty,
+      unitPriceNew: resolvedPrice,
     };
+
+    current[idx] = updatedSup;
     onChange({ suppliers: current });
+
+    // Immediately save new product details to backend and local state if not empty
+    if (prodUpper.trim()) {
+      saveProductDetails(updatedSup);
+    }
   };
 
   // Helper to ensure each distinct supplier in selectedSuppliers gets a valid sequential PO number
@@ -550,10 +633,10 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
 
               {/* Quote Parameters Rows */}
               {[
-                ["Tyre Brand", "tyreBrand", "text"],
-                ["Size & Specification", "sizeSpecification", "text"],
-                ["Unit Price – New Tyre (₹)", "unitPriceNew", "number"],
-                ["Unit Price – Remould Tyre (₹)", "unitPriceRemould", "number"],
+                ["Brand", "tyreBrand", "text"],
+                ["Specification", "sizeSpecification", "text"],
+                ["Unit Price (₹)", "unitPriceNew", "number"],
+                ["Unit Price – Secondary / Remould (₹)", "unitPriceRemould", "number"],
                 ["Qty Available", "qtyAvailable", "number"],
                 ["Freight Charges", "freightCharges", "number"],
                 ["Delivery Timeline", "deliveryTimeline", "text"],
@@ -572,6 +655,7 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
                         className="sop-input"
                         value={sup?.[field] ?? ""}
                         onChange={(e) => updateSupplierField(idx, field, type === "text" ? e.target.value.toUpperCase() : e.target.value)}
+                        onBlur={() => saveProductDetails(suppliers[idx])}
                         style={type === "number" ? { textAlign: "right" } : {}}
                       />
                     </td>

@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useContext } from "react";
 import axios from "axios";
+import { UserContext } from "../../../contexts/UserContext";
 import {
   Box,
   Paper,
@@ -21,6 +22,9 @@ import {
   InputAdornment,
   Avatar,
   Stack,
+  Tabs,
+  Tab,
+  Badge,
 } from "@mui/material";
 import {
   Edit,
@@ -36,19 +40,59 @@ import {
   CheckCircle,
 } from "@mui/icons-material";
 
+const stageTabsList = [
+  { label: "All PRs", value: "0" },
+  { label: "1. Purchase Request", value: "1" },
+  { label: "2. Supplier Quotation", value: "2" },
+  { label: "3. Finance Approval", value: "3" },
+  { label: "4. Payment & UTR", value: "4" },
+  { label: "5. Order & Dispatch", value: "5" },
+  { label: "6. Site GRN", value: "6" },
+  { label: "7. Completed", value: "7" },
+];
+
 function RmProcurementList({ onEdit, onView, onCreate }) {
+  const { user } = useContext(UserContext);
+  const userRole = (user?.role || "").toLowerCase();
+  const isAdmin = userRole === "admin" || userRole === "superadmin";
+
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [stageTab, setStageTab] = useState("0");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [allowedUserTabs, setAllowedUserTabs] = useState([]);
   const limit = 20;
+
+  useEffect(() => {
+    async function fetchUserTabs() {
+      if (user?.username && !isAdmin) {
+        try {
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
+          );
+          if (res.data?.success && res.data.allowed_tabs?.length > 0) {
+            setAllowedUserTabs(res.data.allowed_tabs);
+          }
+        } catch (err) {
+          console.error("Error fetching allowed tabs:", err);
+        }
+      }
+    }
+    fetchUserTabs();
+  }, [user, isAdmin]);
+
+  const isTabVisible = (tabLabel, tabValue) => {
+    if (isAdmin || allowedUserTabs.length === 0 || tabValue === "0") return true;
+    return allowedUserTabs.includes(tabLabel);
+  };
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_STRING}/rm-procurement`, {
-        params: { search, page, limit },
+        params: { search, stageTab, page, limit },
       });
       setItems(res.data.data || []);
       setTotal(res.data.total || 0);
@@ -58,10 +102,24 @@ function RmProcurementList({ onEdit, onView, onCreate }) {
     } finally {
       setLoading(false);
     }
-  }, [search, page]);
+  }, [search, stageTab, page]);
+
+  const [allRecords, setAllRecords] = useState([]);
+
+  const fetchAllRecords = async () => {
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/rm-procurement`, {
+        params: { limit: 1000 },
+      });
+      setAllRecords(res.data.data || []);
+    } catch (err) {
+      console.error("Error fetching all RM SOP records for badge counts:", err);
+    }
+  };
 
   useEffect(() => {
     fetchItems();
+    fetchAllRecords();
   }, [fetchItems]);
 
   const handleDelete = async (id) => {
@@ -266,6 +324,131 @@ function RmProcurementList({ onEdit, onView, onCreate }) {
           </Button>
         </Stack>
 
+        {/* Stage Filter Tabs */}
+        <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+          <Tabs
+            value={stageTab}
+            onChange={(e, val) => setStageTab(val)}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              minHeight: 40,
+              "& .MuiTabs-indicator": {
+                backgroundColor: "#2563eb",
+                height: 2.5,
+                borderRadius: 1,
+              },
+            }}
+          >
+            {stageTabsList.map((tab) => {
+              if (!isTabVisible(tab.label, tab.value)) return null;
+              const count = (() => {
+                const list = allRecords.length > 0 ? allRecords : items;
+                if (tab.value === "0") {
+                  if (!isAdmin && allowedUserTabs.length > 0) {
+                    const tabStatusMap = {
+                      "1. Purchase Request": ["Draft"],
+                      "2. Supplier Quotation": ["PR Raised", "Quotation Pending", "Preparing for Quotation"],
+                      "3. Finance Approval": ["Quotation Received", "Pending Finance Approval"],
+                      "4. Payment & UTR": ["Finance Approved", "Payment Pending"],
+                      "5. Order & Dispatch": ["Order Placed", "Payment Done"],
+                      "6. Site GRN": ["Dispatched", "GRN Ready"],
+                      "7. Completed": ["GRN Done", "Closed", "Completed"],
+                    };
+                    const allowedStatuses = allowedUserTabs.flatMap((t) => tabStatusMap[t] || []);
+                    return list.filter((d) => allowedStatuses.includes(d.status)).length;
+                  }
+                  return list.filter((d) => d.status !== "GRN Done" && d.status !== "Closed" && d.status !== "Completed").length;
+                }
+                switch (tab.value) {
+                  case "1":
+                    return list.filter((d) => d.status === "Draft" || !d.status).length;
+                  case "2":
+                    return list.filter((d) => d.status === "PR Raised" || d.status === "Quotation Pending" || d.status === "Preparing for Quotation").length;
+                  case "3":
+                    return list.filter((d) => d.status === "Quotation Received" || d.status === "Pending Finance Approval").length;
+                  case "4":
+                    return list.filter((d) => d.status === "Finance Approved" || d.status === "Payment Pending").length;
+                  case "5":
+                    return list.filter((d) => d.status === "Order Placed" || d.status === "Payment Done").length;
+                  case "6":
+                    return list.filter((d) => d.status === "Dispatched" || d.status === "GRN Ready").length;
+                  case "7":
+                    return list.filter((d) => d.status === "GRN Done" || d.status === "Closed" || d.status === "Completed").length;
+                  default:
+                    return 0;
+                }
+              })();
+              const showNotificationBadge = count > 0;
+
+              let badgeColor = "primary";
+              if (tab.value === "1") badgeColor = "info";
+              else if (tab.value === "2") badgeColor = "warning";
+              else if (tab.value === "3" || tab.value === "4") badgeColor = "error";
+              else if (tab.value === "5") badgeColor = "info";
+              else if (tab.value === "6") badgeColor = "warning";
+              else if (tab.value === "7") badgeColor = "success";
+              else if (tab.value === "0") badgeColor = "primary";
+
+              return (
+                <Tab
+                  key={tab.value}
+                  label={
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <span>{tab.label}</span>
+                      {showNotificationBadge ? (
+                        <Badge
+                          badgeContent={count}
+                          color={badgeColor}
+                          sx={{
+                            ml: 0.5,
+                            "& .MuiBadge-badge": {
+                              fontSize: "10px",
+                              height: "18px",
+                              minWidth: "18px",
+                              fontWeight: 700,
+                              px: 0.5,
+                            },
+                          }}
+                        />
+                      ) : (
+                        <Box
+                          component="span"
+                          sx={{
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            px: 0.8,
+                            py: 0.2,
+                            borderRadius: "10px",
+                            backgroundColor: stageTab === tab.value ? "#eff6ff" : "#f1f5f9",
+                            color: stageTab === tab.value ? "#1d4ed8" : "#64748b",
+                          }}
+                        >
+                          {count}
+                        </Box>
+                      )}
+                    </Box>
+                  }
+                  value={tab.value}
+                  sx={{
+                    fontWeight: 600,
+                    fontSize: "13px",
+                    textTransform: "none",
+                    color: stageTab === tab.value ? "#1d4ed8" : "#64748b",
+                    minHeight: 40,
+                    py: 1,
+                    px: 2,
+                    "&.Mui-selected": {
+                      fontWeight: 700,
+                      color: "#1d4ed8",
+                    },
+                  }}
+                />
+              );
+            })}
+          </Tabs>
+        </Box>
+
         {/* Search Bar */}
         <Box component="form" onSubmit={handleSearch}>
           <TextField
@@ -322,14 +505,30 @@ function RmProcurementList({ onEdit, onView, onCreate }) {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {items.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 6, color: "#64748b" }}>
-                        No raw material procurement requests found.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    items.map((item) => {
+                  {(() => {
+                    const filteredItems = items.filter((d) => {
+                      if (stageTab === "0") return d.status !== "GRN Done" && d.status !== "Closed" && d.status !== "Completed" && d.status !== "GRN Completed";
+                      if (stageTab === "1") return d.status === "Draft" || !d.status;
+                      if (stageTab === "2") return d.status === "PR Raised" || d.status === "Quotation Pending" || d.status === "Preparing for Quotation";
+                      if (stageTab === "3") return d.status === "Quotation Received" || d.status === "Pending Finance Approval";
+                      if (stageTab === "4") return d.status === "Finance Approved" || d.status === "Payment Pending";
+                      if (stageTab === "5") return d.status === "Order Placed" || d.status === "Payment Done";
+                      if (stageTab === "6") return d.status === "Dispatched" || d.status === "GRN Ready";
+                      if (stageTab === "7") return d.status === "GRN Done" || d.status === "Closed" || d.status === "Completed";
+                      return true;
+                    });
+
+                    if (filteredItems.length === 0) {
+                      return (
+                        <TableRow>
+                          <TableCell colSpan={7} align="center" sx={{ py: 6, color: "#64748b" }}>
+                            No raw material procurement requests found for this stage.
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+
+                    return filteredItems.map((item) => {
                       const chipStyle = getStatusChipProps(item.status);
                       return (
                         <TableRow key={item._id} hover sx={{ "&:hover": { bgcolor: "#f8fafc" } }}>
@@ -383,8 +582,8 @@ function RmProcurementList({ onEdit, onView, onCreate }) {
                           </TableCell>
                         </TableRow>
                       );
-                    })
-                  )}
+                    });
+                  })()}
                 </TableBody>
               </Table>
             </TableContainer>

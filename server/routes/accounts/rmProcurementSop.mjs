@@ -46,8 +46,40 @@ function emptyRow(cols) {
 // List PRs
 router.get("/rm-procurement", authMiddleware, async (req, res) => {
   try {
-    const { search, page = 1, limit = 50 } = req.query;
+    const { search, stageTab, page = 1, limit = 50 } = req.query;
     const query = {};
+
+    if (stageTab !== undefined && stageTab !== null) {
+      switch (stageTab) {
+        case "0":
+          query.status = { $nin: ["GRN Done", "Closed", "GRN Completed", "Completed"] };
+          break;
+        case "1":
+          query.status = { $in: ["Draft", null] };
+          break;
+        case "2":
+          query.status = { $in: ["PR Raised", "Quotation Pending", "Preparing for Quotation"] };
+          break;
+        case "3":
+          query.status = { $in: ["Quotation Received", "Pending Finance Approval"] };
+          break;
+        case "4":
+          query.status = { $in: ["Finance Approved", "Payment Pending"] };
+          break;
+        case "5":
+          query.status = { $in: ["Order Placed", "Payment Done"] };
+          break;
+        case "6":
+          query.status = { $in: ["Dispatched", "GRN Ready"] };
+          break;
+        case "7":
+          query.status = { $in: ["GRN Done", "Closed", "Completed", "GRN Completed"] };
+          break;
+        default:
+          break;
+      }
+    }
+
     if (search) {
       const regex = new RegExp(search, "i");
       query.$or = [

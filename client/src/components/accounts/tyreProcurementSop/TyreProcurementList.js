@@ -24,6 +24,7 @@ import {
   Tooltip,
   InputAdornment,
   Avatar,
+  Badge,
 } from "@mui/material";
 import {
   Edit,
@@ -88,23 +89,53 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
     return allowedUserTabs.includes(tabLabel);
   };
 
+  const [allRecords, setAllRecords] = useState([]);
+
+  const fetchAllRecords = async () => {
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/tyre-procurement`, {
+        params: { limit: 1000 },
+      });
+      setAllRecords(res.data.data || []);
+    } catch (err) {
+      console.error("Error fetching all Tyre SOP records for badge counts:", err);
+    }
+  };
+
+  const tabStatusMap = {
+    "1. Purchase Request": ["Draft"],
+    "2. Supplier Quotation": ["PR Raised", "Preparing for Quotation", "HoD Validated"],
+    "3. Finance Approval": ["Quotation Received", "Quotation Updated"],
+    "4. Payment & UTR": ["Finance Approved", "Finance Review"],
+    "5. Order & Dispatch": ["Payment Done", "Advance Paid", "Order Placed", "Dispatched"],
+    "6. Site GRN": ["Dispatched / Site GRN Ready", "GRN Ready", "In Transit", "GRN Received"],
+    "7. Completed": ["GRN Done", "GRN Completed", "Closed"],
+  };
+
   const getTabCount = (value) => {
-    if (value === "0") return total;
+    const list = allRecords.length > 0 ? allRecords : data;
+    if (value === "0") {
+      if (!isAdmin && allowedUserTabs.length > 0) {
+        const allowedStatuses = allowedUserTabs.flatMap((t) => tabStatusMap[t] || []);
+        return list.filter((d) => allowedStatuses.includes(d.status)).length;
+      }
+      return list.filter((d) => d.status !== "GRN Done" && d.status !== "Closed" && d.status !== "GRN Completed").length;
+    }
     switch (value) {
       case "1":
-        return data.filter((d) => d.status === "Draft" || !d.status).length;
+        return list.filter((d) => d.status === "Draft" || !d.status).length;
       case "2":
-        return data.filter((d) => d.status === "PR Raised" || d.status === "Preparing for Quotation" || d.status === "HoD Validated").length;
+        return list.filter((d) => d.status === "PR Raised" || d.status === "Preparing for Quotation" || d.status === "HoD Validated").length;
       case "3":
-        return data.filter((d) => d.status === "Quotation Received" || d.status === "Quotation Updated").length;
+        return list.filter((d) => d.status === "Quotation Received" || d.status === "Quotation Updated").length;
       case "4":
-        return data.filter((d) => d.status === "Finance Approved").length;
+        return list.filter((d) => d.status === "Finance Approved").length;
       case "5":
-        return data.filter((d) => d.status === "Payment Done" || d.status === "Order Placed").length;
+        return list.filter((d) => d.status === "Payment Done" || d.status === "Order Placed" || d.status === "Dispatched").length;
       case "6":
-        return data.filter((d) => d.status === "Dispatched / Site GRN Ready" || d.status === "GRN Ready").length;
+        return list.filter((d) => d.status === "Dispatched / Site GRN Ready" || d.status === "GRN Ready" || d.status === "GRN Received").length;
       case "7":
-        return data.filter((d) => d.status === "GRN Done" || d.status === "Closed" || d.status === "GRN Completed").length;
+        return list.filter((d) => d.status === "GRN Done" || d.status === "Closed" || d.status === "GRN Completed").length;
       default:
         return 0;
     }
@@ -132,6 +163,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
 
   useEffect(() => {
     fetchRecords();
+    fetchAllRecords();
   }, [page, rowsPerPage, search, stageTab]);
 
   const handleDelete = async (id) => {
@@ -401,26 +433,55 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           >
             {stageTabsList.map((tab) => {
               if (!isTabVisible(tab.label, tab.value)) return null;
+              const count = getTabCount(tab.value);
+              const showNotificationBadge = count > 0;
+
+              let badgeColor = "primary";
+              if (tab.value === "1") badgeColor = "info";
+              else if (tab.value === "2") badgeColor = "warning";
+              else if (tab.value === "3" || tab.value === "4") badgeColor = "error";
+              else if (tab.value === "5") badgeColor = "info";
+              else if (tab.value === "6") badgeColor = "warning";
+              else if (tab.value === "7") badgeColor = "success";
+              else if (tab.value === "0") badgeColor = "primary";
+
               return (
                 <Tab
                   key={tab.value}
                   label={
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <span>{tab.label}</span>
-                      <Box
-                        component="span"
-                        sx={{
-                          fontSize: "11px",
-                          fontWeight: 700,
-                          px: 0.8,
-                          py: 0.2,
-                          borderRadius: "10px",
-                          backgroundColor: stageTab === tab.value ? "#eff6ff" : "#f1f5f9",
-                          color: stageTab === tab.value ? "#1d4ed8" : "#64748b",
-                        }}
-                      >
-                        {getTabCount(tab.value)}
-                      </Box>
+                      {showNotificationBadge ? (
+                        <Badge
+                          badgeContent={count}
+                          color={badgeColor}
+                          sx={{
+                            ml: 0.5,
+                            "& .MuiBadge-badge": {
+                              fontSize: "10px",
+                              height: "18px",
+                              minWidth: "18px",
+                              fontWeight: 700,
+                              px: 0.5,
+                            },
+                          }}
+                        />
+                      ) : (
+                        <Box
+                          component="span"
+                          sx={{
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            px: 0.8,
+                            py: 0.2,
+                            borderRadius: "10px",
+                            backgroundColor: stageTab === tab.value ? "#eff6ff" : "#f1f5f9",
+                            color: stageTab === tab.value ? "#1d4ed8" : "#64748b",
+                          }}
+                        >
+                          {count}
+                        </Box>
+                      )}
                     </Box>
                   }
                   value={tab.value}
@@ -428,14 +489,10 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                     fontWeight: 600,
                     fontSize: "13px",
                     textTransform: "none",
-                    color: "#64748b",
+                    color: stageTab === tab.value ? "#1d4ed8" : "#64748b",
                     minHeight: 40,
                     py: 1,
                     px: 2,
-                    "&.Mui-selected": {
-                      color: "#2563eb",
-                      fontWeight: 700,
-                    },
                   }}
                 />
               );

@@ -867,13 +867,30 @@ const disableCluster = process.env.DISABLE_CLUSTER === "true";
 
 if (!disableCluster && cluster.isPrimary) {
   console.log(`🚀 Primary Process running. Detected ${os.availableParallelism()} CPUs. Forking ${numOfCPU} workers (capped)...`);
+  let isShuttingDown = false;
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
   }
   cluster.on("exit", (worker, code, signal) => {
-    console.error(`⚠️ Worker ${worker.process.pid} exited (code: ${code}, signal: ${signal}). Restarting...`);
-    cluster.fork();
+    if (!isShuttingDown) {
+      console.error(`⚠️ Worker ${worker.process.pid} exited (code: ${code}, signal: ${signal}). Restarting...`);
+      cluster.fork();
+    }
   });
+
+  const shutdownWorkers = () => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.log("Closing cluster workers...");
+    for (const id in cluster.workers) {
+      cluster.workers[id]?.kill();
+    }
+    process.exit(0);
+  };
+
+  process.on("SIGINT", shutdownWorkers);
+  process.on("SIGTERM", shutdownWorkers);
+  process.on("SIGUSR2", shutdownWorkers);
 } else {
   // Worker Process
   if (disableCluster) {

@@ -250,6 +250,7 @@ function Home() {
   const [pendingDocCount, setPendingDocCount] = useState(0);
   const [openPointsCount, setOpenPointsCount] = useState(0);
   const [billingConfirmCount, setBillingConfirmCount] = useState(0);
+  const [procurementPendingCount, setProcurementPendingCount] = useState(0);
 
   useEffect(() => {
     sessionStorage.removeItem("it_helpdesk_expiry_modal_shown");
@@ -292,9 +293,23 @@ function Home() {
       }
     }
 
+    async function fetchProcurementPendingCount() {
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/tyre-procurement/pending-count`
+        );
+        if (res.data?.success && typeof res.data.count === "number") {
+          setProcurementPendingCount(res.data.count);
+        }
+      } catch (err) {
+        console.error("Error fetching procurement pending count:", err);
+      }
+    }
+
     fetchPendingCount();
     fetchPointsCount();
     fetchBillingConfirmCount();
+    fetchProcurementPendingCount();
   }, [selectedYearState, user]);
 
   const [searchQueryId, setSearchQueryId] = useState("");
@@ -764,6 +779,30 @@ function Home() {
                           }}
                         >
                           {billingConfirmCount}
+                        </span>
+                      )}
+                      {["Procurement & Insurance SOPs", "Tyre Procurement SOP", "Procurement SOP"].includes(module) && procurementPendingCount > 0 && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "-10px",
+                            right: "-10px",
+                            backgroundColor: "#ef4444",
+                            color: "white",
+                            borderRadius: "50%",
+                            width: "22px",
+                            height: "22px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                            border: "2px solid white",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                            zIndex: 10,
+                          }}
+                        >
+                          {procurementPendingCount}
                         </span>
                       )}
                     </div>

@@ -688,9 +688,9 @@ const mapPurchaseEntryData = (data) => {
     revenueAmount: Number(data["Revenue Amount"] || data.revenueAmount || data["Revenue Total"] || data.revenueTotal || 0),
     revenueBasicAmount: Number(data["Revenue Basic Amount"] || data.revenueBasicAmount || 0),
     revenueGstAmount: Number(data["Revenue GST Amount"] || data.revenueGstAmount || 0),
-    revenueCgst: Number(data["Revenue CGST"] || data.revenueCgst || 0),
-    revenueSgst: Number(data["Revenue SGST"] || data.revenueSgst || 0),
-    revenueIgst: Number(data["Revenue IGST"] || data.revenueIgst || 0),
+    revenueCgst: Number(data["Revenue CGST"] || data.revenueCgst || (Array.isArray(data.chargeItems) ? data.chargeItems.reduce((acc, it) => acc + Number(it["Revenue CGST"] || it.revenueCgst || 0), 0) : 0)),
+    revenueSgst: Number(data["Revenue SGST"] || data.revenueSgst || (Array.isArray(data.chargeItems) ? data.chargeItems.reduce((acc, it) => acc + Number(it["Revenue SGST"] || it.revenueSgst || 0), 0) : 0)),
+    revenueIgst: Number(data["Revenue IGST"] || data.revenueIgst || (Array.isArray(data.chargeItems) ? data.chargeItems.reduce((acc, it) => acc + Number(it["Revenue IGST"] || it.revenueIgst || 0), 0) : 0)),
     revenueTotal: Number(data["Revenue Total"] || data.revenueTotal || data["Revenue Amount"] || data.revenueAmount || 0),
     revenueRate: Number(data["Revenue Rate"] || data.revenueRate || 0),
     revenueCurrencyAmount: Number(data["Revenue Currency Amount"] || data.revenueCurrencyAmount || 0),
@@ -889,11 +889,12 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
     let tdsPercent = 0;
     let tdsCategory = entry.tdsCategory || '94C';
     let matchedCharge = null;
+    let job = null;
 
     if (entry.jobRef || entry.jobNo) {
       try {
         const query = entry.jobRef ? { _id: entry.jobRef } : { job_no: entry.jobNo };
-        const job = await JobModel.findOne(query).lean();
+        job = await JobModel.findOne(query).lean();
         if (job && job.charges) {
           if (entry.chargeRef) {
             matchedCharge = job.charges.find(c => c._id?.toString() === entry.chargeRef);
@@ -929,6 +930,28 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
     let revenueAmount = (entry.revenueAmount !== undefined && entry.revenueAmount !== null && entry.revenueAmount !== 0)
       ? Number(entry.revenueAmount)
       : Number(revObj.amountINR || revObj.amount || revObj.totalAmount || (revObj.rate ? revObj.rate * (revObj.qty || 1) : 0));
+
+    let revenueRate = (entry.revenueRate !== undefined && entry.revenueRate !== null && entry.revenueRate !== 0)
+      ? Number(entry.revenueRate)
+      : (entry["Revenue Rate"] !== undefined && entry["Revenue Rate"] !== null && entry["Revenue Rate"] !== 0
+        ? Number(entry["Revenue Rate"])
+        : (revObj.rate !== undefined && revObj.rate !== null && revObj.rate !== 0
+          ? Number(revObj.rate)
+          : (Array.isArray(entry.chargeItems) && entry.chargeItems.length > 0
+            ? Number(entry.chargeItems[0]["Revenue Rate"] || entry.chargeItems[0].revenueRate || 0)
+            : 0)));
+
+    let revenueCurrencyAmount = (entry.revenueCurrencyAmount !== undefined && entry.revenueCurrencyAmount !== null && entry.revenueCurrencyAmount !== 0)
+      ? Number(entry.revenueCurrencyAmount)
+      : (entry["Revenue Currency Amount"] !== undefined && entry["Revenue Currency Amount"] !== null && entry["Revenue Currency Amount"] !== 0
+        ? Number(entry["Revenue Currency Amount"])
+        : (revObj.amount !== undefined && revObj.amount !== null && revObj.amount !== 0
+          ? Number(revObj.amount)
+          : (revObj.currencyAmount !== undefined && revObj.currencyAmount !== null && revObj.currencyAmount !== 0
+            ? Number(revObj.currencyAmount)
+            : (Array.isArray(entry.chargeItems) && entry.chargeItems.length > 0
+              ? Number(entry.chargeItems[0]["Revenue Currency Amount"] || entry.chargeItems[0].revenueCurrencyAmount || 0)
+              : 0))));
 
     const formattedData = {
       "Entry No": entry.entryNo,
@@ -1030,9 +1053,41 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
           itemTotal = itemNet;
         }
 
+        let itemMatchedCharge = null;
+        if (job && Array.isArray(job.charges)) {
+          if (item.chargeId || item.chargeRef) {
+            const targetId = String(item.chargeId || item.chargeRef);
+            itemMatchedCharge = job.charges.find(c => c._id?.toString() === targetId);
+          }
+          if (!itemMatchedCharge && itemHead) {
+            const targetHead = itemHead.trim().toLowerCase();
+            itemMatchedCharge = job.charges.find(c => (c.name || c.chargeHead || c.chargeHeading)?.trim().toLowerCase() === targetHead);
+          }
+        }
+        const itemCost = itemMatchedCharge?.cost || {};
+        const itemRevenue = itemMatchedCharge?.revenue || {};
+
         const itemRevAmt = (item.revenueAmount !== undefined && item.revenueAmount !== null && item.revenueAmount !== 0)
           ? Number(item.revenueAmount)
           : revenueAmount;
+
+        const itemRevRate = (item["Revenue Rate"] !== undefined && item["Revenue Rate"] !== null && item["Revenue Rate"] !== 0)
+          ? Number(item["Revenue Rate"])
+          : ((item.revenueRate !== undefined && item.revenueRate !== null && item.revenueRate !== 0)
+            ? Number(item.revenueRate)
+            : (itemRevenue.rate !== undefined && itemRevenue.rate !== null && itemRevenue.rate !== 0
+              ? Number(itemRevenue.rate)
+              : 0));
+
+        const itemRevCurrencyAmt = (item["Revenue Currency Amount"] !== undefined && item["Revenue Currency Amount"] !== null && item["Revenue Currency Amount"] !== 0)
+          ? Number(item["Revenue Currency Amount"])
+          : ((item.revenueCurrencyAmount !== undefined && item.revenueCurrencyAmount !== null && item.revenueCurrencyAmount !== 0)
+            ? Number(item.revenueCurrencyAmount)
+            : (itemRevenue.amount !== undefined && itemRevenue.amount !== null && itemRevenue.amount !== 0
+              ? Number(itemRevenue.amount)
+              : (itemRevenue.currencyAmount !== undefined && itemRevenue.currencyAmount !== null && itemRevenue.currencyAmount !== 0
+                ? Number(itemRevenue.currencyAmount)
+                : 0)));
 
         const itemCurrency = item.currency || item.costCurrency || item.chargeCurrency || entry.currency || "INR";
         const itemCurrencyAmt = item.currencyAmount !== undefined && item.currencyAmount !== null && item.currencyAmount !== 0
@@ -1041,6 +1096,59 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
         const itemExRate = item.exchangeRate !== undefined && item.exchangeRate !== null && item.exchangeRate !== 0
           ? Number(item.exchangeRate)
           : (entry.exchangeRate || (itemCurrency !== "INR" ? 1 : ""));
+
+        let itemRevCgst = 0;
+        let itemRevSgst = 0;
+        let itemRevIgst = 0;
+
+        if (isReimbursement) {
+          itemRevCgst = "";
+          itemRevSgst = "";
+          itemRevIgst = "";
+        } else {
+          const rawItemRevCgst = item["Revenue CGST"] !== undefined ? Number(item["Revenue CGST"]) : (item.revenueCgst !== undefined ? Number(item.revenueCgst) : (itemRevenue.cgst !== undefined ? Number(itemRevenue.cgst) : 0));
+          const rawItemRevSgst = item["Revenue SGST"] !== undefined ? Number(item["Revenue SGST"]) : (item.revenueSgst !== undefined ? Number(item.revenueSgst) : (itemRevenue.sgst !== undefined ? Number(itemRevenue.sgst) : 0));
+          const rawItemRevIgst = item["Revenue IGST"] !== undefined ? Number(item["Revenue IGST"]) : (item.revenueIgst !== undefined ? Number(item.revenueIgst) : (itemRevenue.igst !== undefined ? Number(itemRevenue.igst) : 0));
+
+          if (rawItemRevCgst > 0 || rawItemRevSgst > 0 || rawItemRevIgst > 0) {
+            itemRevCgst = rawItemRevCgst;
+            itemRevSgst = rawItemRevSgst;
+            itemRevIgst = rawItemRevIgst;
+          } else if (itemRevAmt > 0) {
+            let revGstRate = Number(item["Revenue GST%"] || item.revenueGstRate || itemRevenue.gstRate || item.gstRate || entry.gstPercent || 0);
+            if (revGstRate === 0 && (Number(item.cgst || 0) > 0 || Number(item.sgst || 0) > 0 || Number(item.igst || 0) > 0 || Number(entry.cgstAmt || 0) > 0 || Number(entry.igstAmt || 0) > 0)) {
+              revGstRate = 18;
+            }
+
+            if (revGstRate > 0) {
+              const isCostIgst = Number(item.igst || 0) > 0 || (Number(item.cgst || 0) === 0 && Number(entry.igstAmt || 0) > 0);
+              const isCostCgst = Number(item.cgst || 0) > 0 || Number(item.sgst || 0) > 0 || Number(entry.cgstAmt || 0) > 0;
+
+              if (isCostIgst) {
+                itemRevIgst = Number(((itemRevAmt * revGstRate) / 100).toFixed(2));
+                itemRevCgst = 0;
+                itemRevSgst = 0;
+              } else if (isCostCgst) {
+                itemRevCgst = Number(((itemRevAmt * (revGstRate / 2)) / 100).toFixed(2));
+                itemRevSgst = itemRevCgst;
+                itemRevIgst = 0;
+              } else {
+                const gstin = String(entry.gstinNo || entry.gstin || '').trim();
+                const pos = String(entry.placeOfSupply || entry.state || '').trim().toLowerCase();
+                const isGujarat = gstin.startsWith("24") || pos.includes("gujarat") || pos === "24";
+                if (isGujarat) {
+                  itemRevCgst = Number(((itemRevAmt * (revGstRate / 2)) / 100).toFixed(2));
+                  itemRevSgst = itemRevCgst;
+                  itemRevIgst = 0;
+                } else {
+                  itemRevIgst = Number(((itemRevAmt * revGstRate) / 100).toFixed(2));
+                  itemRevCgst = 0;
+                  itemRevSgst = 0;
+                }
+              }
+            }
+          }
+        }
 
         return {
           "Charge Heading": itemHead,
@@ -1059,6 +1167,11 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
           "Total": Math.round(itemTotal),
           "Net Amount": Math.round(itemNet),
           "Revenue Amount": itemRevAmt.toFixed(2),
+          "Revenue CGST": itemRevCgst,
+          "Revenue SGST": itemRevSgst,
+          "Revenue IGST": itemRevIgst,
+          "Revenue Rate": itemRevRate,
+          "Revenue Currency Amount": itemRevCurrencyAmt,
           "Supplier Inv No": item.invoiceNumber || entry.supplierInvNo || '',
           "Supplier Inv Date": item.invoiceDate || entry.supplierInvDate || '',
           "Qty": item.qty !== undefined && item.qty !== null ? Number(item.qty) : (entry.qty || 1),
@@ -1098,6 +1211,55 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
           }
         }
 
+        let fallbackRevCgst = 0;
+        let fallbackRevSgst = 0;
+        let fallbackRevIgst = 0;
+
+        if (chargeCategory === 'Reimbursement') {
+          fallbackRevCgst = "";
+          fallbackRevSgst = "";
+          fallbackRevIgst = "";
+        } else {
+          const rawFbRevCgst = Number(entry.revenueCgst || revObj.cgst || 0);
+          const rawFbRevSgst = Number(entry.revenueSgst || revObj.sgst || 0);
+          const rawFbRevIgst = Number(entry.revenueIgst || revObj.igst || 0);
+
+          if (rawFbRevCgst > 0 || rawFbRevSgst > 0 || rawFbRevIgst > 0) {
+            fallbackRevCgst = rawFbRevCgst;
+            fallbackRevSgst = rawFbRevSgst;
+            fallbackRevIgst = rawFbRevIgst;
+          } else if (revenueAmount > 0) {
+            let revGstRate = Number(entry.gstPercent || revObj.gstRate || 0);
+            if (revGstRate === 0 && (Number(entry.cgstAmt || 0) > 0 || Number(entry.igstAmt || 0) > 0)) {
+              revGstRate = 18;
+            }
+            if (revGstRate > 0) {
+              if (Number(entry.igstAmt || 0) > 0) {
+                fallbackRevIgst = Number(((revenueAmount * revGstRate) / 100).toFixed(2));
+                fallbackRevCgst = 0;
+                fallbackRevSgst = 0;
+              } else if (Number(entry.cgstAmt || 0) > 0 || Number(entry.sgstAmt || 0) > 0) {
+                fallbackRevCgst = Number(((revenueAmount * (revGstRate / 2)) / 100).toFixed(2));
+                fallbackRevSgst = fallbackRevCgst;
+                fallbackRevIgst = 0;
+              } else {
+                const gstin = String(entry.gstinNo || entry.gstin || '').trim();
+                const pos = String(entry.placeOfSupply || entry.state || '').trim().toLowerCase();
+                const isGujarat = gstin.startsWith("24") || pos.includes("gujarat") || pos === "24";
+                if (isGujarat) {
+                  fallbackRevCgst = Number(((revenueAmount * (revGstRate / 2)) / 100).toFixed(2));
+                  fallbackRevSgst = fallbackRevCgst;
+                  fallbackRevIgst = 0;
+                } else {
+                  fallbackRevIgst = Number(((revenueAmount * revGstRate) / 100).toFixed(2));
+                  fallbackRevCgst = 0;
+                  fallbackRevSgst = 0;
+                }
+              }
+            }
+          }
+        }
+
         return [{
           "Charge Heading": fallbackHead,
           "Description of Services": fallbackDesc,
@@ -1115,6 +1277,11 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
           "Total": Math.round(entry.total || 0),
           "Net Amount": Math.round(entry.netAmount || entry.total || 0),
           "Revenue Amount": revenueAmount.toFixed(2),
+          "Revenue CGST": fallbackRevCgst,
+          "Revenue SGST": fallbackRevSgst,
+          "Revenue IGST": fallbackRevIgst,
+          "Revenue Rate": revenueRate,
+          "Revenue Currency Amount": revenueCurrencyAmount,
           "Supplier Inv No": entry.supplierInvNo || '',
           "Supplier Inv Date": entry.supplierInvDate || '',
           "Currency": entry.currency || "INR",
@@ -1123,6 +1290,17 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
         }];
       })();
     formattedData["chargeRefs"] = entry.chargeRefs || (entry.chargeRef ? [entry.chargeRef] : []);
+
+    const totalRevCgst = (formattedData["chargeItems"] || []).reduce((acc, it) => acc + (typeof it["Revenue CGST"] === 'number' ? it["Revenue CGST"] : (Number(it["Revenue CGST"]) || 0)), 0);
+    const totalRevSgst = (formattedData["chargeItems"] || []).reduce((acc, it) => acc + (typeof it["Revenue SGST"] === 'number' ? it["Revenue SGST"] : (Number(it["Revenue SGST"]) || 0)), 0);
+    const totalRevIgst = (formattedData["chargeItems"] || []).reduce((acc, it) => acc + (typeof it["Revenue IGST"] === 'number' ? it["Revenue IGST"] : (Number(it["Revenue IGST"]) || 0)), 0);
+
+    formattedData["Revenue Amount"] = revenueAmount.toFixed(2);
+    formattedData["Revenue CGST"] = Number(totalRevCgst.toFixed(2));
+    formattedData["Revenue SGST"] = Number(totalRevSgst.toFixed(2));
+    formattedData["Revenue IGST"] = Number(totalRevIgst.toFixed(2));
+    formattedData["Revenue Rate"] = revenueRate;
+    formattedData["Revenue Currency Amount"] = revenueCurrencyAmount;
 
     res.status(200).json(formattedData);
 

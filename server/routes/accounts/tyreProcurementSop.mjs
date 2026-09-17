@@ -146,9 +146,17 @@ async function saveProductsFromDoc(doc) {
     for (const it of items) {
       const name = (it.productName || it.tyreType || "").trim().toUpperCase();
       if (name) {
+        const updateFields = { productName: name };
+        const brand = (it.brandPreference || "").trim().toUpperCase();
+        const spec = (it.specification || it.sizeSpec || "").trim().toUpperCase();
+        const cost = Number(it.estUnitCost) || 0;
+        if (brand) updateFields.brandPreference = brand;
+        if (spec) updateFields.specification = spec;
+        if (cost) updateFields.estUnitCost = cost;
+
         await ProcurementProductModel.findOneAndUpdate(
           { productName: name },
-          { $set: { productName: name } },
+          { $set: updateFields },
           { upsert: true, new: true }
         );
       }
@@ -158,9 +166,17 @@ async function saveProductsFromDoc(doc) {
     for (const sup of stage2Suppliers) {
       const name = (sup.selectedProduct || sup.selectedTyreType || "").trim().toUpperCase();
       if (name) {
+        const updateFields = { productName: name };
+        const brand = (sup.brand || sup.tyreBrand || "").trim().toUpperCase();
+        const spec = (sup.sizeSpecification || "").trim().toUpperCase();
+        const cost = Number(sup.unitPriceNew) || 0;
+        if (brand) updateFields.brandPreference = brand;
+        if (spec) updateFields.specification = spec;
+        if (cost) updateFields.estUnitCost = cost;
+
         await ProcurementProductModel.findOneAndUpdate(
           { productName: name },
-          { $set: { productName: name } },
+          { $set: updateFields },
           { upsert: true, new: true }
         );
       }
@@ -190,36 +206,46 @@ function deriveStatus(doc) {
   const s2 = doc.stage2 || {};
   const s1 = doc.stage1 || {};
 
+  // Check Stage 6 Approvals
   const s6Approvals = s6.approvals || [];
-  const purchaseOfficerReview = s6Approvals[2] || s6Approvals.find((a) => a && (a.role?.includes("Purchase Officer") || a.reviewedByPurchaseOfficer));
-  const isPurchaseOfficerDone = Boolean(purchaseOfficerReview?.date || purchaseOfficerReview?.signature || purchaseOfficerReview?.name || s6.reviewedByPurchaseOfficer);
+  const validApprovals = s6Approvals.filter((a) => a && (a.checked || a.status === "Done" || a.status === "DONE" || a.signature || a.date || a.name));
+  const allGrnApprovalsDone = s6Approvals.length >= 3 && s6Approvals.every((a) => a && (a.checked || a.status === "Done" || a.status === "DONE" || a.signature || a.date));
 
-  if (doc.status === "Closed" || doc.status === "GRN Received" || isPurchaseOfficerDone) {
-    return "GRN Received";
+  if (doc.status === "Closed" || doc.status === "GRN Completed" || doc.status === "GRN Done" || allGrnApprovalsDone) {
+    return "GRN Done";
   }
 
-  const isFinanceApproved = s3.decision?.decision === "APPROVED" || Boolean(s3.signOff?.dateOfApproval);
+  if (doc.status === "GRN Received" || doc.status === "GRN Ready" || validApprovals.length > 0 || s6.grnSeriesNo) {
+    return "GRN Ready";
+  }
 
+  // Check Stage 5 Dispatch
+  const isDispatchDone = Boolean(s5.dispatchDone) || Boolean(s5.isDispatchDone) || (s5.supplierDispatches || []).some((sd) => sd.dispatchDone || sd.isDispatchDone);
+  if (isDispatchDone || doc.status === "Order Placed" || doc.status === "Dispatched") {
+    return "Order Placed";
+  }
+
+  // Check Stage 4 Payment UTR
   const supplierPayments = s4.supplierPayments || [];
-  const allPaid =
+  const hasUtr =
     supplierPayments.length > 0
-      ? supplierPayments.every((sp) => Boolean(sp.isPaid) && Boolean(sp.utrNumber?.trim()))
+      ? supplierPayments.some((sp) => Boolean(sp.utrNumber?.trim()))
       : Boolean(
-          s4.paymentDetails?.paymentReferenceUtr?.trim() &&
+          s4.paymentDetails?.paymentReferenceUtr?.trim() ||
           s4.paymentDetails?.paymentDate
         );
 
-  if (isFinanceApproved) {
-    if (!allPaid) {
-      return "Finance Approved";
-    }
-    if (s5.dispatchDone || s5.isDispatchDone || s6.grnSeriesNo || s5.orderPlacedDate || s5.dispatchDetails?.dispatchDate) {
-      return "Order Placed";
-    }
+  if (hasUtr || doc.status === "Payment Done") {
     return "Payment Done";
   }
 
-  if (s2.routingChecklist?.[0]?.status === "Done" || s2.routingChecklist?.[0]?.status === "DONE" || s2.routingChecklist?.[0]?.date) {
+  // Check Stage 3 Finance Approval
+  const isFinanceApproved = s3.decision?.decision === "APPROVED" || Boolean(s3.signOff?.dateOfApproval);
+  if (isFinanceApproved || doc.status === "Finance Approved") {
+    return "Finance Approved";
+  }
+
+  if (s2.routingChecklist?.[0]?.status === "Done" || s2.routingChecklist?.[0]?.status === "DONE" || s2.routingChecklist?.[0]?.date || (s2.suppliers || []).some((s) => s.supplierName)) {
     return "Quotation Received";
   }
 
@@ -227,7 +253,7 @@ function deriveStatus(doc) {
     return "Preparing for Quotation";
   }
 
-  if (s1.routingChecklist?.[0]?.status === "Done" || s1.routingChecklist?.[0]?.status === "DONE" || s1.routingChecklist?.[0]?.date) {
+  if (s1.routingChecklist?.[0]?.status === "Done" || s1.routingChecklist?.[0]?.status === "DONE" || s1.routingChecklist?.[0]?.date || s1.prNumber) {
     return "PR Raised";
   }
 
@@ -475,20 +501,100 @@ router.get("/procurement-products", authMiddleware, async (req, res) => {
 // Save a new procurement product
 router.post("/procurement-products", authMiddleware, async (req, res) => {
   try {
-    const { productName } = req.body;
+    const { productName, brandPreference, specification, estUnitCost } = req.body;
     if (!productName || !productName.trim()) {
       return res.status(400).json({ success: false, message: "Product name is required" });
     }
     const name = productName.trim().toUpperCase();
+    const updateFields = { productName: name };
+    if (brandPreference) updateFields.brandPreference = brandPreference.trim().toUpperCase();
+    if (specification) updateFields.specification = specification.trim().toUpperCase();
+    if (estUnitCost !== undefined && estUnitCost !== "") updateFields.estUnitCost = Number(estUnitCost) || 0;
+
     const product = await ProcurementProductModel.findOneAndUpdate(
       { productName: name },
-      { $set: { productName: name } },
+      { $set: updateFields },
       { upsert: true, new: true }
     );
     res.status(200).json({ success: true, product });
   } catch (err) {
     logger.error("Error saving procurement product:", err);
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Pending Count for Dashboard Notification Badge ───
+router.get("/tyre-procurement/pending-count", authMiddleware, async (req, res) => {
+  try {
+    const user = await UserModel.findById(req.user._id).lean();
+    if (!user) {
+      return res.status(200).json({ success: true, count: 0 });
+    }
+
+    const isAdmin =
+      user.role === "Admin" ||
+      user.role === "admin" ||
+      user.role === "SuperAdmin" ||
+      user.role === "superadmin";
+
+    const userTabs = user.tyre_procurement_tabs || [];
+
+    // Map each tab to the PR statuses requiring action in that stage
+    const tabStatusMap = {
+      "1. Purchase Request": ["Draft"],
+      "2. Supplier Quotation": ["PR Raised", "Preparing for Quotation", "HoD Validated"],
+      "3. Finance Approval": ["Quotation Received", "Quotation Updated"],
+      "4. Payment & UTR": ["Finance Approved", "Finance Review"],
+      "5. Order & Dispatch": ["Payment Done", "Advance Paid", "Order Placed", "Dispatched"],
+      "6. Site GRN": ["Dispatched / Site GRN Ready", "GRN Ready", "In Transit", "GRN Received"],
+      "7. Completed": ["GRN Done", "GRN Completed", "Closed"],
+    };
+
+    let targetStatuses = [];
+
+    if (!isAdmin && userTabs.length > 0) {
+      // User has specific assigned tabs (e.g. Finance Approval)
+      for (const tab of userTabs) {
+        if (tabStatusMap[tab]) {
+          targetStatuses.push(...tabStatusMap[tab]);
+        }
+      }
+      targetStatuses = [...new Set(targetStatuses)];
+    } else {
+      // Admin or user without specific tab restrictions: count all non-closed PRs or active PRs
+      targetStatuses = [
+        "Draft",
+        "PR Raised",
+        "Preparing for Quotation",
+        "HoD Validated",
+        "Quotation Received",
+        "Quotation Updated",
+        "Finance Approved",
+        "Finance Review",
+        "Payment Done",
+        "Advance Paid",
+        "Order Placed",
+        "Dispatched",
+        "Dispatched / Site GRN Ready",
+        "GRN Ready",
+        "GRN Received",
+        "GRN Done",
+        "GRN Completed",
+      ];
+    }
+
+    if (targetStatuses.length === 0) {
+      return res.status(200).json({ success: true, count: 0 });
+    }
+
+    const count = await TyreProcurementSop.countDocuments({
+      status: { $in: targetStatuses },
+    });
+
+    res.status(200).json({ success: true, count });
+  } catch (error) {
+    logger.error("Error fetching procurement pending count:", error);
+    res.status(500).json({ success: false, message: error.message, count: 0 });
   }
 });
 
@@ -519,8 +625,11 @@ router.get("/tyre-procurement", authMiddleware, async (req, res) => {
     const { search, stageTab, page = 1, limit = 50 } = req.query;
     const query = {};
 
-    if (stageTab && stageTab !== "0") {
+    if (stageTab !== undefined && stageTab !== null) {
       switch (stageTab) {
+        case "0":
+          query.status = { $nin: ["GRN Done", "Closed", "GRN Completed"] };
+          break;
         case "1":
           query.status = "Draft";
           break;
@@ -534,10 +643,10 @@ router.get("/tyre-procurement", authMiddleware, async (req, res) => {
           query.status = "Finance Approved";
           break;
         case "5":
-          query.status = { $in: ["Payment Done", "Order Placed"] };
+          query.status = { $in: ["Payment Done", "Order Placed", "Dispatched"] };
           break;
         case "6":
-          query.status = { $in: ["Dispatched / Site GRN Ready", "GRN Ready"] };
+          query.status = { $in: ["Dispatched / Site GRN Ready", "GRN Ready", "GRN Received"] };
           break;
         case "7":
           query.status = { $in: ["GRN Done", "Closed", "GRN Completed"] };

@@ -41,7 +41,8 @@ export const convertToExcel = async (
   rows,
   importer,
   status,
-  detailedStatus
+  detailedStatus,
+  remarkAtEnd = false
 ) => {
   const filteredRows = Array.isArray(rows) ? rows : [];
 
@@ -73,7 +74,7 @@ export const convertToExcel = async (
       importer === "BHAVYA MACHINE TOOLS"
       ? ["HSS NAME"]
       : [];
-  const headers = [
+  let headers = [
     "JOB NO AND DATE",
     ...additionalHeaders,
     "SUPPLIER/ EXPORTER",
@@ -95,6 +96,11 @@ export const convertToExcel = async (
     "DETAILED STATUS",
     "NFIMS / SIMS"
   ];
+
+  if (remarkAtEnd) {
+    headers = headers.filter((h) => h !== "REMARKS");
+    headers.push("REMARKS");
+  }
 
 
   // Row headers

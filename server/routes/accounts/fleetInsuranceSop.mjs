@@ -1,10 +1,86 @@
 import express from "express";
+import mongoose from "mongoose";
 import XLSX from "xlsx";
 import FleetInsuranceSopModel from "../../model/accounts/fleetInsuranceSop.mjs";
+import UserModel from "../../model/userModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { context } from "../../utils/context.mjs";
 
 const router = express.Router();
+
+const normalizeReg = (s) => (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+const formatRegNo = (val) => {
+  if (!val) return "";
+  const clean = val.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const m = clean.match(/^([A-Z]{2})(\d{2})([A-Z]{1,2})(\d{4})$/);
+  if (m) {
+    return `${m[1]}-${m[2]}-${m[3]}-${m[4]}`;
+  }
+  return val.trim();
+};
+
+const buildVehicleSearchRegex = (term) => {
+  if (!term || typeof term !== "string") return null;
+  const trimmed = term.trim();
+  if (!trimmed) return null;
+  const alphanumeric = trimmed.replace(/[^a-zA-Z0-9]/g, "");
+  if (alphanumeric.length >= 2) {
+    const pattern = alphanumeric.split("").join("[- ]*");
+    return new RegExp(pattern, "i");
+  }
+  return new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+};
+
+export async function syncVehiclesToFleetInsurance() {
+  try {
+    const db = mongoose.connection.db;
+    if (!db) return;
+    const vehCol = db.collection("vehicleregistrations");
+    const countVeh = await vehCol.countDocuments();
+    if (countVeh === 0) return;
+
+    const vehicles = await vehCol.find().toArray();
+    const existingFleet = await FleetInsuranceSopModel.find().select("registrationNo srNo").lean();
+    const existingNormSet = new Set(existingFleet.map((f) => normalizeReg(f.registrationNo)));
+
+    let maxSrNo = existingFleet.reduce((max, f) => Math.max(max, f.srNo || 0), 0);
+    const toInsert = [];
+
+    for (const v of vehicles) {
+      const norm = normalizeReg(v.vehicleNumber);
+      if (!existingNormSet.has(norm)) {
+        maxSrNo++;
+        const formatted = formatRegNo(v.vehicleNumber);
+        toInsert.push({
+          srNo: maxSrNo,
+          registrationNo: formatted,
+          owner: v.registrationName || "S R CONTAINER CARRIERS",
+          engineNumber: v.engineNumber || "",
+          chassisNumber: v.chassisNumber || "",
+          policyToDate: v.insuranceDate ? new Date(v.insuranceDate) : null,
+          renewalDate: v.insuranceDate ? new Date(v.insuranceDate) : null,
+          modelType: "TRAILER",
+          size: v.loadCapacity?.value ? `${v.loadCapacity.value} KG` : "20 FT",
+          financialApprovalStatus: "Pending",
+          renewalStatus: "Pending",
+          quotations: [],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        existingNormSet.add(norm);
+      }
+    }
+
+    if (toInsert.length > 0) {
+      await FleetInsuranceSopModel.insertMany(toInsert);
+      console.log(`[FleetInsuranceSop] Auto-synced ${toInsert.length} new vehicles from Vehicle Directory.`);
+    }
+  } catch (err) {
+    console.error("[FleetInsuranceSop] Error syncing vehicles to fleet insurance:", err);
+  }
+}
+
 
 // Helper to generate next PR Number format: INS/{seq}/{MONTH}/{FY_CODE}
 async function getNextPrNumber(dateInput) {
@@ -132,24 +208,46 @@ router.get("/fleet-insurance-sop/payment-utr/list", authMiddleware, async (req, 
   }
 });
 
+// Endpoint to explicitly trigger sync from Vehicle Directory
+router.post("/fleet-insurance-sop/sync-from-vehicles", authMiddleware, async (req, res) => {
+  try {
+    await syncVehiclesToFleetInsurance();
+    const count = await FleetInsuranceSopModel.countDocuments();
+    res.status(200).json({ success: true, message: "Vehicles synced successfully", total: count });
+  } catch (err) {
+    console.error("Error in sync-from-vehicles endpoint:", err);
+    res.status(500).json({ message: "Failed to sync vehicles", error: err.message });
+  }
+});
+
 // GET all records with pagination and search
 router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
   try {
+    // Ensure any new vehicles from directory are automatically synced
+    await syncVehiclesToFleetInsurance();
+
     const { page = 1, limit = 10, search = "", month = "", year = "", regNo, owner, size, modelType, premiumAmount, premiumQuote, expiryDate, renewed, tat } = req.query;
     const query = {};
     if (tat !== undefined && tat !== "") {
       query.tat = Number(tat);
     }
-    if (search) {
+    const hasSearch = Boolean(search && search.trim()) || Boolean(regNo && regNo.trim());
+
+    if (search && search.trim()) {
+      const regRegex = buildVehicleSearchRegex(search);
+      const textRegex = new RegExp(search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
       query.$or = [
-        { registrationNo: { $regex: search, $options: "i" } },
-        { owner: { $regex: search, $options: "i" } },
-        { insuranceCompany: { $regex: search, $options: "i" } },
-        { policyNo: { $regex: search, $options: "i" } }
+        { registrationNo: regRegex || textRegex },
+        { owner: textRegex },
+        { insuranceCompany: textRegex },
+        { policyNo: textRegex },
+        { makeModel: textRegex },
+        { engineNumber: regRegex || textRegex },
+        { chassisNumber: regRegex || textRegex },
       ];
     }
     
-    if (regNo) query.registrationNo = { $regex: regNo, $options: "i" };
+    if (regNo && regNo.trim()) query.registrationNo = buildVehicleSearchRegex(regNo);
     if (owner) query.owner = owner;
     if (size) query.size = size;
     if (modelType) query.modelType = modelType;
@@ -210,53 +308,55 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
       },
     ];
 
-    // Apply date filter (matching policyToDate, newPolicyToDate, newExpiryDate, renewalDate, paymentDate, or renewedDate)
-    if (year && month) {
-      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
-      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
-      pipeline.push({
-        $match: {
-          $or: [
-            { policyToDate: { $gte: startDate, $lte: endDate } },
-            { newPolicyToDate: { $gte: startDate, $lte: endDate } },
-            { newExpiryDate: { $gte: startDate, $lte: endDate } },
-            { renewalDate: { $gte: startDate, $lte: endDate } },
-            { paymentDate: { $gte: startDate, $lte: endDate } },
-            { renewedDate: { $gte: startDate, $lte: endDate } }
-          ]
-        }
-      });
-    } else if (year) {
-      const startDate = new Date(parseInt(year), 0, 1);
-      const endDate = new Date(parseInt(year), 12, 0, 23, 59, 59, 999);
-      pipeline.push({
-        $match: {
-          $or: [
-            { policyToDate: { $gte: startDate, $lte: endDate } },
-            { newPolicyToDate: { $gte: startDate, $lte: endDate } },
-            { newExpiryDate: { $gte: startDate, $lte: endDate } },
-            { renewalDate: { $gte: startDate, $lte: endDate } },
-            { paymentDate: { $gte: startDate, $lte: endDate } },
-            { renewedDate: { $gte: startDate, $lte: endDate } }
-          ]
-        }
-      });
-    } else if (month) {
-      const mVal = parseInt(month);
-      pipeline.push({
-        $match: {
-          $expr: {
+    // Apply date filter only if user is NOT searching for a specific vehicle
+    if (!hasSearch) {
+      if (year && month) {
+        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+        const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+        pipeline.push({
+          $match: {
             $or: [
-              { $eq: [{ $month: "$policyToDate" }, mVal] },
-              { $eq: [{ $month: "$newPolicyToDate" }, mVal] },
-              { $eq: [{ $month: "$newExpiryDate" }, mVal] },
-              { $eq: [{ $month: "$renewalDate" }, mVal] },
-              { $eq: [{ $month: "$paymentDate" }, mVal] },
-              { $eq: [{ $month: "$renewedDate" }, mVal] }
+              { policyToDate: { $gte: startDate, $lte: endDate } },
+              { newPolicyToDate: { $gte: startDate, $lte: endDate } },
+              { newExpiryDate: { $gte: startDate, $lte: endDate } },
+              { renewalDate: { $gte: startDate, $lte: endDate } },
+              { paymentDate: { $gte: startDate, $lte: endDate } },
+              { renewedDate: { $gte: startDate, $lte: endDate } }
             ]
           }
-        }
-      });
+        });
+      } else if (year) {
+        const startDate = new Date(parseInt(year), 0, 1);
+        const endDate = new Date(parseInt(year), 12, 0, 23, 59, 59, 999);
+        pipeline.push({
+          $match: {
+            $or: [
+              { policyToDate: { $gte: startDate, $lte: endDate } },
+              { newPolicyToDate: { $gte: startDate, $lte: endDate } },
+              { newExpiryDate: { $gte: startDate, $lte: endDate } },
+              { renewalDate: { $gte: startDate, $lte: endDate } },
+              { paymentDate: { $gte: startDate, $lte: endDate } },
+              { renewedDate: { $gte: startDate, $lte: endDate } }
+            ]
+          }
+        });
+      } else if (month) {
+        const mVal = parseInt(month);
+        pipeline.push({
+          $match: {
+            $expr: {
+              $or: [
+                { $eq: [{ $month: "$policyToDate" }, mVal] },
+                { $eq: [{ $month: "$newPolicyToDate" }, mVal] },
+                { $eq: [{ $month: "$newExpiryDate" }, mVal] },
+                { $eq: [{ $month: "$renewalDate" }, mVal] },
+                { $eq: [{ $month: "$paymentDate" }, mVal] },
+                { $eq: [{ $month: "$renewedDate" }, mVal] }
+              ]
+            }
+          }
+        });
+      }
     }
 
 
@@ -339,8 +439,9 @@ router.get("/fleet-insurance-sop/history/:registrationNo", authMiddleware, async
       return res.status(400).json({ message: "Registration number required" });
     }
 
+    const regRegex = buildVehicleSearchRegex(registrationNo);
     const rawRecords = await FleetInsuranceSopModel.find({
-      registrationNo: new RegExp(`^${registrationNo}$`, "i")
+      registrationNo: regRegex || new RegExp(`^${registrationNo}$`, "i")
     }).sort({ policyFromDate: -1, createdAt: -1 }).lean();
 
     if (!rawRecords || rawRecords.length === 0) {
@@ -713,6 +814,44 @@ router.delete("/fleet-insurance-sop/:id", authMiddleware, async (req, res) => {
   } catch (error) {
     console.error("Error deleting Fleet Insurance record:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// ─── GET & ASSIGN FLEET INSURANCE TAB PERMISSIONS ───
+router.get("/fleet-insurance-sop/user-tabs/:username", authMiddleware, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const user = await UserModel.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+    res.status(200).json({
+      success: true,
+      allowed_tabs: user.fleet_insurance_tabs || [],
+    });
+  } catch (error) {
+    console.error("Error fetching user fleet insurance tabs:", error);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+});
+
+router.post("/fleet-insurance-sop/assign-user-tabs", authMiddleware, async (req, res) => {
+  try {
+    const { username, allowed_tabs } = req.body;
+    const user = await UserModel.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+    user.fleet_insurance_tabs = allowed_tabs || [];
+    await user.save();
+    res.status(200).json({
+      success: true,
+      message: "Fleet insurance tab permissions updated successfully",
+      allowed_tabs: user.fleet_insurance_tabs,
+    });
+  } catch (error) {
+    console.error("Error assigning fleet insurance tabs:", error);
+    res.status(500).json({ success: false, error: "Failed to assign tab permissions" });
   }
 });
 

@@ -112,10 +112,11 @@ router.post("/api/login", async (req, res) => {
             department_id: user.department_id,
             shift_id: user.shift_id,
             current_status: user.current_status,
-            last_punch_date: user.last_punch_date
+            last_punch_date: user.last_punch_date,
+            tokenVersion: user.tokenVersion || 0,
           },
           process.env.JWT_SECRET || "fallback_secret_do_not_use_in_prod",
-          { expiresIn: "10h" }
+          { expiresIn: "12h" }
         );
 
         // Set httpOnly auth cookie:
@@ -125,7 +126,8 @@ router.post("/api/login", async (req, res) => {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
           sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-          maxAge: 10 * 60 * 60 * 1000,
+          path: "/",
+          maxAge: 12 * 60 * 60 * 1000,
         });
 
         // Return user profile and token in the response payload:

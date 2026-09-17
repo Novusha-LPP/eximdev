@@ -260,7 +260,7 @@ function JobList(props) {
     setViewMode(mode);
     try {
       localStorage.setItem("exim_joblist_view_mode", mode);
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   // Query Management States
@@ -437,7 +437,7 @@ function JobList(props) {
     }
   }, [rows, fetchQueryStatusForJobs]);
 
-  // Sort jobs list with active query priority at TOP (resolved queries do not bypass normal order)
+  // Sort jobs list with active query priority at TOP (preserves server-provided sequence in place otherwise)
   const sortedRows = useMemo(() => {
     if (!rows || rows.length === 0) return [];
     return [...rows].sort((a, b) => {
@@ -1156,9 +1156,9 @@ function JobList(props) {
             variant="body1"
             sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
           >
-          {props.status} Jobs: {total}
-        </Typography>
-      </Box>
+            {props.status} Jobs: {total}
+          </Typography>
+        </Box>
 
         <TextField
           select
@@ -1462,7 +1462,14 @@ function JobList(props) {
       }
       return baseProps;
     },
-    muiTableHeadCellProps: { sx: { position: "sticky", top: 0, zIndex: 999 } },
+    muiTableHeadCellProps: {
+      sx: {
+        position: "sticky",
+        top: 0,
+        zIndex: 999,
+        backgroundColor: "#f8fafc",
+      },
+    },
     renderTopToolbarCustomActions: renderTopToolbarCustomActions,
   });
 

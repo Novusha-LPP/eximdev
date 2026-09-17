@@ -68,6 +68,7 @@ function Sidebar() {
       "selected_importer",
       "selected_importer_url",
       "tab_value",
+      "token",
     ].forEach((key) => localStorage.removeItem(key));
 
     // Remove all non-HttpOnly cookies available to JS.

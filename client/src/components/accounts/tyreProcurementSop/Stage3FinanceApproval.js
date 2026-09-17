@@ -1,27 +1,13 @@
 import React from "react";
 import {
   Box,
-  Grid,
-  TextField,
   Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Checkbox,
   Chip,
   Divider,
 } from "@mui/material";
 import PoLandscapePdfGenerator from "./PoLandscapePdfGenerator";
 
 function Stage3FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
-  const updateField = (field, value) => {
-    onChange({ [field]: value });
-  };
-
   const isApproved =
     data.decision?.decision === "APPROVED" ||
     globalData?.status === "Finance Approved" ||
@@ -99,157 +85,179 @@ function Stage3FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
   };
 
   return (
-    <Box>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-          A. Reference Information
-        </Typography>
-        <PoLandscapePdfGenerator globalData={globalData} stage3Data={data} />
+    <Box className="sop-container">
+      {/* ─── A. Reference Information ─── */}
+      <Box className="sop-card" sx={{ mb: 1.5 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+          <Typography className="sop-card-title">Reference Details</Typography>
+          <PoLandscapePdfGenerator globalData={globalData} stage3Data={data} />
+        </Box>
+        <Box className="sop-grid-4">
+          <Box>
+            <label className="sop-label">PO NUMBER</label>
+            {(() => {
+              const allPos = Array.from(
+                new Set(
+                  (selectedSuppliers || [])
+                    .map((s) => s.poNumber)
+                    .filter(Boolean)
+                )
+              );
+              const poDisplay =
+                allPos.length > 0
+                  ? allPos.join(", ")
+                  : (globalData?.poNumber || data.poNumber || "-");
+              return (
+                <input
+                  type="text"
+                  className="sop-input readonly"
+                  readOnly
+                  value={poDisplay}
+                  style={{ fontWeight: 600, color: "#1d4ed8" }}
+                />
+              );
+            })()}
+          </Box>
+          <Box>
+            <label className="sop-label">PO DATE</label>
+            <input
+              type="text"
+              className="sop-input readonly"
+              readOnly
+              value={
+                data.poDate || globalData?.stage2?.poDate
+                  ? new Date(data.poDate || globalData?.stage2?.poDate).toLocaleDateString("en-GB")
+                  : "-"
+              }
+            />
+          </Box>
+          <Box>
+            <label className="sop-label">PURCHASE OFFICER NAME</label>
+            <input
+              type="text"
+              className="sop-input readonly"
+              readOnly
+              value={data.purchaseOfficerName || globalData?.stage2?.purchaseOfficerName || "-"}
+            />
+          </Box>
+          <Box>
+            <label className="sop-label">DATE RECEIVED BY FINANCE</label>
+            <input
+              type="text"
+              className="sop-input readonly"
+              readOnly
+              value={
+                data.dateReceivedByFinance || globalData?.stage2?.routingChecklist?.[0]?.date
+                  ? new Date(data.dateReceivedByFinance || globalData?.stage2?.routingChecklist?.[0]?.date).toLocaleDateString("en-GB")
+                  : "-"
+              }
+            />
+          </Box>
+        </Box>
       </Box>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="PO Number"
-            value={globalData?.poNumber || data.poNumber || "-"}
-            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="PO Date"
-            value={
-              data.poDate || globalData?.stage2?.poDate
-                ? new Date(data.poDate || globalData?.stage2?.poDate).toLocaleDateString("en-GB")
-                : "-"
-            }
-            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="Purchase Officer Name"
-            value={data.purchaseOfficerName || globalData?.stage2?.purchaseOfficerName || "-"}
-            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="Date Received by Finance"
-            value={
-              data.dateReceivedByFinance || globalData?.stage2?.routingChecklist?.[0]?.date
-                ? new Date(data.dateReceivedByFinance || globalData?.stage2?.routingChecklist?.[0]?.date).toLocaleDateString("en-GB")
-                : "-"
-            }
-            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-      </Grid>
 
-      {/* ─── Selected / Awarded Supplier(s) Static Table ─── */}
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        B. Awarded / Selected Supplier(s) Summary
-      </Typography>
-      <TableContainer component={Paper} sx={{ mb: 3 }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell sx={{ fontWeight: "bold", width: 50 }}>#</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Selected Supplier</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Price Quoted (₹)</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Total Order Value (₹)</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Reason for Selection</TableCell>
-              <TableCell sx={{ fontWeight: "bold", textAlign: "center" }}>Download PO</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {selectedSuppliers.map((sup, idx) => (
-              <TableRow key={idx}>
-                <TableCell sx={{ fontWeight: 500 }}>{idx + 1}</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "#1976d2" }}>
-                  {sup.selectedSupplier || "Not Specified"}
-                </TableCell>
-                <TableCell>₹{(Number(sup.priceQuoted) || 0).toLocaleString("en-IN")}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>
-                  ₹{(Number(sup.totalOrderValue) || 0).toLocaleString("en-IN")}
-                </TableCell>
-                <TableCell>{sup.reasonForSelection || "N/A"}</TableCell>
-                <TableCell sx={{ textAlign: "center" }}>
-                  <PoLandscapePdfGenerator
-                    globalData={globalData}
-                    stage3Data={data}
-                    targetSupplier={sup}
-                    buttonLabel="PO PDF"
-                    size="small"
+      {/* ─── B. Awarded / Selected Supplier(s) Summary ─── */}
+      <Box className="sop-card" sx={{ mb: 1.5 }}>
+        <Typography className="sop-card-title" sx={{ mb: 1 }}>
+          Awarded / Selected Supplier(s) Summary
+        </Typography>
+        <Box className="sop-table-container">
+          <table className="sop-table">
+            <thead>
+              <tr>
+                <th style={{ width: 40, textAlign: "center" }}>#</th>
+                <th>Selected Supplier</th>
+                <th style={{ width: 140 }}>PO Number</th>
+                <th style={{ textAlign: "right", width: 140 }}>Price Quoted (₹)</th>
+                <th style={{ textAlign: "right", width: 160 }}>Total Order Value (₹)</th>
+                <th>Reason for Selection</th>
+                <th style={{ width: 120, textAlign: "center" }}>Download PO</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selectedSuppliers.map((sup, idx) => (
+                <tr key={idx}>
+                  <td style={{ textAlign: "center", fontWeight: 600 }}>{idx + 1}</td>
+                  <td style={{ fontWeight: 600, color: "#1d4ed8" }}>
+                    {sup.selectedSupplier || "Not Specified"}
+                  </td>
+                  <td style={{ fontWeight: 600, color: "#047857" }}>
+                    {sup.poNumber || globalData?.poNumber || "-"}
+                  </td>
+                  <td style={{ textAlign: "right" }}>₹{(Number(sup.priceQuoted) || 0).toLocaleString("en-IN")}</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: "#0f172a" }}>
+                    ₹{(Number(sup.totalOrderValue) || 0).toLocaleString("en-IN")}
+                  </td>
+                  <td>{sup.reasonForSelection || "N/A"}</td>
+                  <td style={{ textAlign: "center" }}>
+                    <PoLandscapePdfGenerator
+                      globalData={globalData}
+                      stage3Data={data}
+                      targetSupplier={sup}
+                      buttonLabel="PO PDF"
+                      size="small"
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Box>
+        <Box className="sop-total-strip" sx={{ mt: 1 }}>
+          <span>OVERALL TOTAL ORDER VALUE:</span>
+          <strong>₹{overallTotalOrderValue.toLocaleString("en-IN")}</strong>
+        </Box>
+      </Box>
+
+      {/* ─── C. Finance Approval Checklist ─── */}
+      <Box className="sop-card">
+        <Typography className="sop-card-title" sx={{ mb: 1 }}>
+          Finance Approval Checklist
+        </Typography>
+        <Box className="sop-table-container">
+          <table className="sop-table">
+            <thead>
+              <tr>
+                <th style={{ width: 50, textAlign: "center" }}>Check</th>
+                <th style={{ width: 80 }}>Step</th>
+                <th>Action</th>
+                <th style={{ width: 150 }}>Responsible</th>
+                <th style={{ width: 130 }}>Date Completed</th>
+                <th style={{ width: 120 }}>Time Completed</th>
+                <th style={{ width: 110, textAlign: "center" }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={isApproved}
+                    onChange={(e) => handleToggleApproval(e.target.checked)}
+                    style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#2563eb" }}
                   />
-                </TableCell>
-              </TableRow>
-            ))}
-            <TableRow sx={{ backgroundColor: "#eef2ff" }}>
-              <TableCell colSpan={3} sx={{ fontWeight: "bold", textAlign: "right" }}>
-                OVERALL TOTAL ORDER VALUE (₹):
-              </TableCell>
-              <TableCell colSpan={3} sx={{ fontWeight: "bold", color: "#1e40af", fontSize: "0.95rem" }}>
-                ₹{overallTotalOrderValue.toLocaleString("en-IN")}
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        C. Finance Approval Checklist
-      </Typography>
-      <TableContainer component={Paper} sx={{ mb: 3 }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell sx={{ fontWeight: "bold", width: 80 }}>Check</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Step</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Action</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Responsible</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Date Completed</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Time Completed</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            <TableRow>
-              <TableCell>
-                <Checkbox
-                  checked={isApproved}
-                  onChange={(e) => handleToggleApproval(e.target.checked)}
-                  color="primary"
-                />
-              </TableCell>
-              <TableCell sx={{ fontWeight: 500 }}>Step 1</TableCell>
-              <TableCell sx={{ fontWeight: 500 }}>Approved by Finance Manager</TableCell>
-              <TableCell>Finance Manager</TableCell>
-              <TableCell>{approvalDate || "-"}</TableCell>
-              <TableCell>{approvalTime || "-"}</TableCell>
-              <TableCell>
-                <Chip
-                  label={isApproved ? "Approved" : "Pending"}
-                  color={isApproved ? "success" : "default"}
-                  size="small"
-                />
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      <Divider sx={{ my: 3 }} />
-      <Typography variant="caption" color="textSecondary" display="block">
-        * Checking the approval box automatically records approval date & time and forwards the entry to Stage 4 (Payment & UTR).
-      </Typography>
+                </td>
+                <td style={{ fontWeight: 600 }}>Step 1</td>
+                <td style={{ fontWeight: 600, color: "#1e3a8a" }}>Approved by Finance Manager</td>
+                <td>Finance Manager</td>
+                <td>{approvalDate || "-"}</td>
+                <td>{approvalTime || "-"}</td>
+                <td style={{ textAlign: "center" }}>
+                  <Chip
+                    label={isApproved ? "Approved" : "Pending"}
+                    color={isApproved ? "success" : "default"}
+                    size="small"
+                    sx={{ height: 20, fontSize: "10.5px", fontWeight: 700 }}
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </Box>
+        <Typography variant="caption" sx={{ color: "#64748b", mt: 1, display: "block", fontSize: "11px" }}>
+          * Checking the approval box automatically records approval date & time and forwards the entry to Stage 4 (Payment & UTR).
+        </Typography>
+      </Box>
     </Box>
   );
 }

@@ -113,7 +113,8 @@ const KPITemplateManager = () => {
     const handleEdit = (tmpl) => {
         // Handle legacy array if present, take first or empty
         const dept = Array.isArray(tmpl.department) ? (tmpl.department[0] || '') : (tmpl.department || '');
-        setCurrentTemplate({ ...tmpl, department: dept });
+        const hasTargets = Boolean(tmpl.has_targets || tmpl.rows?.some(r => r.target !== null && r.target !== undefined && r.target !== ''));
+        setCurrentTemplate({ ...tmpl, department: dept, has_targets: hasTargets });
         setIsEditing(true);
     };
 
@@ -121,7 +122,8 @@ const KPITemplateManager = () => {
         setCurrentTemplate({
             name: '',
             department: userDepartment || '',  // Auto-populate from team if available
-            rows: [{ id: Date.now().toString(), label: 'New KPI', type: 'numeric', weight: 3 }]
+            has_targets: false,
+            rows: [{ id: Date.now().toString(), label: 'New KPI', type: 'numeric', weight: 3, target: null }]
         });
         setIsEditing(true);
     };
@@ -132,6 +134,7 @@ const KPITemplateManager = () => {
                 id: currentTemplate._id,
                 name: currentTemplate.name,
                 department: currentTemplate.department,
+                has_targets: Boolean(currentTemplate.has_targets),
                 rows: currentTemplate.rows
             }, { withCredentials: true });
 
@@ -153,7 +156,7 @@ const KPITemplateManager = () => {
     const addRow = () => {
         setCurrentTemplate({
             ...currentTemplate,
-            rows: [...currentTemplate.rows, { id: Date.now().toString(), label: '', type: 'numeric', weight: 3 }]
+            rows: [...currentTemplate.rows, { id: Date.now().toString(), label: '', type: 'numeric', weight: 3, target: null }]
         });
     };
 
@@ -370,6 +373,24 @@ const KPITemplateManager = () => {
                                     ))}
                                 </select>
                             </div>
+                            <div className="modern-form-group" style={{ gridColumn: '1 / -1', marginTop: '4px' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', userSelect: 'none', background: currentTemplate.has_targets ? '#EEF2FF' : '#F8FAFC', padding: '12px 16px', borderRadius: '8px', border: `1.5px solid ${currentTemplate.has_targets ? '#6366F1' : '#E2E8F0'}`, transition: 'all 0.2s' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={Boolean(currentTemplate.has_targets)}
+                                        onChange={(e) => setCurrentTemplate({ ...currentTemplate, has_targets: e.target.checked })}
+                                        style={{ width: '18px', height: '18px', accentColor: '#4F46E5', cursor: 'pointer' }}
+                                    />
+                                    <div>
+                                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: currentTemplate.has_targets ? '#1E1B4B' : '#334155' }}>
+                                            🎯 Enable Target & Actual Tracking (Optional)
+                                        </div>
+                                        <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>
+                                            When enabled, this template will display static Target column and Actual column. Keep unchecked for standard roles where targets are not applicable.
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </motion.div>
@@ -421,13 +442,15 @@ const KPITemplateManager = () => {
                                             <th style={{ minWidth: '250px', textAlign: 'left', paddingLeft: '8px' }}>KPI Metrics / Parameters</th>
                                             <th style={{ minWidth: '180px', textAlign: 'left', paddingLeft: '8px', background: '#FFF7ED', color: '#C2410C' }}>ગુજરાતી</th>
                                             <th style={{ minWidth: '180px', textAlign: 'left', paddingLeft: '8px', background: '#FFF1F2', color: '#BE123C' }}>हिंदी</th>
-                                            <th style={{ width: '100px', textAlign: 'left', paddingLeft: '8px' }}>Type</th>
                                             {(user?.role === 'Admin' || user?.role === 'Head_of_Department') && <th style={{ width: '100px', textAlign: 'left', paddingLeft: '8px' }}>Weight</th>}
+                                            {currentTemplate.has_targets && (
+                                                <th style={{ width: '85px', minWidth: '85px', textAlign: 'center', background: '#EEF2FF', color: '#1E40AF' }}>Target</th>
+                                            )}
                                             {[1, 2, 3, 4].map(d => <th key={d} style={{ width: '40px' }}>{d}</th>)}
                                             <th style={{ width: '40px' }}>...</th>
                                             <th style={{ width: '40px' }}>30</th>
                                             <th style={{ width: '40px' }}>31</th>
-                                            <th style={{ width: '80px' }}>Total</th>
+                                            <th style={{ width: '80px', background: '#F0FDF4', color: '#166534' }}>{currentTemplate.has_targets ? 'Actual' : 'Total'}</th>
                                             <th style={{ width: '80px' }}>Action</th>
                                         </tr>
                                     </thead>
@@ -499,25 +522,6 @@ const KPITemplateManager = () => {
                                                             }}
                                                         />
                                                     </td>
-                                                    <td style={{ padding: 0 }}>
-                                                        <select
-                                                            value={row.type || 'numeric'}
-                                                            onChange={(e) => updateRow(idx, 'type', e.target.value)}
-                                                            style={{
-                                                                width: '100%',
-                                                                border: 'none',
-                                                                background: 'transparent',
-                                                                padding: '6px',
-                                                                fontSize: '11px',
-                                                                color: '#555',
-                                                                outline: 'none',
-                                                                cursor: 'pointer'
-                                                            }}
-                                                        >
-                                                            <option value="numeric">Numeric (123)</option>
-                                                            <option value="checkbox">Checkbox (☑)</option>
-                                                        </select>
-                                                    </td>
                                                     {(user?.role === 'Admin' || user?.role === 'Head_of_Department') && (
                                                         <td style={{ padding: 0 }}>
                                                             <select
@@ -542,12 +546,35 @@ const KPITemplateManager = () => {
                                                             </select>
                                                         </td>
                                                     )}
+                                                    {/* Optional Target Input */}
+                                                    {currentTemplate.has_targets && (
+                                                        <td style={{ padding: 0, background: '#F8FAFC' }}>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                value={row.target ?? ''}
+                                                                onChange={(e) => updateRow(idx, 'target', e.target.value === '' ? null : Number(e.target.value))}
+                                                                placeholder="—"
+                                                                style={{
+                                                                    width: '100%',
+                                                                    border: 'none',
+                                                                    background: 'transparent',
+                                                                    padding: '6px',
+                                                                    fontWeight: 600,
+                                                                    outline: 'none',
+                                                                    fontSize: '11px',
+                                                                    color: '#1E40AF',
+                                                                    textAlign: 'center'
+                                                                }}
+                                                            />
+                                                        </td>
+                                                    )}
                                                     {/* Mock Empty Cells */}
                                                     {[1, 2, 3, 4].map(d => <td key={d}></td>)}
                                                     <td>...</td>
                                                     <td></td>
                                                     <td></td>
-                                                    <td className="total-col">0</td>
+                                                    <td className="total-col" style={{ background: '#F0FDF4', color: '#166534', fontWeight: 800 }}>0</td>
                                                     <td style={{ textAlign: 'center', padding: '0' }}>
                                                         <button
                                                             className="modern-btn icon-only danger"
@@ -572,7 +599,7 @@ const KPITemplateManager = () => {
                                         </AnimatePresence>
                                         {currentTemplate.rows.length === 0 && (
                                             <tr>
-                                                <td colSpan={(user?.role === 'Admin' || user?.role === 'Head_of_Department') ? 14 : 13} style={{ textAlign: 'center', padding: '30px', color: '#999' }}>
+                                                <td colSpan={((user?.role === 'Admin' || user?.role === 'Head_of_Department') ? 13 : 12) + (currentTemplate.has_targets ? 1 : 0)} style={{ textAlign: 'center', padding: '30px', color: '#999' }}>
                                                     No KPI rows added. Click "+ Add New Row" to begin building your template.
                                                 </td>
                                             </tr>
@@ -852,7 +879,6 @@ const KPITemplateManager = () => {
                                     <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                                         <div style={{ flex: 1, paddingRight: '16px' }}>
                                             <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1e293b' }}>{row.label}</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{row.type === 'checkbox' ? 'Checkbox Type' : 'Numeric Type'}</div>
                                         </div>
                                         <div style={{ width: '140px' }}>
                                             <select

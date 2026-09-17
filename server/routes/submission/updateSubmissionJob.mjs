@@ -3,6 +3,9 @@ import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 
+import { invalidateJobCache } from "../import-dsr/getJobList.mjs";
+import { invalidateJobTabCountsCache } from "../import-dsr/getJobTabCounts.mjs";
+
 const router = express.Router();
 
 router.patch(
@@ -39,20 +42,34 @@ router.patch(
           .json({ message: "Invalid updates detected.", invalidFields: actualUpdates.filter((field) => !allowedUpdates.includes(field)) });
       }
 
-      // Perform update with only allowed fields
-      const updatedJob = await JobModel.findOneAndUpdate(
-        { branch_code, trade_type, mode: mode.toUpperCase(), job_no, year },
-        { $set: updateData },
-        { new: true, runValidators: true }
-      );
+      // Find the job document with uppercase params
+      const query = {
+        branch_code: branch_code.toUpperCase(),
+        trade_type: trade_type.toUpperCase(),
+        mode: mode.toUpperCase(),
+        job_no,
+        year,
+      };
+      const job = await JobModel.findOne(query);
 
-      if (!updatedJob) {
+      if (!job) {
         return res.status(404).json({ message: "Job not found." });
       }
 
+      // Apply updates and trigger pre("save") hook to compute detailed_status, row_color, and status_rank
+      Object.assign(job, updateData);
+      await job.save();
+
+      if (job.year) {
+        invalidateJobCache(job.year);
+      } else {
+        invalidateJobCache();
+      }
+      invalidateJobTabCountsCache();
+
       res.json({
         message: "Job updated successfully.",
-        job: updatedJob,
+        job,
       });
     } catch (error) {
       console.error("Error updating job:", error);

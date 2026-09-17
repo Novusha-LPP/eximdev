@@ -11,6 +11,7 @@
  * recovery kicks in.
  */
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const getDynamicBaseURL = () => {
   const envVal = process.env.REACT_APP_API_STRING || 'http://localhost:9006';
@@ -45,9 +46,22 @@ const attendanceApiClient = axios.create({
   withCredentials: true,          // send the EXIM cookie automatically
 });
 
-// Request interceptor — nothing extra needed (cookie is automatic)
+// Request interceptor — attach Bearer token as fallback for cross-origin/cookie issues
 attendanceApiClient.interceptors.request.use(
-  (config) => config,
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      if (!config.headers) {
+        config.headers = {};
+      }
+      if (typeof config.headers.set === 'function') {
+        config.headers.set('Authorization', `Bearer ${token}`);
+      } else {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+    return config;
+  },
   (error) => Promise.reject(error)
 );
 
@@ -56,11 +70,27 @@ attendanceApiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
-      const { status } = error.response;
-      // Unauthorized → redirect to EXIM root (session expired)
+      const { status, data } = error.response;
+      const message = data?.message || data?.error;
+
+      // Unauthorized (401) → save message, clean session, and redirect to login
       if (status === 401) {
+        const authMsg = message || 'Your session has expired. Please log in again.';
+        sessionStorage.setItem('auth_error_message', authMsg);
+        localStorage.removeItem('token');
+        localStorage.removeItem('exim_user');
         window.location.href = '/';
+      } else if (status === 403) {
+        // Forbidden (403) → show explicit permission / profile reason
+        const forbiddenMsg = message || 'Access Denied: You do not have permission to access this resource.';
+        toast.error(forbiddenMsg, { id: 'auth-forbidden-toast', duration: 5000 });
       }
+    } else if (error.request) {
+      // Network error (server down or unreachable)
+      toast.error('Network Error: Unable to reach the server. Please check your connection.', {
+        id: 'auth-network-toast',
+        duration: 4000,
+      });
     }
     return Promise.reject(error);
   }

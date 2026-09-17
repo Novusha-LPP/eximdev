@@ -59,12 +59,21 @@ async function resolveLegacyCompany(user) {
 }
 
 const attendanceAuthBridge = async (req, res, next) => {
-  const token = req.cookies.token;
+  let token = req.cookies?.token;
+
+  // Fallback: accept token from Authorization header when cookie is not sent
+  // (e.g. cross-origin/LAN requests where sameSite blocks cookies)
+  if (!token && req.headers?.authorization) {
+    const parts = req.headers.authorization.split(" ");
+    if (parts.length === 2 && parts[0] === "Bearer") {
+      token = parts[1];
+    }
+  }
 
   if (!token) {
     return res
       .status(401)
-      .json({ message: "Access Denied: No Token Provided" });
+      .json({ message: "Access Denied: No authentication token provided. Please log in." });
   }
 
   try {
@@ -77,18 +86,37 @@ const attendanceAuthBridge = async (req, res, next) => {
     // fields (company_id, shift_id, department_id) are current.
     // This prevents stale JWT payloads from causing "Company not found" errors.
     const freshUser = await UserModel.findById(verified._id)
-      .select('_id username first_name last_name role company company_id department_id shift_id shift_ids weekoff_policy_id holiday_policy_id attendance_settings current_status last_punch_date last_punch_type employment_type gender leave_settings isAttendanceAllowedAdmin is_operator category work_pattern_override')
+      .select('_id username first_name last_name role company company_id department_id shift_id shift_ids weekoff_policy_id holiday_policy_id attendance_settings current_status last_punch_date last_punch_type employment_type gender leave_settings isAttendanceAllowedAdmin is_operator category work_pattern_override tokenVersion')
       .lean();
 
+    const cookieClearOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
+    };
+
     if (!freshUser) {
-      return res.status(401).json({ message: "User not found" });
+      res.clearCookie("token", cookieClearOptions);
+      return res.status(401).json({ message: "Access Denied: User account not found. Please log in again." });
+    }
+
+    // Validate tokenVersion to support universal multi-device logout
+    const userTokenVersion = freshUser.tokenVersion || 0;
+    const tokenVersion = verified.tokenVersion || 0;
+    if (tokenVersion !== userTokenVersion) {
+      res.clearCookie("token", cookieClearOptions);
+      return res.status(401).json({
+        success: false,
+        message: "Session expired or logged out from another device. Please log in again.",
+      });
     }
 
     const resolvedCompanyId = await resolveLegacyCompany(freshUser);
     const finalCompanyId = resolvedCompanyId || freshUser.company_id;
 
     if (!finalCompanyId) {
-      return res.status(403).json({ message: "Access Denied: No company assigned to this user." });
+      return res.status(403).json({ message: "Access Denied: No company or branch assigned to your account. Please contact administrator." });
     }
 
     // Map EXIM role to attendance role
@@ -105,8 +133,35 @@ const attendanceAuthBridge = async (req, res, next) => {
     // Also run context for EXIM's audit trail compatibility
     context.run({ user: verified, req }, next);
   } catch (err) {
-    console.error("Attendance Auth Bridge error:", err);
-    return res.status(403).json({ message: "Invalid Token" });
+    const cookieClearOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
+    };
+
+    if (err.name === "TokenExpiredError") {
+      res.clearCookie("token", cookieClearOptions);
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please log in again.",
+      });
+    }
+
+    if (err.name === "JsonWebTokenError") {
+      res.clearCookie("token", cookieClearOptions);
+      return res.status(401).json({
+        success: false,
+        message: "Invalid authentication token. Please log in again.",
+      });
+    }
+
+    // Only log unexpected/internal errors
+    console.error("Attendance Auth Bridge unexpected error:", err);
+    return res.status(500).json({
+      success: false,
+      message: `Authentication error: ${err.message || "Failed to authenticate"}`,
+    });
   }
 };
 

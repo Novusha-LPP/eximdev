@@ -36,6 +36,7 @@ export default function SelectImporterModal(props) {
   const [importerData, setImporterData] = React.useState([]);
   const [selectedImporter, setSelectedImporter] = React.useState("");
   const [checked, setChecked] = React.useState(false);
+  const [remarkAtEnd, setRemarkAtEnd] = React.useState(false);
   const [selectedApiYears, setSelectedApiYears] = React.useState([]);
 
   const [branches, setBranches] = React.useState([]);
@@ -159,7 +160,8 @@ export default function SelectImporterModal(props) {
         res.data,
         selectedImporter,
         props.status,
-        props.detailedStatus
+        props.detailedStatus,
+        remarkAtEnd
       );
     }
   };
@@ -181,7 +183,7 @@ export default function SelectImporterModal(props) {
         `${process.env.REACT_APP_API_STRING}/download-report/${yearString}/${props.status}${branchParam}`
       );
 
-      downloadAllReport(res.data, props.status, props.detailedStatus);
+      downloadAllReport(res.data, props.status, props.detailedStatus, remarkAtEnd);
     }
   };
 
@@ -245,6 +247,15 @@ export default function SelectImporterModal(props) {
                 />
               }
               label="Download all importers"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={remarkAtEnd}
+                  onChange={(e) => setRemarkAtEnd(e.target.checked)}
+                />
+              }
+              label="Add Remark column in last"
             />
           </FormGroup>
 

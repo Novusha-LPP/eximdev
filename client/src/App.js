@@ -57,6 +57,22 @@ function App() {
     }
   }, [user]);
 
+  // Verify session validity with the backend on app startup
+  useEffect(() => {
+    const hasAuthData =
+      Boolean(localStorage.getItem("token")) ||
+      Boolean(localStorage.getItem("exim_user"));
+
+    if (hasAuthData) {
+      axios
+        .get(`${process.env.REACT_APP_API_STRING}/me`, { withCredentials: true })
+        .catch(() => {
+          // If 401, global axios response interceptor automatically handles session cleanup and redirect.
+          // Other errors (network down/offline) are ignored so transient network issues don't log out users.
+        });
+    }
+  }, []);
+
   return (
     <UserContext.Provider value={{ user, setUser }}>
       <AuditLogProvider>

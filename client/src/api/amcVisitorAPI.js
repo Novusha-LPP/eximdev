@@ -23,6 +23,37 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+// Request interceptor — attach Bearer token for cross-origin/cookie fallback
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      if (typeof config.headers.set === 'function') {
+        config.headers.set('Authorization', `Bearer ${token}`);
+      } else {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor — handle 401 session expiration
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const authMsg = error.response.data?.message || error.response.data?.error || "Your session has expired. Please log in again.";
+      sessionStorage.setItem('auth_error_message', authMsg);
+      localStorage.removeItem('token');
+      localStorage.removeItem('exim_user');
+      window.location.href = '/';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const amcVisitorAPI = {
   // Check-In (Public)
   checkIn: (payload) =>

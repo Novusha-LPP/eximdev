@@ -36,7 +36,7 @@ const getContainerSummary = (containers) => {
     .join(", ");
 };
 
-export const downloadAllReport = async (rows, status, detailedStatus) => {
+export const downloadAllReport = async (rows, status, detailedStatus, remarkAtEnd = false) => {
   const filteredRows = Array.isArray(rows) ? rows : [];
 
   if (filteredRows.length === 0) {
@@ -59,7 +59,9 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
     minute: "2-digit",
     second: "2-digit",
     hour12: true,
-  }); const headers = [
+  });
+
+  let headers = [
     "JOB NO AND DATE",
     "IMPORTER",
     "SUPPLIER/ EXPORTER",
@@ -81,6 +83,11 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
     "FIRST CHECK",
     "NFIMS / SIMS"
   ];
+
+  if (remarkAtEnd) {
+    headers = headers.filter((h) => h !== "REMARKS");
+    headers.push("REMARKS");
+  }
 
   // Row headers
   const dataWithHeaders = filteredRows.map((item) => {
@@ -112,7 +119,7 @@ export const downloadAllReport = async (rows, status, detailedStatus) => {
       }${item.sims_reg_no ? ` | SIMS Reg No: ${item.sims_reg_no}` : ""}${item.sims_date ? ` | SIMS Reg Date: ${item.sims_date}` : ""
       }${item.pims_reg_no ? ` | PIMS Reg No: ${item.pims_reg_no}` : ""}${item.pims_date ? ` | PIMS Reg Date: ${item.pims_date}` : ""
       }${item.nfmims_reg_no ? ` | NFMIMS Reg No: ${item.nfmims_reg_no}` : ""}${item.nfmims_date ? ` | NFMIMS Reg Date: ${item.nfmims_date}` : ""
-      }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}`;
+      }${item.do_validity ? ` | DO VALIDITY: ${item.do_validity}` : ""}${item.remarks ? ` | Remarks: ${item.remarks}` : ""}`;
 
     // Safely handle container dates
     let arrivalDates = "";

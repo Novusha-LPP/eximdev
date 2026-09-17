@@ -38,6 +38,7 @@ router.post("/api/change-password", auditMiddleware("User"), async (req, res) =>
 
     user.password = hashedNewPassword;
     user.passwordChangedAt = new Date();
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
 
     res.status(200).json({ message: "Password changed successfully" });
@@ -71,6 +72,7 @@ router.post("/api/admin/change-password", auditMiddleware("User"), async (req, r
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
     targetUser.password = hashedNewPassword;
     targetUser.passwordChangedAt = new Date(0);
+    targetUser.tokenVersion = (targetUser.tokenVersion || 0) + 1;
     await targetUser.save();
 
     res.status(200).json({ message: "Password changed successfully" });

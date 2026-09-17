@@ -23,6 +23,14 @@ const userSchema = new Schema({
     default: 'Sales Rep'
   },
   isHod: { type: Boolean, default: false },
+  hod_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  company_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
+  branch_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
+  department_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
+  shift_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift' },
+  shift_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Shift' }],
+  weekoff_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'WeekOffPolicy' },
+  holiday_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'HolidayPolicy' },
   crmManagedTeams: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SalesTeam' }],
   quota: { type: Number, default: 0 },
   teamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team' },
@@ -34,6 +42,10 @@ const userSchema = new Schema({
     type: Boolean,
     default: true,
   },
+  tokenVersion: {
+    type: Number,
+    default: 0,
+  },
   deactivatedAt: {
     type: Date,
   },
@@ -43,7 +55,7 @@ const userSchema = new Schema({
   },
   modules: {
     type: [String],
-    default: ["Attendance"]
+    default: ["Attendance"],
   },
   tyre_procurement_tabs: {
     type: [String],
@@ -77,21 +89,7 @@ const userSchema = new Schema({
     type: String,
   },
   employment_type: { type: String },
-
-  // ─── Attendance-specific fields ───────────────────────────────────────────
-  company_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
-  department_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', index: true },
-  branch_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', index: true },
-  shift_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift', index: true },
-  shift_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Shift' }],
-  hod_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   employee_code: { type: String, unique: true, sparse: true },
-
-  // ─── Policy Overrides (explicit assignment) ─────────────────────────────
-  weekoff_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'WeekOffPolicy' },
-  holiday_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'HolidayPolicy' },
-
-  // Employment timeline
   date_of_joining: { type: Date },
   probation_end_date: { type: Date },
   confirmation_date: { type: Date },
@@ -187,6 +185,17 @@ const userSchema = new Schema({
   },
   department: {
     type: String,
+  },
+  sub_team: {
+    type: String,
+    trim: true,
+    index: true,
+    default: "General",
+  },
+  sub_team_role: {
+    type: String,
+    enum: ["Member", "Lead"],
+    default: "Member",
   },
   joining_date: {
     type: String,
@@ -407,7 +416,7 @@ const userSchema = new Schema({
     type: Date,
     default: null,
   },
-});
+}, { strictPopulate: false });
 
 userSchema.plugin(auditPlugin, { documentType: "User" });
 

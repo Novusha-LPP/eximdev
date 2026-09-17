@@ -6,6 +6,7 @@ import authMiddleware from "../../middleware/authMiddleware.mjs";
 import logger from "../../logger.js";
 
 import TyreSupplierModel from "../../model/accounts/tyreSupplierModel.mjs";
+import ProcurementProductModel from "../../model/accounts/procurementProductModel.mjs";
 
 const router = express.Router();
 
@@ -139,6 +140,36 @@ async function saveSuppliersFromDoc(doc) {
   }
 }
 
+async function saveProductsFromDoc(doc) {
+  try {
+    const items = doc?.stage1?.itemsRequired || [];
+    for (const it of items) {
+      const name = (it.productName || it.tyreType || "").trim().toUpperCase();
+      if (name) {
+        await ProcurementProductModel.findOneAndUpdate(
+          { productName: name },
+          { $set: { productName: name } },
+          { upsert: true, new: true }
+        );
+      }
+    }
+
+    const stage2Suppliers = doc?.stage2?.suppliers || [];
+    for (const sup of stage2Suppliers) {
+      const name = (sup.selectedProduct || sup.selectedTyreType || "").trim().toUpperCase();
+      if (name) {
+        await ProcurementProductModel.findOneAndUpdate(
+          { productName: name },
+          { $set: { productName: name } },
+          { upsert: true, new: true }
+        );
+      }
+    }
+  } catch (err) {
+    logger.error("Error auto-saving products from Procurement doc:", err);
+  }
+}
+
 function parseCreditDays(terms) {
   if (!terms) return 0;
   const str = String(terms).toUpperCase();
@@ -151,6 +182,7 @@ function parseCreditDays(terms) {
 }
 
 function deriveStatus(doc) {
+  if (!doc) return "Draft";
   const s6 = doc.stage6 || {};
   const s5 = doc.stage5 || {};
   const s4 = doc.stage4 || {};
@@ -203,6 +235,7 @@ function deriveStatus(doc) {
 }
 
 function computeDoc(doc) {
+  if (!doc) return doc;
   const clone = JSON.parse(JSON.stringify(doc));
 
   // Compute estTotal for Stage 1 items
@@ -231,8 +264,8 @@ function emptyRow(cols) {
 
 // Helper to generate next PR Number and PO Number
 // Formats:
-// PR: TT/TYRE/{MONTH}/{SEQ}/{FINANCIAL_YEAR}  e.g. TT/TYRE/AUG/01/26-27
-// PO: TYRE/{MONTH}-{SEQ}/{FINANCIAL_YEAR}     e.g. TYRE/AUG-01/26-27
+// PR: PR/{MONTH}/{SEQ}/{FINANCIAL_YEAR}  e.g. PR/SEP/01/26-27 (supports legacy TT/TYRE/...)
+// PO: PO/{MONTH}-{SEQ}/{FINANCIAL_YEAR}  e.g. PO/SEP-01/26-27 (supports legacy TYRE/...)
 async function generateNextTyreNumbers(dateInput) {
   const d = dateInput ? new Date(dateInput) : new Date();
   const monthShort = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
@@ -240,35 +273,128 @@ async function generateNextTyreNumbers(dateInput) {
 
   let startYear, endYear;
   if (m >= 3) {
-    // April (3) to Dec (11)
     startYear = d.getFullYear();
     endYear = d.getFullYear() + 1;
   } else {
-    // Jan (0) to Mar (2)
     startYear = d.getFullYear() - 1;
     endYear = d.getFullYear();
   }
   const fyCode = `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`;
 
-  const regex = new RegExp(`^TT/TYRE/${monthShort}/(\\d+)/${fyCode}$`, "i");
-  const records = await TyreProcurementSop.find({ prNumber: { $regex: regex } }).select("prNumber").lean();
+  // Find all PRs for the month to get highest sequence
+  const prPattern = new RegExp(`^(?:PR|TT/TYRE)/${monthShort}/(\\d+)/${fyCode}$`, "i");
+  const records = await TyreProcurementSop.find({ prNumber: { $regex: prPattern } }).select("prNumber").lean();
 
-  let maxSeq = 0;
+  let maxPrSeq = 0;
   records.forEach((rec) => {
     if (rec.prNumber) {
-      const match = rec.prNumber.match(new RegExp(`^TT/TYRE/${monthShort}/(\\d+)/${fyCode}$`, "i"));
+      const match = rec.prNumber.match(prPattern);
       if (match && match[1]) {
         const seq = parseInt(match[1], 10);
-        if (seq > maxSeq) maxSeq = seq;
+        if (seq > maxPrSeq) maxPrSeq = seq;
       }
     }
   });
 
-  const nextSeq = String(maxSeq + 1).padStart(2, "0");
-  const prNumber = `TT/TYRE/${monthShort}/${nextSeq}/${fyCode}`;
-  const poNumber = `TYRE/${monthShort}-${nextSeq}/${fyCode}`;
+  // Also check all existing PO numbers across records and selectedSuppliers to ensure strictly continuous PO series
+  const poPattern = new RegExp(`^(?:PO|TYRE)/${monthShort}-(\\d+)/${fyCode}$`, "i");
+  const allDocs = await TyreProcurementSop.find({}).select("poNumber stage2.selectedSuppliers.poNumber").lean();
 
-  return { prNumber, poNumber, seq: nextSeq, monthShort, fyCode };
+  let maxPoSeq = 0;
+  allDocs.forEach((doc) => {
+    if (doc.poNumber) {
+      const mMatch = doc.poNumber.match(poPattern);
+      if (mMatch && mMatch[1]) {
+        const seq = parseInt(mMatch[1], 10);
+        if (seq > maxPoSeq) maxPoSeq = seq;
+      }
+    }
+    const supList = doc.stage2?.selectedSuppliers || [];
+    supList.forEach((s) => {
+      if (s && s.poNumber) {
+        const mMatch = s.poNumber.match(poPattern);
+        if (mMatch && mMatch[1]) {
+          const seq = parseInt(mMatch[1], 10);
+          if (seq > maxPoSeq) maxPoSeq = seq;
+        }
+      }
+    });
+  });
+
+  const nextPrSeq = String(maxPrSeq + 1).padStart(2, "0");
+  const nextPoSeq = String(maxPoSeq + 1).padStart(2, "0");
+
+  const prNumber = `PR/${monthShort}/${nextPrSeq}/${fyCode}`;
+  const poNumber = `PO/${monthShort}-${nextPoSeq}/${fyCode}`;
+
+  return {
+    prNumber,
+    poNumber,
+    seq: nextPrSeq,
+    nextPoSeq: maxPoSeq + 1,
+    monthShort,
+    fyCode,
+  };
+}
+
+// Helper to generate next sequential PO numbers for a list of suppliers
+async function generateSupplierPoNumbers(suppliers = [], dateInput, excludeDocId = null) {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  const monthShort = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
+  const m = d.getMonth();
+
+  let startYear, endYear;
+  if (m >= 3) {
+    startYear = d.getFullYear();
+    endYear = d.getFullYear() + 1;
+  } else {
+    startYear = d.getFullYear() - 1;
+    endYear = d.getFullYear();
+  }
+  const fyCode = `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`;
+
+  const poPattern = new RegExp(`^(?:PO|TYRE)/${monthShort}-(\\d+)/${fyCode}$`, "i");
+  const query = {};
+  if (excludeDocId) {
+    query._id = { $ne: excludeDocId };
+  }
+  const allDocs = await TyreProcurementSop.find(query).select("poNumber stage2.selectedSuppliers.poNumber").lean();
+
+  let maxPoSeq = 0;
+  allDocs.forEach((doc) => {
+    if (doc.poNumber) {
+      const mMatch = doc.poNumber.match(poPattern);
+      if (mMatch && mMatch[1]) {
+        const seq = parseInt(mMatch[1], 10);
+        if (seq > maxPoSeq) maxPoSeq = seq;
+      }
+    }
+    const supList = doc.stage2?.selectedSuppliers || [];
+    supList.forEach((s) => {
+      if (s && s.poNumber) {
+        const mMatch = s.poNumber.match(poPattern);
+        if (mMatch && mMatch[1]) {
+          const seq = parseInt(mMatch[1], 10);
+          if (seq > maxPoSeq) maxPoSeq = seq;
+        }
+      }
+    });
+  });
+
+  let currentSeq = maxPoSeq;
+  const supplierToPo = {};
+
+  suppliers.forEach((s) => {
+    const sName = (typeof s === "string" ? s : (s?.selectedSupplier || s?.supplierName || "")).trim().toUpperCase();
+    if (!sName) return;
+    if (!supplierToPo[sName]) {
+      currentSeq += 1;
+      const seqStr = String(currentSeq).padStart(2, "0");
+      supplierToPo[sName] = `PO/${monthShort}-${seqStr}/${fyCode}`;
+    }
+  });
+
+  return { supplierToPo, nextPoSeq: currentSeq + 1, monthShort, fyCode };
 }
 
 // Helper to generate next GRN Number
@@ -321,6 +447,51 @@ router.get("/tyre-procurement/next-numbers", authMiddleware, async (req, res) =>
   }
 });
 
+// Endpoint to generate PO numbers for multiple selected suppliers
+router.post("/tyre-procurement/next-po-numbers", authMiddleware, async (req, res) => {
+  try {
+    const { suppliers = [], date, currentId } = req.body;
+    const result = await generateSupplierPoNumbers(suppliers, date, currentId);
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    logger.error("Error generating supplier PO numbers:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ─── Procurement Product Master Endpoints ───
+
+// Fetch all saved procurement products
+router.get("/procurement-products", authMiddleware, async (req, res) => {
+  try {
+    const products = await ProcurementProductModel.find().sort({ productName: 1 }).lean();
+    res.status(200).json({ success: true, products });
+  } catch (err) {
+    logger.error("Error fetching procurement products:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Save a new procurement product
+router.post("/procurement-products", authMiddleware, async (req, res) => {
+  try {
+    const { productName } = req.body;
+    if (!productName || !productName.trim()) {
+      return res.status(400).json({ success: false, message: "Product name is required" });
+    }
+    const name = productName.trim().toUpperCase();
+    const product = await ProcurementProductModel.findOneAndUpdate(
+      { productName: name },
+      { $set: { productName: name } },
+      { upsert: true, new: true }
+    );
+    res.status(200).json({ success: true, product });
+  } catch (err) {
+    logger.error("Error saving procurement product:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Endpoint to fetch next GRN number
 router.get("/tyre-procurement/next-grn-number", authMiddleware, async (req, res) => {
   try {
@@ -351,10 +522,10 @@ router.get("/tyre-procurement", authMiddleware, async (req, res) => {
     if (stageTab && stageTab !== "0") {
       switch (stageTab) {
         case "1":
-          query.status = { $in: ["Draft", "PR Raised"] };
+          query.status = "Draft";
           break;
         case "2":
-          query.status = { $in: ["Preparing for Quotation", "HoD Validated"] };
+          query.status = { $in: ["PR Raised", "Preparing for Quotation", "HoD Validated"] };
           break;
         case "3":
           query.status = { $in: ["Quotation Received", "Quotation Updated"] };
@@ -469,6 +640,7 @@ router.post("/tyre-procurement", authMiddleware, async (req, res) => {
     const doc = new TyreProcurementSop(payload);
     await doc.save();
     await saveSuppliersFromDoc(doc);
+    await saveProductsFromDoc(doc);
     res.status(201).json({ success: true, data: computeDoc(doc.toObject()) });
   } catch (error) {
     logger.error("Error creating Tyre Procurement SOP:", error);
@@ -498,6 +670,7 @@ router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
       { new: true, runValidators: true }
     ).lean();
     await saveSuppliersFromDoc(doc);
+    await saveProductsFromDoc(doc);
     res.json({ success: true, data: computeDoc(doc) });
   } catch (error) {
     logger.error("Error updating Tyre Procurement SOP:", error);

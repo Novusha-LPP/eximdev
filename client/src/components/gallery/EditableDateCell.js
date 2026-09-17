@@ -407,8 +407,9 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             tempDateValue === "" ? null : normalizeDateForSave(tempDateValue);
           const next = { ...c, [field]: val };
           if (field === "arrival_date" && !isLCL) {
-            next.detention_from = val
-              ? addDaysToDate(val, localFreeTime || 0)
+            const effectiveFree = parseInt(localFreeTime ?? free_time ?? 0, 10) || 0;
+            next.detention_from = (val && effectiveFree > 0)
+              ? addDaysToDate(val, effectiveFree)
               : "";
           }
           return next;

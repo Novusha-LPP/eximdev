@@ -586,6 +586,7 @@ function useJobColumns(
       {
         accessorKey: "dates",
         header: "Dates",
+        enableSorting: false,
         size: 470,
         Cell: ({ cell, row }) => {
           const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];

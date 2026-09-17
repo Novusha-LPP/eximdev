@@ -1047,6 +1047,9 @@ const ProjectWorkspace = () => {
                                         onChange={(e) => handleUpdate(point._id, 'responsibility', e.target.value)}
                                     >
                                         <option value="">Select</option>
+                                        {point.responsibility && !projectTeam.some(m => m.username === point.responsibility) && (
+                                            <option value={point.responsibility}>{point.responsibility}</option>
+                                        )}
                                         {projectTeam.map(m => (
                                             <option key={m._id} value={m.username}>{m.displayName || m.username}</option>
                                         ))}

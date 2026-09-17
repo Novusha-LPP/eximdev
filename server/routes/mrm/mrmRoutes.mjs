@@ -1,12 +1,28 @@
 import express from 'express';
 import MRMMetadata from '../../model/mrm/mrmMetadataModel.mjs';
 import MRMItem from '../../model/mrm/mrmItemModel.mjs';
+import MRMSegmentRollup from '../../model/mrm/mrmSegmentRollupModel.mjs';
+import MRMHodScore from '../../model/mrm/mrmHodScoreModel.mjs';
+import KPISheet from '../../model/kpi/kpiSheetModel.mjs';
 import OpenPoint from '../../model/openPoints/openPointModel.mjs';
 import UserModel from '../../model/userModel.mjs';
 import auditMiddleware from '../../middleware/auditTrail.mjs';
 import authMiddleware from '../../middleware/authMiddleware.mjs';
 import { syncActionPlanToOpenPoint } from '../../services/mrmOpenPointsSyncService.mjs';
-import { calculateAnnualRollup, analyzeRecurringIssues, parseNumericValue, detectAnomalies } from '../../services/mrmAnalyticsService.mjs';
+import { 
+    calculateAnnualRollup, 
+    analyzeRecurringIssues, 
+    parseNumericValue, 
+    detectAnomalies,
+    calculateSegmentRollup,
+    calculateHodMonthlyScore,
+    detectRecurringBlockers,
+    getPreDeadlineSubmissionStatus,
+    calculateAnnualBusinessLossRollup,
+    getDepartmentFilterRegex,
+    getTrueHodUsers
+} from '../../services/mrmAnalyticsService.mjs';
+import { isFeatureEnabled } from '../../config/featureFlags.mjs';
 
 const router = express.Router();
 
@@ -27,17 +43,20 @@ const isAuthorizedApprover = (reqUser) => {
 // Get users who have MRM module assigned or are presenters/HODs/Admins
 router.get('/api/mrm/users', authMiddleware, async (req, res) => {
     try {
+        const trueHods = await getTrueHodUsers();
+        const trueHodIds = trueHods.map(h => h._id);
         const distinctMetadataUsers = await MRMMetadata.distinct('userId');
         const users = await UserModel.find(
             {
                 isActive: { $ne: false },
                 $or: [
+                    { _id: { $in: trueHodIds } },
                     { modules: 'MRM' },
                     { role: { $regex: /^(head_of_department|admin|hod)$/i } },
                     { _id: { $in: distinctMetadataUsers } }
                 ]
             },
-            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1 }
+            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1, department: 1, designation: 1 }
         ).lean();
 
         // Format clean display name and filter out any blank user records
@@ -45,10 +64,12 @@ router.get('/api/mrm/users', authMiddleware, async (req, res) => {
             .map(u => {
                 const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
                 const displayName = fullName || u.username || '';
+                const matchedHod = trueHods.find(h => h._id.toString() === u._id.toString());
                 return {
                     ...u,
                     first_name: u.first_name || displayName,
                     last_name: u.last_name || '',
+                    department: u.department || matchedHod?.department || '',
                     displayName
                 };
             })
@@ -72,11 +93,11 @@ router.get('/api/mrm/dashboard', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: "Month and Year are required" });
         }
 
-        // Determine user filter: Approvers see all HODs/Admins; HODs see their team + self
-        let userQuery = {
-            modules: 'MRM',
-            isActive: { $ne: false }
-        };
+        const trueHods = await getTrueHodUsers();
+        const trueHodIds = trueHods.map(h => h._id);
+
+        // Determine user filter: Approvers see all true HODs + any admins with MRM; HODs see their team + self
+        let userQuery = { isActive: { $ne: false } };
 
         if (!isApprover && requestingRole !== 'admin') {
             const orConditions = [{ _id: req.user._id }];
@@ -88,12 +109,13 @@ router.get('/api/mrm/dashboard', authMiddleware, async (req, res) => {
             }
             userQuery.$or = orConditions;
         } else {
-            userQuery.role = { $in: ['Head_of_Department', 'head_of_department', 'Admin', 'admin'] };
+            // For Executive Approvers (Suraj Rajan / Admin): Show only true reporting departmental HODs
+            userQuery._id = { $in: trueHodIds };
         }
 
         const mrmUsers = await UserModel.find(
             userQuery,
-            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1 }
+            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1, department: 1, designation: 1 }
         ).sort({ first_name: 1 });
 
         const allMetadata = await MRMMetadata.find({ month, year });
@@ -125,11 +147,14 @@ router.get('/api/mrm/dashboard', authMiddleware, async (req, res) => {
             }
             const isLocked = userMeta?.isLocked || userMeta?.meetingDone || (status === 'Approved');
 
+            const matchedHod = trueHods.find(h => h._id.toString() === user._id.toString());
             return {
                 userId: user._id,
                 firstName: user.first_name,
                 lastName: user.last_name,
                 username: user.username,
+                department: user.department || matchedHod?.department || '',
+                designation: user.designation || '',
                 reviewDate: userMeta?.reviewDate || null,
                 meetingDate: userMeta?.meetingDate || null,
                 meetingDone: userMeta?.meetingDone || false,
@@ -752,7 +777,7 @@ router.post('/api/mrm', authMiddleware, async (req, res) => {
         }
 
         // Trigger safe Save-time OpenPoint sync
-        if (item.actionPlan) {
+        if (item.actionPlan || item.remarks || item.responsibility) {
             const point = await syncActionPlanToOpenPoint(item, req.user);
             if (point) {
                 item.openPointId = point._id;
@@ -825,7 +850,7 @@ router.put('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async (r
         }
 
         // Trigger safe Save-time OpenPoint sync
-        if (item && (item.actionPlan || item.openPointId)) {
+        if (item && (item.actionPlan || item.remarks || item.responsibility || item.openPointId)) {
             const point = await syncActionPlanToOpenPoint(item, req.user);
             if (point) {
                 item.openPointId = point._id;
@@ -988,7 +1013,24 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
             }));
         }
 
-        await MRMItem.insertMany(newItems);
+        const insertedItems = await MRMItem.insertMany(newItems);
+
+        // If mode === 'as-is', safely trigger OpenPoints sync on all inserted items with an actionPlan or remarks
+        if (mode === 'as-is' && Array.isArray(insertedItems)) {
+            for (const item of insertedItems) {
+                if ((item.actionPlan && item.actionPlan.trim()) || (item.remarks && item.remarks.trim())) {
+                    try {
+                        const point = await syncActionPlanToOpenPoint(item, req.user);
+                        if (point) {
+                            item.openPointId = point._id;
+                        }
+                    } catch (syncErr) {
+                        console.error(`Safe warning: Failed to sync imported MRM item ${item._id} to OpenPoint:`, syncErr.message);
+                    }
+                }
+            }
+        }
+
         const result = await MRMItem.find({ month: targetMonth, year: targetYear, createdBy: targetUserId });
         res.json(result);
     } catch (error) {
@@ -1079,6 +1121,370 @@ router.get('/api/mrm/open-points', authMiddleware, async (req, res) => {
 
         res.json(formattedPoints);
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ============================================================================
+// MRM 2.0 — KPI ROLLUP & HOD PERFORMANCE SCORING API ROUTES (FLAG-GATED)
+// ============================================================================
+
+/**
+ * GET /api/mrm/feature-status
+ * Returns current status of MRM KPI rollup feature flag
+ */
+router.get('/api/mrm/feature-status', authMiddleware, (req, res) => {
+    res.json({
+        enabled: isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED')
+    });
+});
+
+/**
+ * GET /api/mrm/segments/rollup
+ * Returns sub-team segment aggregates, 2-signal RAG, member breakdown
+ */
+router.get('/api/mrm/segments/rollup', authMiddleware, async (req, res) => {
+    try {
+        if (!isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED')) {
+            return res.json({ enabled: false, message: 'MRM KPI Rollup feature is not enabled' });
+        }
+
+        const { department, month, year, hodId } = req.query;
+        if (!department || !month || !year) {
+            return res.status(400).json({ error: 'department, month, and year are required query parameters' });
+        }
+
+        const resolvedHodId = hodId || req.user._id;
+        const result = await calculateSegmentRollup({
+            department,
+            hodId: resolvedHodId,
+            month,
+            year
+        });
+
+        res.json(result);
+    } catch (error) {
+        console.error('Error fetching segment rollup:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/mrm/hod-score
+ * Returns 70/30 blended monthly performance score for an HOD
+ */
+router.get('/api/mrm/hod-score', authMiddleware, async (req, res) => {
+    try {
+        if (!isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED')) {
+            return res.json({ enabled: false, message: 'MRM KPI Rollup feature is not enabled' });
+        }
+
+        const { department, month, year, hodId } = req.query;
+        if (!department || !month || !year) {
+            return res.status(400).json({ error: 'department, month, and year are required query parameters' });
+        }
+
+        const trueHods = await getTrueHodUsers();
+        let targetHod = null;
+        if (hodId) {
+            targetHod = trueHods.find(h => h._id.toString() === hodId.toString());
+        }
+        if (!targetHod && department) {
+            const deptRegex = getDepartmentFilterRegex(department);
+            targetHod = trueHods.find(h => deptRegex.test(h.department) || h.department?.toLowerCase() === department.toLowerCase());
+        }
+        if (!targetHod) {
+            targetHod = trueHods.find(h => h._id.toString() === req.user._id.toString());
+        }
+
+        const resolvedHodId = targetHod?._id || hodId || req.user._id;
+        const resolvedDept = targetHod?.department || department;
+
+        const result = await calculateHodMonthlyScore({
+            hodId: resolvedHodId,
+            department: resolvedDept,
+            month,
+            year
+        });
+
+        res.json(result);
+    } catch (error) {
+        console.error('Error calculating HOD monthly score:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/mrm/hod-scores/rankings
+ * Returns monthly leaderboard of all HOD scores for Suraj Rajan / Admin view
+ */
+router.get('/api/mrm/hod-scores/rankings', authMiddleware, async (req, res) => {
+    try {
+        if (!isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED')) {
+            return res.json({ enabled: false, message: 'MRM KPI Rollup feature is not enabled' });
+        }
+
+        const { month, year } = req.query;
+        if (!month || !year) {
+            return res.status(400).json({ error: 'month and year are required query parameters' });
+        }
+
+        const monthStr = String(month).padStart(2, '0');
+        const yearNum = parseInt(year, 10);
+
+        const trueHods = await getTrueHodUsers();
+        const trueHodIds = trueHods.map(h => h._id);
+
+        // Delete any invalid non-HOD records for this period to keep the leaderboard clean
+        await MRMHodScore.deleteMany({
+            month: monthStr,
+            year: yearNum,
+            hodId: { $nin: trueHodIds }
+        });
+
+        // Ensure every active true HOD has an up-to-date computed score record for this month
+        for (const hod of trueHods) {
+            try {
+                await calculateHodMonthlyScore({
+                    hodId: hod._id,
+                    department: hod.department,
+                    month: monthStr,
+                    year: yearNum
+                });
+            } catch (err) {
+                console.warn(`Auto-compute score skipped for ${hod.username}:`, err.message);
+            }
+        }
+
+        let rankings = await MRMHodScore.find({
+            month: monthStr,
+            year: yearNum,
+            hodId: { $in: trueHodIds }
+        })
+        .populate('hodId', 'first_name last_name username email designation department')
+        .sort({ final_score: -1 })
+        .lean();
+
+        // Assign clean sequential ranks and fallback department from trueHods
+        rankings = await Promise.all(rankings.map(async (item, idx) => {
+            const matchedHod = trueHods.find(h => h._id.toString() === item.hodId?._id?.toString());
+            const cleanRank = idx + 1;
+            const dept = item.department || matchedHod?.department || item.hodId?.department;
+            await MRMHodScore.findByIdAndUpdate(item._id, {
+                monthly_rank: cleanRank,
+                total_hods_ranked: rankings.length,
+                department: dept
+            });
+            return {
+                ...item,
+                department: dept,
+                monthly_rank: cleanRank,
+                total_hods_ranked: rankings.length
+            };
+        }));
+
+        res.json(rankings);
+    } catch (error) {
+        console.error('Error fetching HOD rankings:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/mrm/pre-deadline-tracker
+ * Returns pre-deadline submission progress for department
+ */
+router.get('/api/mrm/pre-deadline-tracker', authMiddleware, async (req, res) => {
+    try {
+        if (!isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED')) {
+            return res.json({ enabled: false, message: 'MRM KPI Rollup feature is not enabled' });
+        }
+
+        const { department, month, year } = req.query;
+        if (!department || !month || !year) {
+            return res.status(400).json({ error: 'department, month, and year are required query parameters' });
+        }
+
+        const result = await getPreDeadlineSubmissionStatus({
+            department,
+            month,
+            year
+        });
+
+        res.json(result);
+    } catch (error) {
+        console.error('Error in pre-deadline tracker:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/mrm/recurring-blockers
+ * Returns recurring blockers detected across last 3 months
+ */
+router.get('/api/mrm/recurring-blockers', authMiddleware, async (req, res) => {
+    try {
+        if (!isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED')) {
+            return res.json({ enabled: false, message: 'MRM KPI Rollup feature is not enabled' });
+        }
+
+        const { department, month, year } = req.query;
+        if (!department || !month || !year) {
+            return res.status(400).json({ error: 'department, month, and year are required query parameters' });
+        }
+
+        const result = await detectRecurringBlockers({
+            department,
+            month,
+            year
+        });
+
+        res.json(result);
+    } catch (error) {
+        console.error('Error detecting recurring blockers:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/mrm/annual-business-loss
+ * Returns annual business loss roll-up for the department
+ */
+router.get('/api/mrm/annual-business-loss', authMiddleware, async (req, res) => {
+    try {
+        if (!isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED')) {
+            return res.json({ enabled: false, message: 'MRM KPI Rollup feature is not enabled' });
+        }
+
+        const { department, year } = req.query;
+        if (!department || !year) {
+            return res.status(400).json({ error: 'department and year are required query parameters' });
+        }
+
+        const result = await calculateAnnualBusinessLossRollup({
+            department,
+            year
+        });
+
+        res.json(result);
+    } catch (error) {
+        console.error('Error fetching annual business loss:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/mrm/sub-teams/manage
+ * Admin or HOD sub-team assignment management
+ */
+router.post('/api/mrm/sub-teams/manage', authMiddleware, async (req, res) => {
+    try {
+        if (!isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED')) {
+            return res.json({ enabled: false, message: 'MRM KPI Rollup feature is not enabled' });
+        }
+
+        const { department, action, userIds, sub_team, sub_team_role } = req.body;
+        if (!department) {
+            return res.status(400).json({ error: 'department is required' });
+        }
+
+        if (action === 'assign') {
+            if (!Array.isArray(userIds) || userIds.length === 0 || !sub_team) {
+                return res.status(400).json({ error: 'userIds and sub_team are required for assign action' });
+            }
+
+            await UserModel.updateMany(
+                { _id: { $in: userIds }, department: { $regex: getDepartmentFilterRegex(department) } },
+                { 
+                    $set: { 
+                        sub_team: sub_team.trim(),
+                        ...(sub_team_role ? { sub_team_role } : {})
+                    } 
+                }
+            );
+
+            return res.json({ success: true, message: `Assigned ${userIds.length} users to sub-team "${sub_team}"` });
+        }
+
+        if (action === 'list') {
+            const users = await UserModel.find({
+                department: { $regex: getDepartmentFilterRegex(department) },
+                isActive: { $ne: false }
+            }).select('_id first_name last_name username sub_team sub_team_role designation').lean();
+
+            const grouped = {};
+            users.forEach(u => {
+                const st = u.sub_team || 'General';
+                if (!grouped[st]) grouped[st] = [];
+                grouped[st].push(u);
+            });
+
+            return res.json({ department, sub_teams: grouped, users });
+        }
+
+        res.status(400).json({ error: `Unknown action: ${action}` });
+    } catch (error) {
+        console.error('Error managing sub-teams:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/mrm/segments/approve
+ * Tier 2 HOD Review & Approval: Locks segments, approves rollup to MRM
+ */
+router.post('/api/mrm/segments/approve', authMiddleware, async (req, res) => {
+    try {
+        if (!isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED')) {
+            return res.json({ enabled: false, message: 'MRM KPI Rollup feature is not enabled' });
+        }
+
+        const { department, month, year } = req.body;
+        if (!department || !month || !year) {
+            return res.status(400).json({ error: 'department, month, and year are required' });
+        }
+
+        const monthStr = String(month).padStart(2, '0');
+        const yearNum = parseInt(year, 10);
+
+        // Update all segments for this department/month to Approved
+        await MRMSegmentRollup.updateMany(
+            { department: { $regex: getDepartmentFilterRegex(department) }, month: monthStr, year: yearNum },
+            { 
+                $set: { 
+                    status: 'Approved',
+                    approvedAt: new Date(),
+                    approvedBy: req.user._id
+                } 
+            }
+        );
+
+        // Recalculate and approve HOD score
+        const hodScore = await calculateHodMonthlyScore({
+            hodId: req.user._id,
+            department,
+            month: monthStr,
+            year: yearNum
+        });
+
+        await MRMHodScore.findOneAndUpdate(
+            { department: { $regex: getDepartmentFilterRegex(department) }, month: monthStr, year: yearNum, hodId: req.user._id },
+            { 
+                $set: { 
+                    status: 'Approved',
+                    approvedAt: new Date(),
+                    approvedBy: req.user._id
+                } 
+            }
+        );
+
+        res.json({
+            success: true,
+            message: `Department "${department}" KPI segments approved and rolled up to MRM`,
+            hodScore
+        });
+    } catch (error) {
+        console.error('Error approving segments rollup:', error);
         res.status(500).json({ error: error.message });
     }
 });

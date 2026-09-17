@@ -71,7 +71,7 @@ const TICKET_DEPARTMENTS = [
 const ADMIN_STATUSES = ["Open", "In Progress", "Closed"];
 
 // Default assigned IT person
-const DEFAULT_ASSIGNEE = "Vikash";
+const DEFAULT_ASSIGNEE = "Vikas Chandra";
 
 // Helper: returns today's date as YYYY-MM-DD
 const getTodayDate = () => {
@@ -183,6 +183,8 @@ export default function RaiseTicket() {
 
       await itHelpdeskAPI.tickets.create(formData);
       toast.success("Ticket raised successfully!");
+      localStorage.setItem("ticketDataRefresh", JSON.stringify({ timestamp: Date.now() }));
+      window.dispatchEvent(new Event("ticketDataUpdated"));
       handleReset();
     } catch (error) {
       console.error("Error raising ticket:", error);
@@ -261,7 +263,7 @@ export default function RaiseTicket() {
                     </InputAdornment>
                   ),
                 }}
-                helperText="Default IT assignee: Vikash"
+                helperText="Default IT assignee: Vikas Chandra"
               />
             </Grid>
 

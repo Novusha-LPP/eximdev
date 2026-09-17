@@ -13,6 +13,8 @@ import { validateRodtepUtilization } from "../../services/rodtepService.mjs";
 import ClientQuery from "../../model/clientQueryModel.mjs";
 import { invalidateJobTabCountsCache } from "./getJobTabCounts.mjs";
 import { recalculateContainersDetention } from "../../utils/detentionHelper.mjs";
+import { reconcileJobStatuses } from "../../services/jobStatusReconciliationService.mjs";
+import { getJobSortDate } from "../../utils/jobRanking.mjs";
 
 const router = express.Router();
 
@@ -159,7 +161,7 @@ const criticalFields = `
   penalty_by_us penalty_by_importer other_do_documents intrest_ammount sws_ammount igst_ammount 
   bcd_ammount assessable_ammount total_inv_value product_value freight insurance other_charges inv_currency detention_from 
   gross_weight job_net_weight payment_method no_of_pkgs delivery_completed_date job_date
-  shipping_line_invoice_imgs obl_telex_bl document_received_date
+  shipping_line_invoice_imgs obl_telex_bl document_received_date bill_no isGeneralJob
   concor_invoice_and_receipt_copy thar_invoices hasti_invoices icd_cfs_invoice_img cfs_name charges
   invoice_details description_details
   checklist is_checklist_aprroved is_checklist_clicked is_checklist_aprroved_date remark_client
@@ -378,6 +380,9 @@ router.get(
       // 5) detailed status mapping
       const statusMapping = {
         billed: "Billed",
+        "status completed": "Billed",
+        "status_completed": "Billed",
+        "Status Completed": "Billed",
         billing_pending: "Billing Pending",
         eta_date_pending: "ETA Date Pending",
         estimated_time_of_arrival: "Estimated Time of Arrival",
@@ -388,20 +393,25 @@ router.get(
         be_noted_clearance_pending: "BE Noted, Clearance Pending",
         pcv_done_duty_payment_pending: "PCV Done, Duty Payment Pending",
         custom_clearance_completed: "Custom Clearance Completed",
+        do_completed_and_delivery_pending: "Do completed and Delivery pending",
       };
 
       const requestedDetailedStatus =
         detailedStatus !== "all"
-          ? statusMapping[detailedStatus] || detailedStatus
+          ? statusMapping[detailedStatus.toLowerCase()] || statusMapping[detailedStatus] || detailedStatus
           : null;
 
       if (requestedDetailedStatus) {
+        const matchingValues = [
+          requestedDetailedStatus,
+          requestedDetailedStatus.toLowerCase(),
+          requestedDetailedStatus.toUpperCase(),
+        ];
+        if (requestedDetailedStatus === "Billed") {
+          matchingValues.push("Status Completed", "status completed", "STATUS COMPLETED");
+        }
         query.detailed_status = {
-          $in: [
-            requestedDetailedStatus,
-            requestedDetailedStatus.toLowerCase(),
-            requestedDetailedStatus.toUpperCase(),
-          ],
+          $in: matchingValues,
         };
       }
 
@@ -479,6 +489,7 @@ router.get(
         findQuery = findQuery.hint("year_1_status_rank_1_status_sort_date_1");
       }
 
+
       const [totalCount, jobs] = await Promise.all([
         JobModel.countDocuments(query),
         findQuery,
@@ -493,6 +504,7 @@ router.get(
           job.row_color = getRowColorFromStatus(job.detailed_status);
         }
       });
+
 
       // 11) Calculate unresolvedCount for Pending status without extra client request
       let unresolvedCount = 0;
@@ -709,6 +721,7 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
 
     updateSet.detailed_status = recomputedStatus;
     updateSet.row_color = rowColor;
+    updateSet.status_sort_date = getJobSortDate(merged);
 
     if (recomputedStatus === "Billed") {
       updateSet.status = "Completed";
@@ -766,6 +779,33 @@ router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
   } catch (error) {
     console.error("Error fetching job for delivery note:", error);
     res.status(500).json({ message: "Server Error" });
+  }
+});
+
+// ---------------- RECONCILE / SYNC STATUSES ----------------
+
+router.post("/api/jobs/sync-detailed-status", authMiddleware, async (req, res) => {
+  try {
+    const { year, job_no, job_number } = req.body || {};
+    const filter = {};
+    if (year) filter.year = year;
+    if (job_number) {
+      filter.job_number = job_number;
+    } else if (job_no) {
+      filter.$or = [{ job_no }, { job_number: job_no }];
+    }
+
+    const queryFilter = Object.keys(filter).length > 0 ? filter : null;
+    const result = await reconcileJobStatuses(queryFilter, { invalidateCache: true });
+
+    res.json({
+      success: true,
+      message: `Reconciled ${result.updated} of ${result.scanned} jobs.`,
+      result,
+    });
+  } catch (error) {
+    console.error("Error in sync-detailed-status endpoint:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

@@ -180,7 +180,7 @@ const KPISheetSchema = new Schema(
             changed_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
             changed_by_name: String,
             timestamp: { type: Date, default: Date.now },
-            action: { type: String, enum: ["CREATE", "UPDATE", "DELETE", "ADD_ROW", "REMOVE_ROW"] }
+            action: { type: String, enum: ["CREATE", "UPDATE", "DELETE", "ADD_ROW", "REMOVE_ROW", "UPDATE_TARGET", "TOGGLE_TARGETS"], default: "UPDATE" }
         }]
     },
     { timestamps: true }

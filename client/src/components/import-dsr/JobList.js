@@ -437,7 +437,7 @@ function JobList(props) {
     }
   }, [rows, fetchQueryStatusForJobs]);
 
-  // Sort jobs list with active query priority at TOP (resolved queries do not bypass normal order)
+  // Sort jobs list with active query priority at TOP (preserves server-provided sequence in place otherwise)
   const sortedRows = useMemo(() => {
     if (!rows || rows.length === 0) return [];
     return [...rows].sort((a, b) => {
@@ -1462,7 +1462,14 @@ function JobList(props) {
       }
       return baseProps;
     },
-    muiTableHeadCellProps: { sx: { position: "sticky", top: 0, zIndex: 999 } },
+    muiTableHeadCellProps: {
+      sx: {
+        position: "sticky",
+        top: 0,
+        zIndex: 999,
+        backgroundColor: "#f8fafc",
+      },
+    },
     renderTopToolbarCustomActions: renderTopToolbarCustomActions,
   });
 

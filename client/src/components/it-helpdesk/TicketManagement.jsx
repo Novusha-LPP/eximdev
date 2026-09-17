@@ -181,6 +181,26 @@ export default function TicketManagement() {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = React.useRef(null);
 
+  const getUserDisplayName = useCallback(
+    (userVal) => {
+      if (!userVal) return "Unassigned";
+      if (typeof userVal === "object") {
+        const fullName = `${userVal.first_name || ""} ${userVal.last_name || ""}`.trim();
+        if (fullName) return fullName;
+        return userVal.name || userVal.username || userVal.email || "Unassigned";
+      }
+      const foundUser = users?.find((u) => String(u._id) === String(userVal));
+      if (foundUser) {
+        const fullName = `${foundUser.first_name || ""} ${foundUser.last_name || ""}`.trim();
+        if (fullName) return fullName;
+        return foundUser.name || foundUser.username || foundUser.email;
+      }
+      if (String(userVal).toLowerCase().includes("vikas")) return "Vikas Chandra";
+      return String(userVal);
+    },
+    [users]
+  );
+
   // Derived query parameters from URL
   const statusParam = searchParams.get("status") || "";
   const categoryParam = searchParams.get("category") || "";
@@ -337,15 +357,11 @@ export default function TicketManagement() {
 
   const fetchData = useCallback(
     async (overridePage) => {
-      if (typeof overridePage === "number") {
-        updateQueryParams({ page: overridePage });
-        return;
-      }
       setLoading(true);
       try {
         logRead("ticket-list-view", "Accessed ticket list with filters", "info");
 
-        const page = pageParam;
+        const page = typeof overridePage === "number" ? overridePage : pageParam;
         const limit = limitParam;
         const params = { page, limit };
         if (statusParam) params.status = statusParam;
@@ -368,7 +384,7 @@ export default function TicketManagement() {
         setLoading(false);
       }
     },
-    [pageParam, limitParam, statusParam, categoryParam, priorityParam, searchParam, updateQueryParams, logRead]
+    [pageParam, limitParam, statusParam, categoryParam, priorityParam, searchParam, logRead]
   );
 
   const fetchUsers = useCallback(async () => {
@@ -396,6 +412,18 @@ export default function TicketManagement() {
 
   useEffect(() => {
     fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      fetchData(1);
+    };
+    window.addEventListener("ticketDataUpdated", handleRefresh);
+    window.addEventListener("storage", handleRefresh);
+    return () => {
+      window.removeEventListener("ticketDataUpdated", handleRefresh);
+      window.removeEventListener("storage", handleRefresh);
+    };
   }, [fetchData]);
 
   useEffect(() => {
@@ -429,21 +457,14 @@ export default function TicketManagement() {
 
         sla_due_date:
           record.sla_due_date
-            ? record.sla_due_date.substring(0, 10)
-            : "",
-
-        resolution_notes:
-          record.resolution_notes || ""
       });
-
     } else {
-
       setEditId(null);
 
-      let defaultAssignedTo = "Vikash";
+      let defaultAssignedTo = "";
       if (users && users.length > 0) {
-        const vikash = users.find(u => (u.username || u.first_name || u.email || "").toLowerCase().includes("vikash"));
-        if (vikash) defaultAssignedTo = vikash._id;
+        const vikas = users.find((u) => (u.username || u.first_name || u.name || u.email || "").toLowerCase().includes("vikas"));
+        if (vikas) defaultAssignedTo = vikas._id;
       }
 
       const now = new Date();
@@ -563,10 +584,11 @@ export default function TicketManagement() {
       }
 
       setShowModal(false);
-      // Signal home page to refresh data
+      // Signal home page and components to refresh data
       localStorage.setItem("ticketDataRefresh", JSON.stringify({ timestamp: Date.now() }));
       window.dispatchEvent(new Event("ticketDataUpdated"));
-      fetchData(pagination.page);
+      updateQueryParams({ page: 1 });
+      fetchData(1);
     } catch (err) {
       toast.error(err.response?.data?.message || "Save failed");
     } finally {
@@ -583,7 +605,7 @@ export default function TicketManagement() {
       // Signal home page to refresh data
       localStorage.setItem("ticketDataRefresh", JSON.stringify({ timestamp: Date.now() }));
       window.dispatchEvent(new Event("ticketDataUpdated"));
-      fetchData(pagination.page);
+      fetchData(1);
     } catch (err) {
       toast.error(err.response?.data?.message || "Delete failed");
     }
@@ -834,7 +856,7 @@ export default function TicketManagement() {
                           </tr>
                         ) : (
                           data.map((t) => {
-                            const assignedName = t.assigned_to?.username || t.assigned_to?.first_name || "Vikash";
+                            const assignedName = getUserDisplayName(t.assigned_to);
                             
                             const getPriorityBadgeStyle = (p) => {
                               const val = String(p || "").toLowerCase();
@@ -1186,10 +1208,9 @@ export default function TicketManagement() {
                         }
                         options={[
                           { label: "Select User", value: "" },
-                          ...(form.assigned_to === "Vikash" ? [{ label: "Vikash", value: "Vikash" }] : []),
                           ...(users && users.length > 0
                             ? users.map((user) => ({
-                                label: user.username || user.first_name || user.email,
+                                label: getUserDisplayName(user),
                                 value: user._id,
                               }))
                             : []),
@@ -1213,9 +1234,7 @@ export default function TicketManagement() {
                           boxSizing: "border-box",
                         }}
                       >
-                        {form.assigned_to === "Vikash"
-                          ? "Vikash (Default IT Assignee)"
-                          : users?.find((u) => u._id === form.assigned_to)?.username || "Vikash"}
+                        {getUserDisplayName(form.assigned_to)}
                       </div>
                     )}
                   </Grid>
@@ -1233,7 +1252,7 @@ export default function TicketManagement() {
                       placeholder="Select Department"
                       width="100%"
                     />
-                  </Grid>d>
+                  </Grid>
 
                   {/* SLA Due Date */}
                   <Grid item xs={12} sm={6}>

@@ -1032,6 +1032,25 @@ if (!disableCluster && cluster.isPrimary) {
           // Initialize Invoicing Module seed and auto-retrieve scheduler
           seedDefaultInvoicingData();
           initInvoicingCronScheduler();
+
+          // Periodic Job Status Reconciliation (every 2 minutes)
+          cron.schedule(
+            "*/2 * * * *",
+            async () => {
+              try {
+                const { reconcileJobStatuses } = await import("./services/jobStatusReconciliationService.mjs");
+                const res = await reconcileJobStatuses();
+                if (res.updated > 0) {
+                  console.log(`✅ [JobStatusReconciliation] Reconciled ${res.updated} jobs.`);
+                }
+              } catch (err) {
+                console.error("❌ [JobStatusReconciliation] Periodic job failed:", err);
+              }
+            },
+            {
+              timezone: "Asia/Kolkata",
+            }
+          );
         }
 
         // Initialize WebSocket logic

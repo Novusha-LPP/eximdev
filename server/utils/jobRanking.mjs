@@ -1,5 +1,6 @@
 
 export const STATUS_RANK_MAP = {
+    "Billed": { rank: 0, field: "billing_completed_date" },
     "Billing Pending": { rank: 1, field: "emptyContainerOffLoadDate" },
     "Do completed and Delivery pending": { rank: 2, field: "do_completed" },
     "Custom Clearance Completed": { rank: 3, field: "detention_from" },
@@ -14,7 +15,7 @@ export const STATUS_RANK_MAP = {
 };
 
 export const getJobStatusRank = (status) => {
-    return STATUS_RANK_MAP[status]?.rank || 999;
+    return STATUS_RANK_MAP[status]?.rank ?? 999;
 };
 
 const parseDateString = (dateStr) => {
@@ -39,14 +40,38 @@ const parseDateString = (dateStr) => {
 export const getJobSortDate = (job, status = null) => {
     if (!job) return new Date("9999-12-31T23:59:59.999Z");
 
-    // Pure Global ETA Sort: Primary sort date is ETA (vessel_berthing / eta / eta_date)
-    const etaStr = job.vessel_berthing || job.eta || job.eta_date;
-    if (etaStr) {
-        const parsedEta = parseDateString(etaStr);
-        if (parsedEta) return parsedEta;
+    const effectiveStatus = status || job.detailed_status;
+    const config = STATUS_RANK_MAP[effectiveStatus];
+    if (!config) return new Date("9999-12-31T23:59:59.999Z");
+
+    const field = config.field;
+    let dateVal = null;
+
+    // 1. Try root level
+    if (job[field]) {
+        dateVal = job[field];
+    }
+    // 2. Try first container (common pattern in existing aggregation)
+    else if (job.container_nos && job.container_nos.length > 0 && job.container_nos[0][field]) {
+        dateVal = job.container_nos[0][field];
+    }
+    // Fallbacks for rail out field naming
+    else if (field === "container_rail_out_date" && job.rail_out) {
+        dateVal = job.rail_out;
+    }
+    else if (field === "rail_out" && job.container_nos && job.container_nos.length > 0 && job.container_nos[0].container_rail_out_date) {
+        dateVal = job.container_nos[0].container_rail_out_date;
     }
 
-    // Default to far future so jobs with missing ETA appear at the end
+    // 3. Try parsing
+    if (dateVal) {
+        const d = parseDateString(dateVal);
+        if (d) {
+            return d;
+        }
+    }
+
+    // Default
     return new Date("9999-12-31T23:59:59.999Z");
 };
 

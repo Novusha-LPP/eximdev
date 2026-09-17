@@ -98,6 +98,44 @@ const modalFieldSx = {
   },
 };
 
+const selectMenuProps = {
+  BackdropProps: {
+    invisible: true,
+    sx: {
+      backgroundColor: "transparent !important",
+      backdropFilter: "none !important",
+      WebkitBackdropFilter: "none !important",
+    },
+  },
+  PaperProps: {
+    sx: {
+      borderRadius: "10px",
+      boxShadow: "0 12px 32px -4px rgba(15, 23, 42, 0.2), 0 6px 12px -4px rgba(15, 23, 42, 0.1)",
+      maxHeight: 280,
+      border: "1px solid #e2e8f0",
+      "& .MuiMenuItem-root": {
+        fontSize: "13.5px",
+        fontWeight: 500,
+        color: "#334155",
+        padding: "8px 12px",
+        "&:hover": {
+          backgroundColor: "#f8fafc",
+          color: "#0f172a",
+        },
+        "&.Mui-selected": {
+          backgroundColor: "#eff6ff",
+          color: "#2563eb",
+          fontWeight: 600,
+          "&:hover": {
+            backgroundColor: "#dbeafe",
+          },
+        },
+      },
+    },
+  },
+};
+
+
 const FormSectionTitle = ({ icon: Icon, title }) => (
   <Grid item xs={12} sx={{ mt: 1, mb: 0.25 }}>
     <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.6, borderBottom: "1px solid #f1f5f9" }}>
@@ -221,6 +259,20 @@ const PLAN_TYPE_MAP = {
 
 const normalizeStatus = (status) => STATUS_NORMALIZATION_MAP[String(status || "").toLowerCase()] || status;
 const normalizePlanType = (planType) => PLAN_TYPE_MAP[String(planType || "").toLowerCase()] || planType;
+
+const formatUserFriendlyError = (rawMsg) => {
+  if (!rawMsg) return "An unexpected error occurred. Please try again.";
+  const strMsg = typeof rawMsg === "string" ? rawMsg : String(rawMsg?.message || rawMsg);
+  if (strMsg.includes("E11000 duplicate key error") || strMsg.includes("dup key")) {
+    const match = strMsg.match(/dup key:\s*\{\s*(\w+):\s*"([^"]+)"\s*\}/);
+    if (match) {
+      const fieldName = match[1] === "asset_tag" ? "Asset Tag" : match[1] === "serial_number" ? "Serial Number" : match[1];
+      return `${fieldName} "${match[2]}" already exists. Please use a unique value.`;
+    }
+    return "An asset with this Asset Tag or identifier already exists. Please use a unique value.";
+  }
+  return strMsg;
+};
 
 const EMPTY_FORM = {
   asset_tag: "",
@@ -468,9 +520,37 @@ export default function AssetManagement() {
       });
     } else {
       setEditId(null);
-      const generatedTag = `AST-${Date.now().toString().slice(-6)}`;
-      setForm({ ...EMPTY_FORM, asset_tag: generatedTag });
+      const currentYear = new Date().getFullYear();
+      let defaultTag = `AST-${currentYear}-001`;
+
+      // Fallback local calculation from loaded asset data
+      const regex = new RegExp(`^AST-${currentYear}-(\\d+)$`, "i");
+      let localMax = 0;
+      (data || []).forEach((a) => {
+        if (a.asset_tag) {
+          const m = a.asset_tag.match(regex);
+          if (m) {
+            const seq = parseInt(m[1], 10);
+            if (!isNaN(seq) && seq > localMax) localMax = seq;
+          }
+        }
+      });
+      defaultTag = `AST-${currentYear}-${String(localMax + 1).padStart(3, "0")}`;
+
+      setForm({ ...EMPTY_FORM, asset_tag: defaultTag });
       setErrors({});
+
+      // Fetch precise next tag from server
+      itHelpdeskAPI.assets
+        .getNextTag()
+        .then((res) => {
+          if (res?.success && res?.data?.nextTag) {
+            setForm((prev) => ({ ...prev, asset_tag: res.data.nextTag }));
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to fetch next asset tag from server:", err);
+        });
     }
     setShowModal(true);
   };
@@ -553,7 +633,8 @@ export default function AssetManagement() {
       setShowModal(false);
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Save failed");
+      const serverMessage = err.response?.data?.message || err.message || "Save failed";
+      toast.error(formatUserFriendlyError(serverMessage));
       console.error(`Failed to ${editId ? "update" : "create"} asset: ${err.message}`);
     } finally {
       setSaving(false);
@@ -568,7 +649,8 @@ export default function AssetManagement() {
       toast.success("Deleted");
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Delete failed");
+      const serverMessage = err.response?.data?.message || err.message || "Delete failed";
+      toast.error(formatUserFriendlyError(serverMessage));
       console.error(`Failed to delete asset with ID: ${id}: ${err.message}`);
     }
   };
@@ -635,6 +717,9 @@ export default function AssetManagement() {
     error: Boolean(getFieldError(field)),
     helperText: getFieldHelperText(field),
     sx: modalFieldSx,
+    SelectProps: {
+      MenuProps: selectMenuProps,
+    },
   });
 
   const updateField = (field, value) => {
@@ -1238,7 +1323,7 @@ export default function AssetManagement() {
                     label="Vendor"
                     size="small"
                     fullWidth
-                    sx={modalFieldSx}
+                    {...getRequiredProps("vendor")}
                     value={form.vendor}
                     onChange={(e) => updateField("vendor", e.target.value)}
                   >
@@ -2183,7 +2268,7 @@ export default function AssetManagement() {
                     label="Vendor"
                     size="small"
                     fullWidth
-                    sx={modalFieldSx}
+                    {...getRequiredProps("vendor")}
                     value={form.vendor}
                     onChange={(e) => updateField("vendor", e.target.value)}
                   >

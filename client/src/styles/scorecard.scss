@@ -892,3 +892,15 @@ button.btn.btn-icon {
   }
 }
 
+// Prevent MUI dropdown menus/popovers from blurring or darkening background modals
+.MuiPopover-root,
+.MuiMenu-root {
+  .MuiBackdrop-root,
+  .MuiBackdrop-invisible {
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+

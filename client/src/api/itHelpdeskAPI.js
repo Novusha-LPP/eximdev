@@ -6,6 +6,7 @@ export const itHelpdeskAPI = {
   assets: {
     getAll: (params = {}) => api.get("/it-helpdesk/assets", { params }).then((r) => r.data),
     getStats: () => api.get("/it-helpdesk/assets/stats").then((r) => r.data),
+    getNextTag: () => api.get("/it-helpdesk/assets/next-tag").then((r) => r.data),
     export: (params = {}) => api.get("/it-helpdesk/reports/assets/export", { params, responseType: "blob" }),
     getById: (id) => api.get(`/it-helpdesk/assets/${id}`).then((r) => r.data),
     create: (payload) => api.post("/it-helpdesk/assets", payload).then((r) => r.data),
@@ -33,6 +34,7 @@ export const itHelpdeskAPI = {
   vendors: {
     getAll: (params = {}) => api.get("/it-helpdesk/vendors", { params }).then((r) => r.data),
     getStats: () => api.get("/it-helpdesk/vendors/stats").then((r) => r.data),
+    getNextCode: () => api.get("/it-helpdesk/vendors/next-code").then((r) => r.data),
     export: (params = {}) => api.get("/it-helpdesk/reports/vendors/export", { params, responseType: "blob" }),
     getById: (id) => api.get(`/it-helpdesk/vendors/${id}`).then((r) => r.data),
     create: (payload) => api.post("/it-helpdesk/vendors", payload).then((r) => r.data),

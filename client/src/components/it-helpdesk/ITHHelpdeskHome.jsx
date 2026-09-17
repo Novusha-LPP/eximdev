@@ -293,15 +293,15 @@ export default function ITHHelpdeskHome() {
   }, [fetchUsers]);
 
   const handleOpenTicketModal = () => {
-    let defaultAssignedTo = "Vikash";
+    let defaultAssignedTo = "";
     if (users && users.length > 0) {
-      const vikash = users.find(
+      const vikas = users.find(
         (u) =>
-          (u.username || u.first_name || u.email || "")
+          (u.username || u.first_name || u.name || u.email || "")
             .toLowerCase()
-            .includes("vikash")
+            .includes("vikas")
       );
-      if (vikash) defaultAssignedTo = vikash._id;
+      if (vikas) defaultAssignedTo = vikas._id;
     }
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
@@ -1362,12 +1362,9 @@ export default function ITHHelpdeskHome() {
                       }
                       options={[
                         { label: "Select User", value: "" },
-                        ...(ticketForm.assigned_to === "Vikash"
-                          ? [{ label: "Vikash", value: "Vikash" }]
-                          : []),
                         ...(users && users.length > 0
                           ? users.map((u) => ({
-                              label: u.username || u.first_name || u.email,
+                              label: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.name || u.username || u.email,
                               value: u._id,
                             }))
                           : []),
@@ -1391,10 +1388,12 @@ export default function ITHHelpdeskHome() {
                         boxSizing: "border-box",
                       }}
                     >
-                      {ticketForm.assigned_to === "Vikash"
-                        ? "Vikash (Default IT Assignee)"
-                        : users?.find((u) => u._id === ticketForm.assigned_to)
-                            ?.username || "Vikash (Default IT Assignee)"}
+                      {(() => {
+                        const u = users?.find((user) => String(user._id) === String(ticketForm.assigned_to));
+                        if (u) return `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.name || u.username || u.email;
+                        if (String(ticketForm.assigned_to).toLowerCase().includes("vikas")) return "Vikas Chandra (Default IT Assignee)";
+                        return String(ticketForm.assigned_to || "Unassigned");
+                      })()}
                     </div>
                   )}
                 </div>

@@ -71,8 +71,11 @@ const TICKET_DEPARTMENTS = [
 const formatUser = (userVal) => {
   if (!userVal) return "—";
   if (typeof userVal === "object") {
-    return userVal.username || userVal.first_name || userVal.name || userVal.email || "—";
+    const fullName = `${userVal.first_name || ""} ${userVal.last_name || ""}`.trim();
+    if (fullName) return fullName;
+    return userVal.name || userVal.username || userVal.email || "—";
   }
+  if (String(userVal).toLowerCase().includes("vikas")) return "Vikas Chandra";
   return String(userVal);
 };
 

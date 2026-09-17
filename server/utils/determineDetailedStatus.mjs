@@ -13,6 +13,7 @@ export function determineDetailedStatus(job, branchConfig = null) {
     do_completed,
     mode,
     bill_no,
+    delivery_completed_date,
   } = job || {};
 
   // Check if billed (both Agency and Reimbursement bills required)
@@ -44,10 +45,14 @@ export function determineDetailedStatus(job, branchConfig = null) {
 
   const hasContainers = Array.isArray(container_nos) && container_nos.length > 0;
 
-  const allDelivered = hasContainers
+  const allContainersDelivered = hasContainers
     ? container_nos.every((c) => isValidDate(c?.delivery_date))
     : false;
 
+  const isDeliveryCompleted =
+    isValidDate(delivery_completed_date) ||
+    allContainersDelivered ||
+    (!hasContainers && isValidDate(job?.delivery_date));
 
   const allEmptyOffloaded = hasContainers
     ? container_nos.every((c) => isValidDate(c?.emptyContainerOffLoadDate))
@@ -72,7 +77,7 @@ export function determineDetailedStatus(job, branchConfig = null) {
   const isTypeDoIcd = norm(type_of_Do) === "icd";
 
   // Special case for AIR: Delivery + OOC = Billing Pending
-  if (norm(mode) === "air" && validOOC && allDelivered) {
+  if (norm(mode) === "air" && validOOC && (isDeliveryCompleted || !hasContainers)) {
     return "Billing Pending";
   }
 
@@ -83,10 +88,10 @@ export function determineDetailedStatus(job, branchConfig = null) {
 
   // Ex-Bond: return early to avoid fall-through
   if (isExBond) {
-    if (be_no && validOOC && allDelivered) {
+    if (be_no && validOOC && isDeliveryCompleted) {
       return "Billing Pending";
     }
-    if (validDoCompleted && validOOC && !allDelivered) {
+    if (validDoCompleted && validOOC && !isDeliveryCompleted) {
       return "Do completed and Delivery pending";
     }
     if (be_no && validOOC) {
@@ -107,18 +112,18 @@ export function determineDetailedStatus(job, branchConfig = null) {
       billingComplete = allEmptyOffloaded;
     } else {
       // In-Bond Factory: Needs EmptyOff AND Delivery
-      billingComplete = allEmptyOffloaded && allDelivered;
+      billingComplete = allEmptyOffloaded && isDeliveryCompleted;
     }
   } else {
     // Standard Logic (Home Consumption, etc.)
     // If type_of_Do is 'icd', we treat it like LCL (wait for delivery date)
-    billingComplete = (isLCL || isTypeDoIcd) ? allDelivered : allEmptyOffloaded;
+    billingComplete = (isLCL || isTypeDoIcd) ? isDeliveryCompleted : allEmptyOffloaded;
   }
 
   if (be_no && anyArrival && validOOC && billingComplete) {
     return "Billing Pending";
   }
-  if (validDoCompleted && validOOC && !allDelivered) {
+  if (validDoCompleted && validOOC && !isDeliveryCompleted) {
     return "Do completed and Delivery pending";
   }
   if (be_no && anyArrival && validOOC) {

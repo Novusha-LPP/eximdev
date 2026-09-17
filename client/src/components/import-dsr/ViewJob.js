@@ -963,11 +963,14 @@ function JobDetails() {
     const hasContainers =
       Array.isArray(container_nos) && container_nos.length > 0;
 
-    const allDelivered = hasContainers
+    const allContainersDelivered = hasContainers
       ? container_nos.every((c) => isValidDate(c?.delivery_date))
       : false;
 
-
+    const isDeliveryCompleted =
+      isValidDate(delivery_completed_date) ||
+      allContainersDelivered ||
+      (!hasContainers && isValidDate(formik.values?.delivery_date));
 
     const allEmptyOffloaded = hasContainers
       ? container_nos.every((c) => isValidDate(c?.emptyContainerOffLoadDate))
@@ -994,7 +997,7 @@ function JobDetails() {
     const isTypeDoIcd = norm(type_of_Do) === "icd";
 
     // Special case for AIR: Delivery + OOC = Billing Pending
-    if (norm(mode) === "air" && validOOC && allDelivered) {
+    if (norm(mode) === "air" && validOOC && (isDeliveryCompleted || !hasContainers)) {
       formik.setFieldValue("detailed_status", "Billing Pending");
       return;
     }
@@ -1007,11 +1010,11 @@ function JobDetails() {
 
     // Ex-Bond: return early to avoid fall-through
     if (isExBond) {
-      if (be_no && validOOC && allDelivered) {
+      if (be_no && validOOC && isDeliveryCompleted) {
         formik.setFieldValue("detailed_status", "Billing Pending");
         return;
       }
-      if (validDoCompleted && validOOC && !allDelivered) {
+      if (validDoCompleted && validOOC && !isDeliveryCompleted) {
         formik.setFieldValue("detailed_status", "Do completed and Delivery pending");
         return;
       }
@@ -1039,17 +1042,17 @@ function JobDetails() {
         billingComplete = allEmptyOffloaded;
       } else {
         // In-Bond Factory: Needs EmptyOff AND Delivery
-        billingComplete = allEmptyOffloaded && allDelivered;
+        billingComplete = allEmptyOffloaded && isDeliveryCompleted;
       }
     } else {
       // Standard Logic (Home Consumption, etc.)
       // If type_of_Do is 'icd', we treat it like LCL (wait for delivery date)
-      billingComplete = (isLCL || isTypeDoIcd) ? allDelivered : allEmptyOffloaded;
+      billingComplete = (isLCL || isTypeDoIcd) ? isDeliveryCompleted : allEmptyOffloaded;
     }
 
     if (be_no && anyArrival && validOOC && billingComplete) {
       formik.setFieldValue("detailed_status", "Billing Pending");
-    } else if (validDoCompleted && validOOC && !allDelivered) {
+    } else if (validDoCompleted && validOOC && !isDeliveryCompleted) {
       formik.setFieldValue("detailed_status", "Do completed and Delivery pending");
     } else if (be_no && anyArrival && validOOC) {
       formik.setFieldValue("detailed_status", "Custom Clearance Completed");

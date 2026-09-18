@@ -23,6 +23,7 @@ import {
   Plus,
   Edit2,
   Trash2,
+  Eye,
   RefreshCw,
   ChevronLeft,
   ChevronRight,
@@ -38,9 +39,18 @@ import {
   MapPin,
   DollarSign,
   FileText,
+  Printer,
+  Wifi,
+  Globe,
+  Key,
+  Phone,
+  Image as ImageIcon,
+  UploadCloud,
 } from "lucide-react";
 import CustomSelect from "./CustomSelect";
 import ITPagination from "./ITPagination";
+import AddVendorModal from "./AddVendorModal";
+import { uploadFileToS3 } from "../../utils/awsFileUpload";
 import "../../styles/scorecard.scss";
 
 const ASSET_TYPES = ["Desktop", "Laptop", "Printer", "Network Device", "Software", "Phone", "SIM Card", "Rack", "Cable"];
@@ -50,6 +60,19 @@ const PLAN_TYPES = ["Prepaid", "Postpaid"];
 const PRINTER_TYPES = ["Laser", "Inkjet", "Thermal", "Dot Matrix"];
 const CONNECTION_TYPES = ["USB", "Wi-Fi", "LAN"];
 const DEVICE_CATEGORIES = ["Router", "Switch", "Firewall", "AP"];
+const RAM_OPTIONS = ["4 GB", "8 GB", "12 GB", "16 GB", "32 GB", "64 GB"];
+const STORAGE_OPTIONS = [
+  "128 GB SSD",
+  "256 GB SSD",
+  "512 GB SSD",
+  "1 TB SSD",
+  "2 TB SSD",
+  "500 GB HDD",
+  "1 TB HDD",
+  "2 TB HDD",
+  "256 GB SSD + 1 TB HDD",
+  "512 GB SSD + 1 TB HDD",
+];
 const USERS_FETCH_LIMIT = 200;
 
 // Added department options
@@ -99,6 +122,14 @@ const modalFieldSx = {
 };
 
 const selectMenuProps = {
+  anchorOrigin: {
+    vertical: "bottom",
+    horizontal: "left",
+  },
+  transformOrigin: {
+    vertical: "top",
+    horizontal: "left",
+  },
   BackdropProps: {
     invisible: true,
     sx: {
@@ -110,14 +141,23 @@ const selectMenuProps = {
   PaperProps: {
     sx: {
       borderRadius: "10px",
-      boxShadow: "0 12px 32px -4px rgba(15, 23, 42, 0.2), 0 6px 12px -4px rgba(15, 23, 42, 0.1)",
-      maxHeight: 280,
+      boxShadow: "0 12px 32px -4px rgba(15, 23, 42, 0.18), 0 6px 12px -4px rgba(15, 23, 42, 0.08)",
+      maxHeight: 260,
       border: "1px solid #e2e8f0",
+      marginTop: "4px",
+      boxSizing: "border-box",
+      "& .MuiList-root": {
+        padding: "4px 0",
+      },
       "& .MuiMenuItem-root": {
-        fontSize: "13.5px",
+        fontSize: "13px",
         fontWeight: 500,
         color: "#334155",
-        padding: "8px 12px",
+        padding: "7px 12px",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        display: "block",
         "&:hover": {
           backgroundColor: "#f8fafc",
           color: "#0f172a",
@@ -131,6 +171,16 @@ const selectMenuProps = {
           },
         },
       },
+    },
+  },
+  TransitionProps: {
+    onEnter: (node) => {
+      const anchor = document.activeElement?.closest(".MuiOutlinedInput-root") || document.activeElement;
+      if (anchor && anchor.clientWidth) {
+        node.style.width = `${anchor.clientWidth}px`;
+        node.style.minWidth = `${anchor.clientWidth}px`;
+        node.style.maxWidth = `${anchor.clientWidth}px`;
+      }
     },
   },
 };
@@ -213,6 +263,8 @@ const FIELD_LABELS = {
   plan_type: "Plan Type",
   monthly_plan_package: "Monthly Plan/Package",
   remarks: "Remarks",
+  invoice_number: "Invoice Number",
+  invoice_date: "Invoice Date",
 };
 
 const ASSET_TYPE_REQUIRED_FIELDS = {
@@ -323,6 +375,9 @@ const EMPTY_FORM = {
   plan_type: "",
   monthly_plan_package: "",
   remarks: "",
+  image_url: "",
+  invoice_number: "",
+  invoice_date: "",
 };
 
 export default function AssetManagement() {
@@ -350,11 +405,78 @@ export default function AssetManagement() {
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 15, totalPages: 1 });
   const [showModal, setShowModal] = useState(false);
+  const [showAddVendorModal, setShowAddVendorModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewRecord, setViewRecord] = useState(null);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [previewInvoiceUrl, setPreviewInvoiceUrl] = useState(null);
+  const [previewInvoiceTitle, setPreviewInvoiceTitle] = useState("");
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+
+  // Helper to trigger direct file download for invoices (PDF/Images)
+  const handleDownloadInvoice = async (url, title = "Asset_Invoice") => {
+    if (!url) return;
+    try {
+      setDownloadingInvoice(true);
+      const cleanTitle = (title || "Asset_Invoice").replace(/[^a-zA-Z0-9_-]/g, "_");
+
+      // Handle Data URL or Blob URL directly
+      if (url.startsWith("data:") || url.startsWith("blob:")) {
+        let ext = "pdf";
+        if (url.includes("image/jpeg") || url.includes("image/jpg")) ext = "jpg";
+        else if (url.includes("image/png")) ext = "png";
+        else if (url.includes("image/webp")) ext = "webp";
+        else if (url.includes("application/pdf")) ext = "pdf";
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${cleanTitle}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        toast.success("Download started");
+        return;
+      }
+
+      // Handle remote URLs (S3 / server endpoint)
+      const response = await fetch(url, { mode: "cors" });
+      if (!response.ok) throw new Error("Could not fetch remote file for download");
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      let ext = "pdf";
+      if (url.toLowerCase().includes(".png") || blob.type.includes("png")) ext = "png";
+      else if (url.toLowerCase().includes(".jpg") || url.toLowerCase().includes(".jpeg") || blob.type.includes("jpeg")) ext = "jpg";
+      else if (url.toLowerCase().includes(".webp") || blob.type.includes("webp")) ext = "webp";
+      else if (url.toLowerCase().includes(".pdf") || blob.type.includes("pdf")) ext = "pdf";
+
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${cleanTitle}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success("Download started");
+    } catch (err) {
+      console.warn("Direct blob download fallback to direct link:", err);
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.download = `${(title || "Asset_Invoice").replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast.success("Invoice opened for download");
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  };
 
   // Helper to update search params while preserving existing ones
   const updateQueryParams = useCallback(
@@ -446,12 +568,20 @@ export default function AssetManagement() {
   const fetchVendors = useCallback(async () => {
     try {
       logRead("asset-vendors-fetch", "Fetched vendors for asset assignment", "info");
-      const res = await itHelpdeskAPI.vendors.getAll();
+      const res = await itHelpdeskAPI.vendors.getAll({ all: "true" });
       setVendors(res.data || []);
     } catch {
       // non-blocking
     }
   }, []);
+
+  const handleVendorCreated = (newVendor) => {
+    fetchVendors();
+    if (newVendor && (newVendor._id || newVendor.id)) {
+      const vId = newVendor._id || newVendor.id;
+      updateField("vendor", vId);
+    }
+  };
 
   useEffect(() => {
     logRead("asset-module-access", "Accessed Asset Management module", "info");
@@ -517,6 +647,9 @@ export default function AssetManagement() {
         plan_type: record.plan_type || "",
         monthly_plan_package: record.monthly_plan_package || "",
         remarks: record.remarks || "",
+        image_url: record.image_url || "",
+        invoice_number: record.invoice_number || "",
+        invoice_date: record.invoice_date ? record.invoice_date.slice(0, 10) : "",
       });
     } else {
       setEditId(null);
@@ -570,6 +703,8 @@ export default function AssetManagement() {
     const basePayload = {
       ...form,
       purchase_cost: form.purchase_cost === "" ? undefined : Number(form.purchase_cost),
+      invoice_number: form.invoice_number?.trim() || undefined,
+      invoice_date: form.invoice_date || undefined,
       assigned_to: form.assigned_to || undefined,
       vendor: form.vendor || undefined,
       purchase_date: form.purchase_date || undefined,
@@ -731,6 +866,50 @@ export default function AssetManagement() {
       delete next[field];
       return next;
     });
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    const isImage = file.type.startsWith("image/");
+
+    if (!isImage && !isPdf) {
+      toast.error("Please select a valid invoice file (PDF, PNG, JPG, JPEG, WEBP)");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Invoice file size must be less than 10MB");
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const res = await uploadFileToS3(file, "it-assets");
+      const url = res?.Location || res?.urls?.[0];
+      if (url) {
+        updateField("image_url", url);
+        toast.success("Asset invoice uploaded successfully");
+      } else {
+        throw new Error("No URL returned from upload service");
+      }
+    } catch (err) {
+      console.warn("S3 upload failed, falling back to data URL:", err);
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        updateField("image_url", uploadEvent.target.result);
+        toast.success("Asset invoice attached successfully");
+      };
+      reader.onerror = () => {
+        toast.error("Failed to read invoice file");
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setUploadingImage(false);
+      if (e.target) e.target.value = "";
+    }
   };
 
   const getStatusBadgeClass = (s) => {
@@ -948,7 +1127,7 @@ export default function AssetManagement() {
                     <th style={{ minWidth: 140 }}>Department</th>
                     <th style={{ minWidth: 110 }}>Status</th>
                     <th style={{ minWidth: 150 }}>Location</th>
-                    <th style={{ width: 80, minWidth: 80, textAlign: "right" }}>Actions</th>
+                    <th style={{ width: 110, minWidth: 110, textAlign: "right" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -981,21 +1160,30 @@ export default function AssetManagement() {
                           <div style={{ display: "inline-flex", gap: "6px", alignItems: "center", justifyContent: "flex-end" }}>
                             <button
                               type="button"
+                              className="btn btn-icon btn-info"
+                              onClick={() => {
+                                setViewRecord(a);
+                                setShowViewModal(true);
+                              }}
+                              title="View Asset Details"
+                            >
+                              <Eye size={14} />
+                            </button>
+                            <button
+                              type="button"
                               className="btn btn-icon btn-primary"
-                              style={{ width: "28px", height: "28px" }}
                               onClick={() => handleOpen(a)}
                               title="Edit Asset"
                             >
-                              <Edit2 size={14} color="#2563eb" />
+                              <Edit2 size={14} />
                             </button>
                             <button
                               type="button"
                               className="btn btn-icon btn-danger"
-                              style={{ width: "28px", height: "28px" }}
                               onClick={(e) => handleDelete(e, a._id)}
                               title="Delete Asset"
                             >
-                              <Trash2 size={14} color="#dc2626" />
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         </td>
@@ -1024,6 +1212,7 @@ export default function AssetManagement() {
         onClose={() => setShowModal(false)}
         maxWidth="md"
         fullWidth
+        disableEnforceFocus={showAddVendorModal}
         PaperProps={{
           sx: {
             borderRadius: "16px",
@@ -1318,20 +1507,60 @@ export default function AssetManagement() {
                   />
                 </Grid>
                 <Grid item xs={6}>
-                  <TextField
-                    select
-                    label="Vendor"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("vendor")}
-                    value={form.vendor}
-                    onChange={(e) => updateField("vendor", e.target.value)}
-                  >
-                    <MenuItem value="">No Vendor</MenuItem>
-                    {vendors.map((v) => (
-                      <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>
-                    ))}
-                  </TextField>
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                    <TextField
+                      select
+                      label="Vendor"
+                      size="small"
+                      fullWidth
+                      {...getRequiredProps("vendor")}
+                      value={form.vendor}
+                      onChange={(e) => updateField("vendor", e.target.value)}
+                      sx={{ ...modalFieldSx, flex: 1 }}
+                      SelectProps={selectMenuProps}
+                    >
+                      <MenuItem value="">Select Vendor</MenuItem>
+                      {vendors.map((v) => (
+                        <MenuItem key={v._id} value={v._id} title={v.name}>{v.name}</MenuItem>
+                      ))}
+                    </TextField>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={() => setShowAddVendorModal(true)}
+                      sx={{
+                        height: 38,
+                        minWidth: "auto",
+                        px: 1.5,
+                        whiteSpace: "nowrap",
+                        textTransform: "none",
+                        fontWeight: 600,
+                        fontSize: "0.8rem",
+                        background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                        borderColor: "#cbd5e1",
+                        color: "#2563eb",
+                        borderRadius: "8px",
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                        transition: "all 0.15s ease",
+                        "&:hover": {
+                          background: "#eff6ff",
+                          borderColor: "#93c5fd",
+                          color: "#1d4ed8",
+                          boxShadow: "0 2px 4px rgba(37, 99, 235, 0.12)",
+                        },
+                        "&:active": {
+                          transform: "scale(0.98)",
+                        },
+                      }}
+                      title="Add New Vendor / Supplier"
+                    >
+                      <Plus size={14} strokeWidth={2.5} /> Add Vendor
+                    </Button>
+                  </Box>
                 </Grid>
 
                 <FormSectionTitle icon={FileText} title="Additional Notes" />
@@ -1493,7 +1722,7 @@ export default function AssetManagement() {
                   </TextField>
                 </Grid>
 
-                <FormSectionTitle icon={Calendar} title="Procurement" />
+                <FormSectionTitle icon={Calendar} title="Procurement & Vendor" />
                 <Grid item xs={6}>
                   <TextField
                     label="Purchase Date"
@@ -1504,6 +1733,85 @@ export default function AssetManagement() {
                     {...getRequiredProps("purchase_date")}
                     value={form.purchase_date}
                     onChange={(e) => updateField("purchase_date", e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    label="Warranty Expiry"
+                    type="date"
+                    size="small"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    {...getRequiredProps("warranty_expiry")}
+                    value={form.warranty_expiry}
+                    onChange={(e) => updateField("warranty_expiry", e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                    <TextField
+                      select
+                      label="Vendor"
+                      size="small"
+                      fullWidth
+                      {...getRequiredProps("vendor")}
+                      value={form.vendor}
+                      onChange={(e) => updateField("vendor", e.target.value)}
+                      sx={{ ...modalFieldSx, flex: 1 }}
+                      SelectProps={selectMenuProps}
+                    >
+                      <MenuItem value="">Select Vendor</MenuItem>
+                      {vendors.map((v) => (
+                        <MenuItem key={v._id} value={v._id} title={v.name}>{v.name}</MenuItem>
+                      ))}
+                    </TextField>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={() => setShowAddVendorModal(true)}
+                      sx={{
+                        height: 38,
+                        minWidth: "auto",
+                        px: 1.5,
+                        whiteSpace: "nowrap",
+                        textTransform: "none",
+                        fontWeight: 600,
+                        fontSize: "0.8rem",
+                        background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                        borderColor: "#cbd5e1",
+                        color: "#2563eb",
+                        borderRadius: "8px",
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                        transition: "all 0.15s ease",
+                        "&:hover": {
+                          background: "#eff6ff",
+                          borderColor: "#93c5fd",
+                          color: "#1d4ed8",
+                          boxShadow: "0 2px 4px rgba(37, 99, 235, 0.12)",
+                        },
+                        "&:active": {
+                          transform: "scale(0.98)",
+                        },
+                      }}
+                      title="Add New Vendor / Supplier"
+                    >
+                      <Plus size={14} strokeWidth={2.5} /> Add Vendor
+                    </Button>
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    label="Purchase Cost"
+                    type="number"
+                    size="small"
+                    fullWidth
+                    sx={modalFieldSx}
+                    value={form.purchase_cost}
+                    onChange={(e) => updateField("purchase_cost", e.target.value)}
                   />
                 </Grid>
               </>
@@ -1618,7 +1926,7 @@ export default function AssetManagement() {
                   </TextField>
                 </Grid>
 
-                <FormSectionTitle icon={Calendar} title="Procurement" />
+                <FormSectionTitle icon={Calendar} title="Procurement & Vendor" />
                 <Grid item xs={6}>
                   <TextField
                     label="Purchase Date"
@@ -1629,6 +1937,85 @@ export default function AssetManagement() {
                     sx={modalFieldSx}
                     value={form.purchase_date}
                     onChange={(e) => updateField("purchase_date", e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    label="Warranty Expiry"
+                    type="date"
+                    size="small"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    {...getRequiredProps("warranty_expiry")}
+                    value={form.warranty_expiry}
+                    onChange={(e) => updateField("warranty_expiry", e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                    <TextField
+                      select
+                      label="Vendor"
+                      size="small"
+                      fullWidth
+                      {...getRequiredProps("vendor")}
+                      value={form.vendor}
+                      onChange={(e) => updateField("vendor", e.target.value)}
+                      sx={{ ...modalFieldSx, flex: 1 }}
+                      SelectProps={selectMenuProps}
+                    >
+                      <MenuItem value="">Select Vendor</MenuItem>
+                      {vendors.map((v) => (
+                        <MenuItem key={v._id} value={v._id} title={v.name}>{v.name}</MenuItem>
+                      ))}
+                    </TextField>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={() => setShowAddVendorModal(true)}
+                      sx={{
+                        height: 38,
+                        minWidth: "auto",
+                        px: 1.5,
+                        whiteSpace: "nowrap",
+                        textTransform: "none",
+                        fontWeight: 600,
+                        fontSize: "0.8rem",
+                        background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                        borderColor: "#cbd5e1",
+                        color: "#2563eb",
+                        borderRadius: "8px",
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                        transition: "all 0.15s ease",
+                        "&:hover": {
+                          background: "#eff6ff",
+                          borderColor: "#93c5fd",
+                          color: "#1d4ed8",
+                          boxShadow: "0 2px 4px rgba(37, 99, 235, 0.12)",
+                        },
+                        "&:active": {
+                          transform: "scale(0.98)",
+                        },
+                      }}
+                      title="Add New Vendor / Supplier"
+                    >
+                      <Plus size={14} strokeWidth={2.5} /> Add Vendor
+                    </Button>
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    label="Purchase Cost"
+                    type="number"
+                    size="small"
+                    fullWidth
+                    sx={modalFieldSx}
+                    value={form.purchase_cost}
+                    onChange={(e) => updateField("purchase_cost", e.target.value)}
                   />
                 </Grid>
               </>
@@ -1754,20 +2141,60 @@ export default function AssetManagement() {
 
                 <FormSectionTitle icon={Calendar} title="Vendor & Renewal" />
                 <Grid item xs={6}>
-                  <TextField
-                    select
-                    label="Vendor/Publisher"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("vendor")}
-                    value={form.vendor}
-                    onChange={(e) => updateField("vendor", e.target.value)}
-                  >
-                    <MenuItem value="">No Vendor/Publisher</MenuItem>
-                    {vendors.map((v) => (
-                      <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>
-                    ))}
-                  </TextField>
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                    <TextField
+                      select
+                      label="Vendor/Publisher"
+                      size="small"
+                      fullWidth
+                      {...getRequiredProps("vendor")}
+                      value={form.vendor}
+                      onChange={(e) => updateField("vendor", e.target.value)}
+                      sx={{ ...modalFieldSx, flex: 1 }}
+                      SelectProps={selectMenuProps}
+                    >
+                      <MenuItem value="">Select Vendor</MenuItem>
+                      {vendors.map((v) => (
+                        <MenuItem key={v._id} value={v._id} title={v.name}>{v.name}</MenuItem>
+                      ))}
+                    </TextField>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={() => setShowAddVendorModal(true)}
+                      sx={{
+                        height: 38,
+                        minWidth: "auto",
+                        px: 1.5,
+                        whiteSpace: "nowrap",
+                        textTransform: "none",
+                        fontWeight: 600,
+                        fontSize: "0.8rem",
+                        background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                        borderColor: "#cbd5e1",
+                        color: "#2563eb",
+                        borderRadius: "8px",
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                        transition: "all 0.15s ease",
+                        "&:hover": {
+                          background: "#eff6ff",
+                          borderColor: "#93c5fd",
+                          color: "#1d4ed8",
+                          boxShadow: "0 2px 4px rgba(37, 99, 235, 0.12)",
+                        },
+                        "&:active": {
+                          transform: "scale(0.98)",
+                        },
+                      }}
+                      title="Add New Vendor / Supplier"
+                    >
+                      <Plus size={14} strokeWidth={2.5} /> Add Vendor
+                    </Button>
+                  </Box>
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
@@ -1913,7 +2340,7 @@ export default function AssetManagement() {
                   </TextField>
                 </Grid>
 
-                <FormSectionTitle icon={Calendar} title="Procurement" />
+                <FormSectionTitle icon={Calendar} title="Procurement & Vendor" />
                 <Grid item xs={6}>
                   <TextField
                     label="Purchase Date"
@@ -1924,6 +2351,85 @@ export default function AssetManagement() {
                     {...getRequiredProps("purchase_date")}
                     value={form.purchase_date}
                     onChange={(e) => updateField("purchase_date", e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    label="Warranty Expiry"
+                    type="date"
+                    size="small"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    {...getRequiredProps("warranty_expiry")}
+                    value={form.warranty_expiry}
+                    onChange={(e) => updateField("warranty_expiry", e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                    <TextField
+                      select
+                      label="Vendor"
+                      size="small"
+                      fullWidth
+                      {...getRequiredProps("vendor")}
+                      value={form.vendor}
+                      onChange={(e) => updateField("vendor", e.target.value)}
+                      sx={{ ...modalFieldSx, flex: 1 }}
+                      SelectProps={selectMenuProps}
+                    >
+                      <MenuItem value="">Select Vendor</MenuItem>
+                      {vendors.map((v) => (
+                        <MenuItem key={v._id} value={v._id} title={v.name}>{v.name}</MenuItem>
+                      ))}
+                    </TextField>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={() => setShowAddVendorModal(true)}
+                      sx={{
+                        height: 38,
+                        minWidth: "auto",
+                        px: 1.5,
+                        whiteSpace: "nowrap",
+                        textTransform: "none",
+                        fontWeight: 600,
+                        fontSize: "0.8rem",
+                        background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                        borderColor: "#cbd5e1",
+                        color: "#2563eb",
+                        borderRadius: "8px",
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                        transition: "all 0.15s ease",
+                        "&:hover": {
+                          background: "#eff6ff",
+                          borderColor: "#93c5fd",
+                          color: "#1d4ed8",
+                          boxShadow: "0 2px 4px rgba(37, 99, 235, 0.12)",
+                        },
+                        "&:active": {
+                          transform: "scale(0.98)",
+                        },
+                      }}
+                      title="Add New Vendor / Supplier"
+                    >
+                      <Plus size={14} strokeWidth={2.5} /> Add Vendor
+                    </Button>
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    label="Purchase Cost"
+                    type="number"
+                    size="small"
+                    fullWidth
+                    sx={modalFieldSx}
+                    value={form.purchase_cost}
+                    onChange={(e) => updateField("purchase_cost", e.target.value)}
                   />
                 </Grid>
               </>
@@ -2011,6 +2517,87 @@ export default function AssetManagement() {
                     onChange={(e) => updateField("installation_date", e.target.value)}
                   />
                 </Grid>
+
+                <FormSectionTitle icon={Calendar} title="Procurement & Vendor" />
+                <Grid item xs={6}>
+                  <TextField
+                    label="Purchase Date"
+                    type="date"
+                    size="small"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    sx={modalFieldSx}
+                    value={form.purchase_date}
+                    onChange={(e) => updateField("purchase_date", e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                    <TextField
+                      select
+                      label="Vendor"
+                      size="small"
+                      fullWidth
+                      {...getRequiredProps("vendor")}
+                      value={form.vendor}
+                      onChange={(e) => updateField("vendor", e.target.value)}
+                      sx={{ ...modalFieldSx, flex: 1 }}
+                      SelectProps={selectMenuProps}
+                    >
+                      <MenuItem value="">Select Vendor</MenuItem>
+                      {vendors.map((v) => (
+                        <MenuItem key={v._id} value={v._id} title={v.name}>{v.name}</MenuItem>
+                      ))}
+                    </TextField>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={() => setShowAddVendorModal(true)}
+                      sx={{
+                        height: 38,
+                        minWidth: "auto",
+                        px: 1.5,
+                        whiteSpace: "nowrap",
+                        textTransform: "none",
+                        fontWeight: 600,
+                        fontSize: "0.8rem",
+                        background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                        borderColor: "#cbd5e1",
+                        color: "#2563eb",
+                        borderRadius: "8px",
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                        transition: "all 0.15s ease",
+                        "&:hover": {
+                          background: "#eff6ff",
+                          borderColor: "#93c5fd",
+                          color: "#1d4ed8",
+                          boxShadow: "0 2px 4px rgba(37, 99, 235, 0.12)",
+                        },
+                        "&:active": {
+                          transform: "scale(0.98)",
+                        },
+                      }}
+                      title="Add New Vendor / Supplier"
+                    >
+                      <Plus size={14} strokeWidth={2.5} /> Add Vendor
+                    </Button>
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    label="Purchase Cost"
+                    type="number"
+                    size="small"
+                    fullWidth
+                    sx={modalFieldSx}
+                    value={form.purchase_cost}
+                    onChange={(e) => updateField("purchase_cost", e.target.value)}
+                  />
+                </Grid>
               </>
             ) : form.asset_type === "Cable" ? (
               <>
@@ -2075,6 +2662,8 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
+
+                <FormSectionTitle icon={Calendar} title="Procurement & Vendor" />
                 <Grid item xs={6}>
                   <TextField
                     label="Purchase Date"
@@ -2085,6 +2674,73 @@ export default function AssetManagement() {
                     {...getRequiredProps("purchase_date")}
                     value={form.purchase_date}
                     onChange={(e) => updateField("purchase_date", e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                    <TextField
+                      select
+                      label="Vendor"
+                      size="small"
+                      fullWidth
+                      {...getRequiredProps("vendor")}
+                      value={form.vendor}
+                      onChange={(e) => updateField("vendor", e.target.value)}
+                      sx={{ ...modalFieldSx, flex: 1 }}
+                      SelectProps={selectMenuProps}
+                    >
+                      <MenuItem value="">Select Vendor</MenuItem>
+                      {vendors.map((v) => (
+                        <MenuItem key={v._id} value={v._id} title={v.name}>{v.name}</MenuItem>
+                      ))}
+                    </TextField>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={() => setShowAddVendorModal(true)}
+                      sx={{
+                        height: 38,
+                        minWidth: "auto",
+                        px: 1.5,
+                        whiteSpace: "nowrap",
+                        textTransform: "none",
+                        fontWeight: 600,
+                        fontSize: "0.8rem",
+                        background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                        borderColor: "#cbd5e1",
+                        color: "#2563eb",
+                        borderRadius: "8px",
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                        transition: "all 0.15s ease",
+                        "&:hover": {
+                          background: "#eff6ff",
+                          borderColor: "#93c5fd",
+                          color: "#1d4ed8",
+                          boxShadow: "0 2px 4px rgba(37, 99, 235, 0.12)",
+                        },
+                        "&:active": {
+                          transform: "scale(0.98)",
+                        },
+                      }}
+                      title="Add New Vendor / Supplier"
+                    >
+                      <Plus size={14} strokeWidth={2.5} /> Add Vendor
+                    </Button>
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    label="Purchase Cost"
+                    type="number"
+                    size="small"
+                    fullWidth
+                    sx={modalFieldSx}
+                    value={form.purchase_cost}
+                    onChange={(e) => updateField("purchase_cost", e.target.value)}
                   />
                 </Grid>
               </>
@@ -2143,23 +2799,45 @@ export default function AssetManagement() {
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
+                    select
                     label="RAM"
                     size="small"
                     fullWidth
                     {...getRequiredProps("ram")}
                     value={form.ram}
                     onChange={(e) => updateField("ram", e.target.value)}
-                  />
+                  >
+                    <MenuItem value="">Select RAM</MenuItem>
+                    {RAM_OPTIONS.map((opt) => (
+                      <MenuItem key={opt} value={opt}>
+                        {opt}
+                      </MenuItem>
+                    ))}
+                    {form.ram && !RAM_OPTIONS.includes(form.ram) && (
+                      <MenuItem value={form.ram}>{form.ram}</MenuItem>
+                    )}
+                  </TextField>
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
+                    select
                     label="Storage"
                     size="small"
                     fullWidth
                     {...getRequiredProps("storage")}
                     value={form.storage}
                     onChange={(e) => updateField("storage", e.target.value)}
-                  />
+                  >
+                    <MenuItem value="">Select Storage</MenuItem>
+                    {STORAGE_OPTIONS.map((opt) => (
+                      <MenuItem key={opt} value={opt}>
+                        {opt}
+                      </MenuItem>
+                    ))}
+                    {form.storage && !STORAGE_OPTIONS.includes(form.storage) && (
+                      <MenuItem value={form.storage}>{form.storage}</MenuItem>
+                    )}
+                  </TextField>
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
@@ -2263,34 +2941,60 @@ export default function AssetManagement() {
                   />
                 </Grid>
                 <Grid item xs={6}>
-                  <TextField
-                    select
-                    label="Vendor"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("vendor")}
-                    value={form.vendor}
-                    onChange={(e) => updateField("vendor", e.target.value)}
-                  >
-                    <MenuItem value="">No Vendor</MenuItem>
-                    {vendors.map((v) => (
-                      <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-
-                <FormSectionTitle icon={FileText} title="Additional Notes" />
-                <Grid item xs={12}>
-                  <TextField
-                    label="Remarks"
-                    size="small"
-                    fullWidth
-                    multiline
-                    minRows={2}
-                    sx={modalFieldSx}
-                    value={form.remarks}
-                    onChange={(e) => updateField("remarks", e.target.value)}
-                  />
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                    <TextField
+                      select
+                      label="Vendor"
+                      size="small"
+                      fullWidth
+                      {...getRequiredProps("vendor")}
+                      value={form.vendor}
+                      onChange={(e) => updateField("vendor", e.target.value)}
+                      sx={{ ...modalFieldSx, flex: 1 }}
+                      SelectProps={selectMenuProps}
+                    >
+                      <MenuItem value="">Select Vendor</MenuItem>
+                      {vendors.map((v) => (
+                        <MenuItem key={v._id} value={v._id} title={v.name}>{v.name}</MenuItem>
+                      ))}
+                    </TextField>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={() => setShowAddVendorModal(true)}
+                      sx={{
+                        height: 38,
+                        minWidth: "auto",
+                        px: 1.5,
+                        whiteSpace: "nowrap",
+                        textTransform: "none",
+                        fontWeight: 600,
+                        fontSize: "0.8rem",
+                        background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                        borderColor: "#cbd5e1",
+                        color: "#2563eb",
+                        borderRadius: "8px",
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                        transition: "all 0.15s ease",
+                        "&:hover": {
+                          background: "#eff6ff",
+                          borderColor: "#93c5fd",
+                          color: "#1d4ed8",
+                          boxShadow: "0 2px 4px rgba(37, 99, 235, 0.12)",
+                        },
+                        "&:active": {
+                          transform: "scale(0.98)",
+                        },
+                      }}
+                      title="Add New Vendor / Supplier"
+                    >
+                      <Plus size={14} strokeWidth={2.5} /> Add Vendor
+                    </Button>
+                  </Box>
                 </Grid>
               </>
             ) : (
@@ -2350,37 +3054,286 @@ export default function AssetManagement() {
                   />
                 </Grid>
                 <Grid item xs={6}>
-                  <TextField
-                    select
-                    label="Vendor"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("vendor")}
-                    value={form.vendor}
-                    onChange={(e) => updateField("vendor", e.target.value)}
-                  >
-                    <MenuItem value="">No Vendor</MenuItem>
-                    {vendors.map((v) => (
-                      <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-
-                <FormSectionTitle icon={FileText} title="Description" />
-                <Grid item xs={12}>
-                  <TextField
-                    label="Description"
-                    size="small"
-                    fullWidth
-                    multiline
-                    minRows={2}
-                    sx={modalFieldSx}
-                    value={form.description}
-                    onChange={(e) => updateField("description", e.target.value)}
-                  />
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                    <TextField
+                      select
+                      label="Vendor"
+                      size="small"
+                      fullWidth
+                      {...getRequiredProps("vendor")}
+                      value={form.vendor}
+                      onChange={(e) => updateField("vendor", e.target.value)}
+                      sx={{ ...modalFieldSx, flex: 1 }}
+                      SelectProps={selectMenuProps}
+                    >
+                      <MenuItem value="">Select Vendor</MenuItem>
+                      {vendors.map((v) => (
+                        <MenuItem key={v._id} value={v._id} title={v.name}>{v.name}</MenuItem>
+                      ))}
+                    </TextField>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={() => setShowAddVendorModal(true)}
+                      sx={{
+                        height: 38,
+                        minWidth: "auto",
+                        px: 1.5,
+                        whiteSpace: "nowrap",
+                        textTransform: "none",
+                        fontWeight: 600,
+                        fontSize: "0.8rem",
+                        background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                        borderColor: "#cbd5e1",
+                        color: "#2563eb",
+                        borderRadius: "8px",
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                        transition: "all 0.15s ease",
+                        "&:hover": {
+                          background: "#eff6ff",
+                          borderColor: "#93c5fd",
+                          color: "#1d4ed8",
+                          boxShadow: "0 2px 4px rgba(37, 99, 235, 0.12)",
+                        },
+                        "&:active": {
+                          transform: "scale(0.98)",
+                        },
+                      }}
+                      title="Add New Vendor / Supplier"
+                    >
+                      <Plus size={14} strokeWidth={2.5} /> Add Vendor
+                    </Button>
+                  </Box>
                 </Grid>
               </>
             )}
+
+            {/* Asset Invoice Details & Upload Section (Available for all Asset Types) */}
+            <FormSectionTitle icon={FileText} title="Asset Invoice Details" />
+            <Grid item xs={6}>
+              <TextField
+                label="Invoice Number"
+                size="small"
+                fullWidth
+                placeholder="e.g. INV-2026-0042"
+                sx={modalFieldSx}
+                value={form.invoice_number}
+                onChange={(e) => updateField("invoice_number", e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                label="Invoice Date"
+                type="date"
+                size="small"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                sx={modalFieldSx}
+                value={form.invoice_date}
+                onChange={(e) => updateField("invoice_date", e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Box
+                sx={{
+                  border: "1px dashed #cbd5e1",
+                  borderRadius: "8px",
+                  p: 1.2,
+                  px: 2,
+                  backgroundColor: form.image_url ? "#f8fafc" : "#fbfcfe",
+                  transition: "all 0.2s ease",
+                  "&:hover": {
+                    borderColor: "#3b82f6",
+                    backgroundColor: "#eff6ff",
+                  },
+                }}
+              >
+                {form.image_url ? (
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+                    <Box
+                      onClick={() => {
+                        setPreviewInvoiceUrl(form.image_url);
+                        setPreviewInvoiceTitle(
+                          form.invoice_number ? `Invoice_${form.invoice_number}` : `Invoice_${form.asset_tag || "Asset"}`
+                        );
+                      }}
+                      sx={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: "6px",
+                        overflow: "hidden",
+                        border: "1px solid #e2e8f0",
+                        backgroundColor: "#ffffff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                        flexShrink: 0,
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        "&:hover": {
+                          borderColor: "#3b82f6",
+                          transform: "scale(1.02)",
+                        },
+                      }}
+                      title="Click to preview invoice document"
+                    >
+                      {form.image_url.includes(".pdf") || form.image_url.startsWith("data:application/pdf") ? (
+                        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#dc2626" }}>
+                          <FileText size={20} />
+                          <Typography sx={{ fontSize: "0.6rem", fontWeight: 700 }}>PDF</Typography>
+                        </Box>
+                      ) : (
+                        <img
+                          src={form.image_url}
+                          alt="Invoice Preview"
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      )}
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: "150px", textAlign: "left" }}>
+                      <Typography sx={{ fontSize: "0.82rem", fontWeight: 600, color: "#0f172a" }}>
+                        Asset Invoice Attached
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.72rem", color: "#64748b" }}>
+                        Invoice document uploaded and ready to save.
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: "flex", gap: 0.8, flexWrap: "wrap" }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Eye size={13} />}
+                        onClick={() => {
+                          setPreviewInvoiceUrl(form.image_url);
+                          setPreviewInvoiceTitle(
+                            form.invoice_number ? `Invoice_${form.invoice_number}` : `Invoice_${form.asset_tag || "Asset"}`
+                          );
+                        }}
+                        disabled={uploadingImage}
+                        sx={{
+                          textTransform: "none",
+                          fontSize: "0.74rem",
+                          fontWeight: 600,
+                          borderRadius: "6px",
+                          py: 0.3,
+                          px: 1.2,
+                          color: "#2563eb",
+                          borderColor: "#bfdbfe",
+                          backgroundColor: "#eff6ff",
+                          "&:hover": {
+                            backgroundColor: "#dbeafe",
+                            borderColor: "#93c5fd",
+                          },
+                        }}
+                      >
+                        Preview
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        component="label"
+                        disabled={uploadingImage}
+                        sx={{
+                          textTransform: "none",
+                          fontSize: "0.74rem",
+                          fontWeight: 600,
+                          borderRadius: "6px",
+                          py: 0.3,
+                          px: 1.2,
+                        }}
+                      >
+                        Change
+                        <input
+                          type="file"
+                          hidden
+                          accept="image/png, image/jpeg, image/jpg, image/webp, application/pdf"
+                          onChange={handleImageUpload}
+                        />
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        size="small"
+                        onClick={() => updateField("image_url", "")}
+                        disabled={uploadingImage}
+                        sx={{
+                          textTransform: "none",
+                          fontSize: "0.74rem",
+                          fontWeight: 600,
+                          borderRadius: "6px",
+                          py: 0.3,
+                          px: 1.2,
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Box
+                    component="label"
+                    sx={{
+                      cursor: uploadingImage ? "default" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 1.2,
+                      py: 0.5,
+                    }}
+                  >
+                    <input
+                      type="file"
+                      hidden
+                      disabled={uploadingImage}
+                      accept="image/png, image/jpeg, image/jpg, image/webp, application/pdf"
+                      onChange={handleImageUpload}
+                    />
+                    <Box
+                      sx={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "6px",
+                        backgroundColor: "#eff6ff",
+                        color: "#2563eb",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {uploadingImage ? <RefreshCw className="animate-spin" size={14} /> : <UploadCloud size={15} />}
+                    </Box>
+                    <Typography sx={{ fontSize: "0.8rem", fontWeight: 600, color: "#1e293b" }}>
+                      {uploadingImage ? "Uploading Asset Invoice..." : "Click or drag to upload asset invoice (PDF, PNG, JPG - Max 10MB)"}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Grid>
+
+            {/* Additional Notes (Bottom of Modal) */}
+            <FormSectionTitle icon={FileText} title="Additional Notes" />
+            <Grid item xs={12}>
+              <TextField
+                label="Remarks"
+                size="small"
+                fullWidth
+                multiline
+                minRows={2}
+                sx={modalFieldSx}
+                placeholder="Enter any remarks or additional details..."
+                value={form.remarks || form.description || ""}
+                onChange={(e) => {
+                  updateField("remarks", e.target.value);
+                  updateField("description", e.target.value);
+                }}
+              />
+            </Grid>
           </Grid>
         </DialogContent>
 
@@ -2437,6 +3390,889 @@ export default function AssetManagement() {
             {saving ? "Saving..." : editId ? "Update Asset" : "Save Asset"}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      <AddVendorModal
+        isOpen={showAddVendorModal}
+        onClose={() => setShowAddVendorModal(false)}
+        onSuccess={handleVendorCreated}
+        defaultVendorType={form.asset_type === "Software" ? "Software" : "Hardware"}
+      />
+
+      {/* View Asset Details Modal */}
+      <Dialog
+        open={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "16px",
+            boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.25)",
+            overflow: "hidden",
+            border: "1px solid #e2e8f0",
+            backgroundColor: "#ffffff",
+          },
+        }}
+      >
+        {viewRecord && (
+          <>
+            {/* Header */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                px: 3,
+                py: 2,
+                borderBottom: "1px solid #f1f5f9",
+                background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Box
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: "9px",
+                    background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#ffffff",
+                    boxShadow: "0 4px 10px rgba(2, 132, 199, 0.25)",
+                  }}
+                >
+                  <Eye size={18} />
+                </Box>
+                <Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography sx={{ fontSize: "1.1rem", fontWeight: 700, color: "#0f172a", lineHeight: 1.2 }}>
+                      Asset Details
+                    </Typography>
+                    <Chip
+                      label={viewRecord.asset_tag}
+                      size="small"
+                      sx={{
+                        height: 22,
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                        backgroundColor: "#eff6ff",
+                        color: "#2563eb",
+                        border: "1px solid #dbeafe",
+                        borderRadius: "6px",
+                      }}
+                    />
+                    <span className={`score-badge ${getStatusBadgeClass(viewRecord.status)}`}>
+                      {viewRecord.status || "Available"}
+                    </span>
+                  </Box>
+                  <Typography sx={{ fontSize: "0.76rem", color: "#64748b", mt: 0.2 }}>
+                    Comprehensive specifications, hardware details, and assignment logs
+                  </Typography>
+                </Box>
+              </Box>
+              <IconButton
+                onClick={() => setShowViewModal(false)}
+                size="small"
+                sx={{
+                  color: "#94a3b8",
+                  borderRadius: "8px",
+                  "&:hover": { color: "#0f172a", backgroundColor: "#f1f5f9" },
+                }}
+              >
+                <X size={18} />
+              </IconButton>
+            </Box>
+
+            <DialogContent sx={{ p: 3, maxHeight: "calc(82vh - 140px)", overflowY: "auto" }}>
+              <Grid container spacing={2.5}>
+                {/* General Details */}
+                <Grid item xs={12}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
+                    <Tag size={16} color="#475569" />
+                    <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      Basic Identification
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Asset Tag</Typography>
+                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 700 }}>{viewRecord.asset_tag || "—"}</Typography>
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Asset Type</Typography>
+                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.asset_type || "—"}</Typography>
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Status</Typography>
+                  <Box sx={{ mt: 0.3 }}>
+                    <span className={`score-badge ${getStatusBadgeClass(viewRecord.status)}`}>
+                      {viewRecord.status || "—"}
+                    </span>
+                  </Box>
+                </Grid>
+                {viewRecord.asset_name && (
+                  <Grid item xs={6} sm={4}>
+                    <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Asset Name</Typography>
+                    <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.asset_name}</Typography>
+                  </Grid>
+                )}
+
+                {/* Hardware Specifications */}
+                {(viewRecord.asset_type === "Laptop" || viewRecord.asset_type === "Desktop" || viewRecord.asset_type === "Computer" || viewRecord.processor || viewRecord.ram || viewRecord.storage) && (
+                  <>
+                    <Grid item xs={12} sx={{ mt: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
+                        <Cpu size={16} color="#475569" />
+                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          Hardware Specifications
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Brand / Manufacturer</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.manufacturer || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Model</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.model || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Serial Number</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.serial_number || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Processor</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.processor || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>RAM</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.ram || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Storage</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.storage || "—"}</Typography>
+                    </Grid>
+                    {viewRecord.operating_system && (
+                      <Grid item xs={6} sm={4}>
+                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Operating System</Typography>
+                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.operating_system}</Typography>
+                      </Grid>
+                    )}
+                  </>
+                )}
+
+                {/* SIM Card Specifications */}
+                {viewRecord.asset_type === "SIM Card" && (
+                  <>
+                    <Grid item xs={12} sx={{ mt: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
+                        <Smartphone size={16} color="#475569" />
+                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          SIM & Plan Specifications
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>SIM Number (ICCID)</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.sim_number_iccid || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Mobile Number</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.mobile_number || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Service Provider</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.service_provider || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Plan Type</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.plan_type || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Monthly Plan / Package</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.monthly_plan_package || "—"}</Typography>
+                    </Grid>
+                    {viewRecord.imsi_number && (
+                      <Grid item xs={6} sm={4}>
+                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>IMSI Number</Typography>
+                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.imsi_number}</Typography>
+                      </Grid>
+                    )}
+                  </>
+                )}
+
+                {/* Printer Specifications */}
+                {viewRecord.asset_type === "Printer" && (
+                  <>
+                    <Grid item xs={12} sx={{ mt: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
+                        <Printer size={16} color="#475569" />
+                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          Printer Specifications
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Brand / Manufacturer</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.manufacturer || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Model</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.model || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Serial Number</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.serial_number || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Printer Type</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.printer_type || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Connection Type</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.connection_type || "—"}</Typography>
+                    </Grid>
+                    {viewRecord.ip_address && (
+                      <Grid item xs={6} sm={4}>
+                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>IP Address</Typography>
+                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.ip_address}</Typography>
+                      </Grid>
+                    )}
+                    {viewRecord.mac_address && (
+                      <Grid item xs={6} sm={4}>
+                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>MAC Address</Typography>
+                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.mac_address}</Typography>
+                      </Grid>
+                    )}
+                  </>
+                )}
+
+                {/* Network Device Specifications */}
+                {viewRecord.asset_type === "Network Device" && (
+                  <>
+                    <Grid item xs={12} sx={{ mt: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
+                        <Wifi size={16} color="#475569" />
+                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          Network Device Specifications
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Device Name</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.device_name || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Device Category</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.device_category || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Brand / Manufacturer</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.manufacturer || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Model</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.model || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Serial Number</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.serial_number || "—"}</Typography>
+                    </Grid>
+                    {viewRecord.ip_address && (
+                      <Grid item xs={6} sm={4}>
+                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>IP Address</Typography>
+                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.ip_address}</Typography>
+                      </Grid>
+                    )}
+                    {viewRecord.mac_address && (
+                      <Grid item xs={6} sm={4}>
+                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>MAC Address</Typography>
+                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.mac_address}</Typography>
+                      </Grid>
+                    )}
+                  </>
+                )}
+
+                {/* Software Specifications */}
+                {viewRecord.asset_type === "Software" && (
+                  <>
+                    <Grid item xs={12} sx={{ mt: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
+                        <Key size={16} color="#475569" />
+                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          Software & License Specifications
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Software Category</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.software_category || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Version</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.version || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>License Type</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.license_type || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Number of Licenses</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.number_of_licenses || "—"}</Typography>
+                    </Grid>
+                    {viewRecord.license_key_subscription_id && (
+                      <Grid item xs={12} sm={8}>
+                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>License Key / Subscription ID</Typography>
+                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600, fontFamily: "monospace" }}>{viewRecord.license_key_subscription_id}</Typography>
+                      </Grid>
+                    )}
+                  </>
+                )}
+
+                {/* Phone Specifications */}
+                {viewRecord.asset_type === "Phone" && (
+                  <>
+                    <Grid item xs={12} sx={{ mt: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
+                        <Phone size={16} color="#475569" />
+                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          Phone Specifications
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Brand / Manufacturer</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.manufacturer || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Model</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.model || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>IMEI Number</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.imei_number || "—"}</Typography>
+                    </Grid>
+                    {viewRecord.serial_number && (
+                      <Grid item xs={6} sm={4}>
+                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Serial Number</Typography>
+                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.serial_number}</Typography>
+                      </Grid>
+                    )}
+                  </>
+                )}
+
+                {/* Rack Specifications */}
+                {viewRecord.asset_type === "Rack" && (
+                  <>
+                    <Grid item xs={12} sx={{ mt: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
+                        <Server size={16} color="#475569" />
+                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          Rack Specifications
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Rack Name / Number</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.rack_name || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Rack Type</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.rack_type || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Rack Size (U Height)</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.rack_size_u_height || "—"}</Typography>
+                    </Grid>
+                    {viewRecord.installation_date && (
+                      <Grid item xs={6} sm={4}>
+                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Installation Date</Typography>
+                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.installation_date}</Typography>
+                      </Grid>
+                    )}
+                  </>
+                )}
+
+                {/* Cable Specifications */}
+                {viewRecord.asset_type === "Cable" && (
+                  <>
+                    <Grid item xs={12} sx={{ mt: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
+                        <Layers size={16} color="#475569" />
+                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          Cable Specifications
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Cable Name</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.cable_name || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Cable Type</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.cable_type || "—"}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Length</Typography>
+                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.length || "—"}</Typography>
+                    </Grid>
+                  </>
+                )}
+
+                {/* Assignment & Location */}
+                <Grid item xs={12} sx={{ mt: 1 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
+                    <UserCheck size={16} color="#475569" />
+                    <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      Assignment & Location
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Assigned User</Typography>
+                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{getAssignedToName(viewRecord.assigned_to)}</Typography>
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Department</Typography>
+                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.department || "—"}</Typography>
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Location</Typography>
+                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.location || "—"}</Typography>
+                </Grid>
+                {viewRecord.assigned_date && (
+                  <Grid item xs={6} sm={4}>
+                    <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Assigned Date</Typography>
+                    <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.assigned_date}</Typography>
+                  </Grid>
+                )}
+
+                {/* Procurement & Vendor */}
+                <Grid item xs={12} sx={{ mt: 1 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
+                    <Calendar size={16} color="#475569" />
+                    <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      Procurement & Warranty
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Purchase Date</Typography>
+                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.purchase_date || "—"}</Typography>
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Warranty Expiry / End Date</Typography>
+                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.warranty_expiry || viewRecord.expiry_renewal_date || "—"}</Typography>
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Vendor / Supplier</Typography>
+                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>
+                    {vendors.find((v) => v._id === viewRecord.vendor)?.name || (typeof viewRecord.vendor === "object" ? viewRecord.vendor?.name : null) || "—"}
+                  </Typography>
+                </Grid>
+                {viewRecord.purchase_cost && (
+                  <Grid item xs={6} sm={4}>
+                    <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Purchase Cost</Typography>
+                    <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>₹{Number(viewRecord.purchase_cost).toLocaleString("en-IN")}</Typography>
+                  </Grid>
+                )}
+
+                {/* Additional Notes */}
+                {(viewRecord.remarks || viewRecord.description) && (
+                  <>
+                    <Grid item xs={12} sx={{ mt: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
+                        <FileText size={16} color="#475569" />
+                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          Additional Notes & Remarks
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Box sx={{ p: 1.5, background: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "0.85rem", color: "#334155" }}>
+                        {viewRecord.remarks || viewRecord.description}
+                      </Box>
+                    </Grid>
+                  </>
+                )}
+
+                {/* Attached Asset Invoice & Billing Details (Bottom of Modal) */}
+                {(viewRecord.invoice_number || viewRecord.invoice_date || viewRecord.image_url) && (
+                  <>
+                    <Grid item xs={12} sx={{ mt: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
+                        <FileText size={16} color="#475569" />
+                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          Invoice & Billing Details
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    {viewRecord.invoice_number && (
+                      <Grid item xs={6} sm={4}>
+                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Invoice Number</Typography>
+                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.invoice_number}</Typography>
+                      </Grid>
+                    )}
+                    {viewRecord.invoice_date && (
+                      <Grid item xs={6} sm={4}>
+                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Invoice Date</Typography>
+                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>
+                          {viewRecord.invoice_date ? viewRecord.invoice_date.slice(0, 10) : "—"}
+                        </Typography>
+                      </Grid>
+                    )}
+                    {viewRecord.image_url && (
+                      <Grid item xs={12}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 2,
+                            p: 1.5,
+                            borderRadius: "10px",
+                            backgroundColor: "#f8fafc",
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <Box
+                            onClick={() => {
+                              setPreviewInvoiceUrl(viewRecord.image_url);
+                              setPreviewInvoiceTitle(
+                                viewRecord.invoice_number
+                                  ? `Invoice_${viewRecord.invoice_number}`
+                                  : `Invoice_${viewRecord.asset_tag || "Asset"}`
+                              );
+                            }}
+                            sx={{
+                              width: 80,
+                              height: 80,
+                              borderRadius: "8px",
+                              overflow: "hidden",
+                              border: "1px solid #cbd5e1",
+                              flexShrink: 0,
+                              backgroundColor: "#ffffff",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                              transition: "all 0.2s ease",
+                              "&:hover": {
+                                borderColor: "#3b82f6",
+                                transform: "scale(1.02)",
+                                boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+                              },
+                            }}
+                            title="Click to preview invoice document"
+                          >
+                            {viewRecord.image_url.includes(".pdf") || viewRecord.image_url.startsWith("data:application/pdf") ? (
+                              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#dc2626" }}>
+                                <FileText size={30} />
+                                <Typography sx={{ fontSize: "0.65rem", fontWeight: 700, mt: 0.3 }}>PDF</Typography>
+                              </Box>
+                            ) : (
+                              <img
+                                src={viewRecord.image_url}
+                                alt={viewRecord.asset_tag}
+                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              />
+                            )}
+                          </Box>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#0f172a" }}>
+                              Asset Purchase Invoice Document
+                            </Typography>
+                            <Typography sx={{ fontSize: "0.75rem", color: "#64748b", mt: 0.3 }}>
+                              Click below to view the invoice preview in current window and download it.
+                            </Typography>
+                            <Box sx={{ display: "flex", gap: 1, mt: 1, flexWrap: "wrap" }}>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<Eye size={14} />}
+                                onClick={() => {
+                                  setPreviewInvoiceUrl(viewRecord.image_url);
+                                  setPreviewInvoiceTitle(
+                                    viewRecord.invoice_number
+                                      ? `Invoice_${viewRecord.invoice_number}`
+                                      : `Invoice_${viewRecord.asset_tag || "Asset"}`
+                                  );
+                                }}
+                                sx={{
+                                  textTransform: "none",
+                                  fontSize: "0.75rem",
+                                  fontWeight: 600,
+                                  borderRadius: "6px",
+                                  py: 0.4,
+                                  px: 1.5,
+                                  borderColor: "#cbd5e1",
+                                  color: "#2563eb",
+                                  backgroundColor: "#ffffff",
+                                  "&:hover": {
+                                    backgroundColor: "#eff6ff",
+                                    borderColor: "#93c5fd",
+                                  },
+                                }}
+                              >
+                                View / Download Invoice
+                              </Button>
+                            </Box>
+                          </Box>
+                        </Box>
+                      </Grid>
+                    )}
+                  </>
+                )}
+              </Grid>
+            </DialogContent>
+
+            <DialogActions
+              sx={{
+                px: 3,
+                py: 2,
+                borderTop: "1px solid #f1f5f9",
+                backgroundColor: "#f8fafc",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Button
+                onClick={() => setShowViewModal(false)}
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  color: "#64748b",
+                  px: 2.5,
+                  py: 0.8,
+                  borderRadius: "8px",
+                  "&:hover": { backgroundColor: "#e2e8f0", color: "#334155" },
+                }}
+              >
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  const target = viewRecord;
+                  setShowViewModal(false);
+                  handleOpen(target);
+                }}
+                variant="contained"
+                startIcon={<Edit2 size={15} />}
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  px: 2.5,
+                  py: 0.8,
+                  borderRadius: "8px",
+                  background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                  boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
+                  "&:hover": {
+                    background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
+                  },
+                }}
+              >
+                Edit Asset
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* Invoice Document Preview & Download Modal (In-App Current Window) */}
+      <Dialog
+        open={Boolean(previewInvoiceUrl)}
+        onClose={() => setPreviewInvoiceUrl(null)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "16px",
+            boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.3)",
+            overflow: "hidden",
+            border: "1px solid #e2e8f0",
+            backgroundColor: "#ffffff",
+          },
+        }}
+      >
+        {previewInvoiceUrl && (
+          <>
+            {/* Header */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                px: 3,
+                py: 2,
+                borderBottom: "1px solid #f1f5f9",
+                background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Box
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: "9px",
+                    background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#ffffff",
+                    boxShadow: "0 4px 10px rgba(37, 99, 235, 0.25)",
+                  }}
+                >
+                  <FileText size={18} />
+                </Box>
+                <Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography sx={{ fontSize: "1.05rem", fontWeight: 700, color: "#0f172a" }}>
+                      Asset Invoice Preview
+                    </Typography>
+                    {previewInvoiceTitle && (
+                      <Chip
+                        label={previewInvoiceTitle}
+                        size="small"
+                        sx={{
+                          height: 22,
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                          backgroundColor: "#eff6ff",
+                          color: "#2563eb",
+                          border: "1px solid #dbeafe",
+                          borderRadius: "6px",
+                        }}
+                      />
+                    )}
+                  </Box>
+                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", mt: 0.2 }}>
+                    {previewInvoiceUrl.includes(".pdf") || previewInvoiceUrl.startsWith("data:application/pdf")
+                      ? "PDF Document"
+                      : "Image Document"}
+                  </Typography>
+                </Box>
+              </Box>
+              <IconButton
+                onClick={() => setPreviewInvoiceUrl(null)}
+                size="small"
+                sx={{
+                  color: "#94a3b8",
+                  borderRadius: "8px",
+                  "&:hover": { color: "#0f172a", backgroundColor: "#f1f5f9" },
+                }}
+              >
+                <X size={18} />
+              </IconButton>
+            </Box>
+
+            {/* Content Preview Body */}
+            <DialogContent
+              sx={{
+                p: 2,
+                backgroundColor: "#f8fafc",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                minHeight: "450px",
+                maxHeight: "75vh",
+                overflow: "auto",
+              }}
+            >
+              {previewInvoiceUrl.includes(".pdf") || previewInvoiceUrl.startsWith("data:application/pdf") ? (
+                <iframe
+                  src={previewInvoiceUrl}
+                  title="Invoice PDF Preview"
+                  style={{
+                    width: "100%",
+                    height: "65vh",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "8px",
+                    backgroundColor: "#ffffff",
+                  }}
+                />
+              ) : (
+                <Box
+                  sx={{
+                    width: "100%",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    py: 1,
+                  }}
+                >
+                  <img
+                    src={previewInvoiceUrl}
+                    alt={previewInvoiceTitle || "Invoice Preview"}
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: "68vh",
+                      objectFit: "contain",
+                      borderRadius: "8px",
+                      boxShadow: "0 8px 30px rgba(0, 0, 0, 0.12)",
+                      border: "1px solid #e2e8f0",
+                      backgroundColor: "#ffffff",
+                    }}
+                  />
+                </Box>
+              )}
+            </DialogContent>
+
+            {/* Actions Footer */}
+            <DialogActions
+              sx={{
+                px: 3,
+                py: 2,
+                borderTop: "1px solid #f1f5f9",
+                backgroundColor: "#ffffff",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Button
+                onClick={() => setPreviewInvoiceUrl(null)}
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  color: "#64748b",
+                  px: 2.5,
+                  py: 0.8,
+                  borderRadius: "8px",
+                  "&:hover": { backgroundColor: "#f1f5f9", color: "#334155" },
+                }}
+              >
+                Close
+              </Button>
+              <Button
+                variant="contained"
+                disabled={downloadingInvoice}
+                startIcon={downloadingInvoice ? <RefreshCw className="animate-spin" size={16} /> : <Download size={16} />}
+                onClick={() => handleDownloadInvoice(previewInvoiceUrl, previewInvoiceTitle || "Asset_Invoice")}
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  px: 2.8,
+                  py: 0.8,
+                  borderRadius: "8px",
+                  background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
+                  boxShadow: "0 4px 12px rgba(5, 150, 105, 0.25)",
+                  "&:hover": {
+                    background: "linear-gradient(135deg, #047857 0%, #065f46 100%)",
+                    boxShadow: "0 6px 16px rgba(5, 150, 105, 0.35)",
+                  },
+                }}
+              >
+                {downloadingInvoice ? "Downloading..." : "Download Invoice"}
+              </Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
     </div>
   );

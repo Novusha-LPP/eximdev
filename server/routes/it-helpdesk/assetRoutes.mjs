@@ -337,6 +337,7 @@ router.get("/", async (req, res) => {
         { sim_number_iccid: searchRegex },
         { mobile_number: searchRegex },
         { processor: searchRegex },
+        { invoice_number: searchRegex },
       ];
     }
 

@@ -52,6 +52,9 @@ const assetSchema = new mongoose.Schema({
   imsi_number: { type: String, trim: true },
   puk_code: { type: String, trim: true },
   remarks: { type: String },
+  image_url: { type: String, trim: true, default: "" },
+  invoice_number: { type: String, trim: true, default: "" },
+  invoice_date: { type: Date },
   custom_fields: [{ fieldId: { type: mongoose.Schema.Types.ObjectId }, value: mongoose.Schema.Types.Mixed }],
   history: [{
     action: { type: String, required: true },

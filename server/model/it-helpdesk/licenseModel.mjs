@@ -3,7 +3,7 @@ import auditPlugin from "../../plugins/auditPlugin.mjs";
 
 const licenseSchema = new mongoose.Schema({
   license_name: { type: String, required: true, trim: true },
-  license_code: { type: String, required: true, trim: true },
+  license_code: { type: String, trim: true, default: "" },
   software_name: { type: String, required: true, trim: true, index: true },
   license_key: { type: String, trim: true },
   vendor: { type: mongoose.Schema.Types.ObjectId, ref: "ItVendor" },

@@ -129,6 +129,10 @@ router.get("/", async (req, res) => {
         { mobile_number: searchRegex },
         { gst_number: searchRegex },
         { pan_number: searchRegex },
+        { bank_name: searchRegex },
+        { bank_branch: searchRegex },
+        { ifsc_code: searchRegex },
+        { account_no: searchRegex },
       ];
     }
 
@@ -172,6 +176,7 @@ const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 const MOBILE_REGEX = /^[6-9]\d{9}$/;
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
 /**
  * Reusable server-side validator and sanitizer for Vendor payloads
@@ -255,6 +260,29 @@ const validateVendorData = (data, isUpdate = false) => {
       }
     } else {
       sanitized.pan_number = "";
+    }
+  }
+
+  // 7. Validate Banking Details (Optional)
+  if (data.bank_name !== undefined) {
+    sanitized.bank_name = typeof data.bank_name === "string" ? data.bank_name.trim() : String(data.bank_name || "").trim();
+  }
+  if (data.bank_branch !== undefined) {
+    sanitized.bank_branch = typeof data.bank_branch === "string" ? data.bank_branch.trim() : String(data.bank_branch || "").trim();
+  }
+  if (data.account_no !== undefined) {
+    sanitized.account_no = typeof data.account_no === "string" ? data.account_no.trim() : String(data.account_no || "").trim();
+  }
+  if (data.ifsc_code !== undefined) {
+    const rawIfsc = typeof data.ifsc_code === "string" ? data.ifsc_code.trim().toUpperCase() : String(data.ifsc_code || "").trim().toUpperCase();
+    if (rawIfsc) {
+      if (!IFSC_REGEX.test(rawIfsc)) {
+        errors.ifsc_code = "Invalid IFSC format. Expected 11 characters (e.g. HDFC0000123)";
+      } else {
+        sanitized.ifsc_code = rawIfsc;
+      }
+    } else {
+      sanitized.ifsc_code = "";
     }
   }
 

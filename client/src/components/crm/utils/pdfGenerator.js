@@ -82,19 +82,308 @@ const getTradeChargeRows = (tradeType = 'import') => {
   ];
 };
 
+// ─── Paramount Propack Estimate PDF (GST Invoice-style) ───
+const buildParamountEstimatePDF = (doc, quote) => {
+  const pw = 210; // page width
+  const ph = 297; // page height
+  const m = 8;    // margin
+  const cw = pw - 2 * m; // content width (194)
+  const fmt = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // ── Page Border ──
+  doc.setDrawColor(180, 180, 180);
+  doc.setLineWidth(0.3);
+  doc.rect(m, m, cw, ph - 2 * m);
+
+  // ── HEADER: Logo + Company Info + "ESTIMATE" ──
+  // Logo placeholder (left) — replace with doc.addImage() when logo is provided
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(200, 50, 50);
+  doc.text('P', 13, 18);
+  doc.setTextColor(30, 30, 30);
+  doc.text('PARAMOUNT', 18, 18);
+  doc.setFontSize(6.5);
+  doc.setTextColor(100, 100, 100);
+  doc.text('PROPACK PVT. LTD.', 18, 21.5);
+
+  // Company details (center)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Paramount Propack Pvt Ltd', 62, 15);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(60, 60, 60);
+  const hdrLines = [
+    'A-306, Wall Street 2, Opp. Orient Club,',
+    'Nr. Gujarat College, Ellis Bridge,',
+    'Ahmedabad, Gujarat 380006',
+    'India. Phone : 9924304363,',
+    'Mo.9924330777',
+    'GSTIN 24AAHCP4599D1Z8'
+  ];
+  hdrLines.forEach((l, i) => doc.text(l, 62, 19.5 + i * 3.5));
+
+  // "ESTIMATE" title (top-right)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(30, 41, 59);
+  doc.text('ESTIMATE', pw - m - 2, 24, { align: 'right' });
+
+  // ── Divider below header ──
+  doc.setDrawColor(180, 180, 180);
+  doc.line(m, 42, pw - m, 42);
+
+  // ── INFO ROW: # / Estimate Date | Place Of Supply ──
+  const infoY = 42;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(30, 41, 59);
+  doc.text('#', 12, infoY + 5);
+  doc.text('Estimate Date', 12, infoY + 9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${quote.quoteNumber || 'EST-000'}`, 38, infoY + 5);
+  doc.text(`: ${new Date(quote.createdAt || Date.now()).toLocaleDateString('en-IN')}`, 38, infoY + 9);
+
+  // Vertical divider
+  doc.line(108, infoY, 108, infoY + 13);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Place Of Supply', 113, infoY + 5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${quote.placeOfSupply || 'Gujarat (24)'}`, 140, infoY + 5);
+
+  doc.line(m, infoY + 13, pw - m, infoY + 13); // bottom line
+
+  // ── BILL TO ──
+  const billStartY = infoY + 13;
+  doc.setFillColor(245, 245, 245);
+  doc.rect(m + 0.15, billStartY + 0.15, cw - 0.3, 5.5, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text('Bill To', 12, billStartY + 4);
+
+  const custName = quote.accountId?.name || 'Customer Name';
+  const contactName = quote.contactId
+    ? `${quote.contactId.firstName || ''} ${quote.contactId.lastName || ''}`.trim()
+    : '';
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(15, 23, 42);
+  doc.text(custName, 12, billStartY + 11);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(60, 60, 60);
+  let bY = billStartY + 15;
+  if (contactName) { doc.text(contactName, 12, bY); bY += 3.5; }
+  if (quote.billToAddress) {
+    doc.splitTextToSize(quote.billToAddress, 110).forEach(ln => { doc.text(ln, 12, bY); bY += 3.5; });
+  }
+
+  const billEndY = Math.max(bY + 2, billStartY + 22);
+  doc.line(m, billEndY, pw - m, billEndY);
+
+  // ── LINE ITEMS TABLE ──
+  const items = quote.lineItems || [];
+
+  const tableBody = items.map((it, idx) => {
+    const qty = it.quantity || 0;
+    const rate = it.unitPrice || 0;
+    const disc = it.discount || 0;
+    const base = qty * rate * (1 - disc / 100);
+    const halfTax = (it.tax || 0) / 2;
+    const cgst = base * halfTax / 100;
+    const sgst = base * halfTax / 100;
+    return [
+      String(idx + 1),
+      it.productName || '',
+      it.hsnSac || '392310',
+      fmt(qty),
+      fmt(rate),
+      halfTax ? `${halfTax}%` : '0%',
+      fmt(cgst),
+      halfTax ? `${halfTax}%` : '0%',
+      fmt(sgst),
+      fmt(base)
+    ];
+  });
+
+  doc.autoTable({
+    startY: billEndY,
+    head: [
+      [
+        { content: '#', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Item & Description', rowSpan: 2, styles: { valign: 'middle' } },
+        { content: 'HSN\n/SAC', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Qty', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+        { content: 'Rate', rowSpan: 2, styles: { halign: 'right', valign: 'middle' } },
+        { content: 'CGST', colSpan: 2, styles: { halign: 'center' } },
+        { content: 'SGST', colSpan: 2, styles: { halign: 'center' } },
+        { content: 'Amount', rowSpan: 2, styles: { halign: 'right', valign: 'middle' } }
+      ],
+      [
+        { content: '%', styles: { halign: 'center' } },
+        { content: 'Amt', styles: { halign: 'right' } },
+        { content: '%', styles: { halign: 'center' } },
+        { content: 'Amt', styles: { halign: 'right' } }
+      ]
+    ],
+    body: tableBody,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [255, 255, 255],
+      textColor: [30, 41, 59],
+      fontSize: 7,
+      fontStyle: 'bold',
+      lineWidth: 0.2,
+      lineColor: [180, 180, 180]
+    },
+    bodyStyles: {
+      fontSize: 7,
+      textColor: [30, 41, 59],
+      lineWidth: 0.2,
+      lineColor: [180, 180, 180],
+      cellPadding: 2
+    },
+    columnStyles: {
+      0: { cellWidth: 8, halign: 'center' },
+      1: { cellWidth: 50 },
+      2: { cellWidth: 17, halign: 'center' },
+      3: { cellWidth: 18, halign: 'right' },
+      4: { cellWidth: 18, halign: 'right' },
+      5: { cellWidth: 10, halign: 'center' },
+      6: { cellWidth: 20, halign: 'right' },
+      7: { cellWidth: 10, halign: 'center' },
+      8: { cellWidth: 20, halign: 'right' },
+      9: { cellWidth: 23, halign: 'right' }
+    },
+    margin: { left: m, right: m },
+    tableLineWidth: 0.2,
+    tableLineColor: [180, 180, 180]
+  });
+
+  // ── TOTALS CALCULATION ──
+  let subTotal = 0, totalCGST = 0, totalSGST = 0;
+  items.forEach(it => {
+    const base = (it.quantity || 0) * (it.unitPrice || 0) * (1 - (it.discount || 0) / 100);
+    const half = (it.tax || 0) / 2;
+    subTotal += base;
+    totalCGST += base * half / 100;
+    totalSGST += base * half / 100;
+  });
+  const grandTotal = subTotal + totalCGST + totalSGST;
+  const taxLabel = items.length > 0 ? ((items[0].tax || 0) / 2) : 0;
+
+  // ── FOOTER: Total In Words (left) | Totals (right) ──
+  const tblEnd = doc.lastAutoTable.finalY;
+  const midX = 120;
+
+  doc.setDrawColor(180, 180, 180);
+  doc.line(m, tblEnd, pw - m, tblEnd);
+  doc.line(midX, tblEnd, midX, tblEnd + 30);
+
+  // Left: Total In Words
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text('Total In Words', 12, tblEnd + 5);
+  doc.setFont('helvetica', 'bolditalic');
+  doc.setFontSize(7);
+  doc.setTextColor(15, 23, 42);
+  const words = numberToIndianWords(Math.round(grandTotal));
+  doc.splitTextToSize(words, midX - 16).forEach((ln, i) => doc.text(ln, 12, tblEnd + 10 + i * 3.5));
+
+  // Left: Notes
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text('Notes', 12, tblEnd + 19);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.text(quote.terms?.notes || 'Looking forward for your business.', 12, tblEnd + 23, { maxWidth: midX - 16 });
+
+  // Right: Totals breakdown
+  const rx = midX + 4;
+  const rv = pw - m - 4;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(60, 60, 60);
+
+  doc.text('Sub Total', rx, tblEnd + 5);
+  doc.text(fmt(subTotal), rv, tblEnd + 5, { align: 'right' });
+
+  doc.text(`CGST${taxLabel || ''}  (${taxLabel || 0}%)`, rx, tblEnd + 10);
+  doc.text(fmt(totalCGST), rv, tblEnd + 10, { align: 'right' });
+
+  doc.text(`SGST${taxLabel || ''}  (${taxLabel || 0}%)`, rx, tblEnd + 15);
+  doc.text(fmt(totalSGST), rv, tblEnd + 15, { align: 'right' });
+
+  doc.line(midX, tblEnd + 17, pw - m, tblEnd + 17);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Total', rx, tblEnd + 22);
+  doc.text(`\u20B9${fmt(grandTotal)}`, rv, tblEnd + 22, { align: 'right' });
+
+  doc.line(m, tblEnd + 30, pw - m, tblEnd + 30);
+
+  // ── TERMS & CONDITIONS + BANK DETAILS ──
+  const tcY = tblEnd + 34;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text('Terms & Conditions', 12, tcY);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.8);
+  doc.setTextColor(40, 40, 40);
+  const tcLines = [
+    `Payment Terms: ${quote.terms?.paymentTerms || '100% Advance'}.`,
+    'Freight charges will be extra.',
+    `Delivery Within ${quote.terms?.deliveryTerms || '10 -12 Working Days'}.`,
+    'Prices: The price is quoted in INR.',
+    'Bank Detail: Kotak Mahindra Bank,',
+    'Branch: Chandan House, Opp.Abhijit 3, Ahmedabad.',
+    'A/c. No.1512264287, IFSC Code : KKBK0000812',
+    'Other Detail: PAN No. AAHCP4599D',
+    'GSTIN No.- 24AAHCP4599D1Z8'
+  ];
+  tcLines.forEach((l, i) => doc.text(l, 12, tcY + 4.5 + i * 3.5));
+
+  // Authorized Signature (bottom-right)
+  const sigY = tcY + 28;
+  doc.setDrawColor(100, 100, 100);
+  doc.line(150, sigY, pw - 12, sigY);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(60, 60, 60);
+  doc.text('Authorized Signature', (150 + pw - 12) / 2, sigY + 4, { align: 'center' });
+};
+
 export const buildQuotePDF = (doc, quote) => {
   // Page width and height limits
   const pageWidth = 210;
   const pageHeight = 297;
   const customRows = getTradeChargeRows(quote?.tradeType || 'import');
 
+  // Company Template Branding Selection
+  const template = (quote?.companyTemplate || 'paramount').toLowerCase();
+
+  // Paramount uses a dedicated GST estimate layout
+  if (template === 'paramount') {
+    buildParamountEstimatePDF(doc, quote);
+    return;
+  }
+
   // Draw Page Border (8mm margins)
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.3);
   doc.rect(8, 8, pageWidth - 16, pageHeight - 16);
-
-  // Company Template Branding Selection
-  const template = (quote?.companyTemplate || 'paramount').toLowerCase();
 
   if (template === 'elock' || template === 'e-lock') {
     // eLock Branding

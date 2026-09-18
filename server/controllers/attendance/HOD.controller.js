@@ -29,7 +29,7 @@ const isHodRole = (role) => {
 };
 
 const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
-const FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza']);
+const FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza', 'dev_master']);
 const REQUIRED_ADMIN_SELF_APPROVAL_USERNAMES = new Set([
     STAGE_2_APPROVER_USERNAME,
     ...FINAL_APPROVER_USERNAMES
@@ -178,13 +178,13 @@ export const canActorActOnLeave = async (leave, actor) => {
 
         // 1. If applicant is shalini_arun, only allow other admins except uday_zope
         if (applicantUsername === 'shalini_arun') {
-            const allowedAdmins = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza']);
+            const allowedAdmins = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza', 'dev_master']);
             return allowedAdmins.has(actorUsername);
         }
 
         // 2. If applicant is an HOD (with HOD role or hod_id)
         if (isHodApplicant) {
-            const allowedAdmins = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza']);
+            const allowedAdmins = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza', 'dev_master']);
             return allowedAdmins.has(actorUsername);
         }
 

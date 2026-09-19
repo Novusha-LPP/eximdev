@@ -43,7 +43,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import TableViewIcon from '@mui/icons-material/TableView';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { UserContext } from "../../contexts/UserContext";
@@ -282,20 +282,23 @@ const DetailedReport = () => {
       return rows;
     }
 
-    const summaryData = {};
+    const isIcdLoc = (loc) => /\bICD\b/i.test(loc);
+    const icdSummaryData = {};
+    const otherSummaryData = {};
     let lclContainers = 0, lcl20 = 0, lcl40 = 0, lclTeus = 0;
-    let lclTeusSubtract = 0;
     let exBondContainers = 0, exBond20 = 0, exBond40 = 0, exBondTeus = 0;
-    let total20 = 0, total40 = 0, totalTeus = 0, totalContainers = 0;
-    let scrapTotal20 = 0, scrapTotal40 = 0, scrapTotalTeus = 0, scrapTotalContainers = 0;
-    let othersTotal20 = 0, othersTotal40 = 0, othersTotalTeus = 0, othersTotalContainers = 0;
+
     data.forEach(row => {
+      const isRowAir = row.mode && row.mode.toLowerCase() === 'air';
+      if (isRowAir) return; // Air jobs do not have ocean containers or TEUs
+
       const location = row.location || 'Unknown';
+      const target = isIcdLoc(location) ? icdSummaryData : otherSummaryData;
       const remarks = (row.remarks || '').toLowerCase();
       const consignmentType = (row.consignment_type || '').toUpperCase();
       const sizeInfo = row.noOfContrSize || '';
-      const count20 = parseInt((sizeInfo.match(/(\d+)\s*x\s*20/i) || [0, 0])[1]) || 0;
-      const count40 = parseInt((sizeInfo.match(/(\d+)\s*x\s*40/i) || [0, 0])[1]) || 0;
+      const count20 = row.count20 !== undefined ? Number(row.count20) : (parseInt((sizeInfo.match(/(\d+)\s*x\s*20/i) || [0, 0])[1]) || 0);
+      const count40 = row.count40 !== undefined ? Number(row.count40) : (parseInt((sizeInfo.match(/(\d+)\s*x\s*40/i) || [0, 0])[1]) || 0);
       const teus = parseInt(row.teus) || 0;
       const containers = parseInt(row.totalContainers) || 0;
 
@@ -314,83 +317,135 @@ const DetailedReport = () => {
         lclTeus += 1;
         return;
       }
-      if (!summaryData[location]) {
-        summaryData[location] = {
+
+      if (!target[location]) {
+        target[location] = {
           scrap: { count20: 0, count40: 0, teus: 0, containers: 0 },
           others: { count20: 0, count40: 0, teus: 0, containers: 0 }
         };
       }
+
       if (remarks.includes('scrap')) {
-        summaryData[location].scrap.count20 += count20;
-        summaryData[location].scrap.count40 += count40;
-        summaryData[location].scrap.teus += teus;
-        summaryData[location].scrap.containers += containers;
-        scrapTotal20 += count20;
-        scrapTotal40 += count40;
-        scrapTotalTeus += teus;
-        scrapTotalContainers += containers;
+        target[location].scrap.count20 += count20;
+        target[location].scrap.count40 += count40;
+        target[location].scrap.teus += teus;
+        target[location].scrap.containers += containers;
       } else {
-        summaryData[location].others.count20 += count20;
-        summaryData[location].others.count40 += count40;
-        summaryData[location].others.teus += teus;
-        summaryData[location].others.containers += containers;
-        othersTotal20 += count20;
-        othersTotal40 += count40;
-        othersTotalTeus += teus;
-        othersTotalContainers += containers;
+        target[location].others.count20 += count20;
+        target[location].others.count40 += count40;
+        target[location].others.teus += teus;
+        target[location].others.containers += containers;
       }
-      total20 += count20;
-      total40 += count40;
-      totalTeus += teus;
-      totalContainers += containers;
     });
-    // Build rows in requested order
-    const scrapRows = [];
-    const othersRows = [];
-    const icdTotalRows = [];
-    Object.entries(summaryData).forEach(([location, details]) => {
-      scrapRows.push({ location, details: 'Scrap', ...details.scrap });
-    });
-    Object.entries(summaryData).forEach(([location, details]) => {
-      othersRows.push({ location, details: 'Others', ...details.others });
-    });
-    Object.entries(summaryData).forEach(([location, details]) => {
-      // ICD-wise total = Scrap + Others for this location
-      icdTotalRows.push({
-        location,
-        details: 'TOTAL',
-        count20: details.scrap.count20 + details.others.count20,
-        count40: details.scrap.count40 + details.others.count40,
-        teus: details.scrap.teus + details.others.teus,
-        containers: details.scrap.containers + details.others.containers
+
+    const buildGroupRows = (summaryMap, groupLabel, sectionKey) => {
+      const entries = Object.entries(summaryMap);
+      if (entries.length === 0) {
+        return { rows: [], subtotal: { count20: 0, count40: 0, teus: 0, containers: 0 }, subtotalRow: null };
+      }
+
+      const scrapRows = [];
+      const othersRows = [];
+      const locTotalRows = [];
+      const subtotal = { count20: 0, count40: 0, teus: 0, containers: 0 };
+
+      entries.forEach(([location, details]) => {
+        scrapRows.push({ location, details: 'Scrap', ...details.scrap, section: sectionKey });
       });
-    });
+      entries.forEach(([location, details]) => {
+        othersRows.push({ location, details: 'Others', ...details.others, section: sectionKey });
+      });
+      entries.forEach(([location, details]) => {
+        const tot = {
+          location,
+          details: 'TOTAL',
+          count20: details.scrap.count20 + details.others.count20,
+          count40: details.scrap.count40 + details.others.count40,
+          teus: details.scrap.teus + details.others.teus,
+          containers: details.scrap.containers + details.others.containers,
+          section: sectionKey
+        };
+        locTotalRows.push(tot);
+        subtotal.count20 += tot.count20;
+        subtotal.count40 += tot.count40;
+        subtotal.teus += tot.teus;
+        subtotal.containers += tot.containers;
+      });
+
+      const subtotalRow = {
+        location: `TOTAL ${groupLabel}`,
+        details: 'SUBTOTAL',
+        ...subtotal,
+        isSubtotal: true,
+        section: sectionKey
+      };
+
+      const groupRows = [
+        ...scrapRows,
+        ...othersRows,
+        ...locTotalRows,
+        subtotalRow
+      ];
+
+      return { rows: groupRows, subtotal, subtotalRow };
+    };
+
+    const hasIcd = Object.keys(icdSummaryData).length > 0;
+    const hasOther = Object.keys(otherSummaryData).length > 0;
+    const isSplit = hasIcd && hasOther;
+
+    const icdGroup = buildGroupRows(icdSummaryData, 'ICD CLEARANCE', 'icd');
+    const otherGroup = buildGroupRows(otherSummaryData, 'OTHER LOCATIONS', 'other');
+
     const rows = [];
-    // All scrap rows
-    rows.push(...scrapRows);
-    // All others rows
-    rows.push(...othersRows);
-    // ICD-wise total rows
-    rows.push(...icdTotalRows);
-    // ...removed SCRAP TOTAL and OTHERS TOTAL rows...
-    // LCL row
-    rows.push({ location: 'LCL', details: '', count20: lcl20, count40: lcl40, teus: lclTeus, containers: lclContainers });
-    // Ex-Bond row
-    rows.push({ location: 'Ex-Bond', details: '', count20: exBond20, count40: exBond40, teus: exBondTeus, containers: exBondContainers });
-    // Calculate summary TOTAL TEUS as sum of all ICD-wise total TEUS
-    const summaryTotalTeus = icdTotalRows.reduce((sum, row) => sum + (parseInt(row.teus) || 0), 0);
-    const summaryTotal20 = icdTotalRows.reduce((sum, row) => sum + (parseInt(row.count20) || 0), 0);
-    const summaryTotal40 = icdTotalRows.reduce((sum, row) => sum + (parseInt(row.count40) || 0), 0);
-    const summaryTotalContainers = icdTotalRows.reduce((sum, row) => sum + (parseInt(row.containers) || 0), 0);
-    // Final TOTAL row
-    rows.push({ location: 'TOTAL', details: '', count20: summaryTotal20, count40: summaryTotal40, teus: summaryTotalTeus, containers: summaryTotalContainers });
+
+    if (isSplit) {
+      if (hasIcd) {
+        rows.push({ location: 'ICD CLEARANCE SUMMARY', details: '', isSectionHeader: true, section: 'icd' });
+        rows.push(...icdGroup.rows);
+      }
+      if (hasOther) {
+        rows.push({ location: 'OTHER LOCATIONS CLEARANCE SUMMARY', details: '', isSectionHeader: true, section: 'other' });
+        rows.push(...otherGroup.rows);
+      }
+      // Overall totals section header
+      rows.push({ location: 'OVERALL CLEARANCE TOTALS', details: '', isSectionHeader: true, section: 'overall' });
+      if (icdGroup.subtotalRow) rows.push(icdGroup.subtotalRow);
+      if (otherGroup.subtotalRow) rows.push(otherGroup.subtotalRow);
+      rows.push({ location: 'LCL', details: '', count20: lcl20, count40: lcl40, teus: lclTeus, containers: lclContainers });
+      rows.push({ location: 'Ex-Bond', details: '', count20: exBond20, count40: exBond40, teus: exBondTeus, containers: exBondContainers });
+    } else {
+      if (hasIcd) {
+        rows.push(...icdGroup.rows.filter(r => !r.isSubtotal));
+      } else if (hasOther) {
+        rows.push(...otherGroup.rows.filter(r => !r.isSubtotal));
+      }
+      rows.push({ location: 'LCL', details: '', count20: lcl20, count40: lcl40, teus: lclTeus, containers: lclContainers });
+      rows.push({ location: 'Ex-Bond', details: '', count20: exBond20, count40: exBond40, teus: exBondTeus, containers: exBondContainers });
+    }
+
+    const summaryTotalTeus = icdGroup.subtotal.teus + otherGroup.subtotal.teus + lclTeus;
+    const summaryTotal20 = icdGroup.subtotal.count20 + otherGroup.subtotal.count20 + lcl20;
+    const summaryTotal40 = icdGroup.subtotal.count40 + otherGroup.subtotal.count40 + lcl40;
+    const summaryTotalContainers = icdGroup.subtotal.containers + otherGroup.subtotal.containers + lclContainers;
+
+    rows.push({
+      location: 'TOTAL',
+      details: '',
+      count20: summaryTotal20,
+      count40: summaryTotal40,
+      teus: summaryTotalTeus,
+      containers: summaryTotalContainers
+    });
+
     return rows;
   };
 
   const deriveSize = (noOfContrSize) => {
     if (!noOfContrSize) return '';
-    const has20 = /\b20\b/.test(noOfContrSize);
-    const has40 = /\b40\b/.test(noOfContrSize);
+    const str = String(noOfContrSize);
+    const has20 = /\b20\b|20\s*standard|20\s*open/i.test(str);
+    const has40 = /\b40\b|40\s*standard|40\s*hc|40\s*high/i.test(str);
     if (has20 && has40) return '20/40';
     if (has20) return '20';
     if (has40) return '40';
@@ -419,181 +474,685 @@ const DetailedReport = () => {
   };
 
   const exportToExcel = async () => {
-    const workbook = XLSX.utils.book_new();
-    const isAir = selectedCategory && selectedCategory.toLowerCase() === 'air';
+    const isAir = (selectedCategory && selectedCategory.toLowerCase() === 'air') ||
+      (data.length > 0 && data.every(row => row.mode && row.mode.toLowerCase() === 'air'));
+    const monthName = months.find(m => String(m.value) === String(month))?.label || 'Unknown';
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Alvision Exim';
+    workbook.created = new Date();
 
-    // Prepare main data
-    const excelData = data.map((row, index) => {
-      const excelRow = {};
+    // -------------------------------------------------------------
+    // SHEET 1: Main Clearance Report
+    // -------------------------------------------------------------
+    const worksheet = workbook.addWorksheet(isAir ? 'Air Clearance Report' : 'Import Clearance Report', {
+      views: [{ state: 'frozen', ySplit: 1 }]
+    });
 
-      // Calculate invoice value for display
+    const visibleCols = columns.filter((col) => {
+      if (col.key === 'cif_amount' && !isSrManager) return false;
+      if (isAir && ['containerNumbers', 'totalContainers', 'size', 'teus'].includes(col.key)) {
+        return false;
+      }
+      return true;
+    });
+
+    // Define column headers and keys
+    worksheet.columns = visibleCols.map(col => ({
+      header: col.label.toUpperCase(),
+      key: col.key,
+      width: Math.max(col.minWidth ? Math.round(col.minWidth / 7) : 14, 12),
+    }));
+
+    // Header row styling
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 28;
+    headerRow.eachCell((cell) => {
+      cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF1A237E' }
+      };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        bottom: { style: 'medium', color: { argb: 'FF0D47A1' } },
+        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+      };
+    });
+
+    // Add data rows
+    data.forEach((row, index) => {
+      const isRowAir = row.mode && row.mode.toLowerCase() === 'air';
       const invValue = row.cif_amount && row.inv_currency
         ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
         : '';
 
-      const visibleCols = columns.filter((col) => {
-        if (col.key === 'cif_amount' && !isSrManager) return false;
-        if (isAir && ['containerNumbers', 'totalContainers', 'size', 'teus'].includes(col.key)) {
-          return false;
-        }
-        return true;
-      });
+      const rowData = {};
       visibleCols.forEach(col => {
-        const isRowAir = row.mode && row.mode.toLowerCase() === 'air';
         switch (col.key) {
           case 'srlNo':
-            excelRow[col.label] = String(index + 1).padStart(3, "0");
+            rowData[col.key] = String(index + 1).padStart(3, "0");
             break;
-          case 'cif_amount':  // Custom PRICE column handling
-            excelRow[col.label] = invValue;
+          case 'cif_amount':
+            rowData[col.key] = invValue;
             break;
           case 'size':
-            excelRow[col.label] = isRowAir ? '' : deriveSize(row.noOfContrSize);
+            rowData[col.key] = isRowAir ? '' : deriveSize(row.noOfContrSize);
             break;
           case 'containerNumbers':
-            excelRow[col.label] = isRowAir ? '' : (Array.isArray(row.containerNumbers) ? row.containerNumbers.join('; ') : String(row.containerNumbers || ''));
+            rowData[col.key] = isRowAir ? '' : (Array.isArray(row.containerNumbers) ? row.containerNumbers.join('; ') : String(row.containerNumbers || ''));
             break;
           case 'totalContainers':
-            excelRow[col.label] = isRowAir ? '' : (row.totalContainers || '');
+            rowData[col.key] = isRowAir ? '' : (row.totalContainers != null ? Number(row.totalContainers) : '');
             break;
           case 'teus':
-            excelRow[col.label] = isRowAir ? '' : (row.teus || '');
+            rowData[col.key] = isRowAir ? '' : (row.teus != null ? Number(row.teus) : '');
             break;
           case 'be_date':
-            excelRow[col.label] = formatDateSafe(row.be_date);
+            rowData[col.key] = formatDateSafe(row.be_date);
             break;
           case 'out_of_charge':
-            excelRow[col.label] = formatDateSafe(row.out_of_charge);
+            rowData[col.key] = formatDateSafe(row.out_of_charge);
             break;
           case 'remarks':
-            excelRow[col.label] = row[col.key] || '';
+            rowData[col.key] = row[col.key] || '';
             break;
           default:
-            excelRow[col.label] = row[col.key] || '';
+            rowData[col.key] = row[col.key] || '';
         }
       });
-      return excelRow;
+
+      const excelRow = worksheet.addRow(rowData);
+      excelRow.height = 22;
+
+      // Clean zebra striping
+      const isEven = index % 2 === 0;
+      const rowBgColor = isEven ? 'FFFFFFFF' : 'FFF8FAFC';
+
+      visibleCols.forEach((col, colIdx) => {
+        const cell = excelRow.getCell(colIdx + 1);
+        cell.font = { name: 'Segoe UI', size: 9.5, color: { argb: 'FF1E293B' } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: rowBgColor }
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+
+        // Alignments
+        if (['srlNo', 'job_no', 'location', 'be_no', 'be_date', 'size', 'totalContainers', 'teus', 'out_of_charge'].includes(col.key)) {
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        } else if (col.key === 'cif_amount') {
+          cell.alignment = { vertical: 'middle', horizontal: 'right' };
+        } else if (col.key === 'remarks' || col.key === 'commodity' || col.key === 'containerNumbers') {
+          cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+        } else {
+          cell.alignment = { vertical: 'middle', horizontal: 'left' };
+        }
+
+        // Emphasis on primary keys/numbers
+        if (col.key === 'job_no') {
+          cell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
+        } else if (col.key === 'totalContainers') {
+          cell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF166534' } };
+        } else if (col.key === 'teus') {
+          cell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FFB91C1C' } };
+        }
+      });
     });
 
-    // Create main worksheet
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    // Auto-fit column widths with bounds
+    worksheet.columns.forEach((column) => {
+      let maxLen = column.header ? String(column.header).length : 10;
+      column.eachCell({ includeEmpty: false }, (cell, rowNumber) => {
+        if (rowNumber > 1) {
+          const valStr = cell.value != null ? String(cell.value) : '';
+          const lineLen = valStr.includes('\n') ? Math.max(...valStr.split('\n').map(s => s.length)) : valStr.length;
+          if (lineLen > maxLen) maxLen = lineLen;
+        }
+      });
+      column.width = Math.min(Math.max(maxLen + 3, 12), 48);
+    });
 
-    // Auto-fit columns
-    if (worksheet['!ref']) {
-      const range = XLSX.utils.decode_range(worksheet['!ref']);
-      const colWidths = [];
-      let remarksColIndex = -1;
+    // Enable Excel auto-filter
+    if (visibleCols.length > 0) {
+      worksheet.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: data.length + 1, column: visibleCols.length }
+      };
+    }
 
-      for (let col = range.s.c; col <= range.e.c; col++) {
-        let maxWidth = 0;
-        for (let row = range.s.r; row <= range.e.r; row++) {
-          const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-          const cell = worksheet[cellAddress];
-          if (cell && cell.v) {
-            const cellValue = String(cell.v);
-            maxWidth = Math.max(maxWidth, cellValue.length);
+    // Helper: Build Executive Air Summary Sheet
+    const populateAirSummaryWorksheet = (sheet, airRecords) => {
+      sheet.views = [{ showGridLines: true }];
+
+      // Title Banner
+      const titleRow = sheet.addRow([`AIR CLEARANCE SUMMARY REPORT — ${monthName.toUpperCase()} ${year}`]);
+      titleRow.height = 32;
+      sheet.mergeCells(1, 1, 1, 4);
+      const titleCell = titleRow.getCell(1);
+      titleCell.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      titleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF1A237E' }
+      };
+      titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      sheet.addRow([]);
+
+      const locationCounts = {};
+      const impCounts = {};
+      airRecords.forEach(r => {
+        const loc = r.location || 'Unknown';
+        const imp = r.importer || 'Unknown';
+        locationCounts[loc] = (locationCounts[loc] || 0) + 1;
+        impCounts[imp] = (impCounts[imp] || 0) + 1;
+      });
+
+      const grandTotal = airRecords.length;
+
+      // Executive Metric Cards Block
+      const kpiLabelRow = sheet.addRow(['TOTAL AIR SHIPMENTS', '', 'ACTIVE IMPORTERS', 'AIRPORTS / CUSTOMS']);
+      kpiLabelRow.height = 20;
+      sheet.mergeCells(kpiLabelRow.number, 1, kpiLabelRow.number, 2);
+      kpiLabelRow.eachCell((c) => {
+        c.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF475569' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+        c.alignment = { vertical: 'middle', horizontal: 'center' };
+        c.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+      });
+
+      const kpiValRow = sheet.addRow([grandTotal, '', Object.keys(impCounts).length, Object.keys(locationCounts).length]);
+      kpiValRow.height = 28;
+      sheet.mergeCells(kpiValRow.number, 1, kpiValRow.number, 2);
+      kpiValRow.eachCell((c) => {
+        c.font = { name: 'Segoe UI', size: 14, bold: true, color: { argb: 'FF0F172A' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+        c.alignment = { vertical: 'middle', horizontal: 'center' };
+        c.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+      });
+
+      sheet.addRow([]);
+
+      // Section 1: Location Summary
+      const locSecBanner = sheet.addRow(['LOCATION / AIRPORT CLEARANCE SUMMARY']);
+      locSecBanner.height = 24;
+      sheet.mergeCells(locSecBanner.number, 1, locSecBanner.number, 4);
+      const locBannerCell = locSecBanner.getCell(1);
+      locBannerCell.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: 'FF92400E' } };
+      locBannerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+      locBannerCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const locHeader = sheet.addRow(['SRL NO.', 'AIRPORT / CUSTOM HOUSE', 'TOTAL B/ES FILED', 'SHARE (%)']);
+      locHeader.height = 26;
+      locHeader.eachCell((c) => {
+        c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDE68A' } };
+        c.alignment = { vertical: 'middle', horizontal: 'center' };
+        c.border = {
+          top: { style: 'medium', color: { argb: 'FFD97706' } },
+          left: { style: 'thin', color: { argb: 'FFD97706' } },
+          bottom: { style: 'medium', color: { argb: 'FFD97706' } },
+          right: { style: 'thin', color: { argb: 'FFD97706' } }
+        };
+      });
+
+      let locIdx = 1;
+      Object.entries(locationCounts).forEach(([loc, cnt]) => {
+        const r = sheet.addRow([
+          String(locIdx++).padStart(2, '0'),
+          loc,
+          cnt,
+          grandTotal > 0 ? `${((cnt / grandTotal) * 100).toFixed(1)}%` : '0.0%'
+        ]);
+        r.height = 22;
+        r.eachCell((c, colNum) => {
+          c.font = { name: 'Segoe UI', size: 9.5, color: { argb: 'FF1E293B' } };
+          c.border = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+          };
+          if (colNum === 2) {
+            c.alignment = { vertical: 'middle', horizontal: 'left' };
+          } else if (colNum === 3) {
+            c.alignment = { vertical: 'middle', horizontal: 'center' };
+            c.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
+          } else {
+            c.alignment = { vertical: 'middle', horizontal: 'center' };
           }
-        }
-        colWidths.push({ wch: Math.min(Math.max(maxWidth + 2, 10), 50) });
+        });
+      });
 
-        // Find remarks column index
-        if (worksheet[XLSX.utils.encode_cell({ r: 0, c: col })]?.v === 'REMARKS') {
-          remarksColIndex = col;
-        }
-      }
-      worksheet['!cols'] = colWidths;
+      const locTotal = sheet.addRow(['', 'TOTAL AIR SHIPMENTS', grandTotal, '100.0%']);
+      locTotal.height = 24;
+      locTotal.eachCell((c, colNum) => {
+        c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF000000' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF08A' } };
+        c.alignment = { vertical: 'middle', horizontal: colNum === 2 ? 'left' : 'center' };
+        c.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FFB0BEC5' } },
+          bottom: { style: 'double', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FFB0BEC5' } }
+        };
+      });
 
-      // Apply text wrapping to remarks column cells
-      for (let row = range.s.r; row <= range.e.r; row++) {
-        if (remarksColIndex !== -1) {
-          const cellAddress = XLSX.utils.encode_cell({ r: row, c: remarksColIndex });
-          if (worksheet[cellAddress]) {
-            worksheet[cellAddress].z = '@'; // Text format
-            if (!worksheet[cellAddress].s) {
-              worksheet[cellAddress].s = {};
-            }
-            worksheet[cellAddress].s.alignment = {
-              wrapText: true,
-              vertical: 'top',
-              horizontal: 'center'
+      // Blank rows
+      sheet.addRow([]);
+      sheet.addRow([]);
+
+      // Section 2: Importer Breakdown
+      const secTitle = sheet.addRow(['IMPORTER-WISE AIR VOLUME RANKING']);
+      secTitle.height = 26;
+      sheet.mergeCells(secTitle.number, 1, secTitle.number, 4);
+      const secCell = secTitle.getCell(1);
+      secCell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FF0369A1' } };
+      secCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } };
+      secCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const impHeader = sheet.addRow(['SRL NO.', 'IMPORTER NAME', 'AIR B/ES FILED', 'SHARE (%)']);
+      impHeader.height = 26;
+      impHeader.eachCell((c) => {
+        c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF0369A1' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBAE6FD' } };
+        c.alignment = { vertical: 'middle', horizontal: 'center' };
+        c.border = {
+          top: { style: 'medium', color: { argb: 'FF0284C7' } },
+          left: { style: 'thin', color: { argb: 'FF0284C7' } },
+          bottom: { style: 'medium', color: { argb: 'FF0284C7' } },
+          right: { style: 'thin', color: { argb: 'FF0284C7' } }
+        };
+      });
+
+      const sortedImps = Object.entries(impCounts).sort((a, b) => b[1] - a[1]);
+      sortedImps.forEach(([imp, cnt], idx) => {
+        const r = sheet.addRow([
+          String(idx + 1).padStart(2, '0'),
+          imp,
+          cnt,
+          grandTotal > 0 ? `${((cnt / grandTotal) * 100).toFixed(1)}%` : '0.0%'
+        ]);
+        r.height = 22;
+        const isEven = idx % 2 === 0;
+        const rowBgColor = isEven ? 'FFFFFFFF' : 'FFF8FAFC';
+
+        r.eachCell((c, colNum) => {
+          c.font = { name: 'Segoe UI', size: 9.5, color: { argb: 'FF1E293B' } };
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBgColor } };
+          c.border = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+          };
+          if (colNum === 2) {
+            c.alignment = { vertical: 'middle', horizontal: 'left' };
+          } else if (colNum === 3) {
+            c.alignment = { vertical: 'middle', horizontal: 'center' };
+            c.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF0369A1' } };
+          } else {
+            c.alignment = { vertical: 'middle', horizontal: 'center' };
+          }
+        });
+      });
+
+      const impTotal = sheet.addRow(['', 'TOTAL AIR SHIPMENTS', grandTotal, '100.0%']);
+      impTotal.height = 24;
+      impTotal.eachCell((c, colNum) => {
+        c.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF000000' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF08A' } };
+        c.alignment = { vertical: 'middle', horizontal: colNum === 2 ? 'left' : 'center' };
+        c.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FFB0BEC5' } },
+          bottom: { style: 'double', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FFB0BEC5' } }
+        };
+      });
+
+      sheet.getColumn(1).width = 12;
+      sheet.getColumn(2).width = 46;
+      sheet.getColumn(3).width = 22;
+      sheet.getColumn(4).width = 16;
+    };
+
+    // -------------------------------------------------------------
+    // SHEET 2: Summary Report
+    // -------------------------------------------------------------
+    if (isAir) {
+      const summaryWorksheet = workbook.addWorksheet('Air Summary');
+      populateAirSummaryWorksheet(summaryWorksheet, data);
+    } else {
+      // ------------------ OCEAN SUMMARY LAYOUT ------------------
+      const summaryWorksheet = workbook.addWorksheet('Summary');
+      summaryWorksheet.views = [{ showGridLines: true }];
+      const summaryRows = generateSummaryRows();
+
+      // Title Row
+      const titleRow = summaryWorksheet.addRow([`SUMMARY REPORT — ${monthName.toUpperCase()} ${year}`]);
+      titleRow.height = 32;
+      summaryWorksheet.mergeCells(1, 1, 1, 6);
+      const titleCell = titleRow.getCell(1);
+      titleCell.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      titleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF1A237E' }
+      };
+      titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      summaryWorksheet.addRow([]);
+
+      // Ocean KPI metrics
+      const isIcdLoc = (loc) => /\bICD\b/i.test(loc);
+      const oceanRecords = data.filter(r => !(r.mode && r.mode.toLowerCase() === 'air'));
+      const oceanImporters = new Set(oceanRecords.map(r => r.importer).filter(Boolean));
+      const oceanLocations = new Set(oceanRecords.map(r => r.location).filter(Boolean));
+      const icdLocations = new Set(oceanRecords.map(r => r.location).filter(l => l && isIcdLoc(l)));
+      const otherLocations = new Set(oceanRecords.map(r => r.location).filter(l => l && !isIcdLoc(l)));
+      const grandTotalRow = summaryRows.find(r => r.location === 'TOTAL') || {};
+      const totalContainersVal = grandTotalRow.containers || 0;
+      const totalTeusVal = grandTotalRow.teus || 0;
+
+      // Executive Metric Cards Block (All 6 columns utilized, no truncation!)
+      const kpiLabelRow = summaryWorksheet.addRow([
+        'TOTAL CONTAINERS',
+        'TOTAL TEUS',
+        'ACTIVE IMPORTERS',
+        'ICD LOCATIONS',
+        'OTHER LOCATIONS',
+        'TOTAL LOCATIONS'
+      ]);
+      kpiLabelRow.height = 20;
+      kpiLabelRow.eachCell((c) => {
+        c.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF475569' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+        c.alignment = { vertical: 'middle', horizontal: 'center' };
+        c.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+      });
+
+      const kpiValRow = summaryWorksheet.addRow([
+        totalContainersVal,
+        totalTeusVal,
+        oceanImporters.size,
+        icdLocations.size,
+        otherLocations.size,
+        oceanLocations.size
+      ]);
+      kpiValRow.height = 28;
+      kpiValRow.eachCell((c, colNum) => {
+        let valColor = 'FF0F172A';
+        if (colNum === 1) valColor = 'FF166534'; // bold green for containers
+        else if (colNum === 2) valColor = 'FFB91C1C'; // bold red for TEUs
+        else if (colNum === 6) valColor = 'FF1E3A8A'; // navy for total locations
+        c.font = { name: 'Segoe UI', size: 14, bold: true, color: { argb: valColor } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+        c.alignment = { vertical: 'middle', horizontal: 'center' };
+        c.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+      });
+
+      summaryWorksheet.addRow([]);
+
+      // Helper function to style each summary data row
+      const styleSummaryRow = (excelRow, sRow) => {
+        excelRow.height = 22;
+        const isTotal = sRow.location === 'TOTAL';
+        const isLcl = sRow.location === 'LCL';
+        const isExBond = sRow.location === 'Ex-Bond';
+        const isSubtotal = sRow.isSubtotal;
+        const isLocTotal = sRow.details === 'TOTAL';
+
+        excelRow.eachCell((cell, colIdx) => {
+          cell.font = {
+            name: 'Segoe UI',
+            size: 9.5,
+            bold: isTotal || isSubtotal || isLocTotal || isLcl,
+            color: { argb: isTotal ? 'FF000000' : isSubtotal ? 'FF0F172A' : 'FF1E293B' }
+          };
+
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+          if (isTotal) {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFFEF08A' }
+            };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FF000000' } },
+              left: { style: 'thin', color: { argb: 'FFB0BEC5' } },
+              bottom: { style: 'double', color: { argb: 'FF000000' } },
+              right: { style: 'thin', color: { argb: 'FFB0BEC5' } }
+            };
+            if (colIdx === 5) cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
+            else if (colIdx === 6) cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF166534' } };
+          } else if (isSubtotal) {
+            const isIcdSub = sRow.section === 'icd' || sRow.location.includes('ICD');
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: isIcdSub ? 'FFFEF9C3' : 'FFE0F2FE' }
+            };
+            cell.border = {
+              top: { style: 'thin', color: { argb: isIcdSub ? 'FFD97706' : 'FF0284C7' } },
+              left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              bottom: { style: 'medium', color: { argb: isIcdSub ? 'FFD97706' : 'FF0284C7' } },
+              right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+          } else if (isLocTotal) {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF1F5F9' }
+            };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+          } else if (isLcl) {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE0F2FE' }
+            };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFBAE6FD' } },
+              left: { style: 'thin', color: { argb: 'FFBAE6FD' } },
+              bottom: { style: 'thin', color: { argb: 'FFBAE6FD' } },
+              right: { style: 'thin', color: { argb: 'FFBAE6FD' } }
+            };
+          } else if (isExBond) {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF8FAFC' }
+            };
+            cell.font = { name: 'Segoe UI', size: 9.5, italic: true, color: { argb: 'FF64748B' } };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+            };
+          } else {
+            const isScrap = sRow.details === 'Scrap';
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: isScrap ? 'FFFFFBEB' : 'FFFFFFFF' }
+            };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
             };
           }
-        }
+        });
+      };
+
+      const hasSectionHeaders = summaryRows.some(r => r.isSectionHeader);
+
+      if (hasSectionHeaders) {
+        summaryRows.forEach((sRow) => {
+          if (sRow.isSectionHeader) {
+            if (summaryWorksheet.rowCount > 5) {
+              summaryWorksheet.addRow([]);
+            }
+            const bannerRow = summaryWorksheet.addRow([sRow.location]);
+            bannerRow.height = 24;
+            summaryWorksheet.mergeCells(bannerRow.number, 1, bannerRow.number, 6);
+            const isIcd = sRow.section === 'icd';
+            const isOverall = sRow.section === 'overall';
+            const bannerCell = bannerRow.getCell(1);
+            bannerCell.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: isIcd ? 'FF92400E' : isOverall ? 'FF1E293B' : 'FF0369A1' } };
+            bannerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isIcd ? 'FFFEF3C7' : isOverall ? 'FFF1F5F9' : 'FFE0F2FE' } };
+            bannerCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+            const headerRow = summaryWorksheet.addRow(['PARTICULARS', 'DETAILS', '20 FT', '40 FT', 'TEUS', 'CONTAINERS']);
+            headerRow.height = 24;
+            headerRow.eachCell(c => {
+              c.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: isIcd ? 'FF92400E' : isOverall ? 'FF334155' : 'FF0369A1' } };
+              c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isIcd ? 'FFFDE68A' : isOverall ? 'FFE2E8F0' : 'FFBAE6FD' } };
+              c.alignment = { vertical: 'middle', horizontal: 'center' };
+              c.border = {
+                top: { style: 'medium', color: { argb: isIcd ? 'FFD97706' : isOverall ? 'FF94A3B8' : 'FF0284C7' } },
+                left: { style: 'thin', color: { argb: isIcd ? 'FFD97706' : isOverall ? 'FF94A3B8' : 'FF0284C7' } },
+                bottom: { style: 'medium', color: { argb: isIcd ? 'FFD97706' : isOverall ? 'FF94A3B8' : 'FF0284C7' } },
+                right: { style: 'thin', color: { argb: isIcd ? 'FFD97706' : isOverall ? 'FF94A3B8' : 'FF0284C7' } }
+              };
+            });
+            return;
+          }
+
+          const r = summaryWorksheet.addRow([
+            sRow.location,
+            sRow.details,
+            sRow.count20,
+            sRow.count40,
+            sRow.teus,
+            sRow.containers
+          ]);
+          styleSummaryRow(r, sRow);
+        });
+      } else {
+        const sec1Banner = summaryWorksheet.addRow(['LOCATION CLEARANCE SUMMARY']);
+        sec1Banner.height = 24;
+        summaryWorksheet.mergeCells(sec1Banner.number, 1, sec1Banner.number, 6);
+        const sec1Cell = sec1Banner.getCell(1);
+        sec1Cell.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: 'FF92400E' } };
+        sec1Cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+        sec1Cell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+        const sumHeaderRow = summaryWorksheet.addRow(['PARTICULARS', 'DETAILS', '20 FT', '40 FT', 'TEUS', 'CONTAINERS']);
+        sumHeaderRow.height = 26;
+        sumHeaderRow.eachCell(cell => {
+          cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDE68A' } };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          cell.border = {
+            top: { style: 'medium', color: { argb: 'FFD97706' } },
+            left: { style: 'thin', color: { argb: 'FFD97706' } },
+            bottom: { style: 'medium', color: { argb: 'FFD97706' } },
+            right: { style: 'thin', color: { argb: 'FFD97706' } }
+          };
+        });
+
+        summaryRows.forEach(sRow => {
+          const r = summaryWorksheet.addRow([
+            sRow.location,
+            sRow.details,
+            sRow.count20,
+            sRow.count40,
+            sRow.teus,
+            sRow.containers
+          ]);
+          styleSummaryRow(r, sRow);
+        });
+      }
+
+      // Summary Column Widths
+      const summaryColWidths = [26, 16, 18, 16, 18, 18];
+      summaryColWidths.forEach((w, idx) => {
+        summaryWorksheet.getColumn(idx + 1).width = w;
+      });
+
+      // If there are also Air jobs in this mixed dataset, add dedicated Sheet 3 for Air Summary
+      const airOnlyRecords = data.filter(r => r.mode && r.mode.toLowerCase() === 'air');
+      if (airOnlyRecords.length > 0) {
+        const airSummaryWorksheet = workbook.addWorksheet('Air Summary');
+        populateAirSummaryWorksheet(airSummaryWorksheet, airOnlyRecords);
       }
     }
 
-    // Add main worksheet
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Import Clearance Report');
-
-    // Create summary worksheet using generateSummaryRows
-    const monthName = months.find(m => String(m.value) === String(month))?.label || 'Unknown';
-    const summarySheet = [];
-    summarySheet.push([`Summary -- ${monthName} --${year}`]);
-    
-    if (isAir) {
-      summarySheet.push(['Particulars', 'Total Filed']);
-      const summaryRows = generateSummaryRows();
-      summaryRows.forEach(row => {
-        summarySheet.push([
-          row.location,
-          row.containers
-        ]);
-      });
-    } else {
-      summarySheet.push(['Particulars', 'Details', '20', '40', 'TEUS', 'Containers']);
-      const summaryRows = generateSummaryRows();
-      summaryRows.forEach(row => {
-        summarySheet.push([
-          row.location,
-          row.details,
-          row.count20,
-          row.count40,
-          row.teus,
-          row.containers
-        ]);
-      });
-    }
-
-    const summaryWorksheet = XLSX.utils.aoa_to_sheet(summarySheet);
-    // Auto-fit summary columns
-    const summaryColWidths = isAir
-      ? [
-          { wch: 30 }, // Particulars
-          { wch: 15 }  // Total Filed
-        ]
-      : [
-          { wch: 20 }, // Particulars
-          { wch: 12 }, // Details
-          { wch: 8 },  // 20
-          { wch: 8 },  // 40
-          { wch: 10 }, // TEUS
-          { wch: 10 }  // Containers
-        ];
-    summaryWorksheet['!cols'] = summaryColWidths;
-
-    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
-
-    // Generate filename and save
+    // -------------------------------------------------------------
+    // Generate and Download Excel
+    // -------------------------------------------------------------
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
     const timestamp = new Date().toISOString().slice(0, 10);
-    const filename = `clearance_report_${monthName}_${year}_${timestamp}.xlsx`;
-    XLSX.writeFile(workbook, filename);
+    const filename = `${isAir ? 'air_clearance_report' : 'clearance_report'}_${monthName}_${year}_${timestamp}.xlsx`;
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
   };
 
 
   const exportToPDF = async () => {
+    const isAir = (selectedCategory && selectedCategory.toLowerCase() === 'air') ||
+      (data.length > 0 && data.every(row => row.mode && row.mode.toLowerCase() === 'air'));
     const doc = new jsPDF('l', 'mm', 'a4');
     // Main report page
     const monthName = months.find(m => String(m.value) === String(month))?.label || 'Unknown';
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    const title = `Import Clearing Details of ${monthName}-${year}`;
+    const title = `${isAir ? 'Air Clearance Details' : 'Import Clearing Details'} of ${monthName}-${year}`;
     const pageWidth = doc.internal.pageSize.getWidth();
     const textWidth = doc.getTextWidth(title);
     const x = (pageWidth - textWidth) / 2;
     doc.text(title, x, 15);
 
     // Main table - build headers/data based on visible columns and role
-    const isAir = selectedCategory && selectedCategory.toLowerCase() === 'air';
     const visibleCols = columns.filter((col) => {
       if (col.key === 'cif_amount' && !isSrManager) return false;
       if (isAir && ['containerNumbers', 'totalContainers', 'size', 'teus'].includes(col.key)) {
@@ -717,7 +1276,7 @@ const DetailedReport = () => {
     doc.addPage();
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    const summaryTitle = `Summary - ${monthName} ${year}`;
+    const summaryTitle = `${isAir ? 'Air Clearance Summary' : 'Summary'} - ${monthName} ${year}`;
     const summaryTextWidth = doc.getTextWidth(summaryTitle);
     const summaryX = (doc.internal.pageSize.getWidth() - summaryTextWidth) / 2;
     doc.text(summaryTitle, summaryX, 15);
@@ -729,17 +1288,33 @@ const DetailedReport = () => {
       ? ['Particulars', 'Total Filed']
       : ['Particulars', 'Details', '20', '40', 'TEUS', 'Containers'];
       
-    const summaryBody = summaryRows.map(row => isAir
-      ? [row.location, row.containers]
-      : [
-          row.location,
-          row.details,
-          row.count20,
-          row.count40,
-          row.teus,
-          row.containers
-        ]
-    );
+    const summaryBody = summaryRows.map(row => {
+      if (isAir) {
+        return [row.location, row.containers];
+      }
+      if (row.isSectionHeader) {
+        const isIcd = row.section === 'icd';
+        const isOverall = row.section === 'overall';
+        return [{
+          content: row.location,
+          colSpan: 6,
+          styles: {
+            halign: 'center',
+            fontStyle: 'bold',
+            fillColor: isIcd ? [254, 243, 199] : isOverall ? [241, 245, 249] : [224, 242, 254],
+            textColor: isIcd ? [146, 64, 14] : isOverall ? [30, 41, 59] : [3, 105, 161]
+          }
+        }];
+      }
+      return [
+        row.location,
+        row.details,
+        row.count20,
+        row.count40,
+        row.teus,
+        row.containers
+      ];
+    });
     doc.autoTable({
       head: [summaryHeaders],
       body: summaryBody,
@@ -792,7 +1367,7 @@ const DetailedReport = () => {
 
     // Generate filename and save
     const timestamp = new Date().toISOString().slice(0, 10);
-    const filename = `IMPORT_CLEARING_DETAILS_${monthName.toUpperCase()}-${year}_${timestamp}.pdf`;
+    const filename = `${isAir ? 'AIR_CLEARANCE_DETAILS' : 'IMPORT_CLEARING_DETAILS'}_${monthName.toUpperCase()}-${year}_${timestamp}.pdf`;
     doc.save(filename);
   };
 
@@ -929,51 +1504,201 @@ const DetailedReport = () => {
         {/* Summary Dialog */}
         <Dialog open={summaryOpen} onClose={() => setSummaryOpen(false)} maxWidth="md" fullWidth>
           <DialogTitle sx={{ fontWeight: 'bold', background: 'linear-gradient(90deg, #fdf6f0 0%, #e3f2fd 100%)' }}>
-            Summary - {months.find(m => String(m.value) === String(month))?.label} {year}
+            {((selectedCategory && selectedCategory.toLowerCase() === 'air') || (data.length > 0 && data.every(row => row.mode && row.mode.toLowerCase() === 'air')))
+              ? `Air Clearance Summary - ${months.find(m => String(m.value) === String(month))?.label} ${year}`
+              : `Summary - ${months.find(m => String(m.value) === String(month))?.label} ${year}`
+            }
           </DialogTitle>
           <DialogContent sx={{ background: '#fff' }}>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Particulars</TableCell>
-                    {!(selectedCategory && selectedCategory.toLowerCase() === 'air') && (
+            {((selectedCategory && selectedCategory.toLowerCase() === 'air') || (data.length > 0 && data.every(row => row.mode && row.mode.toLowerCase() === 'air'))) ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, my: 1 }}>
+                {/* Location Summary */}
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#92400e', mb: 1, textTransform: 'uppercase' }}>
+                    Location / Airport Clearance Summary
+                  </Typography>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell align="center" sx={{ fontWeight: 'bold', background: '#fde68a', color: '#1e293b', width: 60 }}>#</TableCell>
+                          <TableCell align="left" sx={{ fontWeight: 'bold', background: '#fde68a', color: '#1e293b' }}>Airport / Custom House</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 'bold', background: '#fde68a', color: '#1e293b', width: 140 }}>Total B/Es Filed</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 'bold', background: '#fde68a', color: '#1e293b', width: 100 }}>Share (%)</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {(() => {
+                          const locCounts = {};
+                          data.forEach(r => {
+                            const loc = r.location || 'Unknown';
+                            locCounts[loc] = (locCounts[loc] || 0) + 1;
+                          });
+                          const total = data.length;
+                          return (
+                            <>
+                              {Object.entries(locCounts).map(([loc, cnt], idx) => (
+                                <TableRow key={loc} sx={{ '&:nth-of-type(even)': { background: '#f8fafc' } }}>
+                                  <TableCell align="center" sx={{ color: '#64748b' }}>{String(idx + 1).padStart(2, '0')}</TableCell>
+                                  <TableCell align="left" sx={{ fontWeight: 500 }}>{loc}</TableCell>
+                                  <TableCell align="center" sx={{ fontWeight: 'bold' }}>{cnt}</TableCell>
+                                  <TableCell align="center">{total > 0 ? `${((cnt / total) * 100).toFixed(1)}%` : '0.0%'}</TableCell>
+                                </TableRow>
+                              ))}
+                              <TableRow sx={{ background: '#fef08a', borderTop: '2px solid #1a237e', borderBottom: '3px double #1a237e' }}>
+                                <TableCell />
+                                <TableCell align="left" sx={{ fontWeight: 'bold' }}>TOTAL AIR SHIPMENTS</TableCell>
+                                <TableCell align="center" sx={{ fontWeight: 'bold', color: '#1a237e' }}>{total}</TableCell>
+                                <TableCell align="center" sx={{ fontWeight: 'bold' }}>100.0%</TableCell>
+                              </TableRow>
+                            </>
+                          );
+                        })()}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+
+                {/* Importer Breakdown */}
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#0369a1', mb: 1, textTransform: 'uppercase' }}>
+                    Importer-Wise Air Volume Ranking
+                  </Typography>
+                  <TableContainer sx={{ maxHeight: 320 }}>
+                    <Table size="small" stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell align="center" sx={{ fontWeight: 'bold', background: '#bae6fd', color: '#0369a1', width: 60 }}>#</TableCell>
+                          <TableCell align="left" sx={{ fontWeight: 'bold', background: '#bae6fd', color: '#0369a1' }}>Importer Name</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 'bold', background: '#bae6fd', color: '#0369a1', width: 140 }}>Air B/Es Filed</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 'bold', background: '#bae6fd', color: '#0369a1', width: 100 }}>Share (%)</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {(() => {
+                          const impCounts = {};
+                          data.forEach(r => {
+                            const imp = r.importer || 'Unknown';
+                            impCounts[imp] = (impCounts[imp] || 0) + 1;
+                          });
+                          const total = data.length;
+                          const sorted = Object.entries(impCounts).sort((a, b) => b[1] - a[1]);
+                          return (
+                            <>
+                              {sorted.map(([imp, cnt], idx) => (
+                                <TableRow key={imp} sx={{ '&:nth-of-type(even)': { background: '#f8fafc' } }}>
+                                  <TableCell align="center" sx={{ color: '#64748b' }}>{String(idx + 1).padStart(2, '0')}</TableCell>
+                                  <TableCell align="left">{imp}</TableCell>
+                                  <TableCell align="center" sx={{ fontWeight: 'bold', color: '#0369a1' }}>{cnt}</TableCell>
+                                  <TableCell align="center">{total > 0 ? `${((cnt / total) * 100).toFixed(1)}%` : '0.0%'}</TableCell>
+                                </TableRow>
+                              ))}
+                              <TableRow sx={{ background: '#fef08a', borderTop: '2px solid #0284c7', borderBottom: '3px double #0284c7' }}>
+                                <TableCell />
+                                <TableCell align="left" sx={{ fontWeight: 'bold' }}>TOTAL AIR SHIPMENTS</TableCell>
+                                <TableCell align="center" sx={{ fontWeight: 'bold', color: '#0369a1' }}>{total}</TableCell>
+                                <TableCell align="center" sx={{ fontWeight: 'bold' }}>100.0%</TableCell>
+                              </TableRow>
+                            </>
+                          );
+                        })()}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+              </Box>
+            ) : (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Particulars</TableCell>
                       <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Details</TableCell>
-                    )}
-                    {!(selectedCategory && selectedCategory.toLowerCase() === 'air') ? (
-                      <>
-                        <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>20</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>40</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>TEUS</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Containers</TableCell>
-                      </>
-                    ) : (
-                      <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Total Filed</TableCell>
-                    )}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {generateSummaryRows().map((row, idx) => (
-                    <TableRow key={idx} sx={{ background: row.location === 'LCL' ? '#e3f2fd' : (row.details === 'Scrap' ? '#fffde7' : row.details === 'Others' ? '#f7faff' : undefined) }}>
-                      <TableCell align="center" sx={{ fontWeight: (row.location === 'LCL' || row.location === 'TOTAL') ? 'bold' : 'normal' }}>{row.location}</TableCell>
-                      {!(selectedCategory && selectedCategory.toLowerCase() === 'air') && (
-                        <TableCell align="center">{row.details}</TableCell>
-                      )}
-                      {!(selectedCategory && selectedCategory.toLowerCase() === 'air') ? (
-                        <>
-                          <TableCell align="center">{row.count20}</TableCell>
-                          <TableCell align="center">{row.count40}</TableCell>
-                          <TableCell align="center">{row.teus}</TableCell>
-                          <TableCell align="center">{row.containers}</TableCell>
-                        </>
-                      ) : (
-                        <TableCell align="center" sx={{ fontWeight: row.location === 'TOTAL' ? 'bold' : 'normal' }}>{row.containers}</TableCell>
-                      )}
+                      <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>20</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>40</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>TEUS</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Containers</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {generateSummaryRows().map((row, idx) => {
+                      if (row.isSectionHeader) {
+                        const isIcd = row.section === 'icd';
+                        const isOverall = row.section === 'overall';
+                        return (
+                          <TableRow key={idx} sx={{ background: isIcd ? '#fff3e0' : isOverall ? '#f1f5f9' : '#e0f2fe' }}>
+                            <TableCell
+                              colSpan={6}
+                              align="center"
+                              sx={{
+                                fontWeight: 'bold',
+                                fontSize: '0.85rem',
+                                letterSpacing: '0.05em',
+                                color: isIcd ? '#b45309' : isOverall ? '#1e293b' : '#0369a1',
+                                py: 1
+                              }}
+                            >
+                              {row.location}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+
+                      const isGrandTotal = row.location === 'TOTAL';
+                      const isSubtotal = row.isSubtotal;
+                      const isLocTotal = row.details === 'TOTAL';
+                      const isLcl = row.location === 'LCL';
+                      const isExBond = row.location === 'Ex-Bond';
+
+                      let rowBg = undefined;
+                      if (isGrandTotal) rowBg = '#fff9c4';
+                      else if (isSubtotal) rowBg = row.location.includes('ICD') ? '#fef9c3' : '#e0f2fe';
+                      else if (isLocTotal) rowBg = '#f1f5f9';
+                      else if (isLcl) rowBg = '#e3f2fd';
+                      else if (isExBond) rowBg = '#f8fafc';
+                      else if (row.details === 'Scrap') rowBg = '#fffde7';
+                      else if (row.details === 'Others') rowBg = '#f7faff';
+
+                      const isBold = isGrandTotal || isSubtotal || isLocTotal || isLcl;
+
+                      return (
+                        <TableRow
+                          key={idx}
+                          sx={{
+                            background: rowBg,
+                            borderTop: isGrandTotal ? '2px solid #1a237e' : isSubtotal ? '1px solid #cbd5e1' : undefined,
+                            borderBottom: isGrandTotal ? '3px double #1a237e' : isSubtotal ? '2px solid #94a3b8' : undefined
+                          }}
+                        >
+                          <TableCell
+                            align="center"
+                            sx={{
+                              fontWeight: isBold ? 'bold' : 'normal',
+                              color: isGrandTotal ? '#1a237e' : isSubtotal ? '#0f172a' : 'inherit'
+                            }}
+                          >
+                            {row.location}
+                          </TableCell>
+                          <TableCell
+                            align="center"
+                            sx={{
+                              fontWeight: isBold ? 'bold' : 'normal',
+                              color: isLocTotal || isSubtotal ? '#0d47a1' : 'inherit'
+                            }}
+                          >
+                            {row.details}
+                          </TableCell>
+                          <TableCell align="center" sx={{ fontWeight: isBold ? 'bold' : 'normal' }}>{row.count20}</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: isBold ? 'bold' : 'normal' }}>{row.count40}</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: isBold ? 'bold' : 'normal', color: isGrandTotal ? '#b91c1c' : 'inherit' }}>{row.teus}</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: isBold ? 'bold' : 'normal', color: isGrandTotal ? '#166534' : 'inherit' }}>{row.containers}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setSummaryOpen(false)} color="primary" variant="contained">Close</Button>
@@ -1075,26 +1800,50 @@ const DetailedReport = () => {
       {/* Data Summary Card */}
       {data.length > 0 && (
         <Card elevation={1} sx={{ marginBottom: 2, padding: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
             <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
               Report Summary: {data.length} records found for {months.find(m => String(m.value) === String(month))?.label} {year}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#666' }}>
-              Total TEUs: {
-                (() => {
-                  const filteredData = data.filter(row => row.be_filing_type !== "Ex-Bond" && row.type_of_b_e !== "Ex-Bond");
-                  const totalTeus = filteredData.reduce((sum, row) => {
-                    const consType = (row.consignment_type || '').toUpperCase();
-                    const remarks = (row.remarks || '').toLowerCase();
-                    const isLCL = consType === 'LCL' || remarks.includes('lcl');
-                    if (isLCL) return sum + 1;
-                    return sum + (parseInt(row.teus) || 0);
-                  }, 0);
+            <Box sx={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+              {selectedCategory && selectedCategory.toLowerCase() === 'air' ? (
+                <Typography variant="body2" sx={{ color: '#444' }}>
+                  Total Air Shipments: <strong style={{ color: '#1976d2' }}>{data.length}</strong>
+                </Typography>
+              ) : (
+                <>
+                  <Typography variant="body2" sx={{ color: '#444' }}>
+                    Total Containers: <strong style={{ color: '#2e7d32' }}>{
+                      (() => {
+                        const filteredData = data.filter(row => {
+                          const isRowAir = row.mode && row.mode.toLowerCase() === 'air';
+                          return !isRowAir && row.be_filing_type !== "Ex-Bond" && row.type_of_b_e !== "Ex-Bond";
+                        });
+                        return filteredData.reduce((sum, row) => sum + (parseInt(row.totalContainers) || 0), 0);
+                      })()
+                    }</strong>
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#444' }}>
+                    Total TEUs: <strong style={{ color: '#1976d2' }}>{
+                      (() => {
+                        const filteredData = data.filter(row => {
+                          const isRowAir = row.mode && row.mode.toLowerCase() === 'air';
+                          return !isRowAir && row.be_filing_type !== "Ex-Bond" && row.type_of_b_e !== "Ex-Bond";
+                        });
+                        const totalTeus = filteredData.reduce((sum, row) => {
+                          const consType = (row.consignment_type || '').toUpperCase();
+                          const remarks = (row.remarks || '').toLowerCase();
+                          const isLCL = consType === 'LCL' || remarks.includes('lcl');
+                          if (isLCL) return sum + 1;
+                          return sum + (parseInt(row.teus) || 0);
+                        }, 0);
 
-                  return totalTeus;
-                })()
-              }
-            </Typography>
+                        return totalTeus;
+                      })()
+                    }</strong>
+                  </Typography>
+                </>
+              )}
+            </Box>
           </Box>
         </Card>
       )}

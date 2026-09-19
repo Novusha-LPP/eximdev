@@ -73,46 +73,13 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
         $addFields: {
           containerNumbers: {
             $map: {
-              input: "$container_nos",
+              input: { $ifNull: ["$container_nos", []] },
               as: "c",
               in: "$$c.container_number",
             },
           },
-          sizeCounts: {
-            $reduce: {
-              input: "$container_nos",
-              initialValue: { ft20: 0, ft40: 0 },
-              in: {
-                ft20: {
-                  $add: [
-                    "$$value.ft20",
-                    { $cond: [{ $eq: ["$$this.size", "20"] }, 1, 0] },
-                  ],
-                },
-                ft40: {
-                  $add: [
-                    "$$value.ft40",
-                    { $cond: [{ $eq: ["$$this.size", "40"] }, 1, 0] },
-                  ],
-                },
-              },
-            },
-          },
-          teus: {
-            $sum: {
-              $map: {
-                input: "$container_nos",
-                as: "c",
-                in: {
-                  $cond: [
-                    { $eq: ["$$c.size", "20"] },
-                    1,
-                    { $cond: [{ $eq: ["$$c.size", "40"] }, 2, 0] },
-                  ],
-                },
-              },
-            },
-          },
+          isAir: { $regexMatch: { input: { $ifNull: ["$mode", ""] }, regex: "air", options: "i" } },
+          isLCL: { $regexMatch: { input: { $ifNull: ["$consignment_type", ""] }, regex: "lcl", options: "i" } },
           remarks: {
             $concat: [
               {
@@ -147,41 +114,148 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
       },
       {
         $addFields: {
-          noOfContrSize: {
-            $trim: {
-              input: {
-                $concat: [
-                  {
-                    $cond: [
-                      { $gt: ["$sizeCounts.ft20", 0] },
-                      { $concat: [{ $toString: "$sizeCounts.ft20" }, "x20"] },
-                      "",
-                    ],
-                  },
-                  {
-                    $cond: [
-                      {
-                        $and: [
-                          { $gt: ["$sizeCounts.ft20", 0] },
-                          { $gt: ["$sizeCounts.ft40", 0] },
-                        ],
-                      },
-                      " + ",
-                      "",
-                    ],
-                  },
-                  {
-                    $cond: [
-                      { $gt: ["$sizeCounts.ft40", 0] },
-                      { $concat: [{ $toString: "$sizeCounts.ft40" }, "x40"] },
-                      "",
-                    ],
-                  },
-                ],
-              },
-            },
+          c20Raw: {
+            $size: {
+              $filter: {
+                input: { $ifNull: ["$container_nos", []] },
+                as: "c",
+                cond: { $regexMatch: { input: { $ifNull: ["$$c.size", ""] }, regex: "20" } }
+              }
+            }
           },
-        },
+          c40Raw: {
+            $size: {
+              $filter: {
+                input: { $ifNull: ["$container_nos", []] },
+                as: "c",
+                cond: { $regexMatch: { input: { $ifNull: ["$$c.size", ""] }, regex: "40|45" } }
+              }
+            }
+          }
+        }
+      },
+      {
+        $addFields: {
+          ft20: {
+            $cond: [
+              "$isAir",
+              0,
+              {
+                $cond: [
+                  "$isLCL",
+                  1,
+                  {
+                    $cond: [
+                      { $and: [{ $eq: ["$c20Raw", 0] }, { $eq: ["$c40Raw", 0] }, { $regexMatch: { input: { $ifNull: ["$no_of_container", ""] }, regex: "20" } }] },
+                      {
+                        $toInt: {
+                          $ifNull: [
+                            { $arrayElemAt: [{ $regexFind: { input: { $ifNull: ["$no_of_container", ""] }, regex: "\\b(\\d+)\\s*x\\s*20" } }, 1] },
+                            { $toInt: { $ifNull: ["$container_count", 1] } }
+                          ]
+                        }
+                      },
+                      "$c20Raw"
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          ft40: {
+            $cond: [
+              "$isAir",
+              0,
+              {
+                $cond: [
+                  "$isLCL",
+                  0,
+                  {
+                    $cond: [
+                      { $and: [{ $eq: ["$c20Raw", 0] }, { $eq: ["$c40Raw", 0] }, { $regexMatch: { input: { $ifNull: ["$no_of_container", ""] }, regex: "40|45" } }] },
+                      {
+                        $toInt: {
+                          $ifNull: [
+                            { $arrayElemAt: [{ $regexFind: { input: { $ifNull: ["$no_of_container", ""] }, regex: "\\b(\\d+)\\s*x\\s*40" } }, 1] },
+                            { $toInt: { $ifNull: ["$container_count", 1] } }
+                          ]
+                        }
+                      },
+                      "$c40Raw"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          calcContainers: {
+            $cond: [
+              "$isAir",
+              0,
+              {
+                $cond: [
+                  "$isLCL",
+                  1,
+                  {
+                    $cond: [
+                      { $gt: [{ $size: { $ifNull: ["$container_nos", []] } }, 0] },
+                      { $size: { $ifNull: ["$container_nos", []] } },
+                      { $add: ["$ft20", "$ft40"] }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          calcTeus: {
+            $cond: [
+              "$isAir",
+              0,
+              {
+                $cond: [
+                  "$isLCL",
+                  1,
+                  { $add: ["$ft20", { $multiply: ["$ft40", 2] }] }
+                ]
+              }
+            ]
+          },
+          calcNoOfContrSize: {
+            $cond: [
+              "$isAir",
+              "",
+              {
+                $cond: [
+                  "$isLCL",
+                  "LCL",
+                  {
+                    $cond: [
+                      { $and: [{ $gt: ["$ft20", 0] }, { $gt: ["$ft40", 0] }] },
+                      { $concat: [{ $toString: "$ft20" }, "x20 + ", { $toString: "$ft40" }, "x40"] },
+                      {
+                        $cond: [
+                          { $gt: ["$ft20", 0] },
+                          { $concat: [{ $toString: "$ft20" }, "x20"] },
+                          {
+                            $cond: [
+                              { $gt: ["$ft40", 0] },
+                              { $concat: [{ $toString: "$ft40" }, "x40"] },
+                              { $ifNull: ["$no_of_container", ""] }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
       },
       {
         $project: {
@@ -195,21 +269,11 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
           be_no: 1,
           be_date: 1,
           containerNumbers: 1,
-          totalContainers: {
-            $cond: [
-              { $eq: ["$consignment_type", "LCL"] },
-              1,
-              { $size: "$container_nos" }
-            ]
-          },
-          noOfContrSize: 1,
-          teus: {
-            $cond: [
-              { $eq: ["$consignment_type", "LCL"] },
-              1,
-              "$teus"
-            ]
-          },
+          totalContainers: "$calcContainers",
+          noOfContrSize: "$calcNoOfContrSize",
+          count20: "$ft20",
+          count40: "$ft40",
+          teus: "$calcTeus",
           out_of_charge: 1,
           remarks: 1,
           consignment_type: 1,

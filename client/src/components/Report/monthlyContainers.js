@@ -13,6 +13,7 @@ import {
   TableBody,
   TableCell,
   TableContainer,
+  TableFooter,
   TableHead,
   TableRow,
   Paper,
@@ -119,16 +120,19 @@ const ChartTooltip = ({ active, payload, label }) => {
 
 // Trend chart component
 const TrendChart = ({ trendData, importerName }) => {
-  // Calculate net containers and TEU for each month
-  const dataWithStats = trendData.map(item => ({
-    ...item,
-    net20: Math.max(0, (Number(item.container20Ft) || 0) - (Number(item.lcl20Ft) || 0)),
-    net40: Math.max(0, (Number(item.container40Ft) || 0) - (Number(item.lcl40Ft) || 0)),
-    teu: Math.max(0,
-      ((Number(item.container20Ft) || 0) - (Number(item.lcl20Ft) || 0)) +
-      2 * ((Number(item.container40Ft) || 0) - (Number(item.lcl40Ft) || 0))
-    ),
-  }));
+  // Calculate containers and TEU for each month
+  const dataWithStats = trendData.map(item => {
+    const c20 = Number(item.container20Ft) || 0;
+    const c40 = Number(item.container40Ft) || 0;
+    const lcl = (Number(item.lcl20Ft) || 0) + (Number(item.lcl40Ft) || 0);
+    return {
+      ...item,
+      net20: c20,
+      net40: c40,
+      lcl,
+      teu: item.teu !== undefined ? Number(item.teu) : (c20 + (2 * c40) + lcl),
+    };
+  });
 
   return (
     <Box sx={{ width: 450, p: 3, background: 'linear-gradient(135deg, #ffffff 0%, #f8faff 100%)' }}>
@@ -218,6 +222,7 @@ const MonthlyContainers = () => {
   const dynamicICDs = useDynamicICDs();
   const { selectedBranch, selectedCategory, loading: branchLoading } = useContext(BranchContext);
   const navigate = useNavigate();
+  const isAir = selectedCategory && selectedCategory.toLowerCase() === 'air';
 
   // The years array is now fetched dynamically through the useFetchYears hook.
 
@@ -242,8 +247,8 @@ const MonthlyContainers = () => {
       beDateCount: Number(row.beDateCount) || 0,
       container20Ft: Number(row.container20Ft) || 0,
       container40Ft: Number(row.container40Ft) || 0,
-      lcl20Ft: Number(row.lcl20Ft) || 0,
-      lcl40Ft: Number(row.lcl40Ft) || 0,
+      lcl20Ft: (Number(row.lcl20Ft) || 0) + (Number(row.lcl40Ft) || 0),
+      lcl40Ft: 0,
     };
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -319,29 +324,29 @@ const MonthlyContainers = () => {
       case 'oocCount': // NEW
         aValue = a.oocCount; bValue = b.oocCount; break;
       case 'container20Ft':
-        aValue = Math.max(0, (Number(a.container20Ft) || 0) - (Number(a.lcl20Ft) || 0));
-        bValue = Math.max(0, (Number(b.container20Ft) || 0) - (Number(b.lcl20Ft) || 0));
+        aValue = Number(a.container20Ft) || 0;
+        bValue = Number(b.container20Ft) || 0;
         break;
       case 'container40Ft':
-        aValue = Math.max(0, (Number(a.container40Ft) || 0) - (Number(a.lcl40Ft) || 0));
-        bValue = Math.max(0, (Number(b.container40Ft) || 0) - (Number(b.lcl40Ft) || 0));
+        aValue = Number(a.container40Ft) || 0;
+        bValue = Number(b.container40Ft) || 0;
         break;
       case 'lcl20Ft':
-        aValue = Number(a.lcl20Ft) || 0;
-        bValue = Number(b.lcl20Ft) || 0;
+        aValue = (Number(a.lcl20Ft) || 0) + (Number(a.lcl40Ft) || 0);
+        bValue = (Number(b.lcl20Ft) || 0) + (Number(b.lcl40Ft) || 0);
         break;
       case 'lcl40Ft':
         aValue = Number(a.lcl40Ft) || 0;
         bValue = Number(b.lcl40Ft) || 0;
         break;
+      case 'totalContainers':
+        aValue = a.totalContainers ?? ((Number(a.container20Ft) || 0) + (Number(a.container40Ft) || 0) + (Number(a.lcl20Ft) || 0) + (Number(a.lcl40Ft) || 0));
+        bValue = b.totalContainers ?? ((Number(b.container20Ft) || 0) + (Number(b.container40Ft) || 0) + (Number(b.lcl20Ft) || 0) + (Number(b.lcl40Ft) || 0));
+        break;
       case 'teu':
       default:
-        const aNet20 = Math.max(0, (Number(a.container20Ft) || 0) - (Number(a.lcl20Ft) || 0));
-        const aNet40 = Math.max(0, (Number(a.container40Ft) || 0) - (Number(a.lcl40Ft) || 0));
-        const bNet20 = Math.max(0, (Number(b.container20Ft) || 0) - (Number(b.lcl20Ft) || 0));
-        const bNet40 = Math.max(0, (Number(b.container40Ft) || 0) - (Number(b.lcl40Ft) || 0));
-        aValue = aNet20 + (2 * aNet40);
-        bValue = bNet20 + (2 * bNet40);
+        aValue = a.teu ?? ((Number(a.container20Ft) || 0) + (2 * (Number(a.container40Ft) || 0)) + (Number(a.lcl20Ft) || 0) + (Number(a.lcl40Ft) || 0));
+        bValue = b.teu ?? ((Number(b.container20Ft) || 0) + (2 * (Number(b.container40Ft) || 0)) + (Number(b.lcl20Ft) || 0) + (Number(b.lcl40Ft) || 0));
     }
 
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
@@ -378,16 +383,16 @@ const MonthlyContainers = () => {
     setSelectedImporter("");
   };
 
-  // Calculate statistics with LCL subtraction
+  // Calculate statistics
   const totalBEs = data.reduce((sum, row) => sum + (Number(row.beDateCount) || 0), 0);
   const totalOutOfCharge = data.reduce((sum, row) => sum + (Number(row.oocCount) || 0), 0);
-  const totalNet20Ft = data.reduce((sum, row) => sum + Math.max(0, (Number(row.container20Ft) || 0) - (Number(row.lcl20Ft) || 0)), 0);
-  const totalNet40Ft = data.reduce((sum, row) => sum + Math.max(0, (Number(row.container40Ft) || 0) - (Number(row.lcl40Ft) || 0)), 0);
+  const total20Ft = data.reduce((sum, row) => sum + (Number(row.container20Ft) || 0), 0);
+  const total40Ft = data.reduce((sum, row) => sum + (Number(row.container40Ft) || 0), 0);
   const totalLCL = data.reduce((sum, row) => sum + (Number(row.lcl20Ft) || 0) + (Number(row.lcl40Ft) || 0), 0);
+  const totalContainers = total20Ft + total40Ft + totalLCL;
   const totalTEU = data.reduce((sum, row) => {
-    const net20Ft = Math.max(0, (Number(row.container20Ft) || 0) - (Number(row.lcl20Ft) || 0));
-    const net40Ft = Math.max(0, (Number(row.container40Ft) || 0) - (Number(row.lcl40Ft) || 0));
-    return sum + net20Ft + (2 * net40Ft);
+    if (row.teu !== undefined) return sum + Number(row.teu);
+    return sum + (Number(row.container20Ft) || 0) + (2 * (Number(row.container40Ft) || 0)) + (Number(row.lcl20Ft) || 0) + (Number(row.lcl40Ft) || 0);
   }, 0);
 
   const StatCard = ({ title, value, icon, color }) => (
@@ -448,7 +453,7 @@ const MonthlyContainers = () => {
             <InventoryIcon sx={{ fontSize: 40 }} />
             <Box>
               <Typography variant="h4" fontWeight="bold">
-                Monthly Container Report
+                {isAir ? "Monthly Air Shipment Report" : "Monthly Container Report"}
               </Typography>
               <Typography variant="body1" sx={{ opacity: 0.9 }}>
                 {months.find(m => m.value === month)?.label} {year}
@@ -581,7 +586,7 @@ const MonthlyContainers = () => {
       {data.length > 0 && (
         <>
           <Grid container spacing={2} sx={{ marginBottom: 3 }}>
-            <Grid item xs={12} sm={6} md={2}>
+            <Grid item xs={12} sm={6} md={isAir ? 4 : 2}>
               <StatCard
                 title="Total Importers"
                 value={data.length}
@@ -589,7 +594,7 @@ const MonthlyContainers = () => {
                 color={theme.palette.primary.main}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={2}>
+            <Grid item xs={12} sm={6} md={isAir ? 4 : 2}>
               <StatCard
                 title="Total BEs"
                 value={totalBEs}
@@ -598,40 +603,43 @@ const MonthlyContainers = () => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={6} md={2}>
+            <Grid item xs={12} sm={6} md={isAir ? 4 : 2}>
               <StatCard
                 title="Total Out Of Charge"
                 value={totalOutOfCharge}
                 icon={<AssessmentIcon sx={{ fontSize: 40 }} />}
-                color={theme.palette.success.main}
+                color="#6a1b9a"
               />
             </Grid>
 
-
-            <Grid item xs={12} sm={6} md={2}>
-              <StatCard
-                title="Net Containers"
-                value={totalNet20Ft + totalNet40Ft}
-                icon={<InventoryIcon sx={{ fontSize: 40 }} />}
-                color={theme.palette.warning.main}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <StatCard
-                title="Total LCL"
-                value={totalLCL}
-                icon={<InventoryIcon sx={{ fontSize: 40 }} />}
-                color={theme.palette.info.main}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <StatCard
-                title="Total TEU"
-                value={totalTEU}
-                icon={<TrendingUpIcon sx={{ fontSize: 40 }} />}
-                color={theme.palette.error.main}
-              />
-            </Grid>
+            {!isAir && (
+              <>
+                <Grid item xs={12} sm={6} md={2}>
+                  <StatCard
+                    title="Total Containers"
+                    value={totalContainers}
+                    icon={<InventoryIcon sx={{ fontSize: 40 }} />}
+                    color={theme.palette.warning.main}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={2}>
+                  <StatCard
+                    title="Total LCL"
+                    value={totalLCL}
+                    icon={<InventoryIcon sx={{ fontSize: 40 }} />}
+                    color={theme.palette.info.main}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={2}>
+                  <StatCard
+                    title="Total TEU"
+                    value={totalTEU}
+                    icon={<TrendingUpIcon sx={{ fontSize: 40 }} />}
+                    color={theme.palette.error.main}
+                  />
+                </Grid>
+              </>
+            )}
           </Grid>
 
           <Fade in timeout={1000}>
@@ -680,71 +688,75 @@ const MonthlyContainers = () => {
                         </TableSortLabel>
                       </TableCell>
 
-                      <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
-                        <TableSortLabel
-                          active={sortColumn === 'container20Ft'}
-                          direction={sortColumn === 'container20Ft' ? sortDirection : 'asc'}
-                          onClick={() => handleSort('container20Ft')}
-                          sx={{ 
-                            color: 'white !important',
-                            '& .MuiTableSortLabel-icon': { color: 'white !important' }
-                          }}
-                        >
-                          Net 20ft Containers
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
-                        <TableSortLabel
-                          active={sortColumn === 'container40Ft'}
-                          direction={sortColumn === 'container40Ft' ? sortDirection : 'asc'}
-                          onClick={() => handleSort('container40Ft')}
-                          sx={{ 
-                            color: 'white !important',
-                            '& .MuiTableSortLabel-icon': { color: 'white !important' }
-                          }}
-                        >
-                          Net 40ft Containers
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
-                        <TableSortLabel
-                          active={sortColumn === 'lcl20Ft'}
-                          direction={sortColumn === 'lcl20Ft' ? sortDirection : 'asc'}
-                          onClick={() => handleSort('lcl20Ft')}
-                          sx={{ 
-                            color: 'white !important',
-                            '& .MuiTableSortLabel-icon': { color: 'white !important' }
-                          }}
-                        >
-                          LCL 20ft
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
-                        <TableSortLabel
-                          active={sortColumn === 'lcl40Ft'}
-                          direction={sortColumn === 'lcl40Ft' ? sortDirection : 'asc'}
-                          onClick={() => handleSort('lcl40Ft')}
-                          sx={{ 
-                            color: 'white !important',
-                            '& .MuiTableSortLabel-icon': { color: 'white !important' }
-                          }}
-                        >
-                          LCL 40ft
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
-                        <TableSortLabel
-                          active={sortColumn === 'teu'}
-                          direction={sortColumn === 'teu' ? sortDirection : 'asc'}
-                          onClick={() => handleSort('teu')}
-                          sx={{ 
-                            color: 'white !important',
-                            '& .MuiTableSortLabel-icon': { color: 'white !important' }
-                          }}
-                        >
-                          TEU
-                        </TableSortLabel>
-                      </TableCell>
+                      {!isAir && (
+                        <>
+                          <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
+                            <TableSortLabel
+                              active={sortColumn === 'container20Ft'}
+                              direction={sortColumn === 'container20Ft' ? sortDirection : 'asc'}
+                              onClick={() => handleSort('container20Ft')}
+                              sx={{ 
+                                color: 'white !important',
+                                '& .MuiTableSortLabel-icon': { color: 'white !important' }
+                              }}
+                            >
+                              20ft Containers
+                            </TableSortLabel>
+                          </TableCell>
+                          <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
+                            <TableSortLabel
+                              active={sortColumn === 'container40Ft'}
+                              direction={sortColumn === 'container40Ft' ? sortDirection : 'asc'}
+                              onClick={() => handleSort('container40Ft')}
+                              sx={{ 
+                                color: 'white !important',
+                                '& .MuiTableSortLabel-icon': { color: 'white !important' }
+                              }}
+                            >
+                              40ft Containers
+                            </TableSortLabel>
+                          </TableCell>
+                          <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
+                            <TableSortLabel
+                              active={sortColumn === 'lcl20Ft'}
+                              direction={sortColumn === 'lcl20Ft' ? sortDirection : 'asc'}
+                              onClick={() => handleSort('lcl20Ft')}
+                              sx={{ 
+                                color: 'white !important',
+                                '& .MuiTableSortLabel-icon': { color: 'white !important' }
+                              }}
+                            >
+                              LCL (TEU)
+                            </TableSortLabel>
+                          </TableCell>
+                          <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
+                            <TableSortLabel
+                              active={sortColumn === 'totalContainers'}
+                              direction={sortColumn === 'totalContainers' ? sortDirection : 'asc'}
+                              onClick={() => handleSort('totalContainers')}
+                              sx={{ 
+                                color: 'white !important',
+                                '& .MuiTableSortLabel-icon': { color: 'white !important' }
+                              }}
+                            >
+                              Total Containers
+                            </TableSortLabel>
+                          </TableCell>
+                          <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem' }}>
+                            <TableSortLabel
+                              active={sortColumn === 'teu'}
+                              direction={sortColumn === 'teu' ? sortDirection : 'asc'}
+                              onClick={() => handleSort('teu')}
+                              sx={{ 
+                                color: 'white !important',
+                                '& .MuiTableSortLabel-icon': { color: 'white !important' }
+                              }}
+                            >
+                              TEU
+                            </TableSortLabel>
+                          </TableCell>
+                        </>
+                      )}
                       <TableCell sx={{ bgcolor: '#1a237e', color: 'white', fontWeight: "bold", fontSize: '0.9rem', textAlign: 'center' }}>
                         Trend
                       </TableCell>
@@ -754,7 +766,7 @@ const MonthlyContainers = () => {
                     {loading ? (
                       Array.from({ length: 5 }).map((_, idx) => (
                         <TableRow key={idx}>
-                          {Array.from({ length: 8 }).map((_, cellIdx) => (
+                          {Array.from({ length: isAir ? 4 : 9 }).map((_, cellIdx) => (
                             <TableCell key={cellIdx}>
                               <Skeleton variant="text" />
                             </TableCell>
@@ -763,9 +775,11 @@ const MonthlyContainers = () => {
                       ))
                     ) : (
                       sortedData.map((row, idx) => {
-                        const net20Ft = Math.max(0, (Number(row.container20Ft) || 0) - (Number(row.lcl20Ft) || 0));
-                        const net40Ft = Math.max(0, (Number(row.container40Ft) || 0) - (Number(row.lcl40Ft) || 0));
-                        const teu = net20Ft + (2 * net40Ft);
+                        const count20 = Number(row.container20Ft) || 0;
+                        const count40 = Number(row.container40Ft) || 0;
+                        const lcl = (Number(row.lcl20Ft) || 0) + (Number(row.lcl40Ft) || 0);
+                        const totalCont = row.totalContainers ?? (count20 + count40 + lcl);
+                        const teu = row.teu ?? (count20 + (2 * count40) + lcl);
 
                         return (
                           <TableRow
@@ -814,83 +828,87 @@ const MonthlyContainers = () => {
                               </Box>
                             </TableCell>
 
-                            <TableCell>
-                              <Box
-                                sx={{
-                                  backgroundColor: '#2e7d32',
-                                  color: 'white',
-                                  padding: '8px 12px',
-                                  borderRadius: '8px',
-                                  fontWeight: 'bold',
-                                  fontSize: '0.875rem',
-                                  textAlign: 'center',
-                                  minWidth: '50px',
-                                  display: 'inline-block'
-                                }}
-                              >
-                                {net20Ft}
-                              </Box>
-                            </TableCell>
-                            <TableCell>
-                              <Box
-                                sx={{
-                                  backgroundColor: '#ed6c02',
-                                  color: 'white',
-                                  padding: '8px 12px',
-                                  borderRadius: '8px',
-                                  fontWeight: 'bold',
-                                  fontSize: '0.875rem',
-                                  textAlign: 'center',
-                                  minWidth: '50px',
-                                  display: 'inline-block'
-                                }}
-                              >
-                                {net40Ft}
-                              </Box>
-                            </TableCell>
-                            <TableCell>
-                              <Box
-                                sx={{
-                                  backgroundColor: '#00bcd4',
-                                  color: 'white',
-                                  padding: '8px 12px',
-                                  borderRadius: '8px',
-                                  fontWeight: 'bold',
-                                  fontSize: '0.875rem',
-                                  textAlign: 'center',
-                                  minWidth: '50px',
-                                  display: 'inline-block'
-                                }}
-                              >
-                                {row.lcl20Ft}
-                              </Box>
-                            </TableCell>
-                            <TableCell>
-                              <Box
-                                sx={{
-                                  backgroundColor: '#00bcd4',
-                                  color: 'white',
-                                  padding: '8px 12px',
-                                  borderRadius: '8px',
-                                  fontWeight: 'bold',
-                                  fontSize: '0.875rem',
-                                  textAlign: 'center',
-                                  minWidth: '50px',
-                                  display: 'inline-block'
-                                }}
-                              >
-                                {row.lcl40Ft}
-                              </Box>
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={teu}
-                                size="small"
-                                color="error"
-                                variant="filled"
-                                sx={{ fontWeight: 'bold' }}
-                              />
-                            </TableCell>
+                            {!isAir && (
+                              <>
+                                <TableCell>
+                                  <Box
+                                    sx={{
+                                      backgroundColor: '#2e7d32',
+                                      color: 'white',
+                                      padding: '8px 12px',
+                                      borderRadius: '8px',
+                                      fontWeight: 'bold',
+                                      fontSize: '0.875rem',
+                                      textAlign: 'center',
+                                      minWidth: '50px',
+                                      display: 'inline-block'
+                                    }}
+                                  >
+                                    {count20}
+                                  </Box>
+                                </TableCell>
+                                <TableCell>
+                                  <Box
+                                    sx={{
+                                      backgroundColor: '#ed6c02',
+                                      color: 'white',
+                                      padding: '8px 12px',
+                                      borderRadius: '8px',
+                                      fontWeight: 'bold',
+                                      fontSize: '0.875rem',
+                                      textAlign: 'center',
+                                      minWidth: '50px',
+                                      display: 'inline-block'
+                                    }}
+                                  >
+                                    {count40}
+                                  </Box>
+                                </TableCell>
+                                <TableCell>
+                                  <Box
+                                    sx={{
+                                      backgroundColor: '#00bcd4',
+                                      color: 'white',
+                                      padding: '8px 12px',
+                                      borderRadius: '8px',
+                                      fontWeight: 'bold',
+                                      fontSize: '0.875rem',
+                                      textAlign: 'center',
+                                      minWidth: '50px',
+                                      display: 'inline-block'
+                                    }}
+                                  >
+                                    {lcl}
+                                  </Box>
+                                </TableCell>
+                                <TableCell>
+                                  <Box
+                                    sx={{
+                                      backgroundColor: '#ff9800',
+                                      color: 'white',
+                                      padding: '8px 12px',
+                                      borderRadius: '8px',
+                                      fontWeight: 'bold',
+                                      fontSize: '0.875rem',
+                                      textAlign: 'center',
+                                      minWidth: '50px',
+                                      display: 'inline-block'
+                                    }}
+                                  >
+                                    {totalCont}
+                                  </Box>
+                                </TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={teu}
+                                    size="small"
+                                    color="error"
+                                    variant="filled"
+                                    sx={{ fontWeight: 'bold' }}
+                                  />
+                                </TableCell>
+                              </>
+                            )}
                             <TableCell sx={{ textAlign: 'center' }}>
                               <Tooltip title="View 6-month trend">
                                 <IconButton
@@ -916,6 +934,23 @@ const MonthlyContainers = () => {
                       })
                     )}
                   </TableBody>
+                  <TableFooter>
+                    <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                      <TableCell sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>TOTAL</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{totalBEs}</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{totalOutOfCharge}</TableCell>
+                      {!isAir && (
+                        <>
+                          <TableCell sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{total20Ft}</TableCell>
+                          <TableCell sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{total40Ft}</TableCell>
+                          <TableCell sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{totalLCL}</TableCell>
+                          <TableCell sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{totalContainers}</TableCell>
+                          <TableCell sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{totalTEU}</TableCell>
+                        </>
+                      )}
+                      <TableCell />
+                    </TableRow>
+                  </TableFooter>
                 </Table>
               </TableContainer>
             </Card>

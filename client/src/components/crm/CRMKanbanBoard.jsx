@@ -1475,6 +1475,7 @@ export default function CRMKanbanBoard() {
                             if (!actDate || Number.isNaN(actDate.getTime())) return null;
                             const diffDays = Math.floor((Date.now() - actDate.getTime()) / (1000 * 60 * 60 * 24));
                             if (diffDays < 2) return null;
+                            if (['won', 'lost', 'rejected', 'cancelled'].includes(opp.stage)) return null;
                             return (
                               <span style={{
                                 fontSize: '0.62rem',

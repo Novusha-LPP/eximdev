@@ -15,7 +15,8 @@ export default function SalesTeamManagement() {
     type: 'regional',
     businessVertical: 'Paramount',
     memberIds: [],
-    quotas: { monthlyRevenue: 0, dealCount: 0 }
+    quotas: { monthlyRevenue: 0, dealCount: 0 },
+    stagnantDays: 2
   });
   const [userSearch, setUserSearch] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -165,7 +166,7 @@ export default function SalesTeamManagement() {
     setIsFormOpen(false);
     setEditingTeam(null);
     setUserSearch('');
-    setFormData({ name: '', description: '', type: 'regional', businessVertical: 'Paramount', memberIds: [], quotas: { monthlyRevenue: 0, dealCount: 0 } });
+    setFormData({ name: '', description: '', type: 'regional', businessVertical: 'Paramount', memberIds: [], quotas: { monthlyRevenue: 0, dealCount: 0 }, stagnantDays: 2 });
   };
 
   const handleEdit = (team) => {
@@ -177,7 +178,8 @@ export default function SalesTeamManagement() {
       type: team.type || 'regional',
       businessVertical: team.businessVertical || 'Paramount',
       memberIds: currentMemberIds,
-      quotas: team.quotas || { monthlyRevenue: 0, dealCount: 0 }
+      quotas: team.quotas || { monthlyRevenue: 0, dealCount: 0 },
+      stagnantDays: team.stagnantDays !== undefined ? team.stagnantDays : 2
     });
     setIsFormOpen(true);
   };
@@ -288,6 +290,17 @@ export default function SalesTeamManagement() {
                     <option value="Import">Import</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Stagnant Duration */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.875rem' }}>Stagnant Duration (Days) *</label>
+                <input
+                  type="number" required min="1"
+                  value={formData.stagnantDays}
+                  onChange={(e) => setFormData({ ...formData, stagnantDays: parseInt(e.target.value, 10) || 2 })}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', boxSizing: 'border-box' }}
+                />
               </div>
 
               {/* ── MEMBER SELECTION DROPDOWN ── */}

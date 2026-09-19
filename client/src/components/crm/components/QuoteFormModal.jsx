@@ -34,29 +34,54 @@ export default function QuoteFormModal({
   const getChargeTemplate = (selectedType = 'import') => {
     const templates = {
       import: [
-        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 2750, discount: 0, tax: 0 },
-        { productName: 'VGM/ESB/FORM-13 filing through ODEX/MMD3', hsnSac: '9987', quantity: 1, unitPrice: 1500, discount: 0, tax: 0 },
-        { productName: 'Certificate of Origin - Non Preferential', hsnSac: '9987', quantity: 1, unitPrice: 500, discount: 0, tax: 0 },
-        { productName: 'EDI Charges', hsnSac: '9987', quantity: 1, unitPrice: 70, discount: 0, tax: 0 },
-        { productName: 'CFS charges at MUNDRA', hsnSac: '9987', quantity: 1, unitPrice: 15000, discount: 0, tax: 0 },
-        { productName: 'Unseal for Non Factory stuffing permission', hsnSac: '9987', quantity: 1, unitPrice: 8000, discount: 0, tax: 0 },
-        { productName: 'Transportation charges (ICD Khediyari to Amman)', hsnSac: '9987', quantity: 1, unitPrice: 10000, discount: 0, tax: 0 },
-        { productName: 'Lift on lift off charges', hsnSac: '9987', quantity: 1, unitPrice: 2000, discount: 0, tax: 0 },
-        { productName: 'Detention Charges', hsnSac: '9987', quantity: 1, unitPrice: 1500, discount: 0, tax: 0 },
-        { productName: 'Transportation charges (Amman to Mundra)', hsnSac: '9987', quantity: 1, unitPrice: 25000, discount: 0, tax: 0 },
-        { productName: 'Loaded Container Shifting charges', hsnSac: '9987', quantity: 1, unitPrice: 5000, discount: 0, tax: 0 }
+        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 6000, discount: 0, tax: 18 },
+        { productName: 'Shipping Line Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 18 },
+        { productName: 'CFS Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 18 },
+        { productName: 'EDI Charges', hsnSac: '9987', quantity: 1, unitPrice: 70, discount: 0, tax: 18 },
+        { productName: 'Bond & Insurance Charges for Factory De-stuffing', hsnSac: '9987', quantity: 1, unitPrice: 750, discount: 0, tax: 18 },
+        { productName: 'Stamp Duty (0.1% of Assessable Value)', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Lift off Charges', hsnSac: '9987', quantity: 1, unitPrice: 2000, discount: 0, tax: 18 },
+        { productName: 'Other Charges, If any', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 18 }
       ],
       export: [
-        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 2200, discount: 0, tax: 0 },
-        { productName: 'Shipping Line Documentation Charges', hsnSac: '9987', quantity: 1, unitPrice: 1800, discount: 0, tax: 0 },
-        { productName: 'Customs Filing Charges', hsnSac: '9987', quantity: 1, unitPrice: 1200, discount: 0, tax: 0 },
-        { productName: 'EDI Charges', hsnSac: '9987', quantity: 1, unitPrice: 60, discount: 0, tax: 0 },
-        { productName: 'CFS / Gate Charges', hsnSac: '9987', quantity: 1, unitPrice: 13000, discount: 0, tax: 0 },
-        { productName: 'Transport to Port / ICD', hsnSac: '9987', quantity: 1, unitPrice: 9500, discount: 0, tax: 0 },
-        { productName: 'Terminal Handling Charges', hsnSac: '9987', quantity: 1, unitPrice: 6000, discount: 0, tax: 0 },
-        { productName: 'Lift on / Lift off Charges', hsnSac: '9987', quantity: 1, unitPrice: 1800, discount: 0, tax: 0 },
-        { productName: 'Seal / Security Charges', hsnSac: '9987', quantity: 1, unitPrice: 1200, discount: 0, tax: 0 },
-        { productName: 'Documentation / Insurance', hsnSac: '9987', quantity: 1, unitPrice: 1500, discount: 0, tax: 0 }
+        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 2200, discount: 0, tax: 18 },
+        { productName: 'Shipping Line Documentation Charges', hsnSac: '9987', quantity: 1, unitPrice: 1800, discount: 0, tax: 18 },
+        { productName: 'Customs Filing Charges', hsnSac: '9987', quantity: 1, unitPrice: 1200, discount: 0, tax: 18 },
+        { productName: 'EDI Charges', hsnSac: '9987', quantity: 1, unitPrice: 60, discount: 0, tax: 18 },
+        { productName: 'CFS / Gate Charges', hsnSac: '9987', quantity: 1, unitPrice: 13000, discount: 0, tax: 18 },
+        { productName: 'Transport to Port / ICD', hsnSac: '9987', quantity: 1, unitPrice: 9500, discount: 0, tax: 18 },
+        { productName: 'Terminal Handling Charges', hsnSac: '9987', quantity: 1, unitPrice: 6000, discount: 0, tax: 18 },
+        { productName: 'Lift on / Lift off Charges', hsnSac: '9987', quantity: 1, unitPrice: 1800, discount: 0, tax: 18 },
+        { productName: 'Seal / Security Charges', hsnSac: '9987', quantity: 1, unitPrice: 1200, discount: 0, tax: 18 },
+        { productName: 'Documentation / Insurance', hsnSac: '9987', quantity: 1, unitPrice: 1500, discount: 0, tax: 18 }
+      ],
+      freight_import: [
+        { productName: 'Ocean Freight Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Terminal Handling Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Bill of Lading Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Seal Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Transportation / Trailer Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 6000, discount: 0, tax: 18 }
+      ],
+      freight_export: [
+        { productName: 'Ocean Freight Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Terminal Handling Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Bill of Lading Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Seal Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Transportation / Trailer Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 6000, discount: 0, tax: 18 }
+      ],
+      transport: [
+        { productName: 'PICKUP AHMEDABAD (ICD KHODIYAR) STUFFING : PIPLEJ /NAROL RETURN : MUNDRA - 20FT UP TO 14 TONS+', hsnSac: '9967', quantity: 1, unitPrice: 0, discount: 0, tax: 12 },
+        { productName: 'PICKUP AHMEDABAD (ICD KHODIYAR) STUFFING : PIPLEJ /NAROL RETURN : MUNDRA - 40HC UP TO 28 TONS+', hsnSac: '9967', quantity: 1, unitPrice: 0, discount: 0, tax: 12 }
+      ],
+      pfp: [
+        { productName: 'HDPE/PP Plastic Crate', hsnSac: '3923', quantity: 1, unitPrice: 0, discount: 0, tax: 18 }
+      ],
+      software_elock: [
+        { productName: 'Software Installation & Initial Deployment', hsnSac: '9973', quantity: 1, unitPrice: 0, discount: 0, tax: 18 },
+        { productName: 'Monthly Software Subscription', hsnSac: '9973', quantity: 1, unitPrice: 0, discount: 0, tax: 18 },
+        { productName: 'E-Lock Usage / Rental - Per Trip', hsnSac: '9973', quantity: 1, unitPrice: 0, discount: 0, tax: 18 }
       ]
     };
 
@@ -262,11 +287,25 @@ export default function QuoteFormModal({
 
   const handleTradeTypeChange = (nextType) => {
     setFormData(prev => {
-      const hasCustomLines = prev.lineItems?.some(item => item.productName && item.productName.trim() !== '');
+      // Check if current lines perfectly match any of the default templates
+      const currentLinesStr = JSON.stringify(prev.lineItems.map(i => i.productName));
+      const importLinesStr = JSON.stringify(getChargeTemplate('import').map(i => i.productName));
+      const exportLinesStr = JSON.stringify(getChargeTemplate('export').map(i => i.productName));
+      const frImportLinesStr = JSON.stringify(getChargeTemplate('freight_import').map(i => i.productName));
+      const frExportLinesStr = JSON.stringify(getChargeTemplate('freight_export').map(i => i.productName));
+      const transportLinesStr = JSON.stringify(getChargeTemplate('transport').map(i => i.productName));
+      const pfpLinesStr = JSON.stringify(getChargeTemplate('pfp').map(i => i.productName));
+      const softwareElockLinesStr = JSON.stringify(getChargeTemplate('software_elock').map(i => i.productName));
+      const isDefault = currentLinesStr === importLinesStr || currentLinesStr === exportLinesStr || currentLinesStr === frImportLinesStr || currentLinesStr === frExportLinesStr || currentLinesStr === transportLinesStr || currentLinesStr === pfpLinesStr || currentLinesStr === softwareElockLinesStr;
+      
+      const shouldReplace = !quoteToEdit && (isDefault || prev.lineItems.length === 0);
+
       return {
         ...prev,
         tradeType: nextType,
-        lineItems: hasCustomLines && !quoteToEdit ? prev.lineItems : getChargeTemplate(nextType).map(item => ({ ...item, lineTotal: (item.quantity || 1) * (item.unitPrice || 0) }))
+        lineItems: shouldReplace 
+          ? getChargeTemplate(nextType).map(item => ({ ...item, lineTotal: (item.quantity || 1) * (item.unitPrice || 0) }))
+          : prev.lineItems
       };
     });
   };
@@ -525,22 +564,13 @@ export default function QuoteFormModal({
                   onChange={e => handleTradeTypeChange(e.target.value)}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', background: '#fff' }}
                 >
-                  <option value="import">Import</option>
-                  <option value="export">Export</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>COMPANY TEMPLATE</label>
-                <select
-                  value={formData.companyTemplate || 'paramount'}
-                  onChange={e => setFormData({ ...formData, companyTemplate: e.target.value })}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', background: '#fff' }}
-                >
-                  <option value="paramount">Paramount Propack</option>
-                  <option value="elock">eLock Solutions</option>
-                  <option value="exim">Exim Logistics</option>
-                  <option value="standard">Standard</option>
+                  <option value="import">Customs Clearance - Import</option>
+                  <option value="export">Customs Clearance - Export</option>
+                  <option value="freight_import">Freight Forwarding - Import</option>
+                  <option value="freight_export">Freight Forwarding - Export</option>
+                  <option value="transport">Transportation (SRCC)</option>
+                  <option value="pfp">Plastic Crates (Paramount)</option>
+                  <option value="software_elock">Software & E-Lock Services</option>
                 </select>
               </div>
             </div>

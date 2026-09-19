@@ -58,7 +58,7 @@ const quoteSchema = new mongoose.Schema({
 
   // Company and invoice metadata
   companyTemplate: { type: String, default: 'standard' },
-  tradeType: { type: String, enum: ['import', 'export'], default: 'import' },
+  tradeType: { type: String, enum: ['import', 'export', 'freight_import', 'freight_export', 'transport', 'pfp', 'software_elock'], default: 'import' },
   invoiceReference: { type: String },
   invoiceRequestStatus: { type: String, enum: ['none', 'requested', 'created'], default: 'none' },
   

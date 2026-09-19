@@ -870,7 +870,7 @@ export default function CRMKanbanBoard() {
                   outline: 'none'
                 }}
               >
-                <option value="all">All Teams</option>
+                {isAdmin && <option value="all">All Teams</option>}
                 {teams.map(t => (
                   <option key={t._id} value={t._id}>{t.name || t.teamName}</option>
                 ))}
@@ -911,10 +911,11 @@ export default function CRMKanbanBoard() {
           )}
 
           {/* See All Toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '4px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', userSelect: 'none' }}>
-              <div style={{
-                position: 'relative',
+          {isAdmin && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '4px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', userSelect: 'none' }}>
+                <div style={{
+                  position: 'relative',
                 width: '38px',
                 height: '20px',
                 backgroundColor: seeAllData ? '#10b981' : '#cbd5e1',
@@ -947,6 +948,7 @@ export default function CRMKanbanBoard() {
               />
             </label>
           </div>
+          )}
         </div>
 
         {selectedStage !== 'all' ? (

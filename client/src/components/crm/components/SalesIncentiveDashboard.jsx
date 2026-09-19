@@ -418,7 +418,14 @@ export default function SalesIncentiveDashboard() {
     fetchTeams();
   }, [fetchTeams]);
 
-  const role = (currentUser?.crmRole || currentUser?.role || '').toLowerCase();
+  const roleStr = currentUser?.role || '';
+  const crmRoleStr = currentUser?.crmRole || '';
+  const isHOD = roleStr === 'HOD' || roleStr === 'Head_of_Department' || (typeof roleStr === 'string' && (roleStr.toLowerCase() === 'hod' || roleStr.toLowerCase() === 'head_of_department'));
+  const isCrmAdmin = crmRoleStr === 'Admin' || (typeof crmRoleStr === 'string' && crmRoleStr.toLowerCase() === 'admin');
+  const isSystemAdmin = roleStr === 'Admin' || (typeof roleStr === 'string' && roleStr.toLowerCase() === 'admin');
+  const isAdmin = (isSystemAdmin || isCrmAdmin) && !isHOD;
+
+  const role = (crmRoleStr || roleStr || '').toLowerCase();
   const isManagerOrAdmin = role === 'admin' || role === 'manager' || role === 'hod' || role === 'head_of_department' || !role;
 
   const fetchMyData = useCallback(async () => {
@@ -490,7 +497,7 @@ export default function SalesIncentiveDashboard() {
                 onChange={e => setSelectedTeamId(e.target.value)}
                 style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, background: '#fff', color: '#334155' }}
               >
-                <option value="all">All Teams</option>
+                {isAdmin && <option value="all">All Teams</option>}
                 {teams.map(t => (
                   <option key={t._id} value={t._id}>{t.name || t.teamName}</option>
                 ))}

@@ -61,6 +61,10 @@ const userSchema = new Schema({
     type: [String],
     default: [],
   },
+  fleet_insurance_tabs: {
+    type: [String],
+    default: [],
+  },
   assigned_importer_name: [
     {
       type: String,

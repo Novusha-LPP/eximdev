@@ -442,6 +442,9 @@ const getJobDetailsInternal = async (job_number) => {
     "Job Number": formatTallyJobNo(job.job_number || job.job_no),
     "Job Year": job.year,
     "Job Type": (() => {
+      const isFreight = job.freight || job.Freight || String(job.job_number || job.job_no || "").toUpperCase().startsWith("FF");
+      if (isFreight) return "Freight Forwarding";
+      
       const type = job.type || `${job.trade_type || ""} ${job.mode || ""}`.trim();
       const typeUpper = type.toUpperCase();
       if (typeUpper === "IMP AIR" || typeUpper === "IMP SEA" || typeUpper === "IMP") {

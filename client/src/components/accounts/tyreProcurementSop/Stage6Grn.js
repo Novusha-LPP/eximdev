@@ -156,7 +156,7 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
               className="sop-input"
               value={data.grnSeriesNo || ""}
               onChange={(e) => updateField("grnSeriesNo", e.target.value.toUpperCase())}
-              placeholder="GRN/TYRE/01/AUG/26-27"
+              placeholder="GRN/ITEM/01/AUG/26-27"
               style={{ fontWeight: 700, color: "#1e40af" }}
             />
           </Box>
@@ -299,17 +299,17 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
         </Box>
       </Box>
 
-      {/* ─── 2. Items Received – Tyre-wise Entry ─── */}
+      {/* ─── 2. Items Received – Item-wise Entry ─── */}
       <Box className="sop-card" sx={{ mb: 1.5 }}>
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-          <Typography className="sop-card-title">Items Received – Tyre-wise Entry</Typography>
+          <Typography className="sop-card-title">Items Received – Item-wise Entry</Typography>
           <button
             type="button"
             className="sop-btn sop-btn-primary"
             style={{ padding: "3px 10px", fontSize: "11px" }}
             onClick={addItem}
           >
-            + Add Tyre Item
+            + Add Item
           </button>
         </Box>
 
@@ -318,7 +318,7 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
             <thead>
               <tr>
                 <th style={{ width: 35, textAlign: "center" }}>#</th>
-                <th>Tyre Number (Unique ID)</th>
+                <th>Item Number (Unique ID)</th>
                 <th>Brand</th>
                 <th>Size & Spec</th>
                 <th style={{ width: 90 }}>Type</th>
@@ -337,7 +337,7 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
                       className="sop-input"
                       value={item.tyreNumber || ""}
                       onChange={(e) => updateItem(idx, "tyreNumber", e.target.value)}
-                      placeholder="e.g. TYR-2026-..."
+                      placeholder="e.g. ITEM-2026-..."
                     />
                   </td>
                   <td>
@@ -411,8 +411,8 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
           <Typography className="sop-card-title" sx={{ mb: 1 }}>Quality & Conformance Check</Typography>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.8 }}>
             {[
-              ["1. Tyres verified against PR/PO specs", "tyresVerified"],
-              ["2. Tyre numbers matched and recorded", "tyreNumbersMatched"],
+              ["1. Items verified against PR/PO specs", "tyresVerified"],
+              ["2. Item numbers matched and recorded", "tyreNumbersMatched"],
               ["3. Invoice verified with PO quantity/value", "invoiceVerified"],
               ["4. Return clause reviewed for supplier action", "returnClauseReviewed"],
             ].map(([label, field]) => (

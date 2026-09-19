@@ -31,6 +31,14 @@ const getHeaders = () => {
 };
 
 export default function LeadList() {
+  const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+  const role = user.role || '';
+  const crmRole = user.crmRole || '';
+  const isHOD = role === 'HOD' || role === 'Head_of_Department' || (typeof role === 'string' && (role.toLowerCase() === 'hod' || role.toLowerCase() === 'head_of_department'));
+  const isCrmAdmin = crmRole === 'Admin' || (typeof crmRole === 'string' && crmRole.toLowerCase() === 'admin');
+  const isSystemAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
+  const isAdmin = (isSystemAdmin || isCrmAdmin) && !isHOD;
+
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -324,19 +332,21 @@ export default function LeadList() {
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {/* View Scope Dropdown */}
-          <select
-            value={viewScope}
-            onChange={(e) => {
-              setViewScope(e.target.value);
-              if (e.target.value === 'all') {
-                setSelectedTeamId('');
-              }
-            }}
-            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#4f46e5', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
-          >
-            <option value="my_teams">My Team Leads</option>
-            <option value="all">All Company Leads</option>
-          </select>
+          {isAdmin && (
+            <select
+              value={viewScope}
+              onChange={(e) => {
+                setViewScope(e.target.value);
+                if (e.target.value === 'all') {
+                  setSelectedTeamId('');
+                }
+              }}
+              style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#4f46e5', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
+            >
+              <option value="my_teams">My Team Leads</option>
+              <option value="all">All Company Leads</option>
+            </select>
+          )}
 
           {/* Team Filter Dropdown */}
           {(userTeams.length > 0 || allTeams.length > 0) && (
@@ -345,7 +355,7 @@ export default function LeadList() {
               onChange={(e) => setSelectedTeamId(e.target.value)}
               style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', cursor: 'pointer' }}
             >
-              <option value="">All Teams</option>
+              {isAdmin && <option value="">All Teams</option>}
               {(userTeams.length > 0 ? userTeams : allTeams).map(team => (
                 <option key={team._id} value={team._id}>{team.name || team.teamName}</option>
               ))}

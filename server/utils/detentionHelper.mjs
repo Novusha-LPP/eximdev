@@ -8,9 +8,13 @@
 export const getDateOnly = (dateInput) => {
   if (!dateInput) return null;
   const str = String(dateInput).trim();
-  const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (match) {
-    return `${match[1]}-${match[2]}-${match[3]}`;
+  const matchYMD = str.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+  if (matchYMD) {
+    return `${matchYMD[1]}-${matchYMD[2]}-${matchYMD[3]}`;
+  }
+  const matchDMY = str.match(/^(\d{2})[-/](\d{2})[-/](\d{4})/);
+  if (matchDMY) {
+    return `${matchDMY[3]}-${matchDMY[2]}-${matchDMY[1]}`;
   }
   const d = new Date(dateInput);
   if (isNaN(d.getTime())) return null;

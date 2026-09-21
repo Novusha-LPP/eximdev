@@ -1501,8 +1501,10 @@ function useFetchJobDetails(
     function getDateOnly(dateInput) {
       if (!dateInput) return "";
       const str = String(dateInput).trim();
-      const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+      const matchYMD = str.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+      if (matchYMD) return `${matchYMD[1]}-${matchYMD[2]}-${matchYMD[3]}`;
+      const matchDMY = str.match(/^(\d{2})[-/](\d{2})[-/](\d{4})/);
+      if (matchDMY) return `${matchDMY[3]}-${matchDMY[2]}-${matchDMY[1]}`;
       const d = new Date(dateInput);
       if (isNaN(d.getTime())) return "";
       const y = d.getFullYear();
@@ -1545,13 +1547,14 @@ function useFetchJobDetails(
       // If all containers arrive at the same time, use the common arrival date
       if (formik.values.checked) {
         const commonDate = formik.values.arrival_date;
-        updatedDate = formik.values.container_nos.map(() =>
-          freeDays > 0 ? addDaysToDate(commonDate, freeDays) : ""
-        );
+        updatedDate = formik.values.container_nos.map((container) => {
+          const arrDate = commonDate || container.arrival_date;
+          return freeDays > 0 && arrDate ? addDaysToDate(arrDate, freeDays) : "";
+        });
       } else {
         // Use individual container arrival dates
         updatedDate = formik.values.container_nos.map((container) =>
-          freeDays > 0 ? addDaysToDate(container.arrival_date, freeDays) : ""
+          freeDays > 0 && container.arrival_date ? addDaysToDate(container.arrival_date, freeDays) : ""
         );
       }
 
@@ -1559,19 +1562,28 @@ function useFetchJobDetails(
 
       // Keep container_nos in sync with calculated detention_from
       const hasDetentionDiff = formik.values.container_nos.some((c, i) => {
+        // If free_time is 0/unset but arrival_date is present, preserve existing detention_from
+        if (freeDays <= 0 && c.arrival_date && c.detention_from) {
+          return false;
+        }
         const cur = c.detention_from || "";
         const expected = updatedDate[i] || "";
         return cur !== expected;
       });
 
       if (hasDetentionDiff) {
-        const updatedContainers = formik.values.container_nos.map((c, i) => ({
-          ...c,
-          detention_from: updatedDate[i] || "",
-          do_validity_upto_container_level: updatedDate[i]
-            ? subtractOneDay(updatedDate[i])
-            : (c.do_validity_upto_container_level || ""),
-        }));
+        const updatedContainers = formik.values.container_nos.map((c, i) => {
+          const nextDetention = (freeDays <= 0 && c.arrival_date && c.detention_from)
+            ? c.detention_from
+            : (updatedDate[i] || "");
+          return {
+            ...c,
+            detention_from: nextDetention,
+            do_validity_upto_container_level: nextDetention
+              ? subtractOneDay(nextDetention)
+              : (c.do_validity_upto_container_level || ""),
+          };
+        });
         formik.setFieldValue("container_nos", updatedContainers);
       }
 

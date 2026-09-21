@@ -117,7 +117,29 @@ export default function RaiseTicket() {
   // Handle file upload (optional)
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
-    setAttachments((prev) => [...prev, ...files]);
+    const allowedExtensions = /\.(jpe?g|png|pdf)$/i;
+    const valid = [];
+    for (const file of files) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`File "${file.name}" exceeds the 10MB limit.`);
+        continue;
+      }
+      const isExtAllowed = allowedExtensions.test(file.name);
+      const isMimeAllowed = file.type && (
+        file.type.startsWith("image/jpeg") ||
+        file.type === "image/png" ||
+        file.type === "application/pdf"
+      );
+      if (!isExtAllowed && !isMimeAllowed) {
+        toast.error(`"${file.name}" is not supported. Only JPG, JPEG, PNG, and PDF files are allowed.`);
+        continue;
+      }
+      valid.push(file);
+    }
+    if (valid.length > 0) {
+      setAttachments((prev) => [...prev, ...valid]);
+    }
+    e.target.value = "";
   };
 
   // Remove attachment
@@ -541,20 +563,25 @@ export default function RaiseTicket() {
             </Grid>
 
             <Grid item xs={12}>
-              <Button
-                variant="outlined"
-                component="label"
-                startIcon={<AttachFileIcon />}
-                sx={{ mb: 2 }}
-              >
-                Upload Files (Optional)
-                <input
-                  type="file"
-                  hidden
-                  multiple
-                  onChange={handleFileUpload}
-                />
-              </Button>
+              <Box display="flex" alignItems="center" gap={2} sx={{ mb: 2 }}>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  startIcon={<AttachFileIcon />}
+                >
+                  Upload Files (Optional)
+                  <input
+                    type="file"
+                    hidden
+                    multiple
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    onChange={handleFileUpload}
+                  />
+                </Button>
+                <Typography variant="caption" color="text.secondary">
+                  Supported: PDF, JPG, JPEG, PNG (Max 10MB each)
+                </Typography>
+              </Box>
 
               {attachments.length > 0 && (
                 <List dense>

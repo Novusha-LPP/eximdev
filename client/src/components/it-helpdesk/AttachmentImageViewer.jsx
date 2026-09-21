@@ -21,13 +21,13 @@ import {
   Paperclip,
 } from "lucide-react";
 
-// Helper to check if file is an image
+// Helper to check if file is an image (jpg, jpeg, png)
 export const isImageAttachment = (file) => {
   if (!file) return false;
-  if (file.mime_type && file.mime_type.startsWith("image/")) return true;
+  if (file.mime_type && (file.mime_type.startsWith("image/jpeg") || file.mime_type === "image/png" || file.mime_type === "image/jpg")) return true;
   const name = file.file_name || file.name || file.file_url || "";
   const ext = name.split(".").pop().toLowerCase().split("?")[0];
-  return ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"].includes(ext);
+  return ["jpg", "jpeg", "png"].includes(ext);
 };
 
 // Format file size helper
@@ -42,7 +42,12 @@ const formatSize = (bytes) => {
 // Helper to resolve attachment file URL across localhost/LAN/relative paths
 export const resolveAttachmentUrl = (url) => {
   if (!url) return "";
-  const backendBase = (process.env.REACT_APP_API_STRING || "http://localhost:9006")
+  const backendBase = (
+    process.env.REACT_APP_API_STRING ||
+    (typeof window !== "undefined" && window.location.hostname
+      ? `${window.location.protocol}//${window.location.hostname}:9006`
+      : "http://localhost:9006")
+  )
     .replace(/\/api\/?$/, "")
     .replace(/\/$/, "");
 
@@ -51,9 +56,12 @@ export const resolveAttachmentUrl = (url) => {
     return `${backendBase}${url}`;
   }
 
-  // Absolute URL: adapt hostname if browser is accessing via specific host or IP
+  // Absolute URL: extract pathname if it has /uploads/
   try {
     const parsed = new URL(url);
+    if (parsed.pathname.startsWith("/uploads/")) {
+      return `${backendBase}${parsed.pathname}`;
+    }
     if (typeof window !== "undefined" && window.location.hostname) {
       if (
         parsed.hostname === "localhost" ||
@@ -64,7 +72,12 @@ export const resolveAttachmentUrl = (url) => {
         return parsed.toString();
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    if (url.includes("/uploads/")) {
+      const idx = url.indexOf("/uploads/");
+      return `${backendBase}${url.substring(idx)}`;
+    }
+  }
 
   return url;
 };

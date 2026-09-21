@@ -9,6 +9,7 @@ import Ticket from "../../model/it-helpdesk/ticketModel.mjs";
 import User from "../../model/userModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import logger from "../../logger.js";
+import { isHRAdminUser } from "../../utils/hrAdminRoleHelper.mjs";
 import {
   notifyTicketCreated,
   notifyTicketAssigned,
@@ -32,15 +33,40 @@ const storage = multer.diskStorage({
     cb(null, `${unique}${path.extname(file.originalname)}`);
   },
 });
+const ALLOWED_TICKET_EXTENSIONS = new Set([
+  "jpg",
+  "jpeg",
+  "png",
+  "pdf",
+]);
+
+const ALLOWED_TICKET_MIMES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/pjpeg",
+  "image/x-png",
+  "application/pdf",
+]);
+
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
   fileFilter: (_req, file, cb) => {
-    const allowed = /jpeg|jpg|png|gif|pdf|doc|docx|xls|xlsx|txt|zip/;
-    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
-    const mime = allowed.test(file.mimetype);
-    if (ext || mime) return cb(null, true);
-    cb(new Error("Unsupported file type"));
+    const ext = path.extname(file.originalname || "").toLowerCase().replace(".", "");
+    const mime = (file.mimetype || "").toLowerCase();
+
+    const isImageOrPdf =
+      ALLOWED_TICKET_MIMES.has(mime) ||
+      ["jpg", "jpeg", "png", "pdf"].includes(ext);
+
+    if (
+      ALLOWED_TICKET_EXTENSIONS.has(ext) &&
+      (isImageOrPdf || mime === "application/octet-stream")
+    ) {
+      return cb(null, true);
+    }
+    cb(new Error("Only JPG, JPEG, PNG, and PDF files are allowed"));
   },
 });
 
@@ -118,6 +144,35 @@ router.get("/", async (req, res) => {
       ];
     }
 
+    // Role-based visibility:
+    // HR Admin and Admin users see ALL tickets across all departments.
+    // Normal users ONLY see tickets raised by themselves.
+    const isSupportStaff = await isHRAdminUser(req.user);
+    const userId = req.user?._id || req.user?.id;
+    const username = req.user?.username;
+
+    if (!isSupportStaff) {
+      const userOwnership = [];
+      if (userId) {
+        userOwnership.push({ raised_by: userId });
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+          userOwnership.push({ raised_by: new mongoose.Types.ObjectId(userId) });
+        }
+      }
+      if (username) {
+        userOwnership.push({ requester_name: username });
+        userOwnership.push({ requester_name: new RegExp(`^${username}$`, "i") });
+      }
+      const ownershipCondition = userOwnership.length > 1 ? { $or: userOwnership } : (userOwnership[0] || {});
+
+      if (filter.$or) {
+        filter.$and = [ownershipCondition, { $or: filter.$or }];
+        delete filter.$or;
+      } else {
+        Object.assign(filter, ownershipCondition);
+      }
+    }
+
     if (all === "true") {
       const data = await Ticket.find(filter)
         .populate("raised_by", "username email first_name last_name name")
@@ -159,16 +214,36 @@ router.get("/", async (req, res) => {
 });
 
 // ── GET ticket stats ─────────────────────────────────────────────────────────
-router.get("/stats", async (_req, res) => {
+router.get("/stats", async (req, res) => {
   try {
+    const isSupportStaff = await isHRAdminUser(req.user);
+    const userId = req.user?._id || req.user?.id;
+    const username = req.user?.username;
+
+    let baseFilter = {};
+    if (!isSupportStaff) {
+      const userOwnership = [];
+      if (userId) {
+        userOwnership.push({ raised_by: userId });
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+          userOwnership.push({ raised_by: new mongoose.Types.ObjectId(userId) });
+        }
+      }
+      if (username) {
+        userOwnership.push({ requester_name: username });
+        userOwnership.push({ requester_name: new RegExp(`^${username}$`, "i") });
+      }
+      baseFilter = userOwnership.length > 1 ? { $or: userOwnership } : (userOwnership[0] || {});
+    }
+
     const [total, newCount, assigned, inProgress, pending, resolved, closed] = await Promise.all([
-      Ticket.countDocuments(),
-      Ticket.countDocuments({ status: "New" }),
-      Ticket.countDocuments({ status: "Assigned" }),
-      Ticket.countDocuments({ status: "In Progress" }),
-      Ticket.countDocuments({ status: "Pending" }),
-      Ticket.countDocuments({ status: "Resolved" }),
-      Ticket.countDocuments({ status: "Closed" }),
+      Ticket.countDocuments({ ...baseFilter }),
+      Ticket.countDocuments({ ...baseFilter, status: "New" }),
+      Ticket.countDocuments({ ...baseFilter, status: "Assigned" }),
+      Ticket.countDocuments({ ...baseFilter, status: "In Progress" }),
+      Ticket.countDocuments({ ...baseFilter, status: "Pending" }),
+      Ticket.countDocuments({ ...baseFilter, status: "Resolved" }),
+      Ticket.countDocuments({ ...baseFilter, status: "Closed" }),
     ]);
     res.json({
       success: true,
@@ -183,11 +258,35 @@ router.get("/stats", async (_req, res) => {
 // ── GET report / aggregation data ────────────────────────────────────────────
 router.get("/report", async (req, res) => {
   try {
+    const isSupportStaff = await isHRAdminUser(req.user);
+    const userId = req.user?._id || req.user?.id;
+    const username = req.user?.username;
+
     const { from, to } = req.query;
-    const dateFilter = {};
-    if (from) dateFilter.$gte = new Date(from);
-    if (to) dateFilter.$lte = new Date(to);
-    const matchStage = Object.keys(dateFilter).length ? { createdAt: dateFilter } : {};
+    const matchConditions = [];
+    if (from || to) {
+      const dateFilter = {};
+      if (from) dateFilter.$gte = new Date(from);
+      if (to) dateFilter.$lte = new Date(to);
+      matchConditions.push({ createdAt: dateFilter });
+    }
+
+    if (!isSupportStaff) {
+      const userOwnership = [];
+      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+        userOwnership.push({ raised_by: new mongoose.Types.ObjectId(userId) });
+      }
+      if (username) userOwnership.push({ requester_name: username });
+      if (userOwnership.length > 0) {
+        matchConditions.push({ $or: userOwnership });
+      }
+    }
+
+    const matchStage = matchConditions.length === 1
+      ? matchConditions[0]
+      : matchConditions.length > 1
+      ? { $and: matchConditions }
+      : {};
 
     const [byStatus, byCategory, byPriority, byDepartment, byType, recentActivity] = await Promise.all([
       Ticket.aggregate([
@@ -220,6 +319,7 @@ router.get("/report", async (req, res) => {
       Ticket.aggregate([
         {
           $match: {
+            ...matchStage,
             createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
           },
         },
@@ -247,11 +347,32 @@ router.get("/report", async (req, res) => {
 router.get("/:id", validateId, async (req, res) => {
   try {
     const ticket = await Ticket.findById(req.params.id)
-      .populate("raised_by", "username email")
-      .populate("assigned_to", "username email")
-      .populate("history.changed_by", "username email");
+      .populate("raised_by", "username email first_name last_name name")
+      .populate("assigned_to", "username email first_name last_name name")
+      .populate("history.changed_by", "username email first_name last_name name")
+      .populate("attachments.uploaded_by", "username email first_name last_name name");
 
     if (!ticket) return res.status(404).json({ success: false, message: "Ticket not found" });
+
+    // IDOR Protection: Normal Users can ONLY access tickets raised by them
+    const isSupportStaff = await isHRAdminUser(req.user);
+    const userId = req.user?._id || req.user?.id;
+    const username = req.user?.username;
+
+    if (!isSupportStaff) {
+      const ticketRaisedById = ticket.raised_by?._id?.toString() || ticket.raised_by?.toString();
+      const isOwner =
+        (ticketRaisedById && ticketRaisedById === userId?.toString()) ||
+        (ticket.requester_name && ticket.requester_name === username);
+
+      if (!isOwner) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied. You are only authorized to view tickets raised by you.",
+        });
+      }
+    }
+
     res.json({ success: true, data: ticket });
   } catch (err) {
     logger.error(`Error fetching ticket: ${err.message}`);
@@ -270,6 +391,12 @@ router.post("/", handleUpload, async (req, res) => {
 
     const ticket_id = await generateTicketId();
     const userId = req.user?._id || req.user?.id;
+    const username = req.user?.username;
+    const userFullName = req.user?.first_name
+      ? `${req.user.first_name} ${req.user.last_name || ""}`.trim()
+      : username;
+
+    const finalRequesterName = requester_name || username || userFullName || "User";
 
     // Use requested status (defaults to "New")
     const initialStatus = status || "New";
@@ -303,16 +430,18 @@ router.post("/", handleUpload, async (req, res) => {
       });
     }
 
+    const finalTitle = (title && String(title).trim()) || (description ? String(description).slice(0, 60).trim() : "Support Ticket");
+
     const ticket = new Ticket({
       ticket_id,
-      title,
+      title: finalTitle,
       description,
       category,
       subcategory,
       type: type || "Incident",
       priority: priority || "Medium",
       severity,
-      requester_name,
+      requester_name: finalRequesterName,
       department,
       contact_information,
       location,
@@ -356,12 +485,13 @@ router.put("/:id", validateId, async (req, res) => {
     if (!existing) return res.status(404).json({ success: false, message: "Ticket not found" });
 
     const userId = req.user?._id || req.user?.id;
-
-    // Check authorization: only Admin, the person who raised the ticket, or the person assigned to the ticket can update it.
-    const isAuthorized =
-      req.user?.role === "Admin" ||
+    const isSupportStaff = await isHRAdminUser(req.user);
+    const isOwner =
       existing.raised_by?.toString() === userId?.toString() ||
-      existing.assigned_to?.toString() === userId?.toString();
+      (existing.requester_name && existing.requester_name === req.user?.username);
+    const isAssignee = existing.assigned_to?.toString() === userId?.toString();
+
+    const isAuthorized = isSupportStaff || isOwner || isAssignee;
 
     if (!isAuthorized) {
       return res.status(403).json({ success: false, message: "Unauthorized to update this ticket" });
@@ -381,12 +511,15 @@ router.put("/:id", validateId, async (req, res) => {
       sla_due_date, resolution_notes, assigned_to, status,
     } = req.body;
 
-    // Check: only Admin can change the ticket status
-    if (status && status !== existing.status && req.user?.role !== "Admin") {
-      return res.status(403).json({ success: false, message: "Only Admins are authorized to update the ticket status" });
+    // Only HR Admin and Admin users can update status or reassign
+    if (!isSupportStaff) {
+      if (status && status !== existing.status) {
+        return res.status(403).json({ success: false, message: "Only HR Admin and Admin users are authorized to update ticket status" });
+      }
+      if (assigned_to && assigned_to !== previousAssignee) {
+        return res.status(403).json({ success: false, message: "Only HR Admin and Admin users are authorized to assign or reassign tickets" });
+      }
     }
-
-
 
     const updateData = {
       title: title ?? existing.title,
@@ -478,13 +611,11 @@ router.post("/:id/assign", validateId, async (req, res) => {
     const existing = await Ticket.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, message: "Ticket not found" });
 
-    // Check authorization: only Admin or the person currently assigned to the ticket can re-assign it.
-    const isAuthorized =
-      req.user?.role === "Admin" ||
-      existing.assigned_to?.toString() === userId?.toString();
+    const isSupportStaff = await isHRAdminUser(req.user);
+    const isAssignee = existing.assigned_to?.toString() === userId?.toString();
 
-    if (!isAuthorized) {
-      return res.status(403).json({ success: false, message: "Unauthorized to assign this ticket" });
+    if (!isSupportStaff && !isAssignee) {
+      return res.status(403).json({ success: false, message: "Only HR Admin and Admin users are authorized to assign this ticket" });
     }
 
     // If the ticket is already Closed, prevent further updates
@@ -539,13 +670,13 @@ router.post("/:id/history", validateId, async (req, res) => {
     const existing = await Ticket.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, message: "Ticket not found" });
 
-    // Check authorization: only Admin, the person who raised the ticket, or the person assigned to the ticket can add history/comments.
-    const isAuthorized =
-      req.user?.role === "Admin" ||
+    const isSupportStaff = await isHRAdminUser(req.user);
+    const isOwner =
       existing.raised_by?.toString() === userId?.toString() ||
-      existing.assigned_to?.toString() === userId?.toString();
+      (existing.requester_name && existing.requester_name === req.user?.username);
+    const isAssignee = existing.assigned_to?.toString() === userId?.toString();
 
-    if (!isAuthorized) {
+    if (!isSupportStaff && !isOwner && !isAssignee) {
       return res.status(403).json({ success: false, message: "Unauthorized to comment on this ticket" });
     }
 
@@ -583,15 +714,14 @@ router.post("/:id/attachments", validateId, handleUpload, async (req, res) => {
     if (!ticket) return res.status(404).json({ success: false, message: "Ticket not found" });
 
     const userId = req.user?._id || req.user?.id;
-
-    // Check authorization: only Admin, the person who raised the ticket, or the person assigned to the ticket can upload attachments.
-    const isAuthorized =
-      req.user?.role === "Admin" ||
+    const isSupportStaff = await isHRAdminUser(req.user);
+    const isOwner =
       !ticket.raised_by ||
       ticket.raised_by?.toString() === userId?.toString() ||
-      ticket.assigned_to?.toString() === userId?.toString();
+      (ticket.requester_name && ticket.requester_name === req.user?.username);
+    const isAssignee = ticket.assigned_to?.toString() === userId?.toString();
 
-    if (!isAuthorized) {
+    if (!isSupportStaff && !isOwner && !isAssignee) {
       return res.status(403).json({ success: false, message: "Unauthorized to upload attachments to this ticket" });
     }
 
@@ -650,13 +780,14 @@ router.delete("/:id/attachments/:attachmentId", validateId, async (req, res) => 
     }
 
     const userId = req.user?._id || req.user?.id;
-    const isAuthorized =
-      req.user?.role === "Admin" ||
+    const isSupportStaff = await isHRAdminUser(req.user);
+    const isOwner =
       !ticket.raised_by ||
       ticket.raised_by?.toString() === userId?.toString() ||
-      ticket.assigned_to?.toString() === userId?.toString();
+      (ticket.requester_name && ticket.requester_name === req.user?.username);
+    const isAssignee = ticket.assigned_to?.toString() === userId?.toString();
 
-    if (!isAuthorized) {
+    if (!isSupportStaff && !isOwner && !isAssignee) {
       return res.status(403).json({ success: false, message: "Unauthorized to delete attachments from this ticket" });
     }
 
@@ -702,13 +833,14 @@ router.put("/:id/attachments/:attachmentId", validateId, handleUpload, async (re
     }
 
     const userId = req.user?._id || req.user?.id;
-    const isAuthorized =
-      req.user?.role === "Admin" ||
+    const isSupportStaff = await isHRAdminUser(req.user);
+    const isOwner =
       !ticket.raised_by ||
       ticket.raised_by?.toString() === userId?.toString() ||
-      ticket.assigned_to?.toString() === userId?.toString();
+      (ticket.requester_name && ticket.requester_name === req.user?.username);
+    const isAssignee = ticket.assigned_to?.toString() === userId?.toString();
 
-    if (!isAuthorized) {
+    if (!isSupportStaff && !isOwner && !isAssignee) {
       return res.status(403).json({ success: false, message: "Unauthorized to modify attachments on this ticket" });
     }
 

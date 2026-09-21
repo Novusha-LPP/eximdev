@@ -113,8 +113,8 @@ const PREDEFINED_ROLES = [
   },
   {
     id: 2,
-    name: "IT/Network Department",
-    description: "IT and Network department user with asset creation and resubmission permissions",
+    name: "HR Admin department (HARDWARE AND NETWORK ENGINEER)",
+    description: "HR Admin department user with designation HARDWARE AND NETWORK ENGINEER, handling ticket support, asset creation, and workflow permissions",
     is_predefined: true,
     permissions: [
       "asset_view", "asset_create", "asset_edit", "asset_delete", "asset_assign", "asset_return",

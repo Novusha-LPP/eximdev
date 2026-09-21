@@ -5,6 +5,7 @@ import axios from "axios";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
 import { UserContext } from "../../contexts/UserContext";
+import { isHRAdminUser } from "../../utils/hrAdminRoleHelper";
 import AssignTicket from "./AssignTicket";
 import PriorityManagement from "./PriorityManagement";
 import SLATracking from "./SLATracking";
@@ -162,6 +163,7 @@ export default function TicketManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useContext(UserContext);
   const isAdmin = user?.role === "Admin";
+  const isHRAdmin = isHRAdminUser(user);
 
   // Audit logs
   const { logCreate, logRead, logUpdate, logDelete } = useModuleAuditLogs("Helpdesk");
@@ -177,6 +179,7 @@ export default function TicketManagement() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [detailTicketId, setDetailTicketId] = useState(null);
+  const [drawerTab, setDrawerTab] = useState(0);
 
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = React.useRef(null);
@@ -255,10 +258,31 @@ export default function TicketManagement() {
   const handleFilesSelected = (newFiles) => {
     if (!newFiles || newFiles.length === 0) return;
     const fileArray = Array.from(newFiles);
-    setForm((prev) => ({
-      ...prev,
-      files: [...(prev.files || []), ...fileArray],
-    }));
+    const allowedExtensions = /\.(jpe?g|png|pdf)$/i;
+    const validFiles = [];
+    for (const file of fileArray) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`File "${file.name}" exceeds the 10MB limit.`);
+        continue;
+      }
+      const isExtAllowed = allowedExtensions.test(file.name);
+      const isMimeAllowed = file.type && (
+        file.type.startsWith("image/jpeg") ||
+        file.type === "image/png" ||
+        file.type === "application/pdf"
+      );
+      if (!isExtAllowed && !isMimeAllowed) {
+        toast.error(`"${file.name}" is not supported. Only JPG, JPEG, PNG, and PDF files are allowed.`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+    if (validFiles.length > 0) {
+      setForm((prev) => ({
+        ...prev,
+        files: [...(prev.files || []), ...validFiles],
+      }));
+    }
   };
 
   const handleRemoveFile = (indexToRemove) => {
@@ -511,14 +535,20 @@ export default function TicketManagement() {
 
     // File validation (client-side matching backend constraints)
     if (form.files && form.files.length > 0) {
-      const allowedExtensions = /\.(jpeg|jpg|png|gif|pdf|doc|docx|xls|xlsx|txt|zip)$/i;
+      const allowedExtensions = /\.(jpe?g|png|pdf)$/i;
       for (const file of form.files) {
         if (file.size > 10 * 1024 * 1024) { // 10MB limit
           toast.error(`File "${file.name}" exceeds the 10MB limit.`);
           return;
         }
-        if (!allowedExtensions.test(file.name)) {
-          toast.error(`File type for "${file.name}" is not supported.`);
+        const isExtAllowed = allowedExtensions.test(file.name);
+        const isMimeAllowed = file.type && (
+          file.type.startsWith("image/jpeg") ||
+          file.type === "image/png" ||
+          file.type === "application/pdf"
+        );
+        if (!isExtAllowed && !isMimeAllowed) {
+          toast.error(`"${file.name}" is not supported. Only JPG, JPEG, PNG, and PDF files are allowed.`);
           return;
         }
       }
@@ -644,12 +674,36 @@ export default function TicketManagement() {
       {/* Topbar */}
       <div className="topbar">
         <div className="topbar-left">
-          <button className="back-btn" onClick={() => navigate("/it-helpdesk")} title="Back to IT Helpdesk">
+          <button
+            className="back-btn"
+            onClick={() => navigate(isHRAdmin ? "/it-helpdesk" : "/")}
+            title={isHRAdmin ? "Back to IT Helpdesk" : "Back to Home"}
+          >
             <ChevronLeft size={20} />
           </button>
           <div>
-            <div className="page-title">Helpdesk & Tickets</div>
-            <div className="page-subtitle">Overview, filter and track all IT support tickets with real-time status</div>
+            <div className="page-title" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              Helpdesk & Tickets
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  padding: "3px 8px",
+                  borderRadius: "12px",
+                  backgroundColor: isHRAdmin ? "#eff6ff" : "#f1f5f9",
+                  color: isHRAdmin ? "#1d4ed8" : "#475569",
+                  border: isHRAdmin ? "1px solid #bfdbfe" : "1px solid #cbd5e1",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {isHRAdmin ? "HR Admin Support Desk" : "My Support Requests"}
+              </span>
+            </div>
+            <div className="page-subtitle">
+              {isHRAdmin
+                ? "Overview, assign, and manage all support tickets across all departments"
+                : "Overview, filter and track your support requests with real-time status"}
+            </div>
           </div>
         </div>
         <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -839,6 +893,7 @@ export default function TicketManagement() {
                       <thead>
                         <tr>
                           <th>Ticket ID</th>
+                          {isHRAdmin && <th>Requester</th>}
                           <th>Category & Summary</th>
                           <th>Priority</th>
                           <th>Status</th>
@@ -850,7 +905,7 @@ export default function TicketManagement() {
                       <tbody>
                         {data.length === 0 ? (
                           <tr>
-                            <td colSpan={7} style={{ textAlign: "center", padding: "30px", color: "var(--color-text-muted)" }}>
+                            <td colSpan={isHRAdmin ? 8 : 7} style={{ textAlign: "center", padding: "30px", color: "var(--color-text-muted)" }}>
                               No tickets found matching the criteria.
                             </td>
                           </tr>
@@ -902,6 +957,7 @@ export default function TicketManagement() {
                                     onMouseEnter={(e) => (e.currentTarget.style.color = "#4f46e5")}
                                     onMouseLeave={(e) => (e.currentTarget.style.color = "#0f172a")}
                                     onClick={() => {
+                                      setDrawerTab(0);
                                       setDetailTicketId(t._id);
                                       setDrawerOpen(true);
                                     }}
@@ -910,6 +966,16 @@ export default function TicketManagement() {
                                     {t.ticket_id || t._id}
                                   </span>
                                 </td>
+                                {isHRAdmin && (
+                                  <td>
+                                    <div style={{ fontWeight: 600, color: "#0f172a", fontSize: "13px" }}>
+                                      {t.requester_name || (t.raised_by ? (t.raised_by.first_name ? `${t.raised_by.first_name} ${t.raised_by.last_name || ""}`.trim() : t.raised_by.username) : "—")}
+                                    </div>
+                                    {t.department && (
+                                      <div style={{ fontSize: "11px", color: "#64748b" }}>{t.department}</div>
+                                    )}
+                                  </td>
+                                )}
                                 <td>
                                   <div style={{ fontWeight: 600, color: "#0f172a", fontSize: "13.5px" }}>{t.category || "General"}</div>
                                   {t.description && (
@@ -977,6 +1043,7 @@ export default function TicketManagement() {
                                       className="btn btn-icon btn-info"
                                       style={{ width: "28px", height: "28px" }}
                                       onClick={() => {
+                                        setDrawerTab(0);
                                         setDetailTicketId(t._id);
                                         setDrawerOpen(true);
                                       }}
@@ -984,42 +1051,6 @@ export default function TicketManagement() {
                                     >
                                       <History size={14} color="#0284c7" />
                                     </button>
-                                    {t.attachments && t.attachments.length > 0 && (
-                                      <button
-                                        type="button"
-                                        className="btn btn-icon btn-info"
-                                        style={{ width: "28px", height: "28px", position: "relative" }}
-                                        onClick={() => {
-                                          setImageViewerData({
-                                            attachments: t.attachments,
-                                            initialIndex: 0,
-                                            ticketId: t.ticket_id || t.ticketId || "",
-                                          });
-                                          setImageViewerOpen(true);
-                                        }}
-                                        title={t.attachments.length > 1 ? `View ${t.attachments.length} Attached Images` : "View Attachment"}
-                                      >
-                                        <Eye size={14} color="#0284c7" />
-                                        {t.attachments.length > 1 && (
-                                          <span
-                                            style={{
-                                              position: "absolute",
-                                              top: "-4px",
-                                              right: "-4px",
-                                              fontSize: "9px",
-                                              fontWeight: 700,
-                                              backgroundColor: "#2563eb",
-                                              color: "#ffffff",
-                                              borderRadius: "10px",
-                                              padding: "0 4px",
-                                              lineHeight: "13px",
-                                            }}
-                                          >
-                                            {t.attachments.length}
-                                          </span>
-                                        )}
-                                      </button>
-                                    )}
                                     <button
                                       type="button"
                                       className="btn btn-icon btn-primary"
@@ -1029,15 +1060,17 @@ export default function TicketManagement() {
                                     >
                                       <Edit2 size={14} color="#2563eb" />
                                     </button>
-                                    <button
-                                      type="button"
-                                      className="btn btn-icon btn-danger"
-                                      style={{ width: "28px", height: "28px" }}
-                                      onClick={(e) => handleDelete(e, t._id)}
-                                      title="Delete Ticket"
-                                    >
-                                      <Trash2 size={14} color="#dc2626" />
-                                    </button>
+                                    {isHRAdmin && (
+                                      <button
+                                        type="button"
+                                        className="btn btn-icon btn-danger"
+                                        style={{ width: "28px", height: "28px" }}
+                                        onClick={(e) => handleDelete(e, t._id)}
+                                        title="Delete Ticket"
+                                      >
+                                        <Trash2 size={14} color="#dc2626" />
+                                      </button>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
@@ -1197,7 +1230,7 @@ export default function TicketManagement() {
                       <PersonIcon fontSize="small" color="primary" />
                       Assigned To
                     </Typography>
-                    {isAdmin ? (
+                    {(isAdmin || isHRAdmin) ? (
                       <CustomSelect
                         value={form.assigned_to || ""}
                         onChange={(val) =>
@@ -1327,8 +1360,11 @@ export default function TicketManagement() {
                       ref={fileInputRef}
                       type="file"
                       multiple
-                      accept=".png,.jpg,.jpeg"
-                      onChange={(e) => handleFilesSelected(e.target.files)}
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      onChange={(e) => {
+                        handleFilesSelected(e.target.files);
+                        e.target.value = "";
+                      }}
                       style={{ display: "none" }}
                     />
 
@@ -1357,7 +1393,7 @@ export default function TicketManagement() {
                         Click to upload or drag & drop screenshots / files
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Supported: PNG, JPG, JPEG (Max 10MB each)
+                        Supported: PDF, JPG, JPEG, PNG (Max 10MB each)
                       </Typography>
                     </Box>
 
@@ -1463,7 +1499,9 @@ export default function TicketManagement() {
               ticketId={detailTicketId}
               onUpdate={() => fetchData(pagination.page)}
               users={users}
-              isAdmin={isAdmin}
+              isAdmin={isAdmin || isHRAdmin}
+              isHRAdmin={isHRAdmin}
+              initialTab={drawerTab}
             />
 
             <AttachmentImageViewer

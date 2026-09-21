@@ -272,13 +272,13 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
-      {/* NEW: Raise Support Ticket Icon */}
-      <Tooltip title="Raise Support Ticket" enterDelay={0} placement="right">
+      {/* Helpdesk & Tickets Icon */}
+      <Tooltip title="Helpdesk & Tickets" enterDelay={0} placement="right">
         <ListItemButton
           sx={{ textAlign: "left" }}
           className="appbar-links"
           aria-label="list-item"
-          onClick={() => setRaiseTicketModalOpen(true)}
+          onClick={() => navigate("/it-helpdesk/tickets")}
         >
           <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
             <SupportAgentIcon />

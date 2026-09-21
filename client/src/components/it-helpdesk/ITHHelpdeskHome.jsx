@@ -322,10 +322,31 @@ export default function ITHHelpdeskHome() {
   const handleFilesSelected = (newFiles) => {
     if (!newFiles || newFiles.length === 0) return;
     const fileArray = Array.from(newFiles);
-    setTicketForm((prev) => ({
-      ...prev,
-      files: [...(prev.files || []), ...fileArray],
-    }));
+    const allowedExtensions = /\.(jpe?g|png|pdf)$/i;
+    const valid = [];
+    for (const file of fileArray) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`File "${file.name}" exceeds the 10MB limit.`);
+        continue;
+      }
+      const isExtAllowed = allowedExtensions.test(file.name);
+      const isMimeAllowed = file.type && (
+        file.type.startsWith("image/jpeg") ||
+        file.type === "image/png" ||
+        file.type === "application/pdf"
+      );
+      if (!isExtAllowed && !isMimeAllowed) {
+        toast.error(`"${file.name}" is not supported. Only JPG, JPEG, PNG, and PDF files are allowed.`);
+        continue;
+      }
+      valid.push(file);
+    }
+    if (valid.length > 0) {
+      setTicketForm((prev) => ({
+        ...prev,
+        files: [...(prev.files || []), ...valid],
+      }));
+    }
   };
 
   const handleRemoveFile = (indexToRemove) => {
@@ -375,14 +396,20 @@ export default function ITHHelpdeskHome() {
     }
 
     if (ticketForm.files && ticketForm.files.length > 0) {
-      const allowedExtensions = /\.(jpeg|jpg|png|gif|pdf|doc|docx|xls|xlsx|txt|zip)$/i;
+      const allowedExtensions = /\.(jpe?g|png|pdf)$/i;
       for (const file of ticketForm.files) {
         if (file.size > 10 * 1024 * 1024) {
           toast.error(`File "${file.name}" exceeds the 10MB limit.`);
           return;
         }
-        if (!allowedExtensions.test(file.name)) {
-          toast.error(`File type for "${file.name}" is not supported.`);
+        const isExtAllowed = allowedExtensions.test(file.name);
+        const isMimeAllowed = file.type && (
+          file.type.startsWith("image/jpeg") ||
+          file.type === "image/png" ||
+          file.type === "application/pdf"
+        );
+        if (!isExtAllowed && !isMimeAllowed) {
+          toast.error(`"${file.name}" is not supported. Only JPG, JPEG, PNG, and PDF files are allowed.`);
           return;
         }
       }
@@ -1470,8 +1497,11 @@ export default function ITHHelpdeskHome() {
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    accept=".png,.jpg,.jpeg,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
-                    onChange={(e) => handleFilesSelected(e.target.files)}
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    onChange={(e) => {
+                      handleFilesSelected(e.target.files);
+                      e.target.value = "";
+                    }}
                     style={{ display: "none" }}
                   />
 
@@ -1505,7 +1535,7 @@ export default function ITHHelpdeskHome() {
                       Click to upload or drag &amp; drop screenshots / files
                     </div>
                     <div style={{ fontSize: "11.5px", color: "#64748b", marginTop: "2px" }}>
-                      Supported: PNG, JPG, JPEG, PDF, Excel, Word (Max 10MB each)
+                      Supported: PDF, JPG, JPEG, PNG (Max 10MB each)
                     </div>
                   </div>
 

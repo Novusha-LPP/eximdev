@@ -20,17 +20,31 @@ export const itHelpdeskAPI = {
     export: (params = {}) => api.get("/it-helpdesk/reports/tickets/export", { params, responseType: "blob" }),
     getReport: (params = {}) => api.get("/it-helpdesk/tickets/report", { params }).then((r) => r.data),
     getById: (id) => api.get(`/it-helpdesk/tickets/${id}`).then((r) => r.data),
-    create: (payload) => api.post("/it-helpdesk/tickets", payload).then((r) => r.data),
-    update: (id, payload) => api.put(`/it-helpdesk/tickets/${id}`, payload).then((r) => r.data),
+    create: (payload) => {
+      const isFormData = payload instanceof FormData;
+      return api.post("/it-helpdesk/tickets", payload, {
+        headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
+      }).then((r) => r.data);
+    },
+    update: (id, payload) => {
+      const isFormData = payload instanceof FormData;
+      return api.put(`/it-helpdesk/tickets/${id}`, payload, {
+        headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
+      }).then((r) => r.data);
+    },
     remove: (id) => api.delete(`/it-helpdesk/tickets/${id}`).then((r) => r.data),
     assign: (id, payload) => api.post(`/it-helpdesk/tickets/${id}/assign`, payload).then((r) => r.data),
     addHistory: (id, payload) => api.post(`/it-helpdesk/tickets/${id}/history`, payload).then((r) => r.data),
     uploadAttachment: (id, formData) =>
-      api.post(`/it-helpdesk/tickets/${id}/attachments`, formData).then((r) => r.data),
+      api.post(`/it-helpdesk/tickets/${id}/attachments`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then((r) => r.data),
     deleteAttachment: (id, attachmentId) =>
       api.delete(`/it-helpdesk/tickets/${id}/attachments/${attachmentId}`).then((r) => r.data),
     replaceAttachment: (id, attachmentId, formData) =>
-      api.put(`/it-helpdesk/tickets/${id}/attachments/${attachmentId}`, formData).then((r) => r.data),
+      api.put(`/it-helpdesk/tickets/${id}/attachments/${attachmentId}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then((r) => r.data),
   },
   vendors: {
     getAll: (params = {}) => api.get("/it-helpdesk/vendors", { params }).then((r) => r.data),

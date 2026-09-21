@@ -527,8 +527,8 @@ router.post("/", validateAssetPayload, async (req, res) => {
     req.body.approval_status = "Pending Admin Approval";
     req.body.rejection_remarks = "";
     
-    const userRole = req.user?.role || "IT/Network Department";
-    const userName = req.user?.first_name ? `${req.user.first_name} ${req.user.last_name || ""}`.trim() : (req.user?.username || "IT User");
+    const userRole = req.user?.role || "HR Admin";
+    const userName = req.user?.first_name ? `${req.user.first_name} ${req.user.last_name || ""}`.trim() : (req.user?.username || "HR Admin User");
 
     req.body.workflow_history = [
       {
@@ -603,7 +603,7 @@ router.put("/:id/workflow", validateId, async (req, res) => {
       if (isAdminUser || isAccountsUser) {
         return res.status(403).json({
           success: false,
-          message: "Permission denied: Admin and Accounts users cannot resubmit invoices. Only IT/Network Department users can resubmit.",
+          message: "Permission denied: Admin and Accounts users cannot resubmit invoices. Only HR Admin department (HARDWARE AND NETWORK ENGINEER) users can resubmit.",
         });
       }
     }
@@ -659,7 +659,7 @@ router.put("/:id/workflow", validateId, async (req, res) => {
       asset.rejected_by_name = "";
       asset.rejected_by_role = "";
       asset.rejected_at = null;
-      actionDescription = `Resubmitted by IT/Network Department (Initiated Cycle ${currentCycle})`;
+      actionDescription = `Resubmitted by HR Admin Department (Initiated Cycle ${currentCycle})`;
       // Support optional invoice updates on resubmit
       if (req.body.image_url) asset.image_url = req.body.image_url;
       if (req.body.invoice_number) asset.invoice_number = req.body.invoice_number;

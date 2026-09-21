@@ -27,11 +27,13 @@ import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
+import RaiseTicketModal from "../it-helpdesk/RaiseTicketModal";
 
 function Sidebar() {
   const navigate = useNavigate();
   const { user, setUser } = useContext(UserContext);
   const [currencyDialogOpen, setCurrencyDialogOpen] = useState(false);
+  const [raiseTicketModalOpen, setRaiseTicketModalOpen] = useState(false);
   const [pendingCorrectionCount, setPendingCorrectionCount] = useState(0);
 
   useEffect(() => {
@@ -270,10 +272,19 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
-
-
-
-
+      {/* NEW: Raise Support Ticket Icon */}
+      <Tooltip title="Raise Support Ticket" enterDelay={0} placement="right">
+        <ListItemButton
+          sx={{ textAlign: "left" }}
+          className="appbar-links"
+          aria-label="list-item"
+          onClick={() => setRaiseTicketModalOpen(true)}
+        >
+          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+            <SupportAgentIcon />
+          </IconButton>
+        </ListItemButton>
+      </Tooltip>
 
       {
         ['suraj_rajan', 'geethanjali_b', 'masood_raza', 'dev_master'].includes(user.username) && (
@@ -347,6 +358,12 @@ function Sidebar() {
       <CurrencyRateDialog
         open={currencyDialogOpen}
         onClose={() => setCurrencyDialogOpen(false)}
+      />
+
+      {/* Raise Support Ticket Modal */}
+      <RaiseTicketModal
+        open={raiseTicketModalOpen}
+        onClose={() => setRaiseTicketModalOpen(false)}
       />
     </div>
   );

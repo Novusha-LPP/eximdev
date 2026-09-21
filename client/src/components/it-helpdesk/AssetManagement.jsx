@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
 import axios from "axios";
+import { UserContext } from "../../contexts/UserContext";
 import {
   Button,
   Dialog,
+  DialogTitle,
   DialogContent,
   DialogActions,
   Grid,
@@ -16,6 +18,7 @@ import {
   Box,
   IconButton,
   Chip,
+  Tooltip,
 } from "@mui/material";
 import {
   Search,
@@ -26,7 +29,6 @@ import {
   Eye,
   RefreshCw,
   ChevronLeft,
-  ChevronRight,
   RotateCcw,
   X,
   Tag,
@@ -41,11 +43,18 @@ import {
   FileText,
   Printer,
   Wifi,
-  Globe,
   Key,
   Phone,
-  Image as ImageIcon,
   UploadCloud,
+  Check,
+  Send,
+  ShieldCheck,
+  Clock,
+  Copy,
+  Laptop,
+  Monitor,
+  Building,
+  Receipt,
 } from "lucide-react";
 import CustomSelect from "./CustomSelect";
 import ITPagination from "./ITPagination";
@@ -73,6 +82,7 @@ const STORAGE_OPTIONS = [
   "256 GB SSD + 1 TB HDD",
   "512 GB SSD + 1 TB HDD",
 ];
+const OPERATING_SYSTEM_OPTIONS = ["Windows", "Linux", "MacOS"];
 const USERS_FETCH_LIMIT = 200;
 
 // Added department options
@@ -380,16 +390,159 @@ const EMPTY_FORM = {
   invoice_date: "",
 };
 
+// Reusable Spec Tile component for technical specifications in View Modal
+const SpecTile = ({ label, value, isChip, chipColor, copyable, icon, onCopy, isCopied }) => (
+  <Box
+    sx={{
+      p: 1.2,
+      backgroundColor: "#f8fafc",
+      borderRadius: "8px",
+      border: "1px solid #f1f5f9",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-between",
+      minHeight: 54,
+    }}
+  >
+    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <Typography
+        sx={{
+          fontSize: "0.68rem",
+          fontWeight: 700,
+          color: "#64748b",
+          textTransform: "uppercase",
+          letterSpacing: "0.3px",
+        }}
+      >
+        {label}
+      </Typography>
+      {icon && <Box sx={{ color: "#94a3b8", display: "flex" }}>{icon}</Box>}
+      {copyable && value && value !== "—" && (
+        <Tooltip title={isCopied ? "Copied!" : "Copy"}>
+          <IconButton
+            size="small"
+            onClick={() => onCopy && onCopy(value)}
+            sx={{ p: 0.2, color: isCopied ? "#16a34a" : "#94a3b8", "&:hover": { color: "#2563eb" } }}
+          >
+            {isCopied ? <Check size={12} /> : <Copy size={12} />}
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
+    <Box sx={{ mt: 0.4 }}>
+      {isChip && value && value !== "—" ? (
+        <Chip
+          label={value}
+          size="small"
+          sx={{
+            height: 22,
+            fontSize: "0.74rem",
+            fontWeight: 700,
+            backgroundColor: chipColor?.bg || "#eff6ff",
+            color: chipColor?.text || "#2563eb",
+            border: `1px solid ${chipColor?.border || "#bfdbfe"}`,
+            borderRadius: "6px",
+          }}
+        />
+      ) : (
+        <Typography
+          sx={{
+            fontSize: "0.84rem",
+            fontWeight: 600,
+            color: value && value !== "—" ? "#0f172a" : "#94a3b8",
+            wordBreak: "break-word",
+            lineHeight: 1.3,
+          }}
+        >
+          {value || "—"}
+        </Typography>
+      )}
+    </Box>
+  </Box>
+);
+
 export default function AssetManagement() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user: currentUser } = useContext(UserContext);
+
+  const userRole = String(currentUser?.role || currentUser?.userRole || "").trim();
+  const userDept = String(currentUser?.department || "").trim();
+
+  const isAdmin =
+    userRole.toLowerCase() === "admin" ||
+    userRole.toLowerCase() === "administrator" ||
+    currentUser?.username === "admin" ||
+    Boolean(currentUser?.is_operator);
+  const isAccountsHead =
+    userRole.toLowerCase().includes("sr. manager accounts") ||
+    userRole.toLowerCase().includes("head of accounts") ||
+    userRole.toLowerCase().includes("hod accounts") ||
+    userRole.toLowerCase().includes("accounts head") ||
+    userRole.toLowerCase().includes("head of department - accounts")
+  const isPureITDept =
+    userRole.toLowerCase().includes("it") ||
+    userRole.toLowerCase().includes("network") ||
+    userDept.toLowerCase().includes("it") ||
+    userDept.toLowerCase().includes("network");
+
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectAssetRecord, setRejectAssetRecord] = useState(null);
+  const [rejectActionType, setRejectActionType] = useState("reject_admin");
+  const [rejectRemarks, setRejectRemarks] = useState("");
+  const [submittingWorkflow, setSubmittingWorkflow] = useState(false);
+
+  const handleWorkflowAction = async (assetId, actionType, remarks = "") => {
+    setSubmittingWorkflow(true);
+    try {
+      const res = await itHelpdeskAPI.assets.updateWorkflow(assetId, { action: actionType, remarks });
+      if (res?.success) {
+        toast.success("Workflow status updated successfully");
+        fetchData();
+        if (viewRecord && viewRecord._id === assetId) {
+          setViewRecord(res.data);
+        }
+      } else {
+        toast.error(res?.message || "Failed to update workflow");
+      }
+    } catch (err) {
+      console.error("Workflow update error:", err);
+      toast.error(err.response?.data?.message || err.message || "Workflow action failed");
+    } finally {
+      setSubmittingWorkflow(false);
+      setShowRejectModal(false);
+      setRejectRemarks("");
+      setRejectAssetRecord(null);
+    }
+  };
+
+  const getWorkflowBadgeClass = (stage, status) => {
+    const norm = String(status || stage || "").toLowerCase();
+    if (norm.includes("completed")) return "badge-excellent";
+    if (norm.includes("accounts")) return "badge-good";
+    if (norm.includes("admin")) return "badge-warning";
+    if (norm.includes("returned") || norm.includes("correction")) return "badge-warning";
+    if (norm.includes("rejected")) return "badge-danger";
+    return "badge-secondary";
+  };
+
+  const getWorkflowStatusLabel = (stage, status) => {
+    const norm = String(status || stage || "").toLowerCase();
+    if (norm.includes("completed")) return "Completed";
+    if (norm.includes("rejected")) return "Rejected";
+    if (norm.includes("returned") || norm.includes("correction")) return "Returned to IT";
+    if (norm.includes("pending") || norm.includes("admin") || norm.includes("accounts") || norm.includes("hod")) {
+      return "Pending Approval";
+    }
+    return status || stage || "Pending Approval";
+  };
 
   const handleBack = () => {
     navigate("/it-helpdesk");
   };
 
   // Audit logs
-  const { logCreate, logRead, logUpdate, logDelete, logExport } = useModuleAuditLogs("Asset");
+  const { logRead, logExport } = useModuleAuditLogs("Asset");
 
   // Server-side pagination & filter state derived directly from URL query params
   const page = parseInt(searchParams.get("page")) || 1;
@@ -408,9 +561,13 @@ export default function AssetManagement() {
   const [showAddVendorModal, setShowAddVendorModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewRecord, setViewRecord] = useState(null);
+  const [viewTab, setViewTab] = useState("overview");
+  const [copiedTag, setCopiedTag] = useState(false);
+  const [copiedSerial, setCopiedSerial] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState({});
+  const [isCustomDept, setIsCustomDept] = useState(false);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -519,6 +676,105 @@ export default function AssetManagement() {
     [users]
   );
 
+  // Format dates cleanly for display (e.g. 19 Sep 2026)
+  const formatAssetDate = (dateVal) => {
+    if (!dateVal) return "—";
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return String(dateVal);
+      return d.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return String(dateVal);
+    }
+  };
+
+  // Calculate real-time warranty status
+  const getWarrantyStatus = (warrantyDate) => {
+    if (!warrantyDate) return null;
+    try {
+      const expiry = new Date(warrantyDate);
+      if (isNaN(expiry.getTime())) return null;
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      expiry.setHours(0, 0, 0, 0);
+      const diffTime = expiry - now;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays < 0) {
+        return { status: "expired", label: "Expired", color: "#dc2626", bg: "#fef2f2", border: "#fecaca" };
+      } else if (diffDays <= 30) {
+        return { status: "expiring_soon", label: `Expires in ${diffDays}d`, color: "#d97706", bg: "#fffbeb", border: "#fde68a" };
+      } else {
+        return { status: "active", label: "Active", color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0" };
+      }
+    } catch {
+      return null;
+    }
+  };
+
+  // Helper for asset type icon
+  const getAssetTypeIcon = (assetType, size = 18) => {
+    const norm = String(assetType || "").toLowerCase();
+    if (norm.includes("laptop")) return <Laptop size={size} />;
+    if (norm.includes("desktop") || norm.includes("computer")) return <Monitor size={size} />;
+    if (norm.includes("printer")) return <Printer size={size} />;
+    if (norm.includes("network") || norm.includes("router") || norm.includes("switch") || norm.includes("firewall")) return <Wifi size={size} />;
+    if (norm.includes("software")) return <Key size={size} />;
+    if (norm.includes("sim")) return <Smartphone size={size} />;
+    if (norm.includes("phone")) return <Phone size={size} />;
+    if (norm.includes("rack")) return <Server size={size} />;
+    if (norm.includes("cable")) return <Layers size={size} />;
+    return <Tag size={size} />;
+  };
+
+  // Helper for theme accents per asset type
+  const getAssetTypeTheme = (assetType) => {
+    const norm = String(assetType || "").toLowerCase();
+    if (norm.includes("laptop")) return { bg: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: "#2563eb", lightBg: "#eff6ff", border: "#dbeafe" };
+    if (norm.includes("desktop") || norm.includes("computer")) return { bg: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)", color: "#0284c7", lightBg: "#f0f9ff", border: "#e0f2fe" };
+    if (norm.includes("printer")) return { bg: "linear-gradient(135deg, #059669 0%, #047857 100%)", color: "#059669", lightBg: "#ecfdf5", border: "#d1fae5" };
+    if (norm.includes("network")) return { bg: "linear-gradient(135deg, #0891b2 0%, #0e7490 100%)", color: "#0891b2", lightBg: "#ecfeff", border: "#cffafe" };
+    if (norm.includes("software")) return { bg: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)", color: "#7c3aed", lightBg: "#f5f3ff", border: "#ede9fe" };
+    if (norm.includes("sim") || norm.includes("phone")) return { bg: "linear-gradient(135deg, #ea580c 0%, #c2410c 100%)", color: "#ea580c", lightBg: "#fff7ed", border: "#ffedd5" };
+    if (norm.includes("rack")) return { bg: "linear-gradient(135deg, #475569 0%, #334155 100%)", color: "#475569", lightBg: "#f8fafc", border: "#e2e8f0" };
+    if (norm.includes("cable")) return { bg: "linear-gradient(135deg, #d97706 0%, #b45309 100%)", color: "#d97706", lightBg: "#fffbeb", border: "#fef3c7" };
+    return { bg: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: "#2563eb", lightBg: "#eff6ff", border: "#dbeafe" };
+  };
+
+  // Helper for copy to clipboard
+  const handleCopyText = (text, type = "tag") => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    if (type === "tag") {
+      setCopiedTag(true);
+      setTimeout(() => setCopiedTag(false), 2000);
+    } else if (type === "serial") {
+      setCopiedSerial(true);
+      setTimeout(() => setCopiedSerial(false), 2000);
+    }
+    toast.success(`Copied ${type === "tag" ? "Asset Tag" : "Serial Number"} to clipboard`);
+  };
+
+  // User initials avatar
+  const getAssignedUserInitials = (name) => {
+    if (!name || name === "Unassigned") return "UA";
+    const parts = name.trim().split(" ");
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  // Resolve vendor name
+  const getVendorName = (vendorRef) => {
+    if (!vendorRef) return "—";
+    if (typeof vendorRef === "object" && vendorRef?.name) return vendorRef.name;
+    const found = vendors.find((v) => String(v._id) === String(vendorRef));
+    if (found) return found.name;
+    return String(vendorRef);
+  };
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -546,7 +802,7 @@ export default function AssetManagement() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, typeFilter, statusFilter, departmentFilter, searchParam]);
+  }, [page, limit, typeFilter, statusFilter, departmentFilter, searchParam, logRead]);
 
   const handleClearFilters = () => {
     setSearchParams({ page: "1", limit: String(limit) });
@@ -563,7 +819,7 @@ export default function AssetManagement() {
     } catch (err) {
       console.error("Failed to fetch users:", err);
     }
-  }, []);
+  }, [logRead]);
 
   const fetchVendors = useCallback(async () => {
     try {
@@ -573,7 +829,7 @@ export default function AssetManagement() {
     } catch {
       // non-blocking
     }
-  }, []);
+  }, [logRead]);
 
   const handleVendorCreated = (newVendor) => {
     fetchVendors();
@@ -586,7 +842,7 @@ export default function AssetManagement() {
   useEffect(() => {
     logRead("asset-module-access", "Accessed Asset Management module", "info");
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, logRead]);
 
   useEffect(() => {
     fetchUsers();
@@ -598,6 +854,8 @@ export default function AssetManagement() {
       logRead("asset-edit-access", `Opened asset for editing with ID: ${record._id}`, "info");
       setEditId(record._id);
       setErrors({});
+      const isCustom = Boolean(record.department && !DEPARTMENTS.includes(record.department));
+      setIsCustomDept(isCustom);
       setForm({
         asset_tag: record.asset_tag || "",
         serial_number: record.serial_number || "",
@@ -653,6 +911,7 @@ export default function AssetManagement() {
       });
     } else {
       setEditId(null);
+      setIsCustomDept(false);
       const currentYear = new Date().getFullYear();
       let defaultTag = `AST-${currentYear}-001`;
 
@@ -740,7 +999,7 @@ export default function AssetManagement() {
       sim_number_iccid: form.sim_number_iccid || undefined,
       mobile_number: form.mobile_number || undefined,
       service_provider: form.service_provider || undefined,
-      department: form.department || undefined,
+      department: form.department?.trim() || undefined,
       monthly_plan_package: form.monthly_plan_package || undefined,
       remarks: form.remarks || undefined,
     };
@@ -838,7 +1097,6 @@ export default function AssetManagement() {
 
   const requiredFieldsForType = getRequiredFieldsForType(form.asset_type);
   const canSave = true;
-  const requiredHint = requiredFieldsForType.map((field) => FIELD_LABELS[field]).join(", ");
   const statusOptions = form.asset_type === "SIM Card" ? ["Available", "Assigned", "Active", "Inactive"] : form.asset_type === "Printer" ? ["Available", "Active", "Repair", "Retired"] : form.asset_type === "Network Device" ? ["Active", "Spare", "Repair", "Retired"] : form.asset_type === "Software" ? ["Active", "Expired", "Suspended"] : form.asset_type === "Rack" ? ["Active", "Inactive", "Occupied", "Available", "Blocked", "Under Maintenance"] : form.asset_type === "Desktop" || form.asset_type === "Laptop" || form.asset_type === "Phone" ? ["Available", "Assigned", "Active", "Inactive", "In Repair", "Retired"] : form.asset_type === "Cable" ? ["Available", "Assigned", "In Repair", "Retired"] : STATUSES;
   const isComputerAsset = form.asset_type === "Desktop" || form.asset_type === "Laptop" || form.asset_type === "Computer";
   const manufacturerLabel = isComputerAsset ? "Brand" : "Manufacturer";
@@ -866,6 +1124,75 @@ export default function AssetManagement() {
       delete next[field];
       return next;
     });
+  };
+
+  const renderDepartmentField = () => {
+    if (isCustomDept) {
+      return (
+        <Grid item xs={6}>
+          <TextField
+            label="Department"
+            size="small"
+            fullWidth
+            autoFocus
+            required={isRequiredField("department")}
+            error={Boolean(getFieldError("department"))}
+            helperText={getFieldHelperText("department")}
+            sx={modalFieldSx}
+            placeholder="Type department name..."
+            value={form.department || ""}
+            onChange={(e) => updateField("department", e.target.value)}
+            InputProps={{
+              endAdornment: (
+                <Tooltip title="Select from list">
+                  <IconButton
+                    size="small"
+                    edge="end"
+                    onClick={() => {
+                      setIsCustomDept(false);
+                      updateField("department", "");
+                    }}
+                    sx={{ color: "#64748b", mr: -0.5 }}
+                  >
+                    <RotateCcw size={15} />
+                  </IconButton>
+                </Tooltip>
+              ),
+            }}
+          />
+        </Grid>
+      );
+    }
+
+    return (
+      <Grid item xs={6}>
+        <TextField
+          select
+          label="Department"
+          size="small"
+          fullWidth
+          {...getRequiredProps("department")}
+          value={DEPARTMENTS.includes(form.department) ? form.department : ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "Other") {
+              setIsCustomDept(true);
+              updateField("department", "");
+            } else {
+              updateField("department", val);
+            }
+          }}
+        >
+          <MenuItem value="">Select Department</MenuItem>
+          {DEPARTMENTS.map((dept) => (
+            <MenuItem key={dept} value={dept}>
+              {dept}
+            </MenuItem>
+          ))}
+          <MenuItem value="Other">Other</MenuItem>
+        </TextField>
+      </Grid>
+    );
   };
 
   const handleImageUpload = async (e) => {
@@ -1117,52 +1444,140 @@ export default function AssetManagement() {
             </div>
           ) : (
             <div className="table-wrap">
-              <table style={{ width: "100%", minWidth: "1150px" }}>
+              <table style={{ width: "100%", tableLayout: "fixed" }}>
                 <thead>
                   <tr>
-                    <th style={{ minWidth: 130 }}>Asset Tag</th>
-                    <th style={{ minWidth: 120 }}>Type</th>
-                    <th style={{ minWidth: 180 }}>Manufacturer / Model</th>
-                    <th style={{ minWidth: 150 }}>Assigned To</th>
-                    <th style={{ minWidth: 140 }}>Department</th>
-                    <th style={{ minWidth: 110 }}>Status</th>
-                    <th style={{ minWidth: 150 }}>Location</th>
-                    <th style={{ width: 110, minWidth: 110, textAlign: "right" }}>Actions</th>
+                    <th style={{ width: "11%" }}>Asset Tag</th>
+                    <th style={{ width: "9%" }}>Type</th>
+                    <th style={{ width: "15%" }}>Manufacturer / Model</th>
+                    <th style={{ width: "12%" }}>Assigned To</th>
+                    <th style={{ width: "10%" }}>Department</th>
+                    <th style={{ width: "9%" }}>Status</th>
+                    <th style={{ width: "13%" }}>Location</th>
+                    <th style={{ width: "15%" }}>Invoice Approval Status</th>
+                    <th style={{ width: "6%", textAlign: "right" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.length === 0 ? (
                     <tr>
-                      <td colSpan={8} style={{ textAlign: "center", padding: "30px", color: "var(--color-text-muted)" }}>
+                      <td colSpan={9} style={{ textAlign: "center", padding: "30px", color: "var(--color-text-muted)" }}>
                         No assets found matching the criteria.
                       </td>
                     </tr>
                   ) : (
                     data.map((a) => (
                       <tr key={a._id}>
-                        <td style={{ fontWeight: 700, color: "#0f172a", fontSize: "13px" }}>{a.asset_tag}</td>
-                        <td style={{ color: "#334155", fontSize: "13px", fontWeight: 500 }}>
+                        <td style={{ width: "11%", fontWeight: 700, color: "#0f172a", fontSize: "13px", overflowWrap: "break-word" }}>{a.asset_tag}</td>
+                        <td style={{ width: "9%", color: "#334155", fontSize: "13px", fontWeight: 500, overflowWrap: "break-word" }}>
                           {a.asset_type || "—"}
                         </td>
-                        <td>
+                        <td style={{ width: "15%", overflowWrap: "break-word" }}>
                           <div style={{ fontWeight: 600, color: "#0f172a", fontSize: "13px" }}>{a.manufacturer || "—"}</div>
                           {a.model && <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>{a.model}</div>}
                         </td>
-                        <td style={{ color: "#334155", fontWeight: 500 }}>{getAssignedToName(a.assigned_to)}</td>
-                        <td style={{ color: "#475569" }}>{a.department || "—"}</td>
-                        <td>
+                        <td style={{ width: "12%", color: "#334155", fontWeight: 500, overflowWrap: "break-word" }}>{getAssignedToName(a.assigned_to)}</td>
+                        <td style={{ width: "10%", color: "#475569", overflowWrap: "break-word" }}>{a.department || "—"}</td>
+                        <td style={{ width: "9%" }}>
                           <span className={`score-badge ${getStatusBadgeClass(a.status)}`}>
                             {a.status}
                           </span>
                         </td>
-                        <td style={{ color: "#475569" }}>{a.location || "—"}</td>
-                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                        <td style={{ width: "13%", color: "#475569", overflowWrap: "break-word" }}>{a.location || "—"}</td>
+                        <td style={{ width: "15%" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                              <span className={`score-badge ${getWorkflowBadgeClass(a.approval_stage, a.approval_status)}`}>
+                                {getWorkflowStatusLabel(a.approval_stage, a.approval_status)}
+                              </span>
+                            </div>
+
+                            {/* Admin Verification Badges (Green) */}
+                            {Array.isArray(a.admin_verifications) && a.admin_verifications.length > 0 && (
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                                {a.admin_verifications.map((v, idx) => (
+                                  <div
+                                    key={idx}
+                                    style={{
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                      color: "#166534",
+                                      backgroundColor: "#f0fdf4",
+                                      border: "1px solid #bbf7d0",
+                                      padding: "2px 6px",
+                                      borderRadius: "4px",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "4px",
+                                      width: "fit-content",
+                                    }}
+                                    title={`Admin Verified by ${v.username || v.name}`}
+                                  >
+                                    <ShieldCheck size={12} color="#16a34a" />
+                                    <span>{v.username || v.name}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Accounts Approval Badges (Blue) */}
+                            {Array.isArray(a.accounts_verifications) && a.accounts_verifications.length > 0 && (
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                                {a.accounts_verifications.map((v, idx) => (
+                                  <div
+                                    key={idx}
+                                    style={{
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                      color: "#1e40af",
+                                      backgroundColor: "#eff6ff",
+                                      border: "1px solid #bfdbfe",
+                                      padding: "2px 6px",
+                                      borderRadius: "4px",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "4px",
+                                      width: "fit-content",
+                                    }}
+                                    title={`Accounts Approved by ${v.username || v.name}`}
+                                  >
+                                    <ShieldCheck size={12} color="#2563eb" />
+                                    <span>{v.username || v.name}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Rejection Remarks */}
+                            {a.rejection_remarks && (
+                              <div
+                                style={{
+                                  fontSize: "11px",
+                                  color: "#991b1b",
+                                  backgroundColor: "#fef2f2",
+                                  border: "1px solid #fecaca",
+                                  padding: "2px 6px",
+                                  borderRadius: "4px",
+                                  maxWidth: "240px",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                                title={`Rejection Remarks: ${a.rejection_remarks}`}
+                              >
+                                Remarks: {a.rejection_remarks}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ width: "6%", textAlign: "right", whiteSpace: "nowrap" }}>
                           <div style={{ display: "inline-flex", gap: "6px", alignItems: "center", justifyContent: "flex-end" }}>
                             <button
                               type="button"
                               className="btn btn-icon btn-info"
                               onClick={() => {
                                 setViewRecord(a);
+                                setViewTab("overview");
                                 setShowViewModal(true);
                               }}
                               title="View Asset Details"
@@ -1454,7 +1869,7 @@ export default function AssetManagement() {
                     value={form.assigned_to}
                     onChange={(e) => updateField("assigned_to", e.target.value)}
                   >
-                    <MenuItem value="">Unassigned</MenuItem>
+                    <MenuItem value="">Select User</MenuItem>
                     {users.map((u) => (
                       <MenuItem key={u._id} value={u._id}>
                         {u.username} {u.first_name ? `(${u.first_name})` : ""}
@@ -1462,24 +1877,7 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    select
-                    label="Department"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("department")}
-                    value={form.department}
-                    onChange={(e) => updateField("department", e.target.value)}
-                  >
-                    <MenuItem value="">Select Department</MenuItem>
-                    {DEPARTMENTS.map((dept) => (
-                      <MenuItem key={dept} value={dept}>
-                        {dept}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
+                {renderDepartmentField()}
                 <Grid item xs={6}>
                   <TextField
                     label="Assigned Date"
@@ -1517,7 +1915,6 @@ export default function AssetManagement() {
                       value={form.vendor}
                       onChange={(e) => updateField("vendor", e.target.value)}
                       sx={{ ...modalFieldSx, flex: 1 }}
-                      SelectProps={selectMenuProps}
                     >
                       <MenuItem value="">Select Vendor</MenuItem>
                       {vendors.map((v) => (
@@ -1678,7 +2075,7 @@ export default function AssetManagement() {
                     value={form.assigned_to}
                     onChange={(e) => updateField("assigned_to", e.target.value)}
                   >
-                    <MenuItem value="">Unassigned</MenuItem>
+                    <MenuItem value="">Select User</MenuItem>
                     {users.map((u) => (
                       <MenuItem key={u._id} value={u._id}>
                         {u.username} {u.first_name ? `(${u.first_name})` : ""}
@@ -1686,24 +2083,7 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    select
-                    label="Department"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("department")}
-                    value={form.department}
-                    onChange={(e) => updateField("department", e.target.value)}
-                  >
-                    <MenuItem value="">Select Department</MenuItem>
-                    {DEPARTMENTS.map((dept) => (
-                      <MenuItem key={dept} value={dept}>
-                        {dept}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
+                {renderDepartmentField()}
                 <Grid item xs={6}>
                   <TextField
                     select
@@ -1758,7 +2138,6 @@ export default function AssetManagement() {
                       value={form.vendor}
                       onChange={(e) => updateField("vendor", e.target.value)}
                       sx={{ ...modalFieldSx, flex: 1 }}
-                      SelectProps={selectMenuProps}
                     >
                       <MenuItem value="">Select Vendor</MenuItem>
                       {vendors.map((v) => (
@@ -1962,7 +2341,6 @@ export default function AssetManagement() {
                       value={form.vendor}
                       onChange={(e) => updateField("vendor", e.target.value)}
                       sx={{ ...modalFieldSx, flex: 1 }}
-                      SelectProps={selectMenuProps}
                     >
                       <MenuItem value="">Select Vendor</MenuItem>
                       {vendors.map((v) => (
@@ -2095,7 +2473,7 @@ export default function AssetManagement() {
                     value={form.assigned_to}
                     onChange={(e) => updateField("assigned_to", e.target.value)}
                   >
-                    <MenuItem value="">Unassigned</MenuItem>
+                    <MenuItem value="">Select User</MenuItem>
                     {users.map((u) => (
                       <MenuItem key={u._id} value={u._id}>
                         {u.username} {u.first_name ? `(${u.first_name})` : ""}
@@ -2103,24 +2481,7 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    select
-                    label="Department"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("department")}
-                    value={form.department}
-                    onChange={(e) => updateField("department", e.target.value)}
-                  >
-                    <MenuItem value="">Select Department</MenuItem>
-                    {DEPARTMENTS.map((dept) => (
-                      <MenuItem key={dept} value={dept}>
-                        {dept}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
+                {renderDepartmentField()}
                 <Grid item xs={6}>
                   <TextField
                     select
@@ -2151,7 +2512,6 @@ export default function AssetManagement() {
                       value={form.vendor}
                       onChange={(e) => updateField("vendor", e.target.value)}
                       sx={{ ...modalFieldSx, flex: 1 }}
-                      SelectProps={selectMenuProps}
                     >
                       <MenuItem value="">Select Vendor</MenuItem>
                       {vendors.map((v) => (
@@ -2286,7 +2646,7 @@ export default function AssetManagement() {
                     value={form.assigned_to}
                     onChange={(e) => updateField("assigned_to", e.target.value)}
                   >
-                    <MenuItem value="">Unassigned</MenuItem>
+                    <MenuItem value="">Select User</MenuItem>
                     {users.map((u) => (
                       <MenuItem key={u._id} value={u._id}>
                         {u.username} {u.first_name ? `(${u.first_name})` : ""}
@@ -2294,24 +2654,7 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    select
-                    label="Department"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("department")}
-                    value={form.department}
-                    onChange={(e) => updateField("department", e.target.value)}
-                  >
-                    <MenuItem value="">Select Department</MenuItem>
-                    {DEPARTMENTS.map((dept) => (
-                      <MenuItem key={dept} value={dept}>
-                        {dept}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
+                {renderDepartmentField()}
                 <Grid item xs={6}>
                   <TextField
                     label="Location"
@@ -2376,7 +2719,6 @@ export default function AssetManagement() {
                       value={form.vendor}
                       onChange={(e) => updateField("vendor", e.target.value)}
                       sx={{ ...modalFieldSx, flex: 1 }}
-                      SelectProps={selectMenuProps}
                     >
                       <MenuItem value="">Select Vendor</MenuItem>
                       {vendors.map((v) => (
@@ -2542,7 +2884,6 @@ export default function AssetManagement() {
                       value={form.vendor}
                       onChange={(e) => updateField("vendor", e.target.value)}
                       sx={{ ...modalFieldSx, flex: 1 }}
-                      SelectProps={selectMenuProps}
                     >
                       <MenuItem value="">Select Vendor</MenuItem>
                       {vendors.map((v) => (
@@ -2687,7 +3028,6 @@ export default function AssetManagement() {
                       value={form.vendor}
                       onChange={(e) => updateField("vendor", e.target.value)}
                       sx={{ ...modalFieldSx, flex: 1 }}
-                      SelectProps={selectMenuProps}
                     >
                       <MenuItem value="">Select Vendor</MenuItem>
                       {vendors.map((v) => (
@@ -2813,7 +3153,7 @@ export default function AssetManagement() {
                         {opt}
                       </MenuItem>
                     ))}
-                    {form.ram && !RAM_OPTIONS.includes(form.ram) && (
+                    {Boolean(form.ram && !RAM_OPTIONS.includes(form.ram)) && (
                       <MenuItem value={form.ram}>{form.ram}</MenuItem>
                     )}
                   </TextField>
@@ -2834,20 +3174,31 @@ export default function AssetManagement() {
                         {opt}
                       </MenuItem>
                     ))}
-                    {form.storage && !STORAGE_OPTIONS.includes(form.storage) && (
+                    {Boolean(form.storage && !STORAGE_OPTIONS.includes(form.storage)) && (
                       <MenuItem value={form.storage}>{form.storage}</MenuItem>
                     )}
                   </TextField>
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
+                    select
                     label="Operating System"
                     size="small"
                     fullWidth
                     {...getRequiredProps("operating_system")}
                     value={form.operating_system}
                     onChange={(e) => updateField("operating_system", e.target.value)}
-                  />
+                  >
+                    <MenuItem value="">Select Operating System</MenuItem>
+                    {OPERATING_SYSTEM_OPTIONS.map((opt) => (
+                      <MenuItem key={opt} value={opt}>
+                        {opt}
+                      </MenuItem>
+                    ))}
+                    {Boolean(form.operating_system && !OPERATING_SYSTEM_OPTIONS.includes(form.operating_system)) && (
+                      <MenuItem value={form.operating_system}>{form.operating_system}</MenuItem>
+                    )}
+                  </TextField>
                 </Grid>
 
                 <FormSectionTitle icon={UserCheck} title="Assignment & Status" />
@@ -2861,7 +3212,7 @@ export default function AssetManagement() {
                     value={form.assigned_to}
                     onChange={(e) => updateField("assigned_to", e.target.value)}
                   >
-                    <MenuItem value="">Unassigned</MenuItem>
+                    <MenuItem value="">Select User</MenuItem>
                     {users.map((u) => (
                       <MenuItem key={u._id} value={u._id}>
                         {u.username} {u.first_name ? `(${u.first_name})` : ""}
@@ -2869,24 +3220,7 @@ export default function AssetManagement() {
                     ))}
                   </TextField>
                 </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    select
-                    label="Department"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("department")}
-                    value={form.department}
-                    onChange={(e) => updateField("department", e.target.value)}
-                  >
-                    <MenuItem value="">Select Department</MenuItem>
-                    {DEPARTMENTS.map((dept) => (
-                      <MenuItem key={dept} value={dept}>
-                        {dept}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
+                {renderDepartmentField()}
                 <Grid item xs={6}>
                   <TextField
                     label="Location"
@@ -2951,7 +3285,6 @@ export default function AssetManagement() {
                       value={form.vendor}
                       onChange={(e) => updateField("vendor", e.target.value)}
                       sx={{ ...modalFieldSx, flex: 1 }}
-                      SelectProps={selectMenuProps}
                     >
                       <MenuItem value="">Select Vendor</MenuItem>
                       {vendors.map((v) => (
@@ -3010,7 +3343,7 @@ export default function AssetManagement() {
                     value={form.assigned_to}
                     onChange={(e) => updateField("assigned_to", e.target.value)}
                   >
-                    <MenuItem value="">Unassigned</MenuItem>
+                    <MenuItem value="">Select User</MenuItem>
                     {users.map((u) => (
                       <MenuItem key={u._id} value={u._id}>
                         {u.username} {u.first_name ? `(${u.first_name})` : ""}
@@ -3064,7 +3397,6 @@ export default function AssetManagement() {
                       value={form.vendor}
                       onChange={(e) => updateField("vendor", e.target.value)}
                       sx={{ ...modalFieldSx, flex: 1 }}
-                      SelectProps={selectMenuProps}
                     >
                       <MenuItem value="">Select Vendor</MenuItem>
                       {vendors.map((v) => (
@@ -3403,7 +3735,7 @@ export default function AssetManagement() {
       <Dialog
         open={showViewModal}
         onClose={() => setShowViewModal(false)}
-        maxWidth="md"
+        maxWidth="lg"
         fullWidth
         PaperProps={{
           sx: {
@@ -3412,674 +3744,1698 @@ export default function AssetManagement() {
             overflow: "hidden",
             border: "1px solid #e2e8f0",
             backgroundColor: "#ffffff",
+            maxWidth: "1060px",
+            width: "100%",
           },
         }}
       >
-        {viewRecord && (
-          <>
-            {/* Header */}
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                px: 3,
-                py: 2,
-                borderBottom: "1px solid #f1f5f9",
-                background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                <Box
-                  sx={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: "9px",
-                    background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#ffffff",
-                    boxShadow: "0 4px 10px rgba(2, 132, 199, 0.25)",
-                  }}
-                >
-                  <Eye size={18} />
-                </Box>
-                <Box>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Typography sx={{ fontSize: "1.1rem", fontWeight: 700, color: "#0f172a", lineHeight: 1.2 }}>
-                      Asset Details
-                    </Typography>
-                    <Chip
-                      label={viewRecord.asset_tag}
-                      size="small"
-                      sx={{
-                        height: 22,
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        backgroundColor: "#eff6ff",
-                        color: "#2563eb",
-                        border: "1px solid #dbeafe",
-                        borderRadius: "6px",
-                      }}
-                    />
-                    <span className={`score-badge ${getStatusBadgeClass(viewRecord.status)}`}>
-                      {viewRecord.status || "Available"}
-                    </span>
-                  </Box>
-                  <Typography sx={{ fontSize: "0.76rem", color: "#64748b", mt: 0.2 }}>
-                    Comprehensive specifications, hardware details, and assignment logs
-                  </Typography>
-                </Box>
-              </Box>
-              <IconButton
-                onClick={() => setShowViewModal(false)}
-                size="small"
+        {viewRecord && (() => {
+          const theme = getAssetTypeTheme(viewRecord.asset_type);
+          const warrantyInfo = getWarrantyStatus(viewRecord.warranty_expiry || viewRecord.expiry_renewal_date);
+          const assignedName = getAssignedToName(viewRecord.assigned_to);
+          const vendorName = getVendorName(viewRecord.vendor);
+
+          return (
+            <>
+              {/* ── Dialog Header ── */}
+              <Box
                 sx={{
-                  color: "#94a3b8",
-                  borderRadius: "8px",
-                  "&:hover": { color: "#0f172a", backgroundColor: "#f1f5f9" },
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  px: 3,
+                  py: 2,
+                  borderBottom: "1px solid #f1f5f9",
+                  background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
                 }}
               >
-                <X size={18} />
-              </IconButton>
-            </Box>
-
-            <DialogContent sx={{ p: 3, maxHeight: "calc(82vh - 140px)", overflowY: "auto" }}>
-              <Grid container spacing={2.5}>
-                {/* General Details */}
-                <Grid item xs={12}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
-                    <Tag size={16} color="#475569" />
-                    <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                      Basic Identification
-                    </Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <Box
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: "12px",
+                      background: theme.bg,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#ffffff",
+                      boxShadow: `0 4px 12px ${theme.color}40`,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {getAssetTypeIcon(viewRecord.asset_type, 22)}
                   </Box>
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Asset Tag</Typography>
-                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 700 }}>{viewRecord.asset_tag || "—"}</Typography>
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Asset Type</Typography>
-                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.asset_type || "—"}</Typography>
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Status</Typography>
-                  <Box sx={{ mt: 0.3 }}>
-                    <span className={`score-badge ${getStatusBadgeClass(viewRecord.status)}`}>
-                      {viewRecord.status || "—"}
-                    </span>
+                  <Box>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, flexWrap: "wrap" }}>
+                      <Typography sx={{ fontSize: "1.15rem", fontWeight: 700, color: "#0f172a", lineHeight: 1.2, flexShrink: 0 }}>
+                        {viewRecord.asset_name || viewRecord.asset_tag}
+                      </Typography>
+
+                      {/* Asset Tag with 1-click Copy */}
+                      <Box
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 0.5,
+                          backgroundColor: "#eff6ff",
+                          border: "1px solid #bfdbfe",
+                          borderRadius: "6px",
+                          px: 1,
+                          py: "3px",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Typography sx={{ fontSize: "0.76rem", fontWeight: 700, color: "#1d4ed8", lineHeight: 1 }}>
+                          {viewRecord.asset_tag}
+                        </Typography>
+                        <Tooltip title={copiedTag ? "Copied!" : "Copy Asset Tag"}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleCopyText(viewRecord.asset_tag, "tag")}
+                            sx={{ p: 0.2, color: copiedTag ? "#16a34a" : "#3b82f6", "&:hover": { color: "#1d4ed8" } }}
+                          >
+                            {copiedTag ? <Check size={12} /> : <Copy size={12} />}
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+
+                      {/* Status Badge */}
+                      {(() => {
+                        const norm = String(viewRecord.status || "").toLowerCase();
+                        let bg = "#f0fdf4";
+                        let color = "#166534";
+                        let border = "#bbf7d0";
+                        if (norm.includes("assigned")) {
+                          bg = "#eff6ff";
+                          color = "#1d4ed8";
+                          border = "#bfdbfe";
+                        } else if (norm.includes("repair") || norm.includes("suspended")) {
+                          bg = "#fffbeb";
+                          color = "#b45309";
+                          border = "#fde68a";
+                        } else if (norm.includes("lost") || norm.includes("expired") || norm.includes("damaged") || norm.includes("retired")) {
+                          bg = "#fef2f2";
+                          color = "#b91c1c";
+                          border = "#fecaca";
+                        }
+                        return (
+                          <Box
+                            sx={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              height: 24,
+                              px: 1,
+                              borderRadius: "6px",
+                              fontSize: "0.72rem",
+                              fontWeight: 700,
+                              backgroundColor: bg,
+                              color: color,
+                              border: `1px solid ${border}`,
+                              whiteSpace: "nowrap",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {viewRecord.status || "Available"}
+                          </Box>
+                        );
+                      })()}
+
+                      {/* Asset Type Chip */}
+                      <Chip
+                        label={viewRecord.asset_type || "Hardware"}
+                        size="small"
+                        sx={{
+                          height: 24,
+                          fontSize: "0.72rem",
+                          fontWeight: 600,
+                          backgroundColor: "#f8fafc",
+                          color: "#475569",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "6px",
+                          flexShrink: 0,
+                        }}
+                      />
+                    </Box>
+
+                    {/* Meta Subtitle */}
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 0.5, flexWrap: "wrap" }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "#64748b", fontSize: "0.75rem" }}>
+                        <Building size={13} color="#94a3b8" />
+                        <span>{viewRecord.department || "General Dept"}</span>
+                      </Box>
+                      <span style={{ color: "#cbd5e1", fontSize: "0.7rem" }}>•</span>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "#64748b", fontSize: "0.75rem" }}>
+                        <MapPin size={13} color="#94a3b8" />
+                        <span>{viewRecord.location || "Office"}</span>
+                      </Box>
+                      <span style={{ color: "#cbd5e1", fontSize: "0.7rem" }}>•</span>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "#64748b", fontSize: "0.75rem" }}>
+                        <UserCheck size={13} color="#94a3b8" />
+                        <span>{assignedName}</span>
+                      </Box>
+                    </Box>
                   </Box>
-                </Grid>
-                {viewRecord.asset_name && (
-                  <Grid item xs={6} sm={4}>
-                    <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Asset Name</Typography>
-                    <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.asset_name}</Typography>
-                  </Grid>
-                )}
+                </Box>
 
-                {/* Hardware Specifications */}
-                {(viewRecord.asset_type === "Laptop" || viewRecord.asset_type === "Desktop" || viewRecord.asset_type === "Computer" || viewRecord.processor || viewRecord.ram || viewRecord.storage) && (
-                  <>
-                    <Grid item xs={12} sx={{ mt: 1 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
-                        <Cpu size={16} color="#475569" />
-                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                          Hardware Specifications
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Brand / Manufacturer</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.manufacturer || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Model</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.model || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Serial Number</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.serial_number || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Processor</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.processor || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>RAM</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.ram || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Storage</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.storage || "—"}</Typography>
-                    </Grid>
-                    {viewRecord.operating_system && (
-                      <Grid item xs={6} sm={4}>
-                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Operating System</Typography>
-                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.operating_system}</Typography>
-                      </Grid>
-                    )}
-                  </>
-                )}
+                {/* Header Right Actions */}
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Button
+                    onClick={() => {
+                      const target = viewRecord;
+                      setShowViewModal(false);
+                      handleOpen(target);
+                    }}
+                    variant="outlined"
+                    size="small"
+                    startIcon={<Edit2 size={13} />}
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: 600,
+                      fontSize: "0.78rem",
+                      borderColor: "#cbd5e1",
+                      color: "#334155",
+                      borderRadius: "8px",
+                      px: 1.5,
+                      py: 0.5,
+                      "&:hover": { borderColor: "#94a3b8", backgroundColor: "#f8fafc" },
+                    }}
+                  >
+                    Edit Asset
+                  </Button>
+                  <IconButton
+                    onClick={() => setShowViewModal(false)}
+                    size="small"
+                    sx={{
+                      color: "#94a3b8",
+                      borderRadius: "8px",
+                      "&:hover": { color: "#0f172a", backgroundColor: "#f1f5f9" },
+                    }}
+                  >
+                    <X size={18} />
+                  </IconButton>
+                </Box>
+              </Box>
 
-                {/* SIM Card Specifications */}
-                {viewRecord.asset_type === "SIM Card" && (
-                  <>
-                    <Grid item xs={12} sx={{ mt: 1 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
-                        <Smartphone size={16} color="#475569" />
-                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                          SIM & Plan Specifications
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>SIM Number (ICCID)</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.sim_number_iccid || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Mobile Number</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.mobile_number || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Service Provider</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.service_provider || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Plan Type</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.plan_type || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Monthly Plan / Package</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.monthly_plan_package || "—"}</Typography>
-                    </Grid>
-                    {viewRecord.imsi_number && (
-                      <Grid item xs={6} sm={4}>
-                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>IMSI Number</Typography>
-                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.imsi_number}</Typography>
-                      </Grid>
-                    )}
-                  </>
-                )}
+              {/* ── Segmented Navigation Tabs ── */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  px: 3,
+                  py: 1,
+                  borderBottom: "1px solid #e2e8f0",
+                  backgroundColor: "#ffffff",
+                }}
+              >
+                <Box sx={{ display: "flex", gap: 0.8, backgroundColor: "#f1f5f9", p: "4px", borderRadius: "10px" }}>
+                  {[
+                    { id: "overview", label: "Overview & Specs", icon: <Cpu size={14} /> },
+                    {
+                      id: "procurement",
+                      label: "Procurement & Invoice",
+                      icon: <Receipt size={14} />,
+                      badge: viewRecord.image_url ? "Invoice Attached" : null,
+                    },
+                    {
+                      id: "workflow",
+                      label: "Approval & Audit",
+                      icon: <ShieldCheck size={14} />,
+                      badge:
+                        Array.isArray(viewRecord.workflow_history) && viewRecord.workflow_history.length > 0
+                          ? `${viewRecord.workflow_history.length}`
+                          : null,
+                    },
+                  ].map((tab) => {
+                    const isActive = viewTab === tab.id;
+                    return (
+                      <Button
+                        key={tab.id}
+                        onClick={() => setViewTab(tab.id)}
+                        size="small"
+                        startIcon={tab.icon}
+                        sx={{
+                          textTransform: "none",
+                          fontSize: "0.8rem",
+                          fontWeight: isActive ? 700 : 500,
+                          color: isActive ? "#0f172a" : "#64748b",
+                          backgroundColor: isActive ? "#ffffff" : "transparent",
+                          boxShadow: isActive ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+                          borderRadius: "7px",
+                          px: 1.8,
+                          py: 0.5,
+                          transition: "all 0.15s ease",
+                          "&:hover": {
+                            backgroundColor: isActive ? "#ffffff" : "rgba(255,255,255,0.6)",
+                            color: "#0f172a",
+                          },
+                        }}
+                      >
+                        {tab.label}
+                        {tab.badge && (
+                          <Box
+                            component="span"
+                            sx={{
+                              ml: 0.8,
+                              px: 0.8,
+                              py: "1px",
+                              borderRadius: "10px",
+                              fontSize: "0.68rem",
+                              fontWeight: 700,
+                              backgroundColor: isActive ? "#eff6ff" : "#e2e8f0",
+                              color: isActive ? "#2563eb" : "#475569",
+                            }}
+                          >
+                            {tab.badge}
+                          </Box>
+                        )}
+                      </Button>
+                    );
+                  })}
+                </Box>
+                <Typography sx={{ fontSize: "0.74rem", color: "#94a3b8", display: { xs: "none", sm: "block" } }}>
+                  Workflow: <strong style={{ color: "#475569" }}>{getWorkflowStatusLabel(viewRecord.approval_stage, viewRecord.approval_status)}</strong>
+                </Typography>
+              </Box>
 
-                {/* Printer Specifications */}
-                {viewRecord.asset_type === "Printer" && (
-                  <>
-                    <Grid item xs={12} sx={{ mt: 1 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
-                        <Printer size={16} color="#475569" />
-                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                          Printer Specifications
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Brand / Manufacturer</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.manufacturer || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Model</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.model || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Serial Number</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.serial_number || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Printer Type</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.printer_type || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Connection Type</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.connection_type || "—"}</Typography>
-                    </Grid>
-                    {viewRecord.ip_address && (
-                      <Grid item xs={6} sm={4}>
-                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>IP Address</Typography>
-                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.ip_address}</Typography>
-                      </Grid>
-                    )}
-                    {viewRecord.mac_address && (
-                      <Grid item xs={6} sm={4}>
-                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>MAC Address</Typography>
-                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.mac_address}</Typography>
-                      </Grid>
-                    )}
-                  </>
-                )}
-
-                {/* Network Device Specifications */}
-                {viewRecord.asset_type === "Network Device" && (
-                  <>
-                    <Grid item xs={12} sx={{ mt: 1 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
-                        <Wifi size={16} color="#475569" />
-                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                          Network Device Specifications
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Device Name</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.device_name || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Device Category</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.device_category || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Brand / Manufacturer</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.manufacturer || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Model</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.model || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Serial Number</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.serial_number || "—"}</Typography>
-                    </Grid>
-                    {viewRecord.ip_address && (
-                      <Grid item xs={6} sm={4}>
-                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>IP Address</Typography>
-                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.ip_address}</Typography>
-                      </Grid>
-                    )}
-                    {viewRecord.mac_address && (
-                      <Grid item xs={6} sm={4}>
-                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>MAC Address</Typography>
-                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.mac_address}</Typography>
-                      </Grid>
-                    )}
-                  </>
-                )}
-
-                {/* Software Specifications */}
-                {viewRecord.asset_type === "Software" && (
-                  <>
-                    <Grid item xs={12} sx={{ mt: 1 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
-                        <Key size={16} color="#475569" />
-                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                          Software & License Specifications
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Software Category</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.software_category || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Version</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.version || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>License Type</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.license_type || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Number of Licenses</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.number_of_licenses || "—"}</Typography>
-                    </Grid>
-                    {viewRecord.license_key_subscription_id && (
-                      <Grid item xs={12} sm={8}>
-                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>License Key / Subscription ID</Typography>
-                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600, fontFamily: "monospace" }}>{viewRecord.license_key_subscription_id}</Typography>
-                      </Grid>
-                    )}
-                  </>
-                )}
-
-                {/* Phone Specifications */}
-                {viewRecord.asset_type === "Phone" && (
-                  <>
-                    <Grid item xs={12} sx={{ mt: 1 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
-                        <Phone size={16} color="#475569" />
-                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                          Phone Specifications
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Brand / Manufacturer</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.manufacturer || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Model</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.model || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>IMEI Number</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.imei_number || "—"}</Typography>
-                    </Grid>
-                    {viewRecord.serial_number && (
-                      <Grid item xs={6} sm={4}>
-                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Serial Number</Typography>
-                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.serial_number}</Typography>
-                      </Grid>
-                    )}
-                  </>
-                )}
-
-                {/* Rack Specifications */}
-                {viewRecord.asset_type === "Rack" && (
-                  <>
-                    <Grid item xs={12} sx={{ mt: 1 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
-                        <Server size={16} color="#475569" />
-                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                          Rack Specifications
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Rack Name / Number</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.rack_name || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Rack Type</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.rack_type || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Rack Size (U Height)</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.rack_size_u_height || "—"}</Typography>
-                    </Grid>
-                    {viewRecord.installation_date && (
-                      <Grid item xs={6} sm={4}>
-                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Installation Date</Typography>
-                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.installation_date}</Typography>
-                      </Grid>
-                    )}
-                  </>
-                )}
-
-                {/* Cable Specifications */}
-                {viewRecord.asset_type === "Cable" && (
-                  <>
-                    <Grid item xs={12} sx={{ mt: 1 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
-                        <Layers size={16} color="#475569" />
-                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                          Cable Specifications
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Cable Name</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.cable_name || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Cable Type</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.cable_type || "—"}</Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4}>
-                      <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Length</Typography>
-                      <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.length || "—"}</Typography>
-                    </Grid>
-                  </>
-                )}
-
-                {/* Assignment & Location */}
-                <Grid item xs={12} sx={{ mt: 1 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
-                    <UserCheck size={16} color="#475569" />
-                    <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                      Assignment & Location
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Assigned User</Typography>
-                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{getAssignedToName(viewRecord.assigned_to)}</Typography>
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Department</Typography>
-                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.department || "—"}</Typography>
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Location</Typography>
-                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.location || "—"}</Typography>
-                </Grid>
-                {viewRecord.assigned_date && (
-                  <Grid item xs={6} sm={4}>
-                    <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Assigned Date</Typography>
-                    <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.assigned_date}</Typography>
-                  </Grid>
-                )}
-
-                {/* Procurement & Vendor */}
-                <Grid item xs={12} sx={{ mt: 1 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
-                    <Calendar size={16} color="#475569" />
-                    <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                      Procurement & Warranty
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Purchase Date</Typography>
-                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.purchase_date || "—"}</Typography>
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Warranty Expiry / End Date</Typography>
-                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.warranty_expiry || viewRecord.expiry_renewal_date || "—"}</Typography>
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                  <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Vendor / Supplier</Typography>
-                  <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>
-                    {vendors.find((v) => v._id === viewRecord.vendor)?.name || (typeof viewRecord.vendor === "object" ? viewRecord.vendor?.name : null) || "—"}
-                  </Typography>
-                </Grid>
-                {viewRecord.purchase_cost && (
-                  <Grid item xs={6} sm={4}>
-                    <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Purchase Cost</Typography>
-                    <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>₹{Number(viewRecord.purchase_cost).toLocaleString("en-IN")}</Typography>
-                  </Grid>
-                )}
-
-                {/* Additional Notes */}
-                {(viewRecord.remarks || viewRecord.description) && (
-                  <>
-                    <Grid item xs={12} sx={{ mt: 1 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
-                        <FileText size={16} color="#475569" />
-                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                          Additional Notes & Remarks
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Box sx={{ p: 1.5, background: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "0.85rem", color: "#334155" }}>
-                        {viewRecord.remarks || viewRecord.description}
-                      </Box>
-                    </Grid>
-                  </>
-                )}
-
-                {/* Attached Asset Invoice & Billing Details (Bottom of Modal) */}
-                {(viewRecord.invoice_number || viewRecord.invoice_date || viewRecord.image_url) && (
-                  <>
-                    <Grid item xs={12} sx={{ mt: 1 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 0.8, borderBottom: "1px solid #f1f5f9" }}>
-                        <FileText size={16} color="#475569" />
-                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                          Invoice & Billing Details
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    {viewRecord.invoice_number && (
-                      <Grid item xs={6} sm={4}>
-                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Invoice Number</Typography>
-                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>{viewRecord.invoice_number}</Typography>
-                      </Grid>
-                    )}
-                    {viewRecord.invoice_date && (
-                      <Grid item xs={6} sm={4}>
-                        <Typography sx={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Invoice Date</Typography>
-                        <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600 }}>
-                          {viewRecord.invoice_date ? viewRecord.invoice_date.slice(0, 10) : "—"}
-                        </Typography>
-                      </Grid>
-                    )}
-                    {viewRecord.image_url && (
-                      <Grid item xs={12}>
+              {/* ── Dialog Content Body ── */}
+              <DialogContent
+                sx={{
+                  p: 2.5,
+                  backgroundColor: "#f8fafc",
+                  maxHeight: "calc(88vh - 140px)",
+                  overflowY: "auto",
+                }}
+              >
+                {/* ── TAB 1: OVERVIEW & SPECS (Zero-Scroll Layout) ── */}
+                {viewTab === "overview" && (
+                  <Grid container spacing={2}>
+                    {/* Left Column: Technical Specifications Card */}
+                    <Grid item xs={12} md={7}>
+                      <Box
+                        sx={{
+                          backgroundColor: "#ffffff",
+                          borderRadius: "12px",
+                          border: "1px solid #e2e8f0",
+                          p: 2,
+                          height: "100%",
+                          display: "flex",
+                          flexDirection: "column",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                        }}
+                      >
+                        {/* Card Header */}
                         <Box
                           sx={{
                             display: "flex",
                             alignItems: "center",
-                            gap: 2,
-                            p: 1.5,
-                            borderRadius: "10px",
-                            backgroundColor: "#f8fafc",
-                            border: "1px solid #e2e8f0",
+                            justifyContent: "space-between",
+                            pb: 1.2,
+                            mb: 1.5,
+                            borderBottom: "1px solid #f1f5f9",
                           }}
                         >
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box sx={{ p: 0.6, borderRadius: "6px", backgroundColor: theme.lightBg, color: theme.color, display: "flex" }}>
+                              {getAssetTypeIcon(viewRecord.asset_type, 16)}
+                            </Box>
+                            <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#0f172a" }}>
+                              {viewRecord.asset_type === "Software"
+                                ? "Software & License Specifications"
+                                : viewRecord.asset_type === "SIM Card"
+                                ? "SIM Card & Plan Details"
+                                : viewRecord.asset_type === "Printer"
+                                ? "Printer Specifications"
+                                : viewRecord.asset_type === "Network Device"
+                                ? "Network Device Specifications"
+                                : viewRecord.asset_type === "Rack"
+                                ? "Rack Specifications"
+                                : viewRecord.asset_type === "Cable"
+                                ? "Cable Specifications"
+                                : viewRecord.asset_type === "Phone"
+                                ? "Phone Specifications"
+                                : "Hardware & Device Specifications"}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={viewRecord.asset_type || "Asset"}
+                            size="small"
+                            sx={{ fontSize: "0.7rem", height: 20, fontWeight: 600, backgroundColor: "#f1f5f9", color: "#475569" }}
+                          />
+                        </Box>
+
+                        {/* Spec Grid */}
+                        <Grid container spacing={1.2}>
+                          {/* Laptop / Desktop / Computer */}
+                          {(viewRecord.asset_type === "Laptop" ||
+                            viewRecord.asset_type === "Desktop" ||
+                            viewRecord.asset_type === "Computer" ||
+                            viewRecord.processor ||
+                            viewRecord.ram ||
+                            viewRecord.storage) && (
+                            <>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Brand / Manufacturer" value={viewRecord.manufacturer} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Model" value={viewRecord.model} />
+                              </Grid>
+                              <Grid item xs={12} sm={4}>
+                                <SpecTile
+                                  label="Serial Number"
+                                  value={viewRecord.serial_number}
+                                  copyable
+                                  onCopy={(val) => handleCopyText(val, "serial")}
+                                  isCopied={copiedSerial}
+                                />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Processor" value={viewRecord.processor} icon={<Cpu size={13} />} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile
+                                  label="RAM"
+                                  value={viewRecord.ram}
+                                  isChip
+                                  chipColor={{ bg: "#eff6ff", text: "#2563eb", border: "#bfdbfe" }}
+                                />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile
+                                  label="Storage"
+                                  value={viewRecord.storage}
+                                  isChip
+                                  chipColor={{ bg: "#ecfdf5", text: "#059669", border: "#a7f3d0" }}
+                                />
+                              </Grid>
+                              {viewRecord.operating_system && (
+                                <Grid item xs={6} sm={6}>
+                                  <SpecTile label="Operating System" value={viewRecord.operating_system} />
+                                </Grid>
+                              )}
+                              {viewRecord.asset_name && (
+                                <Grid item xs={6} sm={6}>
+                                  <SpecTile label="Asset Name / Hostname" value={viewRecord.asset_name} />
+                                </Grid>
+                              )}
+                            </>
+                          )}
+
+                          {/* SIM Card */}
+                          {viewRecord.asset_type === "SIM Card" && (
+                            <>
+                              <Grid item xs={6} sm={6}>
+                                <SpecTile
+                                  label="SIM Number (ICCID)"
+                                  value={viewRecord.sim_number_iccid}
+                                  copyable
+                                  onCopy={(val) => handleCopyText(val, "serial")}
+                                  isCopied={copiedSerial}
+                                />
+                              </Grid>
+                              <Grid item xs={6} sm={6}>
+                                <SpecTile
+                                  label="Mobile Number"
+                                  value={viewRecord.mobile_number}
+                                  copyable
+                                  onCopy={(val) => handleCopyText(val, "serial")}
+                                  isCopied={copiedSerial}
+                                />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Service Provider" value={viewRecord.service_provider} isChip chipColor={{ bg: "#fff7ed", text: "#ea580c", border: "#fed7aa" }} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Plan Type" value={viewRecord.plan_type} />
+                              </Grid>
+                              <Grid item xs={12} sm={4}>
+                                <SpecTile label="Monthly Package" value={viewRecord.monthly_plan_package} />
+                              </Grid>
+                              {viewRecord.imsi_number && (
+                                <Grid item xs={12}>
+                                  <SpecTile
+                                    label="IMSI Number"
+                                    value={viewRecord.imsi_number}
+                                    copyable
+                                    onCopy={(val) => handleCopyText(val, "serial")}
+                                    isCopied={copiedSerial}
+                                  />
+                                </Grid>
+                              )}
+                            </>
+                          )}
+
+                          {/* Printer */}
+                          {viewRecord.asset_type === "Printer" && (
+                            <>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Manufacturer" value={viewRecord.manufacturer} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Model" value={viewRecord.model} />
+                              </Grid>
+                              <Grid item xs={12} sm={4}>
+                                <SpecTile
+                                  label="Serial Number"
+                                  value={viewRecord.serial_number}
+                                  copyable
+                                  onCopy={(val) => handleCopyText(val, "serial")}
+                                  isCopied={copiedSerial}
+                                />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Printer Type" value={viewRecord.printer_type} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Connection" value={viewRecord.connection_type} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="IP Address" value={viewRecord.ip_address} />
+                              </Grid>
+                              {viewRecord.mac_address && (
+                                <Grid item xs={12}>
+                                  <SpecTile
+                                    label="MAC Address"
+                                    value={viewRecord.mac_address}
+                                    copyable
+                                    onCopy={(val) => handleCopyText(val, "serial")}
+                                    isCopied={copiedSerial}
+                                  />
+                                </Grid>
+                              )}
+                            </>
+                          )}
+
+                          {/* Network Device */}
+                          {viewRecord.asset_type === "Network Device" && (
+                            <>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Device Name" value={viewRecord.device_name} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Category" value={viewRecord.device_category} isChip chipColor={{ bg: "#ecfeff", text: "#0891b2", border: "#a5f3fc" }} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Brand" value={viewRecord.manufacturer} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Model" value={viewRecord.model} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile
+                                  label="Serial Number"
+                                  value={viewRecord.serial_number}
+                                  copyable
+                                  onCopy={(val) => handleCopyText(val, "serial")}
+                                  isCopied={copiedSerial}
+                                />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="IP Address" value={viewRecord.ip_address} />
+                              </Grid>
+                              {viewRecord.mac_address && (
+                                <Grid item xs={12}>
+                                  <SpecTile
+                                    label="MAC Address"
+                                    value={viewRecord.mac_address}
+                                    copyable
+                                    onCopy={(val) => handleCopyText(val, "serial")}
+                                    isCopied={copiedSerial}
+                                  />
+                                </Grid>
+                              )}
+                            </>
+                          )}
+
+                          {/* Software */}
+                          {viewRecord.asset_type === "Software" && (
+                            <>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Software Category" value={viewRecord.software_category} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Version" value={viewRecord.version} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="License Type" value={viewRecord.license_type} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Total Licenses" value={viewRecord.number_of_licenses} />
+                              </Grid>
+                              {viewRecord.license_key_subscription_id && (
+                                <Grid item xs={12} sm={8}>
+                                  <SpecTile
+                                    label="License Key / Subscription ID"
+                                    value={viewRecord.license_key_subscription_id}
+                                    copyable
+                                    onCopy={(val) => handleCopyText(val, "serial")}
+                                    isCopied={copiedSerial}
+                                  />
+                                </Grid>
+                              )}
+                            </>
+                          )}
+
+                          {/* Phone */}
+                          {viewRecord.asset_type === "Phone" && (
+                            <>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Brand" value={viewRecord.manufacturer} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Model" value={viewRecord.model} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile
+                                  label="IMEI Number"
+                                  value={viewRecord.imei_number}
+                                  copyable
+                                  onCopy={(val) => handleCopyText(val, "serial")}
+                                  isCopied={copiedSerial}
+                                />
+                              </Grid>
+                              {viewRecord.serial_number && (
+                                <Grid item xs={12}>
+                                  <SpecTile
+                                    label="Serial Number"
+                                    value={viewRecord.serial_number}
+                                    copyable
+                                    onCopy={(val) => handleCopyText(val, "serial")}
+                                    isCopied={copiedSerial}
+                                  />
+                                </Grid>
+                              )}
+                            </>
+                          )}
+
+                          {/* Rack */}
+                          {viewRecord.asset_type === "Rack" && (
+                            <>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Rack Name / #" value={viewRecord.rack_name} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Rack Type" value={viewRecord.rack_type} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="U Height" value={viewRecord.rack_size_u_height} />
+                              </Grid>
+                              {viewRecord.installation_date && (
+                                <Grid item xs={12}>
+                                  <SpecTile label="Installation Date" value={formatAssetDate(viewRecord.installation_date)} />
+                                </Grid>
+                              )}
+                            </>
+                          )}
+
+                          {/* Cable */}
+                          {viewRecord.asset_type === "Cable" && (
+                            <>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Cable Name" value={viewRecord.cable_name} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Cable Type" value={viewRecord.cable_type} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Length" value={viewRecord.length} />
+                              </Grid>
+                            </>
+                          )}
+                        </Grid>
+
+                        {/* Remarks / Description Callout inside Left Card if present */}
+                        {(viewRecord.remarks || viewRecord.description) && (
                           <Box
-                            onClick={() => {
-                              setPreviewInvoiceUrl(viewRecord.image_url);
-                              setPreviewInvoiceTitle(
-                                viewRecord.invoice_number
-                                  ? `Invoice_${viewRecord.invoice_number}`
-                                  : `Invoice_${viewRecord.asset_tag || "Asset"}`
-                              );
-                            }}
                             sx={{
-                              width: 80,
-                              height: 80,
-                              borderRadius: "8px",
-                              overflow: "hidden",
-                              border: "1px solid #cbd5e1",
-                              flexShrink: 0,
-                              backgroundColor: "#ffffff",
+                              mt: 2,
+                              pt: 1.5,
+                              borderTop: "1px solid #f1f5f9",
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1,
+                            }}
+                          >
+                            <FileText size={14} color="#64748b" style={{ marginTop: 2, flexShrink: 0 }} />
+                            <Box>
+                              <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                                Remarks & Description
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.8rem", color: "#334155", mt: 0.3, lineHeight: 1.4 }}>
+                                {viewRecord.remarks || viewRecord.description}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        )}
+                      </Box>
+                    </Grid>
+
+                    {/* Right Column: Assignment & Location + Quick Warranty / Financial Snapshot */}
+                    <Grid item xs={12} md={5}>
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        {/* Assignment & Location Card */}
+                        <Box
+                          sx={{
+                            backgroundColor: "#ffffff",
+                            borderRadius: "12px",
+                            border: "1px solid #e2e8f0",
+                            p: 2,
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                          }}
+                        >
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 1.2, mb: 1.5, borderBottom: "1px solid #f1f5f9" }}>
+                            <Box sx={{ p: 0.6, borderRadius: "6px", backgroundColor: "#f0fdf4", color: "#16a34a", display: "flex" }}>
+                              <UserCheck size={16} />
+                            </Box>
+                            <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#0f172a" }}>
+                              Assignment & Location
+                            </Typography>
+                          </Box>
+
+                          {/* Assigned User Hero Card */}
+                          <Box
+                            sx={{
                               display: "flex",
                               alignItems: "center",
-                              justifyContent: "center",
-                              cursor: "pointer",
-                              transition: "all 0.2s ease",
-                              "&:hover": {
-                                borderColor: "#3b82f6",
-                                transform: "scale(1.02)",
-                                boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-                              },
+                              gap: 1.5,
+                              p: 1.2,
+                              backgroundColor: "#f8fafc",
+                              borderRadius: "9px",
+                              border: "1px solid #f1f5f9",
+                              mb: 1.5,
                             }}
-                            title="Click to preview invoice document"
                           >
-                            {viewRecord.image_url.includes(".pdf") || viewRecord.image_url.startsWith("data:application/pdf") ? (
-                              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#dc2626" }}>
-                                <FileText size={30} />
-                                <Typography sx={{ fontSize: "0.65rem", fontWeight: 700, mt: 0.3 }}>PDF</Typography>
+                            <Box
+                              sx={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: "50%",
+                                background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                                color: "#ffffff",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontWeight: 700,
+                                fontSize: "0.82rem",
+                                flexShrink: 0,
+                                boxShadow: "0 2px 6px rgba(37, 99, 235, 0.25)",
+                              }}
+                            >
+                              {getAssignedUserInitials(assignedName)}
+                            </Box>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography sx={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                                Assigned User
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {assignedName}
+                              </Typography>
+                            </Box>
+                            <Chip
+                              label={viewRecord.assigned_to ? "Assigned" : "Unallocated"}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: "0.68rem",
+                                fontWeight: 700,
+                                backgroundColor: viewRecord.assigned_to ? "#dcfce7" : "#f1f5f9",
+                                color: viewRecord.assigned_to ? "#15803d" : "#64748b",
+                              }}
+                            />
+                          </Box>
+
+                          <Grid container spacing={1.5}>
+                            <Grid item xs={6}>
+                              <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Department</Typography>
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, mt: 0.2 }}>
+                                <Building size={13} color="#64748b" />
+                                <Typography sx={{ fontSize: "0.82rem", color: "#0f172a", fontWeight: 600 }}>
+                                  {viewRecord.department || "—"}
+                                </Typography>
                               </Box>
-                            ) : (
-                              <img
-                                src={viewRecord.image_url}
-                                alt={viewRecord.asset_tag}
-                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Physical Location</Typography>
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, mt: 0.2 }}>
+                                <MapPin size={13} color="#64748b" />
+                                <Typography sx={{ fontSize: "0.82rem", color: "#0f172a", fontWeight: 600 }}>
+                                  {viewRecord.location || "—"}
+                                </Typography>
+                              </Box>
+                            </Grid>
+                            {viewRecord.assigned_date && (
+                              <Grid item xs={12}>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, pt: 0.8, borderTop: "1px dashed #f1f5f9" }}>
+                                  <Calendar size={13} color="#64748b" />
+                                  <Typography sx={{ fontSize: "0.74rem", color: "#64748b" }}>
+                                    Assigned on: <strong style={{ color: "#334155" }}>{formatAssetDate(viewRecord.assigned_date)}</strong>
+                                  </Typography>
+                                </Box>
+                              </Grid>
+                            )}
+                          </Grid>
+                        </Box>
+
+                        {/* Warranty & Financial Snapshot Card */}
+                        <Box
+                          sx={{
+                            backgroundColor: "#ffffff",
+                            borderRadius: "12px",
+                            border: "1px solid #e2e8f0",
+                            p: 2,
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                          }}
+                        >
+                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1.2, mb: 1.5, borderBottom: "1px solid #f1f5f9" }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Box sx={{ p: 0.6, borderRadius: "6px", backgroundColor: "#fff7ed", color: "#ea580c", display: "flex" }}>
+                                <Calendar size={16} />
+                              </Box>
+                              <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#0f172a" }}>
+                                Procurement & Warranty
+                              </Typography>
+                            </Box>
+                            {warrantyInfo && (
+                              <Chip
+                                label={warrantyInfo.label}
+                                size="small"
+                                sx={{
+                                  height: 20,
+                                  fontSize: "0.68rem",
+                                  fontWeight: 700,
+                                  backgroundColor: warrantyInfo.bg,
+                                  color: warrantyInfo.color,
+                                  border: `1px solid ${warrantyInfo.border}`,
+                                }}
                               />
                             )}
                           </Box>
-                          <Box sx={{ flex: 1 }}>
-                            <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#0f172a" }}>
-                              Asset Purchase Invoice Document
+
+                          <Grid container spacing={1.5}>
+                            <Grid item xs={6}>
+                              <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Purchase Date</Typography>
+                              <Typography sx={{ fontSize: "0.82rem", color: "#0f172a", fontWeight: 600, mt: 0.2 }}>
+                                {formatAssetDate(viewRecord.purchase_date)}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Warranty Expiry</Typography>
+                              <Typography sx={{ fontSize: "0.82rem", color: "#0f172a", fontWeight: 600, mt: 0.2 }}>
+                                {formatAssetDate(viewRecord.warranty_expiry || viewRecord.expiry_renewal_date)}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Vendor / Supplier</Typography>
+                              <Typography sx={{ fontSize: "0.82rem", color: "#0f172a", fontWeight: 600, mt: 0.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {vendorName}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Purchase Cost</Typography>
+                              <Typography sx={{ fontSize: "0.88rem", color: "#166534", fontWeight: 700, mt: 0.2 }}>
+                                {viewRecord.purchase_cost ? `₹${Number(viewRecord.purchase_cost).toLocaleString("en-IN")}` : "—"}
+                              </Typography>
+                            </Grid>
+                          </Grid>
+
+                          {/* Quick link button to Tab 2 if invoice is attached */}
+                          {viewRecord.image_url ? (
+                            <Box
+                              onClick={() => setViewTab("procurement")}
+                              sx={{
+                                mt: 1.5,
+                                p: 0.8,
+                                px: 1.2,
+                                borderRadius: "8px",
+                                backgroundColor: "#eff6ff",
+                                border: "1px solid #dbeafe",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                cursor: "pointer",
+                                transition: "all 0.15s ease",
+                                "&:hover": { backgroundColor: "#dbeafe" },
+                              }}
+                            >
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <Receipt size={14} color="#2563eb" />
+                                <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: "#1e40af" }}>
+                                  Invoice Attached ({viewRecord.invoice_number || "View Doc"})
+                                </Typography>
+                              </Box>
+                              <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#2563eb" }}>
+                                View →
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <Box
+                              onClick={() => setViewTab("procurement")}
+                              sx={{
+                                mt: 1.5,
+                                pt: 1,
+                                borderTop: "1px dashed #f1f5f9",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Typography sx={{ fontSize: "0.72rem", color: "#64748b" }}>
+                                Financial & billing details
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.72rem", fontWeight: 600, color: "#2563eb" }}>
+                                View Full Tab →
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                )}
+
+                {/* ── TAB 2: PROCUREMENT & INVOICE ── */}
+                {viewTab === "procurement" && (
+                  <Grid container spacing={2.5}>
+                    {/* Left: Financial & Procurement Overview */}
+                    <Grid item xs={12} md={6}>
+                      <Box
+                        sx={{
+                          backgroundColor: "#ffffff",
+                          borderRadius: "12px",
+                          border: "1px solid #e2e8f0",
+                          p: 2.5,
+                          height: "100%",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                        }}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1.5, mb: 2, borderBottom: "1px solid #f1f5f9" }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box sx={{ p: 0.6, borderRadius: "6px", backgroundColor: "#ecfdf5", color: "#059669", display: "flex" }}>
+                              <DollarSign size={16} />
+                            </Box>
+                            <Typography sx={{ fontSize: "0.9rem", fontWeight: 700, color: "#0f172a" }}>
+                              Financial & Warranty Overview
                             </Typography>
-                            <Typography sx={{ fontSize: "0.75rem", color: "#64748b", mt: 0.3 }}>
-                              Click below to view the invoice preview in current window and download it.
+                          </Box>
+                          {warrantyInfo && (
+                            <Chip
+                              label={warrantyInfo.label}
+                              size="small"
+                              sx={{
+                                height: 22,
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                backgroundColor: warrantyInfo.bg,
+                                color: warrantyInfo.color,
+                                border: `1px solid ${warrantyInfo.border}`,
+                              }}
+                            />
+                          )}
+                        </Box>
+
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Purchase Cost</Typography>
+                            <Typography sx={{ fontSize: "0.95rem", color: "#166534", fontWeight: 700, mt: 0.3 }}>
+                              {viewRecord.purchase_cost ? `₹${Number(viewRecord.purchase_cost).toLocaleString("en-IN")}` : "Not Specified"}
                             </Typography>
-                            <Box sx={{ display: "flex", gap: 1, mt: 1, flexWrap: "wrap" }}>
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                startIcon={<Eye size={14} />}
-                                onClick={() => {
-                                  setPreviewInvoiceUrl(viewRecord.image_url);
-                                  setPreviewInvoiceTitle(
-                                    viewRecord.invoice_number
-                                      ? `Invoice_${viewRecord.invoice_number}`
-                                      : `Invoice_${viewRecord.asset_tag || "Asset"}`
-                                  );
-                                }}
-                                sx={{
-                                  textTransform: "none",
-                                  fontSize: "0.75rem",
-                                  fontWeight: 600,
-                                  borderRadius: "6px",
-                                  py: 0.4,
-                                  px: 1.5,
-                                  borderColor: "#cbd5e1",
-                                  color: "#2563eb",
-                                  backgroundColor: "#ffffff",
-                                  "&:hover": {
-                                    backgroundColor: "#eff6ff",
-                                    borderColor: "#93c5fd",
-                                  },
-                                }}
-                              >
-                                View / Download Invoice
-                              </Button>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Purchase Date</Typography>
+                            <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600, mt: 0.3 }}>
+                              {formatAssetDate(viewRecord.purchase_date)}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Warranty Expiry</Typography>
+                            <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600, mt: 0.3 }}>
+                              {formatAssetDate(viewRecord.warranty_expiry || viewRecord.expiry_renewal_date)}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Vendor / Supplier</Typography>
+                            <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600, mt: 0.3 }}>
+                              {vendorName}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    </Grid>
+
+                    {/* Right: Attached Invoice & Billing Document */}
+                    <Grid item xs={12} md={6}>
+                      <Box
+                        sx={{
+                          backgroundColor: "#ffffff",
+                          borderRadius: "12px",
+                          border: "1px solid #e2e8f0",
+                          p: 2.5,
+                          height: "100%",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                        }}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 1.5, mb: 2, borderBottom: "1px solid #f1f5f9" }}>
+                          <Box sx={{ p: 0.6, borderRadius: "6px", backgroundColor: "#eff6ff", color: "#2563eb", display: "flex" }}>
+                            <Receipt size={16} />
+                          </Box>
+                          <Typography sx={{ fontSize: "0.9rem", fontWeight: 700, color: "#0f172a" }}>
+                            Invoice & Billing Details
+                          </Typography>
+                        </Box>
+
+                        <Grid container spacing={2} sx={{ mb: 2 }}>
+                          <Grid item xs={6}>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Invoice Number</Typography>
+                            <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 700, mt: 0.3 }}>
+                              {viewRecord.invoice_number || "—"}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Invoice Date</Typography>
+                            <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600, mt: 0.3 }}>
+                              {formatAssetDate(viewRecord.invoice_date)}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+
+                        {/* Document Thumbnail / Attachment */}
+                        {viewRecord.image_url ? (
+                          <Box
+                            sx={{
+                              p: 2,
+                              borderRadius: "10px",
+                              backgroundColor: "#f8fafc",
+                              border: "1px solid #e2e8f0",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 2,
+                            }}
+                          >
+                            <Box
+                              onClick={() => {
+                                setPreviewInvoiceUrl(viewRecord.image_url);
+                                setPreviewInvoiceTitle(
+                                  viewRecord.invoice_number
+                                    ? `Invoice_${viewRecord.invoice_number}`
+                                    : `Invoice_${viewRecord.asset_tag || "Asset"}`
+                                );
+                              }}
+                              sx={{
+                                width: 76,
+                                height: 76,
+                                borderRadius: "8px",
+                                overflow: "hidden",
+                                border: "1px solid #cbd5e1",
+                                flexShrink: 0,
+                                backgroundColor: "#ffffff",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                                transition: "all 0.2s ease",
+                                "&:hover": {
+                                  borderColor: "#3b82f6",
+                                  transform: "scale(1.03)",
+                                  boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+                                },
+                              }}
+                              title="Click to preview invoice document"
+                            >
+                              {viewRecord.image_url.includes(".pdf") || viewRecord.image_url.startsWith("data:application/pdf") ? (
+                                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#dc2626" }}>
+                                  <FileText size={30} />
+                                  <Typography sx={{ fontSize: "0.65rem", fontWeight: 700, mt: 0.3 }}>PDF</Typography>
+                                </Box>
+                              ) : (
+                                <img
+                                  src={viewRecord.image_url}
+                                  alt={viewRecord.asset_tag}
+                                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                />
+                              )}
+                            </Box>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#0f172a" }}>
+                                {viewRecord.invoice_number ? `Invoice #${viewRecord.invoice_number}` : "Asset Invoice Document"}
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.74rem", color: "#64748b", mt: 0.3 }}>
+                                Official purchase invoice & billing documentation
+                              </Typography>
+                              <Box sx={{ display: "flex", gap: 1, mt: 1.2, flexWrap: "wrap" }}>
+                                <Button
+                                  variant="outlined"
+                                  size="small"
+                                  startIcon={<Eye size={13} />}
+                                  onClick={() => {
+                                    setPreviewInvoiceUrl(viewRecord.image_url);
+                                    setPreviewInvoiceTitle(
+                                      viewRecord.invoice_number
+                                        ? `Invoice_${viewRecord.invoice_number}`
+                                        : `Invoice_${viewRecord.asset_tag || "Asset"}`
+                                    );
+                                  }}
+                                  sx={{
+                                    textTransform: "none",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 600,
+                                    borderRadius: "6px",
+                                    py: 0.3,
+                                    px: 1.2,
+                                  }}
+                                >
+                                  Preview
+                                </Button>
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  startIcon={<Download size={13} />}
+                                  onClick={() =>
+                                    handleDownloadInvoice(
+                                      viewRecord.image_url,
+                                      viewRecord.invoice_number
+                                        ? `Invoice_${viewRecord.invoice_number}`
+                                        : `Invoice_${viewRecord.asset_tag || "Asset"}`
+                                    )
+                                  }
+                                  sx={{
+                                    textTransform: "none",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 600,
+                                    borderRadius: "6px",
+                                    py: 0.3,
+                                    px: 1.2,
+                                    backgroundColor: "#2563eb",
+                                    "&:hover": { backgroundColor: "#1d4ed8" },
+                                  }}
+                                >
+                                  Download
+                                </Button>
+                              </Box>
                             </Box>
                           </Box>
-                        </Box>
-                      </Grid>
-                    )}
-                  </>
-                )}
-              </Grid>
-            </DialogContent>
+                        ) : (
+                          <Box
+                            sx={{
+                              p: 3,
+                              borderRadius: "10px",
+                              border: "2px dashed #cbd5e1",
+                              backgroundColor: "#f8fafc",
+                              textAlign: "center",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <Receipt size={32} color="#94a3b8" />
+                            <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b", mt: 1 }}>
+                              No Invoice Document Attached
+                            </Typography>
+                            <Typography sx={{ fontSize: "0.75rem", color: "#94a3b8", mt: 0.3 }}>
+                              You can attach a PDF or image invoice by editing this asset.
+                            </Typography>
+                          </Box>
+                        )}
 
-            <DialogActions
-              sx={{
-                px: 3,
-                py: 2,
-                borderTop: "1px solid #f1f5f9",
-                backgroundColor: "#f8fafc",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <Button
-                onClick={() => setShowViewModal(false)}
+                        {/* Invoice Approval Status & Actions */}
+                        <Box
+                          sx={{
+                            mt: 2.5,
+                            pt: 2,
+                            borderTop: "1px solid #f1f5f9",
+                          }}
+                        >
+                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5, flexWrap: "wrap", gap: 1 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                              <Box sx={{ p: 0.5, borderRadius: "6px", backgroundColor: "#f0fdf4", color: "#16a34a", display: "flex" }}>
+                                <ShieldCheck size={16} />
+                              </Box>
+                              <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#0f172a" }}>
+                                Invoice Approval Status
+                              </Typography>
+                            </Box>
+                            <span className={`score-badge ${getWorkflowBadgeClass(viewRecord.approval_stage, viewRecord.approval_status)}`}>
+                              {getWorkflowStatusLabel(viewRecord.approval_stage, viewRecord.approval_status)}
+                            </span>
+                          </Box>
+
+                          {/* Rejection remarks if any */}
+                          {viewRecord.rejection_remarks && (
+                            <Box
+                              sx={{
+                                p: 1,
+                                px: 1.2,
+                                mb: 1.5,
+                                borderRadius: "6px",
+                                backgroundColor: "#fef2f2",
+                                border: "1px solid #fecaca",
+                                fontSize: "0.75rem",
+                                color: "#991b1b",
+                              }}
+                            >
+                              <strong>Rejection Remarks:</strong> {viewRecord.rejection_remarks}
+                            </Box>
+                          )}
+
+                          {/* Verification History list / Badges if present */}
+                          {(viewRecord.admin_verifications?.length > 0 || viewRecord.accounts_approvals?.length > 0) && (
+                            <Box sx={{ display: "flex", gap: 0.8, flexWrap: "wrap", mb: 1.5 }}>
+                              {(viewRecord.admin_verifications || []).map((v, idx) => (
+                                <Chip
+                                  key={`av-${idx}`}
+                                  size="small"
+                                  icon={<Check size={12} color="#16a34a" />}
+                                  label={`Admin Verified: ${v.username || "Admin"}`}
+                                  sx={{
+                                    height: 22,
+                                    fontSize: "0.68rem",
+                                    fontWeight: 600,
+                                    backgroundColor: "#f0fdf4",
+                                    color: "#166534",
+                                    border: "1px solid #bbf7d0",
+                                  }}
+                                />
+                              ))}
+                              {(viewRecord.accounts_approvals || []).map((acc, idx) => (
+                                <Chip
+                                  key={`acc-${idx}`}
+                                  size="small"
+                                  icon={<ShieldCheck size={12} color="#2563eb" />}
+                                  label={`Accounts Approved: ${acc.username || "Accounts"}`}
+                                  sx={{
+                                    height: 22,
+                                    fontSize: "0.68rem",
+                                    fontWeight: 600,
+                                    backgroundColor: "#eff6ff",
+                                    color: "#1e40af",
+                                    border: "1px solid #bfdbfe",
+                                  }}
+                                />
+                              ))}
+                            </Box>
+                          )}
+
+                          {/* Role-based Workflow Action Buttons */}
+                          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
+                            {/* Admin Approval Stage: Admin can Approve or Reject */}
+                            {(viewRecord.approval_stage === "Admin Approval" || viewRecord.approval_status === "Pending Admin Approval" || !viewRecord.approval_stage) && isAdmin && (
+                              <>
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  startIcon={<Check size={14} />}
+                                  onClick={() => handleWorkflowAction(viewRecord._id, "approve_admin")}
+                                  disabled={submittingWorkflow}
+                                  sx={{
+                                    textTransform: "none",
+                                    fontSize: "0.78rem",
+                                    fontWeight: 600,
+                                    borderRadius: "8px",
+                                    backgroundColor: "#16a34a",
+                                    "&:hover": { backgroundColor: "#15803d" },
+                                    boxShadow: "none",
+                                  }}
+                                >
+                                  Approve
+                                </Button>
+                                <Button
+                                  variant="outlined"
+                                  color="error"
+                                  size="small"
+                                  startIcon={<X size={14} />}
+                                  onClick={() => {
+                                    setRejectAssetRecord(viewRecord);
+                                    setRejectActionType("reject_admin");
+                                    setShowRejectModal(true);
+                                  }}
+                                  disabled={submittingWorkflow}
+                                  sx={{
+                                    textTransform: "none",
+                                    fontSize: "0.78rem",
+                                    fontWeight: 600,
+                                    borderRadius: "8px",
+                                  }}
+                                >
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+
+                            {/* Accounts Approval Stage: Only Sr. Manager Accounts / Accountant can Final Approve or Reject */}
+                            {(viewRecord.approval_stage === "Accounts Approval" || viewRecord.approval_status === "Pending Accounts Approval") && isAccountsHead && (
+                              <>
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  startIcon={<Check size={14} />}
+                                  onClick={() => handleWorkflowAction(viewRecord._id, "approve_accounts")}
+                                  disabled={submittingWorkflow}
+                                  sx={{
+                                    textTransform: "none",
+                                    fontSize: "0.78rem",
+                                    fontWeight: 600,
+                                    borderRadius: "8px",
+                                    backgroundColor: "#16a34a",
+                                    "&:hover": { backgroundColor: "#15803d" },
+                                    boxShadow: "none",
+                                  }}
+                                >
+                                  Final Approve
+                                </Button>
+                                <Button
+                                  variant="outlined"
+                                  color="error"
+                                  size="small"
+                                  startIcon={<X size={14} />}
+                                  onClick={() => {
+                                    setRejectAssetRecord(viewRecord);
+                                    setRejectActionType("reject_accounts");
+                                    setShowRejectModal(true);
+                                  }}
+                                  disabled={submittingWorkflow}
+                                  sx={{
+                                    textTransform: "none",
+                                    fontSize: "0.78rem",
+                                    fontWeight: 600,
+                                    borderRadius: "8px",
+                                  }}
+                                >
+                                  Reject to Admin
+                                </Button>
+                              </>
+                            )}
+
+                            {/* IT Correction Stage: IT User can Resubmit */}
+                            {(viewRecord.approval_stage === "IT Correction" || viewRecord.approval_status === "Returned to IT") && (isPureITDept || !isAdmin) && (
+                              <Button
+                                variant="contained"
+                                size="small"
+                                startIcon={<Send size={14} />}
+                                onClick={() => handleWorkflowAction(viewRecord._id, "resubmit_it")}
+                                disabled={submittingWorkflow}
+                                sx={{
+                                  textTransform: "none",
+                                  fontSize: "0.78rem",
+                                  fontWeight: 600,
+                                  borderRadius: "8px",
+                                  backgroundColor: "#2563eb",
+                                  "&:hover": { backgroundColor: "#1d4ed8" },
+                                  boxShadow: "none",
+                                }}
+                              >
+                                Resubmit to Admin
+                              </Button>
+                            )}
+
+                            {/* Rejected Stage (Returned to Admin): Admin can Return to IT for Correction */}
+                            {(viewRecord.approval_stage === "Rejected" || viewRecord.approval_status === "Rejected") && isAdmin && (
+                              <Button
+                                variant="outlined"
+                                color="warning"
+                                size="small"
+                                startIcon={<RotateCcw size={14} />}
+                                onClick={() => handleWorkflowAction(viewRecord._id, "admin_return_to_it", "Returned to IT for correction by Admin")}
+                                disabled={submittingWorkflow}
+                                sx={{
+                                  textTransform: "none",
+                                  fontSize: "0.78rem",
+                                  fontWeight: 600,
+                                  borderRadius: "8px",
+                                }}
+                              >
+                                Return to IT for Correction
+                              </Button>
+                            )}
+
+                            {/* Multi-Admin Verification / Rejection */}
+                            {isAdmin &&
+                              (viewRecord.approval_stage === "Accounts Approval" ||
+                                viewRecord.approval_stage === "Completed" ||
+                                viewRecord.approval_status === "Pending Accounts Approval" ||
+                                viewRecord.approval_status === "Completed") &&
+                              !(
+                                Array.isArray(viewRecord.admin_verifications) &&
+                                viewRecord.admin_verifications.some((v) => String(v.user) === String(currentUser?._id) || v.username === currentUser?.username)
+                              ) && (
+                                <>
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    startIcon={<ShieldCheck size={14} />}
+                                    onClick={() => handleWorkflowAction(viewRecord._id, "verify_admin")}
+                                    disabled={submittingWorkflow}
+                                    sx={{
+                                      textTransform: "none",
+                                      fontSize: "0.78rem",
+                                      fontWeight: 600,
+                                      borderRadius: "8px",
+                                      backgroundColor: "#16a34a",
+                                      "&:hover": { backgroundColor: "#15803d" },
+                                      boxShadow: "none",
+                                    }}
+                                  >
+                                    + Verify (Admin)
+                                  </Button>
+                                  <Button
+                                    variant="outlined"
+                                    color="error"
+                                    size="small"
+                                    startIcon={<X size={14} />}
+                                    onClick={() => {
+                                      setRejectAssetRecord(viewRecord);
+                                      setRejectActionType("reject_admin");
+                                      setShowRejectModal(true);
+                                    }}
+                                    disabled={submittingWorkflow}
+                                    sx={{
+                                      textTransform: "none",
+                                      fontSize: "0.78rem",
+                                      fontWeight: 600,
+                                      borderRadius: "8px",
+                                    }}
+                                  >
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
+                          </Box>
+                        </Box>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                )}
+
+                {/* ── TAB 3: APPROVAL & WORKFLOW AUDIT ── */}
+                {viewTab === "workflow" && (
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    {/* Workflow Status Card */}
+                    <Box
+                      sx={{
+                        backgroundColor: "#ffffff",
+                        borderRadius: "12px",
+                        border: "1px solid #e2e8f0",
+                        p: 2.2,
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                      }}
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1.2, mb: 2, borderBottom: "1px solid #f1f5f9" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Box sx={{ p: 0.6, borderRadius: "6px", backgroundColor: "#f0fdf4", color: "#16a34a", display: "flex" }}>
+                            <ShieldCheck size={16} />
+                          </Box>
+                          <Typography sx={{ fontSize: "0.88rem", fontWeight: 700, color: "#0f172a" }}>
+                            Approval Workflow & Verification Status
+                          </Typography>
+                        </Box>
+                        <span className={`score-badge ${getWorkflowBadgeClass(viewRecord.approval_stage, viewRecord.approval_status)}`}>
+                          {getWorkflowStatusLabel(viewRecord.approval_stage, viewRecord.approval_status)}
+                        </span>
+                      </Box>
+
+                      {/* Stepper Progress Bar */}
+                      <Box sx={{ display: "flex", alignItems: "center", mb: 2.5, px: 1 }}>
+                        {[
+                          { label: "1. Created", done: true },
+                          {
+                            label: "2. Admin Verification",
+                            done: Array.isArray(viewRecord.admin_verifications) && viewRecord.admin_verifications.length > 0,
+                            active: viewRecord.approval_stage === "Admin Approval",
+                          },
+                          {
+                            label: "3. Accounts Approval",
+                            done: Array.isArray(viewRecord.accounts_verifications) && viewRecord.accounts_verifications.length > 0,
+                            active: viewRecord.approval_stage === "Accounts Approval",
+                          },
+                          {
+                            label: "4. Completed",
+                            done: String(viewRecord.approval_status || "").toLowerCase().includes("completed"),
+                          },
+                        ].map((step, idx, arr) => (
+                          <React.Fragment key={idx}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                              <Box
+                                sx={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: "50%",
+                                  backgroundColor: step.done ? "#16a34a" : step.active ? "#2563eb" : "#e2e8f0",
+                                  color: step.done || step.active ? "#ffffff" : "#64748b",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: "0.72rem",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {step.done ? <Check size={13} /> : idx + 1}
+                              </Box>
+                              <Typography
+                                sx={{
+                                  fontSize: "0.78rem",
+                                  fontWeight: step.active || step.done ? 700 : 500,
+                                  color: step.active ? "#1d4ed8" : step.done ? "#166534" : "#64748b",
+                                }}
+                              >
+                                {step.label}
+                              </Typography>
+                            </Box>
+                            {idx < arr.length - 1 && (
+                              <Box
+                                sx={{
+                                  flex: 1,
+                                  height: 2,
+                                  backgroundColor: step.done ? "#16a34a" : "#e2e8f0",
+                                  mx: 1.5,
+                                }}
+                              />
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </Box>
+
+                      {/* Verification Details */}
+                      <Grid container spacing={2}>
+                        {/* Admin Verification */}
+                        <Grid item xs={12} sm={6}>
+                          <Box sx={{ p: 1.5, backgroundColor: "#f8fafc", borderRadius: "9px", border: "1px solid #f1f5f9" }}>
+                            <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                              <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
+                                Admin Verification
+                              </Typography>
+                              {isAdmin &&
+                                !(
+                                  Array.isArray(viewRecord.admin_verifications) &&
+                                  viewRecord.admin_verifications.some(
+                                    (v) => String(v.user) === String(currentUser?._id) || v.username === currentUser?.username
+                                  )
+                                ) && (
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="success"
+                                    onClick={() => handleWorkflowAction(viewRecord._id, "verify_admin")}
+                                    disabled={submittingWorkflow}
+                                    sx={{ fontSize: "0.7rem", textTransform: "none", py: 0.1, px: 1, fontWeight: 700, borderRadius: "6px" }}
+                                  >
+                                    + Verify as Admin
+                                  </Button>
+                                )}
+                            </Box>
+                            {Array.isArray(viewRecord.admin_verifications) && viewRecord.admin_verifications.length > 0 ? (
+                              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.6 }}>
+                                {viewRecord.admin_verifications.map((v, idx) => (
+                                  <Chip
+                                    key={idx}
+                                    icon={<ShieldCheck size={13} color="#16a34a" />}
+                                    label={`${v.username || v.name || "Admin"} (${v.role || "Admin"})`}
+                                    size="small"
+                                    sx={{
+                                      height: 24,
+                                      fontSize: "0.72rem",
+                                      fontWeight: 700,
+                                      backgroundColor: "#f0fdf4",
+                                      color: "#166534",
+                                      border: "1px solid #bbf7d0",
+                                      width: "fit-content",
+                                    }}
+                                  />
+                                ))}
+                              </Box>
+                            ) : (
+                              <Typography sx={{ fontSize: "0.8rem", color: "#94a3b8", fontStyle: "italic" }}>
+                                Pending Admin Verification
+                              </Typography>
+                            )}
+                          </Box>
+                        </Grid>
+
+                        {/* Accounts Approval */}
+                        <Grid item xs={12} sm={6}>
+                          <Box sx={{ p: 1.5, backgroundColor: "#f8fafc", borderRadius: "9px", border: "1px solid #f1f5f9" }}>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase", mb: 1 }}>
+                              Accounts Approval
+                            </Typography>
+                            {Array.isArray(viewRecord.accounts_verifications) && viewRecord.accounts_verifications.length > 0 ? (
+                              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.6 }}>
+                                {viewRecord.accounts_verifications.map((v, idx) => (
+                                  <Chip
+                                    key={idx}
+                                    icon={<ShieldCheck size={13} color="#2563eb" />}
+                                    label={`${v.username || v.name || "Accounts"} (${v.role || "Accounts"})`}
+                                    size="small"
+                                    sx={{
+                                      height: 24,
+                                      fontSize: "0.72rem",
+                                      fontWeight: 700,
+                                      backgroundColor: "#eff6ff",
+                                      color: "#1e40af",
+                                      border: "1px solid #bfdbfe",
+                                      width: "fit-content",
+                                    }}
+                                  />
+                                ))}
+                              </Box>
+                            ) : (
+                              <Typography sx={{ fontSize: "0.8rem", color: "#94a3b8", fontStyle: "italic" }}>
+                                Pending Accounts Approval
+                              </Typography>
+                            )}
+                          </Box>
+                        </Grid>
+
+                        {/* Rejection remarks */}
+                        {viewRecord.rejection_remarks && (
+                          <Grid item xs={12}>
+                            <Box sx={{ p: 1.5, background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}>
+                              <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#991b1b", textTransform: "uppercase", mb: 0.3 }}>
+                                Rejection Details / Remarks
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.82rem", color: "#7f1d1d", fontWeight: 500 }}>
+                                {viewRecord.rejection_remarks}
+                              </Typography>
+                            </Box>
+                          </Grid>
+                        )}
+                      </Grid>
+                    </Box>
+
+                    {/* Stage History Timeline */}
+                    <Box
+                      sx={{
+                        backgroundColor: "#ffffff",
+                        borderRadius: "12px",
+                        border: "1px solid #e2e8f0",
+                        p: 2.2,
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                      }}
+                    >
+                      <Typography sx={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase", mb: 1.5 }}>
+                        Workflow Stage History & Audit Trail
+                      </Typography>
+                      {Array.isArray(viewRecord.workflow_history) && viewRecord.workflow_history.length > 0 ? (
+                        <Box sx={{ border: "1px solid #e2e8f0", borderRadius: "8px", overflow: "hidden" }}>
+                          {viewRecord.workflow_history.map((h, i) => (
+                            <Box
+                              key={i}
+                              sx={{
+                                p: 1.2,
+                                px: 2,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                borderBottom: i < viewRecord.workflow_history.length - 1 ? "1px solid #f1f5f9" : "none",
+                                bgcolor: i % 2 === 0 ? "#ffffff" : "#f8fafc",
+                              }}
+                            >
+                              <Box display="flex" alignItems="center" gap={1.2}>
+                                <Clock size={14} color="#64748b" />
+                                <Box>
+                                  <Typography sx={{ fontSize: "0.82rem", fontWeight: 600, color: "#0f172a" }}>
+                                    {h.action || h.stage}
+                                  </Typography>
+                                  <Typography sx={{ fontSize: "0.72rem", color: "#64748b" }}>
+                                    By <strong>{h.performed_by_name || h.performed_by?.username || "System"}</strong> ({h.performed_by_role || "User"})
+                                  </Typography>
+                                </Box>
+                              </Box>
+                              <Typography sx={{ fontSize: "0.72rem", color: "#94a3b8", fontWeight: 500 }}>
+                                {h.timestamp ? new Date(h.timestamp).toLocaleString("en-IN") : "—"}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      ) : (
+                        <Typography sx={{ fontSize: "0.8rem", color: "#94a3b8", fontStyle: "italic", p: 1 }}>
+                          No workflow history recorded yet.
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                )}
+              </DialogContent>
+
+              {/* ── Dialog Actions Footer ── */}
+              <DialogActions
                 sx={{
-                  textTransform: "none",
-                  fontWeight: 600,
-                  fontSize: "0.85rem",
-                  color: "#64748b",
-                  px: 2.5,
-                  py: 0.8,
-                  borderRadius: "8px",
-                  "&:hover": { backgroundColor: "#e2e8f0", color: "#334155" },
+                  px: 3,
+                  py: 1.5,
+                  borderTop: "1px solid #e2e8f0",
+                  backgroundColor: "#ffffff",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
                 }}
               >
-                Close
-              </Button>
-              <Button
-                onClick={() => {
-                  const target = viewRecord;
-                  setShowViewModal(false);
-                  handleOpen(target);
-                }}
-                variant="contained"
-                startIcon={<Edit2 size={15} />}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 600,
-                  fontSize: "0.85rem",
-                  px: 2.5,
-                  py: 0.8,
-                  borderRadius: "8px",
-                  background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                  boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
-                  "&:hover": {
-                    background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
-                  },
-                }}
-              >
-                Edit Asset
-              </Button>
-            </DialogActions>
-          </>
-        )}
+                <Typography sx={{ fontSize: "0.75rem", color: "#94a3b8" }}>
+                  Asset Tag: <strong style={{ color: "#475569" }}>{viewRecord.asset_tag}</strong>
+                </Typography>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <Button
+                    onClick={() => setShowViewModal(false)}
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: 600,
+                      fontSize: "0.82rem",
+                      color: "#64748b",
+                      px: 2,
+                      py: 0.6,
+                      borderRadius: "8px",
+                      "&:hover": { backgroundColor: "#f1f5f9", color: "#0f172a" },
+                    }}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      const target = viewRecord;
+                      setShowViewModal(false);
+                      handleOpen(target);
+                    }}
+                    variant="contained"
+                    startIcon={<Edit2 size={14} />}
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: 600,
+                      fontSize: "0.82rem",
+                      px: 2.2,
+                      py: 0.6,
+                      borderRadius: "8px",
+                      background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                      boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
+                      "&:hover": {
+                        background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
+                      },
+                    }}
+                  >
+                    Edit Asset
+                  </Button>
+                </Box>
+              </DialogActions>
+            </>
+          );
+        })()}
       </Dialog>
 
       {/* Invoice Document Preview & Download Modal (In-App Current Window) */}
@@ -4273,6 +5629,55 @@ export default function AssetManagement() {
             </DialogActions>
           </>
         )}
+      </Dialog>
+
+      {/* Rejection Remarks Modal */}
+      <Dialog
+        open={showRejectModal}
+        onClose={() => setShowRejectModal(false)}
+        maxWidth="xs"
+        fullWidth
+        sx={{ zIndex: 1400 }}
+        PaperProps={{
+          sx: {
+            borderRadius: "14px",
+            p: 1,
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: "1.05rem", pb: 1 }}>
+          {rejectActionType === "reject_accounts" ? "Reject Asset (Return to Admin)" : "Reject Asset Request"}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {rejectActionType === "reject_accounts"
+              ? "Please specify the rejection remarks. The asset request will be returned to Admin with these details."
+              : "Please specify the rejection remarks. The asset request will be returned to IT for correction."}
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            placeholder="Enter detailed rejection remarks..."
+            value={rejectRemarks}
+            onChange={(e) => setRejectRemarks(e.target.value)}
+            sx={modalFieldSx}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setShowRejectModal(false)} disabled={submittingWorkflow}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={submittingWorkflow || !rejectRemarks.trim()}
+            onClick={() => handleWorkflowAction(rejectAssetRecord?._id, rejectActionType, rejectRemarks)}
+            sx={{ borderRadius: "8px", fontWeight: 600, textTransform: "none" }}
+          >
+            {submittingWorkflow ? "Rejecting..." : "Submit Rejection"}
+          </Button>
+        </DialogActions>
       </Dialog>
     </div>
   );

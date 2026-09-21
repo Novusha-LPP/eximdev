@@ -345,6 +345,9 @@ router.get("/", async (req, res) => {
       const data = await Asset.find(filter)
         .populate("assigned_to", "username first_name last_name email name")
         .populate("vendor", "name")
+        .populate("admin_verifications.user", "username first_name last_name email")
+        .populate("accounts_verifications.user", "username first_name last_name email")
+        .populate("workflow_history.performed_by", "username first_name last_name email")
         .sort({ createdAt: -1 });
       return res.json({ success: true, data });
     }
@@ -357,6 +360,9 @@ router.get("/", async (req, res) => {
       Asset.find(filter)
         .populate("assigned_to", "username first_name last_name email name")
         .populate("vendor", "name")
+        .populate("admin_verifications.user", "username first_name last_name email")
+        .populate("accounts_verifications.user", "username first_name last_name email")
+        .populate("workflow_history.performed_by", "username first_name last_name email")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum),
@@ -461,6 +467,25 @@ router.post("/", validateAssetPayload, async (req, res) => {
     if (!req.body.asset_tag || !String(req.body.asset_tag).trim()) {
       req.body.asset_tag = await generateNextAssetTag();
     }
+    req.body.approval_stage = "Admin Approval";
+    req.body.approval_status = "Pending Admin Approval";
+    req.body.rejection_remarks = "";
+    
+    const userRole = req.user?.role || "IT/Network Department";
+    const userName = req.user?.first_name ? `${req.user.first_name} ${req.user.last_name || ""}`.trim() : (req.user?.username || "IT User");
+
+    req.body.workflow_history = [
+      {
+        stage: "Admin Approval",
+        action: "Submitted for Admin Approval",
+        performed_by: req.user?._id,
+        performed_by_name: userName,
+        performed_by_role: userRole,
+        remarks: req.body.remarks || "Asset created and submitted for Admin approval.",
+        timestamp: new Date(),
+      }
+    ];
+
     const asset = new Asset(req.body);
     await asset.save();
     res.status(201).json({ success: true, data: asset });
@@ -469,6 +494,126 @@ router.post("/", validateAssetPayload, async (req, res) => {
     const isDup = err.code === 11000 || String(err.message).includes("E11000");
     const userMsg = formatUserFriendlyError(err);
     res.status(isDup ? 409 : 500).json({ success: false, message: userMsg });
+  }
+});
+
+router.put("/:id/workflow", validateId, async (req, res) => {
+  try {
+    const { action, remarks } = req.body;
+    const asset = await Asset.findById(req.params.id);
+    if (!asset) {
+      return res.status(404).json({ success: false, message: "Asset not found" });
+    }
+
+    const userName = req.user?.first_name ? `${req.user.first_name} ${req.user.last_name || ""}`.trim() : (req.user?.username || "System User");
+    const userRole = req.user?.role || "Admin";
+
+    let updatedStage = asset.approval_stage;
+    let updatedStatus = asset.approval_status;
+    let rejectionRemarks = asset.rejection_remarks;
+    let actionDescription = "";
+    let currentCycle = asset.approval_cycle || 1;
+
+    if (action === "approve_admin" || action === "verify_admin") {
+      if (asset.approval_stage === "Admin Approval" || asset.approval_status === "Pending Admin Approval" || !asset.approval_stage) {
+        updatedStage = "Accounts Approval";
+        updatedStatus = "Pending Accounts Approval";
+        rejectionRemarks = "";
+      }
+      actionDescription = `Admin Verified by ${userName} (Cycle ${currentCycle})`;
+
+      // Add to admin_verifications array with duplicate check for current cycle
+      if (!Array.isArray(asset.admin_verifications)) asset.admin_verifications = [];
+      const existingVerification = asset.admin_verifications.find(
+        (v) => (String(v.user) === String(req.user._id) || v.username === req.user.username) && (v.approval_cycle === currentCycle || !v.approval_cycle)
+      );
+      if (!existingVerification) {
+        asset.admin_verifications.push({
+          user: req.user._id,
+          username: req.user.username,
+          name: userName,
+          role: userRole,
+          action: "Admin Verified",
+          remarks: remarks || "",
+          approval_cycle: currentCycle,
+          timestamp: new Date(),
+        });
+      }
+    } else if (action === "reject_admin") {
+      updatedStage = "IT Correction";
+      updatedStatus = "Returned to IT";
+      rejectionRemarks = remarks || "Rejected by Admin. Please correct and resubmit.";
+      actionDescription = `Rejected by Admin (Cycle ${currentCycle}): ${rejectionRemarks}`;
+    } else if (action === "resubmit_it") {
+      currentCycle = (asset.approval_cycle || 1) + 1;
+      asset.approval_cycle = currentCycle;
+      updatedStage = "Admin Approval";
+      updatedStatus = "Pending Admin Approval";
+      rejectionRemarks = "";
+      actionDescription = `Resubmitted by IT/Network Department (Initiated Cycle ${currentCycle})`;
+    } else if (action === "approve_accounts") {
+      updatedStage = "Completed";
+      updatedStatus = "Completed";
+      rejectionRemarks = "";
+      asset.completed_at = new Date();
+      actionDescription = `Approved by Sr. Manager Accounts / Head of Accounts (Completed Cycle ${currentCycle})`;
+
+      // Add to accounts_verifications array
+      if (!Array.isArray(asset.accounts_verifications)) asset.accounts_verifications = [];
+      const existingAccountsVer = asset.accounts_verifications.find(
+        (v) => (String(v.user) === String(req.user._id) || v.username === req.user.username) && (v.approval_cycle === currentCycle || !v.approval_cycle)
+      );
+      if (!existingAccountsVer) {
+        asset.accounts_verifications.push({
+          user: req.user._id,
+          username: req.user.username,
+          name: userName,
+          role: userRole,
+          action: "Accounts Approved",
+          remarks: remarks || "",
+          approval_cycle: currentCycle,
+          timestamp: new Date(),
+        });
+      }
+    } else if (action === "reject_accounts") {
+      updatedStage = "Rejected";
+      updatedStatus = "Rejected";
+      rejectionRemarks = remarks || "Rejected by Accounts Department.";
+      actionDescription = `Rejected by Accounts (Returned to Admin, Cycle ${currentCycle}): ${rejectionRemarks}`;
+    } else if (action === "admin_return_to_it") {
+      updatedStage = "IT Correction";
+      updatedStatus = "Returned to IT";
+      actionDescription = `Returned to IT by Admin (Cycle ${currentCycle}): ${remarks || "Please make necessary corrections."}`;
+    } else {
+      return res.status(400).json({ success: false, message: "Invalid workflow action" });
+    }
+
+    asset.approval_stage = updatedStage;
+    asset.approval_status = updatedStatus;
+    asset.rejection_remarks = rejectionRemarks;
+    asset.workflow_history.push({
+      stage: updatedStage,
+      action: actionDescription,
+      performed_by: req.user._id,
+      performed_by_name: userName,
+      performed_by_role: userRole,
+      remarks: remarks || actionDescription,
+      approval_cycle: currentCycle,
+      timestamp: new Date(),
+    });
+
+    await asset.save();
+    const updatedAsset = await Asset.findById(asset._id)
+      .populate("assigned_to", "username first_name last_name email name")
+      .populate("vendor", "name")
+      .populate("admin_verifications.user", "username first_name last_name email")
+      .populate("accounts_verifications.user", "username first_name last_name email")
+      .populate("workflow_history.performed_by", "username first_name last_name email");
+
+    res.json({ success: true, data: updatedAsset });
+  } catch (err) {
+    logger.error(`Error updating workflow for asset ${req.params.id}: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

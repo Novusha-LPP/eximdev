@@ -81,9 +81,11 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
     location: '',
     hsnCode: '',
     monthlyVolume: '',
-    monthlyRevenue: ''
+    monthlyRevenue: '',
+    companyType: ''
   });
   const [customSource, setCustomSource] = useState('');
+  const [customCompanyType, setCustomCompanyType] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -132,13 +134,20 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
           location: activeLead.location || '',
           hsnCode: activeLead.hsnCode || '',
           monthlyVolume: activeLead.monthlyVolume || '',
-          monthlyRevenue: activeLead.monthlyRevenue || ''
+          monthlyRevenue: activeLead.monthlyRevenue || '',
+          companyType: activeLead.companyType || ''
         });
         const standardSources = ALL_STANDARD_SOURCES;
         if (activeLead.source && !standardSources.includes(activeLead.source)) {
           setCustomSource(activeLead.source);
         } else {
           setCustomSource('');
+        }
+        const standardTypes = ['OEM', 'Tier 1', 'Tier 2', 'Tier 3'];
+        if (activeLead.companyType && !standardTypes.includes(activeLead.companyType)) {
+          setCustomCompanyType(activeLead.companyType);
+        } else {
+          setCustomCompanyType('');
         }
       } else {
         setFormData({
@@ -169,9 +178,11 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
           location: '',
           hsnCode: '',
           monthlyVolume: '',
-          monthlyRevenue: ''
+          monthlyRevenue: '',
+          companyType: ''
         });
         setCustomSource('');
+        setCustomCompanyType('');
       }
     }
   }, [isOpen, leadToDuplicate, leadToEdit, currentUserId]);
@@ -438,7 +449,45 @@ const getHeaders = () => {
               </select>
             </div>
 
-            {/* Source */}
+            {/* Company Type */}
+            <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Company Type</label>
+                <select
+                  value={['OEM', 'Tier 1', 'Tier 2', 'Tier 3'].includes(formData.companyType) ? formData.companyType : (formData.companyType ? 'Other' : '')}
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === 'Other') {
+                      setCustomCompanyType('');
+                      setFormData({...formData, companyType: ''});
+                    } else {
+                      setCustomCompanyType('');
+                      setFormData({...formData, companyType: val});
+                    }
+                  }}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem', background: '#fff' }}
+                >
+                  <option value="">-- Select Company Type --</option>
+                  <option value="OEM">OEM</option>
+                  <option value="Tier 1">Tier 1</option>
+                  <option value="Tier 2">Tier 2</option>
+                  <option value="Tier 3">Tier 3</option>
+                  <option value="Other">Other (Manual)</option>
+                </select>
+                {(formData.companyType === 'Other' || (formData.companyType && !['OEM', 'Tier 1', 'Tier 2', 'Tier 3'].includes(formData.companyType))) && (
+                  <input
+                    type="text"
+                    value={customCompanyType || (formData.companyType === 'Other' ? '' : formData.companyType) || ''}
+                    onChange={e => {
+                      setCustomCompanyType(e.target.value);
+                      setFormData({...formData, companyType: e.target.value});
+                    }}
+                    placeholder="Specify company type..."
+                    style={{ marginTop: '8px', width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
+                  />
+                )}
+              </div>
+            </div>
             {(() => {
               const isTransportation = formData.businessVertical === 'Transportation';
               const isNovusha = formData.businessVertical === 'Novusha';

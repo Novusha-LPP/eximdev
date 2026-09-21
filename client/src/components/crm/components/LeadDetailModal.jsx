@@ -142,6 +142,12 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
               <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Business Vertical</span>
               <p style={{ margin: '4px 0 0 0', color: '#4f46e5', fontWeight: 700 }}>{lead.businessVertical || 'Paramount'}</p>
             </div>
+            {lead.companyType && (
+              <div>
+                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Company Type</span>
+                <p style={{ margin: '4px 0 0 0', color: '#0f172a', fontWeight: 700 }}>{lead.companyType}</p>
+              </div>
+            )}
             <div>
               <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Grade</span>
               <span style={{

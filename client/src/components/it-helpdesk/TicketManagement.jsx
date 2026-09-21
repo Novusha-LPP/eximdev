@@ -33,7 +33,6 @@ import {
   Eye,
   History,
   RotateCcw,
-  Paperclip,
 } from "lucide-react";
 import "../../styles/scorecard.scss";
 import {
@@ -259,10 +258,31 @@ export default function TicketManagement() {
   const handleFilesSelected = (newFiles) => {
     if (!newFiles || newFiles.length === 0) return;
     const fileArray = Array.from(newFiles);
-    setForm((prev) => ({
-      ...prev,
-      files: [...(prev.files || []), ...fileArray],
-    }));
+    const allowedExtensions = /\.(jpe?g|png|pdf)$/i;
+    const validFiles = [];
+    for (const file of fileArray) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`File "${file.name}" exceeds the 10MB limit.`);
+        continue;
+      }
+      const isExtAllowed = allowedExtensions.test(file.name);
+      const isMimeAllowed = file.type && (
+        file.type.startsWith("image/jpeg") ||
+        file.type === "image/png" ||
+        file.type === "application/pdf"
+      );
+      if (!isExtAllowed && !isMimeAllowed) {
+        toast.error(`"${file.name}" is not supported. Only JPG, JPEG, PNG, and PDF files are allowed.`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+    if (validFiles.length > 0) {
+      setForm((prev) => ({
+        ...prev,
+        files: [...(prev.files || []), ...validFiles],
+      }));
+    }
   };
 
   const handleRemoveFile = (indexToRemove) => {
@@ -515,14 +535,20 @@ export default function TicketManagement() {
 
     // File validation (client-side matching backend constraints)
     if (form.files && form.files.length > 0) {
-      const allowedExtensions = /\.(jpeg|jpg|png|gif|pdf|doc|docx|xls|xlsx|txt|zip)$/i;
+      const allowedExtensions = /\.(jpe?g|png|pdf)$/i;
       for (const file of form.files) {
         if (file.size > 10 * 1024 * 1024) { // 10MB limit
           toast.error(`File "${file.name}" exceeds the 10MB limit.`);
           return;
         }
-        if (!allowedExtensions.test(file.name)) {
-          toast.error(`File type for "${file.name}" is not supported.`);
+        const isExtAllowed = allowedExtensions.test(file.name);
+        const isMimeAllowed = file.type && (
+          file.type.startsWith("image/jpeg") ||
+          file.type === "image/png" ||
+          file.type === "application/pdf"
+        );
+        if (!isExtAllowed && !isMimeAllowed) {
+          toast.error(`"${file.name}" is not supported. Only JPG, JPEG, PNG, and PDF files are allowed.`);
           return;
         }
       }
@@ -1025,39 +1051,6 @@ export default function TicketManagement() {
                                     >
                                       <History size={14} color="#0284c7" />
                                     </button>
-                                    {t.attachments && t.attachments.length > 0 && (
-                                      <button
-                                        type="button"
-                                        className="btn btn-icon btn-info"
-                                        style={{ width: "28px", height: "28px", position: "relative" }}
-                                        onClick={() => {
-                                          setDrawerTab(2);
-                                          setDetailTicketId(t._id);
-                                          setDrawerOpen(true);
-                                        }}
-                                        title={t.attachments.length > 1 ? `View ${t.attachments.length} Attached Documents` : `View Attached Document: ${t.attachments[0]?.file_name || ""}`}
-                                      >
-                                        <Paperclip size={14} color="#0284c7" />
-                                        {t.attachments.length > 1 && (
-                                          <span
-                                            style={{
-                                              position: "absolute",
-                                              top: "-4px",
-                                              right: "-4px",
-                                              fontSize: "9px",
-                                              fontWeight: 700,
-                                              backgroundColor: "#2563eb",
-                                              color: "#ffffff",
-                                              borderRadius: "10px",
-                                              padding: "0 4px",
-                                              lineHeight: "13px",
-                                            }}
-                                          >
-                                            {t.attachments.length}
-                                          </span>
-                                        )}
-                                      </button>
-                                    )}
                                     <button
                                       type="button"
                                       className="btn btn-icon btn-primary"
@@ -1367,8 +1360,11 @@ export default function TicketManagement() {
                       ref={fileInputRef}
                       type="file"
                       multiple
-                      accept=".png,.jpg,.jpeg"
-                      onChange={(e) => handleFilesSelected(e.target.files)}
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      onChange={(e) => {
+                        handleFilesSelected(e.target.files);
+                        e.target.value = "";
+                      }}
                       style={{ display: "none" }}
                     />
 
@@ -1397,7 +1393,7 @@ export default function TicketManagement() {
                         Click to upload or drag & drop screenshots / files
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Supported: PNG, JPG, JPEG (Max 10MB each)
+                        Supported: PDF, JPG, JPEG, PNG (Max 10MB each)
                       </Typography>
                     </Box>
 

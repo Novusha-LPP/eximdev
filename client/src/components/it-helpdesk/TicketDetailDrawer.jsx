@@ -41,13 +41,7 @@ import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import AttachmentImageViewer, { isImageAttachment, resolveAttachmentUrl } from "./AttachmentImageViewer";
 
 const TICKET_CATEGORIES = ["Hardware", "Software", "Network", "Access", "Other"];
-const TICKET_SUB_CATEGORIES = [
-  "Desktop", "Laptop", "Printer", "Phone", "SIM",
-  "Routing", "Switch", "Firewall", "Wi-Fi", "LAN", "WAN", "VPN",
-  "Email", "Access Card", "Software Install", "License", "Other",
-];
 const TICKET_PRIORITIES = ["Low", "Medium", "High", "Critical"];
-const TICKET_TYPES = ["Incident", "Service Request", "Problem", "Change Request", "Maintenance", "Other"];
 const TICKET_DEPARTMENTS = [
   "Import",
   "Export",
@@ -254,19 +248,48 @@ export default function TicketDetailDrawer({
   const [loading, setLoading] = useState(false);
   const [tabIndex, setTabIndex] = useState(initialTab || 0);
 
-  // Edit Mode state
+  // User list for assignment
+  const [userList, setUserList] = useState(users || []);
+  useEffect(() => {
+    if (users && users.length > 0) {
+      setUserList(users);
+    } else if (open) {
+      itHelpdeskAPI.users
+        .getAll()
+        .then((res) => {
+          const list = res?.data || res || [];
+          if (Array.isArray(list)) setUserList(list);
+        })
+        .catch(() => {});
+    }
+  }, [users, open]);
+
+  const getAssigneeDisplayName = (userVal) => {
+    if (!userVal) return "Vikas Chandra";
+    if (typeof userVal === "object") {
+      const name = `${userVal.first_name || ""} ${userVal.last_name || ""}`.trim();
+      return name || userVal.name || userVal.username || userVal.email || "Vikas Chandra";
+    }
+    const found = userList.find((u) => u._id === userVal || u.id === userVal);
+    if (found) {
+      const name = `${found.first_name || ""} ${found.last_name || ""}`.trim();
+      return name || found.name || found.username || found.email || "Vikas Chandra";
+    }
+    if (String(userVal).toLowerCase().includes("vikas")) return "Vikas Chandra";
+    return String(userVal);
+  };
+
+  // Edit Mode state (matches fields in Raised New Ticket form)
   const [isEditing, setIsEditing] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editForm, setEditForm] = useState({
-    title: "",
     description: "",
     category: "Hardware",
-    subcategory: "",
-    type: "Incident",
     priority: "Medium",
-    severity: "Medium",
+    assigned_to: "",
     department: "",
-    location: "",
+    sla_due_date: "",
+    status: "New",
   });
 
   // Image Viewer Modal state
@@ -323,16 +346,34 @@ export default function TicketDetailDrawer({
       toast.error("This ticket is closed and cannot be edited.");
       return;
     }
+    const rawDate = ticket?.sla_due_date || ticket?.createdAt || ticket?.date_time;
+    let formattedDate = "";
+    if (rawDate) {
+      try {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          formattedDate = d.toISOString().substring(0, 10);
+        }
+      } catch (e) {
+        formattedDate = "";
+      }
+    }
+    if (!formattedDate) {
+      const n = new Date();
+      formattedDate = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+    }
+
     setEditForm({
-      title: ticket?.title || "",
       description: ticket?.description || "",
       category: ticket?.category || "Hardware",
-      subcategory: ticket?.subcategory || "",
-      type: ticket?.type || "Incident",
       priority: ticket?.priority || "Medium",
-      severity: ticket?.severity || "Medium",
+      assigned_to:
+        ticket?.assigned_to?._id ||
+        (typeof ticket?.assigned_to === "string" ? ticket.assigned_to : "") ||
+        "",
       department: ticket?.department || "",
-      location: ticket?.location || "",
+      sla_due_date: formattedDate,
+      status: ticket?.status || "New",
     });
     setIsEditing(true);
     setTabIndex(0);
@@ -343,28 +384,33 @@ export default function TicketDetailDrawer({
   };
 
   const handleSaveEdit = async () => {
-    if (!editForm.title.trim()) {
-      toast.error("Please provide a ticket title");
+    if (!editForm.description.trim()) {
+      toast.error("Issue Description is required");
       return;
     }
-    if (!editForm.description.trim()) {
-      toast.error("Please provide an issue description");
+    if (!editForm.category) {
+      toast.error("Category is required");
+      return;
+    }
+    if (!editForm.department) {
+      toast.error("Department is required");
       return;
     }
 
     setSavingEdit(true);
     try {
       const payload = {
-        title: editForm.title.trim(),
+        title: ticket?.title || `[Incident] ${editForm.category}`,
         description: editForm.description.trim(),
         category: editForm.category,
-        subcategory: editForm.subcategory,
-        type: editForm.type,
         priority: editForm.priority,
-        severity: editForm.severity,
         department: editForm.department.trim(),
-        location: editForm.location.trim(),
+        sla_due_date: editForm.sla_due_date || undefined,
+        status: editForm.status,
       };
+      if (editForm.assigned_to) {
+        payload.assigned_to = editForm.assigned_to;
+      }
       await itHelpdeskAPI.tickets.update(ticketId, payload);
       toast.success("Ticket details updated successfully");
       setIsEditing(false);
@@ -813,45 +859,18 @@ export default function TicketDetailDrawer({
         </Box>
 
         {/* Title */}
-        {isEditing ? (
-          <Box mt={0.5}>
-            <Typography sx={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", mb: 0.5 }}>
-              Ticket Title <span style={{ color: "#ef4444" }}>*</span>
-            </Typography>
-            <input
-              type="text"
-              value={editForm.title}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
-              placeholder="Brief summary of the issue or request..."
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                borderRadius: "8px",
-                border: "1px solid #3b82f6",
-                background: "#ffffff",
-                fontSize: "14px",
-                fontWeight: 700,
-                color: "#0f172a",
-                outline: "none",
-                boxSizing: "border-box",
-                boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.15)",
-              }}
-            />
-          </Box>
-        ) : (
-          <Typography
-            variant="h6"
-            sx={{
-              fontWeight: 800,
-              color: "#0f172a",
-              fontSize: "1.125rem",
-              lineHeight: 1.35,
-              wordBreak: "break-word",
-            }}
-          >
-            {loading && !ticket ? "Loading Ticket Details..." : ticket?.title || "Ticket Details"}
-          </Typography>
-        )}
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: 800,
+            color: "#0f172a",
+            fontSize: "1.125rem",
+            lineHeight: 1.35,
+            wordBreak: "break-word",
+          }}
+        >
+          {loading && !ticket ? "Loading Ticket Details..." : ticket?.title || "Ticket Details"}
+        </Typography>
 
         {/* Subtitle / Timing Row */}
         {ticket && (
@@ -1070,28 +1089,78 @@ export default function TicketDetailDrawer({
                     </Box>
                   </Box>
 
-                  {/* 2x2 Bento Form Grid */}
+                  {/* Issue Description (matching Raised New Ticket form) */}
+                  <Box
+                    sx={{
+                      p: 1.75,
+                      borderRadius: "10px",
+                      border: "1px solid #e2e8f0",
+                      bgcolor: "#ffffff",
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.75}>
+                      <Typography
+                        sx={{
+                          fontSize: "11.5px",
+                          fontWeight: 700,
+                          color: "#475569",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.03em",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 0.6,
+                        }}
+                      >
+                        <FileText size={14} color="#2563eb" />
+                        Issue Description <span style={{ color: "#ef4444" }}>*</span>
+                      </Typography>
+                      <Typography sx={{ fontSize: "11px", color: "#94a3b8" }}>
+                        {editForm.description.length} chars
+                      </Typography>
+                    </Box>
+                    <textarea
+                      rows={4}
+                      value={editForm.description}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
+                      placeholder="Please describe the issue, symptoms, or request with as much detail as possible..."
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid #cbd5e1",
+                        fontSize: "13px",
+                        fontFamily: "inherit",
+                        resize: "vertical",
+                        outline: "none",
+                        boxSizing: "border-box",
+                        lineHeight: 1.5,
+                      }}
+                    />
+                  </Box>
+
+                  {/* 2-Column Grid: Category & Priority */}
                   <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1.5 }}>
                     {/* Category */}
                     <Box sx={{ p: 1.75, borderRadius: "10px", border: "1px solid #e2e8f0", bgcolor: "#ffffff" }}>
-                      <Typography sx={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", mb: 0.75, display: "flex", alignItems: "center", gap: 0.5 }}>
-                        <Layers size={13} color="#2563eb" />
-                        Category
+                      <Typography sx={{ fontSize: "11.5px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", mb: 0.75, display: "flex", alignItems: "center", gap: 0.6 }}>
+                        <Layers size={14} color="#2563eb" />
+                        Category <span style={{ color: "#ef4444" }}>*</span>
                       </Typography>
                       <select
                         value={editForm.category}
                         onChange={(e) => setEditForm((prev) => ({ ...prev, category: e.target.value }))}
                         style={{
                           width: "100%",
-                          height: "36px",
+                          height: "38px",
                           padding: "0 10px",
-                          borderRadius: "6px",
+                          borderRadius: "8px",
                           border: "1px solid #cbd5e1",
                           background: "#ffffff",
                           fontSize: "13px",
                           fontWeight: 600,
                           color: "#0f172a",
                           outline: "none",
+                          boxSizing: "border-box",
                         }}
                       >
                         {TICKET_CATEGORIES.map((c) => (
@@ -1100,133 +1169,20 @@ export default function TicketDetailDrawer({
                       </select>
                     </Box>
 
-                    {/* Subcategory */}
+                    {/* Priority (Optional) */}
                     <Box sx={{ p: 1.75, borderRadius: "10px", border: "1px solid #e2e8f0", bgcolor: "#ffffff" }}>
-                      <Typography sx={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", mb: 0.75, display: "flex", alignItems: "center", gap: 0.5 }}>
-                        <Layers size={13} color="#64748b" />
-                        Subcategory
-                      </Typography>
-                      <select
-                        value={editForm.subcategory}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, subcategory: e.target.value }))}
-                        style={{
-                          width: "100%",
-                          height: "36px",
-                          padding: "0 10px",
-                          borderRadius: "6px",
-                          border: "1px solid #cbd5e1",
-                          background: "#ffffff",
-                          fontSize: "13px",
-                          fontWeight: 600,
-                          color: "#0f172a",
-                          outline: "none",
-                        }}
-                      >
-                        <option value="">Select Subcategory...</option>
-                        {TICKET_SUB_CATEGORIES.map((sc) => (
-                          <option key={sc} value={sc}>{sc}</option>
-                        ))}
-                      </select>
-                    </Box>
-
-                    {/* Department */}
-                    <Box sx={{ p: 1.75, borderRadius: "10px", border: "1px solid #e2e8f0", bgcolor: "#ffffff" }}>
-                      <Typography sx={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", mb: 0.75, display: "flex", alignItems: "center", gap: 0.5 }}>
-                        <Building size={13} color="#059669" />
-                        Department
-                      </Typography>
-                      <select
-                        value={editForm.department}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, department: e.target.value }))}
-                        style={{
-                          width: "100%",
-                          height: "36px",
-                          padding: "0 10px",
-                          borderRadius: "6px",
-                          border: "1px solid #cbd5e1",
-                          background: "#ffffff",
-                          fontSize: "13px",
-                          fontWeight: 600,
-                          color: "#0f172a",
-                          outline: "none",
-                        }}
-                      >
-                        <option value="" disabled>Select Department...</option>
-                        {TICKET_DEPARTMENTS.map((dept) => (
-                          <option key={dept} value={dept}>{dept}</option>
-                        ))}
-                      </select>
-                    </Box>
-
-                    {/* Location */}
-                    <Box sx={{ p: 1.75, borderRadius: "10px", border: "1px solid #e2e8f0", bgcolor: "#ffffff" }}>
-                      <Typography sx={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", mb: 0.75, display: "flex", alignItems: "center", gap: 0.5 }}>
-                        <Building size={13} color="#64748b" />
-                        Office / Location
-                      </Typography>
-                      <input
-                        type="text"
-                        value={editForm.location}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, location: e.target.value }))}
-                        placeholder="e.g. Ahmedabad HO - Server Room..."
-                        style={{
-                          width: "100%",
-                          height: "36px",
-                          padding: "0 10px",
-                          borderRadius: "6px",
-                          border: "1px solid #cbd5e1",
-                          fontSize: "13px",
-                          boxSizing: "border-box",
-                          outline: "none",
-                        }}
-                      />
-                    </Box>
-                  </Box>
-
-                  {/* 2x2 Grid for Type & Priority */}
-                  <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1.5 }}>
-                    {/* Ticket Type */}
-                    <Box sx={{ p: 1.75, borderRadius: "10px", border: "1px solid #e2e8f0", bgcolor: "#ffffff" }}>
-                      <Typography sx={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", mb: 0.75, display: "flex", alignItems: "center", gap: 0.5 }}>
-                        <Tag size={13} color="#2563eb" />
-                        Ticket Type
-                      </Typography>
-                      <select
-                        value={editForm.type}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, type: e.target.value }))}
-                        style={{
-                          width: "100%",
-                          height: "36px",
-                          padding: "0 10px",
-                          borderRadius: "6px",
-                          border: "1px solid #cbd5e1",
-                          background: "#ffffff",
-                          fontSize: "13px",
-                          fontWeight: 600,
-                          color: "#0f172a",
-                          outline: "none",
-                        }}
-                      >
-                        {TICKET_TYPES.map((t) => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
-                      </select>
-                    </Box>
-
-                    {/* Priority Level */}
-                    <Box sx={{ p: 1.75, borderRadius: "10px", border: "1px solid #e2e8f0", bgcolor: "#ffffff" }}>
-                      <Typography sx={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.03em", mb: 0.75, display: "flex", alignItems: "center", gap: 0.5 }}>
-                        <AlertCircle size={13} color="#d97706" />
-                        Priority Level
+                      <Typography sx={{ fontSize: "11.5px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", mb: 0.75, display: "flex", alignItems: "center", gap: 0.6 }}>
+                        <AlertCircle size={14} color="#d97706" />
+                        Priority (Optional)
                       </Typography>
                       <select
                         value={editForm.priority}
                         onChange={(e) => setEditForm((prev) => ({ ...prev, priority: e.target.value }))}
                         style={{
                           width: "100%",
-                          height: "36px",
+                          height: "38px",
                           padding: "0 10px",
-                          borderRadius: "6px",
+                          borderRadius: "8px",
                           border: "1px solid #cbd5e1",
                           background: "#ffffff",
                           fontSize: "13px",
@@ -1240,65 +1196,198 @@ export default function TicketDetailDrawer({
                               ? "#b45309"
                               : "#15803d",
                           outline: "none",
+                          boxSizing: "border-box",
                         }}
                       >
                         {TICKET_PRIORITIES.map((p) => (
-                          <option key={p} value={p}>{p} Priority</option>
+                          <option key={p} value={p}>{p}</option>
                         ))}
                       </select>
                     </Box>
                   </Box>
 
-                  {/* Issue Description Edit Card */}
-                  <Box
-                    sx={{
-                      borderRadius: "10px",
-                      border: "1px solid #e2e8f0",
-                      bgcolor: "#ffffff",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        px: 2,
-                        py: 1.25,
-                        bgcolor: "#f8fafc",
-                        borderBottom: "1px solid #e2e8f0",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Box display="flex" alignItems="center" gap={0.75}>
-                        <FileText size={15} color="#2563eb" />
-                        <Typography sx={{ fontSize: "12.5px", fontWeight: 700, color: "#334155" }}>
-                          Issue Description <span style={{ color: "#ef4444" }}>*</span>
-                        </Typography>
-                      </Box>
-                      <Typography sx={{ fontSize: "11px", color: "#94a3b8" }}>
-                        {editForm.description.length} chars
+                  {/* 2-Column Grid: Assigned To & Department */}
+                  <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1.5 }}>
+                    {/* Assigned To */}
+                    <Box sx={{ p: 1.75, borderRadius: "10px", border: "1px solid #e2e8f0", bgcolor: "#ffffff" }}>
+                      <Typography sx={{ fontSize: "11.5px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", mb: 0.75, display: "flex", alignItems: "center", gap: 0.6 }}>
+                        <UserCheck size={14} color="#2563eb" />
+                        Assigned To
                       </Typography>
+                      {canManageTickets ? (
+                        <select
+                          value={editForm.assigned_to}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, assigned_to: e.target.value }))}
+                          style={{
+                            width: "100%",
+                            height: "38px",
+                            padding: "0 10px",
+                            borderRadius: "8px",
+                            border: "1px solid #cbd5e1",
+                            background: "#ffffff",
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            color: "#0f172a",
+                            outline: "none",
+                            boxSizing: "border-box",
+                          }}
+                        >
+                          <option value="">Vikas Chandra (Default)</option>
+                          {userList.map((u) => (
+                            <option key={u._id} value={u._id}>
+                              {getAssigneeDisplayName(u)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          readOnly
+                          disabled
+                          value={getAssigneeDisplayName(editForm.assigned_to)}
+                          style={{
+                            width: "100%",
+                            height: "38px",
+                            padding: "0 12px",
+                            borderRadius: "8px",
+                            border: "1px solid #cbd5e1",
+                            background: "#f1f5f9",
+                            color: "#475569",
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            outline: "none",
+                            boxSizing: "border-box",
+                          }}
+                        />
+                      )}
                     </Box>
 
-                    <Box sx={{ p: 2 }}>
-                      <textarea
-                        rows={6}
-                        value={editForm.description}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
-                        placeholder="Detailed explanation of the issue, requirements, steps to reproduce..."
+                    {/* Department */}
+                    <Box sx={{ p: 1.75, borderRadius: "10px", border: "1px solid #e2e8f0", bgcolor: "#ffffff" }}>
+                      <Typography sx={{ fontSize: "11.5px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", mb: 0.75, display: "flex", alignItems: "center", gap: 0.6 }}>
+                        <Building size={14} color="#059669" />
+                        Department <span style={{ color: "#ef4444" }}>*</span>
+                      </Typography>
+                      <select
+                        value={editForm.department}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, department: e.target.value }))}
                         style={{
                           width: "100%",
-                          padding: "10px 12px",
+                          height: "38px",
+                          padding: "0 10px",
                           borderRadius: "8px",
                           border: "1px solid #cbd5e1",
+                          background: "#ffffff",
                           fontSize: "13px",
-                          fontFamily: "inherit",
-                          resize: "vertical",
+                          fontWeight: 600,
+                          color: "#0f172a",
                           outline: "none",
                           boxSizing: "border-box",
-                          lineHeight: 1.5,
+                        }}
+                      >
+                        <option value="" disabled>Select Department</option>
+                        {TICKET_DEPARTMENTS.map((dept) => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                    </Box>
+                  </Box>
+
+                  {/* 2-Column Grid: SLA Due Date & Status */}
+                  <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1.5 }}>
+                    {/* SLA Due Date */}
+                    <Box sx={{ p: 1.75, borderRadius: "10px", border: "1px solid #e2e8f0", bgcolor: "#ffffff" }}>
+                      <Typography sx={{ fontSize: "11.5px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", mb: 0.75, display: "flex", alignItems: "center", gap: 0.6 }}>
+                        <Calendar size={14} color="#2563eb" />
+                        SLA Due Date <span style={{ color: "#ef4444" }}>*</span>
+                      </Typography>
+                      <input
+                        type="date"
+                        value={editForm.sla_due_date}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, sla_due_date: e.target.value }))}
+                        style={{
+                          width: "100%",
+                          height: "38px",
+                          padding: "0 10px",
+                          borderRadius: "8px",
+                          border: "1px solid #cbd5e1",
+                          background: "#ffffff",
+                          fontSize: "13px",
+                          fontWeight: 600,
+                          color: "#0f172a",
+                          outline: "none",
+                          boxSizing: "border-box",
                         }}
                       />
+                    </Box>
+
+                    {/* Status */}
+                    <Box sx={{ p: 1.75, borderRadius: "10px", border: "1px solid #e2e8f0", bgcolor: "#ffffff" }}>
+                      <Typography sx={{ fontSize: "11.5px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", mb: 0.75, display: "flex", alignItems: "center", gap: 0.6 }}>
+                        <CheckCircle2 size={14} color="#10b981" />
+                        Status
+                      </Typography>
+                      {canManageTickets ? (
+                        <select
+                          value={editForm.status}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, status: e.target.value }))}
+                          style={{
+                            width: "100%",
+                            height: "38px",
+                            padding: "0 10px",
+                            borderRadius: "8px",
+                            border: "1px solid #cbd5e1",
+                            background: "#ffffff",
+                            fontSize: "13px",
+                            fontWeight: 700,
+                            color:
+                              editForm.status === "Closed" || editForm.status === "Resolved"
+                                ? "#15803d"
+                                : editForm.status === "In Progress"
+                                ? "#b45309"
+                                : editForm.status === "Pending"
+                                ? "#b45309"
+                                : "#0284c7",
+                            outline: "none",
+                            boxSizing: "border-box",
+                          }}
+                        >
+                          {["New", "In Progress", "Pending", "Resolved", "Closed"].map((st) => (
+                            <option key={st} value={st}>{st}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <Box
+                          sx={{
+                            height: "38px",
+                            px: 1.5,
+                            border: "1px solid #e2e8f0",
+                            borderRadius: "8px",
+                            bgcolor: "#f8fafc",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            boxSizing: "border-box",
+                          }}
+                        >
+                          <span
+                            style={{
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              fontSize: "12px",
+                              fontWeight: 700,
+                              background: statusMeta.bg,
+                              color: statusMeta.text,
+                              border: `1px solid ${statusMeta.border}`,
+                            }}
+                          >
+                            {editForm.status || "New"}
+                          </span>
+                          <Typography sx={{ fontSize: "11px", color: "#64748b" }}>
+                            Managed via Support Staff
+                          </Typography>
+                        </Box>
+                      )}
                     </Box>
                   </Box>
 

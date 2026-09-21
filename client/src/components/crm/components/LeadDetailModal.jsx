@@ -74,6 +74,34 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
         </div>
 
         <div style={{ padding: '24px' }}>
+          {/* Internal Referral Notification */}
+          {lead.isReferral && (
+            <div style={{ marginBottom: '20px', background: '#fef2f2', padding: '12px 16px', borderRadius: '10px', borderLeft: '4px solid #ef4444', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.1rem' }}>⚡</span>
+                <span style={{ fontSize: '0.85rem', color: '#991b1b', fontWeight: 700 }}>
+                  Referred Lead: {lead.referredFromTeamId?.teamName || lead.referredFromTeamId?.name || 'Origin Team'} ➔ {lead.referredToTeamId?.teamName || lead.referredToTeamId?.name || 'Target Team'}
+                </span>
+              </div>
+              {lead.referredAt && (
+                <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginLeft: '28px', fontWeight: 600 }}>
+                  📅 Referred on: {new Date(lead.referredAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Reason for Loss (if lost) */}
+          {(lead.status === 'lost' || lead.closeReason) && (
+            <div style={{ marginBottom: '20px', background: '#fff1f2', padding: '12px 16px', borderRadius: '10px', borderLeft: '4px solid #e11d48' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#9f1239' }}>❌ Reason for Loss: </span>
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#be123c' }}>{lead.closeReason || 'Closed / Lost'}</span>
+              {lead.closeNotes && (
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#881337' }}>{lead.closeNotes}</p>
+              )}
+            </div>
+          )}
+
           {/* Freight Forwarding Sync Indicator */}
           {lead.freightEnquiryRef && (
             <div style={{ marginBottom: '24px', background: '#eff6ff', padding: '12px 16px', borderRadius: '8px', borderLeft: '4px solid #3b82f6', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -128,6 +156,15 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
             <div>
               <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Lead Score</span>
               <p style={{ margin: '4px 0 0 0', color: '#1e293b', fontWeight: 600 }}>⭐ {lead.score || 0}</p>
+            </div>
+
+            <div>
+              <span style={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: 700 }}>📍 Location / City</span>
+              <p style={{ margin: '4px 0 0 0', color: '#0369a1', fontWeight: 700 }}>{lead.location || 'N/A'}</p>
+            </div>
+            <div>
+              <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>🏷️ HSN Code</span>
+              <p style={{ margin: '4px 0 0 0', color: '#1e293b', fontWeight: 600 }}>{lead.hsnCode || 'N/A'}</p>
             </div>
 
             {lead.crateSize && !['transportation', 'freight forwarding', 'export', 'import'].includes((lead.businessVertical || '').toLowerCase()) && (

@@ -1084,11 +1084,13 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                                   <GetApp sx={{ fontSize: 16 }} />
                                 </IconButton>
                               </Tooltip>
-                              <Tooltip title="Delete Record">
-                                <IconButton size="small" onClick={() => handleDelete(row._id)} sx={{ p: 0.3, color: "#dc2626" }}>
-                                  <Delete sx={{ fontSize: 16 }} />
-                                </IconButton>
-                              </Tooltip>
+                              {isAdmin && (
+                                <Tooltip title="Delete Record">
+                                  <IconButton size="small" onClick={() => handleDelete(row._id)} sx={{ p: 0.3, color: "#dc2626" }}>
+                                    <Delete sx={{ fontSize: 16 }} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
                             </Stack>
                           </TableCell>
                         </TableRow>

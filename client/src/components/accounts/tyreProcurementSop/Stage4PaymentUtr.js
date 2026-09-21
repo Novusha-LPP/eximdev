@@ -25,13 +25,15 @@ function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
   const selectedSuppliers = globalData?.stage2?.selectedSuppliers || [];
 
   // Filter awarded suppliers from Stage 2
-  let bankSuppliers = stage2Suppliers.filter((s) =>
-    selectedSuppliers.some(
-      (sel) => sel.selectedSupplier === s.supplierName || sel.selectedSupplier === s._id
-    )
-  );
+  let bankSuppliers = stage2Suppliers.filter((s) => {
+    const sName = (s.supplierName || "").toUpperCase();
+    return selectedSuppliers.some((sel) => {
+      const selName = (sel.selectedSupplier || "").toUpperCase();
+      return selName === sName || String(sel.selectedSupplier) === String(s._id);
+    });
+  });
 
-  if (bankSuppliers.length === 0) {
+  if (bankSuppliers.length === 0 && selectedSuppliers.length === 0) {
     bankSuppliers = stage2Suppliers;
   }
 

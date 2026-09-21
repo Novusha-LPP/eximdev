@@ -78,6 +78,8 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
     transitTime: '',
     currentFreightIndications: '',
     referralSourceName: '',
+    location: '',
+    hsnCode: '',
     monthlyVolume: '',
     monthlyRevenue: ''
   });
@@ -127,6 +129,8 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
           transitTime: activeLead.transitTime || '',
           currentFreightIndications: activeLead.currentFreightIndications || '',
           referralSourceName: activeLead.referralSourceName || '',
+          location: activeLead.location || '',
+          hsnCode: activeLead.hsnCode || '',
           monthlyVolume: activeLead.monthlyVolume || '',
           monthlyRevenue: activeLead.monthlyRevenue || ''
         });
@@ -162,6 +166,8 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
           transitTime: '',
           currentFreightIndications: '',
           referralSourceName: '',
+          location: '',
+          hsnCode: '',
           monthlyVolume: '',
           monthlyRevenue: ''
         });
@@ -371,6 +377,34 @@ const getHeaders = () => {
                   value={formData.phone}
                   onChange={e => setFormData({...formData, phone: e.target.value})}
                   placeholder="+91 ...."
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
+                />
+              </div>
+            </div>
+
+            {/* Location & HSN Code */}
+            <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#0369a1', marginBottom: '8px' }}>
+                  📍 Location / City / Port (Primary Focus)
+                </label>
+                <input 
+                  type="text"
+                  value={formData.location || ''}
+                  onChange={e => setFormData({...formData, location: e.target.value})}
+                  placeholder="e.g. Mundra, Nhava Sheva, Ahmedabad..."
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #38bdf8', outline: 'none', fontSize: '0.95rem', background: '#f0f9ff' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>
+                  🏷️ HSN Code
+                </label>
+                <input 
+                  type="text"
+                  value={formData.hsnCode || ''}
+                  onChange={e => setFormData({...formData, hsnCode: e.target.value})}
+                  placeholder="e.g. 8471, 7208..."
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                 />
               </div>

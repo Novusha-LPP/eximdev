@@ -262,6 +262,42 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
             />
           </div>
         </div>
+
+        {/* Delivery Location & Delivery Contact (Editable) */}
+        <div className="sop-grid-2" style={{ marginTop: "12px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
+          <div className="sop-field-group">
+            <label className="sop-field-label" style={{ fontWeight: 700, color: "#0369a1" }}>
+              📍 Delivery Location (Editable)
+            </label>
+            <input
+              className="sop-input"
+              value={data.deliveryLocation || data.departmentLocation || ""}
+              onChange={(e) => updateField("deliveryLocation", e.target.value)}
+              placeholder="e.g. Purchase Dept / Site / Warehouse"
+              style={{ fontWeight: 600 }}
+            />
+          </div>
+          <div className="sop-field-group">
+            <label className="sop-field-label" style={{ fontWeight: 700, color: "#0369a1" }}>
+              📞 Delivery Contact (Person & Phone)
+            </label>
+            <input
+              className="sop-input"
+              value={
+                data.deliveryContact ||
+                (data.deliveryContactPerson || data.deliveryContactNumber
+                  ? [data.deliveryContactPerson, data.deliveryContactNumber].filter(Boolean).join(" | ")
+                  : [data.preparedBy, data.contactNumber].filter(Boolean).join(" | "))
+              }
+              onChange={(e) => {
+                updateField("deliveryContact", e.target.value);
+                updateField("deliveryContactPerson", e.target.value);
+              }}
+              placeholder="e.g. AJAY | 9924301166"
+              style={{ fontWeight: 600 }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Middle Section: Items Required Table */}

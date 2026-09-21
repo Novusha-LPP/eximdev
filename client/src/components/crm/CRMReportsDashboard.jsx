@@ -24,6 +24,115 @@ export default function CRMReportsDashboard() {
 
   const uniqueVerticals = [...new Set(teams.map(t => t.businessVertical).filter(Boolean))];
 
+  // Derive filtered list of users based on selected team, selected vertical, and permissions
+  const filteredUsers = React.useMemo(() => {
+    const getUserId = (u) => {
+      if (!u) return null;
+      if (typeof u === 'string') return u;
+      return (u._id || u.id)?.toString() || null;
+    };
+
+    const resolveUser = (rawUser) => {
+      const id = getUserId(rawUser);
+      if (!id) return null;
+      const fromAllUsers = users.find(u => getUserId(u) === id);
+      if (fromAllUsers) return fromAllUsers;
+      if (typeof rawUser === 'object' && (rawUser.first_name || rawUser.username || rawUser.name)) {
+        return rawUser;
+      }
+      return null;
+    };
+
+    // 1. If a specific team is selected: ONLY show members and manager of this team
+    if (selectedTeam && selectedTeam !== 'all') {
+      const currentTeam = teams.find(t => getUserId(t) === selectedTeam.toString());
+      if (currentTeam) {
+        const teamUserMap = new Map();
+
+        // Include team manager
+        if (currentTeam.managerId) {
+          const mgr = resolveUser(currentTeam.managerId);
+          if (mgr) teamUserMap.set(getUserId(mgr), mgr);
+        }
+
+        // Include all team members
+        if (Array.isArray(currentTeam.memberIds)) {
+          currentTeam.memberIds.forEach(m => {
+            const member = resolveUser(m);
+            if (member) teamUserMap.set(getUserId(member), member);
+          });
+        }
+
+        return Array.from(teamUserMap.values()).sort((a, b) => {
+          const nameA = `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.username || '';
+          const nameB = `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.username || '';
+          return nameA.localeCompare(nameB);
+        });
+      }
+      return [];
+    }
+
+    // 2. If a specific vertical is selected (with "All Teams")
+    if (selectedVertical && selectedVertical !== 'all') {
+      const verticalTeams = teams.filter(t => t.businessVertical === selectedVertical);
+      if (verticalTeams.length > 0) {
+        const teamUserMap = new Map();
+        verticalTeams.forEach(t => {
+          if (t.managerId) {
+            const mgr = resolveUser(t.managerId);
+            if (mgr) teamUserMap.set(getUserId(mgr), mgr);
+          }
+          if (Array.isArray(t.memberIds)) {
+            t.memberIds.forEach(m => {
+              const member = resolveUser(m);
+              if (member) teamUserMap.set(getUserId(member), member);
+            });
+          }
+        });
+        return Array.from(teamUserMap.values()).sort((a, b) => {
+          const nameA = `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.username || '';
+          const nameB = `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.username || '';
+          return nameA.localeCompare(nameB);
+        });
+      }
+    }
+
+    // 3. If restricted user (HOD / non-admin): only show members of their accessible teams
+    if (isRestricted && teams.length > 0) {
+      const teamUserMap = new Map();
+      teams.forEach(t => {
+        if (t.managerId) {
+          const mgr = resolveUser(t.managerId);
+          if (mgr) teamUserMap.set(getUserId(mgr), mgr);
+        }
+        if (Array.isArray(t.memberIds)) {
+          t.memberIds.forEach(m => {
+            const member = resolveUser(m);
+            if (member) teamUserMap.set(getUserId(member), member);
+          });
+        }
+      });
+      return Array.from(teamUserMap.values()).sort((a, b) => {
+        const nameA = `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.username || '';
+        const nameB = `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.username || '';
+        return nameA.localeCompare(nameB);
+      });
+    }
+
+    // 4. Admin with "All Teams" and "All Verticals": all users
+    return users;
+  }, [selectedTeam, selectedVertical, teams, users, isRestricted]);
+
+  // Auto-reset selected owner to 'all' if no longer in filtered users
+  useEffect(() => {
+    if (selectedOwner !== 'all') {
+      const exists = filteredUsers.some(u => (u._id || u.id)?.toString() === selectedOwner.toString());
+      if (!exists) {
+        setSelectedOwner('all');
+      }
+    }
+  }, [filteredUsers, selectedOwner]);
+
   // Stage Analysis Tab States
   const [analysisStage, setAnalysisStage] = useState('all');
   const [analysisData, setAnalysisData] = useState(null);
@@ -516,8 +625,8 @@ export default function CRMReportsDashboard() {
               outline: 'none'
             }}
           >
-            <option value="all">All Persons</option>
-            {users.map(u => (
+            <option value="all">{selectedTeam !== 'all' ? 'All Team Members' : 'All Persons'}</option>
+            {filteredUsers.map(u => (
               <option key={u._id || u.id} value={u._id || u.id}>
                 {`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username}
               </option>
@@ -530,7 +639,10 @@ export default function CRMReportsDashboard() {
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>Select Sales Team:</span>
             <select
               value={selectedTeam}
-              onChange={(e) => setSelectedTeam(e.target.value)}
+              onChange={(e) => {
+                setSelectedTeam(e.target.value);
+                setSelectedOwner('all');
+              }}
               style={{
                 padding: '8px 14px',
                 border: '1px solid #e2e8f0',
@@ -544,9 +656,11 @@ export default function CRMReportsDashboard() {
               }}
             >
               {!isRestricted && <option value="all">All Teams</option>}
-              {teams.map(t => (
-                <option key={t._id} value={t._id}>{t.name}</option>
-              ))}
+              {teams
+                .filter(t => selectedVertical === 'all' || t.businessVertical === selectedVertical)
+                .map(t => (
+                  <option key={t._id} value={t._id}>{t.name}</option>
+                ))}
             </select>
           </div>
         )}
@@ -556,7 +670,17 @@ export default function CRMReportsDashboard() {
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>Select Vertical:</span>
             <select
               value={selectedVertical}
-              onChange={(e) => setSelectedVertical(e.target.value)}
+              onChange={(e) => {
+                const newVertical = e.target.value;
+                setSelectedVertical(newVertical);
+                if (newVertical !== 'all') {
+                  const currentTeam = teams.find(t => (t._id || t.id)?.toString() === selectedTeam.toString());
+                  if (currentTeam && currentTeam.businessVertical !== newVertical) {
+                    setSelectedTeam('all');
+                  }
+                }
+                setSelectedOwner('all');
+              }}
               style={{
                 padding: '8px 14px',
                 border: '1px solid #e2e8f0',
@@ -606,7 +730,8 @@ export default function CRMReportsDashboard() {
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             ℹ️ Viewing performance reports for representative: <strong style={{ color: '#1d4ed8' }}>{
               (() => {
-                const repObj = users.find(u => (u._id?.toString() === selectedOwner.toString()) || (u.id?.toString() === selectedOwner.toString()));
+                const repObj = users.find(u => (u._id?.toString() === selectedOwner.toString()) || (u.id?.toString() === selectedOwner.toString()))
+                  || filteredUsers.find(u => (u._id?.toString() === selectedOwner.toString()) || (u.id?.toString() === selectedOwner.toString()));
                 return repObj ? [repObj.first_name, repObj.last_name].filter(Boolean).join(' ') || repObj.username : 'Selected Representative';
               })()
             }</strong>
@@ -1637,14 +1762,11 @@ export default function CRMReportsDashboard() {
                         style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
                       >
                         <option value="all">All Lost Reasons</option>
-                        <option value="Price too high">Price too high</option>
-                        <option value="Competitor chosen">Competitor chosen</option>
-                        <option value="Lost to Competition">Lost to Competition</option>
-                        <option value="Budget constraints">Budget constraints</option>
-                        <option value="Timing not right">Timing not right</option>
-                        <option value="Features missing">Features missing</option>
-                        <option value="No response">No response</option>
-                        <option value="Other">Other</option>
+                        <option value="Price Lost">Price Lost</option>
+                        <option value="Product Lost">Product Lost</option>
+                        <option value="No Reply / No Response">No Reply / No Response</option>
+                        <option value="Lost due to Location">Lost due to Location</option>
+                        <option value="__other__">Other / Custom Reasons</option>
                       </select>
 
                       <button

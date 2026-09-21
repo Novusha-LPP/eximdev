@@ -56,6 +56,7 @@ function Stage3FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
         },
         signOff: {
           ...(data.signOff || {}),
+          financeManagerName: data.signOff?.financeManagerName || "CHIRAG SHAH",
           dateOfApproval: today,
           timeOfApproval: timeStr,
         },

@@ -112,10 +112,48 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 // ROUTES
 // ─────────────────────────────────────────────────────────────────────────────
 
+// GET /api/crm/leads/suggestions
+// Returns distinct existing locations (location, pol, pod) and hsn codes from leads
+router.get('/suggestions', async (req, res) => {
+  try {
+    const ownerFilter = await buildOwnerFilter(req.user, null, req);
+    const query = { ...ownerFilter };
+
+    const [leadLocations, leadPols, leadPods, leadHsns] = await Promise.all([
+      Lead.find(query).distinct('location'),
+      Lead.find(query).distinct('pol'),
+      Lead.find(query).distinct('pod'),
+      Lead.find(query).distinct('hsnCode')
+    ]);
+
+    const cleanLocations = [...new Set(
+      [...leadLocations, ...leadPols, ...leadPods]
+        .filter(Boolean)
+        .map(s => String(s).trim())
+        .filter(s => s.length > 0 && s !== '-')
+    )].sort((a, b) => a.localeCompare(b));
+
+    const cleanHsns = [...new Set(
+      leadHsns
+        .filter(Boolean)
+        .map(s => String(s).trim())
+        .filter(s => s.length > 0 && s !== '-')
+    )].sort((a, b) => a.localeCompare(b));
+
+    res.json({
+      locations: cleanLocations,
+      hsnCodes: cleanHsns
+    });
+  } catch (error) {
+    console.error('Error fetching lead suggestions:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // GET /api/crm/leads
 router.get('/', async (req, res) => {
   try {
-    const { status, source, referralSourceName, teamId, startDate, endDate, period, service, businessVertical, searchQuery } = req.query;
+    const { status, source, referralSourceName, teamId, startDate, endDate, period, service, businessVertical, searchQuery, location, hsnCode } = req.query;
     const ownerFilter = await buildOwnerFilter(req.user, teamId, req);
     const query = { ...ownerFilter };
     
@@ -132,6 +170,25 @@ router.get('/', async (req, res) => {
         delete query.$or;
       } else {
         query.$or = searchOr;
+      }
+    }
+
+    if (hsnCode && hsnCode.trim()) {
+      query.hsnCode = { $regex: hsnCode.trim(), $options: 'i' };
+    }
+
+    if (location && location.trim()) {
+      const locRegex = { $regex: location.trim(), $options: 'i' };
+      const locOr = [
+        { location: locRegex },
+        { pol: locRegex },
+        { pod: locRegex }
+      ];
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: locOr }];
+        delete query.$or;
+      } else {
+        query.$or = locOr;
       }
     }
 
@@ -243,6 +300,7 @@ router.put('/:id/refer', async (req, res) => {
     if (receivingTeamId) lead.referredToTeamId = receivingTeamId;
     if (userId) lead.referredByUserId = userId;
     lead.isReferral = true;
+    lead.referredAt = new Date();
     lead.lastActivityAt = new Date();
 
     await lead.save();
@@ -259,6 +317,38 @@ router.put('/:id/refer', async (req, res) => {
   }
 });
 
+// Helper to find a SalesTeam matching the selected service(s) (e.g. E-Lock, DGFT)
+async function findTeamForServices(services) {
+  if (!services || !Array.isArray(services) || services.length === 0) return null;
+  const normalizedServices = services.map(s => String(s).toLowerCase().trim());
+
+  if (normalizedServices.some(s => s.includes('e-lock') || s.includes('elock'))) {
+    const team = await SalesTeam.findOne({
+      isActive: true,
+      name: { $regex: /e-?lock/i }
+    }).lean();
+    if (team) return team;
+  }
+
+  if (normalizedServices.some(s => s.includes('dgft'))) {
+    const team = await SalesTeam.findOne({
+      isActive: true,
+      name: { $regex: /dgft/i }
+    }).lean();
+    if (team) return team;
+  }
+
+  if (normalizedServices.some(s => s.includes('freight forwarding') || s.includes('forwarding'))) {
+    const team = await SalesTeam.findOne({
+      isActive: true,
+      name: { $regex: /freight/i }
+    }).lean();
+    if (team) return team;
+  }
+
+  return null;
+}
+
 // POST /api/crm/leads
 router.post('/', async (req, res) => {
   try {
@@ -266,8 +356,36 @@ router.post('/', async (req, res) => {
     const userId = req.user?._id || req.user?.id || req.headers['user-id'];
     const leadData = {
       ...req.body,
-      ownerId: req.body.ownerId || userId
+      ownerId: req.body.ownerId || userId,
+      lastActivityAt: new Date()
     };
+
+    if (!leadData.referredToTeamId && Array.isArray(leadData.interestedServices) && leadData.interestedServices.length > 0) {
+      const targetTeam = await findTeamForServices(leadData.interestedServices);
+      if (targetTeam) {
+        if (!leadData.referredFromTeamId && userId && mongoose.Types.ObjectId.isValid(userId)) {
+          const creatorTeam = await SalesTeam.findOne({
+            isActive: true,
+            $or: [{ managerId: userId }, { memberIds: userId }]
+          }).lean();
+          if (creatorTeam && creatorTeam._id.toString() !== targetTeam._id.toString()) {
+            leadData.referredFromTeamId = creatorTeam._id;
+          }
+        }
+        const isAlreadyInTeam = targetTeam.managerId?.toString() === userId?.toString() ||
+          (targetTeam.memberIds || []).some(m => m?.toString() === userId?.toString());
+        if (!isAlreadyInTeam) {
+          leadData.referredToTeamId = targetTeam._id;
+          leadData.isReferral = true;
+          leadData.referredAt = new Date();
+          if (userId) leadData.referredByUserId = userId;
+        }
+      }
+    } else if (leadData.isReferral || leadData.referredToTeamId) {
+      leadData.isReferral = true;
+      if (!leadData.referredAt) leadData.referredAt = new Date();
+    }
+
     const newLead = new Lead(leadData);
     await newLead.save();
     res.status(201).json(newLead);
@@ -281,7 +399,7 @@ router.put('/:id', async (req, res) => {
   try {
     const updatedLead = await Lead.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      { ...req.body, lastActivityAt: new Date() },
       { new: true }
     );
     if (!updatedLead) return res.status(404).json({ message: 'Lead not found' });
@@ -308,7 +426,7 @@ router.patch('/:id/assign', async (req, res) => {
     const { ownerId } = req.body;
     const lead = await Lead.findByIdAndUpdate(
       req.params.id,
-      { ownerId },
+      { ownerId, lastActivityAt: new Date() },
       { new: true }
     ).populate('ownerId', 'username first_name last_name');
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
@@ -358,6 +476,25 @@ router.post('/:id/convert', async (req, res) => {
       if (!bv || bv === 'all') bv = 'Paramount';
     }
 
+    // Carry over referral info or auto-link from interestedServices
+    let referredToTeamId = lead.referredToTeamId;
+    let referredFromTeamId = lead.referredFromTeamId;
+    let referredByUserId = lead.referredByUserId;
+    let isReferral = lead.isReferral || false;
+
+    if (!referredToTeamId && Array.isArray(lead.interestedServices) && lead.interestedServices.length > 0) {
+      const targetTeam = await findTeamForServices(lead.interestedServices);
+      if (targetTeam) {
+        const isAlreadyInTeam = targetTeam.managerId?.toString() === userId?.toString() ||
+          (targetTeam.memberIds || []).some(m => m?.toString() === userId?.toString());
+        if (!isAlreadyInTeam) {
+          referredToTeamId = targetTeam._id;
+          isReferral = true;
+          if (userId && !referredByUserId) referredByUserId = userId;
+        }
+      }
+    }
+
     const opportunity = new Opportunity({
       accountId: account._id,
       primaryContactId: contact._id,
@@ -367,6 +504,14 @@ router.post('/:id/convert', async (req, res) => {
       ownerId: oppOwnerId,
       createdBy: userId,
       convertedFromLead: lead._id,
+      referredToTeamId,
+      referredFromTeamId,
+      referredByUserId,
+      referredAt: isReferral ? (lead.referredAt || new Date()) : undefined,
+      isReferral,
+      location: lead.location,
+      hsnCode: lead.hsnCode,
+      lastActivityAt: new Date(),
       probability: 10,
       stageHistory: [{ stage: 'lead', enteredAt: new Date() }],
       source: lead.source,

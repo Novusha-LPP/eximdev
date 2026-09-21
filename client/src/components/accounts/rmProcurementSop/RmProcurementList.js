@@ -573,11 +573,13 @@ function RmProcurementList({ onEdit, onView, onCreate }) {
                                   <FileDownload fontSize="small" />
                                 </IconButton>
                               </Tooltip>
-                              <Tooltip title="Delete PR">
-                                <IconButton size="small" onClick={() => handleDelete(item._id)} sx={{ color: "#dc2626", "&:hover": { bgcolor: "#fef2f2" } }}>
-                                  <Delete fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
+                              {isAdmin && (
+                                <Tooltip title="Delete PR">
+                                  <IconButton size="small" onClick={() => handleDelete(item._id)} sx={{ color: "#dc2626", "&:hover": { bgcolor: "#fef2f2" } }}>
+                                    <Delete fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
                             </Stack>
                           </TableCell>
                         </TableRow>

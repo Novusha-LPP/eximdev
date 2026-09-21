@@ -15,8 +15,12 @@ import {
     ExternalLink,
     ChevronLeft,
     ChevronRight,
+    ChevronUp,
+    ChevronDown,
     ShieldCheck,
-    MapPin
+    MapPin,
+    Users,
+    BarChart3
 } from 'lucide-react';
 import { TRANSPORT_BASE, TRANSPORT_HEADERS, getTransportDates } from './reports-helper';
 
@@ -29,6 +33,73 @@ export const BRANCH_METADATA = {
     AUTO: { code: 'AUTO', name: 'Automove Hub', city: 'Automove', group: 'AUTO', groupLabel: 'Automove Hub' },
     SFPL: { code: 'SFPL', name: 'Suraj Forwarders', city: 'Suraj Logistics', group: 'SFPL', groupLabel: 'Suraj Forwarders' }
 };
+
+// Canonical 5 branch rows matching the user's Excel report
+export const CANONICAL_BRANCHES = [
+    { key: 'SFPL', label: 'SFPL' },
+    { key: 'SND', label: 'Sanand' },
+    { key: 'KHD', label: 'Khodiyar' },
+    { key: 'AUTO', label: 'Auto' },
+    { key: 'MND', label: 'Mundra' }
+];
+
+export const CANONICAL_BRANCH_MAP = {
+    KHD: { key: 'KHD', label: 'Khodiyar' },
+    SND: { key: 'SND', label: 'Sanand' },
+    MND: { key: 'MND', label: 'Mundra' },
+    SFPL: { key: 'SFPL', label: 'SFPL' },
+    AUTO: { key: 'AUTO', label: 'Auto' }
+};
+
+export const FY_MONTH_ORDER = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2];
+export const MONTH_NAMES = {
+    3: 'April', 4: 'May', 5: 'June', 6: 'July', 7: 'Aug', 8: 'Sep',
+    9: 'Oct', 10: 'Nov', 11: 'Dec', 0: 'Jan', 1: 'Feb', 2: 'March'
+};
+
+export const BRANCH_UI_CONFIG = {
+    SFPL: {
+        code: 'SFPL',
+        label: 'SFPL',
+        fullName: 'Suraj Forwarders',
+        color: '#8b5cf6',
+        bg: 'rgba(139, 92, 246, 0.12)',
+        dot: '#8b5cf6'
+    },
+    SND: {
+        code: 'SND',
+        label: 'Sanand',
+        fullName: 'ICD Sanand',
+        color: '#0284c7',
+        bg: 'rgba(2, 132, 199, 0.12)',
+        dot: '#0284c7'
+    },
+    KHD: {
+        code: 'KHD',
+        label: 'Khodiyar',
+        fullName: 'ICD Khodiyar',
+        color: '#10b981',
+        bg: 'rgba(16, 185, 129, 0.12)',
+        dot: '#10b981'
+    },
+    AUTO: {
+        code: 'AUTO',
+        label: 'Auto',
+        fullName: 'Automove Hub',
+        color: '#f59e0b',
+        bg: 'rgba(245, 158, 11, 0.12)',
+        dot: '#f59e0b'
+    },
+    MND: {
+        code: 'MND',
+        label: 'Mundra',
+        fullName: 'Mundra Port',
+        color: '#6366f1',
+        bg: 'rgba(99, 102, 241, 0.12)',
+        dot: '#6366f1'
+    }
+};
+
 
 export const BRANCH_ALIASES = {
     // Khodiyar
@@ -552,7 +623,364 @@ const STYLES = `
     background: #ffffff;
     font-family: 'Outfit', sans-serif;
 }
+
+/* Subtabs & Summary Table Styling */
+.fleet-subtabs {
+    display: inline-flex;
+    padding: 4px;
+    background: rgba(241, 245, 249, 0.85);
+    backdrop-filter: blur(12px);
+    border-radius: 12px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    gap: 4px;
+}
+
+.fleet-subtab-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 12.5px;
+    font-weight: 700;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.fleet-subtab-btn[data-active="true"] {
+    background: #ffffff;
+    color: #4f46e5;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.fleet-subtab-btn[data-active="false"]:hover {
+    color: #0f172a;
+}
+
+.fleet-summary-header {
+    padding: 16px 22px;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.75);
+}
+
+.fleet-action-filter-btn {
+    padding: 4px 11px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 11.5px;
+    font-family: 'Outfit', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.fleet-action-filter-btn[data-active="true"] {
+    background: #4f46e5;
+    color: #ffffff;
+    border: 1px solid #4f46e5;
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3);
+}
+
+.fleet-action-filter-btn[data-active="false"] {
+    background: rgba(255, 255, 255, 0.9);
+    color: #4f46e5;
+    border: 1px solid rgba(79, 70, 229, 0.25);
+}
+
+.fleet-action-filter-btn[data-active="false"]:hover {
+    background: rgba(79, 70, 229, 0.08);
+    border-color: #4f46e5;
+}
+
+/* ─── Executive Unbilled Jobs Matrix Styling ─── */
+.srcc-matrix-wrap {
+    padding: 22px 24px 26px 24px;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.srcc-table-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 8px 30px -4px rgba(15, 23, 42, 0.04), 0 2px 6px rgba(15, 23, 42, 0.02);
+    overflow: hidden;
+    position: relative;
+}
+
+.srcc-modern-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13.5px;
+}
+
+/* Header Row */
+.srcc-modern-table thead tr {
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.srcc-modern-table th {
+    padding: 15px 18px;
+    color: #475569;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 12.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+
+.srcc-modern-table th.branch-col {
+    text-align: left;
+    min-width: 200px;
+    padding-left: 24px;
+}
+
+.srcc-modern-table th.month-col {
+    text-align: center;
+    cursor: pointer;
+}
+
+.srcc-modern-table th.month-col:hover {
+    color: #4f46e5;
+    background: rgba(79, 70, 229, 0.05);
+}
+
+.srcc-modern-table th.month-col.is-current {
+    background: linear-gradient(180deg, rgba(79, 70, 229, 0.09) 0%, rgba(79, 70, 229, 0.03) 100%);
+    border-bottom: 2px solid #4f46e5;
+}
+
+.srcc-modern-table th.total-col {
+    text-align: center;
+    min-width: 95px;
+    background: rgba(241, 245, 249, 0.95);
+    color: #0f172a;
+    font-weight: 800;
+}
+
+/* Data Rows */
+.srcc-modern-table tbody tr {
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.srcc-modern-table tbody tr:hover {
+    background: rgba(79, 70, 229, 0.025);
+}
+
+.srcc-modern-table tbody tr.row-active {
+    background: rgba(79, 70, 229, 0.06);
+}
+
+.srcc-modern-table tbody td {
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.65);
+    vertical-align: middle;
+    transition: all 0.2s;
+}
+
+.srcc-modern-table tbody td.branch-cell {
+    text-align: left;
+    padding-left: 24px;
+    cursor: pointer;
+}
+
+.srcc-modern-table tbody td.val-cell {
+    text-align: center;
+}
+
+/* Interactive Number Badge */
+.srcc-val-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: 13.5px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+    border: 1px solid transparent;
+}
+
+.srcc-val-badge.zero {
+    color: #cbd5e1;
+    background: transparent;
+    cursor: default;
+    font-weight: 400;
+}
+
+.srcc-val-badge.low {
+    color: #1e293b;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.srcc-val-badge.high {
+    color: #4338ca;
+    background: rgba(79, 70, 229, 0.08);
+    border: 1px solid rgba(79, 70, 229, 0.22);
+    font-weight: 700;
+}
+
+.srcc-val-badge:hover:not(.zero) {
+    background: #4f46e5;
+    color: #ffffff;
+    border-color: #4f46e5;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.28);
+}
+
+.srcc-val-badge.active {
+    background: #4f46e5 !important;
+    color: #ffffff !important;
+    border-color: #3730a3 !important;
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+    font-weight: 800;
+}
+
+/* Branch Row Total Badge */
+.srcc-row-total-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 8px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 13.5px;
+    color: #4f46e5;
+    background: rgba(79, 70, 229, 0.07);
+    border: 1px solid rgba(79, 70, 229, 0.18);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.srcc-row-total-badge:hover {
+    background: #4f46e5;
+    color: #ffffff;
+    border-color: #4f46e5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.22);
+}
+
+/* Footer Total Row */
+.srcc-modern-table tr.total-row td {
+    background: linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%);
+    border-top: 2px solid #cbd5e1;
+    border-bottom: none;
+    padding: 16px 18px;
+}
+
+.srcc-grand-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 56px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: #ffffff;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 900;
+    font-size: 14px;
+    border: none;
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.32);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.srcc-grand-badge:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(79, 70, 229, 0.45);
+}
+
+/* Executive Grand Total Strip at bottom */
+.srcc-summary-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, rgba(248, 250, 252, 0.95) 0%, rgba(241, 245, 249, 0.95) 100%);
+    border-radius: 16px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.srcc-branch-pill-list {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.srcc-branch-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 13px;
+    border-radius: 999px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #334155;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.srcc-branch-pill:hover {
+    border-color: #4f46e5;
+    color: #4f46e5;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.srcc-branch-pill.active {
+    background: #4f46e5;
+    color: #ffffff;
+    border-color: #4f46e5;
+}
+
+.srcc-grand-kpi {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 18px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid rgba(79, 70, 229, 0.2);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.08);
+}
 `;
+
 
 // Helper: Parse job date (DD-MM-YYYY or DD/MM/YYYY)
 const parseJobDate = (job) => {
@@ -598,6 +1026,11 @@ const UninvoicedJobsReport = ({
     const [selectedFleet, setSelectedFleet] = useState('all');
     const [selectedStatus, setSelectedStatus] = useState('all');
 
+    // Summary Matrix Table states (Tabs: 'srcc_monthly' | 'branch' | 'consignor' | 'status')
+    const [summaryTab, setSummaryTab] = useState('srcc_monthly');
+    const [selectedMonthFilter, setSelectedMonthFilter] = useState(null);
+    const [showSummaryTable, setShowSummaryTable] = useState(true);
+
     // Excel downloading state
     const [downloadingExcel, setDownloadingExcel] = useState(false);
 
@@ -635,13 +1068,29 @@ const UninvoicedJobsReport = ({
         setTimeout(() => setCopiedKey(null), 1600);
     };
 
+    // Helper: Calculate current running Indian Financial Year (e.g. 26-27)
+    const getCurrentFY = () => {
+        const now = new Date();
+        const m = now.getMonth();
+        const y = now.getFullYear();
+        return m >= 3
+            ? `${String(y).slice(-2)}-${String(y + 1).slice(-2)}`
+            : `${String(y - 1).slice(-2)}-${String(y).slice(-2)}`;
+    };
+
     // Calculate effective financial year for API request based on central filters
     const effectiveFY = useMemo(() => {
         if (filterType === 'fin-year') {
-            return selectedFinancialYear || 'all';
+            return selectedFinancialYear || getCurrentFY();
         }
         if (filterType === 'all') {
-            return 'all';
+            return getCurrentFY();
+        }
+        if (filterType === 'year') {
+            const curY = new Date().getFullYear();
+            if (parseInt(selectedYear, 10) === curY) {
+                return getCurrentFY();
+            }
         }
         // For date-based filters, derive the relevant FY if available
         const { startDate } = getTransportDates(filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange);
@@ -655,7 +1104,7 @@ const UninvoicedJobsReport = ({
                     : `${String(y - 1).slice(-2)}-${String(y).slice(-2)}`;
             }
         }
-        return 'all';
+        return getCurrentFY();
     }, [filterType, selectedFinancialYear, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange]);
 
     // Primary fetch function (fetches the entire batch for the selected FY/period so branch filtering is 100% accurate)
@@ -696,10 +1145,15 @@ const UninvoicedJobsReport = ({
         }
     }, [effectiveFY]);
 
-    // Reset page to 1 when any filter changes
+    // Reset page and month drilldown when central filters change
     useEffect(() => {
         setPage(1);
-    }, [filterType, selectedFinancialYear, selectedMonth, selectedYear, selectedQuarter, selectedDay, selectedBranch, selectedFleet, selectedStatus, debouncedSearch]);
+        setSelectedMonthFilter(null);
+    }, [filterType, selectedFinancialYear, selectedMonth, selectedYear, selectedQuarter, selectedDay]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [selectedBranch, selectedFleet, selectedStatus, selectedMonthFilter, debouncedSearch]);
 
     useEffect(() => {
         fetchUninvoicedJobs();
@@ -740,7 +1194,7 @@ const UninvoicedJobsReport = ({
 
     // Date range bounds for client-side filtering if user selected date/month/week
     const dateBounds = useMemo(() => {
-        if (filterType === 'all' || filterType === 'fin-year') return null;
+        if (filterType === 'all' || filterType === 'fin-year' || filterType === 'year') return null;
         const { startDate, endDate } = getTransportDates(filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange);
         if (!startDate || !endDate) return null;
         const s = new Date(startDate);
@@ -759,6 +1213,14 @@ const UninvoicedJobsReport = ({
             if (dateBounds) {
                 const jobDate = parseJobDate(job);
                 if (jobDate && (jobDate < dateBounds.start || jobDate > dateBounds.end)) {
+                    return false;
+                }
+            }
+
+            // Month drilldown filter (from clicking SRCC matrix month cell or column)
+            if (selectedMonthFilter !== null && selectedMonthFilter !== undefined) {
+                const jobDate = parseJobDate(job);
+                if (!jobDate || jobDate.getMonth() !== selectedMonthFilter) {
                     return false;
                 }
             }
@@ -800,7 +1262,7 @@ const UninvoicedJobsReport = ({
 
             return true;
         });
-    }, [allJobs, dateBounds, selectedBranch, selectedFleet, selectedStatus, debouncedSearch]);
+    }, [allJobs, dateBounds, selectedBranch, selectedFleet, selectedStatus, selectedMonthFilter, debouncedSearch]);
 
     // Paginated view of the filtered jobs (60fps smooth client-side pagination)
     const paginatedJobs = useMemo(() => {
@@ -849,6 +1311,338 @@ const UninvoicedJobsReport = ({
             ewayPct
         };
     }, [filteredJobs, allJobs]);
+
+    // ─── Executive Summary Matrix Calculations ───────────────────────────────
+    // Base jobs for the selected period (respecting dateBounds if active)
+    const summaryBaseJobs = useMemo(() => {
+        if (!dateBounds) return allJobs;
+        return allJobs.filter(job => {
+            const jobDate = parseJobDate(job);
+            return !jobDate || (jobDate >= dateBounds.start && jobDate <= dateBounds.end);
+        });
+    }, [allJobs, dateBounds]);
+
+    // ─── Exact Excel Grid: Month-Wise Branch Matrix (Unbilled Jobs - Srcc) ───
+    const srccMatrixData = useMemo(() => {
+        const monthsInJobs = new Set();
+        const latestDateByMonth = {};
+
+        summaryBaseJobs.forEach(j => {
+            const d = parseJobDate(j);
+            if (d) {
+                const m = d.getMonth();
+                monthsInJobs.add(m);
+                if (!latestDateByMonth[m] || d > latestDateByMonth[m]) {
+                    latestDateByMonth[m] = d;
+                }
+            }
+        });
+
+        const now = new Date();
+        const currentMonthIdx = now.getMonth(); // 8 for September
+        const todayDayStr = String(now.getDate()).padStart(2, '0');
+        const todayMonthStr = String(now.getMonth() + 1).padStart(2, '0');
+        const todayYearStr = now.getFullYear();
+        const todayFormatted = `${todayDayStr}.${todayMonthStr}.${todayYearStr}`;
+
+        // Find index of current month in FY_MONTH_ORDER (April=0, May=1, June=2, July=3, Aug=4, Sep=5, ...)
+        const currentMonthFYIdx = FY_MONTH_ORDER.indexOf(currentMonthIdx);
+
+        // Check if effective FY is the current running FY (e.g. 26-27)
+        const isCurrentRunningFY = (!effectiveFY || effectiveFY === 'all' || effectiveFY === getCurrentFY() || effectiveFY === '26-27');
+
+        let maxIdx;
+        if (isCurrentRunningFY) {
+            // Show strictly up to current month (current till date)
+            maxIdx = currentMonthFYIdx !== -1 ? currentMonthFYIdx : 5;
+        } else {
+            // For past financial years, show elapsed months that have jobs or up to March
+            let maxJobMonthIdx = -1;
+            FY_MONTH_ORDER.forEach((m, idx) => {
+                if (monthsInJobs.has(m)) maxJobMonthIdx = Math.max(maxJobMonthIdx, idx);
+            });
+            maxIdx = maxJobMonthIdx !== -1 ? maxJobMonthIdx : 11;
+        }
+
+        const activeMonths = FY_MONTH_ORDER.slice(0, maxIdx + 1).map((m, idx) => {
+            const isLatest = (idx === maxIdx);
+            const dateStr = isCurrentRunningFY ? todayFormatted : (latestDateByMonth[m] ? `${String(latestDateByMonth[m].getDate()).padStart(2, '0')}.${String(latestDateByMonth[m].getMonth() + 1).padStart(2, '0')}.${latestDateByMonth[m].getFullYear()}` : todayFormatted);
+            const label = isLatest ? `${MONTH_NAMES[m]} (till ${dateStr} LR date )` : MONTH_NAMES[m];
+            return {
+                month: m,
+                name: MONTH_NAMES[m],
+                label,
+                isLatest,
+                dateStr
+            };
+        });
+
+        // Canonical 5 branches: Khodiyar, Sanand, Mundra, SFPL, Auto, plus any extra
+        const allBranchList = [
+            ...CANONICAL_BRANCHES,
+            ...Object.keys(branchCounts)
+                .filter(b => !CANONICAL_BRANCH_MAP[b] && b !== 'UNKNOWN' && branchCounts[b] > 0)
+                .map(b => ({ key: b, label: b }))
+        ];
+
+        const matrix = {};
+        allBranchList.forEach(b => {
+            matrix[b.key] = { total: 0 };
+            activeMonths.forEach(am => {
+                matrix[b.key][am.month] = 0;
+            });
+        });
+
+        const monthTotals = {};
+        activeMonths.forEach(am => {
+            monthTotals[am.month] = 0;
+        });
+        let grandTotal = 0;
+
+        summaryBaseJobs.forEach(job => {
+            const b = resolveJobBranch(job);
+            const d = parseJobDate(job);
+            if (d && matrix[b]) {
+                const m = d.getMonth();
+                if (matrix[b][m] !== undefined) {
+                    matrix[b][m]++;
+                    matrix[b].total++;
+                    monthTotals[m] = (monthTotals[m] || 0) + 1;
+                    grandTotal++;
+                }
+            }
+        });
+
+        return {
+            activeMonths,
+            allBranchList,
+            matrix,
+            monthTotals,
+            grandTotal
+        };
+    }, [summaryBaseJobs, branchCounts, effectiveFY]);
+
+    // Matrix cell click: filter by branch AND month
+    const handleCellClick = (branchKey, monthIdx, count) => {
+        if (count === 0) return;
+        if (selectedBranch === branchKey && selectedMonthFilter === monthIdx) {
+            setSelectedBranch('all');
+            setSelectedMonthFilter(null);
+        } else {
+            setSelectedBranch(branchKey);
+            setSelectedMonthFilter(monthIdx);
+        }
+    };
+
+    // Matrix branch row click: filter by branch
+    const handleBranchClick = (branchKey) => {
+        if (selectedBranch === branchKey && selectedMonthFilter === null) {
+            setSelectedBranch('all');
+        } else {
+            setSelectedBranch(branchKey);
+            setSelectedMonthFilter(null);
+        }
+    };
+
+    // Matrix month column click: filter by month
+    const handleMonthClick = (monthIdx) => {
+        if (selectedMonthFilter === monthIdx && selectedBranch === 'all') {
+            setSelectedMonthFilter(null);
+        } else {
+            setSelectedBranch('all');
+            setSelectedMonthFilter(monthIdx);
+        }
+    };
+
+    // Copy entire Unbilled Jobs - Srcc matrix to clipboard in TSV (Excel-pasteable)
+    const handleCopySrccMatrix = () => {
+        const headers = ['Branch', ...srccMatrixData.activeMonths.map(m => m.name), 'Total'];
+        const rows = srccMatrixData.allBranchList.map(b => {
+            const rowVals = [b.label];
+            srccMatrixData.activeMonths.forEach(m => {
+                rowVals.push(srccMatrixData.matrix[b.key]?.[m.month] || 0);
+            });
+            rowVals.push(srccMatrixData.matrix[b.key]?.total || 0);
+            return rowVals.join('\t');
+        });
+        const totalRow = ['Total'];
+        srccMatrixData.activeMonths.forEach(m => {
+            totalRow.push(srccMatrixData.monthTotals[m.month] || 0);
+        });
+        totalRow.push(srccMatrixData.grandTotal);
+        rows.push(totalRow.join('\t'));
+
+        const tsv = ['Unbilled Jobs - Srcc', headers.join('\t'), ...rows].join('\n');
+        navigator.clipboard.writeText(tsv);
+        handleCopy('Copied', 'srcc_matrix');
+    };
+
+    // Branch-Wise Breakdown Matrix calculation
+    const branchBreakdown = useMemo(() => {
+        const map = {};
+        summaryBaseJobs.forEach(job => {
+            const b = resolveJobBranch(job) || 'UNKNOWN';
+            if (!map[b]) {
+                map[b] = {
+                    branch: b,
+                    meta: BRANCH_METADATA[b] || null,
+                    name: BRANCH_METADATA[b]?.name || b,
+                    group: BRANCH_METADATA[b]?.groupLabel || 'Operating Station',
+                    city: BRANCH_METADATA[b]?.city || '',
+                    totalJobs: 0,
+                    ownCount: 0,
+                    hiredCount: 0,
+                    completedCount: 0,
+                    pendingCount: 0,
+                    validEwayCount: 0,
+                    size20Count: 0,
+                    size40Count: 0
+                };
+            }
+            map[b].totalJobs++;
+
+            const fleet = (job.own_hired || '').trim().toLowerCase();
+            if (fleet === 'own') map[b].ownCount++;
+            else if (fleet === 'hired') map[b].hiredCount++;
+
+            const comp = (job.lr_completed || '').trim().toLowerCase();
+            if (comp === 'completed') map[b].completedCount++;
+            else map[b].pendingCount++;
+
+            const eway = (job.eWay_bill || '').trim();
+            if (eway && eway !== '000000000000') map[b].validEwayCount++;
+
+            const contType = String(job.container_type || '');
+            if (contType.includes('20')) map[b].size20Count++;
+            else if (contType.includes('40')) map[b].size40Count++;
+        });
+
+        const total = summaryBaseJobs.length;
+        const list = Object.values(map).map(b => ({
+            ...b,
+            sharePct: total > 0 ? Math.round((b.totalJobs / total) * 100) : 0,
+            ownPct: b.totalJobs > 0 ? Math.round((b.ownCount / b.totalJobs) * 100) : 0,
+            hiredPct: b.totalJobs > 0 ? Math.round((b.hiredCount / b.totalJobs) * 100) : 0,
+            completedPct: b.totalJobs > 0 ? Math.round((b.completedCount / b.totalJobs) * 100) : 0
+        }));
+
+        return list.sort((a, b) => b.totalJobs - a.totalJobs);
+    }, [summaryBaseJobs]);
+
+    // Grand totals for bottom row of branch breakdown
+    const branchGrandTotals = useMemo(() => {
+        let ownCount = 0;
+        let hiredCount = 0;
+        let completedCount = 0;
+        let pendingCount = 0;
+        let validEwayCount = 0;
+        let size20Count = 0;
+        let size40Count = 0;
+
+        branchBreakdown.forEach(b => {
+            ownCount += b.ownCount;
+            hiredCount += b.hiredCount;
+            completedCount += b.completedCount;
+            pendingCount += b.pendingCount;
+            validEwayCount += b.validEwayCount;
+            size20Count += b.size20Count;
+            size40Count += b.size40Count;
+        });
+
+        const total = summaryBaseJobs.length;
+        return {
+            totalJobs: total,
+            ownCount,
+            hiredCount,
+            completedCount,
+            pendingCount,
+            validEwayCount,
+            size20Count,
+            size40Count,
+            ownPct: total > 0 ? Math.round((ownCount / total) * 100) : 0,
+            hiredPct: total > 0 ? Math.round((hiredCount / total) * 100) : 0,
+            completedPct: total > 0 ? Math.round((completedCount / total) * 100) : 0,
+            ewayPct: total > 0 ? Math.round((validEwayCount / total) * 100) : 0
+        };
+    }, [branchBreakdown, summaryBaseJobs]);
+
+    // Top Consignors breakdown
+    const consignorBreakdown = useMemo(() => {
+        const map = {};
+        summaryBaseJobs.forEach(job => {
+            const c = (job.consignor || 'Unknown Consignor').trim();
+            if (!map[c]) {
+                map[c] = {
+                    consignor: c,
+                    totalJobs: 0,
+                    ownCount: 0,
+                    hiredCount: 0,
+                    completedCount: 0,
+                    pendingCount: 0,
+                    validEwayCount: 0
+                };
+            }
+            map[c].totalJobs++;
+
+            const fleet = (job.own_hired || '').trim().toLowerCase();
+            if (fleet === 'own') map[c].ownCount++;
+            else if (fleet === 'hired') map[c].hiredCount++;
+
+            const comp = (job.lr_completed || '').trim().toLowerCase();
+            if (comp === 'completed') map[c].completedCount++;
+            else map[c].pendingCount++;
+
+            const eway = (job.eWay_bill || '').trim();
+            if (eway && eway !== '000000000000') map[c].validEwayCount++;
+        });
+
+        const total = summaryBaseJobs.length;
+        const list = Object.values(map).map(c => ({
+            ...c,
+            sharePct: total > 0 ? Math.round((c.totalJobs / total) * 100) : 0
+        }));
+
+        return list.sort((a, b) => b.totalJobs - a.totalJobs).slice(0, 15);
+    }, [summaryBaseJobs]);
+
+    // Tracking Stage & Fleet breakdown
+    const statusBreakdown = useMemo(() => {
+        const map = {};
+        summaryBaseJobs.forEach(job => {
+            const s = (job.tracking_status || 'Pending').trim();
+            if (!map[s]) {
+                map[s] = {
+                    status: s,
+                    totalJobs: 0,
+                    ownCount: 0,
+                    hiredCount: 0,
+                    completedCount: 0,
+                    pendingCount: 0,
+                    validEwayCount: 0
+                };
+            }
+            map[s].totalJobs++;
+
+            const fleet = (job.own_hired || '').trim().toLowerCase();
+            if (fleet === 'own') map[s].ownCount++;
+            else if (fleet === 'hired') map[s].hiredCount++;
+
+            const comp = (job.lr_completed || '').trim().toLowerCase();
+            if (comp === 'completed') map[s].completedCount++;
+            else map[s].pendingCount++;
+
+            const eway = (job.eWay_bill || '').trim();
+            if (eway && eway !== '000000000000') map[s].validEwayCount++;
+        });
+
+        const total = summaryBaseJobs.length;
+        const list = Object.values(map).map(s => ({
+            ...s,
+            sharePct: total > 0 ? Math.round((s.totalJobs / total) * 100) : 0
+        }));
+
+        return list.sort((a, b) => b.totalJobs - a.totalJobs);
+    }, [summaryBaseJobs]);
 
     // Excel Download Handler
     const handleDownloadExcel = async () => {
@@ -1034,6 +1828,827 @@ const UninvoicedJobsReport = ({
                 />
             </div>
 
+            {/* ─── Top Executive Summary Matrix Table ─── */}
+            <div className="fleet-table-wrap">
+                <div className="fleet-summary-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(79, 70, 229, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f46e5' }}>
+                            <Building2 size={20} />
+                        </div>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <h3 style={{ margin: 0, fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: '15.5px', color: '#0f172a' }}>
+                                    {summaryTab === 'srcc_monthly'
+                                        ? 'Unbilled Jobs - Srcc'
+                                        : summaryTab === 'branch'
+                                        ? 'Branch-Wise Uninvoiced Jobs Breakdown & Matrix'
+                                        : summaryTab === 'consignor'
+                                        ? 'Top Consignors & Clients Billing Pipeline'
+                                        : 'Tracking Stage & Operational Status Breakdown'}
+                                </h3>
+                                <span className="status-pill-v2" data-variant="info" style={{ fontSize: '11px', padding: '3px 10px' }}>
+                                    {summaryTab === 'srcc_monthly'
+                                        ? `${srccMatrixData.grandTotal} Unbilled Jobs`
+                                        : summaryTab === 'branch'
+                                        ? `${branchBreakdown.length} Stations Active`
+                                        : summaryTab === 'consignor'
+                                        ? `${consignorBreakdown.length} Consignors`
+                                        : `${statusBreakdown.length} Stages`}
+                                </span>
+                                {(selectedBranch !== 'all' || selectedMonthFilter !== null) && summaryTab === 'srcc_monthly' && (
+                                    <span
+                                        className="status-pill-v2"
+                                        data-variant="purple"
+                                        style={{ fontSize: '11px', padding: '3px 10px', cursor: 'pointer' }}
+                                        onClick={() => { setSelectedBranch('all'); setSelectedMonthFilter(null); }}
+                                        title="Click to clear filter"
+                                    >
+                                        Filtered: {selectedBranch !== 'all' ? (CANONICAL_BRANCH_MAP[selectedBranch]?.label || selectedBranch) : ''}
+                                        {selectedBranch !== 'all' && selectedMonthFilter !== null ? ' • ' : ''}
+                                        {selectedMonthFilter !== null ? MONTH_NAMES[selectedMonthFilter] : ''} ✕
+                                    </span>
+                                )}
+                                {selectedBranch !== 'all' && summaryTab === 'branch' && (
+                                    <span
+                                        className="status-pill-v2"
+                                        data-variant="purple"
+                                        style={{ fontSize: '11px', padding: '3px 10px', cursor: 'pointer' }}
+                                        onClick={() => setSelectedBranch('all')}
+                                        title="Click to clear filter"
+                                    >
+                                        Filtered: {getBranchDisplay(selectedBranch)} ✕
+                                    </span>
+                                )}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                {summaryTab === 'srcc_monthly'
+                                    ? 'Month-wise uninvoiced LR jobs matrix by branch • Click any cell, branch, or month to drill down'
+                                    : `Summary distribution of all ${summaryBaseJobs.length} live uninvoiced LR consignments`}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        {/* Subtabs for switching matrix view */}
+                        <div className="fleet-subtabs">
+                            <button
+                                className="fleet-subtab-btn"
+                                data-active={summaryTab === 'srcc_monthly'}
+                                onClick={() => setSummaryTab('srcc_monthly')}
+                            >
+                                <FileText size={13} />
+                                <span>Unbilled Jobs - Srcc</span>
+                            </button>
+                            <button
+                                className="fleet-subtab-btn"
+                                data-active={summaryTab === 'branch'}
+                                onClick={() => setSummaryTab('branch')}
+                            >
+                                <Building2 size={13} />
+                                <span>Operating Stations</span>
+                            </button>
+                            <button
+                                className="fleet-subtab-btn"
+                                data-active={summaryTab === 'consignor'}
+                                onClick={() => setSummaryTab('consignor')}
+                            >
+                                <Users size={13} />
+                                <span>Top Consignors</span>
+                            </button>
+                            <button
+                                className="fleet-subtab-btn"
+                                data-active={summaryTab === 'status'}
+                                onClick={() => setSummaryTab('status')}
+                            >
+                                <BarChart3 size={13} />
+                                <span>Tracking Stages</span>
+                            </button>
+                        </div>
+
+                        {/* Expand / Collapse Button */}
+                        <button
+                            className="fleet-sec-btn"
+                            style={{ padding: '6px 10px', borderRadius: '8px', fontSize: '12px' }}
+                            onClick={() => setShowSummaryTable(prev => !prev)}
+                            title={showSummaryTable ? 'Collapse summary table' : 'Expand summary table'}
+                        >
+                            {showSummaryTable ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                        </button>
+                    </div>
+                </div>
+
+                {showSummaryTable && (
+                    <div style={{ overflowX: 'auto' }}>
+                        {/* ─── View 1: Unbilled Jobs - Srcc (Modern Executive Matrix) ─── */}
+                        {summaryTab === 'srcc_monthly' && (
+                            <div className="srcc-matrix-wrap">
+                                {/* Active Drilldown Banner */}
+                                {(selectedBranch !== 'all' || selectedMonthFilter !== null) && (
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '10px 18px',
+                                        background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)',
+                                        borderRadius: '12px',
+                                        border: '1px solid rgba(79, 70, 229, 0.22)',
+                                        boxShadow: '0 2px 8px rgba(79, 70, 229, 0.05)'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#1e293b' }}>
+                                            <span style={{ fontWeight: 800, color: '#4f46e5' }}>Active Filter:</span>
+                                            {selectedBranch !== 'all' && (
+                                                <span className="status-pill-v2" data-variant="purple">
+                                                    Branch: {BRANCH_UI_CONFIG[selectedBranch]?.label || CANONICAL_BRANCH_MAP[selectedBranch]?.label || selectedBranch}
+                                                </span>
+                                            )}
+                                            {selectedMonthFilter !== null && (
+                                                <span className="status-pill-v2" data-variant="info">
+                                                    Month: {MONTH_NAMES[selectedMonthFilter]}
+                                                </span>
+                                            )}
+                                            <span style={{ color: '#64748b', fontWeight: 600 }}>
+                                                ({filteredJobs.length} jobs shown below)
+                                            </span>
+                                        </div>
+                                        <button
+                                            className="fleet-sec-btn"
+                                            style={{ padding: '4px 10px', fontSize: '11.5px', borderRadius: '6px' }}
+                                            onClick={() => {
+                                                setSelectedBranch('all');
+                                                setSelectedMonthFilter(null);
+                                            }}
+                                        >
+                                            Clear Drilldown ✕
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Executive Table Card */}
+                                <div className="srcc-table-card">
+                                    {/* Card Top Action Bar */}
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        padding: '16px 22px',
+                                        background: '#ffffff',
+                                        borderBottom: '1px solid #e2e8f0',
+                                        flexWrap: 'wrap',
+                                        gap: '12px'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{
+                                                width: '38px',
+                                                height: '38px',
+                                                borderRadius: '10px',
+                                                background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.12) 0%, rgba(124, 58, 237, 0.12) 100%)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: '#4f46e5',
+                                                flexShrink: 0
+                                            }}>
+                                                <Building2 size={19} />
+                                            </div>
+                                            <div>
+                                                <div style={{
+                                                    fontFamily: 'Outfit, sans-serif',
+                                                    fontSize: '15px',
+                                                    fontWeight: 800,
+                                                    color: '#0f172a',
+                                                    letterSpacing: '-0.01em',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px'
+                                                }}>
+                                                    <span>Unbilled Jobs Matrix</span>
+                                                    <span style={{
+                                                        fontSize: '11px',
+                                                        fontWeight: 700,
+                                                        padding: '2px 8px',
+                                                        borderRadius: '6px',
+                                                        background: '#e0e7ff',
+                                                        color: '#4338ca',
+                                                        letterSpacing: '0.04em'
+                                                    }}>
+                                                        SRCC
+                                                    </span>
+                                                </div>
+                                                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                                                    Financial Year {effectiveFY || '26-27'} • Interactive Station × Month breakdown till current LR date
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <button
+                                                type="button"
+                                                className="fleet-sec-btn"
+                                                style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '8px', gap: '6px' }}
+                                                onClick={handleCopySrccMatrix}
+                                                title="Copy matrix data in Excel / Sheet compatible format"
+                                            >
+                                                {copiedKey === 'srcc_matrix' ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                                                <span>{copiedKey === 'srcc_matrix' ? 'Copied Matrix!' : 'Copy Matrix'}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Modern Table */}
+                                    <div style={{ overflowX: 'auto' }}>
+                                        <table className="srcc-modern-table">
+                                            <thead>
+                                                <tr>
+                                                    <th className="branch-col">Branch / Station</th>
+                                                    {srccMatrixData.activeMonths.map(m => {
+                                                        const isColActive = selectedMonthFilter === m.month && selectedBranch === 'all';
+                                                        return (
+                                                            <th
+                                                                key={m.month}
+                                                                className={`month-col ${m.isLatest ? 'is-current' : ''}`}
+                                                                style={{
+                                                                    background: isColActive ? 'rgba(79, 70, 229, 0.12)' : undefined,
+                                                                    color: isColActive ? '#4f46e5' : undefined
+                                                                }}
+                                                                title={`Click to filter jobs for ${m.name}`}
+                                                                onClick={() => handleMonthClick(m.month)}
+                                                            >
+                                                                {m.isLatest ? (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                                            <span>{m.name}</span>
+                                                                            <span style={{
+                                                                                fontSize: '9.5px',
+                                                                                padding: '1.5px 6px',
+                                                                                borderRadius: '999px',
+                                                                                background: '#4f46e5',
+                                                                                color: '#ffffff',
+                                                                                fontWeight: 800,
+                                                                                letterSpacing: '0.04em',
+                                                                                textTransform: 'uppercase'
+                                                                            }}>Till Date</span>
+                                                                        </div>
+                                                                        <span style={{ fontSize: '11px', color: '#6366f1', fontWeight: 600, textTransform: 'none' }}>
+                                                                            till {m.dateStr} LR date
+                                                                        </span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span>{m.name}</span>
+                                                                )}
+                                                            </th>
+                                                        );
+                                                    })}
+                                                    <th
+                                                        className="total-col"
+                                                        onClick={() => { setSelectedBranch('all'); setSelectedMonthFilter(null); }}
+                                                        title="Click to reset filters and show all"
+                                                        style={{ cursor: 'pointer' }}
+                                                    >
+                                                        Total
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {srccMatrixData.allBranchList.map(b => {
+                                                    const isRowActive = selectedBranch === b.key && selectedMonthFilter === null;
+                                                    const rowTotal = srccMatrixData.matrix[b.key]?.total || 0;
+                                                    const cfg = BRANCH_UI_CONFIG[b.key] || {
+                                                        code: b.key,
+                                                        label: b.label,
+                                                        fullName: b.label,
+                                                        color: '#64748b',
+                                                        bg: 'rgba(100, 116, 139, 0.12)',
+                                                        dot: '#64748b'
+                                                    };
+
+                                                    return (
+                                                        <tr
+                                                            key={b.key}
+                                                            className={isRowActive ? 'row-active' : ''}
+                                                        >
+                                                            {/* Branch Info Cell */}
+                                                            <td
+                                                                className="branch-cell"
+                                                                onClick={() => handleBranchClick(b.key)}
+                                                                title={`Click to filter all ${cfg.label} jobs (${rowTotal})`}
+                                                            >
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                    <div style={{
+                                                                        width: '32px',
+                                                                        height: '32px',
+                                                                        borderRadius: '8px',
+                                                                        background: cfg.bg,
+                                                                        color: cfg.color,
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        fontWeight: 800,
+                                                                        fontSize: '11px',
+                                                                        fontFamily: 'Outfit, sans-serif',
+                                                                        letterSpacing: '0.02em',
+                                                                        flexShrink: 0
+                                                                    }}>
+                                                                        {cfg.code.slice(0, 4)}
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                                        <span style={{ fontWeight: 700, color: '#1e293b', fontSize: '13.5px' }}>
+                                                                            {cfg.label}
+                                                                        </span>
+                                                                        <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                                                                            {cfg.fullName}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+
+                                                            {/* Monthly Values */}
+                                                            {srccMatrixData.activeMonths.map(m => {
+                                                                const val = srccMatrixData.matrix[b.key]?.[m.month] || 0;
+                                                                const isCellSelected = selectedBranch === b.key && selectedMonthFilter === m.month;
+
+                                                                let badgeClass = 'zero';
+                                                                if (isCellSelected) {
+                                                                    badgeClass = 'active';
+                                                                } else if (val >= 25) {
+                                                                    badgeClass = 'high';
+                                                                } else if (val > 0) {
+                                                                    badgeClass = 'low';
+                                                                }
+
+                                                                return (
+                                                                    <td
+                                                                        key={m.month}
+                                                                        className="val-cell"
+                                                                    >
+                                                                        <button
+                                                                            type="button"
+                                                                            className={`srcc-val-badge ${badgeClass}`}
+                                                                            disabled={val === 0}
+                                                                            onClick={() => handleCellClick(b.key, m.month, val)}
+                                                                            title={val > 0 ? `Click to view ${val} uninvoiced jobs for ${cfg.label} in ${m.name}` : `No uninvoiced jobs`}
+                                                                        >
+                                                                            {val > 0 ? val : '—'}
+                                                                        </button>
+                                                                    </td>
+                                                                );
+                                                            })}
+
+                                                            {/* Row Total */}
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                <button
+                                                                    type="button"
+                                                                    className="srcc-row-total-badge"
+                                                                    onClick={() => handleBranchClick(b.key)}
+                                                                    title={`Click to filter all ${cfg.label} jobs (${rowTotal})`}
+                                                                >
+                                                                    {rowTotal}
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                            <tfoot>
+                                                <tr className="total-row">
+                                                    <td
+                                                        className="branch-cell"
+                                                        style={{ cursor: 'pointer' }}
+                                                        onClick={() => { setSelectedBranch('all'); setSelectedMonthFilter(null); }}
+                                                        title="Click to view all jobs across all stations"
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <span style={{
+                                                                fontFamily: 'Outfit, sans-serif',
+                                                                fontWeight: 800,
+                                                                fontSize: '13px',
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: '0.04em',
+                                                                color: '#0f172a'
+                                                            }}>
+                                                                Total Unbilled
+                                                            </span>
+                                                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                                                                (All Stations)
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    {srccMatrixData.activeMonths.map(m => {
+                                                        const monthTotal = srccMatrixData.monthTotals[m.month] || 0;
+                                                        const isColActive = selectedMonthFilter === m.month && selectedBranch === 'all';
+
+                                                        return (
+                                                            <td key={m.month} style={{ textAlign: 'center' }}>
+                                                                <button
+                                                                    type="button"
+                                                                    className={`srcc-val-badge ${isColActive ? 'active' : (monthTotal > 0 ? 'high' : 'low')}`}
+                                                                    style={{ fontWeight: 800, minWidth: '40px' }}
+                                                                    onClick={() => handleMonthClick(m.month)}
+                                                                    title={`Click to filter all jobs in ${m.name} (${monthTotal})`}
+                                                                >
+                                                                    {monthTotal}
+                                                                </button>
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    {/* Grand Total */}
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <button
+                                                            type="button"
+                                                            className="srcc-grand-badge"
+                                                            onClick={() => { setSelectedBranch('all'); setSelectedMonthFilter(null); }}
+                                                            title="Click to reset filters and view all uninvoiced jobs"
+                                                        >
+                                                            {srccMatrixData.grandTotal}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* Executive Bottom Summary Strip */}
+                                <div className="srcc-summary-strip">
+                                    <div className="srcc-branch-pill-list">
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginRight: '4px' }}>
+                                            Quick Filter:
+                                        </span>
+                                        <button
+                                            type="button"
+                                            className={`srcc-branch-pill ${selectedBranch === 'all' && selectedMonthFilter === null ? 'active' : ''}`}
+                                            onClick={() => { setSelectedBranch('all'); setSelectedMonthFilter(null); }}
+                                        >
+                                            <span>All Stations</span>
+                                            <strong>{srccMatrixData.grandTotal}</strong>
+                                        </button>
+                                        {srccMatrixData.allBranchList.map(b => {
+                                            const cfg = BRANCH_UI_CONFIG[b.key] || { label: b.label, dot: '#64748b' };
+                                            const count = srccMatrixData.matrix[b.key]?.total || 0;
+                                            const isActive = selectedBranch === b.key && selectedMonthFilter === null;
+
+                                            return (
+                                                <button
+                                                    key={b.key}
+                                                    type="button"
+                                                    className={`srcc-branch-pill ${isActive ? 'active' : ''}`}
+                                                    onClick={() => handleBranchClick(b.key)}
+                                                >
+                                                    <span style={{
+                                                        width: '7px',
+                                                        height: '7px',
+                                                        borderRadius: '50%',
+                                                        background: isActive ? '#ffffff' : (cfg.dot || '#64748b'),
+                                                        flexShrink: 0
+                                                    }}></span>
+                                                    <span>{cfg.label}:</span>
+                                                    <strong>{count}</strong>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="srcc-grand-kpi">
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#64748b', fontWeight: 700 }}>
+                                                Total Unbilled Jobs
+                                            </span>
+                                            <span style={{ fontSize: '12px', color: '#4f46e5', fontWeight: 600 }}>
+                                                {effectiveFY ? `FY ${effectiveFY}` : 'FY 26-27'} Running
+                                            </span>
+                                        </div>
+                                        <div style={{
+                                            fontSize: '22px',
+                                            fontFamily: 'Outfit, sans-serif',
+                                            fontWeight: 900,
+                                            color: '#1e293b',
+                                            lineHeight: 1
+                                        }}>
+                                            {srccMatrixData.grandTotal}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {summaryTab === 'branch' && (
+                            <table className="fleet-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ textAlign: 'left' }}>Branch / Station</th>
+                                        <th style={{ textAlign: 'center' }}>Uninvoiced Jobs</th>
+                                        <th style={{ textAlign: 'center' }}>Own Fleet</th>
+                                        <th style={{ textAlign: 'center' }}>Hired Fleet</th>
+                                        <th style={{ textAlign: 'center' }}>LR Completed</th>
+                                        <th style={{ textAlign: 'center' }}>LR Pending</th>
+                                        <th style={{ textAlign: 'center' }}>Active E-Way</th>
+                                        <th style={{ textAlign: 'right', minWidth: '130px' }}>Volume Share</th>
+                                        <th style={{ textAlign: 'center', width: '90px' }}>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {branchBreakdown.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="9" style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
+                                                No branch records available for the selected period.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        branchBreakdown.map((b, idx) => {
+                                            const isSelected = selectedBranch === b.branch ||
+                                                (selectedBranch === 'AMD' && (b.branch === 'KHD' || b.branch === 'SND')) ||
+                                                (selectedBranch === 'GIM' && b.branch === 'MND');
+
+                                            return (
+                                                <tr
+                                                    key={b.branch || idx}
+                                                    style={{
+                                                        background: isSelected ? 'rgba(79, 70, 229, 0.06)' : undefined,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                    onClick={() => setSelectedBranch(prev => prev === b.branch ? 'all' : b.branch)}
+                                                >
+                                                    {/* Branch Name & Hub */}
+                                                    <td style={{ textAlign: 'left' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <span
+                                                                style={{
+                                                                    width: '8px',
+                                                                    height: '8px',
+                                                                    borderRadius: '50%',
+                                                                    background: b.completedCount > 0 ? '#10b981' : '#f59e0b',
+                                                                    flexShrink: 0
+                                                                }}
+                                                            />
+                                                            <div>
+                                                                <div style={{ fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    <span>{b.name}</span>
+                                                                    <span style={{ fontSize: '11px', color: '#4f46e5', background: 'rgba(79, 70, 229, 0.08)', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }} className="code-font">
+                                                                        {b.branch}
+                                                                    </span>
+                                                                </div>
+                                                                <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '1px' }}>
+                                                                    {b.group} {b.city ? `• ${b.city}` : ''}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+
+                                                    {/* Total Uninvoiced Jobs */}
+                                                    <td style={{ textAlign: 'center', fontWeight: 900, fontSize: '15px', color: '#4f46e5' }} className="mono">
+                                                        {b.totalJobs}
+                                                    </td>
+
+                                                    {/* Own Fleet */}
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <span style={{ fontWeight: 800, color: '#0284c7' }} className="mono">{b.ownCount}</span>
+                                                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>({b.ownPct}%)</span>
+                                                        </div>
+                                                    </td>
+
+                                                    {/* Hired Fleet */}
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <span style={{ fontWeight: 800, color: '#7c3aed' }} className="mono">{b.hiredCount}</span>
+                                                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>({b.hiredPct}%)</span>
+                                                        </div>
+                                                    </td>
+
+                                                    {/* LR Completed */}
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <span style={{ fontWeight: 800, color: '#059669' }} className="mono">
+                                                            {b.completedCount}
+                                                        </span>
+                                                    </td>
+
+                                                    {/* LR Pending */}
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <span style={{ fontWeight: 800, color: b.pendingCount > 0 ? '#d97706' : '#64748b' }} className="mono">
+                                                            {b.pendingCount}
+                                                        </span>
+                                                    </td>
+
+                                                    {/* Active E-Way */}
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <span style={{ fontWeight: 800, color: b.validEwayCount > 0 ? '#0f172a' : '#94a3b8' }} className="mono">
+                                                            {b.validEwayCount}
+                                                        </span>
+                                                    </td>
+
+                                                    {/* Backlog Share */}
+                                                    <td style={{ textAlign: 'right' }}>
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                                                            <div style={{ width: '60px', height: '6px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                                                                <div style={{ width: `${b.sharePct}%`, height: '100%', background: '#4f46e5', borderRadius: '999px' }} />
+                                                            </div>
+                                                            <span style={{ fontWeight: 800, color: '#0f172a', minWidth: '38px', textAlign: 'right' }} className="mono">{b.sharePct}%</span>
+                                                        </div>
+                                                    </td>
+
+                                                    {/* Action Filter */}
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <button
+                                                            className="fleet-action-filter-btn"
+                                                            data-active={isSelected}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedBranch(prev => prev === b.branch ? 'all' : b.branch);
+                                                            }}
+                                                            title={isSelected ? 'Clear branch filter' : `Filter by ${b.name}`}
+                                                        >
+                                                            {isSelected ? 'Filtered ✓' : 'Filter'}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+
+                                    {/* Total Grand Row */}
+                                    {branchBreakdown.length > 0 && (
+                                        <tr style={{ background: 'linear-gradient(180deg, rgba(241, 245, 249, 0.8) 0%, rgba(226, 232, 240, 0.9) 100%)', borderTop: '2px solid rgba(226, 232, 240, 1)' }}>
+                                            <td style={{ textAlign: 'left', fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', fontSize: '12.5px' }}>
+                                                Total Across All Stations
+                                            </td>
+                                            <td style={{ textAlign: 'center', fontWeight: 900, fontSize: '16px', color: '#4f46e5' }} className="mono">
+                                                {branchGrandTotals.totalJobs}
+                                            </td>
+                                            <td style={{ textAlign: 'center', fontWeight: 800, color: '#0284c7' }} className="mono">
+                                                {branchGrandTotals.ownCount} <span style={{ fontSize: '11px', color: '#64748b' }}>({branchGrandTotals.ownPct}%)</span>
+                                            </td>
+                                            <td style={{ textAlign: 'center', fontWeight: 800, color: '#7c3aed' }} className="mono">
+                                                {branchGrandTotals.hiredCount} <span style={{ fontSize: '11px', color: '#64748b' }}>({branchGrandTotals.hiredPct}%)</span>
+                                            </td>
+                                            <td style={{ textAlign: 'center', fontWeight: 900, color: '#059669', fontSize: '15px' }} className="mono">
+                                                {branchGrandTotals.completedCount}
+                                            </td>
+                                            <td style={{ textAlign: 'center', fontWeight: 900, color: '#d97706', fontSize: '15px' }} className="mono">
+                                                {branchGrandTotals.pendingCount}
+                                            </td>
+                                            <td style={{ textAlign: 'center', fontWeight: 900, color: '#0f172a' }} className="mono">
+                                                {branchGrandTotals.validEwayCount}
+                                            </td>
+                                            <td style={{ textAlign: 'right', fontWeight: 900, color: '#0f172a' }} className="mono">
+                                                100%
+                                            </td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                {selectedBranch !== 'all' && (
+                                                    <button
+                                                        onClick={() => setSelectedBranch('all')}
+                                                        className="fleet-sec-btn"
+                                                        style={{ padding: '3px 8px', fontSize: '11px', borderRadius: '6px' }}
+                                                    >
+                                                        Reset
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
+
+                        {summaryTab === 'consignor' && (
+                            <table className="fleet-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: '60px' }}>#</th>
+                                        <th style={{ textAlign: 'left' }}>Consignor (Client / Shipper)</th>
+                                        <th style={{ textAlign: 'center' }}>Uninvoiced Jobs</th>
+                                        <th style={{ textAlign: 'center' }}>Own Fleet</th>
+                                        <th style={{ textAlign: 'center' }}>Hired Fleet</th>
+                                        <th style={{ textAlign: 'center' }}>LR Completed</th>
+                                        <th style={{ textAlign: 'center' }}>LR Pending</th>
+                                        <th style={{ textAlign: 'right', minWidth: '130px' }}>Volume Share</th>
+                                        <th style={{ textAlign: 'center', width: '90px' }}>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {consignorBreakdown.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="9" style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
+                                                No consignor records available.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        consignorBreakdown.map((c, idx) => {
+                                            const isFiltered = searchTerm === c.consignor;
+                                            return (
+                                                <tr
+                                                    key={c.consignor || idx}
+                                                    style={{
+                                                        background: isFiltered ? 'rgba(79, 70, 229, 0.06)' : undefined,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                    onClick={() => setSearchTerm(prev => prev === c.consignor ? '' : c.consignor)}
+                                                >
+                                                    <td style={{ fontWeight: 600, color: '#94a3b8' }} className="mono">{idx + 1}</td>
+                                                    <td style={{ textAlign: 'left', fontWeight: 700, color: '#0f172a' }}>{c.consignor}</td>
+                                                    <td style={{ textAlign: 'center', fontWeight: 900, color: '#4f46e5' }} className="mono">{c.totalJobs}</td>
+                                                    <td style={{ textAlign: 'center', fontWeight: 700, color: '#0284c7' }} className="mono">{c.ownCount}</td>
+                                                    <td style={{ textAlign: 'center', fontWeight: 700, color: '#7c3aed' }} className="mono">{c.hiredCount}</td>
+                                                    <td style={{ textAlign: 'center', fontWeight: 700, color: '#059669' }} className="mono">{c.completedCount}</td>
+                                                    <td style={{ textAlign: 'center', fontWeight: 700, color: '#d97706' }} className="mono">{c.pendingCount}</td>
+                                                    <td style={{ textAlign: 'right' }}>
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                                                            <div style={{ width: '60px', height: '6px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                                                                <div style={{ width: `${c.sharePct}%`, height: '100%', background: '#4f46e5', borderRadius: '999px' }} />
+                                                            </div>
+                                                            <span style={{ fontWeight: 800, color: '#0f172a', minWidth: '38px', textAlign: 'right' }} className="mono">{c.sharePct}%</span>
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <button
+                                                            className="fleet-action-filter-btn"
+                                                            data-active={isFiltered}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSearchTerm(prev => prev === c.consignor ? '' : c.consignor);
+                                                            }}
+                                                        >
+                                                            {isFiltered ? 'Filtered ✓' : 'Filter'}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
+
+                        {summaryTab === 'status' && (
+                            <table className="fleet-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ textAlign: 'left' }}>Tracking Stage / State</th>
+                                        <th style={{ textAlign: 'center' }}>Total Consignments</th>
+                                        <th style={{ textAlign: 'center' }}>Own Fleet</th>
+                                        <th style={{ textAlign: 'center' }}>Hired Fleet</th>
+                                        <th style={{ textAlign: 'center' }}>Active E-Way</th>
+                                        <th style={{ textAlign: 'right', minWidth: '130px' }}>Stage Share</th>
+                                        <th style={{ textAlign: 'center', width: '90px' }}>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {statusBreakdown.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
+                                                No status records available.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        statusBreakdown.map((s, idx) => {
+                                            const isFiltered = selectedStatus === s.status;
+                                            return (
+                                                <tr
+                                                    key={s.status || idx}
+                                                    style={{
+                                                        background: isFiltered ? 'rgba(79, 70, 229, 0.06)' : undefined,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                    onClick={() => setSelectedStatus(prev => prev === s.status ? 'all' : s.status)}
+                                                >
+                                                    <td style={{ textAlign: 'left' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            {renderStatusPill(s.status)}
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ textAlign: 'center', fontWeight: 900, color: '#4f46e5' }} className="mono">{s.totalJobs}</td>
+                                                    <td style={{ textAlign: 'center', fontWeight: 700, color: '#0284c7' }} className="mono">{s.ownCount}</td>
+                                                    <td style={{ textAlign: 'center', fontWeight: 700, color: '#7c3aed' }} className="mono">{s.hiredCount}</td>
+                                                    <td style={{ textAlign: 'center', fontWeight: 700, color: '#059669' }} className="mono">{s.validEwayCount}</td>
+                                                    <td style={{ textAlign: 'right' }}>
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                                                            <div style={{ width: '60px', height: '6px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                                                                <div style={{ width: `${s.sharePct}%`, height: '100%', background: '#4f46e5', borderRadius: '999px' }} />
+                                                            </div>
+                                                            <span style={{ fontWeight: 800, color: '#0f172a', minWidth: '38px', textAlign: 'right' }} className="mono">{s.sharePct}%</span>
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <button
+                                                            className="fleet-action-filter-btn"
+                                                            data-active={isFiltered}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedStatus(prev => prev === s.status ? 'all' : s.status);
+                                                            }}
+                                                        >
+                                                            {isFiltered ? 'Filtered ✓' : 'Filter'}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                )}
+            </div>
+
             {/* Controls Toolbar in Fleet Theme */}
             <div className="fleet-toolbar">
                 {/* Search Box */}
@@ -1080,6 +2695,20 @@ const UninvoicedJobsReport = ({
                                 </option>
                             ))}
                         </optgroup>
+                    </select>
+
+                    {/* Month Dropdown Filter */}
+                    <select
+                        className="fleet-select"
+                        value={selectedMonthFilter === null ? 'all' : String(selectedMonthFilter)}
+                        onChange={(e) => setSelectedMonthFilter(e.target.value === 'all' ? null : parseInt(e.target.value, 10))}
+                    >
+                        <option value="all">All Months</option>
+                        {srccMatrixData.activeMonths.map(m => (
+                            <option key={m.month} value={m.month}>
+                                {m.name} ({srccMatrixData.monthTotals[m.month] || 0} jobs)
+                            </option>
+                        ))}
                     </select>
 
                     {/* Fleet Filter */}

@@ -192,6 +192,11 @@ function Home() {
     finalModulesList.push("First Aid");
   }
 
+  // Auto-include IT Helpdesk so all users have access to Helpdesk & Tickets
+  if (!finalModulesList.includes("IT Helpdesk")) {
+    finalModulesList.push("IT Helpdesk");
+  }
+
   // Group modules into their respective dashboard categories
   const categorizedModules = finalModulesList.reduce((acc, module) => {
     // 1. Restrict 5S Audit card: Visible only to RABS Admin and HOD users

@@ -46,11 +46,26 @@ export default function AttachmentUpload({ attachments, setAttachments }) {
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
-    const validFiles = files.filter(file => file.size <= MAX_FILE_SIZE);
+    const allowedExtensions = /\.(jpe?g|png|pdf)$/i;
+    const validFiles = [];
 
-    if (validFiles.length !== files.length) {
-      const oversizedFiles = files.filter(file => file.size > MAX_FILE_SIZE);
-      toast.error(`${oversizedFiles.length} file(s) exceed the 10MB limit`);
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`File "${file.name}" exceeds the 10MB limit`);
+        continue;
+      }
+      const isExtAllowed = allowedExtensions.test(file.name);
+      const isMimeAllowed = file.type && (
+        file.type.startsWith("image/jpeg") ||
+        file.type === "image/png" ||
+        file.type === "application/pdf"
+      );
+      if (!isExtAllowed && !isMimeAllowed) {
+        toast.error(`"${file.name}" is not supported. Only JPG, JPEG, PNG, and PDF files are allowed.`);
+ 
+        continue;
+      }
+      validFiles.push(file);
     }
 
     setSelectedFiles(validFiles);
@@ -290,6 +305,7 @@ export default function AttachmentUpload({ attachments, setAttachments }) {
                 ref={fileInputRef}
                 hidden
                 multiple
+                accept=".jpg,.jpeg,.png,.pdf"
                 onChange={handleFileSelect}
               />
             </Grid>

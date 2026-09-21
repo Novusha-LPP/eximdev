@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useContext } from "react";
 import { Box } from "@mui/material";
 import { Routes, Route, Navigate } from "react-router-dom";
+import { UserContext } from "../contexts/UserContext";
+import { isHRAdminUser } from "../utils/hrAdminRoleHelper";
 import ITHelpdeskHome from "../components/it-helpdesk/ITHHelpdeskHome";
 import AssetManagement from "../components/it-helpdesk/AssetManagement";
 import TicketManagement from "../components/it-helpdesk/TicketManagement";
@@ -16,6 +18,23 @@ import AuditLogs from "../components/it-helpdesk/AuditLogs";
 // import { AuditLogProvider } from "../contexts/AuditLogContext";
 
 export default function ItHelpdeskPage() {
+  const { user } = useContext(UserContext);
+  const isHRAdmin = isHRAdminUser(user);
+
+  // Normal users (non-HR Admin, non-Hardware & Network Engineer, non-Admin)
+  // only have access to Helpdesk & Tickets view
+  if (!isHRAdmin) {
+    return (
+      <Box>
+        <Routes>
+          <Route path="/" element={<TicketManagement />} />
+          <Route path="/tickets" element={<TicketManagement />} />
+          <Route path="*" element={<Navigate to="/it-helpdesk/tickets" replace />} />
+        </Routes>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       <Routes>
@@ -23,9 +42,6 @@ export default function ItHelpdeskPage() {
         <Route path="/assets" element={<AssetManagement />} />
         <Route path="/tickets" element={<TicketManagement />} />
         <Route path="/vendors" element={<VendorManagement />} />
-
-
-
         <Route path="/inventory" element={<InventoryManagement />} />
         <Route path="/licenses" element={<LicenseManagement />} />
         <Route path="/reports" element={<ITReports />} />
@@ -36,12 +52,10 @@ export default function ItHelpdeskPage() {
         <Route path="/roles" element={<RolesPermissions />} />
         <Route path="/administration/users" element={<UserManagement />} />
         <Route path="/users" element={<UserManagement />} />
-        {/* <Route path="/administration/settings" element={<SystemSettings />} /> */}
         <Route path="/administration/settings" element={<Navigate to="/it-helpdesk" replace />} />
         <Route path="/administration/setting" element={<Navigate to="/it-helpdesk" replace />} />
         <Route path="*" element={<Navigate to="/it-helpdesk" replace />} />
       </Routes>
-
     </Box>
   );
 }

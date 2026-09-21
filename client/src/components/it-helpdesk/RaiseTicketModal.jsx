@@ -96,7 +96,7 @@ export default function RaiseTicketModal({ open, onClose, onTicketRaised }) {
     if (!selectedFiles || selectedFiles.length === 0) return;
     const fileArray = Array.from(selectedFiles);
 
-    const allowedExtensions = /\.(jpeg|jpg|png|gif|pdf|doc|docx|xls|xlsx|txt|zip)$/i;
+    const allowedExtensions = /\.(jpe?g|png|pdf)$/i;
     const validFiles = [];
 
     for (const file of fileArray) {
@@ -104,8 +104,14 @@ export default function RaiseTicketModal({ open, onClose, onTicketRaised }) {
         toast.error(`File "${file.name}" exceeds the 10MB limit.`);
         continue;
       }
-      if (!allowedExtensions.test(file.name)) {
-        toast.error(`File type for "${file.name}" is not supported.`);
+      const isExtAllowed = allowedExtensions.test(file.name);
+      const isMimeAllowed = file.type && (
+        file.type.startsWith("image/jpeg") ||
+        file.type === "image/png" ||
+        file.type === "application/pdf"
+      );
+      if (!isExtAllowed && !isMimeAllowed) {
+        toast.error(`"${file.name}" is not supported. Only JPG, JPEG, PNG, and PDF files are allowed.`);
         continue;
       }
       validFiles.push(file);
@@ -508,8 +514,11 @@ export default function RaiseTicketModal({ open, onClose, onTicketRaised }) {
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".png,.jpg,.jpeg,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
-                onChange={(e) => handleFileSelect(e.target.files)}
+                accept=".jpg,.jpeg,.png,.pdf"
+                onChange={(e) => {
+                  handleFileSelect(e.target.files);
+                  e.target.value = "";
+                }}
                 style={{ display: "none" }}
               />
 
@@ -551,7 +560,7 @@ export default function RaiseTicketModal({ open, onClose, onTicketRaised }) {
                   Click to upload or drag &amp; drop screenshots / files
                 </div>
                 <div style={{ fontSize: "11.5px", color: "#64748b", marginTop: "3px" }}>
-                  Supported: PNG, JPG, JPEG (Max 10MB each)
+                  Supported: PDF, JPG, JPEG, PNG (Max 10MB each)
                 </div>
               </div>
 

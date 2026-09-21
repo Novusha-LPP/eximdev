@@ -20,29 +20,25 @@ import {
   ShieldCheck,
   Send,
   UploadCloud,
-  ExternalLink,
   Copy,
   Check,
   Tag,
   Calendar,
   ArrowRight,
   MessageSquare,
-  FileSpreadsheet,
   FileImage,
-  FileCode,
   FileQuestion,
   UserCheck,
   CheckSquare,
   Lock,
   Edit3,
   Save,
-  Eye,
   Trash2,
-  RotateCcw,
+  Pencil,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
-import AttachmentImageViewer, { isImageAttachment } from "./AttachmentImageViewer";
+import AttachmentImageViewer, { isImageAttachment, resolveAttachmentUrl } from "./AttachmentImageViewer";
 
 const TICKET_CATEGORIES = ["Hardware", "Software", "Network", "Access", "Other"];
 const TICKET_SUB_CATEGORIES = [
@@ -215,11 +211,31 @@ const formatFileSize = (bytes) => {
 const getFileIcon = (fileName = "") => {
   const ext = fileName.split(".").pop().toLowerCase();
   if (["pdf"].includes(ext)) return <FileText size={18} color="#dc2626" />;
-  if (["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext)) return <FileImage size={18} color="#2563eb" />;
-  if (["xls", "xlsx", "csv"].includes(ext)) return <FileSpreadsheet size={18} color="#16a34a" />;
-  if (["doc", "docx", "txt"].includes(ext)) return <FileText size={18} color="#0284c7" />;
-  if (["zip", "rar", "tar"].includes(ext)) return <FileCode size={18} color="#d97706" />;
+  if (["jpg", "jpeg", "png"].includes(ext)) return <FileImage size={18} color="#2563eb" />;
   return <FileQuestion size={18} color="#64748b" />;
+};
+
+const validateAttachmentFiles = (fileList) => {
+  const allowedExtensions = /\.(jpe?g|png|pdf)$/i;
+  const valid = [];
+  for (const file of fileList) {
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error(`File "${file.name}" exceeds the 10MB limit.`);
+      continue;
+    }
+    const isExtAllowed = allowedExtensions.test(file.name || "");
+    const isMimeAllowed = file.type && (
+      file.type.startsWith("image/jpeg") ||
+      file.type === "image/png" ||
+      file.type === "application/pdf"
+    );
+    if (!isExtAllowed && !isMimeAllowed) {
+      toast.error(`"${file.name}" is not supported. Only JPG, JPEG, PNG, and PDF files are allowed.`);
+      continue;
+    }
+    valid.push(file);
+  }
+  return valid;
 };
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -230,10 +246,13 @@ export default function TicketDetailDrawer({
   onUpdate,
   users = [],
   isAdmin = false,
+  isHRAdmin = false,
+  initialTab = 0,
 }) {
+  const canManageTickets = Boolean(isAdmin || isHRAdmin);
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [tabIndex, setTabIndex] = useState(0);
+  const [tabIndex, setTabIndex] = useState(initialTab || 0);
 
   // Edit Mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -262,6 +281,7 @@ export default function TicketDetailDrawer({
 
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   const [statusData, setStatusData] = useState({ status: "", remarks: "" });
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -290,13 +310,13 @@ export default function TicketDetailDrawer({
   useEffect(() => {
     if (open && ticketId) {
       fetchTicketDetails();
-      setTabIndex(0);
+      setTabIndex(initialTab || 0);
       setIsEditing(false);
     } else {
       setTicket(null);
       setIsEditing(false);
     }
-  }, [open, ticketId, fetchTicketDetails]);
+  }, [open, ticketId, initialTab, fetchTicketDetails]);
 
   const handleStartEdit = () => {
     if (ticket?.status === "Closed") {
@@ -414,8 +434,8 @@ export default function TicketDetailDrawer({
 
   const handleUpdateStatus = async () => {
     if (!statusData.status) return;
-    if (!isAdmin) {
-      toast.error("Only Admins are authorized to update ticket status");
+    if (!canManageTickets) {
+      toast.error("Only HR Admin department (Hardware and Network Engineer) and Admins are authorized to update ticket status");
       return;
     }
     if (ticket?.status === "Closed") {
@@ -462,22 +482,25 @@ export default function TicketDetailDrawer({
     }
   };
 
-  const handleFileUpload = async () => {
-    if (files.length === 0) return;
+  const handleFileUpload = async (filesToUpload = null) => {
+    const list = filesToUpload || files;
+    if (!list || list.length === 0) return;
     if (ticket?.status === "Closed") {
       toast.error("This ticket is closed. Attachments cannot be uploaded.");
       return;
     }
     setUploading(true);
     const formData = new FormData();
-    files.forEach((f) => formData.append("files", f));
+    list.forEach((f) => formData.append("files", f));
 
     try {
       await itHelpdeskAPI.tickets.uploadAttachment(ticketId, formData);
-      toast.success(`${files.length} file(s) uploaded successfully`);
+      toast.success(`${list.length} file(s) uploaded successfully`);
       setFiles([]);
       await fetchTicketDetails();
       if (onUpdate) onUpdate();
+      localStorage.setItem("ticketDataRefresh", JSON.stringify({ timestamp: Date.now() }));
+      window.dispatchEvent(new Event("ticketDataUpdated"));
     } catch (err) {
       const serverMsg = err?.response?.data?.message;
       let friendlyMsg = "File upload failed. Please try again.";
@@ -490,6 +513,30 @@ export default function TicketDetailDrawer({
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleViewAttachment = (file, idx) => {
+    if (!file) return;
+    if (isImageAttachment(file)) {
+      setViewerIndex(idx);
+      setViewerOpen(true);
+    } else {
+      const resolvedUrl = resolveAttachmentUrl(file.file_url);
+      window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  const handleDownloadAttachment = (file) => {
+    if (!file) return;
+    const resolvedUrl = resolveAttachmentUrl(file.file_url);
+    const a = document.createElement("a");
+    a.href = resolvedUrl;
+    a.download = file.file_name || "attachment";
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const [deletingAttachmentId, setDeletingAttachmentId] = useState(null);
@@ -508,6 +555,8 @@ export default function TicketDetailDrawer({
       toast.success(`"${fileName}" removed successfully`);
       await fetchTicketDetails();
       if (onUpdate) onUpdate();
+      localStorage.setItem("ticketDataRefresh", JSON.stringify({ timestamp: Date.now() }));
+      window.dispatchEvent(new Event("ticketDataUpdated"));
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to delete attachment");
     } finally {
@@ -531,6 +580,8 @@ export default function TicketDetailDrawer({
       toast.success(`Attachment replaced with "${selectedFile.name}"`);
       await fetchTicketDetails();
       if (onUpdate) onUpdate();
+      localStorage.setItem("ticketDataRefresh", JSON.stringify({ timestamp: Date.now() }));
+      window.dispatchEvent(new Event("ticketDataUpdated"));
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to replace attachment");
     } finally {
@@ -1710,7 +1761,7 @@ export default function TicketDetailDrawer({
                     </Box>
 
                     <Box sx={{ p: 2 }}>
-                      {!isAdmin ? (
+                      {!canManageTickets ? (
                         <Box
                           sx={{
                             p: 1.5,
@@ -1724,7 +1775,7 @@ export default function TicketDetailDrawer({
                         >
                           <AlertCircle size={16} color="#d97706" />
                           <Typography sx={{ fontSize: "12.5px", color: "#92400e", fontWeight: 500 }}>
-                            Only <strong>IT Administrators</strong> are authorized to update ticket status.
+                            Only <strong>HR Admin Department / HARDWARE AND NETWORK ENGINEER</strong> or <strong>Admins</strong> are authorized to update ticket status.
                           </Typography>
                         </Box>
                       ) : (
@@ -1809,68 +1860,6 @@ export default function TicketDetailDrawer({
                               <span>{updatingStatus ? "Saving..." : "Update Status"}</span>
                             </button>
                           </Box>
-
-                          {/* Quick Assign Dropdown for Admins */}
-                          {users && users.length > 0 && (
-                            <Box
-                              sx={{
-                                pt: 1.5,
-                                mt: 0.5,
-                                borderTop: "1px dashed #e2e8f0",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1.5,
-                              }}
-                            >
-                              <Typography sx={{ fontSize: "12px", color: "#64748b", fontWeight: 600, minWidth: 90 }}>
-                                Reassign to:
-                              </Typography>
-                              <select
-                                value={assignData.assigned_to}
-                                onChange={(e) =>
-                                  setAssignData((prev) => ({ ...prev, assigned_to: e.target.value }))
-                                }
-                                style={{
-                                  flex: 1,
-                                  height: "36px",
-                                  padding: "0 10px",
-                                  borderRadius: "7px",
-                                  border: "1px solid #cbd5e1",
-                                  background: "#ffffff",
-                                  fontSize: "13px",
-                                  fontWeight: 500,
-                                  color: "#0f172a",
-                                  outline: "none",
-                                }}
-                              >
-                                <option value="">Select Technician...</option>
-                                {users.map((u) => (
-                                  <option key={u._id} value={u._id}>
-                                    {u.username} {u.first_name ? `(${u.first_name})` : ""}
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                type="button"
-                                onClick={handleAssign}
-                                disabled={assigning || !assignData.assigned_to}
-                                style={{
-                                  height: "36px",
-                                  padding: "0 14px",
-                                  borderRadius: "7px",
-                                  border: "1px solid #cbd5e1",
-                                  background: "#ffffff",
-                                  color: "#334155",
-                                  fontSize: "12.5px",
-                                  fontWeight: 600,
-                                  cursor: assigning || !assignData.assigned_to ? "not-allowed" : "pointer",
-                                  opacity: assigning || !assignData.assigned_to ? 0.5 : 1,
-                                }}
-                              >
-                                {assigning ? "Assigning..." : "Assign"}
-                              </button>
-                            </Box>
-                          )}
                         </Box>
                       )}
                     </Box>
@@ -2152,11 +2141,33 @@ export default function TicketDetailDrawer({
                   </Box>
                 ) : (
                   <Box
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDraggingOver(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDraggingOver(false);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDraggingOver(false);
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        const droppedFiles = Array.from(e.dataTransfer.files);
+                        const valid = validateAttachmentFiles(droppedFiles);
+                        if (valid.length > 0) {
+                          setFiles((prev) => [...prev, ...valid]);
+                        }
+                      }
+                    }}
                     sx={{
                       p: 2.5,
                       borderRadius: "10px",
-                      border: "2px dashed #cbd5e1",
-                      bgcolor: "#f8fafc",
+                      border: isDraggingOver ? "2px dashed #2563eb" : "2px dashed #cbd5e1",
+                      bgcolor: isDraggingOver ? "#eff6ff" : "#f8fafc",
                       textAlign: "center",
                       transition: "all 0.15s ease",
                       "&:hover": { borderColor: "#3b82f6", bgcolor: "#f0f7ff" },
@@ -2183,15 +2194,25 @@ export default function TicketDetailDrawer({
                       Upload Files &amp; Screenshots
                     </Typography>
                     <Typography sx={{ fontSize: "12px", color: "#64748b", mb: 2 }}>
-                      PDF, JPG, PNG, Excel, Word (Max 10MB each)
+                      PDF, JPG, JPEG, PNG (Max 10MB each)
                     </Typography>
 
                     <input
                       type="file"
                       id="ticket-file-input"
                       multiple
+                      accept=".jpg,.jpeg,.png,.pdf"
                       style={{ display: "none" }}
-                      onChange={(e) => setFiles(Array.from(e.target.files))}
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          const selected = Array.from(e.target.files);
+                          const valid = validateAttachmentFiles(selected);
+                          if (valid.length > 0) {
+                            setFiles((prev) => [...prev, ...valid]);
+                          }
+                          e.target.value = "";
+                        }
+                      }}
                     />
 
                     <label
@@ -2200,7 +2221,7 @@ export default function TicketDetailDrawer({
                         display: "inline-flex",
                         alignItems: "center",
                         gap: "6px",
-                        padding: "7px 16px",
+                        padding: "7px 18px",
                         borderRadius: "7px",
                         border: "1px solid #cbd5e1",
                         background: "#ffffff",
@@ -2216,14 +2237,69 @@ export default function TicketDetailDrawer({
 
                     {files.length > 0 && (
                       <Box mt={2} p={1.5} bgcolor="#ffffff" borderRadius="8px" border="1px solid #bfdbfe">
-                        <Typography sx={{ fontSize: "12.5px", fontWeight: 600, color: "#1d4ed8", mb: 1 }}>
-                          {files.length} file(s) selected:
-                        </Typography>
-                        <Box display="flex" flexDirection="column" gap={0.5} textAlign="left">
+                        <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                          <Typography sx={{ fontSize: "12.5px", fontWeight: 600, color: "#1d4ed8" }}>
+                            {files.length} file(s) selected:
+                          </Typography>
+                          <button
+                            type="button"
+                            onClick={() => setFiles([])}
+                            style={{
+                              border: "none",
+                              background: "none",
+                              color: "#94a3b8",
+                              fontSize: "11px",
+                              cursor: "pointer",
+                              textDecoration: "underline",
+                            }}
+                          >
+                            Clear all
+                          </button>
+                        </Box>
+                        <Box display="flex" flexDirection="column" gap={0.75} textAlign="left">
                           {files.map((f, i) => (
-                            <Typography key={i} sx={{ fontSize: "12px", color: "#475569" }}>
-                              • {f.name} ({formatFileSize(f.size)})
-                            </Typography>
+                            <Box
+                              key={i}
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                bgcolor: "#f8fafc",
+                                px: 1.25,
+                                py: 0.5,
+                                borderRadius: "6px",
+                                border: "1px solid #f1f5f9",
+                              }}
+                            >
+                              <Typography
+                                sx={{
+                                  fontSize: "12px",
+                                  color: "#334155",
+                                  fontWeight: 500,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                • {f.name} ({formatFileSize(f.size)})
+                              </Typography>
+                              <button
+                                type="button"
+                                onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                                style={{
+                                  border: "none",
+                                  background: "none",
+                                  color: "#ef4444",
+                                  cursor: "pointer",
+                                  padding: "2px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                }}
+                                title="Remove file"
+                              >
+                                <X size={13} />
+                              </button>
+                            </Box>
                           ))}
                         </Box>
                         <Box mt={1.5} display="flex" justifyContent="flex-end" gap={1}>
@@ -2245,10 +2321,10 @@ export default function TicketDetailDrawer({
                           </button>
                           <button
                             type="button"
-                            onClick={handleFileUpload}
+                            onClick={() => handleFileUpload()}
                             disabled={uploading}
                             style={{
-                              padding: "6px 14px",
+                              padding: "6px 16px",
                               borderRadius: "6px",
                               border: "none",
                               background: "#2563eb",
@@ -2259,10 +2335,11 @@ export default function TicketDetailDrawer({
                               display: "inline-flex",
                               alignItems: "center",
                               gap: "5px",
+                              boxShadow: "0 1px 3px rgba(37, 99, 235, 0.25)",
                             }}
                           >
                             {uploading && <CircularProgress size={12} color="inherit" />}
-                            <span>{uploading ? "Uploading..." : "Upload Now"}</span>
+                            <span>{uploading ? "Uploading..." : `Upload Now (${files.length})`}</span>
                           </button>
                         </Box>
                       </Box>
@@ -2295,7 +2372,7 @@ export default function TicketDetailDrawer({
                     <Box display="flex" flexDirection="column" gap={1.25}>
                       {ticket.attachments.map((file, idx) => (
                         <Box
-                          key={idx}
+                          key={file._id || idx}
                           sx={{
                             p: 1.5,
                             borderRadius: "9px",
@@ -2323,12 +2400,16 @@ export default function TicketDetailDrawer({
                                 alignItems: "center",
                                 justifyContent: "center",
                                 flexShrink: 0,
+                                cursor: "pointer",
                               }}
+                              onClick={() => handleViewAttachment(file, idx)}
+                              title={`Click to view "${file.file_name}"`}
                             >
                               {getFileIcon(file.file_name)}
                             </Box>
                             <Box sx={{ minWidth: 0 }}>
                               <Typography
+                                onClick={() => handleViewAttachment(file, idx)}
                                 sx={{
                                   fontSize: "13px",
                                   fontWeight: 600,
@@ -2336,56 +2417,40 @@ export default function TicketDetailDrawer({
                                   whiteSpace: "nowrap",
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
+                                  cursor: "pointer",
+                                  "&:hover": {
+                                    color: "#2563eb",
+                                    textDecoration: "underline",
+                                  },
                                 }}
-                                title={file.file_name}
+                                title={`Click to view "${file.file_name}"`}
                               >
                                 {file.file_name}
                               </Typography>
                               <Typography sx={{ fontSize: "11px", color: "#64748b" }}>
                                 {formatFileSize(file.file_size)} • {formatTimestamp(file.uploaded_at)}
+                                {file.uploaded_by && (
+                                  <span> • By {file.uploaded_by.first_name ? `${file.uploaded_by.first_name} ${file.uploaded_by.last_name || ""}`.trim() : (file.uploaded_by.username || "")}</span>
+                                )}
                               </Typography>
                             </Box>
                           </Box>
 
-                          <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-                            {isImageAttachment(file) && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setViewerIndex(idx);
-                                  setViewerOpen(true);
-                                }}
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: "4px",
-                                  padding: "6px 12px",
-                                  borderRadius: "6px",
-                                  border: "1px solid #bfdbfe",
-                                  background: "#eff6ff",
-                                  color: "#1d4ed8",
-                                  fontSize: "12px",
-                                  fontWeight: 600,
-                                  cursor: "pointer",
-                                  transition: "all 0.15s ease",
-                                }}
-                                title="View Image on Page"
-                              >
-                                <Eye size={13} />
-                                <span>View</span>
-                              </button>
-                            )}
-
-                            {/* Change / Replace File */}
+                          <Box display="flex" alignItems="center" gap={1}>
                             {ticket?.status !== "Closed" && (
                               <>
+                                {/* Change / Replace File (Pencil Icon) */}
                                 <input
                                   type="file"
                                   id={`replace-file-input-${file._id || idx}`}
+                                  accept=".jpg,.jpeg,.png,.pdf"
                                   style={{ display: "none" }}
                                   onChange={(e) => {
                                     if (e.target.files && e.target.files[0]) {
-                                      handleReplaceAttachment(file._id, e.target.files[0]);
+                                      const valid = validateAttachmentFiles([e.target.files[0]]);
+                                      if (valid.length > 0) {
+                                        handleReplaceAttachment(file._id, valid[0]);
+                                      }
                                       e.target.value = "";
                                     }
                                   }}
@@ -2395,29 +2460,27 @@ export default function TicketDetailDrawer({
                                   style={{
                                     display: "inline-flex",
                                     alignItems: "center",
-                                    gap: "4px",
-                                    padding: "6px 12px",
+                                    justifyContent: "center",
+                                    width: "30px",
+                                    height: "30px",
                                     borderRadius: "6px",
-                                    border: "1px solid #e2e8f0",
+                                    border: "1px solid #cbd5e1",
                                     background: "#f8fafc",
                                     color: "#475569",
-                                    fontSize: "12px",
-                                    fontWeight: 600,
                                     cursor: replacingAttachmentId === file._id ? "not-allowed" : "pointer",
-                                    whiteSpace: "nowrap",
                                     margin: 0,
+                                    transition: "all 0.15s ease",
                                   }}
                                   title="Change / Replace File"
                                 >
                                   {replacingAttachmentId === file._id ? (
-                                    <CircularProgress size={12} color="inherit" />
+                                    <CircularProgress size={13} color="inherit" />
                                   ) : (
-                                    <RotateCcw size={13} />
+                                    <Pencil size={14} />
                                   )}
-                                  <span>{replacingAttachmentId === file._id ? "Replacing..." : "Change"}</span>
                                 </label>
 
-                                {/* Delete / Remove File */}
+                                {/* Delete / Remove File (Dustbin Icon) */}
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteAttachment(file._id, file.file_name)}
@@ -2425,25 +2488,23 @@ export default function TicketDetailDrawer({
                                   style={{
                                     display: "inline-flex",
                                     alignItems: "center",
-                                    gap: "4px",
-                                    padding: "6px 10px",
+                                    justifyContent: "center",
+                                    width: "30px",
+                                    height: "30px",
                                     borderRadius: "6px",
                                     border: "1px solid #fecdd3",
                                     background: "#fff1f2",
                                     color: "#e11d48",
-                                    fontSize: "12px",
-                                    fontWeight: 600,
                                     cursor: deletingAttachmentId === file._id ? "not-allowed" : "pointer",
-                                    whiteSpace: "nowrap",
+                                    transition: "all 0.15s ease",
                                   }}
-                                  title="Remove File"
+                                  title="Delete File"
                                 >
                                   {deletingAttachmentId === file._id ? (
-                                    <CircularProgress size={12} color="inherit" />
+                                    <CircularProgress size={13} color="inherit" />
                                   ) : (
-                                    <Trash2 size={13} />
+                                    <Trash2 size={14} />
                                   )}
-                                  <span>Delete</span>
                                 </button>
                               </>
                             )}

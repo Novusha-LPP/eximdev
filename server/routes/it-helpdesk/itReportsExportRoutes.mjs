@@ -9,6 +9,7 @@ import Inventory from "../../model/it-helpdesk/inventoryModel.mjs";
 import AuditTrailModel from "../../model/auditTrailModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import logger from "../../logger.js";
+import { isHRAdminUser } from "../../utils/hrAdminRoleHelper.mjs";
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -162,7 +163,19 @@ const handleReportExport = async (req, res) => {
       filename = `IT_Ticket_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
       worksheet = workbook.addWorksheet("Ticket Report");
 
-      const tickets = await Ticket.find(filter)
+      const isSupportStaff = await isHRAdminUser(req.user);
+      const userId = req.user?._id || req.user?.id;
+      const username = req.user?.username;
+
+      const ticketFilter = { ...filter };
+      if (!isSupportStaff) {
+        const userOwnership = [];
+        if (userId) userOwnership.push({ raised_by: userId });
+        if (username) userOwnership.push({ requester_name: username });
+        Object.assign(ticketFilter, userOwnership.length > 1 ? { $or: userOwnership } : (userOwnership[0] || {}));
+      }
+
+      const tickets = await Ticket.find(ticketFilter)
         .populate("raised_by", "username email first_name last_name name")
         .populate("assigned_to", "username email first_name last_name name")
         .sort({ createdAt: -1 })

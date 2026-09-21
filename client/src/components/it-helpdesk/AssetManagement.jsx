@@ -514,8 +514,8 @@ export default function AssetManagement() {
     userDept.toLowerCase().includes("account") ||
     userDesig.toLowerCase().includes("account");
 
-  // IT/Network user role detection (TC-13)
-  // An IT person is someone who is neither Admin nor Accounts person
+  // HR Admin / HARDWARE AND NETWORK ENGINEER role detection (TC-13)
+  // Support staff is someone who is neither Admin nor Accounts person
   const isPureITDept = !isAdmin && !isAccountsPerson;
   const isITUser = isAdmin || isPureITDept;
 
@@ -573,7 +573,7 @@ export default function AssetManagement() {
     try {
       const payload = {
         action: "resubmit_it",
-        remarks: resubmitRemarks.trim() || "Resubmitted by IT/Network Department.",
+        remarks: resubmitRemarks.trim() || "Resubmitted by HR Admin Department.",
         ...(resubmitInvoiceUrl ? { image_url: resubmitInvoiceUrl } : {}),
         ...(resubmitInvoiceNumber ? { invoice_number: resubmitInvoiceNumber } : {}),
         ...(resubmitInvoiceDate ? { invoice_date: resubmitInvoiceDate } : {}),
@@ -5390,7 +5390,7 @@ export default function AssetManagement() {
                                   }}
                                 >
                                   <Typography sx={{ fontSize: "0.74rem", color: "#c2410c", fontStyle: "italic", fontWeight: 500 }}>
-                                    ⏳ Returned to IT — Awaiting IT/Network Department to resubmit revised invoice.
+                                    ⏳ Returned to IT — Awaiting HR Admin Department (Hardware and Network Engineer) to resubmit revised invoice.
                                   </Typography>
                                 </Box>
                               )}
@@ -6259,7 +6259,7 @@ export default function AssetManagement() {
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            The asset request will be returned to the IT/Network Department for correction. You may optionally add remarks.
+            The asset request will be returned to the HR Admin Department (Hardware and Network Engineer) for correction. You may optionally add remarks.
           </Typography>
           <TextField
             fullWidth

@@ -5,6 +5,7 @@ import axios from "axios";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
 import { UserContext } from "../../contexts/UserContext";
+import { isHRAdminUser } from "../../utils/hrAdminRoleHelper";
 import AssignTicket from "./AssignTicket";
 import PriorityManagement from "./PriorityManagement";
 import SLATracking from "./SLATracking";
@@ -32,6 +33,7 @@ import {
   Eye,
   History,
   RotateCcw,
+  Paperclip,
 } from "lucide-react";
 import "../../styles/scorecard.scss";
 import {
@@ -162,6 +164,7 @@ export default function TicketManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useContext(UserContext);
   const isAdmin = user?.role === "Admin";
+  const isHRAdmin = isHRAdminUser(user);
 
   // Audit logs
   const { logCreate, logRead, logUpdate, logDelete } = useModuleAuditLogs("Helpdesk");
@@ -177,6 +180,7 @@ export default function TicketManagement() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [detailTicketId, setDetailTicketId] = useState(null);
+  const [drawerTab, setDrawerTab] = useState(0);
 
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = React.useRef(null);
@@ -644,12 +648,36 @@ export default function TicketManagement() {
       {/* Topbar */}
       <div className="topbar">
         <div className="topbar-left">
-          <button className="back-btn" onClick={() => navigate("/it-helpdesk")} title="Back to IT Helpdesk">
+          <button
+            className="back-btn"
+            onClick={() => navigate(isHRAdmin ? "/it-helpdesk" : "/")}
+            title={isHRAdmin ? "Back to IT Helpdesk" : "Back to Home"}
+          >
             <ChevronLeft size={20} />
           </button>
           <div>
-            <div className="page-title">Helpdesk & Tickets</div>
-            <div className="page-subtitle">Overview, filter and track all IT support tickets with real-time status</div>
+            <div className="page-title" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              Helpdesk & Tickets
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  padding: "3px 8px",
+                  borderRadius: "12px",
+                  backgroundColor: isHRAdmin ? "#eff6ff" : "#f1f5f9",
+                  color: isHRAdmin ? "#1d4ed8" : "#475569",
+                  border: isHRAdmin ? "1px solid #bfdbfe" : "1px solid #cbd5e1",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {isHRAdmin ? "HR Admin Support Desk" : "My Support Requests"}
+              </span>
+            </div>
+            <div className="page-subtitle">
+              {isHRAdmin
+                ? "Overview, assign, and manage all support tickets across all departments"
+                : "Overview, filter and track your support requests with real-time status"}
+            </div>
           </div>
         </div>
         <div className="topbar-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -839,6 +867,7 @@ export default function TicketManagement() {
                       <thead>
                         <tr>
                           <th>Ticket ID</th>
+                          {isHRAdmin && <th>Requester</th>}
                           <th>Category & Summary</th>
                           <th>Priority</th>
                           <th>Status</th>
@@ -850,7 +879,7 @@ export default function TicketManagement() {
                       <tbody>
                         {data.length === 0 ? (
                           <tr>
-                            <td colSpan={7} style={{ textAlign: "center", padding: "30px", color: "var(--color-text-muted)" }}>
+                            <td colSpan={isHRAdmin ? 8 : 7} style={{ textAlign: "center", padding: "30px", color: "var(--color-text-muted)" }}>
                               No tickets found matching the criteria.
                             </td>
                           </tr>
@@ -902,6 +931,7 @@ export default function TicketManagement() {
                                     onMouseEnter={(e) => (e.currentTarget.style.color = "#4f46e5")}
                                     onMouseLeave={(e) => (e.currentTarget.style.color = "#0f172a")}
                                     onClick={() => {
+                                      setDrawerTab(0);
                                       setDetailTicketId(t._id);
                                       setDrawerOpen(true);
                                     }}
@@ -910,6 +940,16 @@ export default function TicketManagement() {
                                     {t.ticket_id || t._id}
                                   </span>
                                 </td>
+                                {isHRAdmin && (
+                                  <td>
+                                    <div style={{ fontWeight: 600, color: "#0f172a", fontSize: "13px" }}>
+                                      {t.requester_name || (t.raised_by ? (t.raised_by.first_name ? `${t.raised_by.first_name} ${t.raised_by.last_name || ""}`.trim() : t.raised_by.username) : "—")}
+                                    </div>
+                                    {t.department && (
+                                      <div style={{ fontSize: "11px", color: "#64748b" }}>{t.department}</div>
+                                    )}
+                                  </td>
+                                )}
                                 <td>
                                   <div style={{ fontWeight: 600, color: "#0f172a", fontSize: "13.5px" }}>{t.category || "General"}</div>
                                   {t.description && (
@@ -977,6 +1017,7 @@ export default function TicketManagement() {
                                       className="btn btn-icon btn-info"
                                       style={{ width: "28px", height: "28px" }}
                                       onClick={() => {
+                                        setDrawerTab(0);
                                         setDetailTicketId(t._id);
                                         setDrawerOpen(true);
                                       }}
@@ -990,16 +1031,13 @@ export default function TicketManagement() {
                                         className="btn btn-icon btn-info"
                                         style={{ width: "28px", height: "28px", position: "relative" }}
                                         onClick={() => {
-                                          setImageViewerData({
-                                            attachments: t.attachments,
-                                            initialIndex: 0,
-                                            ticketId: t.ticket_id || t.ticketId || "",
-                                          });
-                                          setImageViewerOpen(true);
+                                          setDrawerTab(2);
+                                          setDetailTicketId(t._id);
+                                          setDrawerOpen(true);
                                         }}
-                                        title={t.attachments.length > 1 ? `View ${t.attachments.length} Attached Images` : "View Attachment"}
+                                        title={t.attachments.length > 1 ? `View ${t.attachments.length} Attached Documents` : `View Attached Document: ${t.attachments[0]?.file_name || ""}`}
                                       >
-                                        <Eye size={14} color="#0284c7" />
+                                        <Paperclip size={14} color="#0284c7" />
                                         {t.attachments.length > 1 && (
                                           <span
                                             style={{
@@ -1029,15 +1067,17 @@ export default function TicketManagement() {
                                     >
                                       <Edit2 size={14} color="#2563eb" />
                                     </button>
-                                    <button
-                                      type="button"
-                                      className="btn btn-icon btn-danger"
-                                      style={{ width: "28px", height: "28px" }}
-                                      onClick={(e) => handleDelete(e, t._id)}
-                                      title="Delete Ticket"
-                                    >
-                                      <Trash2 size={14} color="#dc2626" />
-                                    </button>
+                                    {isHRAdmin && (
+                                      <button
+                                        type="button"
+                                        className="btn btn-icon btn-danger"
+                                        style={{ width: "28px", height: "28px" }}
+                                        onClick={(e) => handleDelete(e, t._id)}
+                                        title="Delete Ticket"
+                                      >
+                                        <Trash2 size={14} color="#dc2626" />
+                                      </button>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
@@ -1197,7 +1237,7 @@ export default function TicketManagement() {
                       <PersonIcon fontSize="small" color="primary" />
                       Assigned To
                     </Typography>
-                    {isAdmin ? (
+                    {(isAdmin || isHRAdmin) ? (
                       <CustomSelect
                         value={form.assigned_to || ""}
                         onChange={(val) =>
@@ -1463,7 +1503,9 @@ export default function TicketManagement() {
               ticketId={detailTicketId}
               onUpdate={() => fetchData(pagination.page)}
               users={users}
-              isAdmin={isAdmin}
+              isAdmin={isAdmin || isHRAdmin}
+              isHRAdmin={isHRAdmin}
+              initialTab={drawerTab}
             />
 
             <AttachmentImageViewer

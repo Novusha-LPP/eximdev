@@ -3731,7 +3731,15 @@ const ImportCreateJob = () => {
             }
           }
 
-          const copyText = `JOB NO: ${jobNoVal} *${importerVal}* BL: *${blVal}* ETA: *${etaFormatted}*`;
+          let displayJobNo = jobNoVal;
+          if (jobNoVal) {
+            const parts = String(jobNoVal).split('/');
+            if (parts.length >= 4) {
+              displayJobNo = parts[3];
+            }
+          }
+
+          const copyText = `JOB NO: ${displayJobNo} *${importerVal}* BL: *${blVal}* ETA: *${etaFormatted}*`;
 
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(copyText).then(() => {

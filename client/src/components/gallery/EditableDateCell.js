@@ -71,9 +71,11 @@ const normalizeDateForSave = (value) => {
 // Date-only math used for detention
 const getDateOnly = (dateString) => {
   if (!dateString) return null;
-  const s = String(dateString);
-  if (isDateOnly(s)) return s;
-  if (isDateTime(s)) return s.split("T")[0];
+  const s = String(dateString).trim();
+  const matchYMD = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+  if (matchYMD) return `${matchYMD[1]}-${matchYMD[2]}-${matchYMD[3]}`;
+  const matchDMY = s.match(/^(\d{2})[-/](\d{2})[-/](\d{4})/);
+  if (matchDMY) return `${matchDMY[3]}-${matchDMY[2]}-${matchDMY[1]}`;
   const d = new Date(s);
   if (isNaN(d.getTime())) return null;
   const y = d.getFullYear();
@@ -84,14 +86,15 @@ const getDateOnly = (dateString) => {
 
 const addDaysToDate = (dateString, days) => {
   const base = getDateOnly(dateString);
-  if (!base) return null;
+  const free = parseInt(days, 10);
+  if (!base || isNaN(free) || free <= 0) return null;
   const [y, m, d] = base.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
+  const dt = new Date(Date.UTC(y, m - 1, d));
   if (isNaN(dt.getTime())) return null;
-  dt.setDate(dt.getDate() + (parseInt(days, 10) || 0));
-  const yy = dt.getFullYear();
-  const mm = String(dt.getMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getDate()).padStart(2, "0");
+  dt.setUTCDate(dt.getUTCDate() + free);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
   return `${yy}-${mm}-${dd}`;
 };
 
@@ -321,7 +324,7 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     setDateError("");
   };
 
-  // Free time (unchanged except optimizations you had)
+  // Free time (syncs server-calculated container detention to row)
   const handleFreeTimeChange = (value) => {
     if (isLCL) return;
     if (parseInt(value, 10) === parseInt(localFreeTime, 10)) return;
@@ -338,44 +341,17 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
     (async () => {
       try {
-        await axios.patch(
+        const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
           { free_time: value },
           { headers }
         );
-        if (typeof onRowDataUpdate === "function")
-          onRowDataUpdate(_id, { free_time: value });
-
-        const updated = containers.map((c) => {
-          if (!c.arrival_date) return c;
-          const detention = addDaysToDate(c.arrival_date, value);
-          return detention ? { ...c, detention_from: detention } : c;
-        });
-        if (JSON.stringify(updated) === JSON.stringify(containers)) return;
-
-        setContainers(updated);
-
-        const payload = {};
-        updated.forEach((c, i) => {
-          if (c.detention_from !== containers[i]?.detention_from) {
-            payload[`container_nos.${i}.detention_from`] =
-              c.detention_from || null;
-          }
-        });
-
-        const earliest = getEarliestDetention(updated);
-        const validity = adjustValidityDate(earliest);
-        if (validity) payload.do_validity_upto_job_level = validity;
-
-        if (Object.keys(payload).length > 0) {
-          const res2 = await axios.patch(
-            `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
-            payload,
-            { headers }
-          );
-          const serverJob2 = res2?.data?.data || res2?.data?.job || null;
-          if (typeof onRowDataUpdate === "function")
-            onRowDataUpdate(_id, serverJob2 ? serverJob2 : payload);
+        const serverJob = res?.data?.data || res?.data?.job || null;
+        if (serverJob?.container_nos) {
+          setContainers(serverJob.container_nos);
+        }
+        if (typeof onRowDataUpdate === "function") {
+          onRowDataUpdate(_id, serverJob ? serverJob : { free_time: value });
         }
       } catch (e) {
         console.error("Free time update failed:", e);

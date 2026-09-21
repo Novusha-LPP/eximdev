@@ -39,6 +39,16 @@ const mrmHodScoreSchema = new mongoose.Schema({
         reason: { type: String }
     }],
 
+    member_scores: [{
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        name: { type: String, default: '' },
+        weight_pct: { type: Number, default: 0 },
+        attendance_score: { type: Number, default: 0 },
+        kpi_score: { type: Number, default: 0 },
+        karma_points: { type: Number, default: 0 },
+        composite_score: { type: Number, default: 0 }
+    }],
+
     focus_areas_count: { type: Number, default: 0 },
     focus_areas_summary: {
         green: { type: Number, default: 0 },

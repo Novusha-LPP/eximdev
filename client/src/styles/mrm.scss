@@ -453,6 +453,7 @@ $status-red-text: #991b1b;
                             &.green { background: #10b981; }
                             &.yellow { background: #f59e0b; }
                             &.red { background: #ef4444; }
+                            &.not-required { background: #94a3b8; }
                         }
 
                         &:hover {
@@ -469,6 +470,7 @@ $status-red-text: #991b1b;
                             &.green { color: #047857; }
                             &.yellow { color: #b45309; }
                             &.red { color: #b91c1c; }
+                            &.not-required { color: #475569; }
                         }
                     }
                 }
@@ -905,6 +907,12 @@ $status-red-text: #991b1b;
             border-color: $status-red-border !important;
             color: $status-red-text !important;
         }
+
+        &.Not\ Required, &.not-required, &[data-status="Not Required"] {
+            background: #f1f5f9 !important;
+            border-color: #cbd5e1 !important;
+            color: #64748b !important;
+        }
     }
 
     select.status-badge {
@@ -914,6 +922,15 @@ $status-red-text: #991b1b;
         cursor: pointer;
         font-weight: 700;
         border-radius: 6px;
+    }
+
+    tr.row-not-required {
+        opacity: 0.55;
+        background: #f8fafc !important;
+        textarea, input, select {
+            color: #64748b !important;
+            text-decoration: line-through;
+        }
     }
 
     // =========================================================================

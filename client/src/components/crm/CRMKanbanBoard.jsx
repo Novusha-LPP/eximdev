@@ -870,7 +870,7 @@ export default function CRMKanbanBoard() {
                   outline: 'none'
                 }}
               >
-                <option value="all">All Teams</option>
+                {isAdmin && <option value="all">All Teams</option>}
                 {teams.map(t => (
                   <option key={t._id} value={t._id}>{t.name || t.teamName}</option>
                 ))}
@@ -911,10 +911,11 @@ export default function CRMKanbanBoard() {
           )}
 
           {/* See All Toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '4px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', userSelect: 'none' }}>
-              <div style={{
-                position: 'relative',
+          {isAdmin && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '4px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', userSelect: 'none' }}>
+                <div style={{
+                  position: 'relative',
                 width: '38px',
                 height: '20px',
                 backgroundColor: seeAllData ? '#10b981' : '#cbd5e1',
@@ -947,6 +948,7 @@ export default function CRMKanbanBoard() {
               />
             </label>
           </div>
+          )}
         </div>
 
         {selectedStage !== 'all' ? (
@@ -1473,6 +1475,7 @@ export default function CRMKanbanBoard() {
                             if (!actDate || Number.isNaN(actDate.getTime())) return null;
                             const diffDays = Math.floor((Date.now() - actDate.getTime()) / (1000 * 60 * 60 * 24));
                             if (diffDays < 2) return null;
+                            if (['won', 'lost', 'rejected', 'cancelled'].includes(opp.stage)) return null;
                             return (
                               <span style={{
                                 fontSize: '0.62rem',

@@ -410,54 +410,103 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       <div style={{
         background: '#fff',
         width: '100%',
-        maxWidth: '700px',
-        borderRadius: '16px',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+        maxWidth: '750px',
+        borderRadius: '12px',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         overflow: 'hidden',
-        maxHeight: '80vh',
-        overflowY: 'auto'
+        maxHeight: '85vh',
+        display: 'flex',
+        flexDirection: 'column'
       }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white' }}>
-          <div>
-            <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.2rem' }}>{formData.name || opportunity.name}</h3>
-            <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Stage: {formData.stage || opportunity.stage}</span>
+        {/* Modal Header */}
+        <div style={{ 
+          padding: '20px 24px', 
+          borderBottom: '1px solid #e2e8f0', 
+          display: 'flex', 
+          flexDirection: 'column',
+          gap: '16px',
+          background: '#f8fafc',
+          position: 'relative',
+          flexShrink: 0
+        }}>
+          {/* Close Button Absolute */}
+          <button 
+            onClick={handleClose} 
+            style={{ 
+              position: 'absolute', 
+              top: '16px', 
+              right: '16px', 
+              background: '#f1f5f9', 
+              border: 'none', 
+              cursor: 'pointer', 
+              color: '#64748b',
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'background 0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = '#e2e8f0'}
+            onMouseOut={(e) => e.currentTarget.style.background = '#f1f5f9'}
+          >
+            <X size={18} />
+          </button>
+
+          {/* Title Area */}
+          <div style={{ paddingRight: '40px' }}>
+            <h3 style={{ margin: '0 0 4px 0', color: '#0f172a', fontWeight: 700, fontSize: '1.3rem', lineHeight: '1.2' }}>
+              {formData.name || opportunity.name}
+            </h3>
+            <div style={{ display: 'inline-flex', alignItems: 'center', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>
+              Stage: {formData.stage || opportunity.stage}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
+
+          {/* Action Buttons Area */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {!isEditMode && (
               <>
                 <button
                   onClick={() => setIsQuoteModalOpen(true)}
-                  style={{ padding: '8px 12px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  style={{ whiteSpace: 'nowrap', padding: '8px 14px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, fontSize: '0.85rem', transition: 'opacity 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+                  onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                 >
-                  <FileText size={16} /> Create Quote
+                  <FileText size={15} /> Create Quote
                 </button>
                 <button
                   onClick={() => setIsPricingModalOpen(true)}
-                  style={{ padding: '8px 12px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  style={{ whiteSpace: 'nowrap', padding: '8px 14px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, fontSize: '0.85rem', transition: 'opacity 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+                  onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                 >
-                  <DollarSign size={16} /> Request Pricing
+                  <DollarSign size={15} /> Request Pricing
                 </button>
                 <button
                   onClick={() => setIsEditMode(true)}
-                  style={{ padding: '8px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  style={{ whiteSpace: 'nowrap', padding: '8px 14px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, fontSize: '0.85rem', transition: 'opacity 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+                  onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                 >
-                  <Edit2 size={16} /> Edit
+                  <Edit2 size={15} /> Edit
                 </button>
                 <button
                   onClick={handleDelete}
-                  style={{ padding: '8px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  style={{ whiteSpace: 'nowrap', padding: '8px 14px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, fontSize: '0.85rem', transition: 'background 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.background = '#fecaca'}
+                  onMouseOut={(e) => e.currentTarget.style.background = '#fee2e2'}
                 >
-                  <Trash2 size={16} /> Delete
+                  <Trash2 size={15} /> Delete
                 </button>
               </>
             )}
-            <button onClick={handleClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
-              <X size={20} />
-            </button>
           </div>
         </div>
 
-        <div style={{ padding: '24px' }}>
+        {/* Modal Body - Scrollable */}
+        <div style={{ padding: '24px', overflowY: 'auto', flexGrow: 1 }}>
           {/* Referral Highlighting Banner */}
           {(formData.isReferral || formData.referredFromTeamId || formData.referredToTeamId) && (
             <div style={{

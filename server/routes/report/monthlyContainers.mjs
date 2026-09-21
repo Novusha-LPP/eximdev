@@ -81,48 +81,87 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
         },
         { $match: { fYear: year, outMonth: monthInt } },
         {
+          $addFields: {
+            isAir: { $regexMatch: { input: { $ifNull: ["$mode", ""] }, regex: "air", options: "i" } },
+            isLCL: { $regexMatch: { input: { $ifNull: ["$consignment_type", ""] }, regex: "lcl", options: "i" } },
+            c20Raw: {
+              $size: {
+                $filter: {
+                  input: { $ifNull: ["$container_nos", []] },
+                  as: "c",
+                  cond: { $regexMatch: { input: { $ifNull: ["$$c.size", ""] }, regex: "20" } }
+                }
+              }
+            },
+            c40Raw: {
+              $size: {
+                $filter: {
+                  input: { $ifNull: ["$container_nos", []] },
+                  as: "c",
+                  cond: { $regexMatch: { input: { $ifNull: ["$$c.size", ""] }, regex: "40|45" } }
+                }
+              }
+            }
+          }
+        },
+        {
+          $addFields: {
+            c20: {
+              $cond: [
+                { $or: ["$isAir", "$isLCL"] },
+                0,
+                {
+                  $cond: [
+                    { $and: [{ $eq: ["$c20Raw", 0] }, { $eq: ["$c40Raw", 0] }, { $regexMatch: { input: { $ifNull: ["$no_of_container", ""] }, regex: "20" } }] },
+                    {
+                      $toInt: {
+                        $ifNull: [
+                          { $arrayElemAt: [{ $regexFind: { input: { $ifNull: ["$no_of_container", ""] }, regex: "\\b(\\d+)\\s*x\\s*20" } }, 1] },
+                          { $toInt: { $ifNull: ["$container_count", 1] } }
+                        ]
+                      }
+                    },
+                    "$c20Raw"
+                  ]
+                }
+              ]
+            },
+            c40: {
+              $cond: [
+                { $or: ["$isAir", "$isLCL"] },
+                0,
+                {
+                  $cond: [
+                    { $and: [{ $eq: ["$c20Raw", 0] }, { $eq: ["$c40Raw", 0] }, { $regexMatch: { input: { $ifNull: ["$no_of_container", ""] }, regex: "40|45" } }] },
+                    {
+                      $toInt: {
+                        $ifNull: [
+                          { $arrayElemAt: [{ $regexFind: { input: { $ifNull: ["$no_of_container", ""] }, regex: "\\b(\\d+)\\s*x\\s*40" } }, 1] },
+                          { $toInt: { $ifNull: ["$container_count", 1] } }
+                        ]
+                      }
+                    },
+                    "$c40Raw"
+                  ]
+                }
+              ]
+            },
+            lclCount: {
+              $cond: [
+                { $and: [{ $not: "$isAir" }, "$isLCL"] },
+                1,
+                0
+              ]
+            }
+          }
+        },
+        {
           $group: {
             _id: groupId,
-            container20Ft: {
-              $sum: {
-                $size: {
-                  $filter: {
-                    input: { $ifNull: ["$container_nos", []] },
-                    as: "container",
-                    cond: { $eq: ["$$container.size", "20"] },
-                  },
-                },
-              },
-            },
-            container40Ft: {
-              $sum: {
-                $size: {
-                  $filter: {
-                    input: { $ifNull: ["$container_nos", []] },
-                    as: "container",
-                    cond: { $eq: ["$$container.size", "40"] },
-                  },
-                },
-              },
-            },
-            lcl20Ft: {
-              $sum: {
-                $cond: [
-                  { $eq: ["$consignment_type", "LCL"] },
-                  1,
-                  0,
-                ],
-              },
-            },
-            lcl40Ft: {
-              $sum: {
-                $cond: [
-                  { $eq: ["$consignment_type", "LCL"] },
-                  0, // LCL counts as 1 TEU (20ft)
-                  0,
-                ],
-              },
-            },
+            container20Ft: { $sum: "$c20" },
+            container40Ft: { $sum: "$c40" },
+            lcl20Ft: { $sum: "$lclCount" },
+            lcl40Ft: { $sum: 0 },
           },
         },
         {
@@ -134,6 +173,8 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
             container40Ft: 1,
             lcl20Ft: 1,
             lcl40Ft: 1,
+            totalContainers: { $add: ["$container20Ft", "$container40Ft", "$lcl20Ft"] },
+            teu: { $add: ["$container20Ft", { $multiply: ["$container40Ft", 2] }, "$lcl20Ft"] }
           },
         },
       ]),
@@ -295,6 +336,8 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
         container40Ft: entry.container40Ft,
         lcl20Ft: entry.lcl20Ft,
         lcl40Ft: entry.lcl40Ft,
+        totalContainers: entry.totalContainers ?? (entry.container20Ft + entry.container40Ft + entry.lcl20Ft),
+        teu: entry.teu ?? (entry.container20Ft + (2 * entry.container40Ft) + entry.lcl20Ft),
         beDateCount: 0,
         oocCount: 0,
       };
@@ -315,6 +358,8 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
           container40Ft: 0,
           lcl20Ft: 0,
           lcl40Ft: 0,
+          totalContainers: 0,
+          teu: 0,
           beDateCount: entry.beDateCount,
           oocCount: 0,
         };
@@ -336,6 +381,8 @@ router.get("/api/report/monthly-containers/:year/:month", async (req, res) => {
           container40Ft: 0,
           lcl20Ft: 0,
           lcl40Ft: 0,
+          totalContainers: 0,
+          teu: 0,
           beDateCount: 0,
           oocCount: entry.oocCount,
         };

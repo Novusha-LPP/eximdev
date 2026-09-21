@@ -48,6 +48,9 @@ const salesTeamSchema = new mongoose.Schema({
   // Permissions
   permissions: [String], // e.g., 'can_manage_leads', 'can_approve_quotes'
   
+  // Stagnation
+  stagnantDays: { type: Number, default: 2 },
+  
   businessVertical: {
     type: String,
     enum: ['Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],

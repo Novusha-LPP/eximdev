@@ -7,7 +7,7 @@ const router = express.Router();
 // CREATE team — creator becomes manager automatically
 router.post('/', async (req, res) => {
   try {
-    const { name, description, parentTeamId, type, assignedTerritories, memberIds = [], businessVertical, quotas } = req.body;
+    const { name, description, parentTeamId, type, assignedTerritories, memberIds = [], businessVertical, quotas, stagnantDays } = req.body;
 
     // The logged-in user is the team owner/manager
     const creatorId = req.user?._id || req.user?.id || req.headers['user-id'];
@@ -27,7 +27,8 @@ router.post('/', async (req, res) => {
       assignedTerritories,
       memberIds: allMemberIds,
       businessVertical: businessVertical || 'Paramount',
-      quotas: quotas || { monthlyRevenue: 0, dealCount: 0 }
+      quotas: quotas || { monthlyRevenue: 0, dealCount: 0 },
+      stagnantDays: stagnantDays !== undefined ? stagnantDays : 2
     });
 
     await newTeam.save();

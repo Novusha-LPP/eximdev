@@ -26,6 +26,7 @@ import ExportLeoSummaryReport from './reports/ExportLeoSummaryReport';
 import ImportPendingSummaryReport from './reports/ImportPendingSummaryReport';
 import ImportOutOfChargeSummaryReport from './reports/ImportOutOfChargeSummaryReport';
 import TransportMonitoringReport from './reports/TransportMonitoringReport';
+import UninvoicedJobsReport from './reports/UninvoicedJobsReport';
 
 // Invoicing & Sales Intelligence Module
 import InvoicingGroupDashboard from './reports/InvoicingGroupDashboard';
@@ -73,7 +74,8 @@ const NucleusHome = () => {
                 { id: 'fleet_utilization', label: 'Fleet Utilization' },
                 { id: 'transport_table', label: 'Top 10 Transporters' },
                 { id: 'elock_lr_completed', label: 'LR Completed Count' },
-                { id: 'transport_monitoring', label: 'Pending LRs & Dispatch Monitoring' }
+                { id: 'transport_monitoring', label: 'Pending LRs & Dispatch Monitoring' },
+                { id: 'uninvoiced_jobs', label: 'Uninvoiced LR Jobs' }
             ]
         },
         {
@@ -304,6 +306,19 @@ const NucleusHome = () => {
                         dateRange={dateRange}
                         selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
+                    />
+                );
+            case 'uninvoiced_jobs':
+                return (
+                    <UninvoicedJobsReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                        selectedBranchGroup={selectedBranchGroup}
                     />
                 );
             case 'fleet_utilization':
@@ -562,14 +577,14 @@ const NucleusHome = () => {
                                         onChange={(e) => setFilterType(e.target.value)}
                                         className="nucleus-select"
                                     >
-                                        {['transport_monitoring', 'fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts', 'import_pending_summary', 'import_out_of_charge_summary', 'export_leo_summary'].includes(activeReport) && (
+                                        {['transport_monitoring', 'fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts', 'import_pending_summary', 'import_out_of_charge_summary', 'export_leo_summary', 'uninvoiced_jobs'].includes(activeReport) && (
                                             <option value="day">Day Wise</option>
                                         )}
                                         <option value="week">Week Wise</option>
                                         <option value="month">Month Wise</option>
                                         <option value="quarter">Quarter Wise</option>
                                         <option value="year">Year Wise</option>
-                                        {["import_pending_summary", "import_out_of_charge_summary", "export_leo_summary"].includes(activeReport) && <option value="fin-year">Financial Year</option>}
+                                        {["import_pending_summary", "import_out_of_charge_summary", "export_leo_summary", "uninvoiced_jobs"].includes(activeReport) && <option value="fin-year">Financial Year</option>}
                                         <option value="date-range">Date Range</option>
                                         <option value="all">Unfiltered (All Time)</option>
                                     </select>

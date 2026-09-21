@@ -28,7 +28,10 @@ const mrmSegmentRollupSchema = new mongoose.Schema({
         submitted: { type: Boolean, default: false },
         submitted_at: { type: Date },
         is_submitted_on_time: { type: Boolean, default: true },
-        has_targets: { type: Boolean, default: false }
+        has_targets: { type: Boolean, default: false },
+        attendance_score: { type: Number, default: 0 },
+        kpi_score: { type: Number, default: 0 },
+        karma_points: { type: Number, default: 0 }
     }],
 
     has_targets: { type: Boolean, default: false },

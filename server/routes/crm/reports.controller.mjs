@@ -1232,15 +1232,31 @@ router.get('/stagnation', async (req, res) => {
       query.ownerId = new mongoose.Types.ObjectId(ownerId);
     }
 
-    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    // Fetch all active teams to build an ownerId -> stagnantDays map
+    const allTeams = await SalesTeam.find({ isActive: true }).select('memberIds managerId stagnantDays').lean();
+    const ownerStagnantMap = {};
+    allTeams.forEach(team => {
+      const stagnantDays = team.stagnantDays !== undefined ? team.stagnantDays : 2;
+      if (team.managerId) {
+        ownerStagnantMap[team.managerId.toString()] = stagnantDays;
+      }
+      if (team.memberIds && team.memberIds.length > 0) {
+        team.memberIds.forEach(id => {
+          ownerStagnantMap[id.toString()] = stagnantDays;
+        });
+      }
+    });
+
+    // We will query for any leads/deals that have no activity for at least the MINIMUM stagnant days across all users (or just use 1 day as a baseline to pull potential candidates, then filter exactly in JS).
+    const baselineDaysAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000); // Pulling all records idle for at least 1 day
 
     // Stagnant Leads
     const leadQuery = {
       ...query,
       status: { $nin: ['converted', 'lost', 'rejected', 'cancelled'] },
       $or: [
-        { lastActivityAt: { $lt: twoDaysAgo } },
-        { lastActivityAt: { $exists: false }, updatedAt: { $lt: twoDaysAgo } }
+        { lastActivityAt: { $lt: baselineDaysAgo } },
+        { lastActivityAt: { $exists: false }, updatedAt: { $lt: baselineDaysAgo } }
       ]
     };
 
@@ -1249,16 +1265,22 @@ router.get('/stagnation', async (req, res) => {
       .sort({ updatedAt: 1 })
       .lean();
 
-    const stagnantLeads = stagnantLeadsRaw.map(lead => {
+    const stagnantLeads = [];
+    stagnantLeadsRaw.forEach(lead => {
       const lastTime = lead.lastActivityAt || lead.updatedAt;
       const daysIdle = Math.floor((Date.now() - new Date(lastTime).getTime()) / (1000 * 60 * 60 * 24));
-      return {
-        ...lead,
-        type: 'Lead',
-        name: `${lead.firstName || ''} ${lead.lastName || ''} (${lead.company})`.trim(),
-        daysIdle: daysIdle < 2 ? 2 : daysIdle,
-        lastActivityDate: lastTime
-      };
+      const ownerIdStr = lead.ownerId?._id?.toString() || '';
+      const threshold = ownerStagnantMap[ownerIdStr] || 2;
+      
+      if (daysIdle >= threshold) {
+        stagnantLeads.push({
+          ...lead,
+          type: 'Lead',
+          name: `${lead.firstName || ''} ${lead.lastName || ''} (${lead.company || ''})`.trim(),
+          daysIdle,
+          lastActivityDate: lastTime
+        });
+      }
     });
 
     // Stagnant Opportunities / Deals
@@ -1266,8 +1288,8 @@ router.get('/stagnation', async (req, res) => {
       ...query,
       stage: { $nin: ['won', 'lost'] },
       $or: [
-        { lastActivityAt: { $lt: twoDaysAgo } },
-        { lastActivityAt: { $exists: false }, updatedAt: { $lt: twoDaysAgo } }
+        { lastActivityAt: { $lt: baselineDaysAgo } },
+        { lastActivityAt: { $exists: false }, updatedAt: { $lt: baselineDaysAgo } }
       ]
     };
 
@@ -1277,16 +1299,22 @@ router.get('/stagnation', async (req, res) => {
       .sort({ updatedAt: 1 })
       .lean();
 
-    const stagnantDeals = stagnantDealsRaw.map(opp => {
+    const stagnantDeals = [];
+    stagnantDealsRaw.forEach(opp => {
       const lastTime = opp.lastActivityAt || opp.updatedAt;
       const daysIdle = Math.floor((Date.now() - new Date(lastTime).getTime()) / (1000 * 60 * 60 * 24));
-      return {
-        ...opp,
-        type: 'Opportunity',
-        company: opp.accountId?.name || 'No Account',
-        daysIdle: daysIdle < 2 ? 2 : daysIdle,
-        lastActivityDate: lastTime
-      };
+      const ownerIdStr = opp.ownerId?._id?.toString() || '';
+      const threshold = ownerStagnantMap[ownerIdStr] || 2;
+      
+      if (daysIdle >= threshold) {
+        stagnantDeals.push({
+          ...opp,
+          type: 'Opportunity',
+          company: opp.accountId?.name || 'No Account',
+          daysIdle,
+          lastActivityDate: lastTime
+        });
+      }
     });
 
     const totalStagnant = stagnantLeads.length + stagnantDeals.length;

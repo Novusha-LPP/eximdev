@@ -26,7 +26,10 @@ export default function TasksList() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [filterAssigned, setFilterAssigned] = useState('');
+  const [filterTeam, setFilterTeam] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
+  const [teams, setTeams] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
@@ -48,10 +51,48 @@ export default function TasksList() {
     };
   };
 
+  useEffect(() => {
+    fetchTasks();
+  }, [filterTeam, filterAssigned]);
+
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/tasks`, getHeaders());
+      
+      // Fetch Teams if not loaded
+      if (teams.length === 0) {
+        try {
+          const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+          const isSuperAdmin = user.role === 'Admin' || user.role === 'admin';
+          const teamUrl = isSuperAdmin 
+            ? `${process.env.REACT_APP_API_STRING}/crm/teams?all=true`
+            : `${process.env.REACT_APP_API_STRING}/crm/teams/my-teams`;
+            
+          const teamRes = await axios.get(teamUrl, getHeaders());
+          const loadedTeams = teamRes.data.teams || teamRes.data || [];
+          setTeams(loadedTeams);
+          
+          // Extract unique members for the members dropdown
+          const membersMap = new Map();
+          loadedTeams.forEach(t => {
+            if (t.managerId && t.managerId._id) membersMap.set(t.managerId._id, t.managerId);
+            if (t.memberIds) {
+              t.memberIds.forEach(m => {
+                if (m && m._id) membersMap.set(m._id, m);
+              });
+            }
+          });
+          setTeamMembers(Array.from(membersMap.values()));
+        } catch (e) {
+          console.error('Failed to load teams', e);
+        }
+      }
+
+      let url = `${process.env.REACT_APP_API_STRING}/crm/tasks?`;
+      if (filterTeam) url += `teamId=${filterTeam}&`;
+      if (filterAssigned) url += `assignedTo=${filterAssigned}&`;
+
+      const res = await axios.get(url, getHeaders());
       setTasks(res.data || []);
     } catch (err) {
       setTasks([]);
@@ -119,8 +160,9 @@ export default function TasksList() {
   const filteredTasks = tasks.filter(task => {
     const statusMatch = !filterStatus || task.status === filterStatus;
     const priorityMatch = !filterPriority || task.priority === filterPriority;
-    const assignedMatch = !filterAssigned || task.assignedTo === filterAssigned;
-    return statusMatch && priorityMatch && assignedMatch;
+    // Team and Member filters are now handled primarily by backend query.
+    // The filterAssigned here might still be useful if someone wants local fallback, but the backend does it correctly with ObjectId.
+    return statusMatch && priorityMatch;
   });
 
   const isOverdue = (task) => {
@@ -155,6 +197,23 @@ export default function TasksList() {
   });
 
   if (loading) return <div style={{ padding: '20px', color: '#64748b' }}>Loading tasks...</div>;
+
+  const currentTeam = teams.find(t => t._id === filterTeam);
+  const currentTeamMembers = [];
+  if (currentTeam) {
+    if (currentTeam.managerId && currentTeam.managerId._id) {
+      currentTeamMembers.push(currentTeam.managerId);
+    }
+    if (currentTeam.memberIds && currentTeam.memberIds.length > 0) {
+      currentTeam.memberIds.forEach(m => {
+        if (m && m._id && !currentTeamMembers.some(existing => existing._id === m._id)) {
+          currentTeamMembers.push(m);
+        }
+      });
+    }
+  }
+
+  const displayedMembers = filterTeam ? currentTeamMembers : teamMembers;
 
   return (
     <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', minHeight: '600px' }}>
@@ -220,6 +279,33 @@ export default function TasksList() {
           <option value="medium">Medium Priority</option>
           <option value="high">High Priority</option>
           <option value="urgent">Urgent</option>
+        </select>
+        
+        {/* Team Filter */}
+        <select
+          value={filterTeam}
+          onChange={(e) => {
+            setFilterTeam(e.target.value);
+            setFilterAssigned(''); // Reset member when team changes
+          }}
+          style={{ padding: '8px 16px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', background: '#fbfcfd', outline: 'none', cursor: 'pointer', minWidth: '140px' }}
+        >
+          <option value="">All Teams</option>
+          {teams.map(team => (
+            <option key={team._id} value={team._id}>{team.name}</option>
+          ))}
+        </select>
+
+        {/* Member Filter */}
+        <select
+          value={filterAssigned}
+          onChange={(e) => setFilterAssigned(e.target.value)}
+          style={{ padding: '8px 16px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', background: '#fbfcfd', outline: 'none', cursor: 'pointer', minWidth: '140px' }}
+        >
+          <option value="">All Members</option>
+          {displayedMembers.map(m => (
+            <option key={m._id} value={m._id}>{m.first_name} {m.last_name || ''}</option>
+          ))}
         </select>
       </div>
 

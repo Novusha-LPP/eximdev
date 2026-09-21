@@ -310,4 +310,49 @@ export const approveSegmentsRollup = async (data) => {
     }
 };
 
+export const fetchMemberWeights = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/member-weights`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const saveMemberWeights = async (data) => {
+    try {
+        const response = await axios.put(`${API_URL}/member-weights`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const saveComponentWeights = async (data) => {
+    try {
+        const response = await axios.put(`${API_URL}/component-weights`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const fetchHodWeights = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/hod-weights`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const saveHodWeights = async (data) => {
+    try {
+        const response = await axios.put(`${API_URL}/hod-weights`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 

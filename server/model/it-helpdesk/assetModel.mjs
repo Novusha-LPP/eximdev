@@ -71,6 +71,10 @@ const assetSchema = new mongoose.Schema({
   approval_cycle: { type: Number, default: 1 },
   completed_at: { type: Date },
   rejection_remarks: { type: String, default: "" },
+  rejected_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  rejected_by_name: { type: String, default: "" },
+  rejected_by_role: { type: String, default: "" },
+  rejected_at: { type: Date },
   admin_verifications: [
     {
       user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

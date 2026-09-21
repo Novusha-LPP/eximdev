@@ -47,7 +47,6 @@ import {
   Phone,
   UploadCloud,
   Check,
-  Send,
   ShieldCheck,
   Clock,
   Copy,
@@ -55,6 +54,7 @@ import {
   Monitor,
   Building,
   Receipt,
+  XCircle,
 } from "lucide-react";
 import CustomSelect from "./CustomSelect";
 import ITPagination from "./ITPagination";
@@ -467,30 +467,77 @@ export default function AssetManagement() {
   const { user: currentUser } = useContext(UserContext);
 
   const userRole = String(currentUser?.role || currentUser?.userRole || "").trim();
-  const userDept = String(currentUser?.department || "").trim();
+  const userDept = String(currentUser?.department?.name || currentUser?.department || "").trim();
+  const userDesig = String(currentUser?.designation || "").trim();
+  const userIsHod = Boolean(currentUser?.isHod);
 
   const isAdmin =
     userRole.toLowerCase() === "admin" ||
     userRole.toLowerCase() === "administrator" ||
+    userRole.toLowerCase().includes("admin") ||
     currentUser?.username === "admin" ||
     Boolean(currentUser?.is_operator);
   const isAccountsHead =
     userRole.toLowerCase().includes("sr. manager accounts") ||
+    userRole.toLowerCase().includes("sr manager accounts") ||
+    userRole.toLowerCase().includes("senior manager accounts") ||
     userRole.toLowerCase().includes("head of accounts") ||
-    userRole.toLowerCase().includes("hod accounts") ||
     userRole.toLowerCase().includes("accounts head") ||
-    userRole.toLowerCase().includes("head of department - accounts")
-  const isPureITDept =
-    userRole.toLowerCase().includes("it") ||
-    userRole.toLowerCase().includes("network") ||
-    userDept.toLowerCase().includes("it") ||
-    userDept.toLowerCase().includes("network");
+    userRole.toLowerCase().includes("hod accounts") ||
+    userRole.toLowerCase().includes("accounts hod") ||
+    userRole.toLowerCase().includes("head of department - accounts") ||
+    userRole.toLowerCase().includes("accounts - head of department") ||
+    userRole.toLowerCase().includes("accounts -head of department") ||
+    userRole.toLowerCase().includes("head of department (accounts)") ||
+    userRole.toLowerCase().includes("accounts (head of department)") ||
+    userDesig.toLowerCase().includes("sr. manager accounts") ||
+    userDesig.toLowerCase().includes("sr manager accounts") ||
+    userDesig.toLowerCase().includes("head of accounts") ||
+    userDesig.toLowerCase().includes("head of department - accounts") ||
+    userDesig.toLowerCase().includes("accounts - head of department") ||
+    userDesig.toLowerCase().includes("accounts head") ||
+    ((userDept.toLowerCase().includes("account") || userRole.toLowerCase().includes("account") || userDesig.toLowerCase().includes("account")) &&
+      (userIsHod ||
+        userRole.toLowerCase().includes("head") ||
+        userRole.toLowerCase().includes("sr. manager") ||
+        userRole.toLowerCase().includes("senior manager") ||
+        userRole.toLowerCase().includes("hod") ||
+        userDesig.toLowerCase().includes("head") ||
+        userDesig.toLowerCase().includes("sr. manager") ||
+        userDesig.toLowerCase().includes("senior manager") ||
+        userDesig.toLowerCase().includes("hod")));
+
+  // Any Accounts person (Head of Accounts, Account Executive, Junior Accountant, etc.)
+  const isAccountsPerson =
+    isAccountsHead ||
+    userRole.toLowerCase().includes("account") ||
+    userDept.toLowerCase().includes("account") ||
+    userDesig.toLowerCase().includes("account");
+
+  // IT/Network user role detection (TC-13)
+  // An IT person is someone who is neither Admin nor Accounts person
+  const isPureITDept = !isAdmin && !isAccountsPerson;
+  const isITUser = isAdmin || isPureITDept;
 
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectAssetRecord, setRejectAssetRecord] = useState(null);
   const [rejectActionType, setRejectActionType] = useState("reject_admin");
   const [rejectRemarks, setRejectRemarks] = useState("");
   const [submittingWorkflow, setSubmittingWorkflow] = useState(false);
+
+  // Resubmit modal state (TC-09)
+  const [showResubmitModal, setShowResubmitModal] = useState(false);
+  const [resubmitAssetRecord, setResubmitAssetRecord] = useState(null);
+  const [resubmitRemarks, setResubmitRemarks] = useState("");
+  const [resubmitInvoiceUrl, setResubmitInvoiceUrl] = useState("");
+  const [resubmitInvoiceNumber, setResubmitInvoiceNumber] = useState("");
+  const [resubmitInvoiceDate, setResubmitInvoiceDate] = useState("");
+  const [uploadingResubmitInvoice, setUploadingResubmitInvoice] = useState(false);
+
+  // Return-to-IT confirm modal state (TC-11)
+  const [showReturnToITModal, setShowReturnToITModal] = useState(false);
+  const [returnToITAssetRecord, setReturnToITAssetRecord] = useState(null);
+  const [returnToITRemarks, setReturnToITRemarks] = useState("");
 
   const handleWorkflowAction = async (assetId, actionType, remarks = "") => {
     setSubmittingWorkflow(true);
@@ -513,6 +560,84 @@ export default function AssetManagement() {
       setShowRejectModal(false);
       setRejectRemarks("");
       setRejectAssetRecord(null);
+      setShowReturnToITModal(false);
+      setReturnToITRemarks("");
+      setReturnToITAssetRecord(null);
+    }
+  };
+
+  // TC-09: Resubmit workflow handler with optional invoice update
+  const handleResubmitWorkflow = async () => {
+    if (!resubmitAssetRecord?._id) return;
+    setSubmittingWorkflow(true);
+    try {
+      const payload = {
+        action: "resubmit_it",
+        remarks: resubmitRemarks.trim() || "Resubmitted by IT/Network Department.",
+        ...(resubmitInvoiceUrl ? { image_url: resubmitInvoiceUrl } : {}),
+        ...(resubmitInvoiceNumber ? { invoice_number: resubmitInvoiceNumber } : {}),
+        ...(resubmitInvoiceDate ? { invoice_date: resubmitInvoiceDate } : {}),
+      };
+      const res = await itHelpdeskAPI.assets.updateWorkflow(resubmitAssetRecord._id, payload);
+      if (res?.success) {
+        toast.success("Asset resubmitted for Admin Approval.");
+        fetchData();
+        if (viewRecord && viewRecord._id === resubmitAssetRecord._id) {
+          setViewRecord(res.data);
+        }
+      } else {
+        toast.error(res?.message || "Resubmit failed");
+      }
+    } catch (err) {
+      console.error("Resubmit error:", err);
+      toast.error(err.response?.data?.message || err.message || "Resubmit failed");
+    } finally {
+      setSubmittingWorkflow(false);
+      setShowResubmitModal(false);
+      setResubmitAssetRecord(null);
+      setResubmitRemarks("");
+      setResubmitInvoiceUrl("");
+      setResubmitInvoiceNumber("");
+      setResubmitInvoiceDate("");
+    }
+  };
+
+  // TC-09: Invoice upload handler for Resubmit modal
+  const handleResubmitInvoiceUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    const isImage = file.type.startsWith("image/");
+    if (!isImage && !isPdf) {
+      toast.error("Please select a valid invoice file (PDF, PNG, JPG, JPEG, WEBP)");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Invoice file size must be less than 10MB");
+      return;
+    }
+    setUploadingResubmitInvoice(true);
+    try {
+      const res = await uploadFileToS3(file, "it-assets");
+      const url = res?.Location || res?.urls?.[0];
+      if (url) {
+        setResubmitInvoiceUrl(url);
+        toast.success("Invoice uploaded successfully");
+      } else {
+        throw new Error("No URL returned");
+      }
+    } catch (err) {
+      console.warn("S3 upload failed, using data URL:", err);
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setResubmitInvoiceUrl(ev.target.result);
+        toast.success("Invoice attached successfully");
+      };
+      reader.onerror = () => toast.error("Failed to read invoice file");
+      reader.readAsDataURL(file);
+    } finally {
+      setUploadingResubmitInvoice(false);
+      if (e.target) e.target.value = "";
     }
   };
 
@@ -1484,91 +1609,176 @@ export default function AssetManagement() {
                           </span>
                         </td>
                         <td style={{ width: "13%", color: "#475569", overflowWrap: "break-word" }}>{a.location || "—"}</td>
-                        <td style={{ width: "15%" }}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                              <span className={`score-badge ${getWorkflowBadgeClass(a.approval_stage, a.approval_status)}`}>
-                                {getWorkflowStatusLabel(a.approval_stage, a.approval_status)}
-                              </span>
-                            </div>
+                        <td style={{ width: "15%", verticalAlign: "top" }}>
+                          {(() => {
+                            const rawStage = a.approval_stage || "";
+                            const rawStatus = a.approval_status || "";
+                            const normStage = String(rawStage).toLowerCase();
+                            const normStatus = String(rawStatus).toLowerCase();
 
-                            {/* Admin Verification Badges (Green) */}
-                            {Array.isArray(a.admin_verifications) && a.admin_verifications.length > 0 && (
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                                {a.admin_verifications.map((v, idx) => (
-                                  <div
-                                    key={idx}
-                                    style={{
-                                      fontSize: "11px",
-                                      fontWeight: 600,
-                                      color: "#166534",
-                                      backgroundColor: "#f0fdf4",
-                                      border: "1px solid #bbf7d0",
-                                      padding: "2px 6px",
-                                      borderRadius: "4px",
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: "4px",
-                                      width: "fit-content",
-                                    }}
-                                    title={`Admin Verified by ${v.username || v.name}`}
-                                  >
-                                    <ShieldCheck size={12} color="#16a34a" />
-                                    <span>{v.username || v.name}</span>
+                            const isReturnedToIT =
+                              normStage.includes("correction") ||
+                              normStatus.includes("returned") ||
+                              normStage === "it correction" ||
+                              normStatus === "returned to it";
+
+                            const isRejectedStatus =
+                              (normStage.includes("reject") || normStatus.includes("reject")) &&
+                              !isReturnedToIT;
+
+                            const isCompleted =
+                              normStage.includes("completed") || normStatus.includes("completed");
+
+                            const isPendingAccounts =
+                              normStage.includes("accounts") || normStatus.includes("accounts");
+
+                            // Primary status badge colours
+                            let badgeColor = "#64748b";
+                            let badgeBg = "#f1f5f9";
+                            let badgeBorder = "#e2e8f0";
+                            let badgeLabel = rawStatus || rawStage || "Pending";
+                            let badgeIcon = null;
+
+                            if (isReturnedToIT) {
+                              badgeColor = "#c2410c";
+                              badgeBg = "#fff7ed";
+                              badgeBorder = "#fed7aa";
+                              badgeLabel = "Returned to IT";
+                            } else if (isRejectedStatus) {
+                              badgeColor = "#b91c1c";
+                              badgeBg = "#fef2f2";
+                              badgeBorder = "#fecaca";
+                              badgeLabel = "Rejected";
+                            } else if (isCompleted) {
+                              badgeColor = "#15803d";
+                              badgeBg = "#f0fdf4";
+                              badgeBorder = "#bbf7d0";
+                              badgeLabel = "Completed";
+                            } else if (isPendingAccounts) {
+                              badgeColor = "#1d4ed8";
+                              badgeBg = "#eff6ff";
+                              badgeBorder = "#bfdbfe";
+                              badgeLabel = "Pending Accounts";
+                            } else if (normStatus.includes("admin") || normStage.includes("admin")) {
+                              badgeColor = "#92400e";
+                              badgeBg = "#fffbeb";
+                              badgeBorder = "#fde68a";
+                              badgeLabel = "Pending Admin";
+                            }
+
+                            // Rejection by info (for tooltip / title)
+                            let rejectUser = a.rejected_by_name || a.rejected_by?.username || "";
+                            if (!rejectUser && Array.isArray(a.workflow_history)) {
+                              const lastReject = [...a.workflow_history].reverse().find((h) =>
+                                (h.action || "").toLowerCase().includes("reject") ||
+                                (h.action || "").toLowerCase().includes("returned")
+                              );
+                              rejectUser = lastReject?.performed_by_name || lastReject?.performed_by?.username || "";
+                            }
+
+                            // Verifier chips (admin + accounts)
+                            const verifiers = [];
+                            if (!isReturnedToIT && Array.isArray(a.admin_verifications)) {
+                              a.admin_verifications.forEach((v) => {
+                                const u = v.username || v.name;
+                                if (u && !verifiers.some((x) => x.type === "admin" && x.username === u)) {
+                                  verifiers.push({ type: "admin", username: u });
+                                }
+                              });
+                            }
+                            if (Array.isArray(a.accounts_verifications)) {
+                              a.accounts_verifications.forEach((v) => {
+                                const u = v.username || v.name;
+                                if (u && !verifiers.some((x) => x.type === "accounts" && x.username === u)) {
+                                  verifiers.push({ type: "accounts", username: u });
+                                }
+                              });
+                            }
+
+                            const rejectTitle = isReturnedToIT
+                              ? `Returned to IT${rejectUser ? ` by ${rejectUser}` : ""}${a.rejection_remarks ? `: ${a.rejection_remarks}` : ""}`
+                              : isRejectedStatus
+                                ? `Rejected${rejectUser ? ` by ${rejectUser}` : ""}${a.rejection_remarks ? `: ${a.rejection_remarks}` : ""}`
+                                : badgeLabel;
+
+                            return (
+                              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                {/* Primary Workflow Status Badge — always visible */}
+                                <div
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    color: badgeColor,
+                                    backgroundColor: badgeBg,
+                                    border: `1px solid ${badgeBorder}`,
+                                    padding: "2px 8px",
+                                    borderRadius: "5px",
+                                    width: "fit-content",
+                                    cursor: rejectUser ? "help" : "default",
+                                  }}
+                                  title={rejectTitle}
+                                >
+                                  {isReturnedToIT && <RotateCcw size={11} />}
+                                  {isRejectedStatus && <XCircle size={11} />}
+                                  {isCompleted && <ShieldCheck size={11} />}
+                                  {!isReturnedToIT && !isRejectedStatus && !isCompleted && <Clock size={11} />}
+                                  <span>{badgeLabel}</span>
+                                </div>
+
+                                {/* Verifier chips */}
+                                {verifiers.length > 0 && (
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "3px" }}>
+                                    {verifiers.map((item, idx) => {
+                                      const isAcc = item.type === "accounts";
+                                      return (
+                                        <div
+                                          key={`ver-${idx}`}
+                                          style={{
+                                            fontSize: "11px",
+                                            fontWeight: 600,
+                                            color: isAcc ? "#1e40af" : "#166534",
+                                            backgroundColor: isAcc ? "#eff6ff" : "#f0fdf4",
+                                            border: `1px solid ${isAcc ? "#bfdbfe" : "#bbf7d0"}`,
+                                            padding: "1px 6px",
+                                            borderRadius: "4px",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "3px",
+                                            width: "fit-content",
+                                          }}
+                                          title={`${isAcc ? "Accounts Approved" : "Admin Verified"} by ${item.username}`}
+                                        >
+                                          <ShieldCheck size={10} color={isAcc ? "#2563eb" : "#16a34a"} />
+                                          <span>{item.username}</span>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
-                                ))}
-                              </div>
-                            )}
+                                )}
 
-                            {/* Accounts Approval Badges (Blue) */}
-                            {Array.isArray(a.accounts_verifications) && a.accounts_verifications.length > 0 && (
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                                {a.accounts_verifications.map((v, idx) => (
+                                {/* Rejection remarks short tooltip hint */}
+                                {(isReturnedToIT || isRejectedStatus) && a.rejection_remarks && (
                                   <div
-                                    key={idx}
                                     style={{
-                                      fontSize: "11px",
-                                      fontWeight: 600,
-                                      color: "#1e40af",
-                                      backgroundColor: "#eff6ff",
-                                      border: "1px solid #bfdbfe",
-                                      padding: "2px 6px",
-                                      borderRadius: "4px",
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: "4px",
-                                      width: "fit-content",
+                                      fontSize: "10px",
+                                      color: "#92400e",
+                                      fontStyle: "italic",
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      maxWidth: "150px",
                                     }}
-                                    title={`Accounts Approved by ${v.username || v.name}`}
+                                    title={a.rejection_remarks}
                                   >
-                                    <ShieldCheck size={12} color="#2563eb" />
-                                    <span>{v.username || v.name}</span>
+                                    {a.rejection_remarks}
                                   </div>
-                                ))}
+                                )}
                               </div>
-                            )}
-
-                            {/* Rejection Remarks */}
-                            {a.rejection_remarks && (
-                              <div
-                                style={{
-                                  fontSize: "11px",
-                                  color: "#991b1b",
-                                  backgroundColor: "#fef2f2",
-                                  border: "1px solid #fecaca",
-                                  padding: "2px 6px",
-                                  borderRadius: "4px",
-                                  maxWidth: "240px",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
-                                title={`Rejection Remarks: ${a.rejection_remarks}`}
-                              >
-                                Remarks: {a.rejection_remarks}
-                              </div>
-                            )}
-                          </div>
+                            );
+                          })()}
                         </td>
                         <td style={{ width: "6%", textAlign: "right", whiteSpace: "nowrap" }}>
                           <div style={{ display: "inline-flex", gap: "6px", alignItems: "center", justifyContent: "flex-end" }}>
@@ -3755,6 +3965,69 @@ export default function AssetManagement() {
           const assignedName = getAssignedToName(viewRecord.assigned_to);
           const vendorName = getVendorName(viewRecord.vendor);
 
+          const formatRejectRole = (role) => {
+            if (!role) return "";
+            const map = {
+              head_of_department: "Head of Department",
+              sr_manager_accounts: "Sr. Manager Accounts",
+              admin: "Admin",
+              user: "User",
+              it_admin: "IT Admin",
+              super_admin: "Super Admin",
+            };
+            const lower = String(role).toLowerCase();
+            if (map[lower]) return map[lower];
+            return String(role).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+          };
+
+          const latestReject = Array.isArray(viewRecord.workflow_history)
+            ? [...viewRecord.workflow_history].reverse().find(
+              (h) =>
+                (h.action || "").toLowerCase().includes("reject") ||
+                (h.stage || "").toLowerCase().includes("reject") ||
+                (h.stage || "").toLowerCase().includes("correction") ||
+                (h.action || "").toLowerCase().includes("returned") ||
+                Boolean(viewRecord.rejection_remarks && (h.remarks === viewRecord.rejection_remarks || (h.action || "").includes(viewRecord.rejection_remarks)))
+            )
+            : null;
+
+          const rejectedByName =
+            viewRecord.rejected_by_name ||
+            viewRecord.rejected_by?.username ||
+            viewRecord.rejected_by?.name ||
+            (viewRecord.rejected_by?.first_name ? `${viewRecord.rejected_by.first_name} ${viewRecord.rejected_by.last_name || ""}`.trim() : "") ||
+            latestReject?.performed_by_name ||
+            latestReject?.performed_by?.username ||
+            (latestReject?.performed_by?.first_name ? `${latestReject.performed_by.first_name} ${latestReject.performed_by.last_name || ""}`.trim() : "") ||
+            "";
+
+          const rawRejectRole =
+            viewRecord.rejected_by_role ||
+            latestReject?.performed_by_role ||
+            "";
+          const rejectedByRole = formatRejectRole(rawRejectRole);
+
+          const rawRejectDate = viewRecord.rejected_at || latestReject?.timestamp;
+          const rejectedAtDate = rawRejectDate
+            ? new Date(rawRejectDate).toLocaleString("en-IN", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            })
+            : "";
+
+          const normStatus = String(viewRecord.approval_status || "").toLowerCase();
+          const normStage = String(viewRecord.approval_stage || "").toLowerCase();
+          const isRejectedEntry =
+            Boolean(viewRecord.rejection_remarks) ||
+            normStatus.includes("reject") ||
+            normStage.includes("reject") ||
+            normStatus.includes("returned") ||
+            normStage.includes("correction");
+
           return (
             <>
               {/* ── Dialog Header ── */}
@@ -3900,29 +4173,6 @@ export default function AssetManagement() {
 
                 {/* Header Right Actions */}
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Button
-                    onClick={() => {
-                      const target = viewRecord;
-                      setShowViewModal(false);
-                      handleOpen(target);
-                    }}
-                    variant="outlined"
-                    size="small"
-                    startIcon={<Edit2 size={13} />}
-                    sx={{
-                      textTransform: "none",
-                      fontWeight: 600,
-                      fontSize: "0.78rem",
-                      borderColor: "#cbd5e1",
-                      color: "#334155",
-                      borderRadius: "8px",
-                      px: 1.5,
-                      py: 0.5,
-                      "&:hover": { borderColor: "#94a3b8", backgroundColor: "#f8fafc" },
-                    }}
-                  >
-                    Edit Asset
-                  </Button>
                   <IconButton
                     onClick={() => setShowViewModal(false)}
                     size="small"
@@ -4064,18 +4314,18 @@ export default function AssetManagement() {
                               {viewRecord.asset_type === "Software"
                                 ? "Software & License Specifications"
                                 : viewRecord.asset_type === "SIM Card"
-                                ? "SIM Card & Plan Details"
-                                : viewRecord.asset_type === "Printer"
-                                ? "Printer Specifications"
-                                : viewRecord.asset_type === "Network Device"
-                                ? "Network Device Specifications"
-                                : viewRecord.asset_type === "Rack"
-                                ? "Rack Specifications"
-                                : viewRecord.asset_type === "Cable"
-                                ? "Cable Specifications"
-                                : viewRecord.asset_type === "Phone"
-                                ? "Phone Specifications"
-                                : "Hardware & Device Specifications"}
+                                  ? "SIM Card & Plan Details"
+                                  : viewRecord.asset_type === "Printer"
+                                    ? "Printer Specifications"
+                                    : viewRecord.asset_type === "Network Device"
+                                      ? "Network Device Specifications"
+                                      : viewRecord.asset_type === "Rack"
+                                        ? "Rack Specifications"
+                                        : viewRecord.asset_type === "Cable"
+                                          ? "Cable Specifications"
+                                          : viewRecord.asset_type === "Phone"
+                                            ? "Phone Specifications"
+                                            : "Hardware & Device Specifications"}
                             </Typography>
                           </Box>
                           <Chip
@@ -4094,53 +4344,53 @@ export default function AssetManagement() {
                             viewRecord.processor ||
                             viewRecord.ram ||
                             viewRecord.storage) && (
-                            <>
-                              <Grid item xs={6} sm={4}>
-                                <SpecTile label="Brand / Manufacturer" value={viewRecord.manufacturer} />
-                              </Grid>
-                              <Grid item xs={6} sm={4}>
-                                <SpecTile label="Model" value={viewRecord.model} />
-                              </Grid>
-                              <Grid item xs={12} sm={4}>
-                                <SpecTile
-                                  label="Serial Number"
-                                  value={viewRecord.serial_number}
-                                  copyable
-                                  onCopy={(val) => handleCopyText(val, "serial")}
-                                  isCopied={copiedSerial}
-                                />
-                              </Grid>
-                              <Grid item xs={6} sm={4}>
-                                <SpecTile label="Processor" value={viewRecord.processor} icon={<Cpu size={13} />} />
-                              </Grid>
-                              <Grid item xs={6} sm={4}>
-                                <SpecTile
-                                  label="RAM"
-                                  value={viewRecord.ram}
-                                  isChip
-                                  chipColor={{ bg: "#eff6ff", text: "#2563eb", border: "#bfdbfe" }}
-                                />
-                              </Grid>
-                              <Grid item xs={6} sm={4}>
-                                <SpecTile
-                                  label="Storage"
-                                  value={viewRecord.storage}
-                                  isChip
-                                  chipColor={{ bg: "#ecfdf5", text: "#059669", border: "#a7f3d0" }}
-                                />
-                              </Grid>
-                              {viewRecord.operating_system && (
-                                <Grid item xs={6} sm={6}>
-                                  <SpecTile label="Operating System" value={viewRecord.operating_system} />
+                              <>
+                                <Grid item xs={6} sm={4}>
+                                  <SpecTile label="Brand / Manufacturer" value={viewRecord.manufacturer} />
                                 </Grid>
-                              )}
-                              {viewRecord.asset_name && (
-                                <Grid item xs={6} sm={6}>
-                                  <SpecTile label="Asset Name / Hostname" value={viewRecord.asset_name} />
+                                <Grid item xs={6} sm={4}>
+                                  <SpecTile label="Model" value={viewRecord.model} />
                                 </Grid>
-                              )}
-                            </>
-                          )}
+                                <Grid item xs={12} sm={4}>
+                                  <SpecTile
+                                    label="Serial Number"
+                                    value={viewRecord.serial_number}
+                                    copyable
+                                    onCopy={(val) => handleCopyText(val, "serial")}
+                                    isCopied={copiedSerial}
+                                  />
+                                </Grid>
+                                <Grid item xs={6} sm={4}>
+                                  <SpecTile label="Processor" value={viewRecord.processor} icon={<Cpu size={13} />} />
+                                </Grid>
+                                <Grid item xs={6} sm={4}>
+                                  <SpecTile
+                                    label="RAM"
+                                    value={viewRecord.ram}
+                                    isChip
+                                    chipColor={{ bg: "#eff6ff", text: "#2563eb", border: "#bfdbfe" }}
+                                  />
+                                </Grid>
+                                <Grid item xs={6} sm={4}>
+                                  <SpecTile
+                                    label="Storage"
+                                    value={viewRecord.storage}
+                                    isChip
+                                    chipColor={{ bg: "#ecfdf5", text: "#059669", border: "#a7f3d0" }}
+                                  />
+                                </Grid>
+                                {viewRecord.operating_system && (
+                                  <Grid item xs={6} sm={6}>
+                                    <SpecTile label="Operating System" value={viewRecord.operating_system} />
+                                  </Grid>
+                                )}
+                                {viewRecord.asset_name && (
+                                  <Grid item xs={6} sm={6}>
+                                    <SpecTile label="Asset Name / Hostname" value={viewRecord.asset_name} />
+                                  </Grid>
+                                )}
+                              </>
+                            )}
 
                           {/* SIM Card */}
                           {viewRecord.asset_type === "SIM Card" && (
@@ -4885,62 +5135,106 @@ export default function AssetManagement() {
                           {viewRecord.rejection_remarks && (
                             <Box
                               sx={{
-                                p: 1,
-                                px: 1.2,
-                                mb: 1.5,
-                                borderRadius: "6px",
+                                p: 1.6,
+                                mb: 1.6,
+                                borderRadius: "10px",
                                 backgroundColor: "#fef2f2",
                                 border: "1px solid #fecaca",
-                                fontSize: "0.75rem",
-                                color: "#991b1b",
+                                boxShadow: "0 1px 3px rgba(239, 68, 68, 0.06)",
                               }}
                             >
-                              <strong>Rejection Remarks:</strong> {viewRecord.rejection_remarks}
+                              {/* Header: Rejecting User + Timestamp */}
+                              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1, mb: 1 }}>
+                                <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.8 }}>
+                                  <Box
+                                    sx={{
+                                      width: 22,
+                                      height: 22,
+                                      borderRadius: "50%",
+                                      backgroundColor: "#fee2e2",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      border: "1px solid #fca5a5",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <XCircle size={13} color="#dc2626" />
+                                  </Box>
+                                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: "#991b1b" }}>
+                                    Rejected by: <span style={{ color: "#7f1d1d" }}>{rejectedByName || "Approver"}</span>
+                                    {rejectedByRole && <span style={{ color: "#b91c1c", fontWeight: 500 }}> ({rejectedByRole})</span>}
+                                  </Typography>
+                                </Box>
+
+                                {rejectedAtDate && (
+                                  <Typography sx={{ fontSize: "0.72rem", color: "#991b1b", fontWeight: 500, fontStyle: "italic" }}>
+                                    {rejectedAtDate}
+                                  </Typography>
+                                )}
+                              </Box>
+
+                              {/* Remarks Box */}
+                              <Box
+                                sx={{
+                                  backgroundColor: "#ffffff",
+                                  p: 1.2,
+                                  px: 1.5,
+                                  borderRadius: "7px",
+                                  border: "1px solid #fee2e2",
+                                }}
+                              >
+                                <Typography sx={{ fontSize: "0.84rem", color: "#7f1d1d", fontWeight: 500, lineHeight: 1.55 }}>
+                                  {viewRecord.rejection_remarks}
+                                </Typography>
+                              </Box>
                             </Box>
                           )}
 
-                          {/* Verification History list / Badges if present */}
-                          {(viewRecord.admin_verifications?.length > 0 || viewRecord.accounts_approvals?.length > 0) && (
-                            <Box sx={{ display: "flex", gap: 0.8, flexWrap: "wrap", mb: 1.5 }}>
-                              {(viewRecord.admin_verifications || []).map((v, idx) => (
-                                <Chip
-                                  key={`av-${idx}`}
-                                  size="small"
-                                  icon={<Check size={12} color="#16a34a" />}
-                                  label={`Admin Verified: ${v.username || "Admin"}`}
-                                  sx={{
-                                    height: 22,
-                                    fontSize: "0.68rem",
-                                    fontWeight: 600,
-                                    backgroundColor: "#f0fdf4",
-                                    color: "#166534",
-                                    border: "1px solid #bbf7d0",
-                                  }}
-                                />
-                              ))}
-                              {(viewRecord.accounts_approvals || []).map((acc, idx) => (
-                                <Chip
-                                  key={`acc-${idx}`}
-                                  size="small"
-                                  icon={<ShieldCheck size={12} color="#2563eb" />}
-                                  label={`Accounts Approved: ${acc.username || "Accounts"}`}
-                                  sx={{
-                                    height: 22,
-                                    fontSize: "0.68rem",
-                                    fontWeight: 600,
-                                    backgroundColor: "#eff6ff",
-                                    color: "#1e40af",
-                                    border: "1px solid #bfdbfe",
-                                  }}
-                                />
-                              ))}
-                            </Box>
-                          )}
+                          {/* Verification History list / Badges if present - NEVER shown on active entry view when rejected */}
+                          {!isRejectedEntry &&
+                            (viewRecord.admin_verifications?.length > 0 ||
+                              (viewRecord.accounts_verifications || viewRecord.accounts_approvals)?.length > 0) && (
+                              <Box sx={{ display: "flex", gap: 0.8, flexWrap: "wrap", mb: 1.5 }}>
+                                {(viewRecord.admin_verifications || []).map((v, idx) => (
+                                  <Chip
+                                    key={`av-${idx}`}
+                                    size="small"
+                                    icon={<Check size={12} color="#16a34a" />}
+                                    label={`Admin Verified: ${v.username || "Admin"}`}
+                                    sx={{
+                                      height: 22,
+                                      fontSize: "0.68rem",
+                                      fontWeight: 600,
+                                      backgroundColor: "#f0fdf4",
+                                      color: "#166534",
+                                      border: "1px solid #bbf7d0",
+                                    }}
+                                  />
+                                ))}
+                                {((viewRecord.accounts_verifications || viewRecord.accounts_approvals) || []).map((acc, idx) => (
+                                  <Chip
+                                    key={`acc-${idx}`}
+                                    size="small"
+                                    icon={<ShieldCheck size={12} color="#2563eb" />}
+                                    label={`Accounts Approved: ${acc.username || "Accounts"}`}
+                                    sx={{
+                                      height: 22,
+                                      fontSize: "0.68rem",
+                                      fontWeight: 600,
+                                      backgroundColor: "#eff6ff",
+                                      color: "#1e40af",
+                                      border: "1px solid #bfdbfe",
+                                    }}
+                                  />
+                                ))}
+                              </Box>
+                            )}
 
                           {/* Role-based Workflow Action Buttons */}
                           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
-                            {/* Admin Approval Stage: Admin can Approve or Reject */}
-                            {(viewRecord.approval_stage === "Admin Approval" || viewRecord.approval_status === "Pending Admin Approval" || !viewRecord.approval_stage) && isAdmin && (
+                            {/* Admin Approval Stage: Admin can Approve or Reject (only if not rejected) */}
+                            {!isRejectedEntry && (viewRecord.approval_stage === "Admin Approval" || viewRecord.approval_status === "Pending Admin Approval" || !viewRecord.approval_stage) && isAdmin && (
                               <>
                                 <Button
                                   variant="contained"
@@ -4983,36 +5277,137 @@ export default function AssetManagement() {
                               </>
                             )}
 
-                            {/* Accounts Approval Stage: Only Sr. Manager Accounts / Accountant can Final Approve or Reject */}
-                            {(viewRecord.approval_stage === "Accounts Approval" || viewRecord.approval_status === "Pending Accounts Approval") && isAccountsHead && (
-                              <>
+                            {/* Accounts Approval Stage: Only Sr. Manager Accounts / Head of Department - Accounts can Final Approve or Reject (only if not rejected) */}
+                            {!isRejectedEntry && (viewRecord.approval_stage === "Accounts Approval" || viewRecord.approval_status === "Pending Accounts Approval") && (
+                              isAccountsHead ? (
+                                <>
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    startIcon={<Check size={14} />}
+                                    onClick={() => handleWorkflowAction(viewRecord._id, "approve_accounts")}
+                                    disabled={submittingWorkflow}
+                                    sx={{
+                                      textTransform: "none",
+                                      fontSize: "0.78rem",
+                                      fontWeight: 600,
+                                      borderRadius: "8px",
+                                      backgroundColor: "#16a34a",
+                                      "&:hover": { backgroundColor: "#15803d" },
+                                      boxShadow: "none",
+                                    }}
+                                  >
+                                    Verify & Approve (Accounts)
+                                  </Button>
+                                  <Button
+                                    variant="outlined"
+                                    color="error"
+                                    size="small"
+                                    startIcon={<X size={14} />}
+                                    onClick={() => {
+                                      setRejectAssetRecord(viewRecord);
+                                      setRejectActionType("reject_accounts");
+                                      setShowRejectModal(true);
+                                    }}
+                                    disabled={submittingWorkflow}
+                                    sx={{
+                                      textTransform: "none",
+                                      fontSize: "0.78rem",
+                                      fontWeight: 600,
+                                      borderRadius: "8px",
+                                    }}
+                                  >
+                                    Reject to Admin
+                                  </Button>
+                                </>
+                              ) : (
+                                <Box
+                                  sx={{
+                                    p: 1,
+                                    px: 1.5,
+                                    borderRadius: "8px",
+                                    backgroundColor: "#f8fafc",
+                                    border: "1px dashed #cbd5e1",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1,
+                                  }}
+                                >
+                                  <Typography sx={{ fontSize: "0.74rem", color: "#64748b", fontStyle: "italic" }}>
+                                    🔒 Pending Accounts Approval — Only Accounts - Head of Department or Sr. Manager Accounts can verify/approve at this stage.
+                                  </Typography>
+                                </Box>
+                              )
+                            )}
+
+                            {/* TC-09: Returned / IT Correction Stage — Resubmit button visible ONLY for IT users (never Admin or Accounts) */}
+                            {(viewRecord.approval_stage === "IT Correction" ||
+                              viewRecord.approval_status === "Returned to IT") &&
+                              isPureITDept && (
                                 <Button
                                   variant="contained"
                                   size="small"
-                                  startIcon={<Check size={14} />}
-                                  onClick={() => handleWorkflowAction(viewRecord._id, "approve_accounts")}
+                                  startIcon={<RotateCcw size={14} />}
+                                  onClick={() => {
+                                    setResubmitAssetRecord(viewRecord);
+                                    setResubmitInvoiceUrl(viewRecord.image_url || "");
+                                    setResubmitInvoiceNumber(viewRecord.invoice_number || "");
+                                    setResubmitInvoiceDate(
+                                      viewRecord.invoice_date ? String(viewRecord.invoice_date).slice(0, 10) : ""
+                                    );
+                                    setResubmitRemarks("");
+                                    setShowResubmitModal(true);
+                                  }}
                                   disabled={submittingWorkflow}
                                   sx={{
                                     textTransform: "none",
                                     fontSize: "0.78rem",
                                     fontWeight: 600,
                                     borderRadius: "8px",
-                                    backgroundColor: "#16a34a",
-                                    "&:hover": { backgroundColor: "#15803d" },
+                                    backgroundColor: "#2563eb",
+                                    "&:hover": { backgroundColor: "#1d4ed8" },
                                     boxShadow: "none",
                                   }}
                                 >
-                                  Final Approve
+                                  Resubmit for Approval
                                 </Button>
+                              )}
+
+                            {/* Informational banner for Admin or Accounts when an asset is in Returned to IT stage */}
+                            {(viewRecord.approval_stage === "IT Correction" ||
+                              viewRecord.approval_status === "Returned to IT") &&
+                              !isPureITDept && (
+                                <Box
+                                  sx={{
+                                    p: 1,
+                                    px: 1.5,
+                                    borderRadius: "8px",
+                                    backgroundColor: "#fff7ed",
+                                    border: "1px dashed #fdba74",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1,
+                                  }}
+                                >
+                                  <Typography sx={{ fontSize: "0.74rem", color: "#c2410c", fontStyle: "italic", fontWeight: 500 }}>
+                                    ⏳ Returned to IT — Awaiting IT/Network Department to resubmit revised invoice.
+                                  </Typography>
+                                </Box>
+                              )}
+
+                            {/* TC-11: Rejected by Accounts Stage — Admin sees Return to IT button (with remarks prompt) */}
+                            {(viewRecord.approval_stage === "Rejected" ||
+                              viewRecord.approval_status === "Rejected") &&
+                              isAdmin && (
                                 <Button
                                   variant="outlined"
-                                  color="error"
+                                  color="warning"
                                   size="small"
-                                  startIcon={<X size={14} />}
+                                  startIcon={<RotateCcw size={14} />}
                                   onClick={() => {
-                                    setRejectAssetRecord(viewRecord);
-                                    setRejectActionType("reject_accounts");
-                                    setShowRejectModal(true);
+                                    setReturnToITAssetRecord(viewRecord);
+                                    setReturnToITRemarks("");
+                                    setShowReturnToITModal(true);
                                   }}
                                   disabled={submittingWorkflow}
                                   sx={{
@@ -5020,57 +5415,18 @@ export default function AssetManagement() {
                                     fontSize: "0.78rem",
                                     fontWeight: 600,
                                     borderRadius: "8px",
+                                    borderColor: "#f97316",
+                                    color: "#c2410c",
+                                    backgroundColor: "#fff7ed",
+                                    "&:hover": { borderColor: "#ea580c", backgroundColor: "#ffedd5" },
                                   }}
                                 >
-                                  Reject to Admin
+                                  Return to IT
                                 </Button>
-                              </>
-                            )}
+                              )}
 
-                            {/* IT Correction Stage: IT User can Resubmit */}
-                            {(viewRecord.approval_stage === "IT Correction" || viewRecord.approval_status === "Returned to IT") && (isPureITDept || !isAdmin) && (
-                              <Button
-                                variant="contained"
-                                size="small"
-                                startIcon={<Send size={14} />}
-                                onClick={() => handleWorkflowAction(viewRecord._id, "resubmit_it")}
-                                disabled={submittingWorkflow}
-                                sx={{
-                                  textTransform: "none",
-                                  fontSize: "0.78rem",
-                                  fontWeight: 600,
-                                  borderRadius: "8px",
-                                  backgroundColor: "#2563eb",
-                                  "&:hover": { backgroundColor: "#1d4ed8" },
-                                  boxShadow: "none",
-                                }}
-                              >
-                                Resubmit to Admin
-                              </Button>
-                            )}
-
-                            {/* Rejected Stage (Returned to Admin): Admin can Return to IT for Correction */}
-                            {(viewRecord.approval_stage === "Rejected" || viewRecord.approval_status === "Rejected") && isAdmin && (
-                              <Button
-                                variant="outlined"
-                                color="warning"
-                                size="small"
-                                startIcon={<RotateCcw size={14} />}
-                                onClick={() => handleWorkflowAction(viewRecord._id, "admin_return_to_it", "Returned to IT for correction by Admin")}
-                                disabled={submittingWorkflow}
-                                sx={{
-                                  textTransform: "none",
-                                  fontSize: "0.78rem",
-                                  fontWeight: 600,
-                                  borderRadius: "8px",
-                                }}
-                              >
-                                Return to IT for Correction
-                              </Button>
-                            )}
-
-                            {/* Multi-Admin Verification / Rejection */}
-                            {isAdmin &&
+                            {/* Multi-Admin Verification / Rejection (only if not rejected) */}
+                            {!isRejectedEntry && isAdmin &&
                               (viewRecord.approval_stage === "Accounts Approval" ||
                                 viewRecord.approval_stage === "Completed" ||
                                 viewRecord.approval_status === "Pending Accounts Approval" ||
@@ -5160,8 +5516,17 @@ export default function AssetManagement() {
                           { label: "1. Created", done: true },
                           {
                             label: "2. Admin Verification",
-                            done: Array.isArray(viewRecord.admin_verifications) && viewRecord.admin_verifications.length > 0,
-                            active: viewRecord.approval_stage === "Admin Approval",
+                            done:
+                              !(
+                                String(viewRecord.approval_stage || "").toLowerCase().includes("correction") ||
+                                String(viewRecord.approval_status || "").toLowerCase().includes("returned")
+                              ) &&
+                              Array.isArray(viewRecord.admin_verifications) &&
+                              viewRecord.admin_verifications.length > 0,
+                            active:
+                              viewRecord.approval_stage === "Admin Approval" ||
+                              String(viewRecord.approval_stage || "").toLowerCase().includes("correction") ||
+                              String(viewRecord.approval_status || "").toLowerCase().includes("returned"),
                           },
                           {
                             label: "3. Accounts Approval",
@@ -5274,9 +5639,69 @@ export default function AssetManagement() {
                         {/* Accounts Approval */}
                         <Grid item xs={12} sm={6}>
                           <Box sx={{ p: 1.5, backgroundColor: "#f8fafc", borderRadius: "9px", border: "1px solid #f1f5f9" }}>
-                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase", mb: 1 }}>
-                              Accounts Approval
-                            </Typography>
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1, flexWrap: "wrap", gap: 0.5 }}>
+                              <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
+                                Accounts Approval
+                              </Typography>
+                              {isAccountsHead &&
+                                (viewRecord.approval_stage === "Accounts Approval" ||
+                                  viewRecord.approval_status === "Pending Accounts Approval") &&
+                                !(
+                                  Array.isArray(viewRecord.accounts_verifications) &&
+                                  viewRecord.accounts_verifications.some(
+                                    (v) => String(v.user) === String(currentUser?._id) || v.username === currentUser?.username
+                                  )
+                                ) && (
+                                  <Box sx={{ display: "flex", gap: 0.8 }}>
+                                    <Button
+                                      size="small"
+                                      variant="contained"
+                                      onClick={() => handleWorkflowAction(viewRecord._id, "approve_accounts")}
+                                      disabled={submittingWorkflow}
+                                      startIcon={<Check size={12} />}
+                                      sx={{
+                                        fontSize: "0.7rem",
+                                        textTransform: "none",
+                                        py: 0.2,
+                                        px: 1,
+                                        fontWeight: 700,
+                                        borderRadius: "6px",
+                                        backgroundColor: "#16a34a",
+                                        "&:hover": { backgroundColor: "#15803d" },
+                                        boxShadow: "none",
+                                      }}
+                                    >
+                                      Verify & Approve (Accounts)
+                                    </Button>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      color="error"
+                                      onClick={() => {
+                                        setRejectAssetRecord(viewRecord);
+                                        setRejectActionType("reject_accounts");
+                                        setShowRejectModal(true);
+                                      }}
+                                      disabled={submittingWorkflow}
+                                      startIcon={<X size={12} />}
+                                      sx={{ fontSize: "0.7rem", textTransform: "none", py: 0.2, px: 1, fontWeight: 700, borderRadius: "6px" }}
+                                    >
+                                      Reject
+                                    </Button>
+                                  </Box>
+                                )}
+                              {!isAccountsHead &&
+                                (viewRecord.approval_stage === "Accounts Approval" ||
+                                  viewRecord.approval_status === "Pending Accounts Approval") && (
+                                  <Tooltip title="Only Accounts - Head of Department or Sr. Manager Accounts can verify/approve this stage">
+                                    <Chip
+                                      size="small"
+                                      label="Restricted to Accounts Head"
+                                      sx={{ height: 20, fontSize: "0.65rem", color: "#64748b", backgroundColor: "#f1f5f9", fontWeight: 600 }}
+                                    />
+                                  </Tooltip>
+                                )}
+                            </Box>
                             {Array.isArray(viewRecord.accounts_verifications) && viewRecord.accounts_verifications.length > 0 ? (
                               <Box sx={{ display: "flex", flexDirection: "column", gap: 0.6 }}>
                                 {viewRecord.accounts_verifications.map((v, idx) => (
@@ -5308,13 +5733,77 @@ export default function AssetManagement() {
                         {/* Rejection remarks */}
                         {viewRecord.rejection_remarks && (
                           <Grid item xs={12}>
-                            <Box sx={{ p: 1.5, background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}>
-                              <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#991b1b", textTransform: "uppercase", mb: 0.3 }}>
-                                Rejection Details / Remarks
-                              </Typography>
-                              <Typography sx={{ fontSize: "0.82rem", color: "#7f1d1d", fontWeight: 500 }}>
-                                {viewRecord.rejection_remarks}
-                              </Typography>
+                            <Box
+                              sx={{
+                                p: 1.8,
+                                background: "linear-gradient(180deg, #fff5f5 0%, #fef2f2 100%)",
+                                borderRadius: "10px",
+                                border: "1px solid #fecaca",
+                                boxShadow: "0 1px 3px rgba(239, 68, 68, 0.08)",
+                              }}
+                            >
+                              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 0.8, mb: 1 }}>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                  <Box
+                                    sx={{
+                                      width: 24,
+                                      height: 24,
+                                      borderRadius: "50%",
+                                      backgroundColor: "#fee2e2",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      border: "1px solid #fca5a5",
+                                    }}
+                                  >
+                                    <XCircle size={14} color="#dc2626" />
+                                  </Box>
+                                  <Typography sx={{ fontSize: "0.76rem", fontWeight: 700, color: "#991b1b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                    Rejection Details / Remarks
+                                  </Typography>
+                                </Box>
+
+                                <Chip
+                                  size="small"
+                                  icon={<XCircle size={12} color="#b91c1c" />}
+                                  label={`Rejected by: ${rejectedByName || "Approver"}${rejectedByRole ? ` (${rejectedByRole})` : ""}`}
+                                  sx={{
+                                    height: 22,
+                                    fontSize: "0.7rem",
+                                    fontWeight: 700,
+                                    backgroundColor: "#fee2e2",
+                                    color: "#991b1b",
+                                    border: "1px solid #fca5a5",
+                                  }}
+                                />
+                              </Box>
+
+                              <Box
+                                sx={{
+                                  backgroundColor: "#ffffff",
+                                  p: 1.2,
+                                  px: 1.5,
+                                  borderRadius: "6px",
+                                  border: "1px dashed #fca5a5",
+                                  mb: 1,
+                                }}
+                              >
+                                <Typography sx={{ fontSize: "0.84rem", color: "#7f1d1d", fontWeight: 500, lineHeight: 1.5 }}>
+                                  {viewRecord.rejection_remarks}
+                                </Typography>
+                              </Box>
+
+                              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1, pt: 0.3 }}>
+                                <Typography sx={{ fontSize: "0.74rem", color: "#991b1b", fontWeight: 600 }}>
+                                  Rejected by: <span style={{ color: "#7f1d1d", fontWeight: 700 }}>{rejectedByName || "Approver"}</span>
+                                  {rejectedByRole && <span style={{ color: "#b91c1c", fontWeight: 500 }}> • {rejectedByRole}</span>}
+                                </Typography>
+                                {rejectedAtDate && (
+                                  <Typography sx={{ fontSize: "0.72rem", color: "#b91c1c", fontStyle: "italic" }}>
+                                    {rejectedAtDate}
+                                  </Typography>
+                                )}
+                              </Box>
                             </Box>
                           </Grid>
                         )}
@@ -5336,35 +5825,137 @@ export default function AssetManagement() {
                       </Typography>
                       {Array.isArray(viewRecord.workflow_history) && viewRecord.workflow_history.length > 0 ? (
                         <Box sx={{ border: "1px solid #e2e8f0", borderRadius: "8px", overflow: "hidden" }}>
-                          {viewRecord.workflow_history.map((h, i) => (
-                            <Box
-                              key={i}
-                              sx={{
-                                p: 1.2,
-                                px: 2,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                borderBottom: i < viewRecord.workflow_history.length - 1 ? "1px solid #f1f5f9" : "none",
-                                bgcolor: i % 2 === 0 ? "#ffffff" : "#f8fafc",
-                              }}
-                            >
-                              <Box display="flex" alignItems="center" gap={1.2}>
-                                <Clock size={14} color="#64748b" />
-                                <Box>
-                                  <Typography sx={{ fontSize: "0.82rem", fontWeight: 600, color: "#0f172a" }}>
-                                    {h.action || h.stage}
-                                  </Typography>
-                                  <Typography sx={{ fontSize: "0.72rem", color: "#64748b" }}>
-                                    By <strong>{h.performed_by_name || h.performed_by?.username || "System"}</strong> ({h.performed_by_role || "User"})
-                                  </Typography>
+                          {viewRecord.workflow_history.map((h, i) => {
+                            const actLower = (h.action || "").toLowerCase();
+                            const stgLower = (h.stage || "").toLowerCase();
+                            const isHistoryRejected =
+                              actLower.includes("reject") ||
+                              stgLower.includes("reject") ||
+                              actLower.includes("returned") ||
+                              stgLower.includes("correction");
+                            const isHistoryVerified =
+                              actLower.includes("verified") ||
+                              actLower.includes("approved");
+
+                            return (
+                              <Box
+                                key={i}
+                                sx={{
+                                  p: 1.4,
+                                  px: 2,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  borderBottom: i < viewRecord.workflow_history.length - 1 ? "1px solid #f1f5f9" : "none",
+                                  borderLeft: isHistoryRejected
+                                    ? "4px solid #ef4444"
+                                    : isHistoryVerified
+                                      ? "4px solid #22c55e"
+                                      : "4px solid transparent",
+                                  backgroundColor: isHistoryRejected
+                                    ? "#fef2f2"
+                                    : i % 2 === 0
+                                      ? "#ffffff"
+                                      : "#f8fafc",
+                                  transition: "background-color 0.15s ease",
+                                }}
+                              >
+                                <Box display="flex" alignItems="center" gap={1.4}>
+                                  <Box
+                                    sx={{
+                                      width: 28,
+                                      height: 28,
+                                      borderRadius: "50%",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      backgroundColor: isHistoryRejected
+                                        ? "#fee2e2"
+                                        : isHistoryVerified
+                                          ? "#f0fdf4"
+                                          : "#f1f5f9",
+                                      border: isHistoryRejected
+                                        ? "1px solid #fca5a5"
+                                        : isHistoryVerified
+                                          ? "1px solid #bbf7d0"
+                                          : "1px solid #e2e8f0",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    {isHistoryRejected ? (
+                                      <XCircle size={15} color="#dc2626" />
+                                    ) : isHistoryVerified ? (
+                                      <Check size={14} color="#16a34a" />
+                                    ) : (
+                                      <Clock size={14} color="#64748b" />
+                                    )}
+                                  </Box>
+                                  <Box>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                                      <Typography
+                                        sx={{
+                                          fontSize: "0.82rem",
+                                          fontWeight: isHistoryRejected ? 700 : 600,
+                                          color: isHistoryRejected ? "#991b1b" : "#0f172a",
+                                        }}
+                                      >
+                                        {h.action || h.stage}
+                                      </Typography>
+                                      {isHistoryRejected && (
+                                        <Chip
+                                          size="small"
+                                          label="Rejected"
+                                          sx={{
+                                            height: 18,
+                                            fontSize: "0.62rem",
+                                            fontWeight: 700,
+                                            backgroundColor: "#fee2e2",
+                                            color: "#991b1b",
+                                            border: "1px solid #fca5a5",
+                                            textTransform: "uppercase",
+                                          }}
+                                        />
+                                      )}
+                                    </Box>
+                                    <Typography
+                                      sx={{
+                                        fontSize: "0.72rem",
+                                        color: isHistoryRejected ? "#b91c1c" : "#64748b",
+                                        mt: 0.2,
+                                      }}
+                                    >
+                                      By <strong>{h.performed_by_name || h.performed_by?.username || "System"}</strong> ({formatRejectRole(h.performed_by_role) || h.performed_by_role || "User"})
+                                    </Typography>
+                                    {h.remarks && h.remarks !== h.action && (
+                                      <Typography
+                                        sx={{
+                                          fontSize: "0.72rem",
+                                          color: isHistoryRejected ? "#7f1d1d" : "#475569",
+                                          fontStyle: "italic",
+                                          mt: 0.3,
+                                          pl: 1,
+                                          borderLeft: isHistoryRejected ? "2px solid #fca5a5" : "2px solid #cbd5e1",
+                                        }}
+                                      >
+                                        Remarks: &quot;{h.remarks}&quot;
+                                      </Typography>
+                                    )}
+                                  </Box>
                                 </Box>
+                                <Typography
+                                  sx={{
+                                    fontSize: "0.72rem",
+                                    color: isHistoryRejected ? "#b91c1c" : "#94a3b8",
+                                    fontWeight: isHistoryRejected ? 600 : 500,
+                                    whiteSpace: "nowrap",
+                                    ml: 2,
+                                  }}
+                                >
+                                  {h.timestamp ? new Date(h.timestamp).toLocaleString("en-IN") : "—"}
+                                </Typography>
                               </Box>
-                              <Typography sx={{ fontSize: "0.72rem", color: "#94a3b8", fontWeight: 500 }}>
-                                {h.timestamp ? new Date(h.timestamp).toLocaleString("en-IN") : "—"}
-                              </Typography>
-                            </Box>
-                          ))}
+                            );
+                          })}
                         </Box>
                       ) : (
                         <Typography sx={{ fontSize: "0.8rem", color: "#94a3b8", fontStyle: "italic", p: 1 }}>
@@ -5394,42 +5985,20 @@ export default function AssetManagement() {
                 <Box sx={{ display: "flex", gap: 1 }}>
                   <Button
                     onClick={() => setShowViewModal(false)}
+                    variant="outlined"
                     sx={{
                       textTransform: "none",
                       fontWeight: 600,
                       fontSize: "0.82rem",
-                      color: "#64748b",
-                      px: 2,
+                      color: "#475569",
+                      borderColor: "#cbd5e1",
+                      px: 2.5,
                       py: 0.6,
                       borderRadius: "8px",
-                      "&:hover": { backgroundColor: "#f1f5f9", color: "#0f172a" },
+                      "&:hover": { backgroundColor: "#f1f5f9", borderColor: "#94a3b8", color: "#0f172a" },
                     }}
                   >
                     Close
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      const target = viewRecord;
-                      setShowViewModal(false);
-                      handleOpen(target);
-                    }}
-                    variant="contained"
-                    startIcon={<Edit2 size={14} />}
-                    sx={{
-                      textTransform: "none",
-                      fontWeight: 600,
-                      fontSize: "0.82rem",
-                      px: 2.2,
-                      py: 0.6,
-                      borderRadius: "8px",
-                      background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                      boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
-                      "&:hover": {
-                        background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
-                      },
-                    }}
-                  >
-                    Edit Asset
                   </Button>
                 </Box>
               </DialogActions>
@@ -5638,12 +6207,7 @@ export default function AssetManagement() {
         maxWidth="xs"
         fullWidth
         sx={{ zIndex: 1400 }}
-        PaperProps={{
-          sx: {
-            borderRadius: "14px",
-            p: 1,
-          },
-        }}
+        PaperProps={{ sx: { borderRadius: "14px", p: 1 } }}
       >
         <DialogTitle sx={{ fontWeight: 700, fontSize: "1.05rem", pb: 1 }}>
           {rejectActionType === "reject_accounts" ? "Reject Asset (Return to Admin)" : "Reject Asset Request"}
@@ -5676,6 +6240,239 @@ export default function AssetManagement() {
             sx={{ borderRadius: "8px", fontWeight: 600, textTransform: "none" }}
           >
             {submittingWorkflow ? "Rejecting..." : "Submit Rejection"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* TC-11: Return to IT Confirm Modal */}
+      <Dialog
+        open={showReturnToITModal}
+        onClose={() => setShowReturnToITModal(false)}
+        maxWidth="xs"
+        fullWidth
+        sx={{ zIndex: 1400 }}
+        PaperProps={{ sx: { borderRadius: "14px", p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: "1.05rem", pb: 1, display: "flex", alignItems: "center", gap: 1 }}>
+          <RotateCcw size={18} color="#c2410c" />
+          Return to IT Department
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            The asset request will be returned to the IT/Network Department for correction. You may optionally add remarks.
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            placeholder="Optional: Enter remarks for IT (e.g. what needs to be corrected)..."
+            value={returnToITRemarks}
+            onChange={(e) => setReturnToITRemarks(e.target.value)}
+            sx={modalFieldSx}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setShowReturnToITModal(false)} disabled={submittingWorkflow}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disabled={submittingWorkflow}
+            onClick={() =>
+              handleWorkflowAction(
+                returnToITAssetRecord?._id,
+                "admin_return_to_it",
+                returnToITRemarks.trim() || "Please make necessary corrections."
+              )
+            }
+            sx={{
+              borderRadius: "8px",
+              fontWeight: 600,
+              textTransform: "none",
+              backgroundColor: "#f97316",
+              "&:hover": { backgroundColor: "#ea580c" },
+            }}
+          >
+            {submittingWorkflow ? "Returning..." : "Return to IT"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* TC-09: Resubmit Invoice Modal — Displayed ONLY when IT user resubmits, never for Admin or Accounts */}
+      <Dialog
+        open={showResubmitModal && isPureITDept}
+        onClose={() => setShowResubmitModal(false)}
+        maxWidth="sm"
+        fullWidth
+        sx={{ zIndex: 1400 }}
+        PaperProps={{ sx: { borderRadius: "14px", overflow: "hidden" } }}
+      >
+        <Box
+          sx={{
+            px: 3,
+            py: 2,
+            borderBottom: "1px solid #f1f5f9",
+            background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+          }}
+        >
+          <Box sx={{ p: 0.7, borderRadius: "8px", backgroundColor: "#eff6ff", display: "flex" }}>
+            <RotateCcw size={18} color="#2563eb" />
+          </Box>
+          <Box>
+            <Typography sx={{ fontWeight: 700, fontSize: "1rem", color: "#0f172a" }}>
+              Resubmit Asset for Admin Approval
+            </Typography>
+            <Typography sx={{ fontSize: "0.75rem", color: "#64748b", mt: 0.2 }}>
+              Cycle {(resubmitAssetRecord?.approval_cycle || 1) + 1} · Asset: {resubmitAssetRecord?.asset_tag || "—"}
+            </Typography>
+          </Box>
+        </Box>
+        <DialogContent sx={{ pt: 2.5, pb: 1 }}>
+          {/* Previous rejection / return reason callout */}
+          {resubmitAssetRecord?.rejection_remarks && (
+            <Box
+              sx={{
+                p: 1.5,
+                mb: 2,
+                borderRadius: "8px",
+                backgroundColor: "#fff7ed",
+                border: "1px solid #fed7aa",
+              }}
+            >
+              <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "#c2410c", mb: 0.4 }}>
+                Returned with remarks:
+              </Typography>
+              <Typography sx={{ fontSize: "0.82rem", color: "#7c2d12" }}>
+                {resubmitAssetRecord.rejection_remarks}
+              </Typography>
+              {resubmitAssetRecord.rejected_by_name && (
+                <Typography sx={{ fontSize: "0.71rem", color: "#9a3412", mt: 0.5, fontStyle: "italic" }}>
+                  — by {resubmitAssetRecord.rejected_by_name}
+                  {resubmitAssetRecord.rejected_by_role ? ` (${resubmitAssetRecord.rejected_by_role})` : ""}
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          {/* Invoice Number + Date */}
+          <Box sx={{ display: "flex", gap: 1.5, mb: 2 }}>
+            <TextField
+              label="Invoice Number"
+              size="small"
+              fullWidth
+              value={resubmitInvoiceNumber}
+              onChange={(e) => setResubmitInvoiceNumber(e.target.value)}
+              sx={modalFieldSx}
+              placeholder="e.g. INV-2026-001"
+            />
+            <TextField
+              label="Invoice Date"
+              size="small"
+              type="date"
+              fullWidth
+              value={resubmitInvoiceDate}
+              onChange={(e) => setResubmitInvoiceDate(e.target.value)}
+              sx={modalFieldSx}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Box>
+
+          {/* Invoice File Upload */}
+          <Box sx={{ mb: 2 }}>
+            <Typography sx={{ fontSize: "0.8rem", fontWeight: 600, color: "#374151", mb: 0.8 }}>
+              Invoice Document
+            </Typography>
+            {resubmitInvoiceUrl ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  p: 1.2,
+                  borderRadius: "8px",
+                  backgroundColor: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                }}
+              >
+                <ShieldCheck size={16} color="#16a34a" />
+                <Typography sx={{ fontSize: "0.78rem", color: "#15803d", fontWeight: 600, flex: 1 }}>
+                  Invoice document attached
+                </Typography>
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => setResubmitInvoiceUrl("")}
+                  sx={{ fontSize: "0.72rem", color: "#dc2626", textTransform: "none", p: 0.3 }}
+                >
+                  Remove
+                </Button>
+              </Box>
+            ) : (
+              <label
+                style={{
+                  display: "block",
+                  border: "2px dashed #bfdbfe",
+                  borderRadius: "8px",
+                  padding: "14px",
+                  textAlign: "center",
+                  cursor: uploadingResubmitInvoice ? "not-allowed" : "pointer",
+                  backgroundColor: "#f8faff",
+                  color: "#3b82f6",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                }}
+              >
+                <input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  style={{ display: "none" }}
+                  onChange={handleResubmitInvoiceUpload}
+                  disabled={uploadingResubmitInvoice}
+                />
+                {uploadingResubmitInvoice ? "Uploading..." : "Click to upload revised invoice (PDF or Image, max 10MB)"}
+              </label>
+            )}
+          </Box>
+
+          {/* Resubmission Remarks */}
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            label="Resubmission Remarks"
+            placeholder="Describe what was corrected (e.g. GST breakdown added, invoice replaced)..."
+            value={resubmitRemarks}
+            onChange={(e) => setResubmitRemarks(e.target.value)}
+            sx={modalFieldSx}
+            required
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button
+            onClick={() => setShowResubmitModal(false)}
+            disabled={submittingWorkflow}
+            variant="outlined"
+            sx={{ textTransform: "none", borderRadius: "8px", fontWeight: 600, borderColor: "#cbd5e1" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disabled={submittingWorkflow || !resubmitRemarks.trim()}
+            onClick={handleResubmitWorkflow}
+            sx={{
+              textTransform: "none",
+              borderRadius: "8px",
+              fontWeight: 600,
+              background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+              boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
+              "&:hover": { background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)" },
+            }}
+          >
+            {submittingWorkflow ? "Resubmitting..." : "Resubmit for Approval"}
           </Button>
         </DialogActions>
       </Dialog>

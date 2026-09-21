@@ -2,11 +2,65 @@
 import express from "express";
 import mongoose from "mongoose";
 import Asset from "../../model/it-helpdesk/assetModel.mjs";
+import UserModel from "../../model/userModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import logger from "../../logger.js";
 
 const router = express.Router();
 router.use(authMiddleware);
+
+const isAccountsHeadUser = async (user) => {
+  if (!user) return false;
+  const roleStr = String(user.role || "").toLowerCase();
+  if (
+    roleStr.includes("sr. manager accounts") ||
+    roleStr.includes("sr manager accounts") ||
+    roleStr.includes("senior manager accounts") ||
+    roleStr.includes("head of accounts") ||
+    roleStr.includes("accounts head") ||
+    roleStr.includes("accounts hod") ||
+    roleStr.includes("hod accounts") ||
+    roleStr.includes("head of department - accounts") ||
+    roleStr.includes("accounts - head of department") ||
+    roleStr.includes("accounts -head of department")
+  ) {
+    return true;
+  }
+
+  if (user._id) {
+    try {
+      const userDoc = await UserModel.findById(user._id).select("role department designation isHod").lean();
+      if (userDoc) {
+        const docRole = String(userDoc.role || "").toLowerCase();
+        const docDesig = String(userDoc.designation || "").toLowerCase();
+        const docDept = String(userDoc.department || "").toLowerCase();
+
+        const isAccounts = docDept.includes("account") || docRole.includes("account") || docDesig.includes("account");
+        const isHeadOrSrMgr =
+          userDoc.isHod === true ||
+          docRole.includes("head") ||
+          docRole.includes("sr. manager") ||
+          docRole.includes("sr manager") ||
+          docRole.includes("senior manager") ||
+          docRole.includes("hod") ||
+          docDesig.includes("head") ||
+          docDesig.includes("sr. manager") ||
+          docDesig.includes("sr manager") ||
+          docDesig.includes("senior manager") ||
+          docDesig.includes("hod");
+
+        if (isAccounts && isHeadOrSrMgr) {
+          return true;
+        }
+      }
+    } catch (err) {
+      logger.error("Error checking isAccountsHeadUser:", err);
+    }
+  }
+
+  return false;
+};
+
 
 const SIM_CARD_REQUIRED_FIELDS = [
   "sim_number_iccid",
@@ -348,6 +402,7 @@ router.get("/", async (req, res) => {
         .populate("admin_verifications.user", "username first_name last_name email")
         .populate("accounts_verifications.user", "username first_name last_name email")
         .populate("workflow_history.performed_by", "username first_name last_name email")
+        .populate("rejected_by", "username first_name last_name email")
         .sort({ createdAt: -1 });
       return res.json({ success: true, data });
     }
@@ -363,6 +418,7 @@ router.get("/", async (req, res) => {
         .populate("admin_verifications.user", "username first_name last_name email")
         .populate("accounts_verifications.user", "username first_name last_name email")
         .populate("workflow_history.performed_by", "username first_name last_name email")
+        .populate("rejected_by", "username first_name last_name email")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum),
@@ -508,6 +564,50 @@ router.put("/:id/workflow", validateId, async (req, res) => {
     const userName = req.user?.first_name ? `${req.user.first_name} ${req.user.last_name || ""}`.trim() : (req.user?.username || "System User");
     const userRole = req.user?.role || "Admin";
 
+    // Strictly enforce role-based access for workflow actions
+    if (action === "approve_accounts" || action === "reject_accounts") {
+      const authorized = await isAccountsHeadUser(req.user);
+      if (!authorized) {
+        return res.status(403).json({
+          success: false,
+          message: "Permission denied: Only Accounts - Head of Department or Sr. Manager Accounts can verify or reject at the Accounts Approval stage.",
+        });
+      }
+    }
+
+    if (action === "approve_admin" || action === "verify_admin" || action === "reject_admin" || action === "admin_return_to_it") {
+      const isAdminUser =
+        String(req.user?.role || "").toLowerCase() === "admin" ||
+        String(req.user?.role || "").toLowerCase() === "administrator" ||
+        req.user?.username === "admin" ||
+        Boolean(req.user?.is_operator);
+      if (!isAdminUser) {
+        return res.status(403).json({
+          success: false,
+          message: "Permission denied: Only Admin can verify or reject at the Admin Verification stage.",
+        });
+      }
+    }
+
+    if (action === "resubmit_it") {
+      const isAdminUser =
+        String(req.user?.role || "").toLowerCase() === "admin" ||
+        String(req.user?.role || "").toLowerCase() === "administrator" ||
+        String(req.user?.role || "").toLowerCase().includes("admin") ||
+        req.user?.username === "admin" ||
+        Boolean(req.user?.is_operator);
+      const isAccountsUser =
+        (await isAccountsHeadUser(req.user)) ||
+        String(req.user?.role || "").toLowerCase().includes("account") ||
+        String(req.user?.department || "").toLowerCase().includes("account");
+      if (isAdminUser || isAccountsUser) {
+        return res.status(403).json({
+          success: false,
+          message: "Permission denied: Admin and Accounts users cannot resubmit invoices. Only IT/Network Department users can resubmit.",
+        });
+      }
+    }
+
     let updatedStage = asset.approval_stage;
     let updatedStatus = asset.approval_status;
     let rejectionRemarks = asset.rejection_remarks;
@@ -540,21 +640,38 @@ router.put("/:id/workflow", validateId, async (req, res) => {
         });
       }
     } else if (action === "reject_admin") {
+      // Step 2: Admin rejects → asset returned directly to IT for correction
       updatedStage = "IT Correction";
       updatedStatus = "Returned to IT";
       rejectionRemarks = remarks || "Rejected by Admin. Please correct and resubmit.";
-      actionDescription = `Rejected by Admin (Cycle ${currentCycle}): ${rejectionRemarks}`;
+      actionDescription = `Rejected by Admin — Returned to IT (Cycle ${currentCycle}): ${rejectionRemarks}`;
+      asset.rejected_by = req.user._id;
+      asset.rejected_by_name = userName;
+      asset.rejected_by_role = userRole;
+      asset.rejected_at = new Date();
     } else if (action === "resubmit_it") {
       currentCycle = (asset.approval_cycle || 1) + 1;
       asset.approval_cycle = currentCycle;
       updatedStage = "Admin Approval";
       updatedStatus = "Pending Admin Approval";
       rejectionRemarks = "";
+      asset.rejected_by = null;
+      asset.rejected_by_name = "";
+      asset.rejected_by_role = "";
+      asset.rejected_at = null;
       actionDescription = `Resubmitted by IT/Network Department (Initiated Cycle ${currentCycle})`;
+      // Support optional invoice updates on resubmit
+      if (req.body.image_url) asset.image_url = req.body.image_url;
+      if (req.body.invoice_number) asset.invoice_number = req.body.invoice_number;
+      if (req.body.invoice_date) asset.invoice_date = req.body.invoice_date;
     } else if (action === "approve_accounts") {
       updatedStage = "Completed";
       updatedStatus = "Completed";
       rejectionRemarks = "";
+      asset.rejected_by = null;
+      asset.rejected_by_name = "";
+      asset.rejected_by_role = "";
+      asset.rejected_at = null;
       asset.completed_at = new Date();
       actionDescription = `Approved by Sr. Manager Accounts / Head of Accounts (Completed Cycle ${currentCycle})`;
 
@@ -576,14 +693,24 @@ router.put("/:id/workflow", validateId, async (req, res) => {
         });
       }
     } else if (action === "reject_accounts") {
+      // Step 3: Accounts rejects → asset returned to Admin as Rejected with details
       updatedStage = "Rejected";
       updatedStatus = "Rejected";
       rejectionRemarks = remarks || "Rejected by Accounts Department.";
       actionDescription = `Rejected by Accounts (Returned to Admin, Cycle ${currentCycle}): ${rejectionRemarks}`;
+      asset.rejected_by = req.user._id;
+      asset.rejected_by_name = userName;
+      asset.rejected_by_role = userRole;
+      asset.rejected_at = new Date();
     } else if (action === "admin_return_to_it") {
+      // Step 4: Admin manually returns to IT (used after Accounts rejection)
       updatedStage = "IT Correction";
       updatedStatus = "Returned to IT";
       actionDescription = `Returned to IT by Admin (Cycle ${currentCycle}): ${remarks || "Please make necessary corrections."}`;
+      asset.rejected_by = req.user._id;
+      asset.rejected_by_name = userName;
+      asset.rejected_by_role = userRole;
+      asset.rejected_at = new Date();
     } else {
       return res.status(400).json({ success: false, message: "Invalid workflow action" });
     }
@@ -608,7 +735,8 @@ router.put("/:id/workflow", validateId, async (req, res) => {
       .populate("vendor", "name")
       .populate("admin_verifications.user", "username first_name last_name email")
       .populate("accounts_verifications.user", "username first_name last_name email")
-      .populate("workflow_history.performed_by", "username first_name last_name email");
+      .populate("workflow_history.performed_by", "username first_name last_name email")
+      .populate("rejected_by", "username first_name last_name email");
 
     res.json({ success: true, data: updatedAsset });
   } catch (err) {

@@ -517,6 +517,10 @@ router.put("/fleet-insurance-sop/:id", authMiddleware, async (req, res) => {
 // DELETE record
 router.delete("/fleet-insurance-sop/:id", authMiddleware, async (req, res) => {
   try {
+    const role = (req.user?.role || "").toLowerCase();
+    if (role !== "admin" && role !== "superadmin") {
+      return res.status(403).json({ message: "Only admin users can delete records" });
+    }
     await context.run({ user: req.user, req }, async () => {
       const record = await FleetInsuranceSopModel.findById(req.params.id);
       if (!record) throw new Error("Record not found");

@@ -679,19 +679,21 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                                 <GetApp sx={{ fontSize: 16 }} />
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title="Delete PR">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleDelete(row._id)}
-                                sx={{
-                                  color: "#ef4444",
-                                  bgcolor: "#fef2f2",
-                                  "&:hover": { bgcolor: "#fee2e2" },
-                                }}
-                              >
-                                <Delete sx={{ fontSize: 16 }} />
-                              </IconButton>
-                            </Tooltip>
+                            {isAdmin && (
+                              <Tooltip title="Delete PR">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleDelete(row._id)}
+                                  sx={{
+                                    color: "#ef4444",
+                                    bgcolor: "#fef2f2",
+                                    "&:hover": { bgcolor: "#fee2e2" },
+                                  }}
+                                >
+                                  <Delete sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
                           </Stack>
                         </TableCell>
                       </TableRow>

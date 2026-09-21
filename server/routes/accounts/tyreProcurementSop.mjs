@@ -272,6 +272,17 @@ function computeDoc(doc) {
   });
   if (clone.stage1) {
     clone.stage1.estimatedTotalCost = estTotalCost;
+    if (!clone.stage1.hodValidation) clone.stage1.hodValidation = {};
+    if (!clone.stage1.hodValidation.validatedBy) {
+      clone.stage1.hodValidation.validatedBy = "MOHIT SINGH";
+    }
+  }
+
+  if (clone.stage3) {
+    if (!clone.stage3.signOff) clone.stage3.signOff = {};
+    if (!clone.stage3.signOff.financeManagerName) {
+      clone.stage3.signOff.financeManagerName = "CHIRAG SHAH";
+    }
   }
 
   clone.status = deriveStatus(clone);
@@ -790,6 +801,10 @@ router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
 // Delete Tyre PR
 router.delete("/tyre-procurement/:id", authMiddleware, async (req, res) => {
   try {
+    const role = (req.user?.role || "").toLowerCase();
+    if (role !== "admin" && role !== "superadmin") {
+      return res.status(403).json({ success: false, message: "Only admin users can delete PRs" });
+    }
     const doc = await TyreProcurementSop.findByIdAndDelete(req.params.id);
     if (!doc) {
       return res.status(404).json({ success: false, message: "Tyre PR not found" });

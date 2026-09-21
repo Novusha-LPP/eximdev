@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext, useMemo } from "react";
 import axios from "axios";
+import { UserContext } from "../../../contexts/UserContext";
 import {
   Box,
   Tabs,
@@ -26,6 +27,9 @@ const emptyPr = {
   stage1: {
     itemsRequired: [],
     routingChecklist: [],
+    hodValidation: {
+      validatedBy: "MOHIT SINGH",
+    },
   },
   stage2: {
     suppliers: [{}, {}, {}],
@@ -34,7 +38,9 @@ const emptyPr = {
   stage3: {
     reviewChecklist: {},
     decision: {},
-    signOff: {},
+    signOff: {
+      financeManagerName: "CHIRAG SHAH",
+    },
   },
   stage4: {
     supplierBankDetails: {},
@@ -52,14 +58,72 @@ const emptyPr = {
   },
 };
 
+const STAGE_TABS = [
+  { label: "1. Purchase Request", stage: 1, component: Stage1PurchaseRequest },
+  { label: "2. Supplier Quotation", stage: 2, component: Stage2SupplierQuotation },
+  { label: "3. Finance Approval", stage: 3, component: Stage3FinanceApproval },
+  { label: "4. Payment & UTR", stage: 4, component: Stage4PaymentUtr },
+  { label: "5. Order & Dispatch", stage: 5, component: Stage5OrderDispatch },
+  { label: "6. Site GRN", stage: 6, component: Stage6Grn },
+];
+
 function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
-  const [value, setValue] = useState(0);
+  const { user } = useContext(UserContext);
+  const userRole = (user?.role || "").toLowerCase();
+  const isAdmin = userRole === "admin" || userRole === "superadmin";
+
+  const [activeStage, setActiveStage] = useState(1);
+  const [allowedUserTabs, setAllowedUserTabs] = useState([]);
+  const [tabsLoading, setTabsLoading] = useState(true);
   const [formData, setFormData] = useState(emptyPr);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const { a11yProps, CustomTabPanel } = useTabs();
 
   const prId = pr?._id;
+
+  useEffect(() => {
+    if (!user) return; // wait for user context before deciding tab visibility
+    if (isAdmin) {
+      setAllowedUserTabs([]);
+      setTabsLoading(false);
+      return;
+    }
+    async function fetchUserTabs() {
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
+        );
+        if (res.data?.success && res.data.allowed_tabs?.length > 0) {
+          setAllowedUserTabs(res.data.allowed_tabs);
+        }
+      } catch (err) {
+        console.error("Error fetching allowed tabs:", err);
+      } finally {
+        setTabsLoading(false);
+      }
+    }
+    if (user.username) {
+      fetchUserTabs();
+    } else {
+      setTabsLoading(false);
+    }
+  }, [user, isAdmin]);
+
+  const visibleStageTabs = useMemo(
+    () =>
+      isAdmin || allowedUserTabs.length === 0
+        ? STAGE_TABS
+        : STAGE_TABS.filter((tab) => allowedUserTabs.includes(tab.label)),
+    [isAdmin, allowedUserTabs]
+  );
+
+  useEffect(() => {
+    if (visibleStageTabs.length === 0) return;
+    if (!visibleStageTabs.some((tab) => tab.stage === activeStage)) {
+      setActiveStage(visibleStageTabs[0].stage);
+    }
+  }, [visibleStageTabs, activeStage]);
 
   const getActiveTabForStatus = (status) => {
     switch (status) {
@@ -99,7 +163,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
         .then((res) => {
           const loaded = mergeWithEmpty(res.data.data || emptyPr);
           setFormData(loaded);
-          setValue(getActiveTabForStatus(loaded.status));
+          setActiveStage(getActiveTabForStatus(loaded.status) + 1);
         })
         .catch((err) => {
           console.error("Error fetching Tyre PR:", err);
@@ -108,16 +172,32 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
         .finally(() => setLoading(false));
     } else {
       setFormData(emptyPr);
-      setValue(0);
+      setActiveStage(1);
     }
   }, [prId]);
 
   const mergeWithEmpty = (data) => ({
     ...emptyPr,
     ...data,
-    stage1: { ...emptyPr.stage1, ...(data.stage1 || {}) },
+    stage1: {
+      ...emptyPr.stage1,
+      ...(data.stage1 || {}),
+      hodValidation: {
+        ...emptyPr.stage1.hodValidation,
+        ...(data.stage1?.hodValidation || {}),
+        validatedBy: data.stage1?.hodValidation?.validatedBy || "MOHIT SINGH",
+      },
+    },
     stage2: { ...emptyPr.stage2, ...(data.stage2 || {}) },
-    stage3: { ...emptyPr.stage3, ...(data.stage3 || {}) },
+    stage3: {
+      ...emptyPr.stage3,
+      ...(data.stage3 || {}),
+      signOff: {
+        ...emptyPr.stage3.signOff,
+        ...(data.stage3?.signOff || {}),
+        financeManagerName: data.stage3?.signOff?.financeManagerName || "CHIRAG SHAH",
+      },
+    },
     stage4: { ...emptyPr.stage4, ...(data.stage4 || {}) },
     stage5: { ...emptyPr.stage5, ...(data.stage5 || {}) },
     stage6: { ...emptyPr.stage6, ...(data.stage6 || {}) },
@@ -162,19 +242,10 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
   };
 
   const handleChangeTab = (event, newValue) => {
-    setValue(newValue);
+    setActiveStage(newValue);
   };
 
-  const stageTabs = [
-    { label: "1. Purchase Request", component: Stage1PurchaseRequest },
-    { label: "2. Supplier Quotation", component: Stage2SupplierQuotation },
-    { label: "3. Finance Approval", component: Stage3FinanceApproval },
-    { label: "4. Payment & UTR", component: Stage4PaymentUtr },
-    { label: "5. Order & Dispatch", component: Stage5OrderDispatch },
-    { label: "6. Site GRN", component: Stage6Grn },
-  ];
-
-  if (loading) {
+  if (loading || tabsLoading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
         <CircularProgress />
@@ -242,7 +313,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
       <Paper elevation={0} sx={{ borderRadius: "6px", border: "1px solid", borderColor: "#e3e7ee", mb: 2, overflow: "hidden", background: "#ffffff" }}>
         <Box sx={{ borderBottom: 1, borderColor: "#e2e8f0", bgcolor: "#f8fafc", px: 0.5 }}>
           <Tabs
-            value={value}
+            value={activeStage}
             onChange={handleChangeTab}
             variant="scrollable"
             scrollButtons="auto"
@@ -255,17 +326,17 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
               },
             }}
           >
-            {stageTabs.map((tab, idx) => (
+            {visibleStageTabs.map((tab) => (
               <Tab
-                key={idx}
+                key={tab.stage}
                 label={tab.label}
-                {...a11yProps(idx)}
-                value={idx}
+                {...a11yProps(tab.stage)}
+                value={tab.stage}
                 sx={{
                   fontWeight: 600,
                   fontSize: "0.8rem",
                   textTransform: "none",
-                  color: value === idx ? "#2563eb" : "#64748b",
+                  color: activeStage === tab.stage ? "#2563eb" : "#64748b",
                   py: 0.5,
                   px: 1.8,
                   minHeight: 34,
@@ -279,16 +350,16 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
         </Box>
 
         <Box sx={{ p: 2 }}>
-          {stageTabs.map((tab, idx) => {
+          {visibleStageTabs.map((tab) => {
             const Component = tab.component;
             return (
-              <CustomTabPanel key={idx} value={value} index={idx}>
+              <CustomTabPanel key={tab.stage} value={activeStage} index={tab.stage}>
                 <fieldset disabled={isView} style={{ border: "none", padding: 0, margin: 0 }}>
                   <Component
-                    data={formData[`stage${idx + 1}`] || {}}
+                    data={formData[`stage${tab.stage}`] || {}}
                     globalData={formData}
                     onGlobalChange={handleChange}
-                    onChange={(stageData) => handleStageChange(`stage${idx + 1}`, stageData)}
+                    onChange={(stageData) => handleStageChange(`stage${tab.stage}`, stageData)}
                   />
                 </fieldset>
 

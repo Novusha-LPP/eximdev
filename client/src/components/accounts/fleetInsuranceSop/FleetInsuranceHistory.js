@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useContext } from "react";
 import {
   Box,
   Typography,
@@ -39,10 +39,14 @@ import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import { useParams, useNavigate } from "react-router-dom";
+import { UserContext } from "../../../contexts/UserContext";
 
 function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack }) {
   const { registrationNo: urlRegNo } = useParams();
   const navigate = useNavigate();
+  const { user } = useContext(UserContext);
+  const userRole = (user?.role || "").toLowerCase();
+  const isAdmin = userRole === "admin" || userRole === "superadmin";
   const [activeRegNo, setActiveRegNo] = useState(registrationNo || urlRegNo || "");
   const [allVehicles, setAllVehicles] = useState([]);
   const [history, setHistory] = useState([]);
@@ -439,15 +443,17 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
                             Renew from this Year
                           </Button>
                         )}
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="error"
-                          startIcon={<DeleteIcon />}
-                          onClick={() => handleDelete(rec)}
-                        >
-                          Delete
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            startIcon={<DeleteIcon />}
+                            onClick={() => handleDelete(rec)}
+                          >
+                            Delete
+                          </Button>
+                        )}
                       </Box>
                     </Box>
 
@@ -629,11 +635,13 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
                               </IconButton>
                             </Tooltip>
                           )}
-                          <Tooltip title="Delete Record">
-                            <IconButton size="small" color="error" onClick={() => handleDelete(row)}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                          {isAdmin && (
+                            <Tooltip title="Delete Record">
+                              <IconButton size="small" color="error" onClick={() => handleDelete(row)}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </Stack>
                       </TableCell>
                     </TableRow>

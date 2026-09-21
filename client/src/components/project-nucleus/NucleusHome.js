@@ -167,8 +167,10 @@ const NucleusHome = () => {
     useEffect(() => {
         if (activeReport === 'transport_monitoring') {
             setFilterType('day');
+        } else if (activeReport === 'uninvoiced_jobs') {
+            setFilterType('fin-year');
         } else {
-            if (filterType === 'fin-year' && !['import_out_of_charge_summary', 'import_pending_summary', 'export_leo_summary'].includes(activeReport)) setFilterType('year');
+            if (filterType === 'fin-year' && !['import_out_of_charge_summary', 'import_pending_summary', 'export_leo_summary', 'uninvoiced_jobs'].includes(activeReport)) setFilterType('year');
         }
     }, [activeReport]);
 

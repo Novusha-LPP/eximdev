@@ -1250,13 +1250,14 @@ router.get('/stagnation', async (req, res) => {
     // We will query for any leads/deals that have no activity for at least the MINIMUM stagnant days across all users (or just use 1 day as a baseline to pull potential candidates, then filter exactly in JS).
     const baselineDaysAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000); // Pulling all records idle for at least 1 day
 
-    // Stagnant Leads
+    // Stagnant Leads (must be idle for both lastActivityAt and updatedAt)
     const leadQuery = {
       ...query,
       status: { $nin: ['converted', 'lost', 'rejected', 'cancelled'] },
+      updatedAt: { $lt: baselineDaysAgo },
       $or: [
-        { lastActivityAt: { $lt: baselineDaysAgo } },
-        { lastActivityAt: { $exists: false }, updatedAt: { $lt: baselineDaysAgo } }
+        { lastActivityAt: { $exists: false } },
+        { lastActivityAt: { $lt: baselineDaysAgo } }
       ]
     };
 
@@ -1267,8 +1268,12 @@ router.get('/stagnation', async (req, res) => {
 
     const stagnantLeads = [];
     stagnantLeadsRaw.forEach(lead => {
-      const lastTime = lead.lastActivityAt || lead.updatedAt;
-      const daysIdle = Math.floor((Date.now() - new Date(lastTime).getTime()) / (1000 * 60 * 60 * 24));
+      const lastActivityTime = lead.lastActivityAt ? new Date(lead.lastActivityAt).getTime() : 0;
+      const updatedTime = lead.updatedAt ? new Date(lead.updatedAt).getTime() : 0;
+      const mostRecentTime = Math.max(lastActivityTime, updatedTime);
+      if (!mostRecentTime) return;
+
+      const daysIdle = Math.floor((Date.now() - mostRecentTime) / (1000 * 60 * 60 * 24));
       const ownerIdStr = lead.ownerId?._id?.toString() || '';
       const threshold = ownerStagnantMap[ownerIdStr] || 2;
       
@@ -1278,18 +1283,19 @@ router.get('/stagnation', async (req, res) => {
           type: 'Lead',
           name: `${lead.firstName || ''} ${lead.lastName || ''} (${lead.company || ''})`.trim(),
           daysIdle,
-          lastActivityDate: lastTime
+          lastActivityDate: new Date(mostRecentTime)
         });
       }
     });
 
-    // Stagnant Opportunities / Deals
+    // Stagnant Opportunities / Deals (must be idle for both lastActivityAt and updatedAt)
     const oppQuery = {
       ...query,
       stage: { $nin: ['won', 'lost'] },
+      updatedAt: { $lt: baselineDaysAgo },
       $or: [
-        { lastActivityAt: { $lt: baselineDaysAgo } },
-        { lastActivityAt: { $exists: false }, updatedAt: { $lt: baselineDaysAgo } }
+        { lastActivityAt: { $exists: false } },
+        { lastActivityAt: { $lt: baselineDaysAgo } }
       ]
     };
 
@@ -1301,8 +1307,38 @@ router.get('/stagnation', async (req, res) => {
 
     const stagnantDeals = [];
     stagnantDealsRaw.forEach(opp => {
-      const lastTime = opp.lastActivityAt || opp.updatedAt;
-      const daysIdle = Math.floor((Date.now() - new Date(lastTime).getTime()) / (1000 * 60 * 60 * 24));
+      let mostRecentTime = Math.max(
+        opp.lastActivityAt ? new Date(opp.lastActivityAt).getTime() : 0,
+        opp.updatedAt ? new Date(opp.updatedAt).getTime() : 0
+      );
+
+      // Check latest stageHistory entry
+      if (Array.isArray(opp.stageHistory) && opp.stageHistory.length > 0) {
+        const lastStage = opp.stageHistory[opp.stageHistory.length - 1];
+        if (lastStage?.enteredAt) {
+          mostRecentTime = Math.max(mostRecentTime, new Date(lastStage.enteredAt).getTime());
+        }
+      }
+
+      // Check latest remark
+      if (Array.isArray(opp.remarks) && opp.remarks.length > 0) {
+        const lastRemark = opp.remarks[opp.remarks.length - 1];
+        if (lastRemark?.createdAt) {
+          mostRecentTime = Math.max(mostRecentTime, new Date(lastRemark.createdAt).getTime());
+        }
+      }
+
+      // Check planned visits
+      if (Array.isArray(opp.plannedVisits) && opp.plannedVisits.length > 0) {
+        opp.plannedVisits.forEach(v => {
+          if (v.completedAt) mostRecentTime = Math.max(mostRecentTime, new Date(v.completedAt).getTime());
+          if (v.createdAt) mostRecentTime = Math.max(mostRecentTime, new Date(v.createdAt).getTime());
+        });
+      }
+
+      if (!mostRecentTime) return;
+
+      const daysIdle = Math.floor((Date.now() - mostRecentTime) / (1000 * 60 * 60 * 24));
       const ownerIdStr = opp.ownerId?._id?.toString() || '';
       const threshold = ownerStagnantMap[ownerIdStr] || 2;
       
@@ -1312,7 +1348,7 @@ router.get('/stagnation', async (req, res) => {
           type: 'Opportunity',
           company: opp.accountId?.name || 'No Account',
           daysIdle,
-          lastActivityDate: lastTime
+          lastActivityDate: new Date(mostRecentTime)
         });
       }
     });
@@ -1365,7 +1401,13 @@ router.get('/lost-leads-detailed', async (req, res) => {
       query.businessVertical = new RegExp(`^${businessVertical.trim()}$`, 'i');
     }
     if (reason && reason !== 'all') {
-      query.closeReason = reason;
+      const standardReasons = ['Price Lost', 'Product Lost', 'No Reply / No Response', 'Lost due to Location'];
+      if (reason === '__other__') {
+        // Match anything that is NOT one of the standard preset reasons
+        query.closeReason = { $nin: standardReasons };
+      } else {
+        query.closeReason = reason;
+      }
     }
 
     if (startDate && endDate) {

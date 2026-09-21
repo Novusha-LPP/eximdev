@@ -120,6 +120,8 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
         closeReason: formData.closeReason,
         closeNotes: formData.closeNotes,
         crateSize: formData.crateSize,
+        location: formData.location,
+        hsnCode: formData.hsnCode,
         source: formData.source,
         referralSourceName: formData.referralSourceName
       };
@@ -510,14 +512,21 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
           {/* Referral Highlighting Banner */}
           {(formData.isReferral || formData.referredFromTeamId || formData.referredToTeamId) && (
             <div style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px',
               padding: '10px 16px', background: '#fef2f2', borderRadius: '8px',
               marginBottom: '20px', border: '1px solid #fecaca', color: '#991b1b'
             }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 800 }}>⚡ Cross-Team Referral:</span>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>
-                Referred from {formData.referredFromTeamId?.teamName || formData.referredFromTeamId?.name || 'Team'} → {formData.referredToTeamId?.teamName || formData.referredToTeamId?.name || 'Team'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800 }}>⚡ Cross-Team Referral:</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>
+                  Referred from {formData.referredFromTeamId?.teamName || formData.referredFromTeamId?.name || 'Team'} → {formData.referredToTeamId?.teamName || formData.referredToTeamId?.name || 'Team'}
+                </span>
+              </div>
+              {(formData.referredAt || formData.createdAt) && (
+                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#b91c1c' }}>
+                  📅 Referred on: {new Date(formData.referredAt || formData.createdAt).toLocaleDateString('en-IN')} {new Date(formData.referredAt || formData.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
             </div>
           )}
 
@@ -686,14 +695,25 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                     </label>
                     <select
                       value={formData.closeReason || ''}
-                      onChange={(e) => setFormData({ ...formData, closeReason: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, closeReason: e.target.value === 'Other (Manual)' ? '' : e.target.value, _closeReasonMode: e.target.value })}
                       style={{ width: '100%', padding: '10px 12px', border: '1px solid #fca5a5', borderRadius: '8px', fontSize: '0.9rem', color: '#991b1b', background: '#ffffff', outline: 'none' }}
                     >
                       <option value="">-- Select a Reason --</option>
                       <option value="Price Lost">Price Lost — Lost due to competitor offering lower price</option>
                       <option value="Product Lost">Product Lost — Product did not meet client specifications</option>
                       <option value="No Reply / No Response">No Reply / No Response — Client became unresponsive</option>
+                      <option value="Lost due to Location">Lost due to Location — Location did not suit client needs</option>
+                      <option value="Other (Manual)">Other — Enter reason manually</option>
                     </select>
+                    {(formData._closeReasonMode === 'Other (Manual)' || (formData.closeReason && !['Price Lost','Product Lost','No Reply / No Response','Lost due to Location'].includes(formData.closeReason))) && (
+                      <input
+                        type="text"
+                        value={['Price Lost','Product Lost','No Reply / No Response','Lost due to Location'].includes(formData.closeReason) ? '' : formData.closeReason || ''}
+                        onChange={(e) => setFormData({ ...formData, closeReason: e.target.value, _closeReasonMode: 'Other (Manual)' })}
+                        placeholder="Describe the reason for losing this deal..."
+                        style={{ width: '100%', marginTop: '8px', padding: '10px 12px', border: '1px solid #fca5a5', borderRadius: '8px', fontSize: '0.9rem', color: '#991b1b', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    )}
                   </div>
                   <div>
                     <label style={{ display: 'block', marginBottom: '6px', color: '#991b1b', fontWeight: 600, fontSize: '0.85rem' }}>
@@ -732,6 +752,30 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                     />
                     <span style={{ minWidth: '40px', textAlign: 'center', fontWeight: 700, color: '#4f46e5' }}>{formData.probability || 0}%</span>
                   </div>
+                </div>
+              </div>
+
+              {/* Location and HSN Code */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#0369a1', fontWeight: 700, fontSize: '0.9rem' }}>📍 Location / Port</label>
+                  <input
+                    type="text"
+                    value={formData.location || ''}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    placeholder="Ex. Mumbai / Nhava Sheva / Mundra"
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #bae6fd', borderRadius: '8px', fontSize: '0.9rem', background: '#f0f9ff' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>🏷️ HSN Code</label>
+                  <input
+                    type="text"
+                    value={formData.hsnCode || ''}
+                    onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
+                    placeholder="Ex. 8471, 7308"
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', fontFamily: 'monospace' }}
+                  />
                 </div>
               </div>
 
@@ -1075,6 +1119,18 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                   <div>
                     <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Forecast Category</span>
                     <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.forecastCategory || 'Pipeline'}</p>
+                  </div>
+                </div>
+
+                {/* Location & HSN Code */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <span style={{ fontSize: '0.8rem', color: '#0369a1', fontWeight: 700 }}>📍 Location / Port</span>
+                    <p style={{ margin: '4px 0 0 0', color: '#0369a1', fontWeight: 600 }}>{formData.location || (formData.pol || formData.pod ? `${formData.pol || ''}${formData.pol && formData.pod ? ' → ' : ''}${formData.pod || ''}` : 'Not set')}</p>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>🏷️ HSN Code</span>
+                    <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600, fontFamily: 'monospace' }}>{formData.hsnCode || 'Not set'}</p>
                   </div>
                 </div>
 

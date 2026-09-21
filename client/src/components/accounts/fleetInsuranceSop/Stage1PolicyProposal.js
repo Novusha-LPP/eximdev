@@ -150,14 +150,6 @@ function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, 
             <Typography className="sop-card-title">
               {isRenew ? "2. Previous Policy Details" : "2. Current Policy Details"}
             </Typography>
-            <button
-              type="button"
-              className="sop-btn sop-btn-secondary"
-              style={{ padding: "2px 8px", fontSize: "10.5px" }}
-              onClick={() => addCustomField("section2CustomFields")}
-            >
-              + Add Field
-            </button>
           </Box>
 
           <Box className="sop-grid-3" sx={{ mb: 1 }}>
@@ -500,160 +492,204 @@ function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, 
               <label className="sop-label">RENEWED TOTAL POLICY</label>
               <input
                 type="number"
-                className="sop-input readonly"
-                readOnly
+                className="sop-input"
                 value={formData.newTotalPolicyPremium ?? formData.newPremiumAmount ?? ""}
+                onChange={(e) => {
+                  handleChange("newTotalPolicyPremium", e.target.value);
+                  handleChange("newPremiumAmount", e.target.value);
+                }}
                 style={{ fontWeight: 700, color: "#1d4ed8" }}
               />
             </Box>
+          </Box>
+
+          {/* Custom Fields for 3B: Renewed Insurance Premium Breakdown */}
+          <Box sx={{ mt: 1.5, pt: 1.5, borderTop: "1px dashed #cbd5e1" }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+              <Typography sx={{ fontSize: "11px", fontWeight: 700, color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Additional Premium Fields
+              </Typography>
+              <button
+                type="button"
+                className="sop-btn sop-btn-secondary"
+                style={{ padding: "2px 8px", fontSize: "10.5px" }}
+                onClick={() => addCustomField("section3BCustomFields")}
+              >
+                + Add Field
+              </button>
+            </Box>
+            {(formData.section3BCustomFields || []).length === 0 ? (
+              <Box sx={{ p: 1, textAlign: "center", color: "#94a3b8", fontSize: "11px" }}>
+                No extra premium fields. Click "+ Add Field" to add.
+              </Box>
+            ) : (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                {(formData.section3BCustomFields || []).map((cf, idx) => (
+                  <Box key={cf.id || idx} sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                    <input
+                      type="text"
+                      className="sop-input"
+                      placeholder="Field Title (e.g. Zero Dep)"
+                      value={cf.label || ""}
+                      onChange={(e) => updateCustomField("section3BCustomFields", idx, "label", e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <input
+                      type="text"
+                      className="sop-input"
+                      placeholder="Value (₹)"
+                      value={cf.value ?? ""}
+                      onChange={(e) => updateCustomField("section3BCustomFields", idx, "value", e.target.value)}
+                      style={{ width: 140 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeCustomField("section3BCustomFields", idx)}
+                      style={{ border: "none", background: "transparent", color: "#dc2626", cursor: "pointer", fontWeight: "bold", padding: "0 6px" }}
+                    >
+                      ✕
+                    </button>
+                  </Box>
+                ))}
+              </Box>
+            )}
           </Box>
         </Box>
       </Box>
 
-      {/* ─── ROW 3: Renewed Policy Details & Remarks ─── */}
-      <Box className="sop-grid-2">
-        {/* Left: Renewed Policy Identity */}
-        <Box className="sop-card">
-          <Typography className="sop-card-title" sx={{ mb: 1 }}>
-            3. Renewed Policy Details
-          </Typography>
-          <Box className="sop-grid-3" sx={{ mb: 1 }}>
-            <Box>
-              <label className="sop-label">NEW INSURANCE COMPANY</label>
-              <input
-                type="text"
-                className="sop-input"
-                value={formData.newInsuranceCompany ?? ""}
-                onChange={(e) => handleChange("newInsuranceCompany", e.target.value)}
-              />
-            </Box>
-            <Box>
-              <label className="sop-label">NEW POLICY NO.</label>
-              <input
-                type="text"
-                className="sop-input"
-                value={formData.newPolicyNo ?? ""}
-                onChange={(e) => handleChange("newPolicyNo", e.target.value)}
-              />
-            </Box>
-            <Box>
-              <label className="sop-label">NEW IDV BASIC (₹)</label>
-              <input
-                type="number"
-                className="sop-input"
-                value={formData.newIdv ?? ""}
-                onChange={(e) => handleChange("newIdv", e.target.value)}
-              />
-            </Box>
+      {/* ─── ROW 3: Renewed Policy Details ─── */}
+      <Box className="sop-card">
+        <Typography className="sop-card-title" sx={{ mb: 1 }}>
+          3. Renewed Policy Details
+        </Typography>
+        <Box className="sop-grid-3" sx={{ mb: 1 }}>
+          <Box>
+            <label className="sop-label">NEW INSURANCE COMPANY</label>
+            <input
+              type="text"
+              className="sop-input"
+              value={formData.newInsuranceCompany ?? ""}
+              onChange={(e) => handleChange("newInsuranceCompany", e.target.value)}
+            />
           </Box>
-
-          <Box className="sop-grid-3" sx={{ mb: 1 }}>
-            <Box>
-              <label className="sop-label">NEW VALID FROM</label>
-              <input
-                type="date"
-                className="sop-input"
-                value={formatDateValue(formData.newPolicyFromDate)}
-                onChange={(e) => handleChange("newPolicyFromDate", e.target.value)}
-              />
-            </Box>
-            <Box>
-              <label className="sop-label">NEW VALID TO (EXPIRY)</label>
-              <input
-                type="date"
-                className="sop-input"
-                value={formatDateValue(formData.newPolicyToDate)}
-                onChange={(e) => handleChange("newPolicyToDate", e.target.value)}
-                style={{ fontWeight: 700, color: "#1d4ed8" }}
-              />
-            </Box>
-            <Box>
-              <label className="sop-label">NEW TOTAL IDV (₹)</label>
-              <input
-                type="number"
-                className="sop-input readonly"
-                readOnly
-                value={formData.newTotalIdv ?? ""}
-                style={{ fontWeight: 700, color: "#0f172a" }}
-              />
-            </Box>
+          <Box>
+            <label className="sop-label">NEW POLICY NO.</label>
+            <input
+              type="text"
+              className="sop-input"
+              value={formData.newPolicyNo ?? ""}
+              onChange={(e) => handleChange("newPolicyNo", e.target.value)}
+            />
           </Box>
-
-          <Box className="sop-grid-2">
-            <Box>
-              <label className="sop-label">NEW NCB (%)</label>
-              <input
-                type="number"
-                className="sop-input"
-                value={formData.newNcb ?? ""}
-                onChange={(e) => handleChange("newNcb", e.target.value)}
-              />
-            </Box>
-            <Box>
-              <label className="sop-label">REMARKS / NOTES</label>
-              <input
-                type="text"
-                className="sop-input"
-                value={formData.newRemarks ?? formData.remarks ?? ""}
-                onChange={(e) => {
-                  handleChange("newRemarks", e.target.value);
-                  handleChange("remarks", e.target.value);
-                }}
-                placeholder="Policy endorsements, broker, branch..."
-              />
-            </Box>
+          <Box>
+            <label className="sop-label">NEW IDV BASIC (₹)</label>
+            <input
+              type="number"
+              className="sop-input"
+              value={formData.newIdv ?? ""}
+              onChange={(e) => handleChange("newIdv", e.target.value)}
+            />
           </Box>
         </Box>
 
-        {/* Right: Dynamic Custom Fields Container */}
-        <Box className="sop-card">
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-            <Typography className="sop-card-title">Custom Fields / Endorsements</Typography>
-            <button
-              type="button"
-              className="sop-btn sop-btn-secondary"
-              style={{ padding: "2px 8px", fontSize: "10.5px" }}
-              onClick={() => addCustomField("section2CustomFields")}
-            >
-              + Add Field
-            </button>
+        <Box className="sop-grid-3" sx={{ mb: 1 }}>
+          <Box>
+            <label className="sop-label">NEW VALID FROM</label>
+            <input
+              type="date"
+              className="sop-input"
+              value={formatDateValue(formData.newPolicyFromDate)}
+              onChange={(e) => handleChange("newPolicyFromDate", e.target.value)}
+            />
           </Box>
+          <Box>
+            <label className="sop-label">NEW VALID TO (EXPIRY)</label>
+            <input
+              type="date"
+              className="sop-input"
+              value={formatDateValue(formData.newPolicyToDate)}
+              onChange={(e) => handleChange("newPolicyToDate", e.target.value)}
+              style={{ fontWeight: 700, color: "#1d4ed8" }}
+            />
+          </Box>
+          <Box>
+            <label className="sop-label">NEW TOTAL IDV (₹)</label>
+            <input
+              type="number"
+              className="sop-input"
+              value={formData.newTotalIdv ?? ""}
+              onChange={(e) => handleChange("newTotalIdv", e.target.value)}
+              style={{ fontWeight: 700, color: "#0f172a" }}
+            />
+          </Box>
+        </Box>
 
-          {(formData.section2CustomFields || []).length === 0 ? (
-            <Box sx={{ p: 2, textAlign: "center", color: "#64748b", fontSize: "11.5px" }}>
-              No custom policy fields added. Click "+ Add Field" above to record RTI cover, zero depreciation, or broker extras.
-            </Box>
-          ) : (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              {(formData.section2CustomFields || []).map((cf, idx) => (
-                <Box key={cf.id || idx} sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                  <input
-                    type="text"
-                    className="sop-input"
-                    placeholder="Field Title (e.g. RTI Cover)"
-                    value={cf.label || ""}
-                    onChange={(e) => updateCustomField("section2CustomFields", idx, "label", e.target.value)}
-                    style={{ flex: 1 }}
-                  />
-                  <input
-                    type="text"
-                    className="sop-input"
-                    placeholder="Value (₹)"
-                    value={cf.value ?? ""}
-                    onChange={(e) => updateCustomField("section2CustomFields", idx, "value", e.target.value)}
-                    style={{ width: 140 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeCustomField("section2CustomFields", idx)}
-                    style={{ border: "none", background: "transparent", color: "#dc2626", cursor: "pointer", fontWeight: "bold", padding: "0 6px" }}
-                  >
-                    ✕
-                  </button>
-                </Box>
-              ))}
-            </Box>
-          )}
+        <Box className="sop-grid-2">
+          <Box>
+            <label className="sop-label">NEW NCB (%)</label>
+            <input
+              type="number"
+              className="sop-input"
+              value={formData.newNcb ?? ""}
+              onChange={(e) => handleChange("newNcb", e.target.value)}
+            />
+          </Box>
+          <Box>
+            <label className="sop-label">REMARKS / NOTES</label>
+            <input
+              type="text"
+              className="sop-input"
+              value={formData.newRemarks ?? formData.remarks ?? ""}
+              onChange={(e) => {
+                handleChange("newRemarks", e.target.value);
+                handleChange("remarks", e.target.value);
+              }}
+              placeholder="Policy endorsements, broker, branch..."
+            />
+          </Box>
+        </Box>
+
+        {/* Inline custom fields appended to 3. Renewed Policy Details */}
+        {(formData.section2CustomFields || []).length > 0 && (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 1 }}>
+            {(formData.section2CustomFields || []).map((cf, idx) => (
+              <Box key={cf.id || idx} sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                <input
+                  type="text"
+                  className="sop-input"
+                  placeholder="Field Title (e.g. RTI Cover)"
+                  value={cf.label || ""}
+                  onChange={(e) => updateCustomField("section2CustomFields", idx, "label", e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <input
+                  type="text"
+                  className="sop-input"
+                  placeholder="Value (₹)"
+                  value={cf.value ?? ""}
+                  onChange={(e) => updateCustomField("section2CustomFields", idx, "value", e.target.value)}
+                  style={{ width: 140 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeCustomField("section2CustomFields", idx)}
+                  style={{ border: "none", background: "transparent", color: "#dc2626", cursor: "pointer", fontWeight: "bold", padding: "0 6px" }}
+                >
+                  ✕
+                </button>
+              </Box>
+            ))}
+          </Box>
+        )}
+        <Box sx={{ mt: 1, display: "flex", justifyContent: "flex-end" }}>
+          <button
+            type="button"
+            className="sop-btn sop-btn-secondary"
+            style={{ padding: "2px 8px", fontSize: "10.5px" }}
+            onClick={() => addCustomField("section2CustomFields")}
+          >
+            + Add Field
+          </button>
         </Box>
       </Box>
     </Box>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import OpportunityDetailModal from './components/OpportunityDetailModal';
 import TaskFormModal from './components/TaskFormModal';
+import CrmFilterAutocomplete from './components/CrmFilterAutocomplete';
 import FilterBar from './components/FilterBar';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -88,12 +89,18 @@ export default function CRMKanbanBoard() {
   const [selectedDate, setSelectedDate] = useState(() => getInitialParam('date', new Date().toISOString().substring(0, 10)));
   const [selectedWeek, setSelectedWeek] = useState(() => getInitialParam('week', new Date().toISOString().substring(0, 10)));
   const [selectedMonth, setSelectedMonth] = useState(() => getInitialParam('month', new Date().toISOString().substring(0, 7)));
+  const [selectedLocation, setSelectedLocation] = useState(() => getInitialParam('location', ''));
+  const [selectedHsnCode, setSelectedHsnCode] = useState(() => getInitialParam('hsnCode', ''));
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [hsnSuggestions, setHsnSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   // Lost Reason Modal States
   const [isLostModalOpen, setIsLostModalOpen] = useState(false);
   const [lostOpportunityId, setLostOpportunityId] = useState(null);
   const [lostFromStage, setLostFromStage] = useState(null);
   const [lostReason, setLostReason] = useState('');
+  const [lostCustomReason, setLostCustomReason] = useState('');
   const [lostNotes, setLostNotes] = useState('');
 
   // Quick Duplicate Modal States
@@ -184,6 +191,12 @@ export default function CRMKanbanBoard() {
       const params = {};
       if (selectedSource) {
         params.source = selectedSource;
+      }
+      if (selectedLocation && selectedLocation.trim()) {
+        params.location = selectedLocation.trim();
+      }
+      if (selectedHsnCode && selectedHsnCode.trim()) {
+        params.hsnCode = selectedHsnCode.trim();
       }
       if (selectedTeam && selectedTeam !== 'all') {
         params.teamId = selectedTeam;
@@ -413,6 +426,29 @@ export default function CRMKanbanBoard() {
     fetchUsers();
   }, []);
 
+  // Fetch Location & HSN Suggestions from existing CRM opportunities
+  const fetchSuggestions = async () => {
+    try {
+      setSuggestionsLoading(true);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/suggestions`,
+        getHeaders()
+      );
+      if (res.data) {
+        setLocationSuggestions(res.data.locations || []);
+        setHsnSuggestions(res.data.hsnCodes || []);
+      }
+    } catch (err) {
+      console.error('Failed to load suggestions:', err);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSuggestions();
+  }, []);
+
   // Sync URL Params
   useEffect(() => {
     try {
@@ -423,6 +459,8 @@ export default function CRMKanbanBoard() {
       if (selectedTimePeriod === 'daily') params.set('date', selectedDate);
       if (selectedTimePeriod === 'weekly') params.set('week', selectedWeek);
       if (selectedTimePeriod === 'monthly') params.set('month', selectedMonth);
+      if (selectedLocation) params.set('location', selectedLocation);
+      if (selectedHsnCode) params.set('hsnCode', selectedHsnCode);
 
       const newSearch = params.toString() ? `?${params.toString()}` : '';
       if (window.location.search !== newSearch) {
@@ -431,11 +469,11 @@ export default function CRMKanbanBoard() {
     } catch (e) {
       console.error('Error syncing URL params:', e);
     }
-  }, [selectedStage, selectedSource, selectedTimePeriod, selectedDate, selectedWeek, selectedMonth]);
+  }, [selectedStage, selectedSource, selectedTimePeriod, selectedDate, selectedWeek, selectedMonth, selectedLocation, selectedHsnCode]);
 
   useEffect(() => {
     fetchBoard();
-  }, [filters, selectedStage, selectedSource, selectedTimePeriod, selectedDate, selectedWeek, selectedMonth, selectedTeam, selectedOwner, seeAllData]);
+  }, [filters, selectedStage, selectedSource, selectedTimePeriod, selectedDate, selectedWeek, selectedMonth, selectedLocation, selectedHsnCode, selectedTeam, selectedOwner, seeAllData]);
 
   const handleDragStart = (e, opportunity, fromStage) => {
     setDraggedOpportunity({ opportunity, fromStage });
@@ -473,7 +511,8 @@ export default function CRMKanbanBoard() {
   };
 
   const handleConfirmLost = async () => {
-    if (!lostReason) return;
+    const effectiveLostReason = lostReason === 'Other (Manual)' ? (lostCustomReason.trim() || 'Other') : lostReason;
+    if (!effectiveLostReason) return;
     setIsLostModalOpen(false);
     setUpdating(true);
     try {
@@ -481,7 +520,7 @@ export default function CRMKanbanBoard() {
         `${process.env.REACT_APP_API_STRING}/crm/opportunities/${lostOpportunityId}`,
         {
           stage: 'lost',
-          closeReason: lostReason,
+          closeReason: effectiveLostReason,
           closeNotes: lostNotes
         },
         getHeaders()
@@ -785,10 +824,36 @@ export default function CRMKanbanBoard() {
                 background: '#ffffff',
                 fontWeight: 600,
                 outline: 'none',
-                width: '200px'
+                width: '180px'
               }}
             />
           </div>
+
+          {/* Location Filter (Primary Focus) with Autocomplete */}
+          <CrmFilterAutocomplete
+            icon="📍"
+            label="LOCATION"
+            primary={true}
+            placeholder="Filter Location / Port..."
+            value={selectedLocation}
+            onChange={setSelectedLocation}
+            options={locationSuggestions}
+            loading={suggestionsLoading}
+            width="180px"
+          />
+
+          {/* HSN Code Filter with Autocomplete */}
+          <CrmFilterAutocomplete
+            icon="🏷️"
+            label="HSN"
+            primary={false}
+            placeholder="Filter HSN Code..."
+            value={selectedHsnCode}
+            onChange={setSelectedHsnCode}
+            options={hsnSuggestions}
+            loading={suggestionsLoading}
+            width="150px"
+          />
 
           {/* Stage Dropdown */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1033,10 +1098,14 @@ export default function CRMKanbanBoard() {
                 <tr style={{ borderBottom: '2px solid #f1f5f9', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   <th style={{ padding: '12px 16px' }}>Deal Name</th>
                   <th style={{ padding: '12px 16px' }}>Company</th>
+                  <th style={{ padding: '12px 16px', color: '#0284c7' }}>📍 Location</th>
+                  <th style={{ padding: '12px 16px' }}>🏷️ HSN</th>
                   <th style={{ padding: '12px 16px', textAlign: 'right' }}>Value</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center' }}>Probability</th>
                   <th style={{ padding: '12px 16px' }}>Crate Size</th>
                   <th style={{ padding: '12px 16px' }}>Lead Source</th>
+                  <th style={{ padding: '12px 16px', color: '#dc2626' }}>Reason for Loss</th>
+                  <th style={{ padding: '12px 16px' }}>Referred Info</th>
                   <th style={{ padding: '12px 16px' }}>Created Date</th>
                   <th style={{ padding: '12px 16px' }}>Last Updated</th>
                   <th style={{ padding: '12px 16px' }}>Assigned To</th>
@@ -1045,7 +1114,7 @@ export default function CRMKanbanBoard() {
               <tbody>
                 {dealsList.length === 0 ? (
                   <tr>
-                    <td colSpan="9" style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
+                    <td colSpan="13" style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
                       No deals found matching the active stage and period filter.
                     </td>
                   </tr>
@@ -1121,6 +1190,14 @@ export default function CRMKanbanBoard() {
                       <td style={{ padding: '16px', color: '#475569' }}>
                         {typeof deal.accountId === 'object' ? (deal.accountId?.name || 'N/A') : (deal.accountId || 'N/A')}
                       </td>
+                      {/* Location (Primary Focus) */}
+                      <td style={{ padding: '16px', color: '#0369a1', fontWeight: 600 }}>
+                        {deal.location || (deal.pol || deal.pod ? `${deal.pol || ''}${deal.pol && deal.pod ? ' → ' : ''}${deal.pod || ''}` : '—')}
+                      </td>
+                      {/* HSN Code */}
+                      <td style={{ padding: '16px', color: '#475569', fontFamily: 'monospace', fontWeight: 600 }}>
+                        {deal.hsnCode || '—'}
+                      </td>
                       <td style={{ padding: '16px', textAlign: 'right', fontWeight: 700, color: '#10b981', fontFamily: 'monospace' }}>
                         ₹{deal.value ? deal.value.toLocaleString('en-IN') : '0'}
                       </td>
@@ -1160,6 +1237,48 @@ export default function CRMKanbanBoard() {
                             {deal.source}
                           </span>
                         ) : '—'}
+                      </td>
+                      {/* Reason for Loss */}
+                      <td style={{ padding: '16px' }}>
+                        {deal.stage === 'lost' || deal.closeReason ? (
+                          <span style={{
+                            display: 'inline-block',
+                            background: '#fee2e2',
+                            color: '#b91c1c',
+                            border: '1px solid #fca5a5',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700
+                          }}>
+                            {deal.closeReason || 'Not Specified'}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#94a3b8' }}>—</span>
+                        )}
+                      </td>
+                      {/* Referred Info & Date */}
+                      <td style={{ padding: '16px' }}>
+                        {deal.isReferral ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <span style={{
+                              fontSize: '0.68rem',
+                              background: '#fef2f2',
+                              color: '#b91c1c',
+                              padding: '2px 6px',
+                              borderRadius: '6px',
+                              fontWeight: 700,
+                              border: '1px solid #fecaca'
+                            }}>
+                              ⚡ {deal.referredFromTeamId?.teamName || deal.referredFromTeamId?.name || 'Team'} → {deal.referredToTeamId?.teamName || deal.referredToTeamId?.name || 'Team'}
+                            </span>
+                            <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                              📅 {deal.referredAt ? new Date(deal.referredAt).toLocaleDateString('en-IN') : (deal.createdAt ? new Date(deal.createdAt).toLocaleDateString('en-IN') : '—')}
+                            </span>
+                          </div>
+                        ) : (
+                          <span style={{ color: '#94a3b8' }}>—</span>
+                        )}
                       </td>
                       <td style={{ padding: '16px', color: '#64748b' }}>
                         {new Date(deal.createdAt).toLocaleDateString('en-IN')}
@@ -1203,7 +1322,9 @@ export default function CRMKanbanBoard() {
               const ownerMatch = (opp.ownerId?.first_name || opp.ownerId?.username || '').toLowerCase().includes(q);
               const serviceMatch = opp.services?.some(s => s.toLowerCase().includes(q));
               const valMatch = opp.value?.toString().includes(q);
-              return nameMatch || accountMatch || ownerMatch || serviceMatch || valMatch;
+              const locationMatch = (opp.location || opp.pol || opp.pod || '').toLowerCase().includes(q);
+              const hsnMatch = (opp.hsnCode || '').toLowerCase().includes(q);
+              return nameMatch || accountMatch || ownerMatch || serviceMatch || valMatch || locationMatch || hsnMatch;
             });
             return (
               <div key={stage.id} style={{
@@ -1280,9 +1401,14 @@ export default function CRMKanbanBoard() {
                             <span style={{
                               fontSize: '0.65rem', background: '#fef2f2', color: '#b91c1c',
                               padding: '2px 8px', borderRadius: '12px', fontWeight: 800, border: '1px solid #fecaca',
-                              display: 'inline-block'
+                              display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap'
                             }}>
-                              ⚡ Referred ({opp.referredFromTeamId?.teamName || opp.referredFromTeamId?.name || 'Team'} → {opp.referredToTeamId?.teamName || opp.referredToTeamId?.name || 'Team'})
+                              <span>⚡ Referred ({opp.referredFromTeamId?.teamName || opp.referredFromTeamId?.name || 'Team'} → {opp.referredToTeamId?.teamName || opp.referredToTeamId?.name || 'Team'})</span>
+                              {(opp.referredAt || opp.createdAt) && (
+                                <span style={{ color: '#7f1d1d', fontWeight: 600 }}>
+                                  • {new Date(opp.referredAt || opp.createdAt).toLocaleDateString('en-IN')}
+                                </span>
+                              )}
                             </span>
                           </div>
                         )}
@@ -1490,6 +1616,54 @@ export default function CRMKanbanBoard() {
                               </span>
                             );
                           })()}
+                          {/* Location & HSN badges */}
+                          {(opp.location || opp.pol || opp.pod) && (
+                            <span style={{
+                              fontSize: '0.65rem',
+                              background: '#f0f9ff',
+                              color: '#0369a1',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontWeight: 700,
+                              border: '1px solid #bae6fd',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}>
+                              📍 {opp.location || `${opp.pol || ''}${opp.pol && opp.pod ? ' → ' : ''}${opp.pod || ''}`}
+                            </span>
+                          )}
+                          {opp.hsnCode && (
+                            <span style={{
+                              fontSize: '0.65rem',
+                              background: '#f8fafc',
+                              color: '#475569',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontWeight: 600,
+                              border: '1px solid #e2e8f0',
+                              fontFamily: 'monospace'
+                            }}>
+                              🏷️ HSN: {opp.hsnCode}
+                            </span>
+                          )}
+                          {/* Reason for Loss Badge if Lost */}
+                          {(opp.stage === 'lost' || opp.closeReason) && (
+                            <span style={{
+                              fontSize: '0.65rem',
+                              background: '#fee2e2',
+                              color: '#b91c1c',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontWeight: 800,
+                              border: '1px solid #fca5a5',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}>
+                              ❌ Loss Reason: {opp.closeReason || 'Not specified'}
+                            </span>
+                          )}
                         </div>
 
                         {/* Pricing Request Status / Price on Kanban Card */}
@@ -1728,8 +1902,33 @@ export default function CRMKanbanBoard() {
                 <option value="Price Lost">Price Lost — Lost due to competitor offering lower price</option>
                 <option value="Product Lost">Product Lost — Product did not meet client specifications</option>
                 <option value="No Reply / No Response">No Reply / No Response — Client became unresponsive</option>
+                <option value="Lost due to Location">Lost due to Location — Location did not suit client needs</option>
+                <option value="Other (Manual)">Other — Enter reason manually</option>
               </select>
             </div>
+            {lostReason === 'Other (Manual)' && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#475569', fontWeight: 600, fontSize: '0.875rem' }}>
+                  Specify Reason <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={lostCustomReason}
+                  onChange={(e) => setLostCustomReason(e.target.value)}
+                  placeholder="Describe the reason for losing this deal..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                    color: '#1e293b',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            )}
 
             <div style={{ marginBottom: '24px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: '#475569', fontWeight: 600, fontSize: '0.875rem' }}>
@@ -1760,6 +1959,9 @@ export default function CRMKanbanBoard() {
                   setIsLostModalOpen(false);
                   setLostOpportunityId(null);
                   setLostFromStage(null);
+                  setLostReason('');
+                  setLostCustomReason('');
+                  setLostNotes('');
                 }}
                 style={{
                   padding: '10px 18px',
@@ -1777,14 +1979,14 @@ export default function CRMKanbanBoard() {
               </button>
               <button
                 onClick={handleConfirmLost}
-                disabled={!lostReason}
+                disabled={!lostReason || (lostReason === 'Other (Manual)' && !lostCustomReason.trim())}
                 style={{
                   padding: '10px 18px',
-                  background: lostReason ? '#ef4444' : '#fca5a5',
+                  background: (lostReason && !(lostReason === 'Other (Manual)' && !lostCustomReason.trim())) ? '#ef4444' : '#fca5a5',
                   color: '#ffffff',
                   border: 'none',
                   borderRadius: '8px',
-                  cursor: lostReason ? 'pointer' : 'not-allowed',
+                  cursor: (lostReason && !(lostReason === 'Other (Manual)' && !lostCustomReason.trim())) ? 'pointer' : 'not-allowed',
                   fontWeight: 600,
                   fontSize: '0.875rem',
                   transition: 'all 0.2s'

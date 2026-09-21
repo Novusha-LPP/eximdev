@@ -5,6 +5,7 @@ import { message } from 'antd';
 import LeadFormModal from './components/LeadFormModal';
 import LeadDetailModal from './components/LeadDetailModal';
 import FilterBar from './components/FilterBar';
+import CrmFilterAutocomplete from './components/CrmFilterAutocomplete';
 
 const ALLOWED_SERVICES = [
   'freight forwarding',
@@ -61,6 +62,11 @@ export default function LeadList() {
   const [allTeams, setAllTeams] = useState([]);
   const [searchReferral, setSearchReferral] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('');
+  const [selectedHsnCode, setSelectedHsnCode] = useState('');
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [hsnSuggestions, setHsnSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   const [filters, setFilters] = useState(() => {
     try {
@@ -90,7 +96,17 @@ export default function LeadList() {
     });
   };
 
-  const fetchLeads = async (teamId = selectedTeamId, source = selectedSource, service = selectedService, referral = searchReferral, activeFilters = filters, scope = viewScope, query = searchQuery) => {
+  const fetchLeads = async (
+    teamId = selectedTeamId,
+    source = selectedSource,
+    service = selectedService,
+    referral = searchReferral,
+    activeFilters = filters,
+    scope = viewScope,
+    query = searchQuery,
+    location = selectedLocation,
+    hsnCode = selectedHsnCode
+  ) => {
     if (!activeFilters) return;
     setLoading(true);
     setError(null);
@@ -102,6 +118,8 @@ export default function LeadList() {
       if (service) queryParams.append('service', service);
       if (referral) queryParams.append('referralSourceName', referral);
       if (query) queryParams.append('searchQuery', query);
+      if (location) queryParams.append('location', location);
+      if (hsnCode) queryParams.append('hsnCode', hsnCode);
 
       if (activeFilters.startDate && activeFilters.endDate) {
         queryParams.append('startDate', activeFilters.startDate);
@@ -180,22 +198,51 @@ export default function LeadList() {
     }
   };
 
+  const fetchSuggestions = async () => {
+    try {
+      setSuggestionsLoading(true);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/leads/suggestions`,
+        getHeaders()
+      );
+      if (res.data) {
+        setLocationSuggestions(res.data.locations || []);
+        setHsnSuggestions(res.data.hsnCodes || []);
+      }
+    } catch (err) {
+      console.error('Failed to load lead suggestions:', err);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchUserTeams();
+    fetchSuggestions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (filters) {
-      // Adding a small debounce for the search query if the user is typing fast
+      // Adding a small debounce for the search queries
       const delayDebounceFn = setTimeout(() => {
-        fetchLeads(selectedTeamId, selectedSource, selectedService, searchReferral, filters, viewScope, searchQuery);
-      }, 500);
+        fetchLeads(
+          selectedTeamId,
+          selectedSource,
+          selectedService,
+          searchReferral,
+          filters,
+          viewScope,
+          searchQuery,
+          selectedLocation,
+          selectedHsnCode
+        );
+      }, 400);
 
       return () => clearTimeout(delayDebounceFn);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, selectedTeamId, selectedSource, selectedService, searchReferral, viewScope, searchQuery]);
+  }, [filters, selectedTeamId, selectedSource, selectedService, searchReferral, viewScope, searchQuery, selectedLocation, selectedHsnCode]);
 
   const handleConvert = async (leadId, leadName) => {
     if (!window.confirm(`Convert "${leadName}" into an Account & Opportunity?\n\nThis will create a new account, contact, and sales opportunity.`)) {
@@ -396,13 +443,39 @@ export default function LeadList() {
             ))}
           </select>
 
+          {/* Location Filter Input (Primary Focus) with Autocomplete */}
+          <CrmFilterAutocomplete
+            icon="📍"
+            label="Location"
+            primary={true}
+            placeholder="Port / City..."
+            value={selectedLocation}
+            onChange={setSelectedLocation}
+            options={locationSuggestions}
+            loading={suggestionsLoading}
+            width="170px"
+          />
+
+          {/* HSN Code Filter Input with Autocomplete */}
+          <CrmFilterAutocomplete
+            icon="🏷️"
+            label="HSN"
+            primary={false}
+            placeholder="HSN Code..."
+            value={selectedHsnCode}
+            onChange={setSelectedHsnCode}
+            options={hsnSuggestions}
+            loading={suggestionsLoading}
+            width="130px"
+          />
+
           {/* Referral Search Input */}
           <input
             type="text"
             placeholder="Search Referral By..."
             value={searchReferral}
             onChange={(e) => setSearchReferral(e.target.value)}
-            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', width: '160px' }}
+            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', width: '150px' }}
           />
 
           {/* General Search Input */}
@@ -411,7 +484,7 @@ export default function LeadList() {
             placeholder="Search Leads..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', width: '160px' }}
+            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', width: '150px' }}
           />
 
           <button
@@ -439,14 +512,16 @@ export default function LeadList() {
             <thead>
               <tr style={{ borderBottom: '2px solid #f1f5f9', textAlign: 'left', color: '#64748b', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 <th style={{ padding: '16px 12px' }}>Company</th>
+                <th style={{ padding: '16px 12px', background: '#f0f9ff', color: '#0369a1', fontWeight: 800 }}>📍 Location</th>
                 <th style={{ padding: '16px 12px' }}>Contact Person</th>
                 <th style={{ padding: '16px 12px' }}>Status</th>
+                <th style={{ padding: '16px 12px', color: '#be123c', fontWeight: 700 }}>Reason for Loss</th>
                 <th style={{ padding: '16px 12px', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {leads.length === 0 ? (
-                <tr><td colSpan="4" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No leads found in your pipeline.</td></tr>
+                <tr><td colSpan="6" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No leads found matching your criteria.</td></tr>
               ) : leads.map(lead => (
                 <tr key={lead._id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   <td style={{ padding: '16px 12px', fontWeight: 600, color: '#334155' }}>
@@ -484,9 +559,15 @@ export default function LeadList() {
                       {lead.isReferral && (
                         <span style={{
                           fontSize: '0.65rem', background: '#fef2f2', color: '#b91c1c',
-                          padding: '2px 8px', borderRadius: '12px', fontWeight: 800, border: '1px solid #fecaca'
+                          padding: '2px 8px', borderRadius: '12px', fontWeight: 800, border: '1px solid #fecaca',
+                          display: 'inline-flex', alignItems: 'center', gap: '4px'
                         }}>
-                          ⚡ Referred ({lead.referredFromTeamId?.teamName || lead.referredFromTeamId?.name || 'Team'} → {lead.referredToTeamId?.teamName || lead.referredToTeamId?.name || 'Team'})
+                          <span>⚡ Referred ({lead.referredFromTeamId?.teamName || lead.referredFromTeamId?.name || 'Team'} → {lead.referredToTeamId?.teamName || lead.referredToTeamId?.name || 'Team'})</span>
+                          {lead.referredAt && (
+                            <span style={{ color: '#991b1b', fontWeight: 600, borderLeft: '1px solid #fca5a5', paddingLeft: '4px' }}>
+                              📅 {new Date(lead.referredAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                            </span>
+                          )}
                         </span>
                       )}
                     </div>
@@ -509,11 +590,24 @@ export default function LeadList() {
                       </div>
                     )}
                   </td>
+                  {/* Location Column (Primary Focus) */}
+                  <td style={{ padding: '16px 12px', background: '#f8fafc' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span style={{ fontWeight: 700, color: '#0369a1', fontSize: '0.85rem' }}>
+                        {lead.location ? `📍 ${lead.location}` : (lead.pod || lead.pol ? `📍 ${lead.pod || lead.pol}` : '—')}
+                      </span>
+                      {lead.hsnCode && (
+                        <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>
+                          🏷️ HSN: {lead.hsnCode}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td style={{ padding: '16px 12px', color: '#475569' }}>{lead.firstName} {lead.lastName}</td>
                   <td style={{ padding: '16px 12px' }}>
                     <span style={{
-                      background: lead.status === 'converted' ? '#dcfce7' : '#fef3c7',
-                      color: lead.status === 'converted' ? '#166534' : '#92400e',
+                      background: lead.status === 'converted' ? '#dcfce7' : lead.status === 'lost' ? '#fee2e2' : '#fef3c7',
+                      color: lead.status === 'converted' ? '#166534' : lead.status === 'lost' ? '#991b1b' : '#92400e',
                       padding: '6px 12px',
                       borderRadius: '20px',
                       fontSize: '0.75rem',
@@ -522,6 +616,34 @@ export default function LeadList() {
                     }}>
                       {lead.status}
                     </span>
+                  </td>
+                  {/* Reason for Loss Column */}
+                  <td style={{ padding: '16px 12px' }}>
+                    {lead.closeReason ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          background: '#fff1f2',
+                          color: '#be123c',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontWeight: 700,
+                          border: '1px solid #fecdd3',
+                          display: 'inline-block'
+                        }}>
+                          {lead.closeReason}
+                        </span>
+                        {lead.closeNotes && (
+                          <span style={{ fontSize: '0.7rem', color: '#881337', fontStyle: 'italic' }}>
+                            {lead.closeNotes}
+                          </span>
+                        )}
+                      </div>
+                    ) : lead.status === 'lost' ? (
+                      <span style={{ fontSize: '0.75rem', color: '#991b1b', fontWeight: 600 }}>Lost (No reason specified)</span>
+                    ) : (
+                      <span style={{ color: '#cbd5e1' }}>—</span>
+                    )}
                   </td>
                   <td style={{ padding: '16px 12px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>

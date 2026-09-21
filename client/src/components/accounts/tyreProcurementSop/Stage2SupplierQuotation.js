@@ -147,7 +147,7 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
 
   const removeSupplier = (idx) => {
     if (suppliers.length <= 1) {
-      alert("At least one supplier is required");
+      alert("At least one quotation is required");
       return;
     }
     const updated = suppliers.filter((_, i) => i !== idx);
@@ -428,6 +428,48 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
             />
           </div>
         </div>
+
+        {/* Editable Delivery Location & Delivery Contact */}
+        <div className="sop-grid-2" style={{ marginTop: "12px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
+          <div className="sop-field-group">
+            <label className="sop-field-label" style={{ fontWeight: 700, color: "#0369a1" }}>
+              📍 Delivery Location (Editable)
+            </label>
+            <input
+              className="sop-input"
+              value={data.deliveryLocation || globalData?.stage1?.departmentLocation || globalData?.deliveryLocation || ""}
+              onChange={(e) => {
+                updateField("deliveryLocation", e.target.value.toUpperCase());
+                if (onGlobalChange) onGlobalChange("deliveryLocation", e.target.value.toUpperCase());
+              }}
+              placeholder="e.g. Purchase Dept / Site Location / Warehouse"
+              style={{ fontWeight: 600 }}
+            />
+          </div>
+          <div className="sop-field-group">
+            <label className="sop-field-label" style={{ fontWeight: 700, color: "#0369a1" }}>
+              📞 Delivery Contact (Person & Phone)
+            </label>
+            <input
+              className="sop-input"
+              value={
+                data.deliveryContact ||
+                (data.deliveryContactPerson || data.deliveryContactNumber
+                  ? [data.deliveryContactPerson, data.deliveryContactNumber].filter(Boolean).join(" | ")
+                  : (globalData?.stage1?.deliveryContactPerson || globalData?.stage1?.preparedBy
+                      ? [globalData?.stage1?.deliveryContactPerson || globalData?.stage1?.preparedBy, globalData?.stage1?.contactNumber].filter(Boolean).join(" | ")
+                      : ""))
+              }
+              onChange={(e) => {
+                updateField("deliveryContact", e.target.value.toUpperCase());
+                updateField("deliveryContactPerson", e.target.value.toUpperCase());
+                if (onGlobalChange) onGlobalChange("deliveryContact", e.target.value.toUpperCase());
+              }}
+              placeholder="e.g. AJAY | 9924301166"
+              style={{ fontWeight: 600 }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Section B: Supplier Details & Quotation Comparative Table */}
@@ -447,13 +489,27 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
                   <th key={idx}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <span>{(sup.supplierName || `SUPPLIER ${idx + 1}`).toUpperCase()}</span>
-                      {suppliers.length > 3 && (
+                      {suppliers.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removeSupplier(idx)}
-                          style={{ background: "none", border: "none", color: "#fca5a5", cursor: "pointer" }}
+                          title="Remove quotation"
+                          style={{
+                            background: "rgba(239, 68, 68, 0.1)",
+                            border: "1px solid rgba(239, 68, 68, 0.3)",
+                            borderRadius: "4px",
+                            color: "#ef4444",
+                            cursor: "pointer",
+                            padding: "2px 6px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "3px",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            transition: "all 0.2s"
+                          }}
                         >
-                          <Delete style={{ fontSize: "14px" }} />
+                          <Delete style={{ fontSize: "14px" }} /> Remove
                         </button>
                       )}
                     </div>
@@ -642,22 +698,46 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
                 ["Delivery Timeline", "deliveryTimeline", "text"],
                 ["Delivery Location", "deliveryLocation", "text"],
                 ["Warranty / Guarantee", "warrantyGuarantee", "text"],
-                ["Payment Terms : Adv / Days", "paymentTerms", "text"],
+                ["Payment Terms : Adv / Days", "paymentTerms", "datalist", ["100% ADVANCE", "15 DAYS CREDIT", "30 DAYS CREDIT", "45 DAYS CREDIT", "60 DAYS CREDIT", "90 DAYS CREDIT", "AGAINST DELIVERY"]],
                 ["Discount Offered", "discountOffered", "number"],
                 ["Remarks", "remarks", "text"],
-              ].map(([label, field, type]) => (
+              ].map(([label, field, type, options]) => (
                 <tr key={field}>
-                  <td style={{ fontWeight: 600 }}>{label}</td>
+                  <td style={{ fontWeight: 600 }}>
+                    {label}
+                    {type === "datalist" && (
+                      <datalist id={`datalist-${field}`}>
+                        {options.map((opt, oIdx) => (
+                          <option key={oIdx} value={opt} />
+                        ))}
+                      </datalist>
+                    )}
+                  </td>
                   {suppliers.map((sup, idx) => (
                     <td key={idx}>
-                      <input
-                        type={type}
-                        className="sop-input"
-                        value={sup?.[field] ?? ""}
-                        onChange={(e) => updateSupplierField(idx, field, type === "text" ? e.target.value.toUpperCase() : e.target.value)}
-                        onBlur={() => saveProductDetails(suppliers[idx])}
-                        style={type === "number" ? { textAlign: "right" } : {}}
-                      />
+                      {type === "select" ? (
+                        <select
+                          className="sop-input"
+                          value={sup?.[field] ?? ""}
+                          onChange={(e) => updateSupplierField(idx, field, e.target.value)}
+                          onBlur={() => saveProductDetails(suppliers[idx])}
+                        >
+                          <option value="">Select Terms</option>
+                          {options.map((opt, oIdx) => (
+                            <option key={oIdx} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={type === "datalist" ? "text" : type}
+                          list={type === "datalist" ? `datalist-${field}` : undefined}
+                          className="sop-input"
+                          value={sup?.[field] ?? ""}
+                          onChange={(e) => updateSupplierField(idx, field, (type === "text" || type === "datalist") ? e.target.value.toUpperCase() : e.target.value)}
+                          onBlur={() => saveProductDetails(suppliers[idx])}
+                          style={type === "number" ? { textAlign: "right" } : {}}
+                        />
+                      )}
                     </td>
                   ))}
                 </tr>

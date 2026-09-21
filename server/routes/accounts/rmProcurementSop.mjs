@@ -173,6 +173,10 @@ router.put("/rm-procurement/:id", authMiddleware, async (req, res) => {
 // Delete PR
 router.delete("/rm-procurement/:id", authMiddleware, async (req, res) => {
   try {
+    const role = (req.user?.role || "").toLowerCase();
+    if (role !== "admin" && role !== "superadmin") {
+      return res.status(403).json({ success: false, message: "Only admin users can delete PRs" });
+    }
     const doc = await RmProcurementSop.findByIdAndDelete(req.params.id);
     if (!doc) {
       return res.status(404).json({ success: false, message: "PR not found" });

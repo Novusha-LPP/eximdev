@@ -14,7 +14,7 @@ const mrmItemSchema = new mongoose.Schema({
     actionPlan: { type: String },
     responsibilityAction: { type: String },
     targetDate: { type: Date },
-    status: { type: String, default: 'Gray' }, // Green, Red, Yellow
+    status: { type: String, default: 'Gray' }, // Green, Red, Yellow, Not Required, Gray
     remarks: { type: String },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     seq: { type: Number, default: 0 },

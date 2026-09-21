@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import MRMMetadata from '../../model/mrm/mrmMetadataModel.mjs';
 import MRMItem from '../../model/mrm/mrmItemModel.mjs';
 import MRMSegmentRollup from '../../model/mrm/mrmSegmentRollupModel.mjs';
@@ -6,16 +7,18 @@ import MRMHodScore from '../../model/mrm/mrmHodScoreModel.mjs';
 import KPISheet from '../../model/kpi/kpiSheetModel.mjs';
 import OpenPoint from '../../model/openPoints/openPointModel.mjs';
 import UserModel from '../../model/userModel.mjs';
+import MRMMemberWeight from '../../model/mrm/mrmMemberWeightModel.mjs';
 import auditMiddleware from '../../middleware/auditTrail.mjs';
 import authMiddleware from '../../middleware/authMiddleware.mjs';
-import { syncActionPlanToOpenPoint } from '../../services/mrmOpenPointsSyncService.mjs';
-import { 
-    calculateAnnualRollup, 
-    analyzeRecurringIssues, 
-    parseNumericValue, 
+import { syncActionPlanToOpenPoint, getOrCreateHodMRMProject } from '../../services/mrmOpenPointsSyncService.mjs';
+import {
+    calculateAnnualRollup,
+    analyzeRecurringIssues,
+    parseNumericValue,
     detectAnomalies,
     calculateSegmentRollup,
     calculateHodMonthlyScore,
+    calculateMemberCompositeScores,
     detectRecurringBlockers,
     getPreDeadlineSubmissionStatus,
     calculateAnnualBusinessLossRollup,
@@ -127,19 +130,20 @@ router.get('/api/mrm/dashboard', authMiddleware, async (req, res) => {
                 createdBy: user._id
             });
 
-            let greenCount = 0, yellowCount = 0, redCount = 0, grayCount = 0;
+            let greenCount = 0, yellowCount = 0, redCount = 0, grayCount = 0, notRequiredCount = 0;
             items.forEach(item => {
                 if (item.isTitleRow) return;
                 switch (item.status) {
                     case 'Green': greenCount++; break;
                     case 'Yellow': yellowCount++; break;
                     case 'Red': redCount++; break;
+                    case 'Not Required': notRequiredCount++; break;
                     default: grayCount++; break;
                 }
             });
 
             const userMeta = allMetadata.find(m => m.userId && m.userId.toString() === user._id.toString());
-            
+
             // Backward-compatible status mapping
             let status = userMeta?.status;
             if (!status) {
@@ -165,11 +169,12 @@ router.get('/api/mrm/dashboard', authMiddleware, async (req, res) => {
                 latestRevisionComment: userMeta?.revisionHistory?.length > 0
                     ? userMeta.revisionHistory[userMeta.revisionHistory.length - 1].comment
                     : null,
-                itemsCount: items.filter(i => !i.isTitleRow).length,
+                itemsCount: items.filter(i => !i.isTitleRow && i.status !== 'Not Required').length,
                 greenCount,
                 yellowCount,
                 redCount,
-                grayCount
+                grayCount,
+                notRequiredCount
             };
         }));
 
@@ -194,10 +199,10 @@ router.get('/api/mrm/metadata', authMiddleware, async (req, res) => {
         let metadata = await MRMMetadata.findOne({ month, year, userId: targetUserId });
 
         if (!metadata) {
-            return res.json({ 
-                meetingDate: '', 
-                reviewDate: '', 
-                status: 'Draft', 
+            return res.json({
+                meetingDate: '',
+                reviewDate: '',
+                status: 'Draft',
                 isLocked: false,
                 meetingDone: false
             });
@@ -256,7 +261,7 @@ router.post('/api/mrm/metadata/toggle-meeting', authMiddleware, auditMiddleware(
         const newStatus = meetingDone ? 'Approved' : 'Draft';
         const metadata = await MRMMetadata.findOneAndUpdate(
             { month, year, userId },
-            { 
+            {
                 meetingDone: meetingDone,
                 status: newStatus,
                 isLocked: meetingDone
@@ -308,6 +313,9 @@ router.post('/api/mrm/submit', authMiddleware, async (req, res) => {
             const rowNum = index + 1;
             const objectiveName = item.objective || item.processDescription || `Objective #${rowNum}`;
             const tileName = item.tileName || activeTile || 'General';
+
+            // Feature 5: Exempt "Not Required" items from requiring Plan/Actual/Action Plan fields
+            if (item.status === 'Not Required') return;
 
             const missingFields = [];
             if (item.plan === undefined || item.plan === null || !String(item.plan).trim()) missingFields.push('Plan');
@@ -517,13 +525,14 @@ router.get('/api/mrm/approval-queue', authMiddleware, async (req, res) => {
                 createdBy: targetId
             });
 
-            let greenCount = 0, yellowCount = 0, redCount = 0, grayCount = 0;
+            let greenCount = 0, yellowCount = 0, redCount = 0, grayCount = 0, notRequiredCount = 0;
             items.forEach(item => {
                 if (item.isTitleRow) return;
                 switch (item.status) {
                     case 'Green': greenCount++; break;
                     case 'Yellow': yellowCount++; break;
                     case 'Red': redCount++; break;
+                    case 'Not Required': notRequiredCount++; break;
                     default: grayCount++; break;
                 }
             });
@@ -533,11 +542,11 @@ router.get('/api/mrm/approval-queue', authMiddleware, async (req, res) => {
             const waitHours = Math.max(0, Math.floor((now - submittedTime) / (1000 * 60 * 60)));
             const waitDays = Math.floor(waitHours / 24);
 
-            const presenterName = meta.userId 
-                ? `${meta.userId.first_name || ''} ${meta.userId.last_name || ''}`.trim() || meta.userId.username 
+            const presenterName = meta.userId
+                ? `${meta.userId.first_name || ''} ${meta.userId.last_name || ''}`.trim() || meta.userId.username
                 : 'Unknown Presenter';
             const username = meta.userId?.username || 'Unknown';
-            const totalCount = items.filter(i => !i.isTitleRow).length;
+            const totalCount = items.filter(i => !i.isTitleRow && i.status !== 'Not Required').length;
 
             return {
                 _id: meta._id,
@@ -559,7 +568,8 @@ router.get('/api/mrm/approval-queue', authMiddleware, async (req, res) => {
                 greenCount,
                 yellowCount,
                 redCount,
-                grayCount
+                grayCount,
+                notRequiredCount
             };
         }));
 
@@ -625,7 +635,7 @@ router.get('/api/mrm', authMiddleware, async (req, res) => {
                 const pctDelta = item.lastYearBaseline !== 0
                     ? Number(((absDelta / item.lastYearBaseline) * 100).toFixed(1))
                     : null;
-                
+
                 const sign = absDelta > 0 ? '+' : '';
                 const formattedText = pctDelta !== null
                     ? `${sign}${absDelta} (${pctDelta > 0 ? '+' : ''}${pctDelta}%)`
@@ -663,13 +673,13 @@ router.get('/api/mrm', authMiddleware, async (req, res) => {
 // Update Objective Configuration (Admin & Presenter - Aggregation, Optimization Direction, Tolerance, Baseline)
 router.put('/api/mrm/objective/config', authMiddleware, async (req, res) => {
     try {
-        const { 
-            objective, 
-            processDescription, 
-            userId, 
-            year, 
-            aggregationType, 
-            optimizationDirection, 
+        const {
+            objective,
+            processDescription,
+            userId,
+            year,
+            aggregationType,
+            optimizationDirection,
             toleranceBand,
             lastYearBaseline,
             lastYearBaselineMetric,
@@ -739,7 +749,7 @@ router.post('/api/mrm', authMiddleware, async (req, res) => {
                 { month, year, createdBy: targetUserId, seq: { $gt: insertAfterSeq } },
                 { $inc: { seq: 1 } }
             );
-            
+
             item = new MRMItem({
                 ...req.body,
                 createdBy: targetUserId,
@@ -813,16 +823,19 @@ router.put('/api/mrm-bulk/reorder', authMiddleware, async (req, res) => {
 });
 
 // Update MRM Item (With Save-Time OpenPoints sync & Lock Check)
-router.put('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async (req, res) => {
+router.put('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async (req, res, next) => {
     try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return next();
+        }
         const existingItem = await MRMItem.findById(req.params.id);
         if (!existingItem) return res.status(404).json({ error: "Item not found" });
 
         // Check if month is locked
-        const meta = await MRMMetadata.findOne({ 
-            month: existingItem.month, 
-            year: existingItem.year, 
-            userId: existingItem.createdBy 
+        const meta = await MRMMetadata.findOne({
+            month: existingItem.month,
+            year: existingItem.year,
+            userId: existingItem.createdBy
         });
 
         if (meta?.isLocked && !isAuthorizedApprover(req.user)) {
@@ -864,16 +877,19 @@ router.put('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async (r
 });
 
 // Delete MRM Item (With Lock Check)
-router.delete('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async (req, res) => {
+router.delete('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async (req, res, next) => {
     try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return next();
+        }
         const item = await MRMItem.findById(req.params.id);
         if (!item) return res.status(404).json({ error: "Item not found" });
 
         // Check if month is locked
-        const meta = await MRMMetadata.findOne({ 
-            month: item.month, 
-            year: item.year, 
-            userId: item.createdBy 
+        const meta = await MRMMetadata.findOne({
+            month: item.month,
+            year: item.year,
+            userId: item.createdBy
         });
 
         if (meta?.isLocked && !isAuthorizedApprover(req.user)) {
@@ -949,10 +965,10 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
             return new Date(a.createdAt) - new Date(b.createdAt);
         });
 
-        const lastTargetItem = await MRMItem.findOne({ 
-            month: targetMonth, 
-            year: targetYear, 
-            createdBy: targetUserId 
+        const lastTargetItem = await MRMItem.findOne({
+            month: targetMonth,
+            year: targetYear,
+            createdBy: targetUserId
         }).sort({ seq: -1 });
 
         const startSeq = lastTargetItem && lastTargetItem.seq !== undefined ? lastTargetItem.seq + 1 : 1;
@@ -1083,7 +1099,18 @@ router.get('/api/mrm/open-points', authMiddleware, async (req, res) => {
         const { status, owner, userId, age } = req.query;
         const query = { originModule: 'MRM' };
         if (status && status !== 'all') query.status = status;
-        if (userId) query['originContext.personId'] = userId;
+        if (userId) {
+            const hodUser = await UserModel.findById(userId);
+            const hodProject = hodUser ? await getOrCreateHodMRMProject(hodUser) : null;
+            if (hodProject) {
+                query.$or = [
+                    { 'originContext.personId': userId },
+                    { project_id: hodProject._id }
+                ];
+            } else {
+                query['originContext.personId'] = userId;
+            }
+        }
         if (owner && owner.trim()) {
             const reg = new RegExp(owner.trim(), 'i');
             query.$or = [
@@ -1106,6 +1133,7 @@ router.get('/api/mrm/open-points', authMiddleware, async (req, res) => {
         }
 
         const points = await OpenPoint.find(query)
+            .populate('project_id', 'name initials')
             .populate('responsible_person', 'first_name last_name username')
             .populate('created_by', 'first_name last_name username')
             .sort({ createdAt: -1 });
@@ -1113,7 +1141,7 @@ router.get('/api/mrm/open-points', authMiddleware, async (req, res) => {
         const formattedPoints = points.map(pt => {
             const obj = pt.toObject();
             obj.task = pt.description || pt.title || '';
-            obj.assigned_to_name = pt.responsible_person 
+            obj.assigned_to_name = pt.responsible_person
                 ? `${pt.responsible_person.first_name || ''} ${pt.responsible_person.last_name || ''}`.trim() || pt.responsible_person.username
                 : (pt.responsibility || 'Unassigned');
             return obj;
@@ -1137,6 +1165,465 @@ router.get('/api/mrm/feature-status', authMiddleware, (req, res) => {
     res.json({
         enabled: isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED')
     });
+});
+
+/**
+ * GET /api/mrm/member-weights
+ * Returns configured or default member weights with composite scores
+ */
+router.get('/api/mrm/member-weights', authMiddleware, async (req, res) => {
+    try {
+        const { month, year, department, hodId } = req.query;
+        if (!month || !year) {
+            return res.status(400).json({ error: 'month and year are required query parameters' });
+        }
+
+        const monthStr = String(month).padStart(2, '0');
+        const yearNum = parseInt(year, 10);
+
+        let resolvedDept = department;
+        let resolvedHodId = hodId;
+
+        if (!resolvedHodId || !resolvedDept) {
+            const trueHods = await getTrueHodUsers();
+            let matchedHod = null;
+            if (resolvedHodId) {
+                matchedHod = trueHods.find(h => h._id.toString() === resolvedHodId.toString());
+            } else if (resolvedDept) {
+                const dRegex = getDepartmentFilterRegex(resolvedDept);
+                matchedHod = trueHods.find(h => dRegex.test(h.department));
+            } else {
+                matchedHod = trueHods.find(h => h._id.toString() === req.user._id.toString());
+            }
+
+            if (matchedHod) {
+                resolvedHodId = matchedHod._id;
+                resolvedDept = matchedHod.department;
+            } else {
+                resolvedHodId = resolvedHodId || req.user._id;
+                resolvedDept = resolvedDept || req.user.department || 'General';
+            }
+        }
+
+        const result = await calculateMemberCompositeScores({
+            department: resolvedDept,
+            hodId: resolvedHodId,
+            month: monthStr,
+            year: yearNum
+        });
+
+        const existingDoc = await MRMMemberWeight.findOne({
+            month: monthStr,
+            year: yearNum,
+            department: resolvedDept,
+            hodId: resolvedHodId,
+            isHodLevel: false
+        }).lean();
+
+        res.json({
+            month: monthStr,
+            year: yearNum,
+            department: resolvedDept,
+            hodId: resolvedHodId,
+            team_score: result.team_score,
+            members: result.members,
+            component_weights: result.component_weights || { attendance: 34, kpi: 33, karma: 33 },
+            is_configured: result.is_configured,
+            is_locked: existingDoc?.is_locked || false
+        });
+    } catch (error) {
+        console.error('Error fetching member weights:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PUT /api/mrm/member-weights
+ * Save member weights with auto-distribution of remaining percentage
+ */
+router.put('/api/mrm/member-weights', authMiddleware, async (req, res) => {
+    try {
+        const { month, year, department, hodId, members, component_weights, is_locked } = req.body;
+        if (!month || !year || !department || !Array.isArray(members)) {
+            return res.status(400).json({ error: 'month, year, department, and members array are required' });
+        }
+
+        const monthStr = String(month).padStart(2, '0');
+        const yearNum = parseInt(year, 10);
+        const resolvedHodId = hodId || req.user._id;
+
+        // Auto-distribution logic for team weights
+        let manualSum = 0;
+        const manualMembers = [];
+        const unsetMembers = [];
+
+        members.forEach(m => {
+            const weightVal = Math.max(0, Number(m.weight_pct) || 0);
+            if (m.is_manual) {
+                manualSum += weightVal;
+                manualMembers.push({ ...m, weight_pct: weightVal });
+            } else {
+                unsetMembers.push({ ...m, weight_pct: 0 });
+            }
+        });
+
+        const remaining = 100 - manualSum;
+        let processedMembers = [];
+
+        if (unsetMembers.length > 0) {
+            const perUnset = Number((Math.max(0, remaining) / unsetMembers.length).toFixed(2));
+            let runningUnsetSum = 0;
+
+            const distributedUnset = unsetMembers.map((m, idx) => {
+                if (idx === unsetMembers.length - 1) {
+                    const finalUnset = Number((Math.max(0, remaining) - runningUnsetSum).toFixed(2));
+                    return { ...m, weight_pct: Math.max(0, finalUnset), is_manual: false };
+                } else {
+                    runningUnsetSum += perUnset;
+                    return { ...m, weight_pct: perUnset, is_manual: false };
+                }
+            });
+
+            processedMembers = [...manualMembers, ...distributedUnset];
+        } else {
+            processedMembers = manualMembers;
+        }
+
+        const defaultCw = component_weights || { attendance: 34, kpi: 33, karma: 33 };
+
+        // Process individual member component weights (Attendance %, KPI %, Karma %)
+        const preparedMembers = processedMembers.map(m => {
+            const userCw = m.component_weights || defaultCw;
+            const uAtt = userCw.attendance != null ? Math.max(0, Number(userCw.attendance)) : (defaultCw.attendance ?? 34);
+            const uKpi = userCw.kpi != null ? Math.max(0, Number(userCw.kpi)) : (defaultCw.kpi ?? 33);
+            const uKarma = userCw.karma != null ? Math.max(0, Number(userCw.karma)) : (defaultCw.karma ?? 33);
+
+            return {
+                userId: m.userId,
+                name: m.name || '',
+                weight_pct: m.weight_pct,
+                is_manual: Boolean(m.is_manual),
+                component_weights: {
+                    attendance: uAtt,
+                    kpi: uKpi,
+                    karma: uKarma
+                }
+            };
+        });
+
+        // 1. Save prepared members with their individual weights first
+        await MRMMemberWeight.findOneAndUpdate(
+            { month: monthStr, year: yearNum, department, hodId: resolvedHodId, isHodLevel: false },
+            {
+                $set: {
+                    members: preparedMembers,
+                    component_weights: defaultCw,
+                    is_locked: Boolean(is_locked)
+                }
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+
+        // 2. Measure everything according to each member's individual component weights
+        const compositeResult = await calculateMemberCompositeScores({
+            department,
+            hodId: resolvedHodId,
+            month: monthStr,
+            year: yearNum
+        });
+
+        const scoreMap = new Map();
+        compositeResult.members.forEach(m => scoreMap.set(m.userId.toString(), m));
+
+        const finalMembers = preparedMembers.map(m => {
+            const sc = scoreMap.get(m.userId.toString());
+            return {
+                userId: m.userId,
+                name: m.name || sc?.name || '',
+                weight_pct: m.weight_pct,
+                is_manual: Boolean(m.is_manual),
+                component_weights: m.component_weights,
+                attendance_score: sc?.attendance_score || 0,
+                kpi_score: sc?.kpi_score || 0,
+                karma_points: sc?.karma_points || 0,
+                composite_score: sc?.composite_score || 0
+            };
+        });
+
+        const updatedTeamScore = compositeResult.team_score;
+
+        const updatedDoc = await MRMMemberWeight.findOneAndUpdate(
+            { month: monthStr, year: yearNum, department, hodId: resolvedHodId, isHodLevel: false },
+            {
+                $set: {
+                    members: finalMembers,
+                    team_score: updatedTeamScore,
+                    is_locked: Boolean(is_locked)
+                }
+            },
+            { new: true }
+        );
+
+        // 3. Recompute HOD monthly score so cached MRMHodScore reflects the new team score and member scores
+        await calculateHodMonthlyScore({
+            hodId: resolvedHodId,
+            department,
+            month: monthStr,
+            year: yearNum
+        });
+
+        res.json({
+            success: true,
+            weightConfig: updatedDoc,
+            team_score: updatedTeamScore,
+            members: compositeResult.members,
+            component_weights: defaultCw
+        });
+    } catch (error) {
+        console.error('Error saving member weights:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PUT /api/mrm/component-weights
+ * Save Attendance/KPI/Karma component weights and recalculate scores
+ */
+router.put('/api/mrm/component-weights', authMiddleware, async (req, res) => {
+    try {
+        const { month, year, department, hodId, component_weights, members } = req.body;
+        if (!month || !year || !department || (!component_weights && !members)) {
+            return res.status(400).json({ error: 'month, year, department, and component_weights or members are required' });
+        }
+
+        const monthStr = String(month).padStart(2, '0');
+        const yearNum = parseInt(year, 10);
+        const resolvedHodId = hodId || req.user._id;
+
+        const defaultCw = component_weights || { attendance: 34, kpi: 33, karma: 33 };
+
+        if (Array.isArray(members) && members.length > 0) {
+            const preparedMembers = members.map(m => {
+                const userCw = m.component_weights || defaultCw;
+                return {
+                    userId: m.userId,
+                    name: m.name || '',
+                    weight_pct: m.weight_pct != null ? Number(m.weight_pct) : 0,
+                    is_manual: Boolean(m.is_manual),
+                    component_weights: {
+                        attendance: userCw.attendance != null ? Number(userCw.attendance) : (defaultCw.attendance ?? 34),
+                        kpi: userCw.kpi != null ? Number(userCw.kpi) : (defaultCw.kpi ?? 33),
+                        karma: userCw.karma != null ? Number(userCw.karma) : (defaultCw.karma ?? 33)
+                    }
+                };
+            });
+
+            await MRMMemberWeight.findOneAndUpdate(
+                { month: monthStr, year: yearNum, department, hodId: resolvedHodId, isHodLevel: false },
+                { $set: { members: preparedMembers, component_weights: defaultCw } },
+                { upsert: true, new: true, setDefaultsOnInsert: true }
+            );
+        } else {
+            await MRMMemberWeight.findOneAndUpdate(
+                { month: monthStr, year: yearNum, department, hodId: resolvedHodId, isHodLevel: false },
+                { $set: { component_weights: defaultCw } },
+                { upsert: true, new: true, setDefaultsOnInsert: true }
+            );
+        }
+
+        const result = await calculateMemberCompositeScores({
+            department,
+            hodId: resolvedHodId,
+            month: monthStr,
+            year: yearNum
+        });
+
+        await calculateHodMonthlyScore({
+            hodId: resolvedHodId,
+            department,
+            month: monthStr,
+            year: yearNum
+        });
+
+        res.json({
+            success: true,
+            team_score: result.team_score,
+            members: result.members,
+            component_weights: defaultCw
+        });
+    } catch (error) {
+        console.error('Error saving component weights:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/mrm/hod-weights
+ * Returns weights and monthly scores for all HODs for org-level composite
+ */
+router.get('/api/mrm/hod-weights', authMiddleware, async (req, res) => {
+    try {
+        const { month, year } = req.query;
+        if (!month || !year) {
+            return res.status(400).json({ error: 'month and year are required query parameters' });
+        }
+
+        const monthStr = String(month).padStart(2, '0');
+        const yearNum = parseInt(year, 10);
+
+        const trueHods = await getTrueHodUsers();
+        const existingDoc = await MRMMemberWeight.findOne({
+            month: monthStr,
+            year: yearNum,
+            department: 'ALL',
+            isHodLevel: true
+        }).lean();
+
+        const weightMap = new Map();
+        if (existingDoc && Array.isArray(existingDoc.members)) {
+            existingDoc.members.forEach(m => weightMap.set(m.userId.toString(), m));
+        }
+
+        const defaultWeight = trueHods.length > 0 ? Number((100 / trueHods.length).toFixed(2)) : 0;
+
+        const hodScores = await Promise.all(trueHods.map(async (hod) => {
+            const hIdStr = hod._id.toString();
+            const fullName = `${hod.first_name || ''} ${hod.last_name || ''}`.trim() || hod.username;
+            const scoreResult = await calculateHodMonthlyScore({
+                hodId: hod._id,
+                department: hod.department,
+                month: monthStr,
+                year: yearNum
+            });
+
+            const configured = weightMap.get(hIdStr);
+            const weightPct = configured ? configured.weight_pct : defaultWeight;
+            const isManual = configured ? Boolean(configured.is_manual) : false;
+
+            return {
+                hodId: hod._id,
+                userId: hod._id,
+                name: fullName,
+                department: hod.department,
+                final_score: scoreResult?.final_score || 0,
+                team_score: scoreResult?.team_score || 0,
+                focus_score: scoreResult?.focus_score || 0,
+                weight_pct: weightPct,
+                is_manual: isManual
+            };
+        }));
+
+        const orgScore = Number(
+            hodScores.reduce((acc, h) => acc + (h.final_score * (h.weight_pct / 100)), 0).toFixed(1)
+        );
+
+        res.json({
+            month: monthStr,
+            year: yearNum,
+            org_score: orgScore,
+            hods: hodScores,
+            is_configured: Boolean(existingDoc),
+            is_locked: existingDoc?.is_locked || false
+        });
+    } catch (error) {
+        console.error('Error fetching HOD weights:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PUT /api/mrm/hod-weights
+ * Save org-level HOD weights with auto-distribution
+ */
+router.put('/api/mrm/hod-weights', authMiddleware, async (req, res) => {
+    try {
+        const { month, year, hods, is_locked } = req.body;
+        if (!month || !year || !Array.isArray(hods)) {
+            return res.status(400).json({ error: 'month, year, and hods array are required' });
+        }
+
+        const monthStr = String(month).padStart(2, '0');
+        const yearNum = parseInt(year, 10);
+
+        let manualSum = 0;
+        const manualHods = [];
+        const unsetHods = [];
+
+        hods.forEach(h => {
+            const weightVal = Math.max(0, Number(h.weight_pct) || 0);
+            if (h.is_manual) {
+                manualSum += weightVal;
+                manualHods.push({ ...h, weight_pct: weightVal });
+            } else {
+                unsetHods.push({ ...h, weight_pct: 0 });
+            }
+        });
+
+        if (manualSum > 100) {
+            return res.status(400).json({ error: `Manual weights sum to ${manualSum.toFixed(1)}%, which exceeds 100%` });
+        }
+
+        const remaining = 100 - manualSum;
+        let processedHods = [];
+
+        if (unsetHods.length > 0) {
+            const perUnset = Number((remaining / unsetHods.length).toFixed(2));
+            let runningUnsetSum = 0;
+
+            const distributedUnset = unsetHods.map((h, idx) => {
+                if (idx === unsetHods.length - 1) {
+                    const finalUnset = Number((remaining - runningUnsetSum).toFixed(2));
+                    return { ...h, weight_pct: Math.max(0, finalUnset), is_manual: false };
+                } else {
+                    runningUnsetSum += perUnset;
+                    return { ...h, weight_pct: perUnset, is_manual: false };
+                }
+            });
+
+            processedHods = [...manualHods, ...distributedUnset];
+        } else {
+            if (Math.abs(manualSum - 100) > 0.05 && manualHods.length > 0) {
+                const diff = 100 - manualSum;
+                manualHods[0].weight_pct = Number((manualHods[0].weight_pct + diff).toFixed(2));
+            }
+            processedHods = manualHods;
+        }
+
+        const membersToSave = processedHods.map(h => ({
+            userId: h.hodId || h.userId,
+            name: h.name || '',
+            weight_pct: h.weight_pct,
+            is_manual: Boolean(h.is_manual),
+            composite_score: h.final_score || 0
+        }));
+
+        const orgScore = Number(
+            membersToSave.reduce((acc, h) => acc + (h.composite_score * (h.weight_pct / 100)), 0).toFixed(1)
+        );
+
+        const updatedDoc = await MRMMemberWeight.findOneAndUpdate(
+            { month: monthStr, year: yearNum, department: 'ALL', isHodLevel: true },
+            {
+                $set: {
+                    department: 'ALL',
+                    isHodLevel: true,
+                    members: membersToSave,
+                    team_score: orgScore,
+                    is_locked: Boolean(is_locked)
+                }
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+
+        res.json({
+            success: true,
+            org_score: orgScore,
+            weightConfig: updatedDoc
+        });
+    } catch (error) {
+        console.error('Error saving HOD weights:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 /**
@@ -1261,9 +1748,9 @@ router.get('/api/mrm/hod-scores/rankings', authMiddleware, async (req, res) => {
             year: yearNum,
             hodId: { $in: trueHodIds }
         })
-        .populate('hodId', 'first_name last_name username email designation department')
-        .sort({ final_score: -1 })
-        .lean();
+            .populate('hodId', 'first_name last_name username email designation department')
+            .sort({ final_score: -1 })
+            .lean();
 
         // Assign clean sequential ranks and fallback department from trueHods
         rankings = await Promise.all(rankings.map(async (item, idx) => {
@@ -1395,11 +1882,11 @@ router.post('/api/mrm/sub-teams/manage', authMiddleware, async (req, res) => {
 
             await UserModel.updateMany(
                 { _id: { $in: userIds }, department: { $regex: getDepartmentFilterRegex(department) } },
-                { 
-                    $set: { 
+                {
+                    $set: {
                         sub_team: sub_team.trim(),
                         ...(sub_team_role ? { sub_team_role } : {})
-                    } 
+                    }
                 }
             );
 
@@ -1450,12 +1937,12 @@ router.post('/api/mrm/segments/approve', authMiddleware, async (req, res) => {
         // Update all segments for this department/month to Approved
         await MRMSegmentRollup.updateMany(
             { department: { $regex: getDepartmentFilterRegex(department) }, month: monthStr, year: yearNum },
-            { 
-                $set: { 
+            {
+                $set: {
                     status: 'Approved',
                     approvedAt: new Date(),
                     approvedBy: req.user._id
-                } 
+                }
             }
         );
 
@@ -1469,12 +1956,12 @@ router.post('/api/mrm/segments/approve', authMiddleware, async (req, res) => {
 
         await MRMHodScore.findOneAndUpdate(
             { department: { $regex: getDepartmentFilterRegex(department) }, month: monthStr, year: yearNum, hodId: req.user._id },
-            { 
-                $set: { 
+            {
+                $set: {
                     status: 'Approved',
                     approvedAt: new Date(),
                     approvedBy: req.user._id
-                } 
+                }
             }
         );
 

@@ -45,7 +45,7 @@ import ITPagination from "./ITPagination";
 import axios from "axios";
 import { UserContext } from "../../contexts/UserContext";
 
-const USER_ROLES = ["Admin", "IT Team", "Manager", "Employee"];
+const USER_ROLES = ["Admin", "IT/Network Department", "Sr. Manager Accounts / Head of Accounts", "Employee"];
 
 const GROUPS = [
   "IT Department",

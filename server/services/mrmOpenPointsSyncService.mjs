@@ -4,7 +4,7 @@ import MRMItem from '../model/mrm/mrmItemModel.mjs';
 import UserModel from '../model/userModel.mjs';
 
 /**
- * Ensures the system-level "MRM Action Points" project exists.
+ * Ensures the system-level "MRM Action Points" project exists (legacy fallback).
  */
 export const getOrCreateMRMProject = async () => {
     let project = await OpenPointProject.findOne({
@@ -40,9 +40,62 @@ export const getOrCreateMRMProject = async () => {
 };
 
 /**
+ * Ensures a per-HOD "MRM - {HOD Name}" project exists.
+ */
+export const getOrCreateHodMRMProject = async (hodUser) => {
+    if (!hodUser) return await getOrCreateMRMProject();
+
+    const firstName = (hodUser.first_name || '').trim();
+    const lastName = (hodUser.last_name || '').trim();
+    const fullName = `${firstName} ${lastName}`.trim() || hodUser.username;
+    const projectName = `MRM - ${fullName}`;
+
+    // Initials: MRM-{initials} (e.g. MRM-SR)
+    const firstInitial = firstName ? firstName[0].toUpperCase() : (hodUser.username ? hodUser.username[0].toUpperCase() : '');
+    const lastInitial = lastName ? lastName[0].toUpperCase() : (firstName.length > 1 ? firstName[1].toUpperCase() : 'H');
+    const initials = `MRM-${firstInitial}${lastInitial}`;
+
+    let project = await OpenPointProject.findOne({
+        $or: [{ name: projectName }, { initials }]
+    });
+
+    if (!project) {
+        let deptMembers = [];
+        if (hodUser.department) {
+            deptMembers = await UserModel.find({
+                department: hodUser.department,
+                status: { $ne: 'Inactive' },
+                role: { $nin: ['driver'] }
+            }).select('_id');
+        }
+
+        const teamMembers = deptMembers.map(u => ({
+            user: u._id,
+            role: 'L2'
+        }));
+
+        if (!teamMembers.some(tm => tm.user.toString() === hodUser._id.toString())) {
+            teamMembers.push({ user: hodUser._id, role: 'L1' });
+        }
+
+        project = new OpenPointProject({
+            name: projectName,
+            initials,
+            description: `Automated MRM action points for ${fullName} (${hodUser.department || 'General'}).`,
+            owner: hodUser._id,
+            status: 'Active',
+            team_members: teamMembers
+        });
+        await project.save();
+    }
+    return project;
+};
+
+/**
  * Maps MRM status to OpenPoint status.
  */
 const mapMRMStatusToOpenPoint = (status) => {
+    if (status === 'Not Required') return null;
     if (status === 'Green') return 'Green';
     if (status === 'Yellow') return 'Yellow';
     return 'Red';
@@ -67,6 +120,10 @@ export const syncActionPlanToOpenPoint = async (mrmItem, reqUser = null) => {
             return null;
         }
 
+        if (mrmItem.status === 'Not Required') {
+            return null;
+        }
+
         const hasActionPlan = Boolean(mrmItem.actionPlan && mrmItem.actionPlan.trim());
         const hasRemarks = Boolean(mrmItem.remarks && mrmItem.remarks.trim());
 
@@ -75,7 +132,16 @@ export const syncActionPlanToOpenPoint = async (mrmItem, reqUser = null) => {
             return null;
         }
 
-        const mrmProject = await getOrCreateMRMProject();
+        // Resolve HOD user for per-HOD MRM Project
+        let hodUser = null;
+        if (mrmItem.createdBy) {
+            hodUser = await UserModel.findById(mrmItem.createdBy);
+        }
+        if (!hodUser && reqUser) {
+            hodUser = reqUser;
+        }
+
+        const mrmProject = await getOrCreateHodMRMProject(hodUser);
         if (!mrmProject) return null;
 
         // Dynamically resolve parent Process Tile if tileName is missing
@@ -278,7 +344,7 @@ export const syncOpenPointStatusToMRM = async (openPoint) => {
             }
 
             await MRMItem.updateMany(
-                { $or: filter },
+                { $or: filter, status: { $ne: 'Not Required' } },
                 updateFields
             );
         }

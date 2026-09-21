@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Container, Typography } from "@mui/material";
+import { Box } from "@mui/material";
 import { Routes, Route, Navigate } from "react-router-dom";
 import ITHelpdeskHome from "../components/it-helpdesk/ITHHelpdeskHome";
 import AssetManagement from "../components/it-helpdesk/AssetManagement";
@@ -22,16 +22,7 @@ export default function ItHelpdeskPage() {
         <Route path="/" element={<ITHelpdeskHome />} />
         <Route path="/assets" element={<AssetManagement />} />
         <Route path="/tickets" element={<TicketManagement />} />
-        {/* <Route path="/vendors" element={<VendorManagement />} /> */}
-
-        <Route
-          path="/vendors"
-          element={
-            // <AuditLogProvider>
-            <VendorManagement />
-            // </AuditLogProvider>
-          }
-        />
+        <Route path="/vendors" element={<VendorManagement />} />
 
 
 

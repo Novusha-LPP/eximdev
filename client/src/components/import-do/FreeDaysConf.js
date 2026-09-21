@@ -274,7 +274,7 @@ const FreeDaysConf = () => {
 
   const handleSave = async (id) => {
     try {
-      await axios.put(
+      await axios.patch(
         `${process.env.REACT_APP_API_STRING}/update-free-time/${id}`,
         {
           free_time: freeTimeValue,

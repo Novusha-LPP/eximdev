@@ -106,32 +106,29 @@ const PERMISSION_CATEGORIES = [
 const PREDEFINED_ROLES = [
   {
     id: 1,
-    name: "Administrator",
-    description: "Full system access with all permissions",
+    name: "Admin",
+    description: "Full system access & Admin Approval authority for Asset Workflow",
     is_predefined: true,
     permissions: PERMISSION_CATEGORIES.flatMap(cat => cat.permissions.map(p => p.id))
   },
   {
     id: 2,
-    name: "IT Manager",
-    description: "IT department management access",
+    name: "IT/Network Department",
+    description: "IT and Network department user with asset creation and resubmission permissions",
     is_predefined: true,
     permissions: [
       "asset_view", "asset_create", "asset_edit", "asset_delete", "asset_assign", "asset_return",
       "ticket_view", "ticket_create", "ticket_edit", "ticket_delete", "ticket_assign", "ticket_escalate", "ticket_close",
-      "user_view", "user_create", "user_edit", "user_role", "user_group",
-      "report_view", "report_generate", "report_export"
+      "user_view", "report_view", "report_generate", "report_export"
     ]
   },
   {
     id: 3,
-    name: "IT Technician",
-    description: "IT support team member",
+    name: "Sr. Manager Accounts / Head of Accounts",
+    description: "Head of Accounts with final approval authority for Asset Requests",
     is_predefined: true,
     permissions: [
-      "asset_view", "asset_assign", "asset_return",
-      "ticket_view", "ticket_create", "ticket_edit", "ticket_close",
-      "report_view"
+      "asset_view", "report_view", "report_generate", "report_export"
     ]
   },
   {

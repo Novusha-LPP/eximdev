@@ -16,6 +16,7 @@ import toast from "react-hot-toast";
 import CustomSelect from "./CustomSelect";
 import ITPagination from "./ITPagination";
 import { logExportAudit } from "./auditHelper";
+import AddVendorModal from "./AddVendorModal";
 import "../../styles/scorecard.scss";
 
 // Compute license status from expiry date
@@ -72,6 +73,7 @@ export default function LicenseManagement() {
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [showAddVendorModal, setShowAddVendorModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -222,6 +224,14 @@ export default function LicenseManagement() {
     }
   }, []);
 
+  const handleVendorCreated = (newVendor) => {
+    fetchVendors();
+    if (newVendor && (newVendor._id || newVendor.id)) {
+      const vId = newVendor._id || newVendor.id;
+      setForm((prev) => ({ ...prev, vendor: vId }));
+    }
+  };
+
   useEffect(() => {
     fetchVendors();
     fetchStats();
@@ -241,7 +251,6 @@ export default function LicenseManagement() {
 
     if (
       !form.license_name.trim() ||
-      !form.license_code.trim() ||
       !form.software_name.trim() ||
       !form.vendor ||
       !form.license_type ||
@@ -260,7 +269,7 @@ export default function LicenseManagement() {
     setSaving(true);
     const payload = {
       license_name: form.license_name.trim(),
-      license_code: form.license_code.trim(),
+      license_code: form.license_code?.trim() || "",
       software_name: form.software_name.trim(),
       vendor: form.vendor,
       license_type: form.license_type,
@@ -602,7 +611,7 @@ export default function LicenseManagement() {
                               {item.license_name}
                             </td>
                             <td style={{ color: "#4f46e5", fontFamily: "monospace", fontSize: "12px", whiteSpace: "nowrap" }}>
-                              {item.license_code}
+                              {item.license_code || "—"}
                             </td>
                             <td style={{ color: "#334155" }}>
                               {item.software_name}
@@ -753,11 +762,10 @@ export default function LicenseManagement() {
                   </div>
 
                   <div className="form-field">
-                    <label>License Key / Code *</label>
+                    <label>License Key / Code</label>
                     <input
                       type="text"
-                      required
-                      placeholder="XXXXX-XXXXX-XXXXX"
+                      placeholder="XXXXX-XXXXX-XXXXX (Optional)"
                       value={form.license_code}
                       onChange={(e) => setForm({ ...form, license_code: e.target.value })}
                     />
@@ -776,18 +784,45 @@ export default function LicenseManagement() {
 
                   <div className="form-field">
                     <label>Vendor / Publisher *</label>
-                    <select
-                      required
-                      value={form.vendor}
-                      onChange={(e) => setForm({ ...form, vendor: e.target.value })}
-                    >
-                      <option value="">Select Vendor</option>
-                      {vendors.map((v) => (
-                        <option key={v._id} value={v._id}>
-                          {v.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <select
+                        required
+                        value={form.vendor}
+                        onChange={(e) => setForm({ ...form, vendor: e.target.value })}
+                        style={{ flex: 1 }}
+                      >
+                        <option value="">Select Vendor</option>
+                        {vendors.map((v) => (
+                          <option key={v._id} value={v._id}>
+                            {v.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddVendorModal(true)}
+                        style={{
+                          height: "38px",
+                          padding: "0 14px",
+                          fontSize: "12.5px",
+                          fontWeight: 600,
+                          color: "#2563eb",
+                          background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                          border: "1px solid #cbd5e1",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                          transition: "all 0.15s ease",
+                        }}
+                        title="Add New Vendor / Supplier"
+                      >
+                        <Plus size={14} strokeWidth={2.5} /> Add Vendor
+                      </button>
+                    </div>
                   </div>
 
                   <div className="form-field">
@@ -898,6 +933,13 @@ export default function LicenseManagement() {
             </div>
           </div>
         )}
+
+        <AddVendorModal
+          isOpen={showAddVendorModal}
+          onClose={() => setShowAddVendorModal(false)}
+          onSuccess={handleVendorCreated}
+          defaultVendorType="Software"
+        />
       </div>
     </>
   );

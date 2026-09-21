@@ -2,12 +2,12 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
-import { 
-    fetchMRMItems, createMRMItem, updateMRMItem, deleteMRMItem, 
-    bulkDeleteMRMItems, importMRMItems, fetchMRMMetadata, 
+import {
+    fetchMRMItems, createMRMItem, updateMRMItem, deleteMRMItem,
+    bulkDeleteMRMItems, importMRMItems, fetchMRMMetadata,
     saveMRMMetadata, fetchMRMUsers, reorderMRMItems,
     submitMRM, approveMRM, requestMRMRevision, reopenMRM, updateObjectiveConfig,
-    fetchMRMFeatureStatus, fetchSegmentRollup, fetchHodScore 
+    fetchMRMFeatureStatus, fetchSegmentRollup, fetchHodScore
 } from '../../services/mrmService';
 import { IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Autocomplete, TextField, Menu, MenuItem, Tooltip, Checkbox, FormControlLabel, Snackbar, Alert, Box, Typography, Chip, Paper } from '@mui/material';
 import { Reorder, useDragControls } from "framer-motion";
@@ -33,7 +33,6 @@ import AddIcon from '@mui/icons-material/Add';
 import FlagOutlinedIcon from '@mui/icons-material/FlagOutlined';
 import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import TrackChangesOutlinedIcon from '@mui/icons-material/TrackChangesOutlined';
-import ViewAgendaOutlinedIcon from '@mui/icons-material/ViewAgendaOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -42,7 +41,9 @@ import autoTable from 'jspdf-autotable';
 import SegmentRollupView from './SegmentRollupView';
 import PreDeadlineTracker from './PreDeadlineTracker';
 import HodScoreCard from './HodScoreCard';
-import SubTeamManager from './SubTeamManager';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import MemberWeightConfigModal from './MemberWeightConfigModal';
 import '../../styles/mrm.scss';
 
 const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDeleteDialog, handleInsertItem, autoResizeTextarea, mrmUsers, isLocked, openBaselineDialog, handleStatusChange, hasTileAnomaly }) => {
@@ -85,16 +86,16 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                                 disabled={isLocked}
                             />
                             {hasTileAnomaly && (
-                                <span 
-                                    style={{ 
-                                        display: 'inline-flex', 
-                                        alignItems: 'center', 
-                                        gap: '4px', 
-                                        fontSize: '0.72rem', 
-                                        padding: '2px 8px', 
-                                        borderRadius: '12px', 
-                                        background: '#fef2f2', 
-                                        color: '#b91c1c', 
+                                <span
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        fontSize: '0.72rem',
+                                        padding: '2px 8px',
+                                        borderRadius: '12px',
+                                        background: '#fef2f2',
+                                        color: '#b91c1c',
                                         border: '1px solid #fecaca',
                                         fontWeight: '700'
                                     }}
@@ -130,7 +131,7 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
             value={item}
             dragListener={false}
             dragControls={controls}
-            className={item.isDirty ? 'row-dirty' : ''}
+            className={`${item.isDirty ? 'row-dirty' : ''} ${item.status === 'Not Required' ? 'row-not-required' : ''}`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
@@ -143,8 +144,8 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
         >
             <td className="drag-handle-cell">
                 {!isLocked && (
-                    <div 
-                        className="drag-handle" 
+                    <div
+                        className="drag-handle"
                         onPointerDown={(e) => controls.start(e)}
                         style={{ cursor: 'grab', display: 'flex', justifyContent: 'center' }}
                     >
@@ -173,16 +174,16 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                 />
                 <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '3px', alignItems: 'center' }}>
                     {item.anomaly?.isAnomaly && (
-                        <span 
-                            style={{ 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                gap: '2px', 
-                                fontSize: '0.67rem', 
-                                padding: '1px 5px', 
-                                borderRadius: '4px', 
-                                background: '#fef2f2', 
-                                color: '#b91c1c', 
+                        <span
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '2px',
+                                fontSize: '0.67rem',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: '#fef2f2',
+                                color: '#b91c1c',
                                 border: '1px solid #fecaca',
                                 fontWeight: '700'
                             }}
@@ -194,16 +195,16 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
 
                     {/* Dual Delta Display (Abs and %) */}
                     {item.yoyDelta ? (
-                        <span 
-                            style={{ 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                gap: '2px', 
-                                fontSize: '0.67rem', 
-                                padding: '1px 5px', 
-                                borderRadius: '4px', 
-                                background: '#f0f9ff', 
-                                color: '#0369a1', 
+                        <span
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '2px',
+                                fontSize: '0.67rem',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: '#f0f9ff',
+                                color: '#0369a1',
                                 border: '1px solid #bae6fd',
                                 fontWeight: '600'
                             }}
@@ -301,16 +302,16 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                 />
                 {item.openPointId && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
-                        <span 
-                            style={{ 
+                        <span
+                            style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '3px',
-                                fontSize: '0.65rem', 
-                                padding: '1px 5px', 
-                                borderRadius: '4px', 
-                                background: '#ecfdf5', 
-                                color: '#047857', 
+                                fontSize: '0.65rem',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: '#ecfdf5',
+                                color: '#047857',
                                 border: '1px solid #a7f3d0',
                                 fontWeight: '600'
                             }}
@@ -321,7 +322,7 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                     </div>
                 )}
             </td>
-            <td onClick={() => {}} style={{ cursor: isLocked ? 'default' : 'pointer' }}>
+            <td onClick={() => { }} style={{ cursor: isLocked ? 'default' : 'pointer' }}>
                 <Autocomplete
                     size="small"
                     disabled={isLocked}
@@ -374,6 +375,7 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                     <option value="Green" style={{ background: 'white', color: '#166534' }}>Green</option>
                     <option value="Yellow" style={{ background: 'white', color: '#ca8a04' }}>Yellow</option>
                     <option value="Red" style={{ background: 'white', color: '#dc2626' }}>Red</option>
+                    <option value="Not Required" style={{ background: 'white', color: '#64748b' }}>Not Required</option>
                 </select>
             </td>
             <td onClick={e => !isLocked && e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: isLocked ? 'default' : 'text' }}>
@@ -478,8 +480,8 @@ const MRMHome = () => {
     const [loading, setLoading] = useState(false);
 
     // Metadata State & Lifecycle Workflow
-    const [metadata, setMetadata] = useState({ 
-        meetingDate: '', 
+    const [metadata, setMetadata] = useState({
+        meetingDate: '',
         reviewDate: '',
         status: 'Draft',
         isLocked: false,
@@ -572,8 +574,7 @@ const MRMHome = () => {
     const [rollupFeatureEnabled, setRollupFeatureEnabled] = useState(false);
     const [segmentRollupData, setSegmentRollupData] = useState(null);
     const [hodScoreData, setHodScoreData] = useState(null);
-    const [subTeamManagerOpen, setSubTeamManagerOpen] = useState(false);
-    // Executive View Switcher: 'EXECUTIVE_MEETING' (Reds First), 'TEAM_SEGMENTS' (70%), 'HOD_OBJECTIVES' (30%), 'ALL' (Unified)
+    // Executive View Switcher: 'EXECUTIVE_MEETING' (Reds First), 'TEAM_SEGMENTS' (70%), 'HOD_OBJECTIVES' (30%)
     const [mrmViewMode, setMrmViewMode] = useState('EXECUTIVE_MEETING');
 
     const selectedUserObj = mrmUsers.find(u => String(u._id) === String(selectedUserId)) || user;
@@ -606,7 +607,8 @@ const MRMHome = () => {
     const [importSourceYear, setImportSourceYear] = useState(selectedMonth === 1 ? selectedYear - 1 : selectedYear);
 
     // Status Filter
-    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'Green', 'Yellow', 'Red'
+    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'Green', 'Yellow', 'Red', 'Not Required'
+    const [openWeightConfigModal, setOpenWeightConfigModal] = useState(false);
 
     // Delete Confirmation Dialog
     const [deleteDialog, setDeleteDialog] = useState({
@@ -650,7 +652,7 @@ const MRMHome = () => {
             ]);
 
             setItems(itemsData.map(i => ({ ...i, isDirty: false })));
-            
+
             const metaStatus = metaData?.status || (metaData?.meetingDone ? 'Approved' : 'Draft');
             const metaLocked = Boolean(metaData?.isLocked || metaData?.meetingDone || metaStatus === 'Approved');
 
@@ -967,8 +969,8 @@ const MRMHome = () => {
 
             const updatedItem = { ...item, [field]: value, isDirty: true };
 
-            // Auto-RAG status evaluation if actual, plan, or target changes
-            if (field === 'actual' || field === 'plan' || field === 'target') {
+            // Auto-RAG status evaluation if actual, plan, or target changes (skip if explicitly Not Required)
+            if ((field === 'actual' || field === 'plan' || field === 'target') && item.status !== 'Not Required') {
                 const currentActual = field === 'actual' ? value : item.actual;
                 const currentPlan = field === 'plan' ? value : (item.plan || (field === 'target' ? value : item.target));
                 const computedStatus = evaluateAutoRAG(
@@ -1198,9 +1200,10 @@ const MRMHome = () => {
     // Status counts for filter badges
     const statusCounts = {
         all: items.length,
-        Green: items.filter(i => i.status === 'Green' || !i.status).length,
+        Green: items.filter(i => (i.status === 'Green' || !i.status) && i.status !== 'Not Required').length,
         Yellow: items.filter(i => i.status === 'Yellow').length,
         Red: items.filter(i => i.status === 'Red').length,
+        NotRequired: items.filter(i => i.status === 'Not Required').length
     };
 
     // Help Modal State
@@ -1220,9 +1223,10 @@ const MRMHome = () => {
     };
 
     const STATUS_COLORS = {
-        Green:  { hex: '166534', fill: 'D1FAE5', text: '14532D' },
+        Green: { hex: '166534', fill: 'D1FAE5', text: '14532D' },
         Yellow: { hex: 'CA8A04', fill: 'FEF9C3', text: '713F12' },
-        Red:    { hex: 'DC2626', fill: 'FEE2E2', text: '7F1D1D' },
+        Red: { hex: 'DC2626', fill: 'FEE2E2', text: '7F1D1D' },
+        'Not Required': { hex: '64748B', fill: 'F1F5F9', text: '475569' },
     };
 
     // ─── Excel Export ─────────────────────────────────────────────────────────────
@@ -1238,19 +1242,19 @@ const MRMHome = () => {
         });
 
         const COLS = [
-            { header: '#',                    key: 'sno',        width: 6  },
-            { header: 'Process Description', key: 'process',    width: 36 },
-            { header: 'Objective',            key: 'objective',  width: 32 },
-            { header: 'Target',               key: 'target',     width: 14 },
-            { header: 'Freq.',                key: 'freq',       width: 14 },
-            { header: 'Responsibility',       key: 'resp',       width: 20 },
+            { header: '#', key: 'sno', width: 6 },
+            { header: 'Process Description', key: 'process', width: 36 },
+            { header: 'Objective', key: 'objective', width: 32 },
+            { header: 'Target', key: 'target', width: 14 },
+            { header: 'Freq.', key: 'freq', width: 14 },
+            { header: 'Responsibility', key: 'resp', width: 20 },
             { header: `Act. (${prevMonthName}-${getYearShort(prevYearVal)})`, key: 'actual', width: 16 },
             { header: `Plan (${currentMonthName}-${getYearShort(selectedYear)})`, key: 'plan', width: 16 },
-            { header: 'Action Plan',          key: 'actionPlan', width: 36 },
-            { header: 'Act. Resp.',           key: 'actResp',    width: 20 },
-            { header: 'Target Date',          key: 'targetDate', width: 16 },
-            { header: 'Status',               key: 'status',     width: 14 },
-            { header: 'Remarks',              key: 'remarks',    width: 32 },
+            { header: 'Action Plan', key: 'actionPlan', width: 36 },
+            { header: 'Act. Resp.', key: 'actResp', width: 20 },
+            { header: 'Target Date', key: 'targetDate', width: 16 },
+            { header: 'Status', key: 'status', width: 14 },
+            { header: 'Remarks', key: 'remarks', width: 32 },
         ];
         ws.columns = COLS;
 
@@ -1290,10 +1294,10 @@ const MRMHome = () => {
             cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
             cell.border = {
-                top:    { style: 'medium', color: { argb: 'FF217346' } },
+                top: { style: 'medium', color: { argb: 'FF217346' } },
                 bottom: { style: 'medium', color: { argb: 'FF217346' } },
-                left:   { style: 'thin',   color: { argb: 'FF334155' } },
-                right:  { style: 'thin',   color: { argb: 'FF334155' } },
+                left: { style: 'thin', color: { argb: 'FF334155' } },
+                right: { style: 'thin', color: { argb: 'FF334155' } },
             };
         });
 
@@ -1312,7 +1316,7 @@ const MRMHome = () => {
                 tc.alignment = { horizontal: 'center', vertical: 'middle' };
                 tc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
                 tc.border = {
-                    top:    { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                    top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
                     bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
                 };
                 return;
@@ -1342,7 +1346,7 @@ const MRMHome = () => {
                 cell.alignment = { vertical: 'top', wrapText: true, horizontal: [1, 4, 5, 7, 8, 11, 12].includes(colNum) ? 'center' : 'left' };
                 cell.border = {
                     bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
-                    right:  { style: 'hair', color: { argb: 'FFE5E7EB' } },
+                    right: { style: 'hair', color: { argb: 'FFE5E7EB' } },
                 };
                 // Status cell coloring (Col 12)
                 if (colNum === 12) {
@@ -1350,10 +1354,10 @@ const MRMHome = () => {
                     cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: `FF${sc.text}` } };
                     cell.alignment = { horizontal: 'center', vertical: 'middle' };
                     cell.border = {
-                        top:    { style: 'thin', color: { argb: `FF${sc.hex}` } },
+                        top: { style: 'thin', color: { argb: `FF${sc.hex}` } },
                         bottom: { style: 'thin', color: { argb: `FF${sc.hex}` } },
-                        left:   { style: 'thin', color: { argb: `FF${sc.hex}` } },
-                        right:  { style: 'thin', color: { argb: `FF${sc.hex}` } },
+                        left: { style: 'thin', color: { argb: `FF${sc.hex}` } },
+                        right: { style: 'thin', color: { argb: `FF${sc.hex}` } },
                     };
                 }
                 // Alternate row shading
@@ -1367,12 +1371,12 @@ const MRMHome = () => {
         const footerRowNum = ws.rowCount + 2;
         ws.mergeCells(`A${footerRowNum}:M${footerRowNum}`);
         const footerCell = ws.getCell(`A${footerRowNum}`);
-        footerCell.value = `Total Items: ${sno}   |   Green: ${statusCounts.Green}   |   Yellow: ${statusCounts.Yellow}   |   Red: ${statusCounts.Red}`;
+        footerCell.value = `Total Items: ${sno}   |   Green: ${statusCounts.Green}   |   Yellow: ${statusCounts.Yellow}   |   Red: ${statusCounts.Red}   |   Not Required: ${statusCounts.NotRequired}`;
         footerCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1F2937' } };
         footerCell.alignment = { horizontal: 'center', vertical: 'middle' };
         footerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } };
         footerCell.border = {
-            top:    { style: 'medium', color: { argb: 'FF217346' } },
+            top: { style: 'medium', color: { argb: 'FF217346' } },
             bottom: { style: 'medium', color: { argb: 'FF217346' } },
         };
         ws.getRow(footerRowNum).height = 24;
@@ -1409,7 +1413,7 @@ const MRMHome = () => {
         // ── Info row ──
         doc.setFillColor(241, 245, 249);  // slate-100
         doc.rect(0, 17, pageW, 9, 'F');
-        const reviewDateStr  = metadata.reviewDate  ? formatDate(metadata.reviewDate)  : 'N/A';
+        const reviewDateStr = metadata.reviewDate ? formatDate(metadata.reviewDate) : 'N/A';
         const meetingDateStr = metadata.meetingDate ? formatDate(metadata.meetingDate) : 'N/A';
         const exportedBy = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'N/A';
         doc.setTextColor(51, 65, 85);
@@ -1427,15 +1431,16 @@ const MRMHome = () => {
         const pillY = 28;
         const pillH = 7;
         const pills = [
-            { label: 'TOTAL:',  value: items.filter(i => !i.isTitleRow).length, bg: [30, 41, 59],   fg: [255, 255, 255] },
-            { label: 'GREEN:',  value: statusCounts.Green,                      bg: [22, 101, 52],  fg: [220, 252, 231] },
-            { label: 'YELLOW:', value: statusCounts.Yellow,                     bg: [161, 98, 7],   fg: [254, 240, 138] },
-            { label: 'RED:',    value: statusCounts.Red,                        bg: [185, 28, 28],  fg: [254, 226, 226] },
+            { label: 'TOTAL:', value: items.filter(i => !i.isTitleRow).length, bg: [30, 41, 59], fg: [255, 255, 255] },
+            { label: 'GREEN:', value: statusCounts.Green, bg: [22, 101, 52], fg: [220, 252, 231] },
+            { label: 'YELLOW:', value: statusCounts.Yellow, bg: [161, 98, 7], fg: [254, 240, 138] },
+            { label: 'RED:', value: statusCounts.Red, bg: [185, 28, 28], fg: [254, 226, 226] },
+            { label: 'NOT REQ:', value: statusCounts.NotRequired, bg: [241, 245, 249], fg: [71, 85, 105] },
         ];
-        const pillW = 38;
-        const pillsStartX = (pageW - pills.length * pillW - (pills.length - 1) * 4) / 2;
+        const pillW = 34;
+        const pillsStartX = (pageW - pills.length * pillW - (pills.length - 1) * 3) / 2;
         pills.forEach((p, i) => {
-            const x = pillsStartX + i * (pillW + 4);
+            const x = pillsStartX + i * (pillW + 3);
             doc.setFillColor(...p.bg);
             doc.roundedRect(x, pillY, pillW, pillH, 2, 2, 'F');
             doc.setTextColor(...p.fg);
@@ -1527,16 +1532,16 @@ const MRMHome = () => {
                 fillColor: [248, 250, 252],
             },
             columnStyles: {
-                0:  { cellWidth: 7,  halign: 'center' },
-                1:  { cellWidth: 42 },
-                2:  { cellWidth: 34 },
-                3:  { cellWidth: 13, halign: 'center' },
-                4:  { cellWidth: 13, halign: 'center' },
-                5:  { cellWidth: 22 },
-                6:  { cellWidth: 14, halign: 'center' },
-                7:  { cellWidth: 14, halign: 'center' },
-                8:  { cellWidth: 50 },
-                9:  { cellWidth: 22 },
+                0: { cellWidth: 7, halign: 'center' },
+                1: { cellWidth: 42 },
+                2: { cellWidth: 34 },
+                3: { cellWidth: 13, halign: 'center' },
+                4: { cellWidth: 13, halign: 'center' },
+                5: { cellWidth: 22 },
+                6: { cellWidth: 14, halign: 'center' },
+                7: { cellWidth: 14, halign: 'center' },
+                8: { cellWidth: 50 },
+                9: { cellWidth: 22 },
                 10: { cellWidth: 18, halign: 'center' },
                 11: { cellWidth: 28, halign: 'center' },
             },
@@ -1570,9 +1575,10 @@ const MRMHome = () => {
 
     const getStatusCellStyle = (status) => {
         const map = {
-            Green:  { fillColor: [220, 252, 231], textColor: [22, 101, 52],   fontStyle: 'bold', halign: 'center' },
-            Yellow: { fillColor: [254, 240, 138], textColor: [133, 77, 14],  fontStyle: 'bold', halign: 'center' },
-            Red:    { fillColor: [254, 226, 226], textColor: [153, 27, 27],  fontStyle: 'bold', halign: 'center' },
+            Green: { fillColor: [220, 252, 231], textColor: [22, 101, 52], fontStyle: 'bold', halign: 'center' },
+            Yellow: { fillColor: [254, 240, 138], textColor: [133, 77, 14], fontStyle: 'bold', halign: 'center' },
+            Red: { fillColor: [254, 226, 226], textColor: [153, 27, 27], fontStyle: 'bold', halign: 'center' },
+            'Not Required': { fillColor: [241, 245, 249], textColor: [100, 116, 139], fontStyle: 'bold', halign: 'center' },
         };
         return map[status] || map.Green;
     };
@@ -1586,9 +1592,9 @@ const MRMHome = () => {
                         <h1>Monthly Review Meeting</h1>
                         <span className={`mrm-pill-badge ${metadata.status?.toLowerCase() || 'draft'}`}>
                             {metadata.status === 'Approved' ? 'Approved & Locked' :
-                             metadata.status === 'Submitted' ? 'Submitted for Review' :
-                             metadata.status === 'RevisionRequested' ? 'Revision Requested' :
-                             'Draft'}
+                                metadata.status === 'Submitted' ? 'Submitted for Review' :
+                                    metadata.status === 'RevisionRequested' ? 'Revision Requested' :
+                                        'Draft'}
                         </span>
                     </div>
                     <span className="user-name">Welcome, {user?.first_name} {user?.last_name}</span>
@@ -1661,510 +1667,856 @@ const MRMHome = () => {
             <div className="mrm-page-body">
                 {/* Controls Bar */}
                 <div className="header-actions">
-                <div className="toolbar-row top-row">
-                    <div className="context-group">
-                        <div className="control-item">
-                            <span className="control-label">Review Date:</span>
-                            <input
-                                type="date"
-                                value={metadata.reviewDate}
-                                onChange={e => handleMetadataChange('reviewDate', e.target.value)}
-                            />
-                        </div>
-                        <div className="control-item">
-                            <span className="control-label">Meeting Date:</span>
-                            <input
-                                type="date"
-                                value={metadata.meetingDate}
-                                onChange={e => handleMetadataChange('meetingDate', e.target.value)}
-                            />
-                        </div>
-
-                        <div className="toolbar-divider" />
-
-                        {/* Admin / Approver Presenter Selector */}
-                        {canManagePresenters && (
+                    <div className="toolbar-row top-row">
+                        <div className="context-group">
                             <div className="control-item">
-                                <span className="control-label">Presenter:</span>
-                                <div className="executive-select-wrapper">
-                                    <select
-                                        value={selectedUserId}
-                                        onChange={e => setSelectedUserId(e.target.value)}
-                                        className="executive-select"
-                                        style={{ minWidth: '180px' }}
-                                    >
-                                        <option value="" disabled>Select Presenter</option>
-                                        {mrmUsers
-                                            .filter(u => (u.displayName || u.first_name || u.username))
-                                            .map(u => {
-                                                const name = u.displayName || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username;
-                                                return (
-                                                    <option key={u._id} value={u._id}>
-                                                        {name}
-                                                    </option>
-                                                );
-                                            })}
-                                    </select>
-                                    <span className="select-arrow">▼</span>
-                                </div>
+                                <span className="control-label">Review Date:</span>
+                                <input
+                                    type="date"
+                                    value={metadata.reviewDate}
+                                    onChange={e => handleMetadataChange('reviewDate', e.target.value)}
+                                />
                             </div>
-                        )}
+                            <div className="control-item">
+                                <span className="control-label">Meeting Date:</span>
+                                <input
+                                    type="date"
+                                    value={metadata.meetingDate}
+                                    onChange={e => handleMetadataChange('meetingDate', e.target.value)}
+                                />
+                            </div>
 
-                        <div className="control-item">
-                            <span className="control-label">Period:</span>
-                            <div className="period-group">
-                                <div className="executive-select-wrapper">
-                                    <select
-                                        value={selectedMonth}
-                                        onChange={e => setSelectedMonth(Number(e.target.value))}
-                                        className="executive-select"
-                                        style={{ minWidth: '135px' }}
-                                    >
-                                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                                            <option key={m} value={m}>{new Date(0, m - 1).toLocaleString('default', { month: 'long' })}</option>
-                                        ))}
-                                    </select>
-                                    <span className="select-arrow">▼</span>
+                            <div className="toolbar-divider" />
+
+                            {/* Admin / Approver Presenter Selector */}
+                            {canManagePresenters && (
+                                <div className="control-item">
+                                    <span className="control-label">Presenter:</span>
+                                    <div className="executive-select-wrapper">
+                                        <select
+                                            value={selectedUserId}
+                                            onChange={e => setSelectedUserId(e.target.value)}
+                                            className="executive-select"
+                                            style={{ minWidth: '180px' }}
+                                        >
+                                            <option value="" disabled>Select Presenter</option>
+                                            {mrmUsers
+                                                .filter(u => (u.displayName || u.first_name || u.username))
+                                                .map(u => {
+                                                    const name = u.displayName || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username;
+                                                    return (
+                                                        <option key={u._id} value={u._id}>
+                                                            {name}
+                                                        </option>
+                                                    );
+                                                })}
+                                        </select>
+                                        <span className="select-arrow">▼</span>
+                                    </div>
                                 </div>
-                                <div className="executive-select-wrapper">
-                                    <select
-                                        value={selectedYear}
-                                        onChange={e => setSelectedYear(Number(e.target.value))}
-                                        className="executive-select"
-                                        style={{ minWidth: '95px' }}
+                            )}
+
+                            <div className="control-item">
+                                <span className="control-label">Period:</span>
+                                <div className="period-group" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => {
+                                            let m = selectedMonth - 1;
+                                            let y = selectedYear;
+                                            if (m < 1) {
+                                                m = 12;
+                                                y -= 1;
+                                            }
+                                            setSelectedMonth(m);
+                                            setSelectedYear(y);
+                                        }}
+                                        title="Previous Month"
+                                        sx={{ p: '4px', border: '1px solid #cbd5e1', bgcolor: '#ffffff', '&:hover': { bgcolor: '#f1f5f9' } }}
                                     >
-                                        {[2024, 2025, 2026, 2027, 2028].map(y => (
-                                            <option key={y} value={y}>{y}</option>
-                                        ))}
-                                    </select>
-                                    <span className="select-arrow">▼</span>
+                                        <ChevronLeftIcon sx={{ fontSize: 18, color: '#334155' }} />
+                                    </IconButton>
+
+                                    <div className="executive-select-wrapper">
+                                        <select
+                                            value={selectedMonth}
+                                            onChange={e => setSelectedMonth(Number(e.target.value))}
+                                            className="executive-select"
+                                            style={{ minWidth: '135px' }}
+                                        >
+                                            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                                <option key={m} value={m}>{new Date(0, m - 1).toLocaleString('default', { month: 'long' })}</option>
+                                            ))}
+                                        </select>
+                                        <span className="select-arrow">▼</span>
+                                    </div>
+                                    <div className="executive-select-wrapper">
+                                        <select
+                                            value={selectedYear}
+                                            onChange={e => setSelectedYear(Number(e.target.value))}
+                                            className="executive-select"
+                                            style={{ minWidth: '95px' }}
+                                        >
+                                            {[2024, 2025, 2026, 2027, 2028].map(y => (
+                                                <option key={y} value={y}>{y}</option>
+                                            ))}
+                                        </select>
+                                        <span className="select-arrow">▼</span>
+                                    </div>
+
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => {
+                                            const now = new Date();
+                                            const currY = now.getFullYear();
+                                            const currM = now.getMonth() + 1;
+                                            let m = selectedMonth + 1;
+                                            let y = selectedYear;
+                                            if (m > 12) {
+                                                m = 1;
+                                                y += 1;
+                                            }
+                                            if (y > currY || (y === currY && m > currM)) {
+                                                return;
+                                            }
+                                            setSelectedMonth(m);
+                                            setSelectedYear(y);
+                                        }}
+                                        title="Next Month"
+                                        disabled={selectedYear >= new Date().getFullYear() && selectedMonth >= (new Date().getMonth() + 1)}
+                                        sx={{ p: '4px', border: '1px solid #cbd5e1', bgcolor: '#ffffff', '&:hover': { bgcolor: '#f1f5f9' } }}
+                                    >
+                                        <ChevronRightIcon sx={{ fontSize: 18, color: '#334155' }} />
+                                    </IconButton>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div className="toolbar-row bottom-row">
-                    {/* Status Filter */}
-                    <div className="status-filter">
-                        <span className="control-label">Filter:</span>
-                        <div className="filter-buttons">
-                            <button
-                                className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
-                                onClick={() => setStatusFilter('all')}
-                            >
-                                All ({statusCounts.all})
-                            </button>
-                            <button
-                                className={`filter-btn green ${statusFilter === 'Green' ? 'active' : ''}`}
-                                onClick={() => setStatusFilter('Green')}
-                            >
-                                <span className="status-dot green" /> On-Track ({statusCounts.Green})
-                            </button>
-                            <button
-                                className={`filter-btn yellow ${statusFilter === 'Yellow' ? 'active' : ''}`}
-                                onClick={() => setStatusFilter('Yellow')}
-                            >
-                                <span className="status-dot yellow" /> Attention ({statusCounts.Yellow})
-                            </button>
-                            <button
-                                className={`filter-btn red ${statusFilter === 'Red' ? 'active' : ''}`}
-                                onClick={() => setStatusFilter('Red')}
-                            >
-                                <span className="status-dot red" /> Critical ({statusCounts.Red})
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Action Controls */}
-                    <div className="action-buttons-group">
-                        {!metadata.isLocked && (
-                            <button className="action-btn secondary" onClick={() => setShowImportModal(true)}>
-                                <FileUploadOutlinedIcon sx={{ fontSize: 15 }} /> Import / Copy
-                            </button>
-                        )}
-
-                        {items.length > 0 && (
-                            <>
-                                {/* Export Dropdown Button */}
+                    <div className="toolbar-row bottom-row">
+                        {/* Status Filter */}
+                        <div className="status-filter">
+                            <span className="control-label">Filter:</span>
+                            <div className="filter-buttons">
                                 <button
-                                    className="action-btn export-btn"
-                                    onClick={(e) => setExportMenuAnchor(e.currentTarget)}
-                                    title="Export MRM data"
+                                    className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
+                                    onClick={() => setStatusFilter('all')}
                                 >
-                                    <FileDownloadIcon sx={{ fontSize: 16 }} />
-                                    Export
-                                    <span className="export-arrow">▾</span>
+                                    All ({statusCounts.all})
                                 </button>
-                                <Menu
-                                    anchorEl={exportMenuAnchor}
-                                    open={Boolean(exportMenuAnchor)}
-                                    onClose={() => setExportMenuAnchor(null)}
-                                    PaperProps={{
-                                        sx: {
-                                            borderRadius: '12px',
-                                            boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-                                            minWidth: '200px',
-                                            overflow: 'visible',
-                                            mt: '6px',
-                                            border: '1px solid #e5e7eb',
-                                        }
-                                    }}
-                                    transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                                    anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                                <button
+                                    className={`filter-btn green ${statusFilter === 'Green' ? 'active' : ''}`}
+                                    onClick={() => setStatusFilter('Green')}
                                 >
-                                    <div className="export-menu-header">Export {getMonthLong(selectedMonth)} {selectedYear}</div>
-                                    <MenuItem
-                                        onClick={handleExportExcel}
-                                        className="export-menu-item"
-                                        sx={{
-                                            gap: '10px',
-                                            py: '10px',
-                                            px: '16px',
-                                            fontSize: '0.875rem',
-                                            fontWeight: 500,
-                                            color: '#166534',
-                                            '&:hover': { background: '#f0fdf4' }
-                                        }}
-                                    >
-                                        <TableChartIcon sx={{ fontSize: 20, color: '#16a34a' }} />
-                                        <div>
-                                            <div style={{ fontWeight: 600 }}>Export to Excel</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 400 }}>Styled .xlsx with colors</div>
-                                        </div>
-                                    </MenuItem>
-                                    <MenuItem
-                                        onClick={handleExportPDF}
-                                        className="export-menu-item"
-                                        sx={{
-                                            gap: '10px',
-                                            py: '10px',
-                                            px: '16px',
-                                            fontSize: '0.875rem',
-                                            fontWeight: 500,
-                                            color: '#991b1b',
-                                            '&:hover': { background: '#fef2f2' }
-                                        }}
-                                    >
-                                        <PictureAsPdfIcon sx={{ fontSize: 20, color: '#dc2626' }} />
-                                        <div>
-                                            <div style={{ fontWeight: 600 }}>Export to PDF</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 400 }}>Landscape A3 format</div>
-                                        </div>
-                                    </MenuItem>
-                                </Menu>
-                                {!metadata.isLocked && (
+                                    <span className="status-dot green" /> On-Track ({statusCounts.Green})
+                                </button>
+                                <button
+                                    className={`filter-btn yellow ${statusFilter === 'Yellow' ? 'active' : ''}`}
+                                    onClick={() => setStatusFilter('Yellow')}
+                                >
+                                    <span className="status-dot yellow" /> Attention ({statusCounts.Yellow})
+                                </button>
+                                <button
+                                    className={`filter-btn red ${statusFilter === 'Red' ? 'active' : ''}`}
+                                    onClick={() => setStatusFilter('Red')}
+                                >
+                                    <span className="status-dot red" /> Critical ({statusCounts.Red})
+                                </button>
+                                <button
+                                    className={`filter-btn not-required ${statusFilter === 'Not Required' ? 'active' : ''}`}
+                                    onClick={() => setStatusFilter('Not Required')}
+                                >
+                                    <span className="status-dot not-required" style={{ backgroundColor: '#94a3b8' }} /> Not Required ({statusCounts.NotRequired})
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Action Controls */}
+                        <div className="action-buttons-group">
+                            {!metadata.isLocked && (
+                                <button className="action-btn secondary" onClick={() => setShowImportModal(true)}>
+                                    <FileUploadOutlinedIcon sx={{ fontSize: 15 }} /> Import / Copy
+                                </button>
+                            )}
+
+                            {items.length > 0 && (
+                                <>
+                                    {/* Export Dropdown Button */}
                                     <button
-                                        className="action-btn danger-btn-outline"
-                                        onClick={() => setBulkDeleteDialog(true)}
-                                        title="Delete all rows for this month"
+                                        className="action-btn export-btn"
+                                        onClick={(e) => setExportMenuAnchor(e.currentTarget)}
+                                        title="Export MRM data"
                                     >
-                                        <DeleteOutlineIcon sx={{ fontSize: 15 }} /> Delete Month
+                                        <FileDownloadIcon sx={{ fontSize: 16 }} />
+                                        Export
+                                        <span className="export-arrow">▾</span>
                                     </button>
-                                )}
-                            </>
-                        )}
-                        {!metadata.isLocked && (
-                            <button className="action-btn primary" onClick={handleAddItem}>
-                                <AddIcon sx={{ fontSize: 16 }} /> Add Row
-                            </button>
-                        )}
+                                    <Menu
+                                        anchorEl={exportMenuAnchor}
+                                        open={Boolean(exportMenuAnchor)}
+                                        onClose={() => setExportMenuAnchor(null)}
+                                        PaperProps={{
+                                            sx: {
+                                                borderRadius: '12px',
+                                                boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+                                                minWidth: '200px',
+                                                overflow: 'visible',
+                                                mt: '6px',
+                                                border: '1px solid #e5e7eb',
+                                            }
+                                        }}
+                                        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                                        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                                    >
+                                        <div className="export-menu-header">Export {getMonthLong(selectedMonth)} {selectedYear}</div>
+                                        <MenuItem
+                                            onClick={handleExportExcel}
+                                            className="export-menu-item"
+                                            sx={{
+                                                gap: '10px',
+                                                py: '10px',
+                                                px: '16px',
+                                                fontSize: '0.875rem',
+                                                fontWeight: 500,
+                                                color: '#166534',
+                                                '&:hover': { background: '#f0fdf4' }
+                                            }}
+                                        >
+                                            <TableChartIcon sx={{ fontSize: 20, color: '#16a34a' }} />
+                                            <div>
+                                                <div style={{ fontWeight: 600 }}>Export to Excel</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 400 }}>Styled .xlsx with colors</div>
+                                            </div>
+                                        </MenuItem>
+                                        <MenuItem
+                                            onClick={handleExportPDF}
+                                            className="export-menu-item"
+                                            sx={{
+                                                gap: '10px',
+                                                py: '10px',
+                                                px: '16px',
+                                                fontSize: '0.875rem',
+                                                fontWeight: 500,
+                                                color: '#991b1b',
+                                                '&:hover': { background: '#fef2f2' }
+                                            }}
+                                        >
+                                            <PictureAsPdfIcon sx={{ fontSize: 20, color: '#dc2626' }} />
+                                            <div>
+                                                <div style={{ fontWeight: 600 }}>Export to PDF</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 400 }}>Landscape A3 format</div>
+                                            </div>
+                                        </MenuItem>
+                                    </Menu>
+                                    {!metadata.isLocked && (
+                                        <button
+                                            className="action-btn danger-btn-outline"
+                                            onClick={() => setBulkDeleteDialog(true)}
+                                            title="Delete all rows for this month"
+                                        >
+                                            <DeleteOutlineIcon sx={{ fontSize: 15 }} /> Delete Month
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                            {!metadata.isLocked && (
+                                <button className="action-btn primary" onClick={handleAddItem}>
+                                    <AddIcon sx={{ fontSize: 16 }} /> Add Row
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Revision Requested Notice (Only displayed if revision is actively requested) */}
-            {metadata.status === 'RevisionRequested' && (
-                <Alert 
-                    severity="warning" 
-                    icon={<WarningAmberIcon fontSize="inherit" />}
-                    sx={{ 
-                        borderRadius: '10px', 
-                        border: '1px solid #fde68a', 
-                        bgcolor: '#fffbeb', 
-                        color: '#92400e',
+                {/* Revision Requested Notice (Only displayed if revision is actively requested) */}
+                {metadata.status === 'RevisionRequested' && (
+                    <Alert
+                        severity="warning"
+                        icon={<WarningAmberIcon fontSize="inherit" />}
+                        sx={{
+                            borderRadius: '10px',
+                            border: '1px solid #fde68a',
+                            bgcolor: '#fffbeb',
+                            color: '#92400e',
+                            width: '100%',
+                            boxSizing: 'border-box'
+                        }}
+                    >
+                        <strong>Revision Requested by Suraj:</strong> "{metadata.revisionHistory?.[metadata.revisionHistory.length - 1]?.comment || 'Please update highlighted rows and re-submit.'}"
+                    </Alert>
+                )}
+
+                {/* Help Modal */}
+                <Dialog open={showHelpModal} onClose={() => setShowHelpModal(false)} maxWidth="md" fullWidth>
+                    <DialogTitle sx={{ color: '#064e3b', display: 'flex', alignItems: 'center', gap: 1, fontWeight: 800 }}>
+                        📋 What is MRM (Management Review Meeting)?
+                    </DialogTitle>
+                    <DialogContent>
+                        <DialogContentText sx={{ mb: 2, color: '#334155', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                            <strong>Monthly Review Meeting (MRM)</strong> is a structured operational governance process to track organizational objectives, monitor performance, and enforce corrective action plans on a monthly basis.
+                        </DialogContentText>
+
+                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 18px', marginBottom: '16px' }}>
+                            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '8px', fontSize: '0.9rem' }}>
+                                Guiding Principles for Effective MRM Points
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                                <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                    <strong style={{ color: '#059669' }}>Specific</strong> – Clearly define what is measured
+                                </div>
+                                <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                    <strong style={{ color: '#0284c7' }}>Measurable</strong> – Include quantifiable targets
+                                </div>
+                                <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #ca8a04' }}>
+                                    <strong style={{ color: '#ca8a04' }}>Actionable</strong> – Action plan with owner
+                                </div>
+                                <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #dc2626' }}>
+                                    <strong style={{ color: '#dc2626' }}>Time-bound</strong> – Set realistic target dates
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '8px', fontSize: '0.9rem' }}>
+                            Field Definitions
+                        </div>
+                        <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                                <tbody>
+                                    {[
+                                        ['Process Description', 'The business process or activity being reviewed'],
+                                        ['Objective', 'The goal or purpose of this process'],
+                                        ['Target', 'The measurable target value (e.g., 95%, ₹10L)'],
+                                        ['Frequency', 'How often this is monitored (Daily, Weekly, Monthly)'],
+                                        ['Responsibility', 'Person accountable for this process'],
+                                        ['Actual (Prev Month)', 'The actual achieved value from last month'],
+                                        ['Plan (Current Month)', 'The planned target for current month'],
+                                        ['Action Plan', 'Corrective steps (automatically synced to Open Points at Save time)'],
+                                        ['Resp. (Action)', 'Person responsible for chasing the action item to closure'],
+                                        ['Target Date', 'Deadline for completing the action item'],
+                                        ['Status', '🟢 Green = On Target / Completed | 🟡 Yellow = In Progress | 🔴 Red = Off Target (Requires Action Plan)'],
+                                        ['Remarks', 'Additional notes, context, or escalation details']
+                                    ].map(([field, desc], i) => (
+                                        <tr key={i} style={{ background: i % 2 === 0 ? '#ffffff' : '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                            <td style={{ padding: '8px 14px', fontWeight: 600, color: '#1e293b', width: '180px' }}>{field}</td>
+                                            <td style={{ padding: '8px 14px', color: '#475569' }}>{desc}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </DialogContent>
+                    <DialogActions sx={{ p: 2 }}>
+                        <Button onClick={() => setShowHelpModal(false)} variant="contained" sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' } }}>
+                            Got it!
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
+                {/* MRM 2.0 — HOD Monthly Scorecard (Feature-Flagged) with Interactive View Switches */}
+                {rollupFeatureEnabled && hodScoreData && (
+                    <HodScoreCard
+                        scoreData={hodScoreData}
+                        activeView={mrmViewMode}
+                        onSelectView={(mode) => setMrmViewMode(mode)}
+                    />
+                )}
+
+                {/* Member Weight Configuration Modal */}
+                {openWeightConfigModal && (
+                    <MemberWeightConfigModal
+                        open={openWeightConfigModal}
+                        onClose={() => setOpenWeightConfigModal(false)}
+                        department={activeDepartment}
+                        hodId={user?._id || user?.id}
+                        month={String(selectedMonth).padStart(2, '0')}
+                        year={selectedYear}
+                        onSuccess={async () => {
+                            await loadData();
+                        }}
+                    />
+                )}
+
+                {/* Executive View Switcher Bar */}
+                {rollupFeatureEnabled && (
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 1.5,
+                        mb: 0,
+                        p: 0.6,
+                        bgcolor: '#f1f5f9',
+                        borderRadius: '10px',
+                        border: '1px solid #e2e8f0',
                         width: '100%',
                         boxSizing: 'border-box'
-                    }}
-                >
-                    <strong>Revision Requested by Suraj:</strong> "{metadata.revisionHistory?.[metadata.revisionHistory.length - 1]?.comment || 'Please update highlighted rows and re-submit.'}"
-                </Alert>
-            )}
+                    }}>
+                        <Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
+                            <Button
+                                size="small"
+                                onClick={() => setMrmViewMode('EXECUTIVE_MEETING')}
+                                startIcon={<FlagOutlinedIcon sx={{ fontSize: 15, color: mrmViewMode === 'EXECUTIVE_MEETING' ? '#dc2626' : '#94a3b8' }} />}
+                                sx={{
+                                    textTransform: 'none',
+                                    fontWeight: mrmViewMode === 'EXECUTIVE_MEETING' ? 700 : 500,
+                                    fontSize: '12.5px',
+                                    borderRadius: '8px',
+                                    bgcolor: mrmViewMode === 'EXECUTIVE_MEETING' ? '#ffffff' : 'transparent',
+                                    color: mrmViewMode === 'EXECUTIVE_MEETING' ? '#0f172a' : '#64748b',
+                                    px: 1.5,
+                                    py: 0.6,
+                                    boxShadow: mrmViewMode === 'EXECUTIVE_MEETING' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                                    '&:hover': { bgcolor: mrmViewMode === 'EXECUTIVE_MEETING' ? '#ffffff' : 'rgba(255,255,255,0.6)', color: '#0f172a' }
+                                }}
+                            >
+                                Executive Meeting Focus
+                            </Button>
 
-            {/* Help Modal */}
-            <Dialog open={showHelpModal} onClose={() => setShowHelpModal(false)} maxWidth="md" fullWidth>
-                <DialogTitle sx={{ color: '#064e3b', display: 'flex', alignItems: 'center', gap: 1, fontWeight: 800 }}>
-                    📋 What is MRM (Management Review Meeting)?
-                </DialogTitle>
-                <DialogContent>
-                    <DialogContentText sx={{ mb: 2, color: '#334155', fontSize: '0.9rem', lineHeight: 1.6 }}>
-                        <strong>Monthly Review Meeting (MRM)</strong> is a structured operational governance process to track organizational objectives, monitor performance, and enforce corrective action plans on a monthly basis.
-                    </DialogContentText>
+                            <Button
+                                size="small"
+                                onClick={() => setMrmViewMode('TEAM_SEGMENTS')}
+                                startIcon={<GroupsOutlinedIcon sx={{ fontSize: 15, color: mrmViewMode === 'TEAM_SEGMENTS' ? '#2563eb' : '#94a3b8' }} />}
+                                sx={{
+                                    textTransform: 'none',
+                                    fontWeight: mrmViewMode === 'TEAM_SEGMENTS' ? 700 : 500,
+                                    fontSize: '12.5px',
+                                    borderRadius: '8px',
+                                    bgcolor: mrmViewMode === 'TEAM_SEGMENTS' ? '#ffffff' : 'transparent',
+                                    color: mrmViewMode === 'TEAM_SEGMENTS' ? '#0f172a' : '#64748b',
+                                    px: 1.5,
+                                    py: 0.6,
+                                    boxShadow: mrmViewMode === 'TEAM_SEGMENTS' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                                    '&:hover': { bgcolor: mrmViewMode === 'TEAM_SEGMENTS' ? '#ffffff' : 'rgba(255,255,255,0.6)', color: '#0f172a' }
+                                }}
+                            >
+                                Team Sub-Teams & KPIs (70%)
+                            </Button>
 
-                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 18px', marginBottom: '16px' }}>
-                        <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '8px', fontSize: '0.9rem' }}>
-                            Guiding Principles for Effective MRM Points
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
-                            <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                <strong style={{ color: '#059669' }}>Specific</strong> – Clearly define what is measured
-                            </div>
-                            <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                <strong style={{ color: '#0284c7' }}>Measurable</strong> – Include quantifiable targets
-                            </div>
-                            <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #ca8a04' }}>
-                                <strong style={{ color: '#ca8a04' }}>Actionable</strong> – Action plan with owner
-                            </div>
-                            <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #dc2626' }}>
-                                <strong style={{ color: '#dc2626' }}>Time-bound</strong> – Set realistic target dates
-                            </div>
-                        </div>
-                    </div>
+                            <Button
+                                size="small"
+                                onClick={() => setMrmViewMode('HOD_OBJECTIVES')}
+                                startIcon={<TrackChangesOutlinedIcon sx={{ fontSize: 15, color: mrmViewMode === 'HOD_OBJECTIVES' ? '#7c3aed' : '#94a3b8' }} />}
+                                sx={{
+                                    textTransform: 'none',
+                                    fontWeight: mrmViewMode === 'HOD_OBJECTIVES' ? 700 : 500,
+                                    fontSize: '12.5px',
+                                    borderRadius: '8px',
+                                    bgcolor: mrmViewMode === 'HOD_OBJECTIVES' ? '#ffffff' : 'transparent',
+                                    color: mrmViewMode === 'HOD_OBJECTIVES' ? '#0f172a' : '#64748b',
+                                    px: 1.5,
+                                    py: 0.6,
+                                    boxShadow: mrmViewMode === 'HOD_OBJECTIVES' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                                    '&:hover': { bgcolor: mrmViewMode === 'HOD_OBJECTIVES' ? '#ffffff' : 'rgba(255,255,255,0.6)', color: '#0f172a' }
+                                }}
+                            >
+                                HOD Strategic Focus Areas (30%)
+                            </Button>
+                        </Box>
 
-                    <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '8px', fontSize: '0.9rem' }}>
-                        Field Definitions
-                    </div>
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-                            <tbody>
-                                {[
-                                    ['Process Description', 'The business process or activity being reviewed'],
-                                    ['Objective', 'The goal or purpose of this process'],
-                                    ['Target', 'The measurable target value (e.g., 95%, ₹10L)'],
-                                    ['Frequency', 'How often this is monitored (Daily, Weekly, Monthly)'],
-                                    ['Responsibility', 'Person accountable for this process'],
-                                    ['Actual (Prev Month)', 'The actual achieved value from last month'],
-                                    ['Plan (Current Month)', 'The planned target for current month'],
-                                    ['Action Plan', 'Corrective steps (automatically synced to Open Points at Save time)'],
-                                    ['Resp. (Action)', 'Person responsible for chasing the action item to closure'],
-                                    ['Target Date', 'Deadline for completing the action item'],
-                                    ['Status', '🟢 Green = On Target / Completed | 🟡 Yellow = In Progress | 🔴 Red = Off Target (Requires Action Plan)'],
-                                    ['Remarks', 'Additional notes, context, or escalation details']
-                                ].map(([field, desc], i) => (
-                                    <tr key={i} style={{ background: i % 2 === 0 ? '#ffffff' : '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                                        <td style={{ padding: '8px 14px', fontWeight: 600, color: '#1e293b', width: '180px' }}>{field}</td>
-                                        <td style={{ padding: '8px 14px', color: '#475569' }}>{desc}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setShowHelpModal(false)} variant="contained" sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' } }}>
-                        Got it!
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* MRM 2.0 — HOD Monthly Scorecard (Feature-Flagged) with Interactive View Switches */}
-            {rollupFeatureEnabled && hodScoreData && (
-                <HodScoreCard 
-                    scoreData={hodScoreData} 
-                    activeView={mrmViewMode}
-                    onSelectView={(mode) => setMrmViewMode(mode)}
-                />
-            )}
-
-            {/* Executive View Switcher Bar */}
-            {rollupFeatureEnabled && (
-                <Box sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: 1.5,
-                    mb: 0,
-                    p: 0.6,
-                    bgcolor: '#f1f5f9',
-                    borderRadius: '10px',
-                    border: '1px solid #e2e8f0',
-                    width: '100%',
-                    boxSizing: 'border-box'
-                }}>
-                    <Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
-                        <Button
-                            size="small"
-                            onClick={() => setMrmViewMode('EXECUTIVE_MEETING')}
-                            startIcon={<FlagOutlinedIcon sx={{ fontSize: 15, color: mrmViewMode === 'EXECUTIVE_MEETING' ? '#dc2626' : '#94a3b8' }} />}
-                            sx={{
-                                textTransform: 'none',
-                                fontWeight: mrmViewMode === 'EXECUTIVE_MEETING' ? 700 : 500,
-                                fontSize: '12.5px',
-                                borderRadius: '8px',
-                                bgcolor: mrmViewMode === 'EXECUTIVE_MEETING' ? '#ffffff' : 'transparent',
-                                color: mrmViewMode === 'EXECUTIVE_MEETING' ? '#0f172a' : '#64748b',
-                                px: 1.5,
-                                py: 0.6,
-                                boxShadow: mrmViewMode === 'EXECUTIVE_MEETING' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                                '&:hover': { bgcolor: mrmViewMode === 'EXECUTIVE_MEETING' ? '#ffffff' : 'rgba(255,255,255,0.6)', color: '#0f172a' }
-                            }}
-                        >
-                            Executive Meeting Focus (Reds First)
-                        </Button>
-
-                        <Button
-                            size="small"
-                            onClick={() => setMrmViewMode('TEAM_SEGMENTS')}
-                            startIcon={<GroupsOutlinedIcon sx={{ fontSize: 15, color: mrmViewMode === 'TEAM_SEGMENTS' ? '#2563eb' : '#94a3b8' }} />}
-                            sx={{
-                                textTransform: 'none',
-                                fontWeight: mrmViewMode === 'TEAM_SEGMENTS' ? 700 : 500,
-                                fontSize: '12.5px',
-                                borderRadius: '8px',
-                                bgcolor: mrmViewMode === 'TEAM_SEGMENTS' ? '#ffffff' : 'transparent',
-                                color: mrmViewMode === 'TEAM_SEGMENTS' ? '#0f172a' : '#64748b',
-                                px: 1.5,
-                                py: 0.6,
-                                boxShadow: mrmViewMode === 'TEAM_SEGMENTS' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                                '&:hover': { bgcolor: mrmViewMode === 'TEAM_SEGMENTS' ? '#ffffff' : 'rgba(255,255,255,0.6)', color: '#0f172a' }
-                            }}
-                        >
-                            Team Sub-Teams & KPIs (70%)
-                        </Button>
-
-                        <Button
-                            size="small"
-                            onClick={() => setMrmViewMode('HOD_OBJECTIVES')}
-                            startIcon={<TrackChangesOutlinedIcon sx={{ fontSize: 15, color: mrmViewMode === 'HOD_OBJECTIVES' ? '#7c3aed' : '#94a3b8' }} />}
-                            sx={{
-                                textTransform: 'none',
-                                fontWeight: mrmViewMode === 'HOD_OBJECTIVES' ? 700 : 500,
-                                fontSize: '12.5px',
-                                borderRadius: '8px',
-                                bgcolor: mrmViewMode === 'HOD_OBJECTIVES' ? '#ffffff' : 'transparent',
-                                color: mrmViewMode === 'HOD_OBJECTIVES' ? '#0f172a' : '#64748b',
-                                px: 1.5,
-                                py: 0.6,
-                                boxShadow: mrmViewMode === 'HOD_OBJECTIVES' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                                '&:hover': { bgcolor: mrmViewMode === 'HOD_OBJECTIVES' ? '#ffffff' : 'rgba(255,255,255,0.6)', color: '#0f172a' }
-                            }}
-                        >
-                            HOD Strategic Focus Areas (30%)
-                        </Button>
-
-                        <Button
-                            size="small"
-                            onClick={() => setMrmViewMode('ALL')}
-                            startIcon={<ViewAgendaOutlinedIcon sx={{ fontSize: 15, color: mrmViewMode === 'ALL' ? '#0f172a' : '#94a3b8' }} />}
-                            sx={{
-                                textTransform: 'none',
-                                fontWeight: mrmViewMode === 'ALL' ? 700 : 500,
-                                fontSize: '12.5px',
-                                borderRadius: '8px',
-                                bgcolor: mrmViewMode === 'ALL' ? '#ffffff' : 'transparent',
-                                color: mrmViewMode === 'ALL' ? '#0f172a' : '#64748b',
-                                px: 1.5,
-                                py: 0.6,
-                                boxShadow: mrmViewMode === 'ALL' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                                '&:hover': { bgcolor: mrmViewMode === 'ALL' ? '#ffffff' : 'rgba(255,255,255,0.6)', color: '#0f172a' }
-                            }}
-                        >
-                            Unified Full View
-                        </Button>
+                        {canManagePresenters && (
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<SettingsOutlinedIcon sx={{ fontSize: 14 }} />}
+                                onClick={() => setOpenWeightConfigModal(true)}
+                                sx={{
+                                    textTransform: 'none',
+                                    fontWeight: 600,
+                                    fontSize: '11.5px',
+                                    bgcolor: '#ffffff',
+                                    borderColor: '#cbd5e1',
+                                    color: '#475569',
+                                    borderRadius: '8px',
+                                    px: 1.4,
+                                    py: 0.5,
+                                    '&:hover': { bgcolor: '#f8fafc', borderColor: '#94a3b8', color: '#0f172a' }
+                                }}
+                            >
+                                MRM Settings
+                            </Button>
+                        )}
                     </Box>
+                )}
 
-                    {canManagePresenters && (
-                        <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<SettingsOutlinedIcon sx={{ fontSize: 14 }} />}
-                            onClick={() => setSubTeamManagerOpen(true)}
-                            sx={{
-                                textTransform: 'none',
-                                fontWeight: 600,
-                                fontSize: '11.5px',
-                                bgcolor: '#ffffff',
-                                borderColor: '#cbd5e1',
-                                color: '#475569',
-                                borderRadius: '8px',
-                                px: 1.4,
-                                py: 0.5,
-                                '&:hover': { bgcolor: '#f8fafc', borderColor: '#94a3b8', color: '#0f172a' }
-                            }}
-                        >
-                            Configure Sub-Teams
-                        </Button>
-                    )}
-                </Box>
-            )}
+                {/* ═══ VIEW 1: EXECUTIVE MEETING FOCUS ═══ */}
+                {rollupFeatureEnabled && mrmViewMode === 'EXECUTIVE_MEETING' && (() => {
+                    const redSegments = (segmentRollupData?.segments || []).filter(s => s.final_rag === 'Red' || s.final_rag === 'Amber');
+                    const redObjectives = items.filter(it => !it.isTitleRow && (it.status === 'Red' || it.status === 'Yellow' || it.status === 'Amber'));
 
-            {/* ═══ VIEW 1: EXECUTIVE MEETING FOCUS (REDS FIRST) ═══ */}
-            {rollupFeatureEnabled && mrmViewMode === 'EXECUTIVE_MEETING' && (() => {
-                const redSegments = (segmentRollupData?.segments || []).filter(s => s.final_rag === 'Red' || s.final_rag === 'Amber');
-                const redObjectives = items.filter(it => !it.isTitleRow && (it.status === 'Red' || it.status === 'Yellow' || it.status === 'Amber'));
+                    return (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, width: '100%', boxSizing: 'border-box' }}>
+                            {/* Compact Pre-Deadline Tracker */}
+                            <PreDeadlineTracker
+                                department={activeDepartment}
+                                month={String(selectedMonth).padStart(2, '0')}
+                                year={selectedYear}
+                                onReminderSent={(m) => showToast(`Reminder ping sent to ${m.name}`)}
+                            />
 
-                return (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, width: '100%', boxSizing: 'border-box' }}>
-                        {/* Compact Pre-Deadline Tracker */}
-                        <PreDeadlineTracker 
+                            {/* Sub-Team Red & Amber Segments (Consolidated Single Header) */}
+                            {redSegments.length > 0 ? (
+                                <SegmentRollupView
+                                    title={`Sub-Team KPI Exceptions (${redSegments.length})`}
+                                    weightChip={<Chip label="Weight: 70%" size="small" sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#fee2e2', color: '#991b1b', height: '22px' }} />}
+                                    segments={redSegments}
+                                    department={activeDepartment}
+                                    month={String(selectedMonth).padStart(2, '0')}
+                                    year={selectedYear}
+                                    isHodOrAdmin={canManagePresenters}
+                                    onApprovalComplete={loadData}
+                                />
+                            ) : (
+                                <Paper sx={{ p: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', boxSizing: 'border-box' }}>
+                                    <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 22 }} />
+                                    <Box>
+                                        <Typography variant="body2" fontWeight={700} color="#166534">
+                                            All {segmentRollupData?.segments?.length || 0} Sub-Teams are On-Track & Clean (Green)!
+                                        </Typography>
+                                        <Typography variant="caption" color="#15803d">
+                                            Zero blockers, rupee loss, or trend drops across team KPI sheets for {currentMonthName} {selectedYear}.
+                                        </Typography>
+                                    </Box>
+                                </Paper>
+                            )}
+
+                            {/* Strategic Focus Areas Off-Target */}
+                            <Box sx={{ width: '100%', boxSizing: 'border-box' }}>
+                                <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+                                    <Typography variant="subtitle1" fontWeight={800} color="#0f172a" fontSize="15px">
+                                        Strategic Focus Areas Requiring Action ({redObjectives.length})
+                                    </Typography>
+                                    <Chip label="Weight: 30%" size="small" sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#ede9fe', color: '#6d28d9', height: '22px' }} />
+                                </Box>
+
+                                {redObjectives.length > 0 ? (
+                                    <div className="data-grid-container">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th style={{ width: '36px', minWidth: '36px' }}></th>
+                                                    <th style={{ width: '280px', minWidth: '260px' }}>Process Description</th>
+                                                    <th style={{ width: '320px', minWidth: '280px' }}>Objective</th>
+                                                    <th style={{ width: '120px', minWidth: '110px' }}>Target</th>
+                                                    <th style={{ width: '95px', minWidth: '90px' }}>Freq.</th>
+                                                    <th style={{ width: '110px', minWidth: '100px' }}>Resp.</th>
+                                                    <th style={{ width: '85px', minWidth: '80px' }}>Act.</th>
+                                                    <th style={{ width: '85px', minWidth: '80px' }}>Plan</th>
+                                                    <th style={{ width: '340px', minWidth: '300px' }}>Action Plan</th>
+                                                    <th style={{ width: '160px', minWidth: '150px' }}>Act. Resp.</th>
+                                                    <th style={{ width: '135px', minWidth: '130px' }}>Target Date</th>
+                                                    <th style={{ width: '120px', minWidth: '110px' }}>Status</th>
+                                                    <th style={{ width: '300px', minWidth: '260px' }}>Remarks</th>
+                                                    <th style={{ width: '120px', minWidth: '115px', textAlign: 'center' }}>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <Reorder.Group as="tbody" axis="y" values={redObjectives} onReorder={() => { }}>
+                                                {redObjectives.map((item, index) => (
+                                                    <ReorderRow
+                                                        key={item._id}
+                                                        item={item}
+                                                        index={index}
+                                                        handleFieldChange={handleFieldChange}
+                                                        handleSaveItem={handleSaveItem}
+                                                        openDeleteDialog={openDeleteDialog}
+                                                        handleInsertItem={handleInsertItem}
+                                                        autoResizeTextarea={autoResizeTextarea}
+                                                        mrmUsers={mrmUsers}
+                                                        isLocked={metadata.isLocked}
+                                                        openBaselineDialog={openBaselineDialog}
+                                                        handleStatusChange={handleStatusChange}
+                                                        hasTileAnomaly={false}
+                                                    />
+                                                ))}
+                                            </Reorder.Group>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <Paper sx={{ p: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', boxSizing: 'border-box' }}>
+                                        <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 22 }} />
+                                        <Box>
+                                            <Typography variant="body2" fontWeight={700} color="#166534">
+                                                All HOD Strategic Objectives are On-Target (Green) for this month!
+                                            </Typography>
+                                            <Typography variant="caption" color="#15803d">
+                                                No plan vs. actual shortfalls or off-target RAG statuses detected.
+                                            </Typography>
+                                        </Box>
+                                    </Paper>
+                                )}
+                            </Box>
+
+                            {/* Team Members & KPI Parameters */}
+                            {segmentRollupData?.segments?.length > 0 && (() => {
+                                const allMembers = [];
+                                const seen = new Set();
+                                (segmentRollupData.segments || []).forEach(seg => {
+                                    (seg.contributing_members || []).forEach(m => {
+                                        const id = m.userId?.toString();
+                                        if (id && !seen.has(id)) {
+                                            seen.add(id);
+                                            allMembers.push({ ...m, sub_team: seg.sub_team });
+                                        }
+                                    });
+                                });
+                                if (allMembers.length === 0) return null;
+
+                                const getScoreStyle = (score) => {
+                                    if (score >= 8) return { color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
+                                    if (score >= 5) return { color: '#b45309', bg: '#fffbeb', border: '#fde68a' };
+                                    return { color: '#b91c1c', bg: '#fef2f2', border: '#fecaca' };
+                                };
+
+                                return (
+                                    <Box sx={{ width: '100%', boxSizing: 'border-box' }}>
+                                        <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+                                            <GroupsOutlinedIcon sx={{ fontSize: 18, color: '#2563eb' }} />
+                                            <Typography variant="subtitle1" fontWeight={800} color="#0f172a" fontSize="15px">
+                                                Team Members & KPI Parameters
+                                            </Typography>
+                                            <Chip
+                                                label={`${allMembers.length} Members`}
+                                                size="small"
+                                                sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#eff6ff', color: '#1d4ed8', height: '22px', border: '1px solid #bfdbfe' }}
+                                            />
+                                        </Box>
+
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                            {allMembers.map((m, idx) => {
+                                                const rows = m.kpi_sheet_rows || [];
+                                                const totalScore = m.kpi_total_score;
+                                                const ragStatus = m.kpi_rag_status;
+                                                const totalStyle = getScoreStyle(totalScore || 0);
+                                                const karmaColor = (m.karma_points > 0) ? '#047857' : (m.karma_points < 0 ? '#b91c1c' : '#64748b');
+                                                const hasTargets = rows.some(r => r.target !== null && r.target !== undefined);
+                                                const totalWeights = rows.reduce((sum, r) => sum + (r.weight || 3), 0);
+
+                                                return (
+                                                    <Paper
+                                                        key={m.userId}
+                                                        elevation={0}
+                                                        sx={{
+                                                            border: '1px solid #e2e8f0',
+                                                            borderRadius: '10px',
+                                                            overflow: 'hidden',
+                                                            width: '100%',
+                                                            boxSizing: 'border-box'
+                                                        }}
+                                                    >
+                                                        {/* Member Name Header */}
+                                                        <Box sx={{
+                                                            px: 2,
+                                                            py: 1.2,
+                                                            bgcolor: '#f8fafc',
+                                                            borderBottom: '1px solid #e2e8f0',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            flexWrap: 'wrap',
+                                                            gap: 1
+                                                        }}>
+                                                            <Box display="flex" alignItems="center" gap={1}>
+                                                                <Typography variant="body2" fontWeight={700} color="#64748b" fontSize="12px" sx={{ minWidth: '22px' }}>
+                                                                    {idx + 1}.
+                                                                </Typography>
+                                                                <Typography variant="subtitle2" fontWeight={800} color="#0f172a" fontSize="14px">
+                                                                    {m.name}
+                                                                </Typography>
+                                                                <Chip
+                                                                    label={m.sub_team === 'General' ? `${activeDepartment} Team` : m.sub_team}
+                                                                    size="small"
+                                                                    sx={{ fontWeight: 600, fontSize: '10px', bgcolor: '#f1f5f9', color: '#475569', height: '20px', border: '1px solid #e2e8f0' }}
+                                                                />
+                                                            </Box>
+                                                            <Box display="flex" alignItems="center" gap={1.5}>
+                                                                <Box display="flex" alignItems="center" gap={0.5}>
+                                                                    <Typography variant="caption" color="#64748b" fontSize="10.5px" fontWeight={600}>Attendance:</Typography>
+                                                                    <Typography variant="caption" fontWeight={800} color={(m.attendance_score >= 85) ? '#047857' : (m.attendance_score >= 70 ? '#b45309' : '#b91c1c')} fontSize="11.5px">
+                                                                        {m.attendance_score != null ? `${m.attendance_score}%` : '—'}
+                                                                    </Typography>
+                                                                </Box>
+                                                                <Box sx={{ width: '1px', height: '14px', bgcolor: '#cbd5e1' }} />
+                                                                <Box display="flex" alignItems="center" gap={0.5}>
+                                                                    <Typography variant="caption" color="#64748b" fontSize="10.5px" fontWeight={600}>Karma:</Typography>
+                                                                    <Typography variant="caption" fontWeight={800} color={karmaColor} fontSize="11.5px">
+                                                                        {m.karma_points > 0 ? `+${m.karma_points}` : (m.karma_points || 0)} pts
+                                                                    </Typography>
+                                                                </Box>
+                                                                <Box sx={{ width: '1px', height: '14px', bgcolor: '#cbd5e1' }} />
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.3, borderRadius: '6px', bgcolor: totalStyle.bg, border: `1px solid ${totalStyle.border}` }}>
+                                                                    <Typography variant="caption" color={totalStyle.color} fontSize="10.5px" fontWeight={600}>KPI Total:</Typography>
+                                                                    <Typography variant="caption" fontWeight={800} color={totalStyle.color} fontSize="12px">
+                                                                        {totalScore != null ? `${totalScore}/10` : '—'}
+                                                                    </Typography>
+                                                                    {ragStatus && (
+                                                                        <Chip
+                                                                            label={ragStatus}
+                                                                            size="small"
+                                                                            sx={{
+                                                                                height: '16px',
+                                                                                fontSize: '9px',
+                                                                                fontWeight: 700,
+                                                                                bgcolor: ragStatus === 'GREEN' ? '#dcfce7' : (ragStatus === 'AMBER' ? '#fef3c7' : '#fee2e2'),
+                                                                                color: ragStatus === 'GREEN' ? '#166534' : (ragStatus === 'AMBER' ? '#92400e' : '#991b1b'),
+                                                                                ml: 0.3
+                                                                            }}
+                                                                        />
+                                                                    )}
+                                                                </Box>
+                                                            </Box>
+                                                        </Box>
+
+                                                        {/* KPI Parameters Table */}
+                                                        {rows.length > 0 ? (
+                                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                                                <thead>
+                                                                    <tr style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #f1f5f9' }}>
+                                                                        <th style={{ padding: '6px 16px', textAlign: 'left', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: hasTargets ? '30%' : '40%' }}>KPI PARAMETER</th>
+                                                                        {hasTargets && <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: '20%' }}>TARGET</th>}
+                                                                        <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: hasTargets ? '20%' : '30%' }}>{hasTargets ? 'ACTUAL' : 'TOTAL'}</th>
+                                                                        <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: '15%' }}>CONTRIBUTION /10</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {rows.map((row, ri) => {
+                                                                        const contribution = totalWeights > 0 ? ((row.weight || 3) / totalWeights) * 10 : 0;
+                                                                        const valStyle = hasTargets && row.target != null
+                                                                            ? (row.actual >= row.target ? { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' } : { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' })
+                                                                            : { bg: '#f8fafc', color: '#334155', border: '#e2e8f0' };
+                                                                        return (
+                                                                            <tr key={ri} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                                                                <td style={{ padding: '7px 16px', fontWeight: 600, color: '#334155', fontSize: '12px' }}>{row.label}</td>
+                                                                                {hasTargets && (
+                                                                                    <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 600, color: '#64748b', fontSize: '11.5px' }}>
+                                                                                        {row.target != null ? row.target : '—'}
+                                                                                    </td>
+                                                                                )}
+                                                                                <td style={{ padding: '7px 16px', textAlign: 'center' }}>
+                                                                                    <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '4px', fontWeight: 700, fontSize: '11.5px', backgroundColor: valStyle.bg, color: valStyle.color, border: `1px solid ${valStyle.border}` }}>
+                                                                                        {hasTargets ? (row.actual != null ? row.actual : '—') : (row.total != null ? row.total : '—')}
+                                                                                    </span>
+                                                                                </td>
+                                                                                <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 600, color: '#475569', fontSize: '11px' }}>
+                                                                                    {contribution.toFixed(1)}
+                                                                                </td>
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                                <tfoot>
+                                                                    <tr style={{ borderTop: '2px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+                                                                        <td colSpan={hasTargets ? 2 : 1} style={{ padding: '7px 16px', fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>TOTAL KPI SCORE</td>
+                                                                        <td style={{ padding: '7px 16px', textAlign: 'center' }}>
+                                                                            <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '4px', fontWeight: 800, fontSize: '12px', backgroundColor: totalStyle.bg, color: totalStyle.color, border: `1px solid ${totalStyle.border}` }}>
+                                                                                {totalScore != null ? `${totalScore}/10` : '—'}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>
+                                                                            {totalScore != null ? totalScore.toFixed(1) : '—'}
+                                                                        </td>
+                                                                    </tr>
+                                                                </tfoot>
+                                                            </table>
+                                                        ) : (
+                                                            <Box sx={{ p: 2, textAlign: 'center' }}>
+                                                                <Typography variant="caption" color="#94a3b8" fontSize="11px">No KPI sheet data available</Typography>
+                                                            </Box>
+                                                        )}
+                                                    </Paper>
+                                                );
+                                            })}
+                                        </Box>
+                                    </Box>
+                                );
+                            })()}
+                        </Box>
+                    );
+                })()}
+
+                {/* ═══ VIEW 2: DEDICATED TEAM KPI SUB-TEAMS (70%) ═══ */}
+                {rollupFeatureEnabled && mrmViewMode === 'TEAM_SEGMENTS' && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', boxSizing: 'border-box' }}>
+                        <PreDeadlineTracker
                             department={activeDepartment}
                             month={String(selectedMonth).padStart(2, '0')}
                             year={selectedYear}
                             onReminderSent={(m) => showToast(`Reminder ping sent to ${m.name}`)}
                         />
+                        <SegmentRollupView
+                            segments={segmentRollupData?.segments || []}
+                            department={activeDepartment}
+                            month={String(selectedMonth).padStart(2, '0')}
+                            year={selectedYear}
+                            isHodOrAdmin={canManagePresenters}
+                            onApprovalComplete={loadData}
+                        />
+                    </Box>
+                )}
 
-                        {/* Sub-Team Red & Amber Segments (Consolidated Single Header) */}
-                        {redSegments.length > 0 ? (
-                            <SegmentRollupView 
-                                title={`Sub-Team KPI Exceptions (${redSegments.length})`}
-                                weightChip={<Chip label="Weight: 70%" size="small" sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#fee2e2', color: '#991b1b', height: '22px' }} />}
-                                segments={redSegments}
-                                department={activeDepartment}
-                                month={String(selectedMonth).padStart(2, '0')}
-                                year={selectedYear}
-                                isHodOrAdmin={canManagePresenters}
-                                onApprovalComplete={loadData}
-                            />
-                        ) : (
-                            <Paper sx={{ p: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', boxSizing: 'border-box' }}>
-                                <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 22 }} />
-                                <Box>
-                                    <Typography variant="body2" fontWeight={700} color="#166534">
-                                        All {segmentRollupData?.segments?.length || 0} Sub-Teams are On-Track & Clean (Green)!
-                                    </Typography>
-                                    <Typography variant="caption" color="#15803d">
-                                        Zero blockers, rupee loss, or trend drops across team KPI sheets for {currentMonthName} {selectedYear}.
-                                    </Typography>
-                                </Box>
-                            </Paper>
-                        )}
-
-                        {/* Strategic Focus Areas Off-Target */}
-                        <Box sx={{ width: '100%', boxSizing: 'border-box' }}>
-                            <Box display="flex" alignItems="center" gap={1} mb={1.5}>
-                                <Typography variant="subtitle1" fontWeight={800} color="#0f172a" fontSize="15px">
-                                    Strategic Focus Areas Requiring Action ({redObjectives.length})
+                {/* ═══ VIEW 3: DEDICATED HOD STRATEGIC FOCUS AREAS (30%) ═══ */}
+                {(!rollupFeatureEnabled || mrmViewMode === 'HOD_OBJECTIVES') && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, width: '100%', boxSizing: 'border-box' }}>
+                        <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+                            <Box display="flex" alignItems="center" gap={1}>
+                                <Typography variant="h6" fontWeight={800} color="#0f172a" fontSize="16px">
+                                    Section 1: HOD Strategic Focus Areas
                                 </Typography>
-                                <Chip label="Weight: 30%" size="small" sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#ede9fe', color: '#6d28d9', height: '22px' }} />
+                                {rollupFeatureEnabled && (
+                                    <Chip
+                                        label="Weight: 30% of Monthly HOD Score | Target-Based RAG"
+                                        size="small"
+                                        sx={{ bgcolor: '#ede9fe', color: '#6d28d9', fontWeight: 700, fontSize: '10.5px', height: '22px' }}
+                                    />
+                                )}
                             </Box>
+                        </Box>
 
-                            {redObjectives.length > 0 ? (
-                                <div className="data-grid-container">
-                                    <table>
-                                        <thead>
+                        <div className="data-grid-container">
+                            {loading ? <p style={{ padding: '20px', textAlign: 'center' }}>Loading...</p> : (
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: '36px', minWidth: '36px' }}></th>
+                                            <th style={{ width: '280px', minWidth: '260px' }} title="Process Description">Process<br />Description</th>
+                                            <th style={{ width: '320px', minWidth: '280px' }} title="Objective">Objective</th>
+                                            <th style={{ width: '120px', minWidth: '110px' }} title="Target">Target</th>
+                                            <th style={{ width: '95px', minWidth: '90px' }} title="Monitoring Frequency">Monitoring<br />Freq.</th>
+                                            <th style={{ width: '110px', minWidth: '100px' }} title="Responsibility">Resp.</th>
+                                            <th style={{ width: '85px', minWidth: '80px' }} title={`Actual (${prevMonthName} ${prevYearVal})`}>Act.<br />({prevMonthName.substring(0, 3)}-{getYearShort(prevYearVal)})</th>
+                                            <th style={{ width: '85px', minWidth: '80px' }} title={`Plan (${currentMonthName} ${selectedYear})`}>Plan<br />({currentMonthName.substring(0, 3)}-{getYearShort(selectedYear)})</th>
+                                            <th style={{ width: '340px', minWidth: '300px' }} title="Action Plan">Action<br />Plan</th>
+                                            <th style={{ width: '160px', minWidth: '150px' }} title="Action Responsibility">Act.<br />Resp.</th>
+                                            <th style={{ width: '135px', minWidth: '130px' }} title="Target Date">Target<br />Date</th>
+                                            <th style={{ width: '120px', minWidth: '110px' }} title="Status">Status</th>
+                                            <th style={{ width: '300px', minWidth: '260px' }} title="Remarks">Remarks</th>
+                                            <th style={{ width: '120px', minWidth: '115px', textAlign: 'center' }} title="Actions">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <Reorder.Group as="tbody" axis="y" values={filteredItems} onReorder={handleReorder}>
+                                        {filteredItems.length === 0 ? (
                                             <tr>
-                                                <th style={{ width: '36px', minWidth: '36px' }}></th>
-                                                <th style={{ width: '280px', minWidth: '260px' }}>Process Description</th>
-                                                <th style={{ width: '320px', minWidth: '280px' }}>Objective</th>
-                                                <th style={{ width: '120px', minWidth: '110px' }}>Target</th>
-                                                <th style={{ width: '95px', minWidth: '90px' }}>Freq.</th>
-                                                <th style={{ width: '110px', minWidth: '100px' }}>Resp.</th>
-                                                <th style={{ width: '85px', minWidth: '80px' }}>Act.</th>
-                                                <th style={{ width: '85px', minWidth: '80px' }}>Plan</th>
-                                                <th style={{ width: '340px', minWidth: '300px' }}>Action Plan</th>
-                                                <th style={{ width: '160px', minWidth: '150px' }}>Act. Resp.</th>
-                                                <th style={{ width: '135px', minWidth: '130px' }}>Target Date</th>
-                                                <th style={{ width: '120px', minWidth: '110px' }}>Status</th>
-                                                <th style={{ width: '300px', minWidth: '260px' }}>Remarks</th>
-                                                <th style={{ width: '120px', minWidth: '115px', textAlign: 'center' }}>Actions</th>
+                                                <td colSpan="14" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
+                                                    {items.length === 0
+                                                        ? 'No entries for this month. Add a new row or import from previous month.'
+                                                        : `No items with "${statusFilter}" status.`}
+                                                </td>
                                             </tr>
-                                        </thead>
-                                        <Reorder.Group as="tbody" axis="y" values={redObjectives} onReorder={() => {}}>
-                                            {redObjectives.map((item, index) => (
-                                                <ReorderRow 
-                                                    key={item._id} 
-                                                    item={item} 
+                                        ) : (() => {
+                                            const tileAnomalyMap = new Map();
+                                            let activeTileId = null;
+                                            filteredItems.forEach(it => {
+                                                if (it.isTitleRow) {
+                                                    activeTileId = it._id;
+                                                    tileAnomalyMap.set(activeTileId, false);
+                                                } else if (activeTileId && it.anomaly?.isAnomaly) {
+                                                    tileAnomalyMap.set(activeTileId, true);
+                                                }
+                                            });
+
+                                            return filteredItems.map((item, index) => (
+                                                <ReorderRow
+                                                    key={item._id}
+                                                    item={item}
                                                     index={index}
                                                     handleFieldChange={handleFieldChange}
                                                     handleSaveItem={handleSaveItem}
@@ -2175,162 +2527,199 @@ const MRMHome = () => {
                                                     isLocked={metadata.isLocked}
                                                     openBaselineDialog={openBaselineDialog}
                                                     handleStatusChange={handleStatusChange}
-                                                    hasTileAnomaly={false}
+                                                    hasTileAnomaly={item.isTitleRow ? Boolean(tileAnomalyMap.get(item._id)) : false}
                                                 />
-                                            ))}
-                                        </Reorder.Group>
-                                    </table>
-                                </div>
-                            ) : (
-                                <Paper sx={{ p: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', boxSizing: 'border-box' }}>
-                                    <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 22 }} />
-                                    <Box>
-                                        <Typography variant="body2" fontWeight={700} color="#166534">
-                                            All HOD Strategic Objectives are On-Target (Green) for this month!
+                                            ));
+                                        })()}
+                                    </Reorder.Group>
+                                </table>
+                            )}
+                        </div>
+
+                        {/* Team Members & KPI Parameters Below HOD MRM */}
+                        {rollupFeatureEnabled && segmentRollupData?.segments?.length > 0 && (() => {
+                            const allMembers = [];
+                            const seen = new Set();
+                            (segmentRollupData.segments || []).forEach(seg => {
+                                (seg.contributing_members || []).forEach(m => {
+                                    const id = m.userId?.toString();
+                                    if (id && !seen.has(id)) {
+                                        seen.add(id);
+                                        allMembers.push({ ...m, sub_team: seg.sub_team });
+                                    }
+                                });
+                            });
+                            if (allMembers.length === 0) return null;
+
+                            const getScoreStyle = (score) => {
+                                if (score >= 8) return { color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
+                                if (score >= 5) return { color: '#b45309', bg: '#fffbeb', border: '#fde68a' };
+                                return { color: '#b91c1c', bg: '#fef2f2', border: '#fecaca' };
+                            };
+
+                            return (
+                                <Box sx={{ mt: 2, width: '100%', boxSizing: 'border-box' }}>
+                                    <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+                                        <GroupsOutlinedIcon sx={{ fontSize: 18, color: '#2563eb' }} />
+                                        <Typography variant="subtitle1" fontWeight={800} color="#0f172a" fontSize="15px">
+                                            Team Members & KPI Parameters
                                         </Typography>
-                                        <Typography variant="caption" color="#15803d">
-                                            No plan vs. actual shortfalls or off-target RAG statuses detected.
-                                        </Typography>
+                                        <Chip
+                                            label={`${allMembers.length} Members`}
+                                            size="small"
+                                            sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#eff6ff', color: '#1d4ed8', height: '22px', border: '1px solid #bfdbfe' }}
+                                        />
                                     </Box>
-                                </Paper>
-                            )}
-                        </Box>
+
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                        {allMembers.map((m, idx) => {
+                                            const rows = m.kpi_sheet_rows || [];
+                                            const totalScore = m.kpi_total_score;
+                                            const ragStatus = m.kpi_rag_status;
+                                            const totalStyle = getScoreStyle(totalScore || 0);
+                                            const karmaColor = (m.karma_points > 0) ? '#047857' : (m.karma_points < 0 ? '#b91c1c' : '#64748b');
+                                            const hasTargets = rows.some(r => r.target !== null && r.target !== undefined);
+                                            const totalWeights = rows.reduce((sum, r) => sum + (r.weight || 3), 0);
+
+                                            return (
+                                                <Paper
+                                                    key={m.userId}
+                                                    elevation={0}
+                                                    sx={{
+                                                        border: '1px solid #e2e8f0',
+                                                        borderRadius: '10px',
+                                                        overflow: 'hidden',
+                                                        width: '100%',
+                                                        boxSizing: 'border-box'
+                                                    }}
+                                                >
+                                                    <Box sx={{
+                                                        px: 2,
+                                                        py: 1.2,
+                                                        bgcolor: '#f8fafc',
+                                                        borderBottom: '1px solid #e2e8f0',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        flexWrap: 'wrap',
+                                                        gap: 1
+                                                    }}>
+                                                        <Box display="flex" alignItems="center" gap={1}>
+                                                            <Typography variant="body2" fontWeight={700} color="#64748b" fontSize="12px" sx={{ minWidth: '22px' }}>
+                                                                {idx + 1}.
+                                                            </Typography>
+                                                            <Typography variant="subtitle2" fontWeight={800} color="#0f172a" fontSize="14px">
+                                                                {m.name}
+                                                            </Typography>
+                                                            <Chip
+                                                                label={m.sub_team === 'General' ? `${activeDepartment} Team` : m.sub_team}
+                                                                size="small"
+                                                                sx={{ fontWeight: 600, fontSize: '10px', bgcolor: '#f1f5f9', color: '#475569', height: '20px', border: '1px solid #e2e8f0' }}
+                                                            />
+                                                        </Box>
+                                                        <Box display="flex" alignItems="center" gap={1.5}>
+                                                            <Box display="flex" alignItems="center" gap={0.5}>
+                                                                <Typography variant="caption" color="#64748b" fontSize="10.5px" fontWeight={600}>Attendance:</Typography>
+                                                                <Typography variant="caption" fontWeight={800} color={(m.attendance_score >= 85) ? '#047857' : (m.attendance_score >= 70 ? '#b45309' : '#b91c1c')} fontSize="11.5px">
+                                                                    {m.attendance_score != null ? `${m.attendance_score}%` : '—'}
+                                                                </Typography>
+                                                            </Box>
+                                                            <Box sx={{ width: '1px', height: '14px', bgcolor: '#cbd5e1' }} />
+                                                            <Box display="flex" alignItems="center" gap={0.5}>
+                                                                <Typography variant="caption" color="#64748b" fontSize="10.5px" fontWeight={600}>Karma:</Typography>
+                                                                <Typography variant="caption" fontWeight={800} color={karmaColor} fontSize="11.5px">
+                                                                    {m.karma_points > 0 ? `+${m.karma_points}` : (m.karma_points || 0)} pts
+                                                                </Typography>
+                                                            </Box>
+                                                            <Box sx={{ width: '1px', height: '14px', bgcolor: '#cbd5e1' }} />
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.3, borderRadius: '6px', bgcolor: totalStyle.bg, border: `1px solid ${totalStyle.border}` }}>
+                                                                <Typography variant="caption" color={totalStyle.color} fontSize="10.5px" fontWeight={600}>KPI Total:</Typography>
+                                                                <Typography variant="caption" fontWeight={800} color={totalStyle.color} fontSize="12px">
+                                                                    {totalScore != null ? `${totalScore}/10` : '—'}
+                                                                </Typography>
+                                                                {ragStatus && (
+                                                                    <Chip
+                                                                        label={ragStatus}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            height: '16px',
+                                                                            fontSize: '9px',
+                                                                            fontWeight: 700,
+                                                                            bgcolor: ragStatus === 'GREEN' ? '#dcfce7' : (ragStatus === 'AMBER' ? '#fef3c7' : '#fee2e2'),
+                                                                            color: ragStatus === 'GREEN' ? '#166534' : (ragStatus === 'AMBER' ? '#92400e' : '#991b1b'),
+                                                                            ml: 0.3
+                                                                        }}
+                                                                    />
+                                                                )}
+                                                            </Box>
+                                                        </Box>
+                                                    </Box>
+
+                                                    {rows.length > 0 ? (
+                                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                                            <thead>
+                                                                <tr style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #f1f5f9' }}>
+                                                                    <th style={{ padding: '6px 16px', textAlign: 'left', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: hasTargets ? '30%' : '40%' }}>KPI PARAMETER</th>
+                                                                    {hasTargets && <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: '20%' }}>TARGET</th>}
+                                                                    <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: hasTargets ? '20%' : '30%' }}>{hasTargets ? 'ACTUAL' : 'TOTAL'}</th>
+                                                                    <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: '15%' }}>CONTRIBUTION /10</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {rows.map((row, ri) => {
+                                                                    const contribution = totalWeights > 0 ? ((row.weight || 3) / totalWeights) * 10 : 0;
+                                                                    const valStyle = hasTargets && row.target != null
+                                                                        ? (row.actual >= row.target ? { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' } : { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' })
+                                                                        : { bg: '#f8fafc', color: '#334155', border: '#e2e8f0' };
+                                                                    return (
+                                                                        <tr key={ri} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                                                            <td style={{ padding: '7px 16px', fontWeight: 600, color: '#334155', fontSize: '12px' }}>{row.label}</td>
+                                                                            {hasTargets && (
+                                                                                <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 600, color: '#64748b', fontSize: '11.5px' }}>
+                                                                                    {row.target != null ? row.target : '—'}
+                                                                                </td>
+                                                                            )}
+                                                                            <td style={{ padding: '7px 16px', textAlign: 'center' }}>
+                                                                                <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '4px', fontWeight: 700, fontSize: '11.5px', backgroundColor: valStyle.bg, color: valStyle.color, border: `1px solid ${valStyle.border}` }}>
+                                                                                    {hasTargets ? (row.actual != null ? row.actual : '—') : (row.total != null ? row.total : '—')}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 600, color: '#475569', fontSize: '11px' }}>
+                                                                                {contribution.toFixed(1)}
+                                                                            </td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                            <tfoot>
+                                                                <tr style={{ borderTop: '2px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+                                                                    <td colSpan={hasTargets ? 2 : 1} style={{ padding: '7px 16px', fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>TOTAL KPI SCORE</td>
+                                                                    <td style={{ padding: '7px 16px', textAlign: 'center' }}>
+                                                                        <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '4px', fontWeight: 800, fontSize: '12px', backgroundColor: totalStyle.bg, color: totalStyle.color, border: `1px solid ${totalStyle.border}` }}>
+                                                                            {totalScore != null ? `${totalScore}/10` : '—'}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>
+                                                                        {totalScore != null ? totalScore.toFixed(1) : '—'}
+                                                                    </td>
+                                                                </tr>
+                                                            </tfoot>
+                                                        </table>
+                                                    ) : (
+                                                        <Box sx={{ p: 2, textAlign: 'center' }}>
+                                                            <Typography variant="caption" color="#94a3b8" fontSize="11px">No KPI sheet data available</Typography>
+                                                        </Box>
+                                                    )}
+                                                </Paper>
+                                            );
+                                        })}
+                                    </Box>
+                                </Box>
+                            );
+                        })()}
                     </Box>
-                );
-            })()}
-
-            {/* ═══ VIEW 2: DEDICATED TEAM KPI SUB-TEAMS (70%) ═══ */}
-            {rollupFeatureEnabled && mrmViewMode === 'TEAM_SEGMENTS' && (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', boxSizing: 'border-box' }}>
-                    <PreDeadlineTracker 
-                        department={activeDepartment}
-                        month={String(selectedMonth).padStart(2, '0')}
-                        year={selectedYear}
-                        onReminderSent={(m) => showToast(`Reminder ping sent to ${m.name}`)}
-                    />
-                    <SegmentRollupView 
-                        segments={segmentRollupData?.segments || []}
-                        department={activeDepartment}
-                        month={String(selectedMonth).padStart(2, '0')}
-                        year={selectedYear}
-                        isHodOrAdmin={canManagePresenters}
-                        onApprovalComplete={loadData}
-                    />
-                </Box>
-            )}
-
-            {/* ═══ VIEW 3: DEDICATED HOD STRATEGIC FOCUS AREAS (30%) ═══ */}
-            {(!rollupFeatureEnabled || mrmViewMode === 'HOD_OBJECTIVES' || mrmViewMode === 'ALL') && (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, width: '100%', boxSizing: 'border-box' }}>
-                    <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
-                        <Box display="flex" alignItems="center" gap={1}>
-                            <Typography variant="h6" fontWeight={800} color="#0f172a" fontSize="16px">
-                                Section 1: HOD Strategic Focus Areas
-                            </Typography>
-                            {rollupFeatureEnabled && (
-                                <Chip 
-                                    label="Weight: 30% of Monthly HOD Score | Target-Based RAG" 
-                                    size="small" 
-                                    sx={{ bgcolor: '#ede9fe', color: '#6d28d9', fontWeight: 700, fontSize: '10.5px', height: '22px' }} 
-                                />
-                            )}
-                        </Box>
-                    </Box>
-
-                    <div className="data-grid-container">
-                        {loading ? <p style={{ padding: '20px', textAlign: 'center' }}>Loading...</p> : (
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: '36px', minWidth: '36px' }}></th>
-                                        <th style={{ width: '280px', minWidth: '260px' }} title="Process Description">Process<br />Description</th>
-                                        <th style={{ width: '320px', minWidth: '280px' }} title="Objective">Objective</th>
-                                        <th style={{ width: '120px', minWidth: '110px' }} title="Target">Target</th>
-                                        <th style={{ width: '95px', minWidth: '90px' }} title="Monitoring Frequency">Monitoring<br />Freq.</th>
-                                        <th style={{ width: '110px', minWidth: '100px' }} title="Responsibility">Resp.</th>
-                                        <th style={{ width: '85px', minWidth: '80px' }} title={`Actual (${prevMonthName} ${prevYearVal})`}>Act.<br />({prevMonthName.substring(0, 3)}-{getYearShort(prevYearVal)})</th>
-                                        <th style={{ width: '85px', minWidth: '80px' }} title={`Plan (${currentMonthName} ${selectedYear})`}>Plan<br />({currentMonthName.substring(0, 3)}-{getYearShort(selectedYear)})</th>
-                                        <th style={{ width: '340px', minWidth: '300px' }} title="Action Plan">Action<br />Plan</th>
-                                        <th style={{ width: '160px', minWidth: '150px' }} title="Action Responsibility">Act.<br />Resp.</th>
-                                        <th style={{ width: '135px', minWidth: '130px' }} title="Target Date">Target<br />Date</th>
-                                        <th style={{ width: '120px', minWidth: '110px' }} title="Status">Status</th>
-                                        <th style={{ width: '300px', minWidth: '260px' }} title="Remarks">Remarks</th>
-                                        <th style={{ width: '120px', minWidth: '115px', textAlign: 'center' }} title="Actions">Actions</th>
-                                    </tr>
-                                </thead>
-                                <Reorder.Group as="tbody" axis="y" values={filteredItems} onReorder={handleReorder}>
-                                    {filteredItems.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="14" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
-                                                {items.length === 0
-                                                    ? 'No entries for this month. Add a new row or import from previous month.'
-                                                    : `No items with "${statusFilter}" status.`}
-                                            </td>
-                                        </tr>
-                                    ) : (() => {
-                                        const tileAnomalyMap = new Map();
-                                        let activeTileId = null;
-                                        filteredItems.forEach(it => {
-                                            if (it.isTitleRow) {
-                                                activeTileId = it._id;
-                                                tileAnomalyMap.set(activeTileId, false);
-                                            } else if (activeTileId && it.anomaly?.isAnomaly) {
-                                                tileAnomalyMap.set(activeTileId, true);
-                                            }
-                                        });
-
-                                        return filteredItems.map((item, index) => (
-                                            <ReorderRow 
-                                                key={item._id} 
-                                                item={item} 
-                                                index={index}
-                                                handleFieldChange={handleFieldChange}
-                                                handleSaveItem={handleSaveItem}
-                                                openDeleteDialog={openDeleteDialog}
-                                                handleInsertItem={handleInsertItem}
-                                                autoResizeTextarea={autoResizeTextarea}
-                                                mrmUsers={mrmUsers}
-                                                isLocked={metadata.isLocked}
-                                                openBaselineDialog={openBaselineDialog}
-                                                handleStatusChange={handleStatusChange}
-                                                hasTileAnomaly={item.isTitleRow ? Boolean(tileAnomalyMap.get(item._id)) : false}
-                                            />
-                                        ));
-                                    })()}
-                                </Reorder.Group>
-                            </table>
-                        )}
-                    </div>
-                </Box>
-            )}
-
-            {/* ═══ VIEW 4: UNIFIED FULL VIEW (SECTION 2 BELOW SECTION 1) ═══ */}
-            {rollupFeatureEnabled && mrmViewMode === 'ALL' && (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', boxSizing: 'border-box' }}>
-                    <PreDeadlineTracker 
-                        department={activeDepartment}
-                        month={String(selectedMonth).padStart(2, '0')}
-                        year={selectedYear}
-                        onReminderSent={(m) => showToast(`Reminder ping sent to ${m.name}`)}
-                    />
-                    <SegmentRollupView 
-                        segments={segmentRollupData?.segments || []}
-                        department={activeDepartment}
-                        month={String(selectedMonth).padStart(2, '0')}
-                        year={selectedYear}
-                        isHodOrAdmin={canManagePresenters}
-                        onApprovalComplete={loadData}
-                    />
-                </Box>
-            )}
+                )}
             </div>
-
-            <SubTeamManager 
-                open={subTeamManagerOpen}
-                onClose={() => setSubTeamManagerOpen(false)}
-                department={activeDepartment}
-                onSaved={loadData}
-            />
 
             {/* Import Modal */}
             <Dialog open={showImportModal} onClose={() => setShowImportModal(false)} maxWidth="sm" fullWidth>
@@ -2495,10 +2884,10 @@ const MRMHome = () => {
             </Menu>
 
             {/* Submission Completeness Validation Modal */}
-            <Dialog 
-                open={showValidationModal} 
-                onClose={() => setShowValidationModal(false)} 
-                maxWidth="md" 
+            <Dialog
+                open={showValidationModal}
+                onClose={() => setShowValidationModal(false)}
+                maxWidth="md"
                 fullWidth
                 PaperProps={{
                     sx: {
@@ -2508,11 +2897,11 @@ const MRMHome = () => {
                     }
                 }}
             >
-                <DialogTitle sx={{ 
-                    bgcolor: '#fff1f2', 
-                    color: '#b91c1c', 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                <DialogTitle sx={{
+                    bgcolor: '#fff1f2',
+                    color: '#b91c1c',
+                    display: 'flex',
+                    alignItems: 'center',
                     gap: 1.5,
                     borderBottom: '1px solid #fecdd3',
                     py: 2
@@ -2549,11 +2938,11 @@ const MRMHome = () => {
                     </div>
                 </DialogContent>
                 <DialogActions sx={{ p: 2, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0', justifyContent: 'flex-end' }}>
-                    <Button 
-                        onClick={() => setShowValidationModal(false)} 
-                        variant="contained" 
-                        sx={{ 
-                            bgcolor: '#166534', 
+                    <Button
+                        onClick={() => setShowValidationModal(false)}
+                        variant="contained"
+                        sx={{
+                            bgcolor: '#166534',
                             '&:hover': { bgcolor: '#14532d' },
                             fontWeight: 700,
                             borderRadius: '8px',
@@ -2569,10 +2958,10 @@ const MRMHome = () => {
             </Dialog>
 
             {/* Executive Approve & Lock Confirmation Dialog (Suraj / Admin) */}
-            <Dialog 
-                open={showApproveModal} 
-                onClose={() => !actionLoading && setShowApproveModal(false)} 
-                maxWidth="sm" 
+            <Dialog
+                open={showApproveModal}
+                onClose={() => !actionLoading && setShowApproveModal(false)}
+                maxWidth="sm"
                 fullWidth
                 PaperProps={{
                     sx: {
@@ -2582,12 +2971,12 @@ const MRMHome = () => {
                     }
                 }}
             >
-                <DialogTitle sx={{ 
-                    bgcolor: '#f0fdf4', 
+                <DialogTitle sx={{
+                    bgcolor: '#f0fdf4',
                     borderBottom: '1px solid #bbf7d0',
-                    color: '#166534', 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                    color: '#166534',
+                    display: 'flex',
+                    alignItems: 'center',
                     gap: 1.5,
                     py: 2,
                     fontWeight: 700,
@@ -2600,7 +2989,7 @@ const MRMHome = () => {
                     <DialogContentText sx={{ color: '#334155', fontSize: '0.92rem', mb: 2, lineHeight: 1.6 }}>
                         Are you sure you want to <strong>APPROVE and LOCK</strong> the MRM submission for <strong>{getMonthLong(selectedMonth)} {selectedYear}</strong>?
                     </DialogContentText>
-                    
+
                     <div style={{
                         background: '#f8fafc',
                         border: '1px solid #e2e8f0',
@@ -2634,11 +3023,11 @@ const MRMHome = () => {
                     </div>
                 </DialogContent>
                 <DialogActions sx={{ p: 2, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0', gap: 1 }}>
-                    <Button 
-                        onClick={() => setShowApproveModal(false)} 
+                    <Button
+                        onClick={() => setShowApproveModal(false)}
                         disabled={actionLoading}
-                        variant="outlined" 
-                        sx={{ 
+                        variant="outlined"
+                        sx={{
                             borderRadius: '8px',
                             color: '#64748b',
                             borderColor: '#cbd5e1',
@@ -2647,16 +3036,16 @@ const MRMHome = () => {
                     >
                         Cancel
                     </Button>
-                    <Button 
+                    <Button
                         onClick={async () => {
                             setShowApproveModal(false);
                             await handleApprove();
-                        }} 
+                        }}
                         disabled={actionLoading}
-                        variant="contained" 
-                        sx={{ 
+                        variant="contained"
+                        sx={{
                             borderRadius: '8px',
-                            bgcolor: '#166534', 
+                            bgcolor: '#166534',
                             '&:hover': { bgcolor: '#14532d' },
                             fontWeight: 700,
                             boxShadow: '0 2px 6px rgba(22, 101, 52, 0.3)'
@@ -2732,7 +3121,7 @@ const MRMHome = () => {
                     <DialogContentText sx={{ mb: 2, fontSize: '0.85rem', color: '#475569' }}>
                         Define a light historical reference (~3 macro numbers like monthly volume, unit count, or headcount). Presenters can self-serve and update these figures anytime.
                     </DialogContentText>
-                    
+
                     <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
                         <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Objective</div>
                         <div style={{ fontWeight: '600', color: '#1e293b' }}>
@@ -2829,9 +3218,9 @@ const MRMHome = () => {
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
                     <Button onClick={() => setBaselineDialogOpen(false)} variant="outlined">Cancel</Button>
-                    <Button 
-                        onClick={handleSaveBaseline} 
-                        variant="contained" 
+                    <Button
+                        onClick={handleSaveBaseline}
+                        variant="contained"
                         disabled={baselineSaving}
                         sx={{ bgcolor: '#0284c7', '&:hover': { bgcolor: '#0369a1' } }}
                     >
@@ -2841,15 +3230,15 @@ const MRMHome = () => {
             </Dialog>
 
             {/* Modern Toast Notification */}
-            <Snackbar 
-                open={toast.open} 
-                autoHideDuration={4000} 
+            <Snackbar
+                open={toast.open}
+                autoHideDuration={4000}
                 onClose={() => setToast(prev => ({ ...prev, open: false }))}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
             >
-                <Alert 
-                    onClose={() => setToast(prev => ({ ...prev, open: false }))} 
-                    severity={toast.severity} 
+                <Alert
+                    onClose={() => setToast(prev => ({ ...prev, open: false }))}
+                    severity={toast.severity}
                     variant="filled"
                     sx={{ width: '100%', fontWeight: 600, borderRadius: '8px', boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}
                 >

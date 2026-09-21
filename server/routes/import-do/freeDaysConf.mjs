@@ -148,8 +148,8 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
 });
 
 
-// PATCH API that updates only the free_time
-router.patch("/api/update-free-time/:id", verifyToken, async (req, res) => {
+// Handler to update free_time and recalculate container detention & validity
+const handleUpdateFreeTime = async (req, res) => {
   try {
     const { id } = req.params; // Extract job ID from route parameters
     const { free_time } = req.body; // Extract free_time from request body
@@ -195,7 +195,11 @@ router.patch("/api/update-free-time/:id", verifyToken, async (req, res) => {
     console.error("Error updating free_time:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
-});
+};
+
+// Support both PATCH and PUT for update-free-time
+router.patch("/api/update-free-time/:id", verifyToken, handleUpdateFreeTime);
+router.put("/api/update-free-time/:id", verifyToken, handleUpdateFreeTime);
 
 
 // PATCH API that updates free_time and all DO-related documents
@@ -261,7 +265,7 @@ router.patch("/api/update-free-days-config", verifyToken, async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Free days configuration updated successfully",
-      job: updatedJob,
+      job,
     });
   } catch (error) {
     console.error("Error updating free days config:", error);

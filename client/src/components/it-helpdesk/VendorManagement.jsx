@@ -38,6 +38,7 @@ const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 const MOBILE_REGEX = /^[6-9]\d{9}$/;
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
 /**
  * Reusable field-level validator for Vendor form
@@ -77,6 +78,13 @@ export const validateVendorField = (fieldName, value) => {
         }
       }
       return "";
+    case "ifsc_code":
+      if (val) {
+        if (!IFSC_REGEX.test(val.toUpperCase())) {
+          return "Invalid IFSC format (e.g. HDFC0000123 - 11 characters)";
+        }
+      }
+      return "";
     default:
       return "";
   }
@@ -87,7 +95,7 @@ export const validateVendorField = (fieldName, value) => {
  */
 export const validateVendorForm = (formData) => {
   const errors = {};
-  const fields = ["name", "contact_person", "mobile_number", "email", "gst_number", "pan_number"];
+  const fields = ["name", "contact_person", "mobile_number", "email", "gst_number", "pan_number", "ifsc_code"];
   fields.forEach((field) => {
     const error = validateVendorField(field, formData[field]);
     if (error) {
@@ -105,6 +113,10 @@ const EMPTY_FORM = {
   contact_person: "",
   mobile_number: "",
   email: "",
+  bank_name: "",
+  bank_branch: "",
+  ifsc_code: "",
+  account_no: "",
   status: "Active",
 };
 
@@ -225,6 +237,10 @@ export default function VendorManagement() {
         contact_person: record.contact_person || "",
         mobile_number: record.mobile_number || "",
         email: record.email || "",
+        bank_name: record.bank_name || "",
+        bank_branch: record.bank_branch || "",
+        ifsc_code: record.ifsc_code || "",
+        account_no: record.account_no || "",
         status: record.status || "Active",
       });
     } else {
@@ -243,8 +259,8 @@ export default function VendorManagement() {
   const handleFieldChange = (field, rawValue) => {
     let value = rawValue;
 
-    // Auto-formatting: GST/PAN uppercase and no spaces
-    if (field === "gst_number" || field === "pan_number") {
+    // Auto-formatting: GST/PAN/IFSC uppercase and no spaces
+    if (field === "gst_number" || field === "pan_number" || field === "ifsc_code") {
       value = rawValue.toUpperCase().replace(/\s/g, "");
     } else if (field === "mobile_number") {
       // Numbers only, max 10 digits
@@ -316,6 +332,10 @@ export default function VendorManagement() {
         contact_person: form.contact_person.trim(),
         mobile_number: form.mobile_number.trim(),
         email: form.email.trim().toLowerCase(),
+        bank_name: form.bank_name?.trim() || "",
+        bank_branch: form.bank_branch?.trim() || "",
+        ifsc_code: form.ifsc_code?.trim().toUpperCase() || "",
+        account_no: form.account_no?.trim() || "",
         status: form.status || "Active",
       };
 
@@ -624,7 +644,7 @@ export default function VendorManagement() {
               </div>
             ) : (
               <div className="table-wrap">
-                <table style={{ width: "100%", minWidth: "1150px" }}>
+                <table style={{ width: "100%", minWidth: "1280px" }}>
                   <thead>
                     <tr>
                       <th style={{ width: 44, minWidth: 44, textAlign: "center" }}>#</th>
@@ -634,6 +654,7 @@ export default function VendorManagement() {
                       <th style={{ minWidth: 150 }}>Contact Person</th>
                       <th style={{ minWidth: 130 }}>Mobile Number</th>
                       <th style={{ minWidth: 170 }}>Email Address</th>
+                      <th style={{ minWidth: 180 }}>Bank Details</th>
                       <th style={{ minWidth: 100, textAlign: "center" }}>Status</th>
                       <th style={{ width: 90, minWidth: 90, textAlign: "center" }}>Action</th>
                     </tr>
@@ -641,7 +662,7 @@ export default function VendorManagement() {
                   <tbody>
                     {data.length === 0 ? (
                       <tr>
-                        <td colSpan={9} style={{ textAlign: "center", padding: "36px 16px", color: "#94a3b8" }}>
+                        <td colSpan={10} style={{ textAlign: "center", padding: "36px 16px", color: "#94a3b8" }}>
                           No vendors found matching criteria
                         </td>
                       </tr>
@@ -675,6 +696,17 @@ export default function VendorManagement() {
                           </td>
                           <td style={{ color: "#334155", fontSize: "13px" }}>
                             {v.email || "—"}
+                          </td>
+                          <td style={{ color: "#475569", fontSize: "12px" }}>
+                            {v.bank_name || v.account_no || v.ifsc_code ? (
+                              <div>
+                                {v.bank_name && <div style={{ fontWeight: 600, color: "#1e293b" }}>{v.bank_name}{v.bank_branch ? ` (${v.bank_branch})` : ""}</div>}
+                                {v.account_no && <div>A/C: {v.account_no}</div>}
+                                {v.ifsc_code && <div style={{ color: "#64748b" }}>IFSC: {v.ifsc_code}</div>}
+                              </div>
+                            ) : (
+                              "—"
+                            )}
                           </td>
                           <td style={{ textAlign: "center" }}>
                             <span className={`score-badge ${v.status === "Active" ? "badge-excellent" : "badge-secondary"}`}>
@@ -943,6 +975,64 @@ export default function VendorManagement() {
                         {errors.email}
                       </span>
                     )}
+                  </div>
+
+                  {/* Banking & Payment Details Section */}
+                  <div style={{ gridColumn: "span 2", marginTop: "4px", paddingTop: "10px", borderTop: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      🏦 Banking & Payment Details
+                    </span>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Bank Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. HDFC Bank"
+                      value={form.bank_name}
+                      onChange={(e) => handleFieldChange("bank_name", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Bank Branch Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Navrangpura Branch"
+                      value={form.bank_branch}
+                      onChange={(e) => handleFieldChange("bank_branch", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>IFSC Code</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. HDFC0000123"
+                      maxLength={11}
+                      value={form.ifsc_code}
+                      onChange={(e) => handleFieldChange("ifsc_code", e.target.value.toUpperCase())}
+                      style={{
+                        ...(errors.ifsc_code
+                          ? { borderColor: "#ef4444 !important", boxShadow: "0 0 0 2px rgba(239, 68, 68, 0.15) !important" }
+                          : {}),
+                      }}
+                    />
+                    {errors.ifsc_code && (
+                      <span style={{ color: "#ef4444", fontSize: "11.5px", marginTop: "4px", display: "block", fontWeight: 500 }}>
+                        {errors.ifsc_code}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="form-field">
+                    <label>Account No.</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 50200012345678"
+                      value={form.account_no}
+                      onChange={(e) => handleFieldChange("account_no", e.target.value)}
+                    />
                   </div>
                 </div>
 

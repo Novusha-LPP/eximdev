@@ -11,8 +11,8 @@ import translate from "google-translate-api-x";
 import EmployeeKPI from "../../model/hr/employeeKPIModel.mjs";
 import AttendanceRecord from "../../model/attendance/AttendanceRecord.js";
 import moment from "moment";
-import fs from "fs";
 import { isFeatureEnabled } from "../../config/featureFlags.mjs";
+import calculateAttendanceMetrics from "../../utils/attendanceScoreUtil.mjs";
 
 const router = express.Router();
 
@@ -98,47 +98,17 @@ const autoCalculateKPIScores = async (sheet) => {
     const queryMonth = sheet.month;
 
     // 1. Attendance Metrics
-    const monthStr = `${queryYear}-${String(queryMonth).padStart(2, '0')}`;
     let present_days = 0;
     let working_days = 0;
     
     try {
-        const attendanceRecords = await AttendanceRecord.find({
-            employee_id: employeeId,
-            year_month: monthStr,
+        const attMetrics = await calculateAttendanceMetrics({
+            employeeId,
+            year: queryYear,
+            month: queryMonth
         });
-
-        let weekly_off_count = 0;
-        let holiday_count = 0;
-
-        attendanceRecords.forEach((rec) => {
-            const status = rec.status;
-            if (status === "weekly_off" || rec.is_weekly_off) {
-                weekly_off_count++;
-            } else if (status === "holiday" || rec.is_holiday) {
-                holiday_count++;
-            } else if (["present", "on_duty", "leave", "late"].includes(status)) {
-                present_days += 1;
-            } else if (status === "half_day" || rec.is_half_day) {
-                present_days += 0.5;
-            } else if (status === "incomplete" || rec.missed_punch) {
-                present_days += 0.5;
-            }
-        });
-
-        const daysInMonth = moment(`${queryYear}-${String(queryMonth).padStart(2, '0')}-01`, "YYYY-MM-DD").daysInMonth();
-        working_days = daysInMonth - (weekly_off_count + holiday_count);
-
-        if (working_days <= 0 || attendanceRecords.length === 0) {
-            let sundays = 0;
-            for (let d = 1; d <= daysInMonth; d++) {
-                const dayOfWeek = moment(`${queryYear}-${String(queryMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`, "YYYY-MM-DD").day();
-                if (dayOfWeek === 0) {
-                    sundays++;
-                }
-            }
-            working_days = daysInMonth - sundays;
-        }
+        present_days = attMetrics.present_days;
+        working_days = attMetrics.working_days;
     } catch (err) {
         console.error("Error fetching attendance in autoCalculateKPIScores:", err);
     }
@@ -156,7 +126,13 @@ const autoCalculateKPIScores = async (sheet) => {
                 : 0);
 
         completedTasks = sheet.summary?.total_quantity || 0;
-        assignedTargets = completedTasks;
+
+        if (sheet.has_targets && sheet.rows?.length > 0) {
+            assignedTargets = sheet.rows.reduce((sum, row) => sum + (Number(row.target) || 0), 0);
+        }
+        if (!assignedTargets) {
+            assignedTargets = completedTasks;
+        }
     }
 
     // 3. Open Points Metrics

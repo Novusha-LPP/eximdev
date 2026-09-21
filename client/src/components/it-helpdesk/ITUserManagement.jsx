@@ -25,7 +25,7 @@ const api = axios.create({
   withCredentials: true,
 });
 
-const ROLES = ["Admin", "IT Team", "Manager", "Employee"];
+const ROLES = ["Admin", "IT/Network Department", "Sr. Manager Accounts / Head of Accounts", "Employee"];
 
 const ASSET_TYPES = [
   "System",

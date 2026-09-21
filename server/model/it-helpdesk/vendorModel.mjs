@@ -106,6 +106,21 @@ const vendorSchema = new mongoose.Schema({
       message: "Invalid PAN format. Expected 10 characters (e.g. AAAAA0000A)."
     }
   },
+  bank_name: { type: String, trim: true },
+  bank_branch: { type: String, trim: true },
+  ifsc_code: { 
+    type: String, 
+    trim: true, 
+    uppercase: true,
+    validate: {
+      validator: function(v) {
+        if (!v || v.trim() === "") return true;
+        return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(v.trim().toUpperCase());
+      },
+      message: "Invalid IFSC format. Expected 11 characters (e.g. HDFC0000123)."
+    }
+  },
+  account_no: { type: String, trim: true },
   status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
   amc_contracts: [{ type: mongoose.Schema.Types.ObjectId, ref: "ITContract" }],
   documents: [{ file_url: String, file_name: String, uploaded_at: { type: Date, default: Date.now } }],

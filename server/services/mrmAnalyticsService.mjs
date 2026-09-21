@@ -6,7 +6,13 @@ import TeamModel from '../model/teamModel.mjs';
 import KPISheet from '../model/kpi/kpiSheetModel.mjs';
 import MRMSegmentRollup from '../model/mrm/mrmSegmentRollupModel.mjs';
 import MRMHodScore from '../model/mrm/mrmHodScoreModel.mjs';
+import MRMMemberWeight from '../model/mrm/mrmMemberWeightModel.mjs';
+import AttendanceRecord from '../model/attendance/AttendanceRecord.js';
+import EmployeeKPI from '../model/hr/employeeKPIModel.mjs';
 import { isFeatureEnabled } from '../config/featureFlags.mjs';
+
+import { getKarmaPriorityPoints } from '../utils/karmaPointsUtil.mjs';
+export { getKarmaPriorityPoints };
 
 /**
  * Resolves the clean, authoritative list of active Department HODs across the organization.
@@ -190,7 +196,7 @@ export const calculateAnnualRollup = async ({ year, userId = null, forecastMetho
     const objectiveGroups = new Map();
 
     items.forEach(item => {
-        if (item.isTitleRow) return; // Skip title rows in rollup math
+        if (item.isTitleRow || item.status === 'Not Required') return; // Skip title rows and Not Required items in rollup math
         const tileName = item.tileName || item.processDescription || 'General';
         const key = `${tileName}::${item.objective || item.processDescription}`;
 
@@ -534,7 +540,7 @@ export const analyzeRecurringIssues = async ({ year = new Date().getFullYear() }
     const tileRedCounts = new Map();
 
     items.forEach(item => {
-        if (item.isTitleRow) return;
+        if (item.isTitleRow || item.status === 'Not Required') return;
         const key = `${item.createdBy}::${item.objective || item.processDescription}`;
         const itemTile = item.tileName || item.processDescription || 'General';
 
@@ -855,6 +861,41 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
         $or: trailingMonths.map(t => ({ month: t.month, year: t.year }))
     }).lean();
 
+    // Pre-fetch Attendance, EmployeeKPI, and OpenPoints for current month
+    const monthYearStr = `${yearNum}-${monthStr}`;
+    const [deptAttRecords, deptEmployeeKpis, deptOpenPoints] = await Promise.all([
+        AttendanceRecord.find({
+            employee_id: { $in: userIds },
+            year_month: monthYearStr
+        }).lean(),
+        EmployeeKPI.find({
+            employee: { $in: userIds },
+            year: yearNum,
+            month: monthNum
+        }).lean(),
+        OpenPoint.find({
+            responsible_person: { $in: userIds }
+        }).lean()
+    ]);
+
+    const attByUserMap = new Map();
+    deptAttRecords.forEach(r => {
+        const uid = r.employee_id.toString();
+        if (!attByUserMap.has(uid)) attByUserMap.set(uid, []);
+        attByUserMap.get(uid).push(r);
+    });
+
+    const kpiByUserMap = new Map();
+    deptEmployeeKpis.forEach(k => kpiByUserMap.set(k.employee.toString(), k));
+
+    const opByUserMap = new Map();
+    deptOpenPoints.forEach(p => {
+        if (!p.responsible_person) return;
+        const uid = p.responsible_person.toString();
+        if (!opByUserMap.has(uid)) opByUserMap.set(uid, []);
+        opByUserMap.get(uid).push(p);
+    });
+
     // Check Cold-Start Rule:
     // Count distinct historical months with submitted/approved sheets across department
     const distinctHistoricalMonthKeys = new Set(
@@ -985,6 +1026,60 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
 
             totalSegmentTasks += memberTasks;
 
+            // Compute member attendance score
+            const uAttRecords = attByUserMap.get(mIdStr) || [];
+            let presentDays = 0;
+            let weeklyOffs = 0;
+            let holidays = 0;
+            uAttRecords.forEach(rec => {
+                const st = rec.status;
+                if (st === 'weekly_off' || rec.is_weekly_off) weeklyOffs++;
+                else if (st === 'holiday' || rec.is_holiday) holidays++;
+                else if (['present', 'on_duty', 'leave', 'late'].includes(st)) presentDays += 1;
+                else if (st === 'half_day' || rec.is_half_day || st === 'incomplete' || rec.missed_punch) presentDays += 0.5;
+            });
+            const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
+            let workingDays = daysInMonth - (weeklyOffs + holidays);
+            if (workingDays <= 0 || uAttRecords.length === 0) {
+                let sundays = 0;
+                for (let d = 1; d <= daysInMonth; d++) {
+                    if (new Date(yearNum, monthNum - 1, d).getDay() === 0) sundays++;
+                }
+                workingDays = daysInMonth - sundays;
+            }
+            const memberAttScore = workingDays > 0 && uAttRecords.length > 0
+                ? Number(((presentDays / workingDays) * 100).toFixed(1))
+                : 100;
+
+            // Compute member KPI score
+            const empKpi = kpiByUserMap.get(mIdStr);
+            let memberKpiScore = 0;
+            if (empKpi && empKpi.total_kpi_score != null) {
+                memberKpiScore = Number((empKpi.total_kpi_score * 10).toFixed(1));
+            } else if (sheet && sheet.summary?.overall_percentage != null) {
+                memberKpiScore = Number(Number(sheet.summary.overall_percentage).toFixed(1));
+            } else if (sheet && sheet.status && ['SUBMITTED', 'APPROVED', 'CHECKED', 'VERIFIED'].includes(sheet.status)) {
+                memberKpiScore = 100;
+            }
+
+            // Compute member Karma points
+            const uOpenPoints = opByUserMap.get(mIdStr) || [];
+            let greenPts = 0;
+            let redPts = 0;
+            uOpenPoints.forEach(pt => {
+                const compDate = pt.completion_date ? new Date(pt.completion_date) : null;
+                const pts = getKarmaPriorityPoints(pt.priority);
+                const isTargetMonth = compDate 
+                    ? (compDate.getMonth() + 1 === monthNum && compDate.getFullYear() === yearNum)
+                    : true;
+                if (pt.status === 'Green') {
+                    if (isTargetMonth) greenPts += pts;
+                } else if (pt.status !== 'Yellow' && pt.status !== 'Orange') {
+                    redPts += pts;
+                }
+            });
+            const memberKarmaPts = greenPts - redPts;
+
             contributingMembers.push({
                 userId: member._id,
                 name: memberFullName,
@@ -1000,7 +1095,21 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
                 submitted: isSubmitted,
                 submitted_at: sheet?.summary?.submission_date || sheet?.updatedAt,
                 is_submitted_on_time: isSubmittedOnTime,
-                has_targets: sheetHasTargets
+                has_targets: sheetHasTargets,
+                attendance_score: memberAttScore,
+                kpi_score: memberKpiScore,
+                karma_points: memberKarmaPts,
+                kpi_sheet_rows: sheet && Array.isArray(sheet.rows) ? sheet.rows.map(r => ({
+                    label: r.label || r.row_id,
+                    total: r.total || 0,
+                    actual: r.actual != null ? r.actual : r.total || 0,
+                    target: r.target != null && !isNaN(Number(r.target)) ? Number(r.target) : null,
+                    weight: r.weight || 3
+                })) : [],
+                kpi_total_score: empKpi?.total_kpi_score != null
+                    ? Number(empKpi.total_kpi_score.toFixed(2))
+                    : (sheet?.summary?.overall_percentage != null ? Number((sheet.summary.overall_percentage / 10).toFixed(2)) : null),
+                kpi_rag_status: empKpi?.rag_status || null
             });
         });
 
@@ -1187,6 +1296,272 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
 };
 
 /**
+ * Calculates Per-Member Composite Score from Attendance, KPI, and Karma Points
+ * S_Composite = (Attendance_Norm + KPI_Norm + Karma_Norm) / 3
+ * Team Score = Σ(Member_Composite * Member_Weight_Pct / 100)
+ */
+export const calculateMemberCompositeScores = async ({ department, hodId, month, year }) => {
+    const monthStr = String(month).padStart(2, '0');
+    const monthNum = parseInt(month, 10);
+    const yearNum = parseInt(year, 10);
+    const deptRegex = getDepartmentFilterRegex(department);
+
+    // 1. Fetch active candidate users belonging to this department
+    const candidateUsers = await UserModel.find({
+        department: { $regex: deptRegex },
+        isActive: { $ne: false }
+    }).select('_id first_name last_name username sub_team sub_team_role department joining_date role is_operator category').lean();
+
+    const candidateIds = candidateUsers.map(u => u._id);
+    const currentSheets = await KPISheet.find({
+        user: { $in: candidateIds },
+        month: monthNum,
+        year: yearNum
+    }).lean();
+
+    const sheetByUserMap = new Map();
+    currentSheets.forEach(s => sheetByUserMap.set(s.user.toString(), s));
+
+    const userIdsWithAnySheet = new Set(
+        (await KPISheet.distinct('user', { user: { $in: candidateIds } })).map(id => id.toString())
+    );
+
+    let resolvedHodId = hodId;
+    if (!resolvedHodId) {
+        const trueHods = await getTrueHodUsers();
+        const found = trueHods.find(h => deptRegex.test(h.department));
+        if (found) resolvedHodId = found._id;
+    }
+
+    const monthEndDate = new Date(yearNum, monthNum, 0, 23, 59, 59, 999);
+    const deptUsers = candidateUsers.filter(u => {
+        const uIdStr = u._id.toString();
+        if (u.username === 'dev_master') return false;
+        const hasSheetThisMonth = sheetByUserMap.has(uIdStr);
+        const isHodUser = (resolvedHodId && uIdStr === resolvedHodId.toString()) ||
+            /^(head_of_department|hod)$/i.test(String(u.role || '')) ||
+            ['suraj_rajan', 'uday_zope', 'afzal_ghanchi', 'ajith_sivadasan', 'chirag_shah', 'deepak_singh', 'mahesh_patil', 'majhar_khan', 'punit_pandey', 'kinjal_khatri', 'sojith_mammuttil', 'sreekumar_pillai', 'anurag_pillai', 'krishnapal_puvar', 'mohit_singh'].includes(u.username);
+        if (isHodUser && !hasSheetThisMonth) return false;
+        if (u.is_operator) return false;
+        if (['housekeeping', 'helper', 'operator'].includes(String(u.category || '').toLowerCase())) return false;
+        if (u.joining_date) {
+            const jDate = new Date(u.joining_date);
+            if (!isNaN(jDate.getTime()) && jDate > monthEndDate) return false;
+        }
+        if (hasSheetThisMonth) return true;
+        if (userIdsWithAnySheet.has(uIdStr)) return true;
+        if (u.sub_team && u.sub_team !== 'General') return true;
+        return false;
+    });
+
+    if (!deptUsers || deptUsers.length === 0) {
+        return { team_score: 100, members: [], is_configured: false };
+    }
+
+    // 2. Load configured weights if any
+    const weightConfig = await MRMMemberWeight.findOne({
+        month: monthStr,
+        year: yearNum,
+        department,
+        hodId: resolvedHodId,
+        isHodLevel: false
+    }).lean();
+
+    const weightMap = new Map();
+    if (weightConfig && Array.isArray(weightConfig.members)) {
+        weightConfig.members.forEach(m => weightMap.set(m.userId.toString(), m));
+    }
+
+    // Component weights for Attendance/KPI/Karma
+    const cw = weightConfig?.component_weights || { attendance: 34, kpi: 33, karma: 33 };
+    const cwTotal = (cw.attendance || 0) + (cw.kpi || 0) + (cw.karma || 0);
+    const attW = cwTotal > 0 ? (cw.attendance || 0) / cwTotal : 1 / 3;
+    const kpiW = cwTotal > 0 ? (cw.kpi || 0) / cwTotal : 1 / 3;
+    const karmaW = cwTotal > 0 ? (cw.karma || 0) / cwTotal : 1 / 3;
+
+    // Default weight per member if not configured
+    const defaultWeight = Number((100 / deptUsers.length).toFixed(2));
+
+    // 3. Pre-fetch Attendance, EmployeeKPI, and OpenPoints for all members
+    const userIds = deptUsers.map(u => u._id);
+    const monthYearStr = `${yearNum}-${monthStr}`;
+
+    const [attendanceRecords, employeeKpis, openPoints] = await Promise.all([
+        AttendanceRecord.find({
+            employee_id: { $in: userIds },
+            year_month: monthYearStr
+        }).lean(),
+        EmployeeKPI.find({
+            employee: { $in: userIds },
+            year: yearNum,
+            month: monthNum
+        }).lean(),
+        OpenPoint.find({
+            responsible_person: { $in: userIds }
+        }).lean()
+    ]);
+
+    const attByUser = new Map();
+    attendanceRecords.forEach(r => {
+        const uid = r.employee_id.toString();
+        if (!attByUser.has(uid)) attByUser.set(uid, []);
+        attByUser.get(uid).push(r);
+    });
+
+    const kpiByUser = new Map();
+    employeeKpis.forEach(k => kpiByUser.set(k.employee.toString(), k));
+
+    const opByUser = new Map();
+    openPoints.forEach(p => {
+        if (!p.responsible_person) return;
+        const uid = p.responsible_person.toString();
+        if (!opByUser.has(uid)) opByUser.set(uid, []);
+        opByUser.get(uid).push(p);
+    });
+
+    const membersWithScores = deptUsers.map((u) => {
+        const uIdStr = u._id.toString();
+        const memberFullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username;
+
+        // A. Attendance Score
+        const uAttRecords = attByUser.get(uIdStr) || [];
+        let presentDays = 0;
+        let weeklyOffs = 0;
+        let holidays = 0;
+        uAttRecords.forEach(rec => {
+            const st = rec.status;
+            if (st === 'weekly_off' || rec.is_weekly_off) weeklyOffs++;
+            else if (st === 'holiday' || rec.is_holiday) holidays++;
+            else if (['present', 'on_duty', 'leave', 'late'].includes(st)) presentDays += 1;
+            else if (st === 'half_day' || rec.is_half_day || st === 'incomplete' || rec.missed_punch) presentDays += 0.5;
+        });
+
+        const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
+        let workingDays = daysInMonth - (weeklyOffs + holidays);
+        if (workingDays <= 0 || uAttRecords.length === 0) {
+            let sundays = 0;
+            for (let d = 1; d <= daysInMonth; d++) {
+                if (new Date(yearNum, monthNum - 1, d).getDay() === 0) sundays++;
+            }
+            workingDays = daysInMonth - sundays;
+        }
+
+        const attendanceScore = workingDays > 0 && uAttRecords.length > 0 
+            ? Number(((presentDays / workingDays) * 100).toFixed(1))
+            : 100;
+
+        // B. KPI Score
+        const empKpi = kpiByUser.get(uIdStr);
+        const kpiSheet = sheetByUserMap.get(uIdStr);
+        let kpiScore = 0;
+        if (empKpi && empKpi.total_kpi_score != null) {
+            kpiScore = Number((empKpi.total_kpi_score * 10).toFixed(1));
+        } else if (kpiSheet && kpiSheet.summary?.overall_percentage != null) {
+            kpiScore = Number(Number(kpiSheet.summary.overall_percentage).toFixed(1));
+        } else if (kpiSheet && kpiSheet.status && ['SUBMITTED', 'APPROVED', 'CHECKED', 'VERIFIED'].includes(kpiSheet.status)) {
+            kpiScore = 100;
+        }
+
+        // C. Karma Points & Normalized Score
+        const uOpenPoints = opByUser.get(uIdStr) || [];
+        let greenPts = 0;
+        let redPts = 0;
+        let inProgressPts = 0;
+
+        uOpenPoints.forEach(pt => {
+            const compDate = pt.completion_date ? new Date(pt.completion_date) : null;
+            const pts = getKarmaPriorityPoints(pt.priority);
+            const isTargetMonth = compDate 
+                ? (compDate.getMonth() + 1 === monthNum && compDate.getFullYear() === yearNum)
+                : true;
+
+            if (pt.status === 'Green') {
+                if (isTargetMonth) greenPts += pts;
+            } else if (pt.status === 'Yellow' || pt.status === 'Orange') {
+                inProgressPts += pts;
+            } else {
+                redPts += pts;
+            }
+        });
+
+        const karmaPoints = greenPts - redPts;
+        const totalKarmaTasksPts = greenPts + redPts + inProgressPts;
+        const karmaNorm = totalKarmaTasksPts > 0 
+            ? Math.min(100, Math.max(0, Math.round((greenPts / totalKarmaTasksPts) * 100)))
+            : 100;
+
+        // Weight
+        const configuredMember = weightMap.get(uIdStr);
+        const weightPct = configuredMember ? configuredMember.weight_pct : defaultWeight;
+        const isManual = configuredMember ? Boolean(configuredMember.is_manual) : false;
+
+        // User-specific component weights (measures)
+        const userCw = configuredMember?.component_weights || cw;
+        const uAttWeight = userCw.attendance != null ? Number(userCw.attendance) : (cw.attendance ?? 34);
+        const uKpiWeight = userCw.kpi != null ? Number(userCw.kpi) : (cw.kpi ?? 33);
+        const uKarmaWeight = userCw.karma != null ? Number(userCw.karma) : (cw.karma ?? 33);
+        const uCwTotal = uAttWeight + uKpiWeight + uKarmaWeight;
+
+        const uAttPct = uCwTotal > 0 ? (uAttWeight / uCwTotal) : (1 / 3);
+        const uKpiPct = uCwTotal > 0 ? (uKpiWeight / uCwTotal) : (1 / 3);
+        const uKarmaPct = uCwTotal > 0 ? (uKarmaWeight / uCwTotal) : (1 / 3);
+
+        // Normalized (0-100) and weighted by user's specific component weights
+        const attNorm = Math.min(100, Math.max(0, attendanceScore));
+        const kpiNorm = Math.min(100, Math.max(0, kpiScore));
+        const compositeScore = Number((attNorm * uAttPct + kpiNorm * uKpiPct + karmaNorm * uKarmaPct).toFixed(1));
+
+        return {
+            userId: u._id,
+            name: memberFullName,
+            sub_team: u.sub_team || 'General',
+            designation: u.sub_team_role || u.role || '',
+            weight_pct: weightPct,
+            is_manual: isManual,
+            component_weights: {
+                attendance: uAttWeight,
+                kpi: uKpiWeight,
+                karma: uKarmaWeight
+            },
+            attendance_score: attendanceScore,
+            kpi_score: kpiScore,
+            karma_points: karmaPoints,
+            karma_norm: karmaNorm,
+            composite_score: compositeScore,
+            kpi_sheet_rows: kpiSheet && Array.isArray(kpiSheet.rows) ? kpiSheet.rows.map(r => ({
+                label: r.label || r.row_id,
+                total: r.total || 0,
+                actual: r.actual != null ? r.actual : r.total || 0,
+                target: r.target != null && !isNaN(Number(r.target)) ? Number(r.target) : null,
+                weight: r.weight || 3
+            })) : [],
+            kpi_total_score: empKpi?.total_kpi_score != null
+                ? Number(empKpi.total_kpi_score.toFixed(2))
+                : (kpiSheet?.summary?.overall_percentage != null ? Number((kpiSheet.summary.overall_percentage / 10).toFixed(2)) : null),
+            kpi_rag_status: empKpi?.rag_status || null
+        };
+    });
+
+    // Team score: weighted average if member weights sum to ~100%, otherwise equal average
+    let teamScore = 100;
+    if (membersWithScores.length > 0) {
+        const totalWeight = membersWithScores.reduce((sum, m) => sum + (Number(m.weight_pct) || 0), 0);
+        if (Math.abs(totalWeight - 100) < 1) {
+            teamScore = Number(membersWithScores.reduce((sum, m) => sum + (m.composite_score * (m.weight_pct / 100)), 0).toFixed(1));
+        } else {
+            teamScore = Number((membersWithScores.reduce((sum, m) => sum + m.composite_score, 0) / membersWithScores.length).toFixed(1));
+        }
+    }
+
+    return {
+        team_score: teamScore,
+        members: membersWithScores,
+        component_weights: { attendance: cw.attendance, kpi: cw.kpi, karma: cw.karma },
+        is_configured: Boolean(weightConfig)
+    };
+};
+
+/**
  * Calculates 70/30 Blended Monthly HOD Performance Score
  * S_HOD = (S_Team * 0.70) + (S_Focus * 0.30)
  */
@@ -1211,6 +1586,18 @@ export const calculateHodMonthlyScore = async ({ hodId, department, month, year 
     const deptRegex = getDepartmentFilterRegex(effectiveDept);
 
     // 1. Team KPI Performance Score (S_Team, 70% weight)
+    // Reworked composite score based on Attendance + KPI + Karma with member weights
+    const memberComposite = await calculateMemberCompositeScores({
+        department: effectiveDept,
+        hodId: effectiveHodId,
+        month: monthStr,
+        year: yearNum
+    });
+
+    let teamScore = memberComposite.team_score;
+    const memberScores = memberComposite.members || [];
+
+    // Fallback if no members in department
     const computed = await calculateSegmentRollup({ department: effectiveDept, hodId: effectiveHodId, month: monthStr, year: yearNum });
     let rollups = computed?.segments || [];
 
@@ -1222,8 +1609,7 @@ export const calculateHodMonthlyScore = async ({ hodId, department, month, year 
         }).lean();
     }
 
-    let teamScore = 100;
-    if (rollups.length > 0) {
+    if ((!memberScores || memberScores.length === 0) && rollups.length > 0) {
         const totalSegmentScores = rollups.reduce((acc, s) => acc + (Number(s.segment_score) || 0), 0);
         teamScore = Number((totalSegmentScores / rollups.length).toFixed(1));
     }
@@ -1242,6 +1628,7 @@ export const calculateHodMonthlyScore = async ({ hodId, department, month, year 
 
     hodItems.forEach(item => {
         const st = String(item.status || '').toLowerCase();
+        if (st === 'not required') return; // Exclude inactive / not required items
         if (st === 'green') greenCount++;
         else if (st === 'yellow' || st === 'amber' || st === 'orange') yellowCount++;
         else if (st === 'red') redCount++;
@@ -1287,6 +1674,7 @@ export const calculateHodMonthlyScore = async ({ hodId, department, month, year 
             score: r.segment_score,
             reason: r.reason_badge
         })),
+        member_scores: memberScores,
         focus_areas_count: totalObjectives,
         focus_areas_summary: {
             green: greenCount,

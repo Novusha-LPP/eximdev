@@ -29,7 +29,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import ITPagination from "./ITPagination";
 
-const USER_ROLES = ["Admin", "IT Team", "Manager", "Employee"];
+const USER_ROLES = ["Admin", "IT/Network Department", "Sr. Manager Accounts / Head of Accounts", "Employee"];
 
 const PERMISSION_CATEGORIES = [
   "Asset Management",

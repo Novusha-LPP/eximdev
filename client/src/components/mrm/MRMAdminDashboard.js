@@ -49,6 +49,9 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupee';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import MemberWeightConfigModal from './MemberWeightConfigModal';
 import '../../styles/mrm.scss';
 
 const API_URL = (process.env.REACT_APP_API_STRING || 'http://0.0.0.0:9006/api');
@@ -124,6 +127,7 @@ const MRMAdminDashboard = () => {
     const [rankingSearch, setRankingSearch] = useState('');
     const [rankingSort, setRankingSort] = useState('rank_asc');
     const [expandedHodId, setExpandedHodId] = useState(null);
+    const [openHodWeightModal, setOpenHodWeightModal] = useState(false);
 
     // Load initial users list & check feature flag, and pre-fetch executive KPI metrics
     useEffect(() => {
@@ -659,7 +663,25 @@ const MRMAdminDashboard = () => {
                                 Department MRM submissions matrix, health status breakdown, and approval states.
                             </span>
                         </div>
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <IconButton
+                                size="small"
+                                onClick={() => {
+                                    let m = selectedMonth - 1;
+                                    let y = selectedYear;
+                                    if (m < 1) {
+                                        m = 12;
+                                        y -= 1;
+                                    }
+                                    setSelectedMonth(m);
+                                    setSelectedYear(y);
+                                }}
+                                title="Previous Month"
+                                sx={{ p: '4px', border: '1px solid #cbd5e1', bgcolor: '#ffffff', '&:hover': { bgcolor: '#f1f5f9' } }}
+                            >
+                                <ChevronLeftIcon sx={{ fontSize: 18, color: '#334155' }} />
+                            </IconButton>
+
                             <div className="executive-select-wrapper">
                                 <select
                                     value={selectedMonth}
@@ -687,6 +709,54 @@ const MRMAdminDashboard = () => {
                                 </select>
                                 <span className="select-arrow">▼</span>
                             </div>
+
+                            <IconButton
+                                size="small"
+                                onClick={() => {
+                                    const now = new Date();
+                                    const currY = now.getFullYear();
+                                    const currM = now.getMonth() + 1;
+                                    let m = selectedMonth + 1;
+                                    let y = selectedYear;
+                                    if (m > 12) {
+                                        m = 1;
+                                        y += 1;
+                                    }
+                                    if (y > currY || (y === currY && m > currM)) {
+                                        return;
+                                    }
+                                    setSelectedMonth(m);
+                                    setSelectedYear(y);
+                                }}
+                                title="Next Month"
+                                disabled={selectedYear >= new Date().getFullYear() && selectedMonth >= (new Date().getMonth() + 1)}
+                                sx={{ p: '4px', border: '1px solid #cbd5e1', bgcolor: '#ffffff', '&:hover': { bgcolor: '#f1f5f9' } }}
+                            >
+                                <ChevronRightIcon sx={{ fontSize: 18, color: '#334155' }} />
+                            </IconButton>
+
+                            {isApprover && (
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    startIcon={<TuneIcon sx={{ fontSize: 14 }} />}
+                                    onClick={() => setOpenHodWeightModal(true)}
+                                    sx={{
+                                        textTransform: 'none',
+                                        fontSize: '11.5px',
+                                        fontWeight: 700,
+                                        height: '32px',
+                                        borderColor: '#cbd5e1',
+                                        color: '#1e293b',
+                                        bgcolor: '#ffffff',
+                                        ml: 1,
+                                        borderRadius: '8px',
+                                        '&:hover': { bgcolor: '#f8fafc', borderColor: '#94a3b8' }
+                                    }}
+                                >
+                                    ⚖️ Org HOD Weights
+                                </Button>
+                            )}
                         </div>
                     </div>
 
@@ -741,6 +811,11 @@ const MRMAdminDashboard = () => {
                                                     {row.redCount > 0 && (
                                                         <span style={{ background: '#fee2e2', color: '#991b1b', padding: '2px 6px', borderRadius: '4px', fontSize: '0.72rem' }}>
                                                             {row.redCount} 🔴
+                                                        </span>
+                                                    )}
+                                                    {row.notRequiredCount > 0 && (
+                                                        <span style={{ background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px', fontSize: '0.72rem' }}>
+                                                            {row.notRequiredCount} ⚪ Not Req
                                                         </span>
                                                     )}
                                                 </div>
@@ -1679,7 +1754,16 @@ const MRMAdminDashboard = () => {
 
                                         return (
                                             <tr key={op._id}>
-                                                <td style={{ fontWeight: '700', color: '#2563eb' }}>{op.unique_id}</td>
+                                                <td style={{ fontWeight: '700', color: '#2563eb' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <span>{op.unique_id}</span>
+                                                        {op.project_id?.name && (
+                                                            <span style={{ fontSize: '0.68rem', backgroundColor: '#f1f5f9', color: '#475569', padding: '1px 5px', borderRadius: '4px', border: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                                                                {op.project_id.name.replace('MRM - ', '')}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td style={{ fontWeight: '500' }}>{op.task || op.description || op.title || '—'}</td>
                                                 <td style={{ color: '#475569', fontSize: '0.82rem' }}>
                                                     {op.originContext?.objective || '—'}
@@ -1767,23 +1851,46 @@ const MRMAdminDashboard = () => {
                                     Executive Governance for {getMonthName(selectedMonth)} {selectedYear} &bull; Blended Formula: 70% Team KPI Roll-up (S_Team) + 30% HOD Focus Areas (S_Focus)
                                 </span>
                             </div>
-                            <button
-                                onClick={loadRankings}
-                                style={{
-                                    padding: '7px 16px',
-                                    borderRadius: '6px',
-                                    border: '1px solid #cbd5e1',
-                                    background: 'white',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    fontWeight: 600,
-                                    color: '#334155'
-                                }}
-                            >
-                                <AutorenewIcon sx={{ fontSize: 16 }} /> Refresh Rankings
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                {isApprover && (
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<TuneIcon sx={{ fontSize: 14 }} />}
+                                        onClick={() => setOpenHodWeightModal(true)}
+                                        sx={{
+                                            textTransform: 'none',
+                                            fontSize: '12px',
+                                            fontWeight: 700,
+                                            height: '34px',
+                                            borderColor: '#cbd5e1',
+                                            color: '#1e293b',
+                                            bgcolor: '#ffffff',
+                                            borderRadius: '6px',
+                                            '&:hover': { bgcolor: '#f8fafc', borderColor: '#94a3b8' }
+                                        }}
+                                    >
+                                        ⚖️ Org HOD Weights
+                                    </Button>
+                                )}
+                                <button
+                                    onClick={loadRankings}
+                                    style={{
+                                        padding: '7px 16px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #cbd5e1',
+                                        background: 'white',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        fontWeight: 600,
+                                        color: '#334155'
+                                    }}
+                                >
+                                    <AutorenewIcon sx={{ fontSize: 16 }} /> Refresh Rankings
+                                </button>
+                            </div>
                         </div>
 
                         {/* Executive KPI Summary Cards */}
@@ -2087,7 +2194,7 @@ const MRMAdminDashboard = () => {
                                                                 >
                                                                     View Sheet
                                                                 </button>
-                                                                {row.segments_summary && row.segments_summary.length > 0 && (
+                                                                {((row.segments_summary && row.segments_summary.length > 0) || (row.member_scores && row.member_scores.length > 0)) && (
                                                                     <button
                                                                         onClick={() => setExpandedHodId(isExpanded ? null : hodUserId)}
                                                                         style={{
@@ -2100,7 +2207,7 @@ const MRMAdminDashboard = () => {
                                                                             display: 'flex',
                                                                             alignItems: 'center'
                                                                         }}
-                                                                        title={isExpanded ? "Collapse sub-team details" : "Expand sub-team details"}
+                                                                        title={isExpanded ? "Collapse breakdown details" : "Expand team members & breakdown"}
                                                                     >
                                                                         {isExpanded ? <ExpandLessIcon sx={{ fontSize: 16 }} /> : <ExpandMoreIcon sx={{ fontSize: 16 }} />}
                                                                     </button>
@@ -2109,63 +2216,147 @@ const MRMAdminDashboard = () => {
                                                         </td>
                                                     </tr>
 
-                                                    {/* Expandable Sub-Team Drilldown Row */}
-                                                    {isExpanded && row.segments_summary && row.segments_summary.length > 0 && (
+                                                    {/* Expandable Drilldown Row: Team Members Sequence & KPIs Under HOD + Sub-Teams */}
+                                                    {isExpanded && (
                                                         <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                                                             <td colSpan={8} style={{ padding: '14px 24px 18px 48px' }}>
-                                                                <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 16px' }}>
-                                                                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#14532d', marginBottom: '8px' }}>
-                                                                        Sub-Team Roll-Up Breakdown for {row.department}
-                                                                    </div>
-                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
-                                                                        {row.segments_summary.map((seg, sIdx) => {
-                                                                            const ragBg = seg.rag === 'Green' ? '#dcfce7' : seg.rag === 'Amber' ? '#fef3c7' : '#fee2e2';
-                                                                            const ragText = seg.rag === 'Green' ? '#15803d' : seg.rag === 'Amber' ? '#b45309' : '#b91c1c';
-                                                                            const ragBorder = seg.rag === 'Green' ? '#86efac' : seg.rag === 'Amber' ? '#fcd34d' : '#fca5a5';
-
-                                                                            return (
-                                                                                <div 
-                                                                                    key={sIdx} 
-                                                                                    style={{ 
-                                                                                        padding: '10px 12px', 
-                                                                                        borderRadius: '6px', 
-                                                                                        background: '#f8fafc', 
-                                                                                        border: '1px solid #e2e8f0',
-                                                                                        display: 'flex',
-                                                                                        justifyContent: 'space-between',
-                                                                                        alignItems: 'center'
-                                                                                    }}
-                                                                                >
-                                                                                    <div>
-                                                                                        <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#0f172a' }}>
-                                                                                            {seg.sub_team}
-                                                                                        </div>
-                                                                                        {seg.reason && (
-                                                                                            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
-                                                                                                {seg.reason}
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                        <span style={{
-                                                                                            padding: '2px 8px',
-                                                                                            borderRadius: '4px',
-                                                                                            fontSize: '0.75rem',
-                                                                                            fontWeight: 700,
-                                                                                            background: ragBg,
-                                                                                            color: ragText,
-                                                                                            border: `1px solid ${ragBorder}`
-                                                                                        }}>
-                                                                                            {seg.rag}
-                                                                                        </span>
-                                                                                        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#334155' }}>
-                                                                                            {seg.score}%
-                                                                                        </span>
-                                                                                    </div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                                                    {/* 1. Team Members Sequence & Individual KPIs */}
+                                                                    {row.member_scores && row.member_scores.length > 0 && (
+                                                                        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 16px' }}>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                                                                <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0f172a' }}>
+                                                                                    Team Members & KPIs Under {row.department} ({row.member_scores.length} Members)
                                                                                 </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
+                                                                                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                                                                                    Feeds 70% Team Composite Score
+                                                                                </span>
+                                                                            </div>
+                                                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                                                                                <thead>
+                                                                                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
+                                                                                        <th style={{ padding: '6px 10px', fontWeight: 700, color: '#64748b', width: '40px', textAlign: 'center' }}>#</th>
+                                                                                        <th style={{ padding: '6px 10px', fontWeight: 700, color: '#64748b' }}>TEAM MEMBER</th>
+                                                                                        <th style={{ padding: '6px 10px', fontWeight: 700, color: '#64748b', textAlign: 'center' }}>ATTENDANCE</th>
+                                                                                        <th style={{ padding: '6px 10px', fontWeight: 700, color: '#64748b', textAlign: 'center' }}>KPI SCORE</th>
+                                                                                        <th style={{ padding: '6px 10px', fontWeight: 700, color: '#64748b', textAlign: 'center' }}>KARMA</th>
+                                                                                        <th style={{ padding: '6px 10px', fontWeight: 700, color: '#64748b', textAlign: 'center' }}>COMPOSITE</th>
+                                                                                        <th style={{ padding: '6px 10px', fontWeight: 700, color: '#64748b', textAlign: 'center' }}>WEIGHT %</th>
+                                                                                        <th style={{ padding: '6px 10px', fontWeight: 700, color: '#64748b', textAlign: 'center' }}>CONTRIBUTION</th>
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody>
+                                                                                    {row.member_scores.map((m, mIdx) => {
+                                                                                        const contrib = Number(((m.composite_score || 0) * ((m.weight_pct || 0) / 100)).toFixed(1));
+                                                                                        return (
+                                                                                            <tr key={m.userId || mIdx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                                                                <td style={{ padding: '7px 10px', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>
+                                                                                                    {mIdx + 1}
+                                                                                                </td>
+                                                                                                <td style={{ padding: '7px 10px', fontWeight: 600, color: '#0f172a' }}>
+                                                                                                    {m.name}
+                                                                                                </td>
+                                                                                                <td style={{ padding: '7px 10px', textAlign: 'center' }}>
+                                                                                                    <span style={{
+                                                                                                        padding: '2px 6px',
+                                                                                                        borderRadius: '4px',
+                                                                                                        fontSize: '0.72rem',
+                                                                                                        fontWeight: 700,
+                                                                                                        background: (m.attendance_score >= 85) ? '#ecfdf5' : (m.attendance_score >= 70 ? '#fffbeb' : '#fef2f2'),
+                                                                                                        color: (m.attendance_score >= 85) ? '#047857' : (m.attendance_score >= 70 ? '#b45309' : '#b91c1c')
+                                                                                                    }}>
+                                                                                                        {m.attendance_score || 0}%
+                                                                                                    </span>
+                                                                                                </td>
+                                                                                                <td style={{ padding: '7px 10px', textAlign: 'center' }}>
+                                                                                                    <span style={{
+                                                                                                        padding: '2px 6px',
+                                                                                                        borderRadius: '4px',
+                                                                                                        fontSize: '0.72rem',
+                                                                                                        fontWeight: 700,
+                                                                                                        background: (m.kpi_score >= 85) ? '#ecfdf5' : (m.kpi_score >= 70 ? '#fffbeb' : '#fef2f2'),
+                                                                                                        color: (m.kpi_score >= 85) ? '#047857' : (m.kpi_score >= 70 ? '#b45309' : '#b91c1c')
+                                                                                                    }}>
+                                                                                                        {m.kpi_score || 0}%
+                                                                                                    </span>
+                                                                                                </td>
+                                                                                                <td style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 600, color: m.karma_points >= 0 ? '#047857' : '#b91c1c' }}>
+                                                                                                    {m.karma_points > 0 ? `+${m.karma_points}` : (m.karma_points || 0)} pts
+                                                                                                </td>
+                                                                                                <td style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 700, color: '#0f172a' }}>
+                                                                                                    {m.composite_score || 0} pts
+                                                                                                </td>
+                                                                                                <td style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 700, color: '#2563eb' }}>
+                                                                                                    {m.weight_pct}%
+                                                                                                </td>
+                                                                                                <td style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 700, color: '#0369a1' }}>
+                                                                                                    {contrib} pts
+                                                                                                </td>
+                                                                                            </tr>
+                                                                                        );
+                                                                                    })}
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* 2. Sub-Team Roll-Up Breakdown */}
+                                                                    {row.segments_summary && row.segments_summary.length > 0 && (
+                                                                        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 16px' }}>
+                                                                            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#14532d', marginBottom: '8px' }}>
+                                                                                Sub-Team Roll-Up Breakdown for {row.department}
+                                                                            </div>
+                                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                                                                                {row.segments_summary.map((seg, sIdx) => {
+                                                                                    const ragBg = seg.rag === 'Green' ? '#dcfce7' : seg.rag === 'Amber' ? '#fef3c7' : '#fee2e2';
+                                                                                    const ragText = seg.rag === 'Green' ? '#15803d' : seg.rag === 'Amber' ? '#b45309' : '#b91c1c';
+                                                                                    const ragBorder = seg.rag === 'Green' ? '#86efac' : seg.rag === 'Amber' ? '#fcd34d' : '#fca5a5';
+
+                                                                                    return (
+                                                                                        <div 
+                                                                                            key={sIdx} 
+                                                                                            style={{ 
+                                                                                                padding: '10px 12px', 
+                                                                                                borderRadius: '6px', 
+                                                                                                background: '#f8fafc', 
+                                                                                                border: '1px solid #e2e8f0',
+                                                                                                display: 'flex',
+                                                                                                justifyContent: 'space-between',
+                                                                                                alignItems: 'center'
+                                                                                            }}
+                                                                                        >
+                                                                                            <div>
+                                                                                                <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#0f172a' }}>
+                                                                                                    {seg.sub_team}
+                                                                                                </div>
+                                                                                                {seg.reason && (
+                                                                                                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                                                                                                        {seg.reason}
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                                <span style={{
+                                                                                                    padding: '2px 8px',
+                                                                                                    borderRadius: '4px',
+                                                                                                    fontSize: '0.75rem',
+                                                                                                    fontWeight: 700,
+                                                                                                    background: ragBg,
+                                                                                                    color: ragText,
+                                                                                                    border: `1px solid ${ragBorder}`
+                                                                                                }}>
+                                                                                                    {seg.rag}
+                                                                                                </span>
+                                                                                                <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#334155' }}>
+                                                                                                    {seg.score}%
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -2427,6 +2618,22 @@ const MRMAdminDashboard = () => {
                     {toast.message}
                 </Alert>
             </Snackbar>
+
+            {/* Org-Level HOD Weights Modal */}
+            {openHodWeightModal && (
+                <MemberWeightConfigModal
+                    open={openHodWeightModal}
+                    onClose={() => setOpenHodWeightModal(false)}
+                    month={String(selectedMonth).padStart(2, '0')}
+                    year={selectedYear}
+                    isHodLevel={true}
+                    onSuccess={() => {
+                        loadRankings();
+                        loadSubmissionsMatrix();
+                        showToast('HOD weights and org score updated successfully.');
+                    }}
+                />
+            )}
         </div>
     );
 };

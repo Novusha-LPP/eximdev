@@ -113,56 +113,121 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
   // Current active vendor being rendered
   const currentVendor = awardedSuppliers[activeVendorIndex] || awardedSuppliers[0] || {};
   const vendorName = currentVendor.supplierName || currentVendor.supplierNameInBank || "-";
-  const vendorAddress =
-    currentVendor.address ||
+
+  // Prioritize supplierAddress / address.
+  // If blank because the user previously put the supplier address into delivery address, use delivery address!
+  const rawVendorAddress =
     currentVendor.supplierAddress ||
+    currentVendor.address ||
     currentVendor.deliveryLocation ||
-    "-";
+    globalData?.stage2?.deliveryLocation ||
+    "";
+  const vendorAddress = rawVendorAddress || "-";
+
   const vendorGst = currentVendor.gstNumber || currentVendor.gstin || "-";
   const vendorContactPerson = currentVendor.contactPerson || "";
-  const vendorContactDetails = [currentVendor.phoneNumber, currentVendor.emailWhatsApp].filter(Boolean).join(" | ");
+  const vendorPhone = currentVendor.phoneNumber || "";
+  const vendorEmail = currentVendor.emailWhatsApp || "";
+  const vendorContactDetails = [vendorPhone, vendorEmail].filter(Boolean).join(" | ");
   const vendorContact = [vendorContactPerson, vendorContactDetails].filter(Boolean).join(" - ") || "-";
   const vendorBank = currentVendor.bankName || "-";
   const vendorAccNo = currentVendor.bankAccountNo || currentVendor.accountNumber || "-";
   const vendorIfsc = currentVendor.bankIfscCode || currentVendor.ifscCode || "-";
   const vendorPaymentTerms = currentVendor.paymentTerms || "-";
 
-  // Calculate items quantity & rates
+  // Delivery Details:
+  // Taken directly from the quotation (currentVendor), falling back to stage2 / stage1 / company details
+  const vendorDeliveryLoc =
+    (currentVendor.deliveryLocation && currentVendor.deliveryLocation !== vendorAddress)
+      ? currentVendor.deliveryLocation
+      : "";
+
+  const isVendorAddrInDelivery =
+    Boolean(vendorAddress && vendorAddress !== "-") &&
+    (globalData?.stage2?.deliveryLocation === vendorAddress ||
+     currentVendor.deliveryLocation === vendorAddress);
+
+  const deliveryLocation =
+    vendorDeliveryLoc ||
+    (isVendorAddrInDelivery
+      ? (globalData?.stage1?.departmentLocation ||
+         globalData?.stage1?.deliveryLocationSite ||
+         companyAddress ||
+         "-")
+      : (globalData?.stage2?.deliveryLocation ||
+         globalData?.stage1?.deliveryLocation ||
+         globalData?.stage1?.departmentLocation ||
+         globalData?.stage1?.deliveryLocationSite ||
+         globalData?.deliveryLocation ||
+         "-"));
+
+  const deliveryContact =
+    currentVendor.deliveryContact ||
+    (globalData?.stage2?.deliveryContact && String(globalData?.stage2?.deliveryContact).includes("|")
+      ? globalData.stage2.deliveryContact
+      : (globalData?.stage1?.deliveryContact && String(globalData?.stage1?.deliveryContact).includes("|"))
+        ? globalData.stage1.deliveryContact
+        : [
+            globalData?.stage2?.deliveryContactPerson || globalData?.stage1?.deliveryContactPerson || globalData?.stage1?.preparedBy,
+            globalData?.stage2?.deliveryContactNumber || globalData?.stage1?.deliveryContactNumber || globalData?.stage1?.contactNumber,
+          ].filter(Boolean).join(" | ")) || "-";
+  const expectedDeliveryDate = fmtDate(globalData?.stage1?.neededByDate || globalData?.stage1?.requiredByDate);
+
+  // Calculate items quantity, rates, and GST breakdown
   let totalQtyFromItems = 0;
   rawItems.forEach((it) => {
     totalQtyFromItems += Number(it.qty || it.quantityRequested || it.quantity || 0);
   });
   const quantity = totalQtyFromItems > 0 ? totalQtyFromItems : 1;
-  const totalAmount = currentVendor.totalOrderValue || (currentVendor.priceQuoted ? currentVendor.priceQuoted * quantity : 0);
-  const unitRate = currentVendor.priceQuoted || (quantity ? Math.round(totalAmount / quantity) : 0);
+  const vendorTotalOrderValue = Number(currentVendor.totalOrderValue) || 0;
+  const vendorUnitPrice = Number(currentVendor.unitPriceNew || currentVendor.priceQuoted || 0);
 
-  // Delivery Details
-  const deliveryLocation =
-    globalData?.stage2?.deliveryLocation ||
-    globalData?.stage1?.deliveryLocation ||
-    globalData?.stage1?.departmentLocation ||
-    globalData?.stage1?.deliveryLocationSite ||
-    globalData?.deliveryLocation ||
-    "-";
-  const deliveryContactPerson =
-    globalData?.stage2?.deliveryContactPerson ||
-    globalData?.stage2?.deliveryContact ||
-    globalData?.stage1?.deliveryContactPerson ||
-    globalData?.stage1?.deliveryContact ||
-    globalData?.stage1?.preparedBy ||
-    "";
-  const deliveryPhone =
-    globalData?.stage2?.deliveryContactNumber ||
-    globalData?.stage1?.deliveryContactNumber ||
-    globalData?.stage1?.contactNumber ||
-    "";
-  const deliveryContact =
-    (globalData?.stage2?.deliveryContact && String(globalData?.stage2?.deliveryContact).includes("|"))
-      ? globalData.stage2.deliveryContact
-      : (globalData?.stage1?.deliveryContact && String(globalData?.stage1?.deliveryContact).includes("|"))
-        ? globalData.stage1.deliveryContact
-        : [deliveryContactPerson, deliveryPhone].filter(Boolean).join(" | ") || "-";
-  const expectedDeliveryDate = fmtDate(globalData?.stage1?.neededByDate || globalData?.stage1?.requiredByDate);
+  let calculatedSubTotal = 0;
+  let calculatedTotalGst = 0;
+
+  const itemsList = rawItems.length > 0 ? rawItems : [{}];
+  const computedItems = itemsList.map((item) => {
+    const itemQty = Number(item.qty || item.quantityRequested || item.quantity || (rawItems.length === 0 ? quantity : 1));
+    const itemRate = Number(
+      vendorUnitPrice ||
+      item.estUnitCost ||
+      item.ratePerTyre ||
+      (quantity ? Math.round(vendorTotalOrderValue / quantity) : 0)
+    );
+    const itemBase = itemQty * itemRate;
+
+    let itemGst = 0;
+    if (currentVendor.gstAmount !== undefined && currentVendor.gstAmount !== null && currentVendor.gstAmount !== "" && Number(currentVendor.gstAmount) > 0) {
+      itemGst = rawItems.length > 1 ? Math.round(Number(currentVendor.gstAmount) / rawItems.length) : Number(currentVendor.gstAmount);
+    } else if (currentVendor.gstRate) {
+      const rateVal = parseFloat(String(currentVendor.gstRate).replace("%", "")) || 0;
+      itemGst = Math.round((itemBase * rateVal) / 100);
+    } else if (item.gstAmount) {
+      itemGst = Number(item.gstAmount) || 0;
+    } else if (vendorTotalOrderValue > 0 && rawItems.length <= 1) {
+      const diff = vendorTotalOrderValue - itemBase;
+      if (diff > 0) itemGst = diff;
+    }
+
+    const itemTotal = (vendorTotalOrderValue > 0 && rawItems.length <= 1)
+      ? vendorTotalOrderValue
+      : (itemBase + itemGst);
+
+    calculatedSubTotal += itemBase;
+    calculatedTotalGst += itemGst;
+
+    return {
+      raw: item,
+      itemQty,
+      itemRate,
+      itemBase,
+      itemGst,
+      itemTotal,
+    };
+  });
+
+  const grandTotal = vendorTotalOrderValue > 0 ? vendorTotalOrderValue : (calculatedSubTotal + calculatedTotalGst);
+  const subTotalToDisplay = calculatedSubTotal > 0 ? calculatedSubTotal : (grandTotal - calculatedTotalGst);
 
   // Signatures / Approvals
   const preparedBy = prRaisedBy;
@@ -465,8 +530,12 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
                       <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorGst}</td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Contact</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorContact}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Contact Person</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorContactPerson || "-"}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Phone / Email</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorContactDetails || "-"}</td>
                     </tr>
                     <tr>
                       <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Bank Details</td>
@@ -529,69 +598,44 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
         >
           <thead>
             <tr style={{ backgroundColor: "#e8ecef" }}>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "6%" }}>Sr.No</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "24%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Product / Item</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "18%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Brand / Spec</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "16%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Size / Category</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "10%" }}>Qty</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "13%" }}>Rate (₹)</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "5%" }}>Sr.No</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "22%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Product / Item</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "13%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Brand</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "16%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Specification</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "7%" }}>Qty</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "12%" }}>Unit Price (₹)</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "12%" }}>GST Amount (₹)</th>
               <th style={{ border: "1px solid #333333", padding: "5px", width: "13%" }}>Total (₹)</th>
             </tr>
           </thead>
           <tbody>
-            {rawItems.length > 0 ? (
-              rawItems.map((item, idx) => {
-                const itemQty = Number(item.qty || item.quantityRequested || item.quantity || 1);
-                const itemRate = Number(
-                  currentVendor.unitPriceNew ||
-                  currentVendor.priceQuoted ||
-                  unitRate ||
-                  item.estUnitCost ||
-                  item.ratePerTyre ||
-                  0
-                );
-                const itemTotal = itemQty * itemRate;
-                return (
-                  <tr key={idx}>
-                    <td style={{ border: "1px solid #333333", padding: "5px" }}>{idx + 1}</td>
-                    <td style={{ border: "1px solid #333333", padding: "5px", fontWeight: "bold", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
-                      {item.productName || item.tyreType || currentVendor.selectedProduct || "Item"}
-                    </td>
-                    <td style={{ border: "1px solid #333333", padding: "5px", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
-                      {item.brandPreference || item.tyreBrand || currentVendor.tyreBrand || "-"}
-                    </td>
-                    <td style={{ border: "1px solid #333333", padding: "5px", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
-                      {item.sizeSpec || item.sizeSpecification || currentVendor.sizeSpecification || "-"}
-                    </td>
-                    <td style={{ border: "1px solid #333333", padding: "5px" }}>{itemQty}</td>
-                    <td style={{ border: "1px solid #333333", padding: "5px" }}>
-                      {itemRate ? itemRate.toLocaleString("en-IN") : "-"}
-                    </td>
-                    <td style={{ border: "1px solid #333333", padding: "5px", fontWeight: "bold" }}>
-                      {itemTotal ? itemTotal.toLocaleString("en-IN") : totalAmount.toLocaleString("en-IN")}
-                    </td>
-                  </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td style={{ border: "1px solid #333333", padding: "5px" }}>1</td>
-                <td style={{ border: "1px solid #333333", padding: "5px", fontWeight: "bold", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
-                  {currentVendor.tyreBrand || "Tyre Item"}
-                </td>
-                <td style={{ border: "1px solid #333333", padding: "5px", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
-                  {currentVendor.sizeSpecification || "-"}
-                </td>
-                <td style={{ border: "1px solid #333333", padding: "5px" }}>-</td>
-                <td style={{ border: "1px solid #333333", padding: "5px" }}>{quantity}</td>
-                <td style={{ border: "1px solid #333333", padding: "5px" }}>
-                  {unitRate ? unitRate.toLocaleString("en-IN") : "-"}
-                </td>
-                <td style={{ border: "1px solid #333333", padding: "5px", fontWeight: "bold" }}>
-                  {totalAmount ? totalAmount.toLocaleString("en-IN") : "-"}
-                </td>
-              </tr>
-            )}
+            {computedItems.map((cItem, idx) => {
+              const item = cItem.raw || {};
+              return (
+                <tr key={idx}>
+                  <td style={{ border: "1px solid #333333", padding: "5px" }}>{idx + 1}</td>
+                  <td style={{ border: "1px solid #333333", padding: "5px", fontWeight: "bold", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
+                    {item.productName || item.tyreType || currentVendor.selectedProduct || "Item"}
+                  </td>
+                  <td style={{ border: "1px solid #333333", padding: "5px", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
+                    {item.brandPreference || item.tyreBrand || currentVendor.tyreBrand || "-"}
+                  </td>
+                  <td style={{ border: "1px solid #333333", padding: "5px", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
+                    {item.sizeSpec || item.sizeSpecification || item.specification || currentVendor.sizeSpecification || "-"}
+                  </td>
+                  <td style={{ border: "1px solid #333333", padding: "5px" }}>{cItem.itemQty}</td>
+                  <td style={{ border: "1px solid #333333", padding: "5px", textAlign: "right" }}>
+                    {cItem.itemRate ? `₹ ${cItem.itemRate.toLocaleString("en-IN")}` : "-"}
+                  </td>
+                  <td style={{ border: "1px solid #333333", padding: "5px", textAlign: "right" }}>
+                    {cItem.itemGst ? `₹ ${cItem.itemGst.toLocaleString("en-IN")}` : "₹ 0"}
+                  </td>
+                  <td style={{ border: "1px solid #333333", padding: "5px", fontWeight: "bold", textAlign: "right" }}>
+                    ₹ {cItem.itemTotal.toLocaleString("en-IN")}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
@@ -666,7 +710,13 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
                     <tr>
                       <td style={{ border: "1px solid #333333", padding: "5px 8px", fontWeight: "bold", width: "50%" }}>Sub Total</td>
                       <td style={{ border: "1px solid #333333", padding: "5px 8px", textAlign: "right", fontWeight: "bold", width: "50%" }}>
-                        ₹ {totalAmount.toLocaleString("en-IN")}
+                        ₹ {subTotalToDisplay.toLocaleString("en-IN")}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ border: "1px solid #333333", padding: "5px 8px", fontWeight: "bold", width: "50%" }}>GST Amount</td>
+                      <td style={{ border: "1px solid #333333", padding: "5px 8px", textAlign: "right", width: "50%" }}>
+                        ₹ {calculatedTotalGst.toLocaleString("en-IN")}
                       </td>
                     </tr>
                     <tr>
@@ -676,7 +726,7 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
                     <tr style={{ backgroundColor: "#e8ecef" }}>
                       <td style={{ border: "1px solid #333333", padding: "6px 8px", fontWeight: "bold", fontSize: "12px", width: "50%" }}>Grand Total</td>
                       <td style={{ border: "1px solid #333333", padding: "6px 8px", textAlign: "right", fontWeight: "bold", fontSize: "12px", width: "50%" }}>
-                        ₹ {totalAmount.toLocaleString("en-IN")}
+                        ₹ {grandTotal.toLocaleString("en-IN")}
                       </td>
                     </tr>
                   </tbody>

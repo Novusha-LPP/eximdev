@@ -66,11 +66,60 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
         nextSupplier.brand = val;
         nextSupplier.tyreBrand = val;
       }
+      if (field === "address" || field === "supplierAddress") {
+        nextSupplier.address = val;
+        nextSupplier.supplierAddress = val;
+      }
+      if (field === "unitPriceNew" || field === "qtyAvailable" || field === "gstRate") {
+        const price = Number(field === "unitPriceNew" ? val : nextSupplier.unitPriceNew) || 0;
+        const qty = Number(field === "qtyAvailable" ? val : nextSupplier.qtyAvailable) || 0;
+        const gstRateVal = parseFloat(String(field === "gstRate" ? val : (nextSupplier.gstRate || "0")).replace("%", "")) || 0;
+        if (gstRateVal > 0) {
+          nextSupplier.gstAmount = Math.round((price * qty * gstRateVal) / 100);
+        }
+      }
       current[index] = nextSupplier;
       onChange({ suppliers: current });
     },
     [suppliers, onChange]
   );
+
+  const saveSupplierDetails = (sup) => {
+    if (!sup || !sup.supplierName || !sup.supplierName.trim()) return;
+    const name = sup.supplierName.trim().toUpperCase();
+    if (name.startsWith("SUPPLIER ")) return; // Don't auto-save generic placeholder names
+
+    axios
+      .post(`${process.env.REACT_APP_API_STRING}/tyre-suppliers`, {
+        supplierName: name,
+        contactPerson: (sup.contactPerson || "").trim().toUpperCase(),
+        address: (sup.supplierAddress || sup.address || "").trim().toUpperCase(),
+        supplierAddress: (sup.supplierAddress || sup.address || "").trim().toUpperCase(),
+        phoneNumber: (sup.phoneNumber || "").trim().toUpperCase(),
+        emailWhatsApp: (sup.emailWhatsApp || "").trim().toUpperCase(),
+        gstNumber: (sup.gstNumber || "").trim().toUpperCase(),
+        bankAccountNo: (sup.bankAccountNo || "").trim().toUpperCase(),
+        bankName: (sup.bankName || "").trim().toUpperCase(),
+        bankIfscCode: (sup.bankIfscCode || "").trim().toUpperCase(),
+        bankBranchCode: (sup.bankBranchCode || "").trim().toUpperCase(),
+        supplierNameInBank: (sup.supplierNameInBank || "").trim().toUpperCase(),
+        paymentTerms: (sup.paymentTerms || "").trim().toUpperCase(),
+      })
+      .then((res) => {
+        if (res.data?.supplier) {
+          setSavedSuppliers((prev) => {
+            const exists = prev.some((s) => (s.supplierName || "").toUpperCase() === name);
+            if (exists) {
+              return prev.map((s) => ((s.supplierName || "").toUpperCase() === name ? res.data.supplier : s));
+            }
+            return [...prev, res.data.supplier];
+          });
+        }
+      })
+      .catch((err) => {
+        console.error("Error auto-saving tyre supplier:", err);
+      });
+  };
 
   const saveProductDetails = (sup) => {
     if (!sup) return;
@@ -119,6 +168,8 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
         ...existing,
         supplierName: nameUpper,
         contactPerson: matched.contactPerson?.toUpperCase() || existing.contactPerson || "",
+        supplierAddress: matched.supplierAddress?.toUpperCase() || matched.address?.toUpperCase() || existing.supplierAddress || existing.address || "",
+        address: matched.address?.toUpperCase() || matched.supplierAddress?.toUpperCase() || existing.address || existing.supplierAddress || "",
         phoneNumber: matched.phoneNumber?.toUpperCase() || existing.phoneNumber || "",
         emailWhatsApp: matched.emailWhatsApp?.toUpperCase() || existing.emailWhatsApp || "",
         gstNumber: matched.gstNumber?.toUpperCase() || existing.gstNumber || "",
@@ -314,9 +365,27 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
         const qty = Number(s?.qtyAvailable) || 0;
         const freight = Number(s?.freightCharges) || 0;
         const discount = Number(s?.discountOffered) || 0;
-        const total = price * qty + freight - discount;
+        const gstRateVal = parseFloat(String(s?.gstRate || 0).replace("%", "")) || 0;
+        const gstAmt = s?.gstAmount !== undefined && s?.gstAmount !== null && s?.gstAmount !== ""
+          ? Number(s?.gstAmount)
+          : Math.round((price * qty * gstRateVal) / 100);
+        const total = price * qty + gstAmt + freight - discount;
         current[idx].priceQuoted = price;
         current[idx].totalOrderValue = total;
+        current[idx].contactPerson = s.contactPerson || "";
+        current[idx].supplierAddress = s.supplierAddress || s.address || "";
+        current[idx].address = s.address || s.supplierAddress || "";
+        current[idx].phoneNumber = s.phoneNumber || "";
+        current[idx].emailWhatsApp = s.emailWhatsApp || "";
+        current[idx].gstNumber = s.gstNumber || "";
+        current[idx].bankName = s.bankName || "";
+        current[idx].bankAccountNo = s.bankAccountNo || "";
+        current[idx].bankIfscCode = s.bankIfscCode || "";
+        current[idx].paymentTerms = s.paymentTerms || "";
+        current[idx].gstRate = s.gstRate || "";
+        current[idx].gstAmount = gstAmt;
+        current[idx].deliveryLocation = s.deliveryLocation || "";
+        current[idx].deliveryContact = s.deliveryContact || "";
       }
 
       // Automatically generate/assign continuous sequential PO numbers per unique supplier
@@ -336,7 +405,20 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
   const addSelectedSupplier = () => {
     const updated = [
       ...selectedSuppliers,
-      { selectedSupplier: "", priceQuoted: 0, totalOrderValue: 0, reasonForSelection: "", poNumber: "" },
+      {
+        selectedSupplier: "",
+        priceQuoted: 0,
+        totalOrderValue: 0,
+        reasonForSelection: "",
+        poNumber: "",
+        contactPerson: "",
+        supplierAddress: "",
+        address: "",
+        deliveryLocation: "",
+        deliveryContact: "",
+        gstRate: "",
+        gstAmount: 0,
+      },
     ];
     onChange({ selectedSuppliers: updated });
   };
@@ -428,48 +510,6 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
             />
           </div>
         </div>
-
-        {/* Editable Delivery Location & Delivery Contact */}
-        <div className="sop-grid-2" style={{ marginTop: "12px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
-          <div className="sop-field-group">
-            <label className="sop-field-label" style={{ fontWeight: 700, color: "#0369a1" }}>
-              📍 Delivery Location (Editable)
-            </label>
-            <input
-              className="sop-input"
-              value={data.deliveryLocation || globalData?.stage1?.departmentLocation || globalData?.deliveryLocation || ""}
-              onChange={(e) => {
-                updateField("deliveryLocation", e.target.value.toUpperCase());
-                if (onGlobalChange) onGlobalChange("deliveryLocation", e.target.value.toUpperCase());
-              }}
-              placeholder="e.g. Purchase Dept / Site Location / Warehouse"
-              style={{ fontWeight: 600 }}
-            />
-          </div>
-          <div className="sop-field-group">
-            <label className="sop-field-label" style={{ fontWeight: 700, color: "#0369a1" }}>
-              📞 Delivery Contact (Person & Phone)
-            </label>
-            <input
-              className="sop-input"
-              value={
-                data.deliveryContact ||
-                (data.deliveryContactPerson || data.deliveryContactNumber
-                  ? [data.deliveryContactPerson, data.deliveryContactNumber].filter(Boolean).join(" | ")
-                  : (globalData?.stage1?.deliveryContactPerson || globalData?.stage1?.preparedBy
-                      ? [globalData?.stage1?.deliveryContactPerson || globalData?.stage1?.preparedBy, globalData?.stage1?.contactNumber].filter(Boolean).join(" | ")
-                      : ""))
-              }
-              onChange={(e) => {
-                updateField("deliveryContact", e.target.value.toUpperCase());
-                updateField("deliveryContactPerson", e.target.value.toUpperCase());
-                if (onGlobalChange) onGlobalChange("deliveryContact", e.target.value.toUpperCase());
-              }}
-              placeholder="e.g. AJAY | 9924301166"
-              style={{ fontWeight: 600 }}
-            />
-          </div>
-        </div>
       </div>
 
       {/* Section B: Supplier Details & Quotation Comparative Table */}
@@ -555,7 +595,27 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
                       list="saved-tyre-suppliers-list"
                       value={sup.supplierName || ""}
                       onChange={(e) => handleSupplierNameSelect(idx, e.target.value)}
+                      onBlur={() => saveSupplierDetails(suppliers[idx])}
                       placeholder="Type or select supplier"
+                    />
+                  </td>
+                ))}
+              </tr>
+
+              {/* Supplier Address */}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Supplier Address</td>
+                {suppliers.map((sup, idx) => (
+                  <td key={idx}>
+                    <input
+                      className="sop-input"
+                      value={sup.supplierAddress || sup.address || ""}
+                      onChange={(e) => {
+                        updateSupplierField(idx, "supplierAddress", e.target.value);
+                        updateSupplierField(idx, "address", e.target.value);
+                      }}
+                      onBlur={() => saveSupplierDetails(suppliers[idx])}
+                      placeholder="Supplier Address / City / State"
                     />
                   </td>
                 ))}
@@ -570,6 +630,8 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
                       className="sop-input"
                       value={sup.contactPerson || ""}
                       onChange={(e) => updateSupplierField(idx, "contactPerson", e.target.value)}
+                      onBlur={() => saveSupplierDetails(suppliers[idx])}
+                      placeholder="e.g. Contact Person"
                     />
                   </td>
                 ))}
@@ -694,9 +756,12 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
                 ["Unit Price (₹)", "unitPriceNew", "number"],
                 ["Unit Price – Secondary / Remould (₹)", "unitPriceRemould", "number"],
                 ["Qty Available", "qtyAvailable", "number"],
+                ["GST Rate (%)", "gstRate", "datalist", ["0%", "5%", "12%", "18%", "28%"]],
+                ["GST Amount (₹)", "gstAmount", "number"],
                 ["Freight Charges", "freightCharges", "number"],
                 ["Delivery Timeline", "deliveryTimeline", "text"],
                 ["Delivery Location", "deliveryLocation", "text"],
+                ["Delivery Contact", "deliveryContact", "text"],
                 ["Warranty / Guarantee", "warrantyGuarantee", "text"],
                 ["Payment Terms : Adv / Days", "paymentTerms", "datalist", ["100% ADVANCE", "15 DAYS CREDIT", "30 DAYS CREDIT", "45 DAYS CREDIT", "60 DAYS CREDIT", "90 DAYS CREDIT", "AGAINST DELIVERY"]],
                 ["Discount Offered", "discountOffered", "number"],
@@ -829,6 +894,27 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
                   value={item.reasonForSelection || ""}
                   onChange={(e) => updateSelectedSupplier(idx, "reasonForSelection", e.target.value.toUpperCase())}
                   placeholder="e.g. LOWER PRICE"
+                />
+              </div>
+              <div className="sop-field-group">
+                <label className="sop-field-label">Contact Person</label>
+                <input
+                  className="sop-input"
+                  value={item.contactPerson || ""}
+                  onChange={(e) => updateSelectedSupplier(idx, "contactPerson", e.target.value.toUpperCase())}
+                  placeholder="Contact Person"
+                />
+              </div>
+              <div className="sop-field-group" style={{ gridColumn: "span 2" }}>
+                <label className="sop-field-label">Supplier Address</label>
+                <input
+                  className="sop-input"
+                  value={item.supplierAddress || item.address || ""}
+                  onChange={(e) => {
+                    updateSelectedSupplier(idx, "supplierAddress", e.target.value.toUpperCase());
+                    updateSelectedSupplier(idx, "address", e.target.value.toUpperCase());
+                  }}
+                  placeholder="Supplier Address"
                 />
               </div>
             </div>

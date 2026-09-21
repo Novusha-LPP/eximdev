@@ -127,6 +127,8 @@ async function saveSuppliersFromDoc(doc) {
           bankBranchCode: s.bankBranchCode ? String(s.bankBranchCode).toUpperCase() : "",
           supplierNameInBank: s.supplierNameInBank ? String(s.supplierNameInBank).toUpperCase() : "",
           paymentTerms: s.paymentTerms ? String(s.paymentTerms).toUpperCase() : "",
+          address: (s.address || s.supplierAddress) ? String(s.address || s.supplierAddress).toUpperCase() : "",
+          supplierAddress: (s.supplierAddress || s.address) ? String(s.supplierAddress || s.address).toUpperCase() : "",
         };
         await TyreSupplierModel.findOneAndUpdate(
           { supplierName: name },

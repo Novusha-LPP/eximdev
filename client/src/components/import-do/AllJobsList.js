@@ -1093,6 +1093,9 @@ function AllJobsList() {
       density: "compact",
       columnPinning: { left: ["job_no"] },
     },
+    state: {
+      isLoading: loading,
+    },
     enableGrouping: true,
     enableGlobalFilter: false,
     enableColumnFilters: false,
@@ -1404,11 +1407,19 @@ function AllJobsList() {
               fullWidth
               value={searchQuery}
               onChange={handleSearchInputChange}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  setDebouncedSearchQuery(searchQuery);
+                  setCurrentPage(1);
+                }
+              }}
               label="Search"
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
+                      type="button"
                       onClick={() => {
                         setDebouncedSearchQuery(searchQuery);
                         setCurrentPage(1);
@@ -1434,15 +1445,9 @@ function AllJobsList() {
 
   return (
     <div style={{ height: "80%" }}>
-      {loading ? (
-        <Typography variant="body1" sx={{ textAlign: "center", p: 4 }}>
-          Loading Jobs...
-        </Typography>
-      ) : (
-        <MaterialReactTable table={table} />
-      )}
+      <MaterialReactTable table={table} />
       <Pagination
-        count={totalPages}
+        count={totalPages > 0 ? totalPages : 1}
         page={currentPage}
         onChange={handlePageChange}
         color="primary"

@@ -951,7 +951,7 @@ if (!disableCluster && cluster.isPrimary) {
         // useNewUrlParser: true,
         // useUnifiedTopology: true,
         minPoolSize: 2,
-        maxPoolSize: 20, // Increased to prevent connection starvation during parallel requests (2 workers × 20 = 40 max connections)
+        maxPoolSize: 30, // Increased to prevent connection starvation during parallel requests (2 workers × 30 = 60 max connections)
         maxIdleTimeMS: 30000,
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,

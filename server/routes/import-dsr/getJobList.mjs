@@ -496,6 +496,7 @@ router.get(
       ]);
 
       // Ensure detailed_status and row_color are set consistently
+      const detentionBulkOps = [];
       jobs.forEach((job) => {
         if (!job.detailed_status) {
           job.detailed_status = "ETA Date Pending";
@@ -503,7 +504,52 @@ router.get(
         if (!job.row_color) {
           job.row_color = getRowColorFromStatus(job.detailed_status);
         }
+
+        // Backfill missing detention_from when arrival_date and free_time exist
+        const freeDays = parseInt(job.free_time, 10) || 0;
+        if (
+          freeDays > 0 &&
+          Array.isArray(job.container_nos) &&
+          job.container_nos.some((c) => {
+            const arr = c.arrival_date ? String(c.arrival_date).trim() : "";
+            const det = c.detention_from ? String(c.detention_from).trim() : "";
+            return arr && !det;
+          })
+        ) {
+          const { containers: fixed, do_validity_upto_job_level } =
+            recalculateContainersDetention(job.container_nos, freeDays, {
+              mode: job.mode,
+              consignment_type: job.consignment_type,
+              type_of_b_e: job.type_of_b_e,
+            });
+          job.container_nos = fixed;
+          if (do_validity_upto_job_level) {
+            job.do_validity_upto_job_level = do_validity_upto_job_level;
+          }
+          const setFields = {};
+          fixed.forEach((c, i) => {
+            if (c.detention_from) {
+              setFields[`container_nos.${i}.detention_from`] = c.detention_from;
+              setFields[`container_nos.${i}.do_validity_upto_container_level`] =
+                c.do_validity_upto_container_level || "";
+            }
+          });
+          if (do_validity_upto_job_level) {
+            setFields.do_validity_upto_job_level = do_validity_upto_job_level;
+          }
+          if (Object.keys(setFields).length > 0) {
+            detentionBulkOps.push({
+              updateOne: { filter: { _id: job._id }, update: { $set: setFields } },
+            });
+          }
+        }
       });
+
+      if (detentionBulkOps.length > 0) {
+        JobModel.bulkWrite(detentionBulkOps).catch((err) =>
+          console.error("Detention backfill error:", err)
+        );
+      }
 
 
       // 11) Calculate unresolvedCount for Pending status without extra client request

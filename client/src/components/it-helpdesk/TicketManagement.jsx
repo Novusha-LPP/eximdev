@@ -686,14 +686,17 @@ export default function TicketManagement() {
               Helpdesk & Tickets
               <span
                 style={{
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  padding: "3px 8px",
-                  borderRadius: "12px",
-                  backgroundColor: isHRAdmin ? "#eff6ff" : "#f1f5f9",
-                  color: isHRAdmin ? "#1d4ed8" : "#475569",
-                  border: isHRAdmin ? "1px solid #bfdbfe" : "1px solid #cbd5e1",
-                  letterSpacing: "0.02em",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  padding: "4px 10px",
+                  borderRadius: "14px",
+                  // backgroundColor: "#f1f5f9",
+                  color: "#000000",
+                  border: "1px solid #cbd5e1",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  lineHeight: 1.2,
+                  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
                 }}
               >
                 {isHRAdmin ? "HR Admin Support Desk" : "My Support Requests"}
@@ -912,7 +915,7 @@ export default function TicketManagement() {
                         ) : (
                           data.map((t) => {
                             const assignedName = getUserDisplayName(t.assigned_to);
-                            
+
                             const getPriorityBadgeStyle = (p) => {
                               const val = String(p || "").toLowerCase();
                               if (val === "critical" || val === "high") {
@@ -1243,9 +1246,9 @@ export default function TicketManagement() {
                           { label: "Select User", value: "" },
                           ...(users && users.length > 0
                             ? users.map((user) => ({
-                                label: getUserDisplayName(user),
-                                value: user._id,
-                              }))
+                              label: getUserDisplayName(user),
+                              value: user._id,
+                            }))
                             : []),
                         ]}
                         placeholder="Select User"
@@ -1303,9 +1306,9 @@ export default function TicketManagement() {
                         form.sla_due_date
                           ? form.sla_due_date.substring(0, 10)
                           : (() => {
-                              const n = new Date();
-                              return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
-                            })()
+                            const n = new Date();
+                            return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+                          })()
                       }
                       disabled={!editId}
                       helperText={!editId ? "Auto-set to today's date" : undefined}

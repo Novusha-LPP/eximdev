@@ -93,6 +93,9 @@ export const parseNumericValue = (val) => {
 export const getDepartmentFilterRegex = (dept) => {
     if (!dept) return /.*/;
     const clean = String(dept).trim();
+    if (/^(it|information\s+technology)$/i.test(clean)) {
+        return /^(it|information\s+technology)$/i;
+    }
     if (/^software(\s+development)?$/i.test(clean)) {
         return /^(software|software\s+development)$/i;
     }

@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { X } from 'lucide-react';
-import { message } from 'antd';
+import { message, AutoComplete, Input } from 'antd';
 
 const ALLOWED_SERVICES = [
-  'freight forwarding', 
-  'dgft', 
-  'e-lock', 
-  'client', 
-  'transportation', 
-  'paramount', 
-  'rabs', 
+  'freight forwarding',
+  'dgft',
+  'e-lock',
+  'client',
+  'transportation',
+  'paramount',
+  'rabs',
   'auto rack'
 ];
 
@@ -20,6 +20,7 @@ const SOURCES = [
   'Direct Sales Visit',
   'Referral',
   'Email Campaign',
+  'Company Branding',
   'Other'
 ];
 
@@ -29,6 +30,7 @@ const TRANSPORT_SOURCES = [
   'Freight Forwarder',
   'Importer',
   'Exporter',
+  'Company Branding',
   'Other'
 ];
 
@@ -37,13 +39,14 @@ const NOVUSHA_SOURCES = [
   'eLock',
   'Novusha Direct',
   'Novusha Referral',
+  'Company Branding',
   'Other'
 ];
 
 // All known named sources across verticals (used to detect custom "Other" text)
 const ALL_STANDARD_SOURCES = [
   'Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit',
-  'Referral', 'Email Campaign',
+  'Referral', 'Email Campaign', 'Company Branding',
   'CHA (Custom House Agent)', 'Freight Forwarder', 'Importer', 'Exporter',
   'eLock', 'Novusha Direct', 'Novusha Referral'
 ];
@@ -52,6 +55,19 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
   const currentUser = JSON.parse(localStorage.getItem('exim_user') || '{}');
   const currentUserId = currentUser._id || currentUser.id || '';
   const [users, setUsers] = useState([]);
+
+  const getHeaders = () => {
+    const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+    return {
+      headers: {
+        'Content-Type': 'application/json',
+        'user-id': user._id || user.id || '',
+        'username': user.username || '',
+        'user-role': user.role || '',
+      },
+      withCredentials: true
+    };
+  };
 
   const [formData, setFormData] = useState({
     company: '',
@@ -78,6 +94,7 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
     transitTime: '',
     currentFreightIndications: '',
     referralSourceName: '',
+    garudaTeamMemberName: '',
     location: '',
     hsnCode: '',
     monthlyVolume: '',
@@ -86,6 +103,7 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
   });
   const [customSource, setCustomSource] = useState('');
   const [customCompanyType, setCustomCompanyType] = useState('');
+  const [isOtherCompanyType, setIsOtherCompanyType] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -131,6 +149,7 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
           transitTime: activeLead.transitTime || '',
           currentFreightIndications: activeLead.currentFreightIndications || '',
           referralSourceName: activeLead.referralSourceName || '',
+          garudaTeamMemberName: activeLead.garudaTeamMemberName || '',
           location: activeLead.location || '',
           hsnCode: activeLead.hsnCode || '',
           monthlyVolume: activeLead.monthlyVolume || '',
@@ -143,11 +162,18 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
         } else {
           setCustomSource('');
         }
-        const standardTypes = ['OEM', 'Tier 1', 'Tier 2', 'Tier 3'];
-        if (activeLead.companyType && !standardTypes.includes(activeLead.companyType)) {
-          setCustomCompanyType(activeLead.companyType);
+        const standardTypes = ['OEM Tier 1', 'OEM Tier 2', 'OEM Tier 3'];
+        if (activeLead.companyType) {
+          if (!standardTypes.includes(activeLead.companyType)) {
+            setCustomCompanyType(activeLead.companyType);
+            setIsOtherCompanyType(true);
+          } else {
+            setCustomCompanyType('');
+            setIsOtherCompanyType(false);
+          }
         } else {
           setCustomCompanyType('');
+          setIsOtherCompanyType(false);
         }
       } else {
         setFormData({
@@ -175,6 +201,7 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
           transitTime: '',
           currentFreightIndications: '',
           referralSourceName: '',
+          garudaTeamMemberName: '',
           location: '',
           hsnCode: '',
           monthlyVolume: '',
@@ -183,34 +210,61 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
         });
         setCustomSource('');
         setCustomCompanyType('');
+        setIsOtherCompanyType(false);
       }
     }
   }, [isOpen, leadToDuplicate, leadToEdit, currentUserId]);
 
-  if (!isOpen) return null;
+  const garudaUserOptions = useMemo(() => {
+    const list = (users || []).map(u => {
+      const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+      const displayName = fullName || u.username || '';
+      return {
+        value: displayName,
+        searchStr: `${displayName} ${u.username || ''} ${u.department || ''} ${u.employee_code || ''} ${u.designation || ''}`.toLowerCase(),
+        label: (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
+            <div>
+              <span style={{ fontWeight: 600, color: '#1e293b' }}>{displayName}</span>
+              {u.username && displayName !== u.username && (
+                <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '6px' }}>({u.username})</span>
+              )}
+            </div>
+            {u.department && (
+              <span style={{ fontSize: '0.7rem', color: '#4f46e5', background: '#eef2ff', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                {u.department}
+              </span>
+            )}
+          </div>
+        )
+      };
+    }).filter(opt => opt.value);
 
-const getHeaders = () => {
-  const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
-  return {
-    headers: {
-      'Content-Type': 'application/json',
-      'user-id': user._id || user.id || '',
-      'username': user.username || '',
-      'user-role': user.role || '',
-    },
-    withCredentials: true
-  };
-};
+    const seen = new Set();
+    return list.filter(item => {
+      const key = item.value.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [users]);
+
+  if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      const finalCompanyType = isOtherCompanyType ? (customCompanyType.trim() || 'Other') : (formData.companyType || '');
+      const payload = {
+        ...formData,
+        companyType: finalCompanyType
+      };
       if (leadToEdit) {
-        await axios.put(`${process.env.REACT_APP_API_STRING}/crm/leads/${leadToEdit._id}`, formData, getHeaders());
+        await axios.put(`${process.env.REACT_APP_API_STRING}/crm/leads/${leadToEdit._id}`, payload, getHeaders());
         message.success("Lead updated successfully!");
       } else {
-        await axios.post(`${process.env.REACT_APP_API_STRING}/crm/leads`, formData, getHeaders());
+        await axios.post(`${process.env.REACT_APP_API_STRING}/crm/leads`, payload, getHeaders());
         message.success("Lead created successfully!");
       }
       onRefresh();
@@ -277,7 +331,7 @@ const getHeaders = () => {
             background: #94a3b8;
           }
         `}</style>
-        
+
         {/* Header */}
         <div style={{
           padding: '20px 24px',
@@ -290,12 +344,12 @@ const getHeaders = () => {
           <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.25rem' }}>
             {leadToEdit ? 'Edit Lead' : leadToDuplicate ? 'Duplicate Lead' : 'Create New Lead'}
           </h3>
-          <button 
+          <button
             onClick={onClose}
-            style={{ 
-              background: 'none', 
-              border: 'none', 
-              cursor: 'pointer', 
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
               color: '#64748b',
               padding: '4px',
               borderRadius: '6px',
@@ -313,13 +367,13 @@ const getHeaders = () => {
 
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
-          <div className="modal-scroll" style={{ 
-            padding: '24px', 
-            overflowY: 'auto', 
-            flex: 1, 
-            display: 'grid', 
-            gridTemplateColumns: '1fr 1fr', 
-            gap: '20px 24px' 
+          <div className="modal-scroll" style={{
+            padding: '24px',
+            overflowY: 'auto',
+            flex: 1,
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '20px 24px'
           }}>
             {/* Freight Forwarding Sync Indicator */}
             {leadToEdit?.freightEnquiryRef && (
@@ -334,11 +388,11 @@ const getHeaders = () => {
             {/* Company */}
             <div style={{ gridColumn: 'span 2' }}>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Company Name *</label>
-              <input 
+              <input
                 required
                 type="text"
                 value={formData.company}
-                onChange={e => setFormData({...formData, company: e.target.value})}
+                onChange={e => setFormData({ ...formData, company: e.target.value })}
                 placeholder="Ex. Global Trade Inc."
                 style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
               />
@@ -348,21 +402,21 @@ const getHeaders = () => {
             <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>First Name *</label>
-                <input 
+                <input
                   required
                   type="text"
                   value={formData.firstName}
-                  onChange={e => setFormData({...formData, firstName: e.target.value})}
+                  onChange={e => setFormData({ ...formData, firstName: e.target.value })}
                   placeholder="John"
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                 />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Last Name</label>
-                <input 
+                <input
                   type="text"
                   value={formData.lastName}
-                  onChange={e => setFormData({...formData, lastName: e.target.value})}
+                  onChange={e => setFormData({ ...formData, lastName: e.target.value })}
                   placeholder="Doe"
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                 />
@@ -373,20 +427,20 @@ const getHeaders = () => {
             <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Email</label>
-                <input 
+                <input
                   type="email"
                   value={formData.email}
-                  onChange={e => setFormData({...formData, email: e.target.value})}
+                  onChange={e => setFormData({ ...formData, email: e.target.value })}
                   placeholder="john@example.com"
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                 />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Phone</label>
-                <input 
+                <input
                   type="text"
                   value={formData.phone}
-                  onChange={e => setFormData({...formData, phone: e.target.value})}
+                  onChange={e => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="+91 ...."
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                 />
@@ -399,10 +453,10 @@ const getHeaders = () => {
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#0369a1', marginBottom: '8px' }}>
                   📍 Location / City / Port (Primary Focus)
                 </label>
-                <input 
+                <input
                   type="text"
                   value={formData.location || ''}
-                  onChange={e => setFormData({...formData, location: e.target.value})}
+                  onChange={e => setFormData({ ...formData, location: e.target.value })}
                   placeholder="e.g. Mundra, Nhava Sheva, Ahmedabad..."
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #38bdf8', outline: 'none', fontSize: '0.95rem', background: '#f0f9ff' }}
                 />
@@ -411,10 +465,10 @@ const getHeaders = () => {
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>
                   🏷️ HSN Code
                 </label>
-                <input 
+                <input
                   type="text"
                   value={formData.hsnCode || ''}
-                  onChange={e => setFormData({...formData, hsnCode: e.target.value})}
+                  onChange={e => setFormData({ ...formData, hsnCode: e.target.value })}
                   placeholder="e.g. 8471, 7208..."
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                 />
@@ -454,36 +508,47 @@ const getHeaders = () => {
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Company Type</label>
                 <select
-                  value={['OEM', 'Tier 1', 'Tier 2', 'Tier 3'].includes(formData.companyType) ? formData.companyType : (formData.companyType ? 'Other' : '')}
+                  value={isOtherCompanyType ? 'Other' : (['OEM Tier 1', 'OEM Tier 2', 'OEM Tier 3'].includes(formData.companyType) ? formData.companyType : '')}
                   onChange={e => {
                     const val = e.target.value;
                     if (val === 'Other') {
-                      setCustomCompanyType('');
-                      setFormData({...formData, companyType: ''});
+                      setIsOtherCompanyType(true);
+                      setFormData(prev => ({ ...prev, companyType: customCompanyType || 'Other' }));
                     } else {
+                      setIsOtherCompanyType(false);
                       setCustomCompanyType('');
-                      setFormData({...formData, companyType: val});
+                      setFormData(prev => ({ ...prev, companyType: val }));
                     }
                   }}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem', background: '#fff' }}
                 >
                   <option value="">-- Select Company Type --</option>
-                  <option value="OEM">OEM</option>
-                  <option value="Tier 1">Tier 1</option>
-                  <option value="Tier 2">Tier 2</option>
-                  <option value="Tier 3">Tier 3</option>
+                  <option value="OEM Tier 1">OEM Tier 1</option>
+                  <option value="OEM Tier 2">OEM Tier 2</option>
+                  <option value="OEM Tier 3">OEM Tier 3</option>
                   <option value="Other">Other (Manual)</option>
                 </select>
-                {(formData.companyType === 'Other' || (formData.companyType && !['OEM', 'Tier 1', 'Tier 2', 'Tier 3'].includes(formData.companyType))) && (
+                {isOtherCompanyType && (
                   <input
                     type="text"
-                    value={customCompanyType || (formData.companyType === 'Other' ? '' : formData.companyType) || ''}
+                    value={customCompanyType}
                     onChange={e => {
-                      setCustomCompanyType(e.target.value);
-                      setFormData({...formData, companyType: e.target.value});
+                      const text = e.target.value;
+                      setCustomCompanyType(text);
+                      setFormData(prev => ({ ...prev, companyType: text }));
                     }}
-                    placeholder="Specify company type..."
-                    style={{ marginTop: '8px', width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
+                    placeholder="Specify company type manually..."
+                    autoFocus
+                    style={{
+                      marginTop: '8px',
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1.5px solid #3b82f6',
+                      outline: 'none',
+                      fontSize: '0.95rem',
+                      background: '#f8fafc'
+                    }}
                   />
                 )}
               </div>
@@ -510,10 +575,10 @@ const getHeaders = () => {
                     onChange={e => {
                       const val = e.target.value;
                       if (val === 'Other') {
-                        setFormData({...formData, source: customSource || 'Other'});
+                        setFormData({ ...formData, source: customSource || 'Other' });
                       } else {
                         setCustomSource('');
-                        setFormData({...formData, source: val});
+                        setFormData({ ...formData, source: val });
                       }
                     }}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem', background: '#fff' }}
@@ -528,7 +593,7 @@ const getHeaders = () => {
                         value={customSource || (formData.source === 'Other' ? '' : formData.source)}
                         onChange={e => {
                           setCustomSource(e.target.value);
-                          setFormData({...formData, source: e.target.value});
+                          setFormData({ ...formData, source: e.target.value });
                         }}
                         placeholder={isTransportation ? 'Specify transportation source...' : 'Enter custom source (e.g. LinkedIn, Exhibition)'}
                         style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
@@ -543,14 +608,48 @@ const getHeaders = () => {
             {formData.source === 'Referral' ? (
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Referral By (Person/Company Name) *</label>
-                <input 
+                <input
                   required
                   type="text"
                   value={formData.referralSourceName || ''}
-                  onChange={e => setFormData({...formData, referralSourceName: e.target.value})}
+                  onChange={e => setFormData({ ...formData, referralSourceName: e.target.value })}
                   placeholder="Who referred this lead?"
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                 />
+              </div>
+            ) : null}
+
+            {/* Garuda Team Member Name (Conditional - only show when lead source is Company Branding) */}
+            {formData.source?.trim().toLowerCase() === 'company branding' ? (
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>
+                  Garuda Team Member Name <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <AutoComplete
+                  style={{ width: '100%' }}
+                  value={formData.garudaTeamMemberName || ''}
+                  options={garudaUserOptions}
+                  filterOption={(inputValue, option) =>
+                    (option?.searchStr || option?.value || '').toLowerCase().indexOf((inputValue || '').toLowerCase()) !== -1
+                  }
+                  onChange={val => setFormData({ ...formData, garudaTeamMemberName: val })}
+                  placeholder="Search or enter Garuda team member name..."
+                  allowClear
+                >
+                  <Input
+                    required
+                    size="large"
+                    placeholder="Search or enter Garuda team member name..."
+                    style={{
+                      borderRadius: '8px',
+                      fontSize: '0.95rem',
+                      borderColor: '#cbd5e1'
+                    }}
+                  />
+                </AutoComplete>
+                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
+                  💡 Select from the Garuda user suggestions or manually enter any team member name.
+                </div>
               </div>
             ) : null}
 
@@ -559,10 +658,10 @@ const getHeaders = () => {
                 {/* Shipper */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Shipper</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.shipper || ''}
-                    onChange={e => setFormData({...formData, shipper: e.target.value})}
+                    onChange={e => setFormData({ ...formData, shipper: e.target.value })}
                     placeholder="Enter Shipper Name"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -571,10 +670,10 @@ const getHeaders = () => {
                 {/* Stuffing */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Stuffing</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.stuffing || ''}
-                    onChange={e => setFormData({...formData, stuffing: e.target.value})}
+                    onChange={e => setFormData({ ...formData, stuffing: e.target.value })}
                     placeholder="Ex. Factory stuffing, Dock stuffing"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -583,10 +682,10 @@ const getHeaders = () => {
                 {/* Shipping Line */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Shipping Line</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.shippingLine || ''}
-                    onChange={e => setFormData({...formData, shippingLine: e.target.value})}
+                    onChange={e => setFormData({ ...formData, shippingLine: e.target.value })}
                     placeholder="Ex. Maersk, MSC"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -595,10 +694,10 @@ const getHeaders = () => {
                 {/* Shipment Type */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Shipment Type</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.shipmentType || ''}
-                    onChange={e => setFormData({...formData, shipmentType: e.target.value})}
+                    onChange={e => setFormData({ ...formData, shipmentType: e.target.value })}
                     placeholder="Ex. FCL, LCL"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -607,10 +706,10 @@ const getHeaders = () => {
                 {/* POL (Port of Loading) */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>POL (Port of Loading)</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.pol || ''}
-                    onChange={e => setFormData({...formData, pol: e.target.value})}
+                    onChange={e => setFormData({ ...formData, pol: e.target.value })}
                     placeholder="Ex. Nhava Sheva, Mundra"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -619,10 +718,10 @@ const getHeaders = () => {
                 {/* POD (Port of Discharge) */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>POD (Port of Discharge)</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.pod || ''}
-                    onChange={e => setFormData({...formData, pod: e.target.value})}
+                    onChange={e => setFormData({ ...formData, pod: e.target.value })}
                     placeholder="Ex. Rotterdam, Singapore"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -631,10 +730,10 @@ const getHeaders = () => {
                 {/* Container Type */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Container Type</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.containerType || ''}
-                    onChange={e => setFormData({...formData, containerType: e.target.value})}
+                    onChange={e => setFormData({ ...formData, containerType: e.target.value })}
                     placeholder="Ex. 20ft GP, 40ft HC"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -643,10 +742,10 @@ const getHeaders = () => {
                 {/* Container Weight */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Container Weight</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.containerWeight || ''}
-                    onChange={e => setFormData({...formData, containerWeight: e.target.value})}
+                    onChange={e => setFormData({ ...formData, containerWeight: e.target.value })}
                     placeholder="Ex. 18.5 Tons"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -655,10 +754,10 @@ const getHeaders = () => {
                 {/* Container Volume */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Container Volume</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.containerVolume || ''}
-                    onChange={e => setFormData({...formData, containerVolume: e.target.value})}
+                    onChange={e => setFormData({ ...formData, containerVolume: e.target.value })}
                     placeholder="Ex. 5 Containers"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -667,10 +766,10 @@ const getHeaders = () => {
                 {/* Payment Term */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Payment Term</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.paymentTerm || ''}
-                    onChange={e => setFormData({...formData, paymentTerm: e.target.value})}
+                    onChange={e => setFormData({ ...formData, paymentTerm: e.target.value })}
                     placeholder="Ex. Net 30, CAD"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -679,10 +778,10 @@ const getHeaders = () => {
                 {/* Detention Free Days */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Detention Free Days</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.detentionFreeDays || ''}
-                    onChange={e => setFormData({...formData, detentionFreeDays: e.target.value})}
+                    onChange={e => setFormData({ ...formData, detentionFreeDays: e.target.value })}
                     placeholder="Ex. 14 Days"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -691,10 +790,10 @@ const getHeaders = () => {
                 {/* Transit Time */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Transit Time</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.transitTime || ''}
-                    onChange={e => setFormData({...formData, transitTime: e.target.value})}
+                    onChange={e => setFormData({ ...formData, transitTime: e.target.value })}
                     placeholder="Ex. 25 Days"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -703,10 +802,10 @@ const getHeaders = () => {
                 {/* Current Freight Indications */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Current Freight Indications</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.currentFreightIndications || ''}
-                    onChange={e => setFormData({...formData, currentFreightIndications: e.target.value})}
+                    onChange={e => setFormData({ ...formData, currentFreightIndications: e.target.value })}
                     placeholder="Ex. $3500 / 40ft"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -719,10 +818,10 @@ const getHeaders = () => {
                 {/* Monthly Volume (IN TEUs) */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Monthly Volume (IN TEUs)</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.monthlyVolume || ''}
-                    onChange={e => setFormData({...formData, monthlyVolume: e.target.value})}
+                    onChange={e => setFormData({ ...formData, monthlyVolume: e.target.value })}
                     placeholder="Ex. 50 TEUs"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -731,10 +830,10 @@ const getHeaders = () => {
                 {/* Monthly Revenue */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Monthly Revenue</label>
-                  <input 
+                  <input
                     type="text"
                     value={formData.monthlyRevenue || ''}
-                    onChange={e => setFormData({...formData, monthlyRevenue: e.target.value})}
+                    onChange={e => setFormData({ ...formData, monthlyRevenue: e.target.value })}
                     placeholder="Ex. $15,000"
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                   />
@@ -746,10 +845,10 @@ const getHeaders = () => {
             {!['transportation', 'freight forwarding', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) && (
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Crate Size (Optional)</label>
-                <input 
+                <input
                   type="text"
                   value={formData.crateSize || ''}
-                  onChange={e => setFormData({...formData, crateSize: e.target.value})}
+                  onChange={e => setFormData({ ...formData, crateSize: e.target.value })}
                   placeholder="Ex. 40ft x 20 units"
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
                 />
@@ -786,31 +885,31 @@ const getHeaders = () => {
           </div>
 
           {/* Footer */}
-          <div style={{ 
-            padding: '20px 24px', 
-            borderTop: '1px solid #f1f5f9', 
-            display: 'flex', 
-            gap: '12px', 
-            background: '#f8fafc' 
+          <div style={{
+            padding: '20px 24px',
+            borderTop: '1px solid #f1f5f9',
+            display: 'flex',
+            gap: '12px',
+            background: '#f8fafc'
           }}>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={onClose}
               style={{ flex: 1, padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 600, cursor: 'pointer' }}
             >
               Cancel
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={isSubmitting}
-              style={{ 
-                flex: 2, 
-                padding: '12px', 
-                borderRadius: '10px', 
-                border: 'none', 
-                background: '#4f46e5', 
-                color: '#fff', 
-                fontWeight: 600, 
+              style={{
+                flex: 2,
+                padding: '12px',
+                borderRadius: '10px',
+                border: 'none',
+                background: '#4f46e5',
+                color: '#fff',
+                fontWeight: 600,
                 cursor: isSubmitting ? 'not-allowed' : 'pointer',
                 boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)'
               }}

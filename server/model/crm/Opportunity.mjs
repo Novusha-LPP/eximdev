@@ -64,6 +64,8 @@ const opportunitySchema = new mongoose.Schema({
   monthlyVolume: { type: String },
   monthlyRevenue: { type: String },
   source: { type: String },
+  companyType: { type: String, trim: true },
+  garudaTeamMemberName: { type: String, trim: true },
   carry_forward: { type: Boolean, default: false },
   origin_month: { type: String },
   period: { type: String, default: () => new Date().toISOString().substring(0, 7) },

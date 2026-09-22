@@ -556,6 +556,19 @@ export default function LeadList() {
                           {lead.source}
                         </span>
                       )}
+                      {lead.companyType && (
+                        <span style={{
+                          fontSize: '0.65rem',
+                          background: '#f1f5f9',
+                          color: '#334155',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontWeight: 700,
+                          border: '1px solid #cbd5e1'
+                        }}>
+                          🏢 {lead.companyType}
+                        </span>
+                      )}
                       {lead.isReferral && (
                         <span style={{
                           fontSize: '0.65rem', background: '#fef2f2', color: '#b91c1c',
@@ -574,6 +587,11 @@ export default function LeadList() {
                     {lead.source === 'Referral' && lead.referralSourceName && (
                       <div style={{ fontSize: '0.75rem', color: '#165b33', marginTop: '4px', fontWeight: 600 }}>
                         Referral By: <span>{lead.referralSourceName}</span>
+                      </div>
+                    )}
+                    {lead.garudaTeamMemberName && (
+                      <div style={{ fontSize: '0.75rem', color: '#4f46e5', marginTop: '4px', fontWeight: 600 }}>
+                        Garuda Member: <span>{lead.garudaTeamMemberName}</span>
                       </div>
                     )}
                     {lead.interestedServices && lead.interestedServices.length > 0 && (

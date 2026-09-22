@@ -5,11 +5,16 @@ import { Plus, Trash2, Paperclip, Download } from 'lucide-react';
 import ActivityFormModal from './ActivityFormModal';
 
 const ACTIVITY_TYPES = {
-  call: { color: '#3b82f6', icon: '☎️' },
-  email: { color: '#8b5cf6', icon: '✉️' },
-  meeting: { color: '#10b981', icon: '👥' },
-  demo: { color: '#f59e0b', icon: '🎬' },
-  note: { color: '#64748b', icon: '📝' }
+  call: { color: '#3b82f6', icon: '☎️', label: 'Call' },
+  email: { color: '#8b5cf6', icon: '✉️', label: 'Email' },
+  meeting: { color: '#10b981', icon: '👥', label: 'Meeting' },
+  demo: { color: '#f59e0b', icon: '🎬', label: 'Demo' },
+  note: { color: '#64748b', icon: '📝', label: 'Note' },
+  visit: { color: '#ec4899', icon: '📍', label: 'Visit' },
+  pre_sale: { color: '#0ea5e9', icon: '🎯', label: 'Pre Sale' },
+  post_sale: { color: '#8b5cf6', icon: '🤝', label: 'Post Sale' },
+  'pre sale': { color: '#0ea5e9', icon: '🎯', label: 'Pre Sale' },
+  'post sale': { color: '#8b5cf6', icon: '🤝', label: 'Post Sale' }
 };
 
 const OUTCOME_COLORS = {
@@ -157,10 +162,10 @@ export default function ActivityTimeline({ linkedId, linkedType = 'opportunity' 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                   <div style={{ flex: 1 }}>
                     <h4 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '0.9rem' }}>
-                      {activity.subject}
+                      {activity.subject || (activity.type?.includes('pre') ? 'Pre Sale Note' : activity.type?.includes('post') ? 'Post Sale Note' : 'Activity')}
                     </h4>
                     <span style={{ fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>
-                      {activity.type}
+                      {ACTIVITY_TYPES[activity.type]?.label || activity.type}
                     </span>
                   </div>
                   <button

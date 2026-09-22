@@ -1,14 +1,26 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
-import { X, Edit2, Trash2, FileText, DollarSign } from 'lucide-react';
-import { message, Modal } from 'antd';
+import { X, Edit2, Trash2, FileText, DollarSign, MapPin, Hash, Calendar, Building2, Tag, AlertOctagon, User, Clock, TrendingUp, Percent, Briefcase, CheckCircle2, AlertTriangle, Layers } from 'lucide-react';
+import { message, Modal, AutoComplete, Input } from 'antd';
 import { UserContext } from '../../../contexts/UserContext';
 import ActivityTimeline from './ActivityTimeline';
 import QuoteFormModal from './QuoteFormModal';
 import PricingRequestFormModal from './PricingRequestFormModal';
 import TaskFormModal from './TaskFormModal';
+import { LOST_REASONS, STANDARD_LOST_REASON_VALUES } from '../crmConstants';
 
 const STAGES = ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'];
+
+const STAGE_CONFIG = {
+  lead: { label: 'Lead', bg: '#f1f5f9', color: '#475569', border: '#cbd5e1', dot: '#64748b' },
+  qualified: { label: 'Qualified', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', dot: '#22c55e' },
+  opportunity: { label: 'Opportunity', bg: '#eef2ff', color: '#4338ca', border: '#c7d2fe', dot: '#6366f1' },
+  sales_visit: { label: 'Sales Visit', bg: '#faf5ff', color: '#7e22ce', border: '#e9d5ff', dot: '#a855f7' },
+  proposal: { label: 'Proposal', bg: '#fff7ed', color: '#c2410c', border: '#fed7aa', dot: '#f97316' },
+  negotiation: { label: 'Negotiation', bg: '#fdf2f8', color: '#be185d', border: '#fbcfe8', dot: '#ec4899' },
+  won: { label: 'Closed – Won', bg: '#ecfdf5', color: '#047857', border: '#a7f3d0', dot: '#10b981' },
+  lost: { label: 'Closed – Lost', bg: '#fff1f2', color: '#be123c', border: '#fecdd3', dot: '#f43f5e' }
+};
 
 const ALLOWED_SERVICES = [
   'freight forwarding',
@@ -35,8 +47,11 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
   const [postponingVisitId, setPostponingVisitId] = useState(null);
   const [postponeDate, setPostponeDate] = useState('');
   const [customSource, setCustomSource] = useState('');
+  const [customCompanyType, setCustomCompanyType] = useState('');
+  const [isOtherCompanyType, setIsOtherCompanyType] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedTaskForModal, setSelectedTaskForModal] = useState(null);
+  const [users, setUsers] = useState([]);
 
   const { user } = useContext(UserContext);
   const fullUserName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'Unknown User';
@@ -51,14 +66,42 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       setIsEditMode(false);
       setFormData(opportunity);
       setNewRemark('');
-      const standardSources = ['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign'];
+      const standardSources = ['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign', 'Company Branding'];
       if (opportunity.source && !standardSources.includes(opportunity.source)) {
         setCustomSource(opportunity.source);
       } else {
         setCustomSource('');
       }
+
+      const standardTypes = ['OEM Tier 1', 'OEM Tier 2', 'OEM Tier 3'];
+      if (opportunity.companyType) {
+        if (!standardTypes.includes(opportunity.companyType)) {
+          setCustomCompanyType(opportunity.companyType);
+          setIsOtherCompanyType(true);
+        } else {
+          setCustomCompanyType('');
+          setIsOtherCompanyType(false);
+        }
+      } else {
+        setCustomCompanyType('');
+        setIsOtherCompanyType(false);
+      }
     }
   }, [isOpen, opportunity]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const fetchUsers = async () => {
+        try {
+          const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`, getHeaders());
+          setUsers(res.data || []);
+        } catch (err) {
+          console.error('Failed to load users list in opportunity detail modal:', err);
+        }
+      };
+      fetchUsers();
+    }
+  }, [isOpen]);
 
   const toggleService = (service) => {
     const currentServices = formData.services || [];
@@ -101,6 +144,40 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
     };
   };
 
+  const garudaUserOptions = useMemo(() => {
+    const list = (users || []).map(u => {
+      const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+      const displayName = fullName || u.username || '';
+      return {
+        value: displayName,
+        searchStr: `${displayName} ${u.username || ''} ${u.department || ''} ${u.employee_code || ''} ${u.designation || ''}`.toLowerCase(),
+        label: (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
+            <div>
+              <span style={{ fontWeight: 600, color: '#1e293b' }}>{displayName}</span>
+              {u.username && displayName !== u.username && (
+                <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '6px' }}>({u.username})</span>
+              )}
+            </div>
+            {u.department && (
+              <span style={{ fontSize: '0.7rem', color: '#4f46e5', background: '#eef2ff', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                {u.department}
+              </span>
+            )}
+          </div>
+        )
+      };
+    }).filter(opt => opt.value);
+
+    const seen = new Set();
+    return list.filter(item => {
+      const key = item.value.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [users]);
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -123,7 +200,9 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
         location: formData.location,
         hsnCode: formData.hsnCode,
         source: formData.source,
-        referralSourceName: formData.referralSourceName
+        referralSourceName: formData.referralSourceName,
+        garudaTeamMemberName: formData.garudaTeamMemberName,
+        companyType: isOtherCompanyType ? (customCompanyType.trim() || 'Other') : (formData.companyType || '')
       };
 
       const isProposalOrAfter = ['proposal', 'negotiation', 'won'].includes(newStage);
@@ -412,108 +491,215 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       <div style={{
         background: '#fff',
         width: '100%',
-        maxWidth: '750px',
-        borderRadius: '12px',
+        maxWidth: '820px',
+        borderRadius: '16px',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         overflow: 'hidden',
-        maxHeight: '85vh',
+        maxHeight: '88vh',
         display: 'flex',
         flexDirection: 'column'
       }}>
+        <style>{`
+          .crm-modal-scroll::-webkit-scrollbar {
+            width: 6px;
+          }
+          .crm-modal-scroll::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          .crm-modal-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+          }
+          .crm-modal-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+          }
+        `}</style>
+
         {/* Modal Header */}
-        <div style={{ 
-          padding: '20px 24px', 
-          borderBottom: '1px solid #e2e8f0', 
-          display: 'flex', 
-          flexDirection: 'column',
-          gap: '16px',
-          background: '#f8fafc',
+        <div style={{
+          padding: '20px 24px 16px',
+          borderBottom: '1px solid #f1f5f9',
+          background: '#ffffff',
           position: 'relative',
           flexShrink: 0
         }}>
-          {/* Close Button Absolute */}
-          <button 
-            onClick={handleClose} 
-            style={{ 
-              position: 'absolute', 
-              top: '16px', 
-              right: '16px', 
-              background: '#f1f5f9', 
-              border: 'none', 
-              cursor: 'pointer', 
-              color: '#64748b',
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'background 0.2s'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.background = '#e2e8f0'}
-            onMouseOut={(e) => e.currentTarget.style.background = '#f1f5f9'}
-          >
-            <X size={18} />
-          </button>
+          {/* Top row: Category Breadcrumb & Close button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingRight: '36px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Briefcase size={12} color="#6366f1" /> Deal Overview
+              </span>
+              {formData.accountId?.name && (
+                <>
+                  <span style={{ color: '#cbd5e1', fontSize: '0.75rem' }}>•</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Building2 size={12} color="#94a3b8" /> {formData.accountId.name}
+                  </span>
+                </>
+              )}
+            </div>
 
-          {/* Title Area */}
-          <div style={{ paddingRight: '40px' }}>
-            <h3 style={{ margin: '0 0 4px 0', color: '#0f172a', fontWeight: 700, fontSize: '1.3rem', lineHeight: '1.2' }}>
-              {formData.name || opportunity.name}
-            </h3>
-            <div style={{ display: 'inline-flex', alignItems: 'center', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>
-              Stage: {formData.stage || opportunity.stage}
+            {/* Close Button */}
+            <button
+              onClick={handleClose}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                cursor: 'pointer',
+                color: '#64748b',
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#0f172a'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#64748b'; }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Title & Stage Pill Row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: !isEditMode ? '16px' : '0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', maxWidth: 'calc(100% - 40px)' }}>
+              <h3 style={{ margin: 0, color: '#0f172a', fontWeight: 800, fontSize: '1.4rem', lineHeight: '1.25', letterSpacing: '-0.02em' }}>
+                {formData.name || opportunity.name}
+              </h3>
+              {(() => {
+                const stageKey = (formData.stage || opportunity.stage || 'lead').toLowerCase();
+                const config = STAGE_CONFIG[stageKey] || { label: stageKey, bg: '#f1f5f9', color: '#475569', border: '#e2e8f0', dot: '#94a3b8' };
+                return (
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: config.bg,
+                    color: config.color,
+                    border: `1px solid ${config.border}`,
+                    padding: '3px 10px',
+                    borderRadius: '16px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em'
+                  }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: config.dot }}></span>
+                    {config.label}
+                  </span>
+                );
+              })()}
             </div>
           </div>
 
-          {/* Action Buttons Area */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {!isEditMode && (
-              <>
-                <button
-                  onClick={() => setIsQuoteModalOpen(true)}
-                  style={{ whiteSpace: 'nowrap', padding: '8px 14px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, fontSize: '0.85rem', transition: 'opacity 0.2s' }}
-                  onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
-                  onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
-                >
-                  <FileText size={15} /> Create Quote
-                </button>
-                <button
-                  onClick={() => setIsPricingModalOpen(true)}
-                  style={{ whiteSpace: 'nowrap', padding: '8px 14px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, fontSize: '0.85rem', transition: 'opacity 0.2s' }}
-                  onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
-                  onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
-                >
-                  <DollarSign size={15} /> Request Pricing
-                </button>
-                <button
-                  onClick={() => setIsEditMode(true)}
-                  style={{ whiteSpace: 'nowrap', padding: '8px 14px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, fontSize: '0.85rem', transition: 'opacity 0.2s' }}
-                  onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
-                  onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
-                >
-                  <Edit2 size={15} /> Edit
-                </button>
-                <button
-                  onClick={handleDelete}
-                  style={{ whiteSpace: 'nowrap', padding: '8px 14px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, fontSize: '0.85rem', transition: 'background 0.2s' }}
-                  onMouseOver={(e) => e.currentTarget.style.background = '#fecaca'}
-                  onMouseOut={(e) => e.currentTarget.style.background = '#fee2e2'}
-                >
-                  <Trash2 size={15} /> Delete
-                </button>
-              </>
-            )}
-          </div>
+          {/* Action Buttons Toolbar */}
+          {!isEditMode && (
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', paddingTop: '4px' }}>
+              <button
+                onClick={() => setIsEditMode(true)}
+                style={{
+                  padding: '7px 14px',
+                  background: '#4f46e5',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  boxShadow: '0 1px 3px rgba(79, 70, 229, 0.3)',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = '#4338ca'}
+                onMouseOut={(e) => e.currentTarget.style.background = '#4f46e5'}
+              >
+                <Edit2 size={14} /> Edit Deal
+              </button>
+
+              <button
+                onClick={() => setIsQuoteModalOpen(true)}
+                style={{
+                  padding: '7px 14px',
+                  background: '#f8fafc',
+                  color: '#1e293b',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+              >
+                <FileText size={14} color="#6366f1" /> Create Quote
+              </button>
+
+              <button
+                onClick={() => setIsPricingModalOpen(true)}
+                style={{
+                  padding: '7px 14px',
+                  background: '#f0fdf4',
+                  color: '#15803d',
+                  border: '1px solid #bbf7d0',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = '#dcfce7'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#f0fdf4'; }}
+              >
+                <DollarSign size={14} color="#16a34a" /> Request Pricing
+              </button>
+
+              <button
+                onClick={handleDelete}
+                style={{
+                  marginLeft: 'auto',
+                  padding: '7px 12px',
+                  background: '#ffffff',
+                  color: '#e11d48',
+                  border: '1px solid #fecdd3',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                  fontSize: '0.82rem',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = '#fff1f2'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#ffffff'; }}
+              >
+                <Trash2 size={14} /> Delete
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Modal Body - Scrollable */}
-        <div style={{ padding: '24px', overflowY: 'auto', flexGrow: 1 }}>
+        <div className="crm-modal-scroll" style={{ padding: '24px', overflowY: 'auto', flexGrow: 1 }}>
           {/* Referral Highlighting Banner */}
           {(formData.isReferral || formData.referredFromTeamId || formData.referredToTeamId) && (
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px',
-              padding: '10px 16px', background: '#fef2f2', borderRadius: '8px',
+              padding: '10px 16px', background: '#fef2f2', borderRadius: '10px',
               marginBottom: '20px', border: '1px solid #fecaca', color: '#991b1b'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -530,43 +716,114 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
             </div>
           )}
 
-          {/* Quick Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #4f46e5' }}>
-              <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '4px' }}>Value</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>₹{parseFloat(formData.value || 0).toLocaleString('en-IN')}</div>
+          {/* Quick Stats Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+            {/* Value Card */}
+            <div style={{
+              background: '#ffffff',
+              padding: '14px 18px',
+              borderRadius: '12px',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deal Value</span>
+                <span style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <DollarSign size={14} />
+                </span>
+              </div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', fontFamily: 'monospace' }}>
+                ₹{parseFloat(formData.value || 0).toLocaleString('en-IN')}
+              </div>
             </div>
-            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
-              <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '4px' }}>Probability</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>{formData.probability || 0}%</div>
+
+            {/* Probability Card */}
+            <div style={{
+              background: '#ffffff',
+              padding: '14px 18px',
+              borderRadius: '12px',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Win Probability</span>
+                <span style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Percent size={13} />
+                </span>
+              </div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                {formData.probability || 0}%
+              </div>
+              <div style={{ width: '100%', height: '4px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden', marginTop: '6px' }}>
+                <div style={{ width: `${Math.min(100, Math.max(0, formData.probability || 0))}%`, height: '100%', background: (formData.probability || 0) > 50 ? '#10b981' : '#f59e0b', borderRadius: '2px' }} />
+              </div>
             </div>
-            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #10b981' }}>
-              <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '4px' }}>Weighted Value</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>
+
+            {/* Weighted Value Card */}
+            <div style={{
+              background: '#ffffff',
+              padding: '14px 18px',
+              borderRadius: '12px',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Weighted Forecast</span>
+                <span style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <TrendingUp size={14} />
+                </span>
+              </div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#059669', fontFamily: 'monospace' }}>
                 ₹{(parseFloat(formData.value || 0) * (parseFloat(formData.probability || 0) / 100)).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </div>
             </div>
           </div>
 
-          {/* Created By — non-editable */}
+          {/* Assigned Owner & Meta Ribbon */}
           {(() => {
             const creator = formData.createdBy || formData.ownerId;
             if (!creator) return null;
+            const creatorName = typeof creator === 'object'
+              ? `${creator.first_name || ''} ${creator.last_name || ''}`.trim() || creator.username
+              : creator;
+            const initial = (creatorName || 'U').charAt(0).toUpperCase();
+
             return (
               <div style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                padding: '10px 16px', background: '#f8fafc', borderRadius: '8px',
-                marginBottom: '20px', border: '1px solid #e2e8f0'
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px',
+                padding: '9px 14px',
+                background: '#f8fafc',
+                borderRadius: '10px',
+                marginBottom: '20px',
+                border: '1px solid #e2e8f0'
               }}>
-                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>🔒 Created By:</span>
-                <span style={{ fontSize: '0.85rem', color: '#1e293b', fontWeight: 700 }}>
-                  {typeof creator === 'object'
-                    ? `${creator.first_name || ''} ${creator.last_name || ''}`.trim() || creator.username
-                    : creator}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    background: '#6366f1',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.75rem',
+                    fontWeight: 700
+                  }}>
+                    {initial}
+                  </div>
+                  <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Assigned Owner:</span>
+                  <span style={{ fontSize: '0.85rem', color: '#0f172a', fontWeight: 700 }}>
+                    {creatorName}
+                  </span>
+                </div>
                 {formData.createdAt && (
-                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginLeft: 'auto' }}>
-                    on {new Date(formData.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Calendar size={13} color="#94a3b8" /> Created on {new Date(formData.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </span>
                 )}
               </div>
@@ -699,16 +956,17 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                       style={{ width: '100%', padding: '10px 12px', border: '1px solid #fca5a5', borderRadius: '8px', fontSize: '0.9rem', color: '#991b1b', background: '#ffffff', outline: 'none' }}
                     >
                       <option value="">-- Select a Reason --</option>
-                      <option value="Price Lost">Price Lost — Lost due to competitor offering lower price</option>
-                      <option value="Product Lost">Product Lost — Product did not meet client specifications</option>
-                      <option value="No Reply / No Response">No Reply / No Response — Client became unresponsive</option>
-                      <option value="Lost due to Location">Lost due to Location — Location did not suit client needs</option>
+                      {LOST_REASONS.map(r => (
+                        <option key={r.code} value={r.value}>
+                          {r.code}: {r.label} — {r.description}
+                        </option>
+                      ))}
                       <option value="Other (Manual)">Other — Enter reason manually</option>
                     </select>
-                    {(formData._closeReasonMode === 'Other (Manual)' || (formData.closeReason && !['Price Lost','Product Lost','No Reply / No Response','Lost due to Location'].includes(formData.closeReason))) && (
+                    {(formData._closeReasonMode === 'Other (Manual)' || (formData.closeReason && !STANDARD_LOST_REASON_VALUES.includes(formData.closeReason))) && (
                       <input
                         type="text"
-                        value={['Price Lost','Product Lost','No Reply / No Response','Lost due to Location'].includes(formData.closeReason) ? '' : formData.closeReason || ''}
+                        value={STANDARD_LOST_REASON_VALUES.includes(formData.closeReason) ? '' : formData.closeReason || ''}
                         onChange={(e) => setFormData({ ...formData, closeReason: e.target.value, _closeReasonMode: 'Other (Manual)' })}
                         placeholder="Describe the reason for losing this deal..."
                         style={{ width: '100%', marginTop: '8px', padding: '10px 12px', border: '1px solid #fca5a5', borderRadius: '8px', fontSize: '0.9rem', color: '#991b1b', outline: 'none', boxSizing: 'border-box' }}
@@ -808,11 +1066,62 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 )}
               </div>
 
+              {/* Company Type */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Company Type</label>
+                <select
+                  value={isOtherCompanyType ? 'Other' : (['OEM Tier 1', 'OEM Tier 2', 'OEM Tier 3'].includes(formData.companyType) ? formData.companyType : '')}
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === 'Other') {
+                      setIsOtherCompanyType(true);
+                      setFormData(prev => ({ ...prev, companyType: customCompanyType || 'Other' }));
+                    } else {
+                      setIsOtherCompanyType(false);
+                      setCustomCompanyType('');
+                      setFormData(prev => ({ ...prev, companyType: val }));
+                    }
+                  }}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', color: '#334155', background: '#ffffff', outline: 'none' }}
+                >
+                  <option value="">-- Select Company Type --</option>
+                  <option value="OEM Tier 1">OEM Tier 1</option>
+                  <option value="OEM Tier 2">OEM Tier 2</option>
+                  <option value="OEM Tier 3">OEM Tier 3</option>
+                  <option value="Other">Other (Manual)</option>
+                </select>
+                {isOtherCompanyType && (
+                  <div style={{ marginTop: '8px' }}>
+                    <input
+                      type="text"
+                      value={customCompanyType}
+                      onChange={e => {
+                        const text = e.target.value;
+                        setCustomCompanyType(text);
+                        setFormData(prev => ({ ...prev, companyType: text }));
+                      }}
+                      placeholder="Specify company type manually..."
+                      autoFocus
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid #3b82f6',
+                        outline: 'none',
+                        fontSize: '0.9rem',
+                        background: '#f8fafc',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
               {/* Lead Source */}
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Lead Source</label>
                 <select
-                  value={formData.source && !['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign'].includes(formData.source) ? 'Other' : (formData.source || '')}
+                  value={formData.source && !['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign', 'Company Branding'].includes(formData.source) ? 'Other' : (formData.source || '')}
                   onChange={e => {
                     const val = e.target.value;
                     if (val === 'Other') {
@@ -829,9 +1138,10 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                   <option value="Direct Sales Visit">Direct Sales Visit</option>
                   <option value="Referral">Referral</option>
                   <option value="Email Campaign">Email Campaign</option>
+                  <option value="Company Branding">Company Branding</option>
                   <option value="Other">Other</option>
                 </select>
-                {((formData.source && !['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign'].includes(formData.source)) || formData.source === 'Other') && (
+                {((formData.source && !['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign', 'Company Branding'].includes(formData.source)) || formData.source === 'Other') && (
                   <div style={{ marginTop: '8px' }}>
                     <input
                       required
@@ -859,6 +1169,40 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                     placeholder="Who referred this deal?"
                     style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
                   />
+                </div>
+              )}
+
+              {/* Garuda Team Member Name (Conditional - only show when lead source is Company Branding) */}
+              {formData.source?.trim().toLowerCase() === 'company branding' && (
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>
+                    Garuda Team Member Name <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <AutoComplete
+                    style={{ width: '100%' }}
+                    value={formData.garudaTeamMemberName || ''}
+                    options={garudaUserOptions}
+                    filterOption={(inputValue, option) =>
+                      (option?.searchStr || option?.value || '').toLowerCase().indexOf((inputValue || '').toLowerCase()) !== -1
+                    }
+                    onChange={(val) => setFormData({ ...formData, garudaTeamMemberName: val })}
+                    placeholder="Search or enter Garuda team member name..."
+                    allowClear
+                  >
+                    <Input
+                      required
+                      size="large"
+                      placeholder="Search or enter Garuda team member name..."
+                      style={{
+                        borderRadius: '8px',
+                        fontSize: '0.9rem',
+                        borderColor: '#e2e8f0'
+                      }}
+                    />
+                  </AutoComplete>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
+                    💡 Select from the Garuda user suggestions or manually enter any team member name.
+                  </div>
                 </div>
               )}
 
@@ -1091,86 +1435,185 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
             <>
               {/* Opportunity Details */}
               <div style={{ marginBottom: '24px' }}>
-                <h4 style={{ color: '#475569', fontWeight: 700, marginBottom: '12px', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Details</h4>
+                <h4 style={{ color: '#475569', fontWeight: 700, marginBottom: '14px', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Deal Details
+                </h4>
 
+                {/* Reason for Loss Banner */}
                 {formData.stage === 'lost' && (
-                  <div style={{ background: '#fef2f2', padding: '16px', borderRadius: '12px', border: '1px solid #fca5a5', marginBottom: '16px' }}>
-                    <div style={{ fontSize: '0.8rem', color: '#991b1b', fontWeight: 600 }}>Reason for Loss</div>
-                    <p style={{ margin: '4px 0 12px 0', color: '#7f1d1d', fontWeight: 700, fontSize: '0.95rem' }}>
-                      {formData.closeReason || 'Not specified'}
-                    </p>
+                  <div style={{
+                    background: 'linear-gradient(135deg, #fff5f5 0%, #fff1f2 100%)',
+                    borderRadius: '12px',
+                    border: '1.5px solid #fecdd3',
+                    padding: '16px 18px',
+                    marginBottom: '20px',
+                    boxShadow: '0 2px 8px -2px rgba(225, 29, 72, 0.08)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#ffe4e6', color: '#e11d48', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <AlertOctagon size={16} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#9f1239', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Deal Status</div>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#881337' }}>Closed – Lost</div>
+                        </div>
+                      </div>
+                      <span style={{
+                        background: '#ffffff',
+                        color: '#be123c',
+                        border: '1px solid #fca5a5',
+                        padding: '4px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                      }}>
+                        {formData.closeReason || 'Not specified'}
+                      </span>
+                    </div>
+
                     {formData.closeNotes && (
-                      <>
-                        <div style={{ fontSize: '0.8rem', color: '#991b1b', fontWeight: 600 }}>Additional Notes</div>
-                        <p style={{ margin: '4px 0 0 0', color: '#7f1d1d', fontSize: '0.9rem', whiteSpace: 'pre-wrap' }}>
+                      <div style={{
+                        background: 'rgba(255, 255, 255, 0.7)',
+                        borderRadius: '8px',
+                        padding: '10px 14px',
+                        borderLeft: '3px solid #e11d48',
+                        marginTop: '8px'
+                      }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#9f1239', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: '2px' }}>
+                          Additional Notes & Feedback
+                        </div>
+                        <p style={{ margin: 0, color: '#4c0519', fontSize: '0.85rem', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
                           {formData.closeNotes}
                         </p>
-                      </>
+                      </div>
                     )}
                   </div>
                 )}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Expected Close</span>
-                    <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>
-                      {formData.expectedCloseDate ? new Date(formData.expectedCloseDate).toLocaleDateString('en-IN') : 'Not set'}
-                    </p>
+
+                {/* Details Grid */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '12px',
+                  marginBottom: '20px'
+                }}>
+                  {/* Expected Close */}
+                  <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
+                      <Calendar size={13} color="#94a3b8" /> Expected Close
+                    </div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: formData.expectedCloseDate ? '#0f172a' : '#94a3b8' }}>
+                      {formData.expectedCloseDate ? new Date(formData.expectedCloseDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                    </div>
                   </div>
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Forecast Category</span>
-                    <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.forecastCategory || 'Pipeline'}</p>
+
+                  {/* Forecast Category */}
+                  <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
+                      <TrendingUp size={13} color="#94a3b8" /> Forecast Category
+                    </div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a', textTransform: 'capitalize' }}>
+                      {formData.forecastCategory || 'Pipeline'}
+                    </div>
                   </div>
+
+                  {/* Location / Port */}
+                  <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
+                      <MapPin size={13} color="#0284c7" /> Location / Port
+                    </div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: (formData.location || formData.pol || formData.pod) ? '#0369a1' : '#94a3b8' }}>
+                      {formData.location || (formData.pol || formData.pod ? `${formData.pol || ''}${formData.pol && formData.pod ? ' → ' : ''}${formData.pod || ''}` : '—')}
+                    </div>
+                  </div>
+
+                  {/* HSN Code */}
+                  <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
+                      <Hash size={13} color="#94a3b8" /> HSN Code
+                    </div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: formData.hsnCode ? '#0f172a' : '#94a3b8', fontFamily: formData.hsnCode ? 'monospace' : 'inherit' }}>
+                      {formData.hsnCode || '—'}
+                    </div>
+                  </div>
+
+                  {/* Lead Source */}
+                  <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
+                      <Tag size={13} color="#94a3b8" /> Lead Source
+                    </div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: formData.source ? '#0f172a' : '#94a3b8' }}>
+                      {formData.source || '—'}
+                    </div>
+                  </div>
+
+                  {/* Company Type */}
+                  <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
+                      <Building2 size={13} color="#94a3b8" /> Company Type
+                    </div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: formData.companyType ? '#0f172a' : '#94a3b8' }}>
+                      {formData.companyType || '—'}
+                    </div>
+                  </div>
+
+                  {/* Crate Size (if applicable) */}
+                  {formData.crateSize && !['transportation', 'freight forwarding', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) && (
+                    <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
+                        📦 Crate Size
+                      </div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>
+                        {formData.crateSize}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Referral Source */}
+                  {formData.source === 'Referral' && formData.referralSourceName && (
+                    <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9', gridColumn: 'span 2' }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
+                        Referred By
+                      </div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>
+                        {formData.referralSourceName}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Garuda Team Member */}
+                  {formData.garudaTeamMemberName && (
+                    <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9', gridColumn: 'span 2' }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
+                        Garuda Team Member
+                      </div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>
+                        👤 {formData.garudaTeamMemberName}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Location & HSN Code */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: '#0369a1', fontWeight: 700 }}>📍 Location / Port</span>
-                    <p style={{ margin: '4px 0 0 0', color: '#0369a1', fontWeight: 600 }}>{formData.location || (formData.pol || formData.pod ? `${formData.pol || ''}${formData.pol && formData.pod ? ' → ' : ''}${formData.pod || ''}` : 'Not set')}</p>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>🏷️ HSN Code</span>
-                    <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600, fontFamily: 'monospace' }}>{formData.hsnCode || 'Not set'}</p>
-                  </div>
-                </div>
-
-                {formData.crateSize && !['transportation', 'freight forwarding', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) && (
-                  <div style={{ marginBottom: '16px' }}>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>📦 Crate Size</span>
-                    <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.crateSize}</p>
-                  </div>
-                )}
-
-                {formData.source && (
-                  <div style={{ marginBottom: '16px' }}>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>📢 Lead Source</span>
-                    <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.source}</p>
-                  </div>
-                )}
-
-                {formData.source === 'Referral' && formData.referralSourceName && (
-                  <div style={{ marginBottom: '16px' }}>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Referral By (Person/Company Name)</span>
-                    <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.referralSourceName}</p>
-                  </div>
-                )}
-
-                {/* Services Display */}
+                {/* Interested Services */}
                 {(formData.services || []).length > 0 && (
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'block', marginBottom: '8px' }}>Interested Services</span>
+                  <div style={{ background: '#ffffff', padding: '14px 16px', borderRadius: '10px', border: '1px solid #f1f5f9', marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                      <Layers size={13} color="#6366f1" /> Interested Services
+                    </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                       {(formData.services || []).map(service => (
                         <span
                           key={service}
                           style={{
-                            padding: '6px 12px',
-                            borderRadius: '20px',
-                            fontSize: '0.75rem',
+                            padding: '4px 12px',
+                            borderRadius: '16px',
+                            fontSize: '0.78rem',
                             fontWeight: 600,
-                            background: '#eef2ff',
-                            color: '#4f46e5',
-                            border: '1px solid #4f46e5'
+                            background: '#eff6ff',
+                            color: '#2563eb',
+                            border: '1px solid #bfdbfe'
                           }}
                         >
                           {service.charAt(0).toUpperCase() + service.slice(1)}
@@ -1184,43 +1627,66 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
               {/* Planned Visits Display (View Mode) */}
               {formData.plannedVisits && formData.plannedVisits.length > 0 && (
                 <div style={{ marginBottom: '24px' }}>
-                  <h4 style={{ color: '#475569', fontWeight: 700, marginBottom: '12px', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Planned Visits</h4>
+                  <h4 style={{ color: '#475569', fontWeight: 700, marginBottom: '12px', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Planned Visits ({formData.plannedVisits.length})
+                  </h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {formData.plannedVisits.map((visit, idx) => (
                       <div key={visit._id || idx} style={{
                         background: visit.isCompleted ? '#f0fdf4' : visit.isCancelled ? '#f8fafc' : '#fff7ed',
-                        padding: '12px', borderRadius: '8px',
-                        borderLeft: visit.isCompleted ? '4px solid #22c55e' : visit.isCancelled ? '4px solid #94a3b8' : '4px solid #f97316',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                        padding: '12px 16px',
+                        borderRadius: '10px',
+                        border: visit.isCompleted ? '1px solid #bbf7d0' : visit.isCancelled ? '1px solid #e2e8f0' : '1px solid #fed7aa',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px'
                       }}>
-                        <div>
-                          <div style={{
-                            fontSize: '0.9rem',
-                            fontWeight: 600,
-                            color: visit.isCompleted ? '#15803d' : visit.isCancelled ? '#64748b' : '#9a3412',
-                            textDecoration: visit.isCancelled ? 'line-through' : 'none'
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            background: visit.isCompleted ? '#dcfce7' : visit.isCancelled ? '#f1f5f9' : '#ffedd5',
+                            color: visit.isCompleted ? '#16a34a' : visit.isCancelled ? '#94a3b8' : '#ea580c',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
                           }}>
-                            📅 {visit.visitDate ? new Date(visit.visitDate).toLocaleDateString('en-IN') : 'No date'}
+                            <Calendar size={16} />
+                          </span>
+                          <div>
+                            <div style={{
+                              fontSize: '0.9rem',
+                              fontWeight: 700,
+                              color: visit.isCompleted ? '#15803d' : visit.isCancelled ? '#64748b' : '#9a3412',
+                              textDecoration: visit.isCancelled ? 'line-through' : 'none'
+                            }}>
+                              {visit.visitDate ? new Date(visit.visitDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'No date'}
+                            </div>
+                            {visit.isCompleted && visit.completedAt && (
+                              <div style={{ fontSize: '0.75rem', color: '#16a34a', marginTop: '2px' }}>
+                                ✓ Completed on {new Date(visit.completedAt).toLocaleDateString('en-IN')}
+                              </div>
+                            )}
+                            {visit.isCancelled && visit.cancelledAt && (
+                              <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '2px' }}>
+                                ❌ Cancelled on {new Date(visit.cancelledAt).toLocaleDateString('en-IN')}
+                              </div>
+                            )}
                           </div>
-                          {visit.isCompleted && visit.completedAt && (
-                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
-                              Completed on {new Date(visit.completedAt).toLocaleDateString('en-IN')}
-                            </div>
-                          )}
-                          {visit.isCancelled && visit.cancelledAt && (
-                            <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '4px' }}>
-                              Cancelled on {new Date(visit.cancelledAt).toLocaleDateString('en-IN')}
-                            </div>
-                          )}
                         </div>
+
                         <span style={{
-                          fontSize: '0.7rem',
+                          fontSize: '0.75rem',
                           background: visit.isCompleted ? '#dcfce7' : visit.isCancelled ? '#fee2e2' : '#ffedd5',
                           color: visit.isCompleted ? '#15803d' : visit.isCancelled ? '#ef4444' : '#c2410c',
-                          padding: '2px 10px', borderRadius: '12px', fontWeight: 700,
+                          padding: '3px 12px',
+                          borderRadius: '16px',
+                          fontWeight: 700,
                           border: visit.isCompleted ? '1px solid #bbf7d0' : visit.isCancelled ? '1px solid #fca5a5' : '1px solid #fed7aa'
                         }}>
-                          {visit.isCompleted ? '✓ Completed' : visit.isCancelled ? '❌ Cancelled' : '⏳ Pending'}
+                          {visit.isCompleted ? 'Completed' : visit.isCancelled ? 'Cancelled' : 'Pending'}
                         </span>
                       </div>
                     ))}

@@ -1,6 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import Opportunity from '../../model/crm/Opportunity.mjs';
+import Lead from '../../model/crm/Lead.mjs';
 import SalesTeam from '../../model/crm/SalesTeam.mjs';
 import UserModel from '../../model/userModel.mjs';
 import SalesIncentive from '../../model/crm/SalesIncentive.mjs';
@@ -761,6 +762,105 @@ router.get('/board', async (req, res) => {
   }
 });
 
+// GET /api/crm/opportunities/planned-visits
+router.get('/planned-visits', async (req, res) => {
+  try {
+    const { startDate, endDate, teamId, userId, ownerId, status, seeAll } = req.query;
+    const ownerFilter = await buildOwnerFilter(req.user, teamId, req);
+    const query = { ...ownerFilter };
+
+    const targetUserId = userId || ownerId;
+    if (targetUserId && targetUserId !== 'all' && mongoose.Types.ObjectId.isValid(targetUserId)) {
+      const objectIdTarget = new mongoose.Types.ObjectId(targetUserId);
+      const userCondition = [
+        { ownerId: objectIdTarget },
+        { createdBy: objectIdTarget },
+        { referredByUserId: objectIdTarget }
+      ];
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: userCondition }];
+        delete query.$or;
+      } else {
+        query.$or = userCondition;
+      }
+    }
+
+    query['plannedVisits.0'] = { $exists: true };
+
+    const opportunities = await Opportunity.find(query)
+      .populate('accountId', 'name industry phone website address')
+      .populate('ownerId', 'username first_name last_name email')
+      .populate('primaryContactId', 'name phone email designation')
+      .select('name value stage businessVertical accountId ownerId primaryContactId plannedVisits createdAt updatedAt')
+      .lean();
+
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    const visits = [];
+    opportunities.forEach(opp => {
+      (opp.plannedVisits || []).forEach(visit => {
+        if (!visit.visitDate) return;
+        const vDate = new Date(visit.visitDate);
+        if (start && vDate < start) return;
+        if (end && vDate > end) return;
+
+        const isCompleted = Boolean(visit.isCompleted);
+        const isCancelled = Boolean(visit.isCancelled);
+
+        if (status === 'completed' && !isCompleted) return;
+        if (status === 'pending' && (isCompleted || isCancelled)) return;
+        if (status === 'cancelled' && !isCancelled) return;
+
+        const ownerFullName = opp.ownerId 
+          ? `${opp.ownerId.first_name || ''} ${opp.ownerId.last_name || ''}`.trim() || opp.ownerId.username 
+          : '';
+
+        visits.push({
+          _id: visit._id?.toString() || `${opp._id}_${visit.visitDate}`,
+          visitId: visit._id?.toString(),
+          opportunityId: opp._id?.toString(),
+          title: `Visit: ${opp.name}`,
+          subject: `Visit: ${opp.name}`,
+          dealName: opp.name,
+          dealValue: opp.value || 0,
+          stage: opp.stage,
+          activityDate: visit.visitDate,
+          dueDate: visit.visitDate,
+          visitDate: visit.visitDate,
+          isCompleted,
+          isCancelled,
+          status: isCompleted ? 'completed' : isCancelled ? 'cancelled' : 'pending',
+          completedAt: visit.completedAt,
+          cancelledAt: visit.cancelledAt,
+          createdAt: visit.createdAt,
+          type: 'visit',
+          _eventType: 'visit',
+          businessVertical: opp.businessVertical,
+          accountName: opp.accountId?.name || opp.name,
+          contactName: opp.primaryContactId?.name || '',
+          contactPhone: opp.primaryContactId?.phone || '',
+          contactEmail: opp.primaryContactId?.email || '',
+          ownerName: ownerFullName,
+          ownerId: opp.ownerId?._id || opp.ownerId,
+          relatedTo: {
+            model: 'Opportunity',
+            id: opp._id,
+            name: opp.name
+          },
+          opportunity: opp
+        });
+      });
+    });
+
+    visits.sort((a, b) => new Date(a.visitDate) - new Date(b.visitDate));
+    res.json(visits);
+  } catch (error) {
+    console.error('Error fetching planned visits:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // GET /api/crm/opportunities/:id
 router.get('/:id', async (req, res) => {
   try {
@@ -1022,6 +1122,16 @@ router.put('/:id', async (req, res) => {
     opportunity.lastActivityAt = new Date();
     if (closeReason) opportunity.closeReason = closeReason;
     if (closeNotes !== undefined) opportunity.closeNotes = closeNotes;
+
+    // Sync companyType and garudaTeamMemberName back to Lead if this opportunity was converted from a lead
+    if (opportunity.convertedFromLead) {
+      const leadUpdates = {};
+      if (otherDataToAssign.companyType !== undefined) leadUpdates.companyType = otherDataToAssign.companyType;
+      if (otherDataToAssign.garudaTeamMemberName !== undefined) leadUpdates.garudaTeamMemberName = otherDataToAssign.garudaTeamMemberName;
+      if (Object.keys(leadUpdates).length > 0) {
+        await Lead.findByIdAndUpdate(opportunity.convertedFromLead, leadUpdates);
+      }
+    }
 
     // Auto-link to specialized team (e.g. E-Lock) if not already referred
     if (!opportunity.referredToTeamId && Array.isArray(opportunity.services) && opportunity.services.length > 0) {
@@ -1300,6 +1410,21 @@ router.patch('/:id/planned-visits/:visitId/postpone', async (req, res) => {
     visit.isCompleted = false;
     visit.completedAt = undefined;
 
+    opportunity.lastActivityAt = new Date();
+    await opportunity.save();
+    res.json({ success: true, data: opportunity });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// DELETE /api/crm/opportunities/:id/planned-visits/:visitId
+router.delete('/:id/planned-visits/:visitId', async (req, res) => {
+  try {
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) return res.status(404).json({ success: false, message: 'Opportunity not found' });
+
+    opportunity.plannedVisits.pull({ _id: req.params.visitId });
     opportunity.lastActivityAt = new Date();
     await opportunity.save();
     res.json({ success: true, data: opportunity });

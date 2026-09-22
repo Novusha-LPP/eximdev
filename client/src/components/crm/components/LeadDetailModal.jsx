@@ -186,6 +186,13 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
                 <p style={{ margin: '4px 0 0 0', color: '#1e293b', fontWeight: 600 }}>{lead.referralSourceName}</p>
               </div>
             )}
+
+            {lead.garudaTeamMemberName && (
+              <div style={{ gridColumn: 'span 3', marginTop: '8px' }}>
+                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Garuda Team Member Name</span>
+                <p style={{ margin: '4px 0 0 0', color: '#1e293b', fontWeight: 600 }}>👤 {lead.garudaTeamMemberName}</p>
+              </div>
+            )}
           </div>
 
           {/* Logistics & Freight Details */}

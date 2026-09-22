@@ -103,6 +103,16 @@ const getModuleStyle = (module) => {
       bg: "#fdf2f8",
       icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
     },
+    "Brochure & Videos": {
+      color: "#c026d3",
+      bg: "#fdf4ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><polygon points="10 8 15 11 10 14 10 8"></polygon></svg>
+    },
+    "Company Brochures": {
+      color: "#c026d3",
+      bg: "#fdf4ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><polygon points="10 8 15 11 10 14 10 8"></polygon></svg>
+    },
     "Supplier Scorecard": {
       color: "#d97706",
       bg: "#fffbeb",
@@ -234,6 +244,15 @@ function Home() {
       if (!acc[category]) acc[category] = [];
       if (!acc[category].includes("Accounts")) acc[category].push("Accounts");
       if (!acc[category].includes("Pricing Requests")) acc[category].push("Pricing Requests");
+      return acc;
+    }
+
+    // 4b. If user has 'CRM', ensure both CRM and Brochure & Videos tiles are available under CRM category
+    if (module === "CRM") {
+      const category = "CRM";
+      if (!acc[category]) acc[category] = [];
+      if (!acc[category].includes("CRM")) acc[category].push("CRM");
+      if (!acc[category].includes("Brochure & Videos")) acc[category].push("Brochure & Videos");
       return acc;
     }
 

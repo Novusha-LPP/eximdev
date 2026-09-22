@@ -16,6 +16,7 @@ import automationRulesRouter from './automationRules.controller.mjs';
 import forecastingRouter from './forecasting.controller.mjs';
 import incentivesRouter from './incentives.controller.mjs';
 import pricingRequestsRouter from './pricingRequests.controller.mjs';
+import collateralsRouter from './collaterals.controller.mjs';
 
 const router = express.Router();
 
@@ -31,6 +32,8 @@ router.use('/tasks', tasksRouter);
 router.use('/reports', reportsRouter);
 router.use('/incentives', incentivesRouter);
 router.use('/pricing-requests', pricingRequestsRouter);
+router.use('/collaterals', collateralsRouter);
+router.use('/brochures', collateralsRouter);
 
 // Phase 1: Advanced Features
 router.use('/lead-scoring', leadScoringRouter);

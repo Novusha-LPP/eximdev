@@ -67,6 +67,7 @@ const leadSchema = new mongoose.Schema({
   monthlyVolume: { type: String },
   monthlyRevenue: { type: String },
   companyType: { type: String, trim: true },
+  garudaTeamMemberName: { type: String, trim: true },
   period: { type: String, default: () => new Date().toISOString().substring(0, 7) },
   convertedAt: { type: Date },
   // Cross-reference to Export Freight Forwarding enquiry_no

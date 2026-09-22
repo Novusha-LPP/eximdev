@@ -403,6 +403,12 @@ router.put('/:id', async (req, res) => {
       { new: true }
     );
     if (!updatedLead) return res.status(404).json({ message: 'Lead not found' });
+    if (req.body.companyType !== undefined && updatedLead.convertedTo?.opportunityId) {
+      await Opportunity.findByIdAndUpdate(updatedLead.convertedTo.opportunityId, { companyType: req.body.companyType });
+    }
+    if (req.body.garudaTeamMemberName !== undefined && updatedLead.convertedTo?.opportunityId) {
+      await Opportunity.findByIdAndUpdate(updatedLead.convertedTo.opportunityId, { garudaTeamMemberName: req.body.garudaTeamMemberName });
+    }
     res.json(updatedLead);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -532,6 +538,8 @@ router.post('/:id/convert', async (req, res) => {
       referralSourceName: lead.referralSourceName,
       monthlyVolume: lead.monthlyVolume,
       monthlyRevenue: lead.monthlyRevenue,
+      companyType: lead.companyType,
+      garudaTeamMemberName: lead.garudaTeamMemberName,
       businessVertical: bv
     });
     await opportunity.save();

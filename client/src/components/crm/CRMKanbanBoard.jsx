@@ -7,6 +7,7 @@ import FilterBar from './components/FilterBar';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
 import { message } from 'antd';
+import { LOST_REASONS } from './crmConstants';
 
 const PIPELINE_STAGES = [
   { id: 'lead', name: 'Lead', color: '#4f8ef7' },
@@ -1899,10 +1900,11 @@ export default function CRMKanbanBoard() {
                 }}
               >
                 <option value="">-- Select a Reason --</option>
-                <option value="Price Lost">Price Lost — Lost due to competitor offering lower price</option>
-                <option value="Product Lost">Product Lost — Product did not meet client specifications</option>
-                <option value="No Reply / No Response">No Reply / No Response — Client became unresponsive</option>
-                <option value="Lost due to Location">Lost due to Location — Location did not suit client needs</option>
+                {LOST_REASONS.map(r => (
+                  <option key={r.code} value={r.value}>
+                    {r.code}: {r.label} — {r.description}
+                  </option>
+                ))}
                 <option value="Other (Manual)">Other — Enter reason manually</option>
               </select>
             </div>

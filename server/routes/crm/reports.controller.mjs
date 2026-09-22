@@ -39,130 +39,42 @@ function buildBusinessVerticalFilter(verticalStr) {
 }
 
 async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
-  const role = user?.crmRole || user?.role || req?.headers?.['user-role'];
-  const userRole = user?.role || req?.headers?.['user-role'];
-  const userId = user?._id || user?.id || user?.userId || req?.headers?.['user-id'];
-
-  const isHOD = userRole === 'HOD' || userRole === 'Head_of_Department' || (typeof userRole === 'string' && (userRole.toLowerCase() === 'hod' || userRole.toLowerCase() === 'head_of_department'));
-  const isCrmAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
-  const isSystemAdmin = userRole === 'Admin' || (typeof userRole === 'string' && userRole.toLowerCase() === 'admin');
-  const isAdmin = (isCrmAdmin || isSystemAdmin) && !isHOD;
-
-  if (!userId) return {};
-
-  const objectIdUserId = new mongoose.Types.ObjectId(userId.toString());
-
-  const userDoc = await UserModel.findById(userId).select('isHod crmManagedTeams').lean();
-  const managedTeamIds = (userDoc?.crmManagedTeams || []).map(id => id.toString());
-  const isHodUser = isHOD || Boolean(userDoc?.isHod);
-
+  // If a specific team is requested in filters, restrict to that team's members and manager
   if (requestedTeamId && requestedTeamId !== 'all' && mongoose.Types.ObjectId.isValid(requestedTeamId)) {
     const team = await SalesTeam.findById(requestedTeamId).lean();
     if (team) {
-      const isManager = team.managerId?.toString() === userId?.toString();
-      const isMember = team.memberIds?.some(m => m?.toString() === userId?.toString());
-      const isHodForTeam = isHodUser && managedTeamIds.includes(team._id.toString());
-      if (isAdmin || isManager || isMember || isHodForTeam) {
-        const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
-        if (team.managerId) {
-          objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
-        }
-        const orConditions = [
-          { ownerId: { $in: objectIdMemberIds } },
-          { createdBy: { $in: objectIdMemberIds } }
-        ];
-        return { $or: orConditions };
+      const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
+      if (team.managerId) {
+        objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
       }
+      const orConditions = [
+        { ownerId: { $in: objectIdMemberIds } },
+        { createdBy: { $in: objectIdMemberIds } }
+      ];
+      return { $or: orConditions };
     }
   }
 
-  if (isAdmin) return {};
-
-  const teamOrConditions = [
-    { managerId: userId },
-    { memberIds: userId }
-  ];
-  if (managedTeamIds.length > 0) {
-    teamOrConditions.push({ _id: { $in: managedTeamIds } });
-  }
-
-  const myTeams = await SalesTeam.find({
-    $or: teamOrConditions
-  }).lean();
-
-  let visibleUserIds = [objectIdUserId];
-
-  if (myTeams && myTeams.length > 0) {
-    myTeams.forEach(team => {
-      if (team.memberIds) {
-        team.memberIds.forEach(m => visibleUserIds.push(new mongoose.Types.ObjectId(m.toString())));
-      }
-      if (team.managerId) {
-        visibleUserIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
-      }
-    });
-  }
-
-  const uniqueUserIds = [...new Map(visibleUserIds.map(id => [id.toString(), id])).values()];
-
-  const orConditions = [
-    { ownerId: { $in: uniqueUserIds } },
-    { createdBy: { $in: uniqueUserIds } }
-  ];
-
-  return { $or: orConditions };
+  // All CRM members have access to view all reports across the company
+  return {};
 }
 
 async function buildActivityFilter(user, requestedTeamId = null, req = null) {
-  const role = user?.crmRole || user?.role || req?.headers?.['user-role'];
-  const userRole = user?.role || req?.headers?.['user-role'];
-  const userId = user?._id || user?.id || user?.userId || req?.headers?.['user-id'];
-
-  const isHOD = userRole === 'HOD' || userRole === 'Head_of_Department' || (typeof userRole === 'string' && (userRole.toLowerCase() === 'hod' || userRole.toLowerCase() === 'head_of_department'));
-  const isCrmAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
-  const isAdmin = isCrmAdmin && !isHOD;
-
-  if (requestedTeamId && mongoose.Types.ObjectId.isValid(requestedTeamId)) {
+  if (requestedTeamId && requestedTeamId !== 'all' && mongoose.Types.ObjectId.isValid(requestedTeamId)) {
     const team = await SalesTeam.findById(requestedTeamId).lean();
     if (team) {
-      const isManager = team.managerId?.toString() === userId?.toString();
-      const isMember = team.memberIds?.some(m => m?.toString() === userId?.toString());
-      if (isAdmin || isManager || isMember) {
-        const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
-        if (team.managerId) {
-          objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
-        }
-        return { userId: { $in: objectIdMemberIds } };
+      const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
+      if (team.managerId) {
+        objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
       }
+      return { userId: { $in: objectIdMemberIds } };
     }
   }
 
-  if (isAdmin) return {};
-  if (!userId) return {};
-
-  const myTeams = await SalesTeam.find({
-    $or: [
-      { managerId: userId },
-      { memberIds: userId }
-    ]
-  }).lean();
-  let visibleUserIds = [userId.toString()];
-
-  if (myTeams && myTeams.length > 0) {
-    myTeams.forEach(team => {
-      if (team.memberIds) {
-        visibleUserIds = [...visibleUserIds, ...team.memberIds.map(id => id.toString())];
-      }
-      if (team.managerId) {
-        visibleUserIds.push(team.managerId.toString());
-      }
-    });
-  }
-
-  visibleUserIds = [...new Set(visibleUserIds)];
-  const objectIdUserIds = visibleUserIds.map(id => new mongoose.Types.ObjectId(id));
-  return { userId: { $in: objectIdUserIds } };
+  // All CRM members have access to view all activities in reports
+  return {};
 }
+
 
 // GET /api/crm/reports/dashboard
 router.get('/dashboard', async (req, res) => {
@@ -529,15 +441,18 @@ router.get('/performance', async (req, res) => {
       let movedForwardCount = 0;
 
       // Calculate Lost deals and their reasons
+      const lostByReason = {};
       let lostPriceCount = 0;
       let lostProductCount = 0;
       let lostNoReplyCount = 0;
 
       if (stage === 'lost') {
         stageDeals.forEach(o => {
-          if (o.closeReason === 'Price Lost') lostPriceCount++;
-          else if (o.closeReason === 'Product Lost') lostProductCount++;
-          else if (o.closeReason === 'No Reply / No Response') lostNoReplyCount++;
+          const r = o.closeReason || 'Not Specified';
+          lostByReason[r] = (lostByReason[r] || 0) + 1;
+          if (r === 'Lost on price' || r === 'Price Lost') lostPriceCount++;
+          else if (r === 'Product Lost' || r === 'Scope mismatch') lostProductCount++;
+          else if (r === 'Slow / no follow-up' || r === 'No Reply / No Response') lostNoReplyCount++;
         });
       }
 
@@ -553,7 +468,8 @@ router.get('/performance', async (req, res) => {
           price: lostPriceCount,
           product: lostProductCount,
           noReply: lostNoReplyCount,
-          total: lostPriceCount + lostProductCount + lostNoReplyCount
+          byReason: lostByReason,
+          total: stage === 'lost' ? stageDeals.length : 0
         }
       };
     });
@@ -1120,24 +1036,10 @@ router.get('/reps-overview', async (req, res) => {
 });
 
 // GET /api/crm/reports/team-breakdown
-// Returns team-wise breakdown metrics (pipeline value, lead count, deal count, incentive) for managers/admins
+// Returns team-wise breakdown metrics (pipeline value, lead count, deal count, incentive)
 router.get('/team-breakdown', async (req, res) => {
   try {
-    const role = req.user?.crmRole || req.user?.role || req.headers['user-role'];
-    const userRole = req.user?.role || req.headers['user-role'];
-    const userId = req.user?._id || req.user?.id || req.headers['user-id'];
-
-    const isHOD = userRole === 'HOD' || userRole === 'Head_of_Department' || (typeof userRole === 'string' && (userRole.toLowerCase() === 'hod' || userRole.toLowerCase() === 'head_of_department'));
-    const isCrmAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
-    const isAdmin = (isCrmAdmin || userRole === 'Admin') && !isHOD;
-
     let teamQuery = { isActive: true };
-    if (!isAdmin && userId) {
-      teamQuery.$or = [
-        { managerId: userId },
-        { memberIds: userId }
-      ];
-    }
 
     const teams = await SalesTeam.find(teamQuery)
       .populate('managerId', 'username first_name last_name email')
@@ -1393,15 +1295,36 @@ router.get('/stagnation', async (req, res) => {
 // Returns lead/deal name, owner, team, business vertical, stage reached before loss, lost reason/category, lost date, deal value, competitor, and notes
 router.get('/lost-leads-detailed', async (req, res) => {
   try {
-    const { teamId, startDate, endDate, period, businessVertical, reason } = req.query;
+    const { teamId, startDate, endDate, period, businessVertical, reason, ownerId } = req.query;
     const ownerFilter = await buildOwnerFilter(req.user, teamId, req);
     const query = { ...ownerFilter, stage: 'lost' };
+
+    if (ownerId && ownerId !== 'all' && mongoose.Types.ObjectId.isValid(ownerId)) {
+      query.ownerId = new mongoose.Types.ObjectId(ownerId);
+    }
 
     if (businessVertical && businessVertical !== 'all') {
       query.businessVertical = new RegExp(`^${businessVertical.trim()}$`, 'i');
     }
     if (reason && reason !== 'all') {
-      const standardReasons = ['Price Lost', 'Product Lost', 'No Reply / No Response', 'Lost due to Location'];
+      const standardReasons = [
+        'Lost on price',
+        'Volume split, we were not primary',
+        'Credit terms not matched',
+        'Discount not agreed',
+        'Incumbent relationship',
+        'Slow / no follow-up',
+        'Decision-maker not reached',
+        'Benefit not proven',
+        'Scope mismatch',
+        'Past service issue',
+        'No trial / reference',
+        'Timing / customer freeze',
+        'Price Lost',
+        'Product Lost',
+        'No Reply / No Response',
+        'Lost due to Location'
+      ];
       if (reason === '__other__') {
         // Match anything that is NOT one of the standard preset reasons
         query.closeReason = { $nin: standardReasons };

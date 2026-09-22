@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Plus, ChevronLeft, ChevronRight, Calendar, Clock, CheckCircle2, Circle, X } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar, Clock, CheckCircle2, Circle, X, MapPin, ExternalLink, Trash2, Edit2, AlertCircle } from 'lucide-react';
 import { message, Modal } from 'antd';
 import TaskFormModal from './TaskFormModal';
 import ActivityFormModal from './ActivityFormModal';
+import OpportunityDetailModal from './OpportunityDetailModal';
 
 const DAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -14,11 +15,15 @@ const EVENT_TYPE_COLORS = {
   meeting: { bg: '#ede9fe', text: '#6d28d9', border: '#c4b5fd' },
   demo: { bg: '#fce7f3', text: '#be185d', border: '#f9a8d4' },
   note: { bg: '#e0f2fe', text: '#0369a1', border: '#7dd3fc' },
+  visit: { bg: '#ffedd5', text: '#c2410c', border: '#fdba74' },
+  pre_sale: { bg: '#e0f2fe', text: '#0284c7', border: '#7dd3fc' },
+  post_sale: { bg: '#ede9fe', text: '#7c3aed', border: '#c4b5fd' },
   // tasks
   call_task: { bg: '#dcfce7', text: '#166534', border: '#86efac' },
   email_task: { bg: '#fef9c3', text: '#713f12', border: '#fde68a' },
   meeting_task: { bg: '#f3e8ff', text: '#6b21a8', border: '#d8b4fe' },
   research_task: { bg: '#e0f2fe', text: '#075985', border: '#7dd3fc' },
+  visit_task: { bg: '#ffedd5', text: '#c2410c', border: '#fdba74' },
   other_task: { bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' },
 };
 
@@ -29,6 +34,16 @@ const getTaskColor = (task) => {
 
 const getActivityColor = (activity) => {
   return EVENT_TYPE_COLORS[activity.type] || EVENT_TYPE_COLORS.note;
+};
+
+const getVisitColor = (visit) => {
+  if (visit.isCompleted || visit.status === 'completed') {
+    return { bg: '#dcfce7', text: '#15803d', border: '#86efac' };
+  }
+  if (visit.isCancelled || visit.status === 'cancelled') {
+    return { bg: '#fee2e2', text: '#b91c1c', border: '#fca5a5' };
+  }
+  return { bg: '#ffedd5', text: '#c2410c', border: '#fdba74' };
 };
 
 const getHeaders = () => {
@@ -71,9 +86,23 @@ function getMonthRange(date) {
 }
 
 function isSameDay(a, b) {
-  return a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate();
+  if (!a || !b) return false;
+  const da = a instanceof Date ? a : new Date(a);
+  const db = b instanceof Date ? b : new Date(b);
+  if (isNaN(da.getTime()) || isNaN(db.getTime())) return false;
+  // Local date match
+  if (da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()) {
+    return true;
+  }
+  // Also compare UTC date (handles UTC midnight stored dates)
+  if (da.getUTCFullYear() === db.getFullYear() &&
+    da.getUTCMonth() === db.getMonth() &&
+    da.getUTCDate() === db.getDate()) {
+    return true;
+  }
+  return false;
 }
 
 function formatTime(dateStr) {
@@ -83,11 +112,21 @@ function formatTime(dateStr) {
 }
 
 function EventPill({ event, onClick }) {
-  const colors = event._eventType === 'task' ? getTaskColor(event) : getActivityColor(event);
+  const isVisit = event._eventType === 'visit' || event.type === 'visit';
+  const isTask = event._eventType === 'task';
+  const colors = isVisit
+    ? getVisitColor(event)
+    : isTask
+    ? getTaskColor(event)
+    : getActivityColor(event);
+
+  const icon = isVisit ? '📍 ' : isTask ? '☑ ' : '● ';
+  const title = event.title || event.subject;
+
   return (
     <div
       onClick={e => { e.stopPropagation(); onClick(event); }}
-      title={event.title || event.subject}
+      title={title}
       style={{
         background: colors.bg,
         color: colors.text,
@@ -100,10 +139,17 @@ function EventPill({ event, onClick }) {
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
-        marginBottom: '2px'
+        marginBottom: '2px',
+        textDecoration: event.isCancelled || event.status === 'cancelled' ? 'line-through' : 'none',
+        opacity: event.isCancelled || event.status === 'cancelled' ? 0.7 : 1,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '3px'
       }}
     >
-      {event._eventType === 'task' ? '☑ ' : '● '}{event.title || event.subject}
+      <span>{icon}</span>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+      {event.isCompleted && <span style={{ marginLeft: 'auto', fontSize: '0.65rem' }}>✓</span>}
     </div>
   );
 }
@@ -111,15 +157,32 @@ function EventPill({ event, onClick }) {
 // ─── Day View ─────────────────────────────────────────────────────────────────
 function DayView({ events, date, onCellClick, onEventClick }) {
   const hours = Array.from({ length: 24 }, (_, i) => i);
+  const dayEvents = events.filter(e => isSameDay(new Date(e.dueDate || e.activityDate || e.visitDate), date));
+  const visitsForDay = dayEvents.filter(e => e._eventType === 'visit' || e.type === 'visit');
 
   const getEventsForHour = (hour) =>
-    events.filter(e => {
-      const d = new Date(e.dueDate || e.activityDate);
-      return isSameDay(d, date) && d.getHours() === hour;
+    dayEvents.filter(e => {
+      const d = new Date(e.dueDate || e.activityDate || e.visitDate);
+      return d.getHours() === hour;
     });
 
   return (
     <div style={{ overflowY: 'auto', maxHeight: '65vh', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
+      {visitsForDay.length > 0 && (
+        <div style={{ padding: '12px 16px', background: '#fff7ed', borderBottom: '2px solid #fed7aa' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+            <MapPin size={14} /> Scheduled Visits For Today ({visitsForDay.length})
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {visitsForDay.map(ev => (
+              <div key={ev._id} style={{ minWidth: '200px' }}>
+                <EventPill event={ev} onClick={onEventClick} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {hours.map(hour => {
         const slotEvents = getEventsForHour(hour);
         const label = hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`;
@@ -164,7 +227,7 @@ function WeekView({ events, weekStart, onCellClick, onEventClick, onMoreClick })
   const today = new Date();
 
   const getEventsForDay = (day) =>
-    events.filter(e => isSameDay(new Date(e.dueDate || e.activityDate), day));
+    events.filter(e => isSameDay(new Date(e.dueDate || e.activityDate || e.visitDate), day));
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0, border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
@@ -196,7 +259,7 @@ function WeekView({ events, weekStart, onCellClick, onEventClick, onMoreClick })
                     e.stopPropagation();
                     onMoreClick(day);
                   }}
-                  style={{ fontSize: '0.7rem', color: '#4f46e5', fontWeight: 600, padding: '4px 6px', cursor: 'pointer', hover: { color: '#4338ca' } }}
+                  style={{ fontSize: '0.7rem', color: '#4f46e5', fontWeight: 600, padding: '4px 6px', cursor: 'pointer' }}
                 >
                   +{dayEvents.length - 5} more
                 </div>
@@ -223,7 +286,7 @@ function MonthView({ events, year, month, onCellClick, onEventClick, onMoreClick
   const getEventsForDay = (d) => {
     if (!d) return [];
     const dt = new Date(year, month, d);
-    return events.filter(e => isSameDay(new Date(e.dueDate || e.activityDate), dt));
+    return events.filter(e => isSameDay(new Date(e.dueDate || e.activityDate || e.visitDate), dt));
   };
 
   return (
@@ -289,10 +352,14 @@ function MonthView({ events, year, month, onCellClick, onEventClick, onMoreClick
 }
 
 // ─── Event Detail Panel ────────────────────────────────────────────────────────
-function EventDetailPanel({ event, onClose, onEdit, onDelete }) {
+function EventDetailPanel({ event, onClose, onEdit, onDelete, onCompleteVisit, onCancelVisit, onPostponeVisit, onOpenDeal }) {
+  const [isPostponing, setIsPostponing] = useState(false);
+  const [postponeDate, setPostponeDate] = useState('');
+
   if (!event) return null;
+  const isVisit = event._eventType === 'visit' || event.type === 'visit';
   const isTask = event._eventType === 'task';
-  const colors = isTask ? getTaskColor(event) : getActivityColor(event);
+  const colors = isVisit ? getVisitColor(event) : isTask ? getTaskColor(event) : getActivityColor(event);
 
   return (
     <>
@@ -306,15 +373,20 @@ function EventDetailPanel({ event, onClose, onEdit, onDelete }) {
         }}
       />
       <div style={{
-        position: 'fixed', top: 0, right: 0, bottom: 0, width: '360px',
+        position: 'fixed', top: 0, right: 0, bottom: 0, width: '400px',
+        maxWidth: '90vw',
         background: '#fff', borderLeft: '1px solid #e2e8f0',
         boxShadow: '-8px 0 32px rgba(15, 23, 42, 0.12)', zIndex: 99999,
         display: 'flex', flexDirection: 'column'
       }}>
-        <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: colors.bg }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: colors.bg }}>
           <div>
-            <span style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.text }}>{isTask ? 'Task' : `Activity – ${event.type}`}</span>
-            <h3 style={{ margin: '4px 0 0 0', fontSize: '1.05rem', fontWeight: 800, color: '#1e293b' }}>{event.title || event.subject}</h3>
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.text }}>
+              {isVisit ? '📍 Planned Visit' : isTask ? '☑ Task' : `● Activity – ${event.type}`}
+            </span>
+            <h3 style={{ margin: '4px 0 0 0', fontSize: '1.05rem', fontWeight: 800, color: '#1e293b' }}>
+              {event.title || event.subject}
+            </h3>
           </div>
           <button
             onClick={onClose}
@@ -328,55 +400,243 @@ function EventDetailPanel({ event, onClose, onEdit, onDelete }) {
             <X size={16} />
           </button>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {event.description && <p style={{ margin: '0', color: '#475569', fontSize: '0.9rem', lineHeight: 1.5 }}>{event.description}</p>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#64748b' }}>
-              <Clock size={14} />
-              <span>{formatTime(event.dueDate || event.activityDate)} · {new Date(event.dueDate || event.activityDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Status Banner */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 14px', borderRadius: '10px',
+            background: event.isCompleted || event.status === 'completed' ? '#f0fdf4' : event.isCancelled || event.status === 'cancelled' ? '#fef2f2' : '#fff7ed',
+            border: `1px solid ${event.isCompleted || event.status === 'completed' ? '#bbf7d0' : event.isCancelled || event.status === 'cancelled' ? '#fecaca' : '#fed7aa'}`
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CheckCircle2 size={16} color={event.isCompleted || event.status === 'completed' ? '#16a34a' : event.isCancelled || event.status === 'cancelled' ? '#dc2626' : '#ea580c'} />
+              <span style={{ fontWeight: 700, fontSize: '0.85rem', color: event.isCompleted || event.status === 'completed' ? '#16a34a' : event.isCancelled || event.status === 'cancelled' ? '#dc2626' : '#c2410c', textTransform: 'capitalize' }}>
+                Status: {event.isCompleted ? 'Completed' : event.isCancelled ? 'Cancelled' : event.status || 'Scheduled'}
+              </span>
             </div>
-            {isTask && (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
-                  <CheckCircle2 size={14} color={event.status === 'completed' ? '#16a34a' : '#94a3b8'} />
-                  <span style={{ color: event.status === 'completed' ? '#16a34a' : '#475569', textTransform: 'capitalize' }}>{event.status?.replace('_', ' ')}</span>
-                </div>
-                <div style={{ fontSize: '0.85rem', color: '#475569' }}>Priority: <strong style={{ textTransform: 'capitalize' }}>{event.priority}</strong></div>
-              </>
+            {event.completedAt && (
+              <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600 }}>
+                {new Date(event.completedAt).toLocaleDateString('en-IN')}
+              </span>
             )}
-            {!isTask && event.outcome && (
-              <div style={{ fontSize: '0.85rem', color: '#475569' }}>Outcome: <strong style={{ textTransform: 'capitalize' }}>{event.outcome}</strong></div>
-            )}
-            {!isTask && event.duration && (
-              <div style={{ fontSize: '0.85rem', color: '#475569' }}>Duration: <strong>{event.duration} min</strong></div>
-            )}
-            {event.relatedTo?.model && (
-              <div style={{ fontSize: '0.85rem', color: '#475569' }}>
-                Linked Record: <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>{event.relatedTo.model}: {event.relatedTo.name || 'Record Link'}</span>
-              </div>
+            {event.cancelledAt && (
+              <span style={{ fontSize: '0.72rem', color: '#dc2626', fontWeight: 600 }}>
+                {new Date(event.cancelledAt).toLocaleDateString('en-IN')}
+              </span>
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', marginTop: 'auto', borderTop: '1px solid #f1f5f9', paddingTop: '20px' }}>
-            <button
-              onClick={() => onEdit(event)}
-              style={{
-                flex: 1, padding: '10px 16px', background: '#3b82f6', color: 'white',
-                border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem'
-              }}
-            >
-              ✏️ Edit
-            </button>
-            <button
-              onClick={() => onDelete(event)}
-              style={{
-                flex: 1, padding: '10px 16px', background: '#fef2f2', color: '#ef4444',
-                border: '1px solid #fee2e2', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem'
-              }}
-            >
-              🗑️ Delete
-            </button>
+          {/* Date & Time */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', color: '#334155', background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <Clock size={16} color="#64748b" />
+            <span style={{ fontWeight: 600 }}>
+              {new Date(event.visitDate || event.dueDate || event.activityDate).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
           </div>
+
+          {/* Planned Visit Details */}
+          {isVisit && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: '#fafaf9', padding: '14px', borderRadius: '10px', border: '1px solid #e7e5e4' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#78716c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deal & Client Information</div>
+
+              {event.accountName && (
+                <div style={{ fontSize: '0.85rem', color: '#44403c' }}>
+                  <strong>Client / Company:</strong> <span style={{ fontWeight: 600, color: '#1e293b' }}>{event.accountName}</span>
+                </div>
+              )}
+
+              {event.dealName && (
+                <div style={{ fontSize: '0.85rem', color: '#44403c' }}>
+                  <strong>Deal Name:</strong> {event.dealName}
+                </div>
+              )}
+
+              {event.stage && (
+                <div style={{ fontSize: '0.85rem', color: '#44403c' }}>
+                  <strong>Stage:</strong> <span style={{ background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'capitalize' }}>{event.stage.replace('_', ' ')}</span>
+                </div>
+              )}
+
+              {event.dealValue > 0 && (
+                <div style={{ fontSize: '0.85rem', color: '#44403c' }}>
+                  <strong>Deal Value:</strong> <span style={{ color: '#16a34a', fontWeight: 700 }}>₹{event.dealValue.toLocaleString('en-IN')}</span>
+                </div>
+              )}
+
+              {event.businessVertical && (
+                <div style={{ fontSize: '0.85rem', color: '#44403c' }}>
+                  <strong>Vertical:</strong> <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>{event.businessVertical}</span>
+                </div>
+              )}
+
+              {(event.contactName || event.contactPhone || event.contactEmail) && (
+                <div style={{ fontSize: '0.85rem', color: '#44403c', borderTop: '1px dashed #d6d3d1', paddingTop: '8px' }}>
+                  <strong>Contact:</strong> {event.contactName || 'Primary Contact'}
+                  {event.contactPhone && <div>📞 {event.contactPhone}</div>}
+                  {event.contactEmail && <div>✉️ {event.contactEmail}</div>}
+                </div>
+              )}
+
+              {event.ownerName && (
+                <div style={{ fontSize: '0.85rem', color: '#44403c', borderTop: '1px dashed #d6d3d1', paddingTop: '8px' }}>
+                  <strong>Assigned Owner:</strong> <span style={{ fontWeight: 600 }}>{event.ownerName}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Description for tasks or activities */}
+          {event.description && (
+            <div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Description</div>
+              <p style={{ margin: '0', color: '#475569', fontSize: '0.9rem', lineHeight: 1.5, background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>{event.description}</p>
+            </div>
+          )}
+
+          {/* Task fields */}
+          {isTask && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '0.85rem', color: '#475569' }}>Priority: <strong style={{ textTransform: 'capitalize' }}>{event.priority}</strong></div>
+              {event.relatedTo?.model && (
+                <div style={{ fontSize: '0.85rem', color: '#475569' }}>
+                  Linked Record: <span style={{ background: '#e2e8f0', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>{event.relatedTo.model}: {event.relatedTo.name || 'Record'}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Activity fields */}
+          {!isTask && !isVisit && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              {event.outcome && <div style={{ fontSize: '0.85rem', color: '#475569' }}>Outcome: <strong style={{ textTransform: 'capitalize' }}>{event.outcome}</strong></div>}
+              {event.duration && <div style={{ fontSize: '0.85rem', color: '#475569' }}>Duration: <strong>{event.duration} min</strong></div>}
+              {event.relatedTo?.model && (
+                <div style={{ fontSize: '0.85rem', color: '#475569' }}>
+                  Linked Record: <span style={{ background: '#e2e8f0', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>{event.relatedTo.model}: {event.relatedTo.name || 'Record'}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Postpone Form for Visits */}
+          {isVisit && isPostponing && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: '#fff7ed', padding: '14px', borderRadius: '10px', border: '1px solid #fdba74' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#c2410c' }}>Select New Visit Date:</span>
+              <input
+                type="date"
+                value={postponeDate}
+                onChange={e => setPostponeDate(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => {
+                    onPostponeVisit(event, postponeDate);
+                    setIsPostponing(false);
+                  }}
+                  style={{ flex: 1, padding: '8px', background: '#ea580c', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
+                >
+                  Confirm Reschedule
+                </button>
+                <button
+                  onClick={() => setIsPostponing(false)}
+                  style={{ padding: '8px 12px', background: '#f1f5f9', border: 'none', borderRadius: '6px', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Actions */}
+        <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', background: '#fafafa', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {isVisit ? (
+            <>
+              {/* Visit quick action buttons */}
+              {!event.isCompleted && !event.isCancelled && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => onCompleteVisit(event)}
+                    style={{
+                      flex: 1, padding: '9px 12px', background: '#16a34a', color: 'white',
+                      border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                    }}
+                  >
+                    ✓ Complete Visit
+                  </button>
+                  <button
+                    onClick={() => setIsPostponing(!isPostponing)}
+                    style={{
+                      flex: 1, padding: '9px 12px', background: '#ea580c', color: 'white',
+                      border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                    }}
+                  >
+                    📅 Postpone
+                  </button>
+                  <button
+                    onClick={() => onCancelVisit(event)}
+                    style={{
+                      padding: '9px 12px', background: '#fef2f2', color: '#dc2626',
+                      border: '1px solid #fee2e2', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem'
+                    }}
+                  >
+                    ✕ Cancel
+                  </button>
+                </div>
+              )}
+
+              {/* View Deal Details & Delete */}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => onOpenDeal(event)}
+                  style={{
+                    flex: 1, padding: '9px 14px', background: '#4f46e5', color: 'white',
+                    border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                  }}
+                >
+                  <ExternalLink size={14} /> Open Deal Details
+                </button>
+                <button
+                  onClick={() => onDelete(event)}
+                  style={{
+                    padding: '9px 14px', background: '#fff', color: '#ef4444',
+                    border: '1px solid #fee2e2', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem',
+                    display: 'flex', alignItems: 'center', gap: '4px'
+                  }}
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              </div>
+            </>
+          ) : (
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => onEdit(event)}
+                style={{
+                  flex: 1, padding: '10px 16px', background: '#3b82f6', color: 'white',
+                  border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                }}
+              >
+                <Edit2 size={15} /> Edit
+              </button>
+              <button
+                onClick={() => onDelete(event)}
+                style={{
+                  flex: 1, padding: '10px 16px', background: '#fef2f2', color: '#ef4444',
+                  border: '1px solid #fee2e2', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                }}
+              >
+                <Trash2 size={15} /> Delete
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </>
@@ -395,9 +655,18 @@ export default function ActivityCalendar() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [addMenuVisible, setAddMenuVisible] = useState(false);
 
+  // Opportunity Detail Modal State
+  const [isOpportunityModalOpen, setIsOpportunityModalOpen] = useState(false);
+  const [selectedOpportunityForModal, setSelectedOpportunityForModal] = useState(null);
+
   // Team calendar state
   const [userTeams, setUserTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState('');
+
+  // Current logged in user info
+  const currentUser = JSON.parse(localStorage.getItem('exim_user') || '{}');
+  const userRole = currentUser.role || currentUser.crmRole || '';
+  const isCrmAdmin = userRole === 'Admin' || (typeof userRole === 'string' && userRole.toLowerCase() === 'admin');
 
   // Editing state
   const [editingTask, setEditingTask] = useState(null);
@@ -428,34 +697,55 @@ export default function ActivityCalendar() {
       const endISO = end.toISOString();
       const headers = getHeaders();
 
-      const currentUser = JSON.parse(localStorage.getItem('exim_user') || '{}');
       const currentUserId = currentUser._id || currentUser.id || '';
 
       const taskParams = { startDate: startISO, endDate: endISO };
       const activityParams = { startDate: startISO, endDate: endISO };
+      const visitParams = { startDate: startISO, endDate: endISO };
 
-      if (selectedTeamId) {
+      if (selectedTeamId === 'all') {
+        // Admin viewing all - do not filter by team or single user
+      } else if (selectedTeamId) {
         taskParams.teamId = selectedTeamId;
         activityParams.teamId = selectedTeamId;
+        visitParams.teamId = selectedTeamId;
       } else {
         taskParams.assignedTo = currentUserId;
         activityParams.userId = currentUserId;
+        visitParams.userId = currentUserId;
       }
 
-      const [tasksRes, activitiesRes] = await Promise.all([
+      const [tasksRes, activitiesRes, visitsRes] = await Promise.all([
         axios.get(`${process.env.REACT_APP_API_STRING}/crm/tasks`, {
           ...headers,
           params: taskParams
+        }).catch(err => {
+          console.error('Calendar: Tasks fetch error:', err.response?.status, err.message);
+          return { data: [] };
         }),
         axios.get(`${process.env.REACT_APP_API_STRING}/crm/activities`, {
           ...headers,
           params: activityParams
+        }).catch(err => {
+          console.error('Calendar: Activities fetch error:', err.response?.status, err.message);
+          return { data: [] };
+        }),
+        axios.get(`${process.env.REACT_APP_API_STRING}/crm/opportunities/planned-visits`, {
+          ...headers,
+          params: visitParams
+        }).catch(err => {
+          console.error('Calendar: Visits fetch error:', err.response?.status, err.message);
+          return { data: [] };
         })
       ]);
 
-      const tasks = (tasksRes.data || []).map(t => ({ ...t, _eventType: 'task' }));
-      const activities = (activitiesRes.data || []).map(a => ({ ...a, _eventType: 'activity' }));
-      setEvents([...tasks, ...activities]);
+      const tasks = (Array.isArray(tasksRes.data) ? tasksRes.data : []).map(t => ({ ...t, _eventType: 'task' }));
+      const activities = (Array.isArray(activitiesRes.data) ? activitiesRes.data : []).map(a => ({ ...a, _eventType: 'activity' }));
+      const visits = (Array.isArray(visitsRes.data) ? visitsRes.data : []).map(v => ({ ...v, _eventType: 'visit' }));
+
+      console.log(`Calendar: Fetched ${tasks.length} tasks, ${activities.length} activities, ${visits.length} visits for range ${startISO} to ${endISO}`);
+
+      setEvents([...tasks, ...activities, ...visits]);
     } catch (err) {
       console.error('Calendar fetch error:', err);
       setEvents([]);
@@ -514,21 +804,102 @@ export default function ActivityCalendar() {
     }
   };
 
+  const handleCompleteVisit = async (event) => {
+    const oppId = event.opportunityId || event.relatedTo?.id;
+    const visitId = event.visitId || event._id;
+    if (!oppId || !visitId) return;
+    try {
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${oppId}/planned-visits/${visitId}/complete`,
+        {},
+        getHeaders()
+      );
+      message.success('Visit marked as completed');
+      setSelectedEvent(null);
+      fetchEvents();
+    } catch (err) {
+      message.error('Failed to complete visit: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleCancelVisit = async (event) => {
+    const oppId = event.opportunityId || event.relatedTo?.id;
+    const visitId = event.visitId || event._id;
+    if (!oppId || !visitId) return;
+    try {
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${oppId}/planned-visits/${visitId}/cancel`,
+        {},
+        getHeaders()
+      );
+      message.success('Visit cancelled successfully');
+      setSelectedEvent(null);
+      fetchEvents();
+    } catch (err) {
+      message.error('Failed to cancel visit: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handlePostponeVisit = async (event, newDate) => {
+    if (!newDate) {
+      message.error('Please select a new visit date');
+      return;
+    }
+    const oppId = event.opportunityId || event.relatedTo?.id;
+    const visitId = event.visitId || event._id;
+    if (!oppId || !visitId) return;
+    try {
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${oppId}/planned-visits/${visitId}/postpone`,
+        { visitDate: newDate },
+        getHeaders()
+      );
+      message.success(`Visit postponed to ${newDate}`);
+      setSelectedEvent(null);
+      fetchEvents();
+    } catch (err) {
+      message.error('Failed to postpone visit: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleOpenDeal = async (event) => {
+    const oppId = event.opportunityId || event.relatedTo?.id;
+    if (!oppId) return;
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/opportunities/${oppId}`, getHeaders());
+      setSelectedOpportunityForModal(res.data);
+      setIsOpportunityModalOpen(true);
+      setSelectedEvent(null);
+    } catch (err) {
+      message.error('Error loading opportunity: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
   const handleEventDelete = (event) => {
+    const isVisit = event._eventType === 'visit';
+    const isTask = event._eventType === 'task';
+    const itemType = isVisit ? 'Planned Visit' : isTask ? 'Task' : 'Activity';
+
     Modal.confirm({
-      title: `Delete ${event._eventType === 'task' ? 'Task' : 'Activity'}`,
-      content: `Are you sure you want to delete this ${event._eventType === 'task' ? 'task' : 'activity'}?`,
+      title: `Delete ${itemType}`,
+      content: `Are you sure you want to delete this ${itemType.toLowerCase()}?`,
       okText: 'Delete',
       okType: 'danger',
       async onOk() {
         try {
-          const endpoint = event._eventType === 'task' ? `/crm/tasks/${event._id}` : `/crm/activities/${event._id}`;
-          await axios.delete(`${process.env.REACT_APP_API_STRING}${endpoint}`, getHeaders());
-          message.success(`${event._eventType === 'task' ? 'Task' : 'Activity'} deleted successfully`);
+          if (isVisit) {
+            const oppId = event.opportunityId || event.relatedTo?.id;
+            const visitId = event.visitId || event._id;
+            await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/opportunities/${oppId}/planned-visits/${visitId}`, getHeaders());
+          } else {
+            const endpoint = isTask ? `/crm/tasks/${event._id}` : `/crm/activities/${event._id}`;
+            await axios.delete(`${process.env.REACT_APP_API_STRING}${endpoint}`, getHeaders());
+          }
+          message.success(`${itemType} deleted successfully`);
           setSelectedEvent(null);
           fetchEvents();
         } catch (error) {
-          message.error('Error deleting event');
+          message.error(`Error deleting ${itemType.toLowerCase()}`);
         }
       }
     });
@@ -555,6 +926,19 @@ export default function ActivityCalendar() {
         activity={editingActivity}
       />
 
+      {/* Opportunity Detail Modal (when opened from calendar visit) */}
+      {selectedOpportunityForModal && (
+        <OpportunityDetailModal
+          isOpen={isOpportunityModalOpen}
+          onClose={() => {
+            setIsOpportunityModalOpen(false);
+            setSelectedOpportunityForModal(null);
+          }}
+          opportunity={selectedOpportunityForModal}
+          onRefresh={fetchEvents}
+        />
+      )}
+
       {/* Event Detail Slide-over */}
       {selectedEvent && (
         <EventDetailPanel
@@ -562,6 +946,10 @@ export default function ActivityCalendar() {
           onClose={() => setSelectedEvent(null)}
           onEdit={handleEventEdit}
           onDelete={handleEventDelete}
+          onCompleteVisit={handleCompleteVisit}
+          onCancelVisit={handleCancelVisit}
+          onPostponeVisit={handlePostponeVisit}
+          onOpenDeal={handleOpenDeal}
         />
       )}
 
@@ -592,7 +980,7 @@ export default function ActivityCalendar() {
                 onClick={() => { setAddMenuVisible(false); setIsActivityModalOpen(true); }}
                 style={{ background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '10px', padding: '12px 24px', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}
               >
-                ● Activity
+                ● Activity / Visit
               </button>
             </div>
           </div>
@@ -618,30 +1006,31 @@ export default function ActivityCalendar() {
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Team Dropdown Selector */}
-          {userTeams.length > 0 && (
-            <select
-              value={selectedTeamId}
-              onChange={(e) => setSelectedTeamId(e.target.value)}
-              style={{
-                padding: '8px 12px',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                fontSize: '0.85rem',
-                outline: 'none',
-                background: '#fff',
-                fontWeight: 600,
-                color: '#475569',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="">My Calendar (Personal View)</option>
-              {userTeams.map(team => (
-                <option key={team._id} value={team._id}>
-                  👥 Team: {team.name}
-                </option>
-              ))}
-            </select>
-          )}
+          <select
+            value={selectedTeamId}
+            onChange={(e) => setSelectedTeamId(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid #cbd5e1',
+              borderRadius: '8px',
+              fontSize: '0.85rem',
+              outline: 'none',
+              background: '#fff',
+              fontWeight: 600,
+              color: '#475569',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="">👤 My Calendar (Personal View)</option>
+            {isCrmAdmin && (
+              <option value="all">🌐 All Teams / Organization</option>
+            )}
+            {userTeams.map(team => (
+              <option key={team._id} value={team._id}>
+                👥 Team: {team.name}
+              </option>
+            ))}
+          </select>
 
           <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '8px', padding: '3px' }}>
             {['day', 'week', 'month'].map(v => (
@@ -672,16 +1061,20 @@ export default function ActivityCalendar() {
       {/* Calendar Body */}
       <div style={{ background: '#fff', padding: '16px', borderRadius: '0 0 16px 16px', border: '1px solid #e2e8f0' }}>
         {/* Legend */}
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '14px', marginBottom: '14px', flexWrap: 'wrap', alignItems: 'center', padding: '4px 8px', background: '#f8fafc', borderRadius: '8px' }}>
           {[
-            { label: 'Task', color: '#4f46e5' },
-            { label: 'Call', color: '#1d4ed8' },
-            { label: 'Email', color: '#b45309' },
-            { label: 'Meeting', color: '#6d28d9' },
-            { label: 'Demo', color: '#be185d' },
-            { label: 'Note', color: '#0369a1' },
+            { label: 'Visit', color: '#ea580c', icon: '📍' },
+            { label: 'Task', color: '#4f46e5', icon: '☑' },
+            { label: 'Call', color: '#1d4ed8', icon: '●' },
+            { label: 'Email', color: '#b45309', icon: '●' },
+            { label: 'Meeting', color: '#6d28d9', icon: '●' },
+            { label: 'Demo', color: '#be185d', icon: '●' },
+            { label: 'Note', color: '#0369a1', icon: '●' },
+            { label: 'Pre Sale', color: '#0284c7', icon: '🎯' },
+            { label: 'Post Sale', color: '#7c3aed', icon: '🤝' },
           ].map(item => (
-            <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#64748b' }}>
+            <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>
+              <span style={{ fontSize: '0.75rem' }}>{item.icon}</span>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: item.color }}></div>
               {item.label}
             </div>

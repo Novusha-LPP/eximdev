@@ -159,9 +159,19 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
       const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
       const userId = user._id || user.id;
 
+      const currentType = (formData.type || '').toLowerCase();
+      const isPreOrPostSale = ['pre_sale', 'post_sale', 'pre sale', 'post sale'].includes(currentType);
+      let autoSubject = formData.subject;
+      if (isPreOrPostSale && !autoSubject) {
+        const typeTitle = currentType.includes('pre') ? 'Pre Sale' : 'Post Sale';
+        autoSubject = formData.description?.trim().slice(0, 35) || `${typeTitle} Note`;
+      } else if (currentType === 'note' && !autoSubject) {
+        autoSubject = formData.description?.trim().slice(0, 30) || 'Note';
+      }
+
       const dataToSubmit = {
         ...formData,
-        subject: formData.type === 'note' && !formData.subject ? (formData.description?.slice(0, 30) || 'Note') : formData.subject,
+        subject: autoSubject || 'Activity',
         userId: userId,
         attachments: formData.attachments || [],
         relatedTo: linkedId ? {
@@ -225,11 +235,28 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
         <form onSubmit={handleSubmit} className="modal-scroll" style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px', margin: 0 }}>
           {(() => {
             const currentType = (formData.type || 'call').toLowerCase();
-            const showOutcome = ['call', 'meeting', 'demo', 'visit'].includes(currentType);
-            const showDuration = ['call', 'meeting', 'demo', 'visit'].includes(currentType);
-            const showNextSteps = ['call', 'meeting', 'demo', 'visit'].includes(currentType);
-            const descLabel = currentType === 'note' ? 'Note Details' : currentType === 'email' ? 'Email Content / Summary' : currentType === 'visit' ? 'Meeting / Visit Agenda & Location' : 'Description';
-            const descPlaceholder = currentType === 'note' ? 'Write note here...' : currentType === 'email' ? 'Enter email summary...' : 'Add detailed notes about this activity...';
+            const isPreOrPostSale = ['pre_sale', 'post_sale', 'pre sale', 'post sale'].includes(currentType);
+            const showOutcome = !isPreOrPostSale && ['call', 'meeting', 'demo', 'visit'].includes(currentType);
+            const showDuration = !isPreOrPostSale && ['call', 'meeting', 'demo', 'visit'].includes(currentType);
+            const showNextSteps = !isPreOrPostSale && ['call', 'meeting', 'demo', 'visit'].includes(currentType);
+            
+            const descLabel = isPreOrPostSale
+              ? (currentType.includes('pre') ? 'Pre Sale Note *' : 'Post Sale Note *')
+              : currentType === 'note'
+                ? 'Note Details'
+                : currentType === 'email'
+                  ? 'Email Content / Summary'
+                  : currentType === 'visit'
+                    ? 'Meeting / Visit Agenda & Location'
+                    : 'Description';
+
+            const descPlaceholder = isPreOrPostSale
+              ? (currentType.includes('pre') ? 'Write pre-sale note here...' : 'Write post-sale note here...')
+              : currentType === 'note'
+                ? 'Write note here...'
+                : currentType === 'email'
+                  ? 'Enter email summary...'
+                  : 'Add detailed notes about this activity...';
 
             return (
               <>
@@ -240,7 +267,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
                       required
                       value={formData.type}
                       onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', background: '#fff' }}
                     >
                       <option value="call">Call</option>
                       <option value="meeting">Meeting</option>
@@ -248,6 +275,8 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
                       <option value="email">Email</option>
                       <option value="note">Note</option>
                       <option value="demo">Demo</option>
+                      <option value="pre_sale">Pre Sale</option>
+                      <option value="post_sale">Post Sale</option>
                     </select>
                   </div>
                   {showOutcome && (
@@ -266,7 +295,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
                   )}
                 </div>
 
-                {currentType !== 'note' && (
+                {!isPreOrPostSale && currentType !== 'note' && (
                   <div style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Subject / Title *</label>
                     <input
@@ -280,18 +309,23 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
                   </div>
                 )}
 
+                {/* 1. Note */}
                 <div style={{ marginBottom: '16px' }}>
                   <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>{descLabel}</label>
                   <textarea
+                    required={isPreOrPostSale}
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder={descPlaceholder}
-                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', minHeight: '80px', fontFamily: 'inherit' }}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', minHeight: isPreOrPostSale ? '110px' : '80px', fontFamily: 'inherit' }}
                   />
                 </div>
 
+                {/* 2. Attachment */}
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Attachments</label>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>
+                    {isPreOrPostSale ? 'Attachment' : 'Attachments'}
+                  </label>
                   <input
                     type="file"
                     multiple
@@ -303,10 +337,23 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
                       {formData.attachments.map((attachment, idx) => (
                         <span key={`${attachment.name}-${idx}`} style={{
                           background: '#eff6ff', color: '#1d4ed8', borderRadius: '999px',
-                          padding: '4px 8px', fontSize: '0.75rem', fontWeight: 600,
-                          border: '1px solid #bfdbfe'
+                          padding: '4px 10px', fontSize: '0.75rem', fontWeight: 600,
+                          border: '1px solid #bfdbfe', display: 'inline-flex', alignItems: 'center', gap: '6px'
                         }}>
-                          {attachment.name}
+                          📎 {attachment.name}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({
+                                ...prev,
+                                attachments: (prev.attachments || []).filter((_, i) => i !== idx)
+                              }));
+                            }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '0 2px', fontSize: '0.85rem', fontWeight: 700, lineHeight: 1 }}
+                            title="Remove attachment"
+                          >
+                            ×
+                          </button>
                         </span>
                       ))}
                     </div>
@@ -326,6 +373,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
                   </div>
                 )}
 
+                {/* 3. Activity Date & Time */}
                 <div style={{ display: 'grid', gridTemplateColumns: showDuration ? '1fr 1fr' : '1fr', gap: '16px', marginBottom: '16px' }}>
                   {showDuration && (
                     <div>
@@ -453,15 +501,17 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
             </div>
           )}
 
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Next Steps</label>
-            <textarea
-              value={formData.nextSteps}
-              onChange={(e) => setFormData({ ...formData, nextSteps: e.target.value })}
-              placeholder="What should happen next?"
-              style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', minHeight: '60px', fontFamily: 'inherit' }}
-            />
-          </div>
+          {!['pre_sale', 'post_sale', 'pre sale', 'post sale', 'note'].includes((formData.type || '').toLowerCase()) && (
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Next Steps</label>
+              <textarea
+                value={formData.nextSteps}
+                onChange={(e) => setFormData({ ...formData, nextSteps: e.target.value })}
+                placeholder="What should happen next?"
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', minHeight: '60px', fontFamily: 'inherit' }}
+              />
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '20px', borderTop: '1px solid #f1f5f9', marginTop: 'auto' }}>
             <button

@@ -23,7 +23,26 @@ function CompletedKyc() {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/view-completed-kyc`
         );
-        setData(res.data);
+        const list = Array.isArray(res.data) ? res.data : [];
+        const formatted = list.map((item) => {
+          const rawDate = item.approved_by_date || item.approvedAt;
+          let approvedDateFormatted = "—";
+          if (rawDate) {
+            const d = new Date(rawDate);
+            if (!isNaN(d.getTime())) {
+              approvedDateFormatted = d.toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              });
+            }
+          }
+          return {
+            ...item,
+            approved_date_formatted: approvedDateFormatted,
+          };
+        });
+        setData(formatted);
       } catch (error) {
         console.error("Error fetching completed KYC list:", error);
       }
@@ -144,7 +163,7 @@ function CompletedKyc() {
     {
       accessorKey: "approved_by",
       header: "Approved By",
-      size: 200,
+      size: 180,
       Cell: ({ cell }) => (
         <span
           style={{
@@ -156,6 +175,26 @@ function CompletedKyc() {
           {cell.getValue() || (cell.row.original.financial_details_approved_by ? `Fin: ${cell.row.original.financial_details_approved_by}` : "Not Assigned")}
         </span>
       ),
+    },
+    {
+      accessorKey: "approved_date_formatted",
+      header: <>Approved <br /> Date</>,
+      size: 160,
+      Cell: ({ cell }) => {
+        const val = cell.getValue();
+        const isEmpty = !val || val === "—";
+        return (
+          <span
+            style={{
+              color: isEmpty ? "var(--slate-400)" : "var(--slate-700)",
+              fontSize: "0.85rem",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {isEmpty ? "—" : val}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "remarks",
@@ -210,7 +249,7 @@ function CompletedKyc() {
   const uniqueMonths = useMemo(() => {
     const monthsMap = {};
     data.forEach((item) => {
-      const dateVal = item.approvedAt || item.updatedAt || item.createdAt;
+      const dateVal = item.approved_by_date || item.approvedAt;
       if (dateVal) {
         const d = new Date(dateVal);
         if (!isNaN(d.getTime())) {
@@ -229,7 +268,7 @@ function CompletedKyc() {
   const filteredData = useMemo(() => {
     if (selectedMonth === "all") return data;
     return data.filter((item) => {
-      const dateVal = item.approvedAt || item.updatedAt || item.createdAt;
+      const dateVal = item.approved_by_date || item.approvedAt;
       if (!dateVal) return false;
       const d = new Date(dateVal);
       if (isNaN(d.getTime())) return false;

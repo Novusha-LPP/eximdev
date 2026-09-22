@@ -454,6 +454,7 @@ const jobSchema = new mongoose.Schema({
   nfims_date: { type: String, trim: true },
   sims_no: { type: String, trim: true },
   sims_date: { type: String, trim: true },
+  pims_no: { type: String, trim: true },
   container_nos: [
     {
       container_number: { type: String, trim: true },

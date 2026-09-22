@@ -183,8 +183,8 @@ function Home() {
   let sopsGrouped = false;
   const isRabsUser = user?.company && /RABS/i.test(user.company);
 
-  // Retrieve assigned modules from fetched user profile
-  let userModulesList = data?.modules || [];
+  // Retrieve assigned modules from fetched user profile (fallback to user context immediately to avoid layout flash)
+  let userModulesList = data?.modules || user?.modules || [];
   let finalModulesList = [...userModulesList];
 
   // Auto-include First Aid for RABS company users if not already present
@@ -193,9 +193,9 @@ function Home() {
   }
 
   // Auto-include IT Helpdesk so all users have access to Helpdesk & Tickets
-  if (!finalModulesList.includes("IT Helpdesk")) {
-    finalModulesList.push("IT Helpdesk");
-  }
+  // if (!finalModulesList.includes("IT Helpdesk")) {
+  //   finalModulesList.push("IT Helpdesk");
+  // }
 
   // Group modules into their respective dashboard categories
   const categorizedModules = finalModulesList.reduce((acc, module) => {

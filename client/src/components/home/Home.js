@@ -247,12 +247,15 @@ function Home() {
       return acc;
     }
 
-    // 4b. If user has 'CRM', ensure both CRM and Brochure & Videos tiles are available under CRM category
+    // 4b. Brochure & Videos is a tab inside CRM, not a separate module tile
+    if (module === "Brochure & Videos" || module === "Company Brochures") {
+      return acc;
+    }
+
     if (module === "CRM") {
       const category = "CRM";
       if (!acc[category]) acc[category] = [];
       if (!acc[category].includes("CRM")) acc[category].push("CRM");
-      if (!acc[category].includes("Brochure & Videos")) acc[category].push("Brochure & Videos");
       return acc;
     }
 

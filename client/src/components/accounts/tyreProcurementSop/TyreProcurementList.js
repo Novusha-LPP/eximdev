@@ -52,10 +52,21 @@ const stageTabsList = [
   { label: "7. Completed", value: "7" },
 ];
 
+const isCompletedSiteGrn = (row) => {
+  const approvals = row.stage6?.approvals || [];
+  const allApprovalsDone = approvals.length >= 3 && approvals.every(
+    (item) => item && (item.checked || item.status === "Done" || item.status === "DONE" || item.date)
+  );
+  return allApprovalsDone || ["GRN Done", "GRN Completed", "Closed"].includes(row.status);
+};
+
 function TyreProcurementList({ onEdit, onView, onCreate }) {
   const { user } = useContext(UserContext);
   const userRole = (user?.role || "").toLowerCase();
   const isAdmin = userRole === "admin" || userRole === "superadmin";
+  const userIdentity = [user?.username, user?.first_name, user?.middle_name, user?.last_name]
+    .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
+  const canOverrideSignOffLock = isAdmin || userIdentity.includes("ajaykumavat");
 
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
@@ -577,6 +588,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                 ) : (
                   data.map((row) => {
                     const chipStyle = getStatusChipProps(row.status);
+                    const editLocked = isCompletedSiteGrn(row) && !canOverrideSignOffLock;
                     return (
                       <TableRow
                         key={row._id}
@@ -589,11 +601,11 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                         <TableCell sx={{ fontWeight: 700, fontSize: "13px", py: 1, px: 1.5 }}>
                           <Box
                             component="span"
-                            onClick={() => onEdit(row)}
+                            onClick={() => !editLocked && onEdit(row)}
                             sx={{
-                              cursor: "pointer",
-                              color: "#2563eb",
-                              "&:hover": { color: "#1d4ed8", textDecoration: "underline" },
+                              cursor: editLocked ? "default" : "pointer",
+                              color: editLocked ? "#64748b" : "#2563eb",
+                              "&:hover": editLocked ? {} : { color: "#1d4ed8", textDecoration: "underline" },
                             }}
                           >
                             {row.prNumber}
@@ -653,10 +665,11 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                                 <Visibility sx={{ fontSize: 16 }} />
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title="Edit PR">
+                            <Tooltip title={editLocked ? "Completed Site GRN — view only" : "Edit PR"}>
                               <IconButton
                                 size="small"
                                 onClick={() => onEdit(row)}
+                                disabled={editLocked}
                                 sx={{
                                   color: "#2563eb",
                                   bgcolor: "#eff6ff",

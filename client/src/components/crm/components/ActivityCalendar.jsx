@@ -90,19 +90,72 @@ function isSameDay(a, b) {
   const da = a instanceof Date ? a : new Date(a);
   const db = b instanceof Date ? b : new Date(b);
   if (isNaN(da.getTime()) || isNaN(db.getTime())) return false;
-  // Local date match
-  if (da.getFullYear() === db.getFullYear() &&
+  
+  // 1. Local date match
+  if (
+    da.getFullYear() === db.getFullYear() &&
     da.getMonth() === db.getMonth() &&
-    da.getDate() === db.getDate()) {
+    da.getDate() === db.getDate()
+  ) {
     return true;
   }
-  // Also compare UTC date (handles UTC midnight stored dates)
-  if (da.getUTCFullYear() === db.getFullYear() &&
+
+  // 2. da UTC matching db local (handles UTC midnight stored dates)
+  if (
+    da.getUTCFullYear() === db.getFullYear() &&
     da.getUTCMonth() === db.getMonth() &&
-    da.getUTCDate() === db.getDate()) {
+    da.getUTCDate() === db.getDate()
+  ) {
     return true;
   }
+
+  // 3. da local matching db UTC
+  if (
+    da.getFullYear() === db.getUTCFullYear() &&
+    da.getMonth() === db.getUTCMonth() &&
+    da.getDate() === db.getUTCDate()
+  ) {
+    return true;
+  }
+
+  // 4. da UTC matching db UTC
+  if (
+    da.getUTCFullYear() === db.getUTCFullYear() &&
+    da.getUTCMonth() === db.getUTCMonth() &&
+    da.getUTCDate() === db.getUTCDate()
+  ) {
+    return true;
+  }
+
+  // 5. String prefix match (YYYY-MM-DD)
+  if (typeof a === 'string' && a.length >= 10) {
+    const aPrefix = a.slice(0, 10);
+    const dbLocalStr = `${db.getFullYear()}-${String(db.getMonth() + 1).padStart(2, '0')}-${String(db.getDate()).padStart(2, '0')}`;
+    const dbUtcStr = `${db.getUTCFullYear()}-${String(db.getUTCMonth() + 1).padStart(2, '0')}-${String(db.getUTCDate()).padStart(2, '0')}`;
+    if (aPrefix === dbLocalStr || aPrefix === dbUtcStr) return true;
+  }
+
   return false;
+}
+
+// Ensure visits ALWAYS appear at the top of any list, followed by pending tasks and activities
+function sortEventsWithVisitsFirst(list) {
+  if (!Array.isArray(list)) return [];
+  return [...list].sort((a, b) => {
+    const aIsVisit = (a._eventType === 'visit' || a.type === 'visit') ? 1 : 0;
+    const bIsVisit = (b._eventType === 'visit' || b.type === 'visit') ? 1 : 0;
+    if (aIsVisit !== bIsVisit) {
+      return bIsVisit - aIsVisit; // Visits always first!
+    }
+    if (aIsVisit && bIsVisit) {
+      const aPending = !a.isCompleted && !a.isCancelled ? 1 : 0;
+      const bPending = !b.isCompleted && !b.isCancelled ? 1 : 0;
+      if (aPending !== bPending) return bPending - aPending; // Pending visits before completed/cancelled
+    }
+    const aTime = new Date(a.dueDate || a.activityDate || a.visitDate || 0).getTime();
+    const bTime = new Date(b.dueDate || b.activityDate || b.visitDate || 0).getTime();
+    return aTime - bTime;
+  });
 }
 
 function formatTime(dateStr) {
@@ -130,11 +183,12 @@ function EventPill({ event, onClick }) {
       style={{
         background: colors.bg,
         color: colors.text,
-        border: `1px solid ${colors.border}`,
+        border: isVisit ? `1.5px solid ${colors.border}` : `1px solid ${colors.border}`,
+        boxShadow: isVisit ? '0 1px 2px rgba(234, 88, 12, 0.15)' : 'none',
         borderRadius: '5px',
         padding: '2px 6px',
         fontSize: '0.7rem',
-        fontWeight: 600,
+        fontWeight: isVisit ? 700 : 600,
         cursor: 'pointer',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
@@ -157,14 +211,18 @@ function EventPill({ event, onClick }) {
 // ─── Day View ─────────────────────────────────────────────────────────────────
 function DayView({ events, date, onCellClick, onEventClick }) {
   const hours = Array.from({ length: 24 }, (_, i) => i);
-  const dayEvents = events.filter(e => isSameDay(new Date(e.dueDate || e.activityDate || e.visitDate), date));
+  const dayEvents = sortEventsWithVisitsFirst(
+    events.filter(e => isSameDay(new Date(e.dueDate || e.activityDate || e.visitDate), date))
+  );
   const visitsForDay = dayEvents.filter(e => e._eventType === 'visit' || e.type === 'visit');
 
   const getEventsForHour = (hour) =>
-    dayEvents.filter(e => {
-      const d = new Date(e.dueDate || e.activityDate || e.visitDate);
-      return d.getHours() === hour;
-    });
+    sortEventsWithVisitsFirst(
+      dayEvents.filter(e => {
+        const d = new Date(e.dueDate || e.activityDate || e.visitDate);
+        return d.getHours() === hour;
+      })
+    );
 
   return (
     <div style={{ overflowY: 'auto', maxHeight: '65vh', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
@@ -227,7 +285,9 @@ function WeekView({ events, weekStart, onCellClick, onEventClick, onMoreClick })
   const today = new Date();
 
   const getEventsForDay = (day) =>
-    events.filter(e => isSameDay(new Date(e.dueDate || e.activityDate || e.visitDate), day));
+    sortEventsWithVisitsFirst(
+      events.filter(e => isSameDay(new Date(e.dueDate || e.activityDate || e.visitDate), day))
+    );
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0, border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
@@ -286,7 +346,9 @@ function MonthView({ events, year, month, onCellClick, onEventClick, onMoreClick
   const getEventsForDay = (d) => {
     if (!d) return [];
     const dt = new Date(year, month, d);
-    return events.filter(e => isSameDay(new Date(e.dueDate || e.activityDate || e.visitDate), dt));
+    return sortEventsWithVisitsFirst(
+      events.filter(e => isSameDay(new Date(e.dueDate || e.activityDate || e.visitDate), dt))
+    );
   };
 
   return (
@@ -745,7 +807,7 @@ export default function ActivityCalendar() {
 
       console.log(`Calendar: Fetched ${tasks.length} tasks, ${activities.length} activities, ${visits.length} visits for range ${startISO} to ${endISO}`);
 
-      setEvents([...tasks, ...activities, ...visits]);
+      setEvents(sortEventsWithVisitsFirst([...visits, ...tasks, ...activities]));
     } catch (err) {
       console.error('Calendar fetch error:', err);
       setEvents([]);

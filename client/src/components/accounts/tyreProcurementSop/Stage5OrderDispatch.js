@@ -7,6 +7,15 @@ import {
 
 const confirmationOptions = ["WhatsApp", "Email", "Call"];
 
+const normalizeConfirmation = (val) => {
+  if (!val) return "WhatsApp";
+  const s = String(val).trim().toUpperCase();
+  if (s === "WHATSAPP") return "WhatsApp";
+  if (s === "EMAIL") return "Email";
+  if (s === "CALL") return "Call";
+  return val;
+};
+
 function Stage5OrderDispatch({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => {
     onChange({
@@ -33,7 +42,7 @@ function Stage5OrderDispatch({ data, onChange, globalData, onGlobalChange }) {
 
   const updateSupplierDispatch = (index, field, value, subGroup = null) => {
     const updated = [...supplierDispatches];
-    const val = typeof value === "string" ? value.toUpperCase() : value;
+    const val = field === "modeOfConfirmation" ? normalizeConfirmation(value) : (typeof value === "string" ? value.toUpperCase() : value);
 
     while (updated.length <= index) {
       const sup = awardedSuppliers[updated.length] || {};
@@ -242,7 +251,7 @@ function Stage5OrderDispatch({ data, onChange, globalData, onGlobalChange }) {
                     <td key={idx}>
                       <select
                         className="sop-select"
-                        value={modeVal}
+                        value={normalizeConfirmation(modeVal)}
                         onChange={(e) => updateSupplierDispatch(idx, "modeOfConfirmation", e.target.value)}
                       >
                         {confirmationOptions.map((o) => (

@@ -319,6 +319,8 @@ const approvalSchema = new mongoose.Schema(
     name: String,
     date: Date,
     signature: String,
+    checked: { type: Boolean, default: false },
+    status: { type: String, enum: ["Pending", "Done", "PENDING", "DONE", ""], default: "Pending" },
   },
   { _id: true }
 );

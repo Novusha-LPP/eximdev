@@ -1,4 +1,5 @@
 import express from "express";
+import { isDeepStrictEqual } from "node:util";
 import XLSX from "xlsx";
 import TyreProcurementSop from "../../model/accounts/tyreProcurementSop.mjs";
 import UserModel from "../../model/userModel.mjs";
@@ -9,6 +10,49 @@ import TyreSupplierModel from "../../model/accounts/tyreSupplierModel.mjs";
 import ProcurementProductModel from "../../model/accounts/procurementProductModel.mjs";
 
 const router = express.Router();
+
+// A completed workflow step is a sign-off, not a draft state. Keep this
+// enforcement on the API as well as in the form so it cannot be bypassed.
+const isDone = (item) =>
+  Boolean(item && (item.checked || item.status === "Done" || item.status === "DONE" || item.date));
+
+const completedTyreStages = (doc) => {
+  const approvals = doc?.stage6?.approvals || [];
+  return {
+    stage1Done: isDone(doc?.stage1?.routingChecklist?.[0]),
+    stage2Done: isDone(doc?.stage2?.routingChecklist?.[0]),
+    stage3Done: doc?.stage3?.decision?.decision === "APPROVED" || Boolean(doc?.stage3?.signOff?.dateOfApproval),
+    stage5Done: Boolean(doc?.stage5?.dispatchDone || doc?.stage5?.isDispatchDone) ||
+      (doc?.stage5?.supplierDispatches || []).some((item) => item?.dispatchDone || item?.isDispatchDone),
+    stage6Done: approvals.length >= 3 && approvals.every(isDone),
+  };
+};
+
+const canOverrideSignOffLock = (user) => {
+  const role = String(user?.role || "").toLowerCase();
+  if (role === "admin" || role === "superadmin") return true;
+  const identity = [user?.username, user?.first_name, user?.middle_name, user?.last_name]
+    .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
+  return identity.includes("ajaykumavat");
+};
+
+function assertTyreSignOffLocks(existing, payload, user) {
+  if (canOverrideSignOffLock(user)) return null;
+  const locked = completedTyreStages(existing);
+  if (locked.stage6Done || ["GRN Done", "GRN Completed", "Closed"].includes(existing.status)) {
+    return "This Site GRN is completed and can only be edited by an admin or Ajay Kumavat.";
+  }
+  for (const stage of [1, 2, 3, 5]) {
+    const existingStage = existing[`stage${stage}`]?.toObject?.() || existing[`stage${stage}`];
+    // Requests are JSON while Mongoose holds Date instances. Compare the JSON
+    // representations so an unchanged signed-off stage does not false-positive.
+    const savedStage = JSON.parse(JSON.stringify(existingStage));
+    if (locked[`stage${stage}Done`] && !isDeepStrictEqual(savedStage, payload[`stage${stage}`])) {
+      return `Stage ${stage} has been signed off and can only be edited by an admin or Ajay Kumavat.`;
+    }
+  }
+  return null;
+}
 
 // ─── Helpers ───
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("en-GB") : "");
@@ -778,6 +822,10 @@ router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
     const existing = await TyreProcurementSop.findById(req.params.id);
     if (!existing) {
       return res.status(404).json({ success: false, message: "Tyre PR not found" });
+    }
+    const lockMessage = assertTyreSignOffLocks(existing, payload, req.user);
+    if (lockMessage) {
+      return res.status(403).json({ success: false, message: lockMessage });
     }
     if (prNumber && prNumber.trim() !== existing.prNumber) {
       const duplicate = await TyreProcurementSop.findOne({ prNumber: prNumber.trim() });

@@ -37,8 +37,6 @@ export const moduleCategories = {
   "Export - Jobs": "Export",
   "Export - Operation": "Export",
   "CRM": "CRM",
-  "Brochure & Videos": "CRM",
-  "Company Brochures": "CRM",
   "DGFT": "DGFT",
   "Open Points": "Project Management",
   "Supplier Scorecard": "Supplier’s Maintenance/Service Score Card",

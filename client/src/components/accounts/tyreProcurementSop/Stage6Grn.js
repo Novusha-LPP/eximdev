@@ -7,7 +7,34 @@ import {
 
 const yesNoOptions = ["Yes", "No"];
 const acceptedOptions = ["Accepted", "Rejected"];
-const typeOptions = ["New", "Remould"];
+const typeOptions = ["New", "Refurbished", "Used", "Spare", "Consumable"];
+
+const normalizeYesNo = (val) => {
+  if (!val) return "";
+  const s = String(val).trim().toUpperCase();
+  if (s === "YES") return "Yes";
+  if (s === "NO") return "No";
+  return val;
+};
+
+const normalizeAccepted = (val) => {
+  if (!val) return "";
+  const s = String(val).trim().toUpperCase();
+  if (s === "ACCEPTED") return "Accepted";
+  if (s === "REJECTED") return "Rejected";
+  return val;
+};
+
+const normalizeType = (val) => {
+  if (!val) return "New";
+  const s = String(val).trim().toUpperCase();
+  if (s === "NEW") return "New";
+  if (s === "REMOULD" || s === "REFURBISHED") return "Refurbished";
+  if (s === "USED") return "Used";
+  if (s === "SPARE") return "Spare";
+  if (s === "CONSUMABLE") return "Consumable";
+  return val;
+};
 
 function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => {
@@ -15,7 +42,8 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
   };
 
   const updateNested = (group, field, value) => {
-    onChange({ [group]: { ...data[group], [field]: typeof value === "string" ? value.toUpperCase() : value } });
+    const val = group === "qualityConformanceCheck" ? normalizeYesNo(value) : (typeof value === "string" ? value.toUpperCase() : value);
+    onChange({ [group]: { ...data[group], [field]: val } });
   };
 
   // Selected suppliers from Stage 2
@@ -64,7 +92,14 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
       : Array.from({ length: 4 }).map((_, i) => ({ sNo: i + 1, type: "New" }));
 
   const updateItem = (idx, field, value) => {
-    const val = typeof value === "string" ? value.toUpperCase() : value;
+    let val = value;
+    if (field === "type") {
+      val = normalizeType(value);
+    } else if (field === "acceptedRejected") {
+      val = normalizeAccepted(value);
+    } else if (typeof value === "string") {
+      val = value.toUpperCase();
+    }
     const updated = itemsReceived.map((item, i) => (i === idx ? { ...item, [field]: val } : item));
     onChange({ itemsReceived: updated });
   };
@@ -359,7 +394,7 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
                   <td>
                     <select
                       className="sop-select"
-                      value={item.type || "New"}
+                      value={normalizeType(item.type)}
                       onChange={(e) => updateItem(idx, "type", e.target.value)}
                     >
                       {typeOptions.map((o) => (
@@ -370,7 +405,7 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
                   <td>
                     <select
                       className="sop-select"
-                      value={item.acceptedRejected || ""}
+                      value={normalizeAccepted(item.acceptedRejected)}
                       onChange={(e) => updateItem(idx, "acceptedRejected", e.target.value)}
                     >
                       <option value="">Select</option>
@@ -421,7 +456,7 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
                 <select
                   className="sop-select"
                   style={{ width: 80 }}
-                  value={data.qualityConformanceCheck?.[field] || ""}
+                  value={normalizeYesNo(data.qualityConformanceCheck?.[field])}
                   onChange={(e) => updateNested("qualityConformanceCheck", field, e.target.value)}
                 >
                   <option value="">Select</option>

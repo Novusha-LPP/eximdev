@@ -417,7 +417,7 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
               className="sop-input"
               value={data.specificationDetails || ""}
               onChange={(e) => updateField("specificationDetails", e.target.value)}
-              placeholder="Brand, Specification, Grade, Remould Spec, etc."
+              placeholder="Brand, Specification, Grade, Material / Model, etc."
             />
           </div>
           <div className="sop-grid-2">
@@ -427,7 +427,7 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
                 className="sop-input"
                 value={data.preferredSupplier || ""}
                 onChange={(e) => updateField("preferredSupplier", e.target.value)}
-                placeholder="e.g. Delhi Tyre Care"
+                placeholder="e.g. Preferred Vendor"
               />
             </div>
             <div className="sop-field-group">
@@ -456,7 +456,7 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
               />
             </div>
             <div className="sop-field-group">
-              <label className="sop-field-label">Current Stock – Used / Remould</label>
+              <label className="sop-field-label">Current Stock – Used / Refurbished</label>
               <input
                 type="number"
                 className="sop-input"

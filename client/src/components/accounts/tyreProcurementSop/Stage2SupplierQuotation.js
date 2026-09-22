@@ -754,7 +754,7 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
                 ["Brand", "tyreBrand", "text"],
                 ["Specification", "sizeSpecification", "text"],
                 ["Unit Price (₹)", "unitPriceNew", "number"],
-                ["Unit Price – Secondary / Remould (₹)", "unitPriceRemould", "number"],
+                ["Unit Price – Secondary / Refurbished (₹)", "unitPriceRemould", "number"],
                 ["Qty Available", "qtyAvailable", "number"],
                 ["GST Rate (%)", "gstRate", "datalist", ["0%", "5%", "12%", "18%", "28%"]],
                 ["GST Amount (₹)", "gstAmount", "number"],

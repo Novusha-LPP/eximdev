@@ -794,8 +794,10 @@ router.get('/planned-visits', async (req, res) => {
       .select('name value stage businessVertical accountId ownerId primaryContactId plannedVisits createdAt updatedAt')
       .lean();
 
-    const start = startDate ? new Date(startDate) : null;
-    const end = endDate ? new Date(endDate) : null;
+    // Allow a 1-day buffer on start and end to prevent timezone boundary issues
+    // between client local time and stored UTC dates (client will filter with isSameDay)
+    const start = startDate ? new Date(new Date(startDate).getTime() - 24 * 60 * 60 * 1000) : null;
+    const end = endDate ? new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000) : null;
 
     const visits = [];
     opportunities.forEach(opp => {

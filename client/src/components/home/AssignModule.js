@@ -34,7 +34,6 @@ const allModules = [
   "e-Sanchit",
   "Documentation",
   "CRM",
-  "Brochure & Videos",
   "Document Collection",
   "KPI",
   "Open Points",

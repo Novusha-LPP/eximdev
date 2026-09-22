@@ -506,6 +506,10 @@ const customerKycSchema = new Schema({
     required: false,
     trim: true
   },
+  approved_by_date: {
+    type: Date,
+    required: false
+  },
   approvedAt: {
     type: Date,
     required: false
@@ -571,6 +575,7 @@ customerKycSchema.index({ approval: 1 });
 customerKycSchema.index({ draft: 1 });
 customerKycSchema.index({ crm_stage: 1 });
 customerKycSchema.index({ approved_by: 1 });
+customerKycSchema.index({ approved_by_date: -1 });
 customerKycSchema.index({ category: 1 });
 customerKycSchema.index({ createdAt: -1 });
 

@@ -172,10 +172,12 @@ function ViewESanchitJob() {
       queries: data.eSachitQueries || [{ query: "", reply: "" }],
       dsr_queries: data.dsr_queries || [],
       esanchit_completed_date_time: data.esanchit_completed_date_time || "",
-      nfims_no: data.nfims_no || "",
-      nfims_date: data.nfims_date || "",
-      sims_no: data.sims_no || "",
+      nfims_no: data.nfims_no || data.nfmims_reg_no || "",
+      nfims_date: data.nfims_date || data.nfmims_date || "",
+      sims_no: data.sims_no || data.sims_reg_no || "",
       sims_date: data.sims_date || "",
+      pims_no: data.pims_no || data.pims_reg_no || "",
+      pims_date: data.pims_date || "",
     },
     enableReinitialize: true,
     onSubmit: async (values) => {
@@ -190,6 +192,8 @@ function ViewESanchitJob() {
           nfims_date: values.nfims_date,
           sims_no: values.sims_no,
           sims_date: values.sims_date,
+          pims_no: values.pims_no,
+          pims_date: values.pims_date,
         };
 
         // Get user info from localStorage for audit trail
@@ -311,7 +315,9 @@ function ViewESanchitJob() {
         "NFMIMS APPLICATION FEES",
         "NFMIMS REGISTRATION CHARGES",
         "SIMS APPLICATION FEES",
-        "SIMS REGISTRATION CHARGES"
+        "SIMS REGISTRATION CHARGES",
+        "PIMS APPLICATION FEES",
+        "PIMS REGISTRATION CHARGES"
       ].includes(c.chargeHead)
     );
 
@@ -684,14 +690,14 @@ function ViewESanchitJob() {
             </div>
 
             <div className="job-details-container" style={{ marginTop: "20px" }}>
-              <h4>Registrations (NfIMS / SIMS)</h4>
+              <h4>Registrations (NFMIMS / SIMS / PIMS)</h4>
               <Row>
-                <Col xs={12} lg={6}>
+                <Col xs={12} lg={4}>
                   <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
                     <TextField
                       fullWidth
                       size="small"
-                      label="NfIMS Number"
+                      label="NFMIMS Number"
                       name="nfims_no"
                       value={formik.values.nfims_no}
                       onChange={formik.handleChange}
@@ -702,7 +708,7 @@ function ViewESanchitJob() {
                       fullWidth
                       size="small"
                       type="date"
-                      label="NfIMS Date"
+                      label="NFMIMS Date"
                       name="nfims_date"
                       value={formik.values.nfims_date}
                       onChange={formik.handleChange}
@@ -712,7 +718,7 @@ function ViewESanchitJob() {
                     />
                   </Box>
                 </Col>
-                <Col xs={12} lg={6}>
+                <Col xs={12} lg={4}>
                   <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
                     <TextField
                       fullWidth
@@ -731,6 +737,32 @@ function ViewESanchitJob() {
                       label="SIMS Date"
                       name="sims_date"
                       value={formik.values.sims_date}
+                      onChange={formik.handleChange}
+                      disabled={isDisabled}
+                      InputLabelProps={{ shrink: true }}
+                      sx={compactInputSx}
+                    />
+                  </Box>
+                </Col>
+                <Col xs={12} lg={4}>
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="PIMS Number"
+                      name="pims_no"
+                      value={formik.values.pims_no}
+                      onChange={formik.handleChange}
+                      disabled={isDisabled}
+                      sx={compactInputSx}
+                    />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="date"
+                      label="PIMS Date"
+                      name="pims_date"
+                      value={formik.values.pims_date}
                       onChange={formik.handleChange}
                       disabled={isDisabled}
                       InputLabelProps={{ shrink: true }}

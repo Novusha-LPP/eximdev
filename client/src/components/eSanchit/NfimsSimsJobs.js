@@ -42,7 +42,9 @@ function NfimsSimsJobs() {
         "NFMIMS APPLICATION FEES",
         "NFMIMS REGISTRATION CHARGES",
         "SIMS APPLICATION FEES",
-        "SIMS REGISTRATION CHARGES"
+        "SIMS REGISTRATION CHARGES",
+        "PIMS APPLICATION FEES",
+        "PIMS REGISTRATION CHARGES"
     ];
 
     useEffect(() => {
@@ -85,7 +87,7 @@ function NfimsSimsJobs() {
             setTotalPages(res.data.totalPages);
             setTotalJobs(res.data.totalJobs);
         } catch (err) {
-            console.error("Error fetching NFIMS/SIMS jobs:", err);
+            console.error("Error fetching NFMIMS/SIMS/PIMS jobs:", err);
             setRows([]);
         } finally {
             setLoading(false);
@@ -162,7 +164,7 @@ function NfimsSimsJobs() {
             size: 150,
         },
         {
-            header: "Pending NFIMS/SIMS Charges",
+            header: "Pending NFMIMS/SIMS/PIMS Charges",
             size: 250,
             Cell: ({ cell }) => {
                 const charges = cell.row.original.charges || [];
@@ -210,7 +212,7 @@ function NfimsSimsJobs() {
     return (
         <Box sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Typography variant="h6">NFIMS/SIMS Jobs: {totalJobs}</Typography>
+                <Typography variant="h6">NFMIMS/SIMS/PIMS Jobs: {totalJobs}</Typography>
                 
                 <Autocomplete
                     sx={{ width: 300 }}

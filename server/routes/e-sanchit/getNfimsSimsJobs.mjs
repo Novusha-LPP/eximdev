@@ -19,7 +19,7 @@ const buildSearchQuery = (search) => ({
     ],
 });
 
-router.get("/api/get-nfims-sims-jobs", applyUserIcdFilter, async (req, res) => {
+router.get(["/api/get-nfims-sims-jobs", "/api/get-nfmims-sims-pims-jobs"], applyUserIcdFilter, async (req, res) => {
     const { page = 1, limit = 100, search = "", importer, year, branchId, category } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -47,7 +47,9 @@ router.get("/api/get-nfims-sims-jobs", applyUserIcdFilter, async (req, res) => {
                                     "NFMIMS APPLICATION FEES",
                                     "NFMIMS REGISTRATION CHARGES",
                                     "SIMS APPLICATION FEES",
-                                    "SIMS REGISTRATION CHARGES"
+                                    "SIMS REGISTRATION CHARGES",
+                                    "PIMS APPLICATION FEES",
+                                    "PIMS REGISTRATION CHARGES"
                                 ]
                             },
                             payment_request_status: { $ne: "Paid" }

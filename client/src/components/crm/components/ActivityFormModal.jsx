@@ -501,18 +501,6 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
             </div>
           )}
 
-          {!['pre_sale', 'post_sale', 'pre sale', 'post sale', 'note'].includes((formData.type || '').toLowerCase()) && (
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Next Steps</label>
-              <textarea
-                value={formData.nextSteps}
-                onChange={(e) => setFormData({ ...formData, nextSteps: e.target.value })}
-                placeholder="What should happen next?"
-                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', minHeight: '60px', fontFamily: 'inherit' }}
-              />
-            </div>
-          )}
-
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '20px', borderTop: '1px solid #f1f5f9', marginTop: 'auto' }}>
             <button
               type="button"

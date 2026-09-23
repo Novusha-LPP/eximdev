@@ -162,7 +162,7 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
         } else {
           setCustomSource('');
         }
-        const standardTypes = ['OEM Tier 1', 'OEM Tier 2', 'OEM Tier 3'];
+        const standardTypes = ['OEM', 'Tier 1', 'Tier 2', 'Tier 3'];
         if (activeLead.companyType) {
           if (!standardTypes.includes(activeLead.companyType)) {
             setCustomCompanyType(activeLead.companyType);

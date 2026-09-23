@@ -6,6 +6,7 @@ import Activity from '../../model/crm/Activity.mjs';
 import Contact from '../../model/crm/Contact.mjs';
 import Account from '../../model/crm/Account.mjs';
 import SalesTeam from '../../model/crm/SalesTeam.mjs';
+import SalesIncentive from '../../model/crm/SalesIncentive.mjs';
 import UserModel from '../../model/userModel.mjs';
 import CRMNotification from '../../model/crm/Notification.mjs';
 import mongoose from 'mongoose';

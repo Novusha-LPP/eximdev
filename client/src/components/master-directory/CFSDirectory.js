@@ -19,7 +19,12 @@ import PhoneIcon from "@mui/icons-material/Phone";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const CFSDirectory = () => {
+const CFSDirectory = ({ directoryType = "terminal" }) => {
+  const isCfsDirectory = directoryType === "cfs";
+  const label = isCfsDirectory ? "CFS" : "Terminal";
+  const api = isCfsDirectory
+    ? { list: "get-cfs-directory-list", add: "add-cfs-directory", update: "update-cfs-directory", remove: "delete-cfs-directory" }
+    : { list: "get-cfs-list", add: "add-cfs", update: "update-cfs", remove: "delete-cfs" };
   const [cfsList, setCfsList] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -76,7 +81,7 @@ const CFSDirectory = () => {
       onConfirm: async () => {
         if (branch._id && editingId) {
           try {
-            await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-cfs/${editingId}/branch/${branch._id}`);
+            await axios.delete(`${process.env.REACT_APP_API_STRING}/${api.remove}/${editingId}/branch/${branch._id}`);
             handleSnackbar("Branch deleted from database successfully", "success");
             fetchCfsList(); 
             
@@ -156,7 +161,7 @@ const CFSDirectory = () => {
       onConfirm: async () => {
         if (account._id && branch._id && editingId) {
           try {
-            await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-cfs/${editingId}/branch/${branch._id}/account/${account._id}`);
+            await axios.delete(`${process.env.REACT_APP_API_STRING}/${api.remove}/${editingId}/branch/${branch._id}/account/${account._id}`);
             handleSnackbar("Bank account deleted from database successfully", "success");
             fetchCfsList();
             
@@ -178,7 +183,7 @@ const CFSDirectory = () => {
   const fetchCfsList = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-cfs-list`);
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/${api.list}`);
       setCfsList(res.data);
     } catch (error) {
       console.error("Error fetching CFS list:", error);
@@ -195,11 +200,11 @@ const CFSDirectory = () => {
     }
     try {
       if (editingId) {
-        await axios.put(`${process.env.REACT_APP_API_STRING}/update-cfs/${editingId}`, formData);
-        handleSnackbar("Terminal updated successfully", "success");
+        await axios.put(`${process.env.REACT_APP_API_STRING}/${api.update}/${editingId}`, formData);
+        handleSnackbar(`${label} updated successfully`, "success");
       } else {
-        await axios.post(`${process.env.REACT_APP_API_STRING}/add-cfs`, formData);
-        handleSnackbar("Terminal added successfully", "success");
+        await axios.post(`${process.env.REACT_APP_API_STRING}/${api.add}`, formData);
+        handleSnackbar(`${label} added successfully`, "success");
       }
       handleClose();
       fetchCfsList();
@@ -211,12 +216,12 @@ const CFSDirectory = () => {
   const handleDelete = (id) => {
     setConfirmDialog({
       open: true,
-      title: "Delete Terminal",
-      message: "Are you sure you want to delete this Terminal? This action cannot be undone.",
+      title: `Delete ${label}`,
+      message: `Are you sure you want to delete this ${label}? This action cannot be undone.`,
       onConfirm: async () => {
         try {
-          await axios.delete(`${process.env.REACT_APP_API_STRING}/delete-cfs/${id}`);
-          handleSnackbar("Terminal deleted successfully", "success");
+          await axios.delete(`${process.env.REACT_APP_API_STRING}/${api.remove}/${id}`);
+          handleSnackbar(`${label} deleted successfully`, "success");
           fetchCfsList();
         } catch (error) {
           handleSnackbar("Failed to delete CFS", "error");
@@ -295,13 +300,13 @@ const CFSDirectory = () => {
         >
           Master Directory
         </Link>
-        <Typography color="text.primary">Terminals</Typography>
+        <Typography color="text.primary">{label} Directory</Typography>
       </Breadcrumbs>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">Terminal Directory</Typography>
+        <Typography variant="h4">{label} Directory</Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)}>
-            Add Terminal
+            Add {label}
         </Button>
       </Box>
 
@@ -380,7 +385,7 @@ const CFSDirectory = () => {
               {filteredList.length === 0 && (
                 <TableRow>
                     <TableCell colSpan={8} align="center" sx={{ p: 4 }}>
-                      No Terminal entries found.
+                      No {label} entries found.
                     </TableCell>
                 </TableRow>
               )}
@@ -391,12 +396,12 @@ const CFSDirectory = () => {
 
       {/* Dialog */}
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-        <DialogTitle>{editingId ? "Edit Terminal" : "Add New Terminal"}</DialogTitle>
+        <DialogTitle>{editingId ? `Edit ${label}` : `Add New ${label}`}</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, pt: 1 }}>
             <TextField
               fullWidth
-              label="Terminal Name"
+              label={`${label} Name`}
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
             />

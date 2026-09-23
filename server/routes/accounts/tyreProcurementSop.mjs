@@ -33,7 +33,7 @@ const canOverrideSignOffLock = (user) => {
   if (role === "admin" || role === "superadmin") return true;
   const identity = [user?.username, user?.first_name, user?.middle_name, user?.last_name]
     .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
-  return identity.includes("ajaykumavat");
+  return identity.includes("ajay") || String(user?.username || "").toLowerCase().includes("ajay");
 };
 
 function assertTyreSignOffLocks(existing, payload, user) {
@@ -852,7 +852,10 @@ router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
 router.delete("/tyre-procurement/:id", authMiddleware, async (req, res) => {
   try {
     const role = (req.user?.role || "").toLowerCase();
-    if (role !== "admin" && role !== "superadmin") {
+    const identity = [req.user?.username, req.user?.first_name, req.user?.middle_name, req.user?.last_name]
+      .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
+    const isAjay = identity.includes("ajay") || String(req.user?.username || "").toLowerCase().includes("ajay");
+    if (role !== "admin" && role !== "superadmin" && !isAjay) {
       return res.status(403).json({ success: false, message: "Only admin users can delete PRs" });
     }
     const doc = await TyreProcurementSop.findByIdAndDelete(req.params.id);

@@ -957,6 +957,14 @@ function HomePageContent() {
                 }
               />
               <Route
+                path="/cfs-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <CFSDirectory directoryType="cfs" />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/transporter-directory"
                 element={
                   <ProtectedRoute requiredModule="MasterDirectory">

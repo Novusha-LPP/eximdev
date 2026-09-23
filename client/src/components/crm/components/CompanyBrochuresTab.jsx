@@ -72,6 +72,7 @@ export default function CompanyBrochuresTab() {
 
   const [isCompleteDesignOpen, setIsCompleteDesignOpen] = useState(false);
   const [selectedRequestForCompletion, setSelectedRequestForCompletion] = useState(null);
+  const [completeDesignMode, setCompleteDesignMode] = useState('auto');
 
   // Request detail view modal (for sales reps & Kinjal)
   const [viewingRequest, setViewingRequest] = useState(null);
@@ -156,6 +157,79 @@ export default function CompanyBrochuresTab() {
     } catch (err) {
       message.error('Failed to update status');
     }
+  };
+
+  // Option 1: Update in the same entry she created
+  const handleOpenUpdateModal = (req) => {
+    setSelectedRequestForCompletion(req);
+    setCompleteDesignMode('edit');
+    setIsCompleteDesignOpen(true);
+  };
+
+  // Option 2: Create a whole new design for this company/request
+  const handleOpenNewDesignForCompany = (req) => {
+    setSelectedRequestForCompletion({
+      ...req,
+      isNewDesign: true,
+      _id: null
+    });
+    setCompleteDesignMode('create_new');
+    setIsCompleteDesignOpen(true);
+  };
+
+  // Top "+ Add New Design" button (brand new from scratch)
+  const handleOpenBrandNewDesign = () => {
+    setSelectedRequestForCompletion(null);
+    setCompleteDesignMode('create_new');
+    setIsCompleteDesignOpen(true);
+  };
+
+  // Fulfill a pending/in-progress sales request
+  const handleOpenFulfillModal = (req) => {
+    setSelectedRequestForCompletion(req);
+    setCompleteDesignMode('complete');
+    setIsCompleteDesignOpen(true);
+  };
+
+  // Delete design request / entry (Kinjal, Admin, or owner)
+  const handleDeleteDesignRequest = (id, title, companyName) => {
+    Modal.confirm({
+      title: 'Delete Design Entry?',
+      content: (
+        <div>
+          <p style={{ margin: 0, color: '#334155' }}>
+            Are you sure you want to delete <strong>"{title || 'this design entry'}"</strong>
+            {companyName ? ` for ${companyName}` : ''}?
+          </p>
+          <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: '#dc2626' }}>
+            This will permanently remove the entry from the Design Requirements Desk and clean up published assets if linked.
+          </p>
+        </div>
+      ),
+      okText: 'Delete Entry',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        try {
+          await axios.delete(
+            `${process.env.REACT_APP_API_STRING}/crm/collaterals/design-requests/${id}`,
+            getHeaders()
+          );
+          message.success('Design entry deleted successfully');
+          fetchDesignRequests();
+          fetchCompanies();
+        } catch (err) {
+          console.error('Failed to delete design entry:', err);
+          message.error(err.response?.data?.error || 'Failed to delete design entry');
+        }
+      }
+    });
+  };
+
+  // Sales team: request a new version / design for this company
+  const handleRequestNewVersionForCompany = (req) => {
+    setTargetCompanyForRequest(req.companyName || '');
+    setIsNewRequestOpen(true);
   };
 
   // Unique tags across all companies
@@ -256,10 +330,7 @@ export default function CompanyBrochuresTab() {
           {isKinjalOrAdmin ? (
             <>
               <button
-                onClick={() => {
-                  setSelectedRequestForCompletion(null);
-                  setIsCompleteDesignOpen(true);
-                }}
+                onClick={handleOpenBrandNewDesign}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1001,10 +1072,7 @@ export default function CompanyBrochuresTab() {
             <div style={{ display: 'flex', gap: '10px' }}>
               {isKinjalOrAdmin && (
                 <button
-                  onClick={() => {
-                    setSelectedRequestForCompletion(null);
-                    setIsCompleteDesignOpen(true);
-                  }}
+                  onClick={handleOpenBrandNewDesign}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1133,52 +1201,182 @@ export default function CompanyBrochuresTab() {
                           {req.status}
                         </span>
 
-                        {/* Kinjal Action: Add New Design / Complete */}
-                        {isKinjalOrAdmin && !isCompleted && (
-                          <button
-                            onClick={() => {
-                              setSelectedRequestForCompletion(req);
-                              setIsCompleteDesignOpen(true);
-                            }}
-                            style={{
-                              background: '#10b981',
-                              color: '#ffffff',
-                              border: 'none',
-                              padding: '6px 12px',
-                              borderRadius: '6px',
-                              fontSize: '0.8rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)'
-                            }}
-                          >
-                            <Sparkles size={14} /> Add New Design / Fulfill
-                          </button>
+                        {/* Kinjal & Admin Actions */}
+                        {isKinjalOrAdmin && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            {/* Option 1: If completed, allow Kinjal to Update in the same entry or Create a whole new design */}
+                            {isCompleted ? (
+                              <>
+                                <button
+                                  onClick={() => handleOpenUpdateModal(req)}
+                                  title="Update this design entry (files, notes, or title)"
+                                  style={{
+                                    background: '#ecfdf5',
+                                    color: '#047857',
+                                    border: '1px solid #a7f3d0',
+                                    padding: '5px 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <Edit2 size={13} /> Update Entry
+                                </button>
+                                <button
+                                  onClick={() => handleOpenNewDesignForCompany(req)}
+                                  title="Create a whole new design entry for this company"
+                                  style={{
+                                    background: '#f5f3ff',
+                                    color: '#6d28d9',
+                                    border: '1px solid #ddd6fe',
+                                    padding: '5px 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <Sparkles size={13} /> + New Design
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => handleOpenFulfillModal(req)}
+                                  style={{
+                                    background: '#10b981',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)'
+                                  }}
+                                >
+                                  <CheckCircle size={14} /> Fulfill / Complete
+                                </button>
+                                <button
+                                  onClick={() => handleOpenUpdateModal(req)}
+                                  title="Edit requirement details"
+                                  style={{
+                                    background: '#f1f5f9',
+                                    color: '#334155',
+                                    border: '1px solid #cbd5e1',
+                                    padding: '5px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.78rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <Edit2 size={13} /> Edit
+                                </button>
+                              </>
+                            )}
+
+                            {/* Status Change Dropdown */}
+                            <select
+                              value={req.status}
+                              onChange={(e) => handleUpdateStatus(req._id, e.target.value)}
+                              style={{
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                border: '1px solid #cbd5e1',
+                                fontSize: '0.78rem',
+                                background: '#ffffff',
+                                color: '#334155',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <option value="Pending">Pending</option>
+                              <option value="In Progress">In Progress</option>
+                              <option value="Completed">Completed</option>
+                              <option value="Changes Requested">Changes Requested</option>
+                              <option value="Closed">Closed</option>
+                            </select>
+
+                            {/* Delete Button (Kinjal or Admin) */}
+                            <button
+                              onClick={() => handleDeleteDesignRequest(req._id, req.title, req.companyName)}
+                              title="Delete this design entry"
+                              style={{
+                                background: '#fff1f2',
+                                color: '#e11d48',
+                                border: '1px solid #fecdd3',
+                                padding: '5px 8px',
+                                borderRadius: '6px',
+                                fontSize: '0.78rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         )}
 
-                        {/* Status Change Dropdown (Kinjal or Admin) */}
-                        {isKinjalOrAdmin && (
-                          <select
-                            value={req.status}
-                            onChange={(e) => handleUpdateStatus(req._id, e.target.value)}
-                            style={{
-                              padding: '4px 8px',
-                              borderRadius: '6px',
-                              border: '1px solid #cbd5e1',
-                              fontSize: '0.78rem',
-                              background: '#ffffff',
-                              color: '#334155'
-                            }}
-                          >
-                            <option value="Pending">Pending</option>
-                            <option value="In Progress">In Progress</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Changes Requested">Changes Requested</option>
-                            <option value="Closed">Closed</option>
-                          </select>
+                        {/* Non-Kinjal (Sales Team) Actions */}
+                        {!isKinjalOrAdmin && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {isCompleted && (
+                              <button
+                                onClick={() => handleRequestNewVersionForCompany(req)}
+                                title="Ask Kinjal for a new design or changes"
+                                style={{
+                                  background: '#fdf4ff',
+                                  color: '#a21caf',
+                                  border: '1px solid #f0abfc',
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Sparkles size={13} /> Request New Design / Revision
+                              </button>
+                            )}
+
+                            {/* Allow requester to delete their own pending request */}
+                            {currentUser.username && currentUser.username === req.requestedBy?.username && req.status === 'Pending' && (
+                              <button
+                                onClick={() => handleDeleteDesignRequest(req._id, req.title, req.companyName)}
+                                title="Cancel and delete this request"
+                                style={{
+                                  background: '#fff1f2',
+                                  color: '#e11d48',
+                                  border: '1px solid #fecdd3',
+                                  padding: '5px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.78rem',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center'
+                                }}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1248,13 +1446,36 @@ export default function CompanyBrochuresTab() {
                         flexDirection: 'column',
                         gap: '6px'
                       }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                           <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <CheckCircle size={15} color="#16a34a" /> Completed by Kinjal Khatri
+                            <CheckCircle size={15} color="#16a34a" /> Completed by {req.completedDesign.completedBy || 'Kinjal Khatri'}
                           </span>
-                          <span style={{ fontSize: '0.75rem', color: '#15803d' }}>
-                            {req.completedDesign.completedAt ? new Date(req.completedDesign.completedAt).toLocaleDateString() : ''}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '0.75rem', color: '#15803d' }}>
+                              {req.completedDesign.completedAt ? new Date(req.completedDesign.completedAt).toLocaleDateString() : ''}
+                            </span>
+                            {isKinjalOrAdmin && (
+                              <button
+                                onClick={() => handleOpenUpdateModal(req)}
+                                style={{
+                                  background: '#ffffff',
+                                  border: '1px solid #86efac',
+                                  color: '#15803d',
+                                  padding: '2px 8px',
+                                  borderRadius: '5px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                                title="Update or replace files in this entry"
+                              >
+                                <Edit2 size={11} /> Update / Replace Files
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         {req.completedDesign.remarks && (
@@ -1359,6 +1580,7 @@ export default function CompanyBrochuresTab() {
           fetchDesignRequests();
         }}
         designRequest={selectedRequestForCompletion}
+        mode={completeDesignMode}
       />
 
       {/* View Request Details Modal */}

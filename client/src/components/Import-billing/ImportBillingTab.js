@@ -33,7 +33,7 @@ function ImportBillingTab() {
 
   const [value, setValue] = React.useState(initialTab);
   const [workMode, setWorkMode] = React.useState(
-    () => location.state?.workMode || sessionStorage.getItem("import_billing_work_mode") || "Payment"
+    () => (location.state?.workMode || sessionStorage.getItem("import_billing_work_mode")) === "Purchase Book" ? "Purchase Book" : "Payment"
   );
 
   // Sync tab state when location.state changes
@@ -46,7 +46,7 @@ function ImportBillingTab() {
 
   // Sync workMode when location.state changes
   React.useEffect(() => {
-    if (location.state?.workMode && workMode !== location.state.workMode) {
+    if (location.state?.workMode && location.state.workMode !== "Virtual Balance" && workMode !== location.state.workMode) {
       setWorkMode(location.state.workMode);
       sessionStorage.setItem("import_billing_work_mode", location.state.workMode);
     }
@@ -92,8 +92,7 @@ function ImportBillingTab() {
       <Box sx={{ width: "100%" }}>
         {/* Tabs Navigation */}
         <Box sx={{ borderBottom: 1, borderColor: "divider", display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {workMode !== "Virtual Balance" ? (
-            <Tabs
+          <Tabs
               value={value}
               onChange={handleChange}
               aria-label="import Billing Tabs"
@@ -106,12 +105,9 @@ function ImportBillingTab() {
               <Tab label={workMode === "Payment" ? "Payment" : "Purchase Book"} {...a11yProps(4)} />
               <Tab label={workMode === "Payment" ? "Payment Completed" : "Purchase Book Completed"} {...a11yProps(5)} />
               <Tab label="Import Completed Billing" {...a11yProps(6)} />
+              <Tab label="Terminal Virtual Balance" {...a11yProps(7)} />
+              <Tab label="CFS Virtual Balance" {...a11yProps(8)} />
             </Tabs>
-          ) : (
-            <Typography variant="h6" sx={{ flexGrow: 1, pl: 2, fontWeight: 'bold', color: '#1a237e', fontSize: '15px' }}>
-              Virtual Balance Management
-            </Typography>
-          )}
           <Box sx={{ display: 'flex', alignItems: 'center', px: 2, gap: 1 }}>
             <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', textTransform: 'uppercase' }}>Work Mode:</Typography>
             <ToggleButtonGroup
@@ -124,18 +120,12 @@ function ImportBillingTab() {
             >
               <ToggleButton value="Payment" sx={{ px: 2, fontSize: '0.75rem' }}>Payment</ToggleButton>
               <ToggleButton value="Purchase Book" sx={{ px: 2, fontSize: '0.75rem' }}>Purchase Book</ToggleButton>
-              <ToggleButton value="Virtual Balance" sx={{ px: 2, fontSize: '0.75rem' }}>Virtual Balance</ToggleButton>
             </ToggleButtonGroup>
           </Box>
         </Box>
 
         {/* Tab Panels */}
-        {workMode === "Virtual Balance" ? (
-          <Box sx={{ p: 2 }}>
-            <VirtualBalanceList />
-          </Box>
-        ) : (
-          <>
+        <>
             <CustomTabPanel value={value} index={0}>
               <ImportBilling workMode={workMode} />
             </CustomTabPanel>
@@ -157,8 +147,13 @@ function ImportBillingTab() {
             <CustomTabPanel value={value} index={6}>
               <ImportCompletedBilling workMode={workMode} />
             </CustomTabPanel>
-          </>
-        )}
+            <CustomTabPanel value={value} index={7}>
+              <VirtualBalanceList balanceType="terminal" />
+            </CustomTabPanel>
+            <CustomTabPanel value={value} index={8}>
+              <VirtualBalanceList balanceType="cfs" />
+            </CustomTabPanel>
+        </>
       </Box>
     </TabContext.Provider>
   );

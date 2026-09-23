@@ -232,7 +232,18 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="modal-scroll" style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px', margin: 0 }}>
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              if (e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+              }
+            }
+          }}
+          className="modal-scroll"
+          style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px', margin: 0 }}
+        >
           {(() => {
             const currentType = (formData.type || 'call').toLowerCase();
             const isPreOrPostSale = ['pre_sale', 'post_sale', 'pre sale', 'post sale'].includes(currentType);
@@ -363,12 +374,12 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
                 {showNextSteps && (
                   <div style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Next Action Steps</label>
-                    <input
-                      type="text"
+                    <textarea
+                      rows={3}
                       value={formData.nextSteps || ''}
                       onChange={(e) => setFormData({ ...formData, nextSteps: e.target.value })}
                       placeholder="e.g., Send proposal by Friday"
-                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', minHeight: '65px', fontFamily: 'inherit', resize: 'vertical' }}
                     />
                   </div>
                 )}

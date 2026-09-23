@@ -105,8 +105,8 @@ function ImportBillingTab() {
               <Tab label={workMode === "Payment" ? "Payment" : "Purchase Book"} {...a11yProps(4)} />
               <Tab label={workMode === "Payment" ? "Payment Completed" : "Purchase Book Completed"} {...a11yProps(5)} />
               <Tab label="Import Completed Billing" {...a11yProps(6)} />
-              <Tab label="Terminal Virtual Balance" {...a11yProps(7)} />
-              <Tab label="CFS Virtual Balance" {...a11yProps(8)} />
+              <Tab label="Empty-Yards Virtual Balance" {...a11yProps(7)} />
+              <Tab label="CFS-SFSA Virtual Balance" {...a11yProps(8)} />
             </Tabs>
           <Box sx={{ display: 'flex', alignItems: 'center', px: 2, gap: 1 }}>
             <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', textTransform: 'uppercase' }}>Work Mode:</Typography>

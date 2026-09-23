@@ -21,8 +21,11 @@ import axios from "axios";
 
 const CFSDirectory = ({ directoryType = "terminal" }) => {
   const isCfsDirectory = directoryType === "cfs";
-  const label = isCfsDirectory ? "CFS" : "Terminal";
-  const api = isCfsDirectory
+  const isEmptyYardDirectory = directoryType === "empty_yard";
+  const label = isEmptyYardDirectory ? "Empty Yard" : isCfsDirectory ? "CFS" : "Terminal";
+  const api = isEmptyYardDirectory
+    ? { list: "get-empty-yard-directory-list", add: "add-empty-yard-directory", update: "update-empty-yard-directory", remove: "delete-empty-yard-directory" }
+    : isCfsDirectory
     ? { list: "get-cfs-directory-list", add: "add-cfs-directory", update: "update-cfs-directory", remove: "delete-cfs-directory" }
     : { list: "get-cfs-list", add: "add-cfs", update: "update-cfs", remove: "delete-cfs" };
   const [cfsList, setCfsList] = useState([]);

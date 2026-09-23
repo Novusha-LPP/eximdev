@@ -13,6 +13,7 @@ const allowedServices = [
 
 const leadSchema = new mongoose.Schema({
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   company: { type: String, required: true },
   firstName: { type: String, required: true },
   lastName: { type: String },

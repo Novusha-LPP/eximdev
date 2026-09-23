@@ -50,6 +50,7 @@ This document outlines comprehensive test scenarios, edge cases, RBAC security v
 | **TC-RFL-03** | **Long Text & Truncation Handling** | View a record with a multi-line or 200+ character loss description. | Cell text is truncated with ellipsis (`...`) and full text is readable via hover tooltip or row click modal. |
 | **TC-RFL-04** | **Sorting by Reason for Loss** | Click the column header to sort Ascending / Descending. | Rows sort alphabetically; null/empty values consistently grouped at the top or bottom. |
 | **TC-RFL-05** | **Filter/Search within Reason for Loss** | Search for keyword *"Price"* or select *"Pricing"* category. | Only records with matching loss reasons are displayed. |
+| **TC-RFL-06** | **Converted Lead Downstream Loss Sync** | Check a converted lead whose generated deal is marked `Lost`. | Lead grid reflects the downstream deal's Reason for Loss badge (or contextual loss indicator). |
 
 ---
 
@@ -134,11 +135,13 @@ assertEquals(uiRowCount, exportedRowCount);
 | **TC-RFL-03** | Pass | QA Team | 2026-09-23 | |
 | **TC-RFL-04** | Pass | QA Team | 2026-09-23 | |
 | **TC-RFL-05** | Pass | QA Team | 2026-09-23 | |
+| **TC-RFL-06** | **Fail** | QA Team | 2026-09-23 | **CRM-BUG-003** (Converted leads whose deals are marked lost still show `—` in Reason for Loss) |
 | **TC-SEC-01** | Pass | QA Team | 2026-09-23 | |
 | **TC-SEC-02** | Pass | QA Team | 2026-09-23 | |
 | **TC-SEC-03** | Pass | QA Team | 2026-09-23 | |
 | **TC-EXP-01** | Pass | QA Team | 2026-09-23 | |
 | **TC-EXP-02** | Pass | QA Team | 2026-09-23 | |
 | **TC-EXP-03** | Pass | QA Team | 2026-09-23 | |
+
 
 

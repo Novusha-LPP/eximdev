@@ -1,0 +1,474 @@
+// Transport Invoicing Module SCSS
+.transport-invoicing-container {
+  padding: 1.25rem 1.5rem 2.5rem;
+  min-height: 100vh;
+  background: #f8fafc;
+  color: #1e293b;
+  font-family: inherit;
+
+  // Header Banner
+  .ti-header {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-radius: 16px;
+    padding: 1.5rem 1.75rem;
+    color: #ffffff;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: -50px;
+      right: -50px;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(99, 102, 241, 0) 70%);
+      pointer-events: none;
+    }
+
+    .ti-title-area {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+
+      .ti-title-left {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+
+        .ti-icon-badge {
+          width: 48px;
+          height: 48px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+          font-size: 1.5rem;
+        }
+
+        h2 {
+          font-size: 1.45rem;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+          margin: 0;
+          color: #f8fafc;
+        }
+
+        .ti-subtitle {
+          font-size: 0.85rem;
+          color: #94a3b8;
+          margin-top: 2px;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+      }
+
+      .ti-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+      }
+    }
+
+    // Sub-module Switcher Bar
+    .ti-submodule-bar {
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+
+      .ti-submodule-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.35rem 0.85rem;
+        border-radius: 20px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &.active {
+          background: rgba(99, 102, 241, 0.3);
+          border: 1px solid #6366f1;
+          color: #e0e7ff;
+        }
+
+        &.disabled {
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px dashed rgba(255, 255, 255, 0.2);
+          color: #64748b;
+          cursor: not-allowed;
+        }
+      }
+    }
+  }
+
+  // Navigation Tabs Bar
+  .ti-nav-tabs {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 0.35rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-bottom: 1.25rem;
+
+    .ti-tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #64748b;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.18s ease;
+
+      &:hover {
+        color: #1e293b;
+        background: #f1f5f9;
+      }
+
+      &.active {
+        background: #4f46e5;
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+      }
+    }
+  }
+
+  // Filter Bar
+  .ti-filter-bar {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 0.85rem 1.25rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    margin-bottom: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+
+    .ti-filter-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .ti-pill-group {
+      display: inline-flex;
+      background: #f1f5f9;
+      padding: 3px;
+      border-radius: 8px;
+
+      .ti-pill {
+        border: none;
+        background: transparent;
+        padding: 0.35rem 0.8rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #64748b;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+
+        &.active {
+          background: #ffffff;
+          color: #4f46e5;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+      }
+    }
+  }
+
+  // Top KPI Grid
+  .ti-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+
+    .ti-kpi-card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 1.25rem;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.06);
+      }
+
+      .ti-kpi-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.65rem;
+
+        .ti-kpi-label {
+          font-size: 0.8rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #64748b;
+        }
+
+        .ti-kpi-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.15rem;
+        }
+      }
+
+      .ti-kpi-value {
+        font-size: 1.65rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: #0f172a;
+        margin-bottom: 0.2rem;
+      }
+
+      .ti-kpi-sub {
+        font-size: 0.78rem;
+        color: #94a3b8;
+      }
+
+      // Card Color Variants
+      &.card-blue .ti-kpi-icon { background: #eff6ff; color: #2563eb; }
+      &.card-emerald .ti-kpi-icon { background: #ecfdf5; color: #059669; }
+      &.card-amber .ti-kpi-icon { background: #fffbeb; color: #d97706; }
+      &.card-purple .ti-kpi-icon { background: #faf5ff; color: #7c3aed; }
+      &.card-indigo .ti-kpi-icon { background: #eef2ff; color: #4f46e5; }
+    }
+  }
+
+  // Section Cards
+  .ti-card {
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+
+    .ti-card-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid #e2e8f0;
+      background: #fafbfc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+
+      .ti-card-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0;
+      }
+    }
+
+    .ti-card-body {
+      padding: 1.25rem;
+    }
+  }
+
+  // Data Table Styling
+  .ti-table-responsive {
+    overflow-x: auto;
+  }
+
+  .ti-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.88rem;
+
+    thead th {
+      background: #f8fafc;
+      color: #475569;
+      font-weight: 700;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.75rem 1rem;
+      border-bottom: 2px solid #e2e8f0;
+      text-align: left;
+      white-space: nowrap;
+
+      &.text-right {
+        text-align: right;
+      }
+      &.text-center {
+        text-align: center;
+      }
+    }
+
+    tbody td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #f1f5f9;
+      color: #334155;
+      vertical-align: middle;
+
+      &.text-right {
+        text-align: right;
+      }
+      &.text-center {
+        text-align: center;
+      }
+    }
+
+    tbody tr:hover td {
+      background: #f8fafc;
+    }
+
+    tfoot tr td {
+      background: #f1f5f9;
+      font-weight: 800;
+      color: #0f172a;
+      border-top: 2px solid #cbd5e1;
+      padding: 0.85rem 1rem;
+
+      &.text-right {
+        text-align: right;
+      }
+    }
+  }
+
+  // Input Fields inside table
+  .ti-input {
+    width: 100%;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #0f172a;
+    outline: none;
+    transition: all 0.15s ease;
+
+    &:focus {
+      border-color: #4f46e5;
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    }
+
+    &.text-right {
+      text-align: right;
+    }
+  }
+
+  // Buttons
+  .ti-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.18s ease;
+
+    &-primary {
+      background: #4f46e5;
+      color: #ffffff;
+      &:hover {
+        background: #4338ca;
+      }
+    }
+
+    &-secondary {
+      background: #ffffff;
+      border-color: #cbd5e1;
+      color: #334155;
+      &:hover {
+        background: #f8fafc;
+        border-color: #94a3b8;
+      }
+    }
+
+    &-success {
+      background: #059669;
+      color: #ffffff;
+      &:hover {
+        background: #047857;
+      }
+    }
+
+    &-danger {
+      background: #dc2626;
+      color: #ffffff;
+      &:hover {
+        background: #b91c1c;
+      }
+    }
+
+    &-ghost {
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.25);
+      &:hover {
+        background: rgba(255, 255, 255, 0.25);
+      }
+    }
+  }
+
+  // Status Badges
+  .ti-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+
+    &-new {
+      background: #dcfce7;
+      color: #15803d;
+    }
+    &-update {
+      background: #fef3c7;
+      color: #b45309;
+    }
+    &-dup {
+      background: #f1f5f9;
+      color: #475569;
+    }
+    &-error {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+  }
+}

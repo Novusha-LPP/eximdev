@@ -219,6 +219,7 @@ import CRMModule from "../components/crm/CRMModule.jsx";
 import PricingRequestsList from "../components/crm/components/PricingRequestsList.jsx";
 import Audit5sDashboard from "../components/audit5s/Audit5sDashboard.jsx";
 import FirstAidDashboard from "../components/first-aid/FirstAidDashboard.jsx";
+import TransportInvoicingModule from "../components/invoice/transport/TransportInvoicingModule.jsx";
 
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
@@ -504,6 +505,20 @@ function HomePageContent() {
                     <PricingRequestsList hideRaiseButton={true} />
                   </ProtectedRoute>
                 }
+              />
+
+              {/* Transport Invoicing (Ayan) */}
+              <Route
+                path="/invoice/transport"
+                element={
+                  <ProtectedRoute requiredModule={["Transport Invoicing", "Transport"]}>
+                    <TransportInvoicingModule />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/invoice"
+                element={<Navigate to="/invoice/transport" replace />}
               />
 
               {/* Documentation */}

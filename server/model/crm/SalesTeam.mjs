@@ -53,7 +53,7 @@ const salesTeamSchema = new mongoose.Schema({
   
   businessVertical: {
     type: String,
-    enum: ['Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],
+    enum: ['Novusha', 'Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],
     default: 'Paramount'
   },
   isActive: { type: Boolean, default: true },

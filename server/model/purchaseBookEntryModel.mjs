@@ -63,6 +63,7 @@ const purchaseBookEntrySchema = new mongoose.Schema({
   tdsCategory: { type: String, default: '94C' },
   status: { type: String, default: '' },
   virtualBalanceTerminal: { type: String, default: '' },
+  virtualBalanceType: { type: String, enum: ["TERMINAL", "CFS", ""], default: '' },
   isMultiCharge: { type: Boolean, default: false },
   chargeItems: { type: Array, default: [] },
   chargeRefs: { type: [String], default: [] },

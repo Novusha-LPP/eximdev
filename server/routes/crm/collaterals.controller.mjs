@@ -358,6 +358,174 @@ router.put('/design-requests/:id/status', async (req, res) => {
   }
 });
 
+// PUT /design-requests/:id - Update existing design request / completed entry (Kinjal or Admin)
+router.put('/design-requests/:id', requireKinjalOrAdmin, async (req, res) => {
+  try {
+    const {
+      companyName,
+      title,
+      requestType,
+      description,
+      priority,
+      status,
+      files,
+      videoLinks,
+      remarks,
+      publishToBrochures
+    } = req.body;
+
+    const request = await CrmDesignRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ error: 'Design request not found' });
+    }
+
+    const currentUsername = req.headers['username'] || req.user?.username || 'kinjal_khatri';
+
+    const oldFiles = request.completedDesign?.files || [];
+    const oldVideoLinks = request.completedDesign?.videoLinks || [];
+    const oldCompanyName = request.companyName;
+
+    if (companyName) request.companyName = companyName.trim();
+    if (title) request.title = title.trim();
+    if (requestType) request.requestType = requestType;
+    if (description !== undefined) request.description = description.trim();
+    if (priority) request.priority = priority;
+    if (status) request.status = status;
+    if (remarks !== undefined) request.remarks = remarks.trim();
+    if (publishToBrochures !== undefined) request.publishedToBrochures = !!publishToBrochures;
+
+    // Update completedDesign
+    if (!request.completedDesign) {
+      request.completedDesign = {};
+    }
+    if (title) request.completedDesign.designTitle = title.trim();
+    if (files !== undefined) {
+      request.completedDesign.files = files;
+      request.completedDesign.fileUrl = (files && files[0]?.url) || '';
+    }
+    if (videoLinks !== undefined) {
+      request.completedDesign.videoLinks = videoLinks;
+    }
+    if (remarks !== undefined) {
+      request.completedDesign.remarks = remarks.trim();
+    }
+    request.completedDesign.completedAt = request.completedDesign.completedAt || new Date();
+    request.completedDesign.completedBy = currentUsername;
+
+    await request.save();
+
+    // If published to brochures, sync with CompanyBrochure
+    if (request.publishedToBrochures) {
+      const normalizedCompanyName = (companyName || oldCompanyName).trim();
+      let companyBrochure = await CompanyBrochure.findOne({
+        companyName: { $regex: new RegExp(`^${normalizedCompanyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+        isActive: true
+      });
+
+      const oldFileUrls = new Set(oldFiles.map(f => f.url));
+      const oldVidUrls = new Set(oldVideoLinks.map(v => v.url));
+
+      const newBrochureEntries = (files || []).map(f => ({
+        title: f.name || title || request.title,
+        fileUrl: f.url,
+        fileType: f.fileType || 'pdf',
+        uploadedAt: new Date(),
+        uploadedBy: currentUsername
+      }));
+
+      const newVideoEntries = (videoLinks || []).map(v => ({
+        title: v.title || `${normalizedCompanyName} Video`,
+        url: v.url,
+        platform: v.platform || 'YouTube',
+        addedAt: new Date(),
+        addedBy: currentUsername
+      }));
+
+      if (companyBrochure) {
+        // Remove old files that were part of this design request
+        const filteredBrochures = (companyBrochure.brochures || []).filter(b => !oldFileUrls.has(b.fileUrl));
+        const filteredVideos = (companyBrochure.videoLinks || []).filter(v => !oldVidUrls.has(v.url));
+
+        // Add new entries (preventing duplicate URLs)
+        const newUrls = new Set(newBrochureEntries.map(e => e.fileUrl));
+        const finalBrochures = filteredBrochures.filter(b => !newUrls.has(b.fileUrl)).concat(newBrochureEntries);
+
+        const newVUrls = new Set(newVideoEntries.map(e => e.url));
+        const finalVideos = filteredVideos.filter(v => !newVUrls.has(v.url)).concat(newVideoEntries);
+
+        companyBrochure.brochures = finalBrochures;
+        companyBrochure.videoLinks = finalVideos;
+        companyBrochure.updatedBy = currentUsername;
+        await companyBrochure.save();
+      } else if (newBrochureEntries.length > 0 || newVideoEntries.length > 0) {
+        companyBrochure = new CompanyBrochure({
+          companyName: normalizedCompanyName,
+          accountId: request.accountId || null,
+          description: `Assets for ${normalizedCompanyName}`,
+          brochures: newBrochureEntries,
+          videoLinks: newVideoEntries,
+          createdBy: currentUsername,
+          updatedBy: currentUsername
+        });
+        await companyBrochure.save();
+      }
+    }
+
+    return res.json({
+      message: 'Design entry updated successfully',
+      request
+    });
+  } catch (err) {
+    logger.error(`Error updating design request: ${err.message}`);
+    return res.status(500).json({ error: 'Failed to update design entry' });
+  }
+});
+
+// DELETE /design-requests/:id - Delete design request / entry (Kinjal or Admin, or requester)
+router.delete('/design-requests/:id', async (req, res) => {
+  try {
+    const request = await CrmDesignRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ error: 'Design request not found' });
+    }
+
+    const currentUsername = (req.headers['username'] || req.user?.username || '').toLowerCase().trim();
+    const canDelete = isKinjalOrAdmin(req) || (currentUsername && currentUsername === (request.requestedBy?.username || '').toLowerCase());
+
+    if (!canDelete) {
+      return res.status(403).json({ error: 'Access Denied: You do not have permission to delete this design entry.' });
+    }
+
+    // If it was published to company brochures, clean up matching files
+    if (request.publishedToBrochures && request.completedDesign?.files?.length > 0) {
+      const fileUrlsToRemove = new Set((request.completedDesign.files || []).map(f => f.url));
+      const videoUrlsToRemove = new Set((request.completedDesign.videoLinks || []).map(v => v.url));
+
+      const normalizedCompanyName = request.companyName.trim();
+      const companyBrochure = await CompanyBrochure.findOne({
+        companyName: { $regex: new RegExp(`^${normalizedCompanyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+        isActive: true
+      });
+
+      if (companyBrochure) {
+        companyBrochure.brochures = (companyBrochure.brochures || []).filter(b => !fileUrlsToRemove.has(b.fileUrl));
+        companyBrochure.videoLinks = (companyBrochure.videoLinks || []).filter(v => !videoUrlsToRemove.has(v.url));
+        await companyBrochure.save();
+      }
+    }
+
+    await CrmDesignRequest.findByIdAndDelete(req.params.id);
+
+    return res.json({
+      message: 'Design requirement entry deleted successfully',
+      deletedId: req.params.id
+    });
+  } catch (err) {
+    logger.error(`Error deleting design request: ${err.message}`);
+    return res.status(500).json({ error: 'Failed to delete design entry' });
+  }
+});
+
 // POST /design-requests/:id/complete - "Add New Design" (Kinjal Only)
 router.post('/design-requests/:id/complete', requireKinjalOrAdmin, async (req, res) => {
   try {

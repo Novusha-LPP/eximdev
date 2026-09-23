@@ -82,10 +82,11 @@ const getCompletedStages = (data) => {
 function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
   const { user } = useContext(UserContext);
   const userRole = (user?.role || "").toLowerCase();
-  const isAdmin = userRole === "admin" || userRole === "superadmin";
   const userIdentity = [user?.username, user?.first_name, user?.middle_name, user?.last_name]
     .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
-  const canOverrideSignOffLock = isAdmin || userIdentity.includes("ajaykumavat");
+  const isAjay = (user?.username || "").toLowerCase().includes("ajay") || userIdentity.includes("ajay");
+  const isAdmin = userRole === "admin" || userRole === "superadmin" || isAjay;
+  const canOverrideSignOffLock = isAdmin;
 
   const [activeStage, setActiveStage] = useState(1);
   const [allowedUserTabs, setAllowedUserTabs] = useState([]);

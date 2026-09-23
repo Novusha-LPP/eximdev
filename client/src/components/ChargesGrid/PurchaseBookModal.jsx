@@ -180,7 +180,9 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                         }
                         return cat;
                     })(),
-                    "attachments": initialData.attachments || []
+                    "attachments": initialData.attachments || [],
+                    "Virtual Balance Terminal": initialData.virtualBalanceTerminal || '',
+                    "Virtual Balance Type": initialData.virtualBalanceType || ''
                 }));
             }
         };

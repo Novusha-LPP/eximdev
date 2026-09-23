@@ -176,6 +176,7 @@ const EditChargeModal = ({
   const [cfsList, setCfsList] = useState([]);
   const [chargeHeads, setChargeHeads] = useState([]);
   const [createdVirtualTerminals, setCreatedVirtualTerminals] = useState([]);
+  const [createdVirtualCfs, setCreatedVirtualCfs] = useState([]);
 
   const [showLogs, setShowLogs] = useState({ open: false, chargeId: null, chargeName: '' });
   const [chargeLogs, setChargeLogs] = useState([]);
@@ -228,7 +229,7 @@ const EditChargeModal = ({
   useEffect(() => {
     const fetchMasterData = async () => {
       try {
-        const [slRes, supRes, orgRes, genOrgRes, cfsRes, transRes, chRes, vbRes] = await Promise.all([
+        const [slRes, supRes, orgRes, genOrgRes, cfsRes, transRes, chRes, vbRes, cfsVbRes] = await Promise.all([
           axios.get(`${process.env.REACT_APP_API_STRING}/get-shipping-lines`),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-suppliers`),
           axios.get(`${process.env.REACT_APP_API_STRING}/organization`),
@@ -236,7 +237,8 @@ const EditChargeModal = ({
           axios.get(`${process.env.REACT_APP_API_STRING}/get-cfs-list`),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-transporters`),
           axios.get(`${process.env.REACT_APP_API_STRING}/charge-heads`),
-          axios.get(`${process.env.REACT_APP_API_STRING}/api/virtual-balance/created-terminals`).catch(() => ({ data: { data: [] } }))
+          axios.get(`${process.env.REACT_APP_API_STRING}/api/virtual-balance/created-terminals`).catch(() => ({ data: { data: [] } })),
+          axios.get(`${process.env.REACT_APP_API_STRING}/api/cfs-virtual-balance/created-names`).catch(() => ({ data: { data: [] } }))
         ]);
         setShippingLines(slRes.data);
         setSuppliers(supRes.data);
@@ -247,6 +249,9 @@ const EditChargeModal = ({
         setChargeHeads(chRes.data?.data || []);
         if (vbRes?.data?.success && Array.isArray(vbRes.data.data)) {
           setCreatedVirtualTerminals(vbRes.data.data.map(t => (t || '').trim().toUpperCase()));
+        }
+        if (cfsVbRes?.data?.success && Array.isArray(cfsVbRes.data.data)) {
+          setCreatedVirtualCfs(cfsVbRes.data.data.map(t => (t || '').trim().toUpperCase()));
         }
       } catch (error) {
         console.error("Error fetching master data:", error);
@@ -265,6 +270,13 @@ const EditChargeModal = ({
           }
         })
         .catch(err => console.error("Error updating created virtual terminals:", err));
+      axios.get(`${process.env.REACT_APP_API_STRING}/cfs-virtual-balance/created-names`)
+        .then(res => {
+          if (res.data?.success && Array.isArray(res.data.data)) {
+            setCreatedVirtualCfs(res.data.data.map(t => (t || '').trim().toUpperCase()));
+          }
+        })
+        .catch(err => console.error("Error updating created virtual CFS:", err));
     }
   }, [isOpen]);
 
@@ -1553,41 +1565,35 @@ const EditChargeModal = ({
                                      <span style={{ fontSize: '11px', color: '#555', paddingLeft: '4px' }}>INR</span>
                                    </div>
                                  </div>
-                                 {/* VIRTUAL BALANCE TERMINAL SELECTOR */}
+                                 {/* VIRTUAL BALANCE SOURCE SELECTOR */}
                                  {(() => {
-                                   const pType = (row.cost?.partyType || '').toUpperCase();
-                                   const isTypeTerminal = pType === 'TERMINAL' || pType === 'CFS';
-                                   const isPartyTerminal = (cfsList || []).some(
-                                     t => (t.name || t.organization || '').trim().toUpperCase() === (row.cost?.partyName || '').trim().toUpperCase()
-                                   );
-                                   if (isTypeTerminal || isPartyTerminal) {
+                                   if (row.cost?.partyName) {
+                                     const sourceType = (row.cost?.virtualBalanceType || 'TERMINAL').toUpperCase();
+                                     const isCfsSource = sourceType === 'CFS';
                                      const allAvailableNames = [...new Set([
-                                        ...createdVirtualTerminals,
+                                        ...(isCfsSource ? createdVirtualCfs : createdVirtualTerminals),
                                         ...(row.cost?.virtualBalanceTerminal ? [row.cost.virtualBalanceTerminal] : [])
-                                      ])].filter((name) => Boolean(name) && name.trim().toUpperCase() !== (row.cost?.partyName || '').trim().toUpperCase());
+                                      ])].filter(Boolean);
 
                                      return (
-                                       <div className="charges-ep-row">
-                                         <span className="charges-ep-label" style={{ fontWeight: 'bold', color: '#0284c7' }}>Virtual Balance Terminal</span>
-                                         <select
-                                           className="charges-ep-select"
-                                           disabled={false}
-                                           style={{ borderColor: '#38bdf8', backgroundColor: '#f0f9ff', fontWeight: '500' }}
-                                           value={row.cost?.virtualBalanceTerminal || ''}
-                                           onChange={e => {
-                                             handleFieldChange(i, 'virtualBalanceTerminal', e.target.value, 'cost');
-                                             triggerAutoSave(i, true);
-                                           }}
-                                           onBlur={() => triggerAutoSave(i, true)}
-                                         >
-                                           <option value="">Same as Payable To ({row.cost?.partyName || 'Terminal'})</option>
-                                           {allAvailableNames.map((tName, tIdx) => (
-                                             <option key={tIdx} value={tName}>
-                                               {tName}
-                                             </option>
-                                           ))}
-                                         </select>
-                                       </div>
+                                       <>
+                                         <div className="charges-ep-row">
+                                           <span className="charges-ep-label" style={{ fontWeight: 'bold', color: '#0284c7' }}>Virtual Balance Source</span>
+                                           <select className="charges-ep-select" value={sourceType} onChange={e => {
+                                             handleFieldChange(i, 'virtualBalanceType', e.target.value, 'cost');
+                                             handleFieldChange(i, 'virtualBalanceTerminal', '', 'cost');
+                                           }}>
+                                             <option value="TERMINAL">Terminal</option><option value="CFS">CFS</option>
+                                           </select>
+                                         </div>
+                                         <div className="charges-ep-row">
+                                           <span className="charges-ep-label" style={{ fontWeight: 'bold', color: '#0284c7' }}>{isCfsSource ? 'CFS' : 'Terminal'} Balance</span>
+                                           <select className="charges-ep-select" value={row.cost?.virtualBalanceTerminal || ''} onChange={e => { handleFieldChange(i, 'virtualBalanceTerminal', e.target.value, 'cost'); triggerAutoSave(i, true); }} onBlur={() => triggerAutoSave(i, true)}>
+                                             <option value="">Select {isCfsSource ? 'CFS' : 'Terminal'}</option>
+                                             {allAvailableNames.map((name, nameIndex) => <option key={nameIndex} value={name}>{name}</option>)}
+                                           </select>
+                                         </div>
+                                       </>
                                      );
                                    }
                                    return null;
@@ -1834,7 +1840,9 @@ const EditChargeModal = ({
                                                 ...(Array.isArray(row.cost?.url) ? row.cost.url : []),
                                                 ...(Array.isArray(row.cost?.url_draft) ? row.cost.url_draft : []),
                                                 ...(Array.isArray(row.cost?.url_final) ? row.cost.url_final : [])
-                                              ]
+                                              ],
+                                              virtualBalanceTerminal: row.cost?.virtualBalanceTerminal || '',
+                                              virtualBalanceType: row.cost?.virtualBalanceType || ''
                                             };
                                           });
                                         }}

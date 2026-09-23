@@ -283,6 +283,7 @@ export default function SalesTeamManagement() {
                     onChange={(e) => setFormData({ ...formData, businessVertical: e.target.value })}
                     style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
                   >
+                    <option value="Novusha">Novusha</option>
                     <option value="Paramount">Paramount</option>
                     <option value="Transportation">Transportation</option>
                     <option value="Freight Forwarding">Freight Forwarding</option>

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { X, Upload, Plus, Trash2, Video, FileText, CheckCircle, ExternalLink, Loader2, Sparkles } from 'lucide-react';
+import { X, Upload, Plus, Trash2, Video, FileText, CheckCircle, ExternalLink, Loader2, Sparkles, Edit2 } from 'lucide-react';
 import { message } from 'antd';
 
 const getHeaders = () => {
@@ -16,8 +16,21 @@ const getHeaders = () => {
   };
 };
 
-export default function CompleteDesignModal({ isOpen, onClose, onSuccess, designRequest }) {
-  const isDirect = !designRequest?._id;
+export default function CompleteDesignModal({ isOpen, onClose, onSuccess, designRequest, mode = 'auto' }) {
+  const effectiveMode = useMemo(() => {
+    if (mode && mode !== 'auto') return mode;
+    if (designRequest?.isNewDesign) return 'create_new';
+    if (designRequest?.status === 'Completed' || (designRequest?.completedDesign && designRequest.completedDesign.files?.length > 0)) {
+      return 'edit';
+    }
+    if (designRequest?._id) return 'complete';
+    return 'create_new';
+  }, [mode, designRequest]);
+
+  const isEdit = effectiveMode === 'edit';
+  const isCreateNew = effectiveMode === 'create_new';
+  const isComplete = effectiveMode === 'complete';
+  const isDirect = isCreateNew && !designRequest?.companyName;
 
   const [companyName, setCompanyName] = useState('');
   const [designTitle, setDesignTitle] = useState('');
@@ -35,24 +48,61 @@ export default function CompleteDesignModal({ isOpen, onClose, onSuccess, design
     if (isOpen) {
       if (designRequest) {
         setCompanyName(designRequest.companyName || '');
-        setDesignTitle(designRequest.title || '');
-        setRequestType(designRequest.requestType || 'Brochure Design');
-        setRemarks(designRequest.remarks || '');
+
+        if (effectiveMode === 'edit') {
+          // Pre-populate existing completed design data for updating in place
+          setDesignTitle(designRequest.completedDesign?.designTitle || designRequest.title || '');
+          setRequestType(designRequest.requestType || 'Brochure Design');
+          setRemarks(designRequest.completedDesign?.remarks || designRequest.remarks || '');
+          setPublishToBrochures(designRequest.publishedToBrochures !== false);
+
+          const existingFiles = (designRequest.completedDesign?.files || []).map(f => ({
+            name: f.name || '',
+            url: f.url || '',
+            fileKey: f.fileKey || '',
+            fileSize: f.fileSize || 0,
+            fileType: f.fileType || 'pdf'
+          }));
+          setFiles(existingFiles.length > 0 ? existingFiles : [{ name: '', url: '', fileType: 'pdf' }]);
+
+          const existingVideos = (designRequest.completedDesign?.videoLinks || []).map(v => ({
+            title: v.title || '',
+            url: v.url || '',
+            platform: v.platform || 'YouTube'
+          }));
+          setVideoLinks(existingVideos);
+        } else if (effectiveMode === 'create_new') {
+          // Creating a whole new design for this company
+          setDesignTitle(designRequest.isNewDesign ? `${designRequest.title} (New Design)` : '');
+          setRequestType(designRequest.requestType || 'Brochure Design');
+          setRemarks('');
+          setPublishToBrochures(true);
+          setFiles([{ name: '', url: '', fileType: 'pdf' }]);
+          setVideoLinks([]);
+        } else {
+          // Fulfill pending sales request
+          setDesignTitle(designRequest.title || '');
+          setRequestType(designRequest.requestType || 'Brochure Design');
+          setRemarks('');
+          setPublishToBrochures(true);
+          setFiles([{ name: '', url: '', fileType: 'pdf' }]);
+          setVideoLinks([]);
+        }
       } else {
         setCompanyName('');
         setDesignTitle('');
         setRequestType('Brochure Design');
         setRemarks('');
+        setPublishToBrochures(true);
+        setFiles([{ name: '', url: '', fileType: 'pdf' }]);
+        setVideoLinks([]);
       }
-      setFiles([]);
-      setVideoLinks([]);
-      setPublishToBrochures(true);
 
       axios.get(`${process.env.REACT_APP_API_STRING}/crm/accounts`, getHeaders())
         .then(res => setAccounts(res.data?.accounts || res.data || []))
         .catch(err => console.error('Failed to load accounts for suggestions:', err));
     }
-  }, [isOpen, designRequest]);
+  }, [isOpen, designRequest, effectiveMode]);
 
   if (!isOpen) return null;
 
@@ -150,7 +200,23 @@ export default function CompleteDesignModal({ isOpen, onClose, onSuccess, design
 
     setIsSubmitting(true);
     try {
-      if (designRequest?._id) {
+      if (isEdit) {
+        // Option 1: Update in the same entry she created
+        await axios.put(
+          `${process.env.REACT_APP_API_STRING}/crm/collaterals/design-requests/${designRequest._id}`,
+          {
+            companyName: companyName.trim(),
+            title: designTitle.trim(),
+            requestType,
+            files: validFiles,
+            videoLinks: validVideos,
+            remarks: remarks.trim(),
+            publishToBrochures
+          },
+          getHeaders()
+        );
+        message.success('Design entry updated successfully!');
+      } else if (isComplete) {
         // Complete existing design request
         await axios.post(
           `${process.env.REACT_APP_API_STRING}/crm/collaterals/design-requests/${designRequest._id}/complete`,
@@ -165,7 +231,7 @@ export default function CompleteDesignModal({ isOpen, onClose, onSuccess, design
         );
         message.success('Design completed and published successfully!');
       } else {
-        // Direct add new design
+        // Option 2: Direct add a whole new design
         await axios.post(
           `${process.env.REACT_APP_API_STRING}/crm/collaterals/add-direct-design`,
           {
@@ -185,8 +251,8 @@ export default function CompleteDesignModal({ isOpen, onClose, onSuccess, design
       onSuccess?.();
       onClose();
     } catch (err) {
-      console.error('Failed to complete design:', err);
-      message.error(err.response?.data?.error || 'Failed to submit completed design');
+      console.error('Failed to save design:', err);
+      message.error(err.response?.data?.error || 'Failed to submit design');
     } finally {
       setIsSubmitting(false);
     }
@@ -225,14 +291,32 @@ export default function CompleteDesignModal({ isOpen, onClose, onSuccess, design
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'
+          background: isEdit 
+            ? 'linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%)' 
+            : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'
         }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#166534', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles size={20} color="#16a34a" /> {isDirect ? '🎨 Add New Design' : '✅ Upload Completed Design'}
+              {isEdit ? (
+                <>
+                  <Edit2 size={20} color="#059669" /> ✏️ Update Design Entry
+                </>
+              ) : isComplete ? (
+                <>
+                  <CheckCircle size={20} color="#16a34a" /> ✅ Upload Completed Design
+                </>
+              ) : (
+                <>
+                  <Sparkles size={20} color="#16a34a" /> 🎨 Add New Design
+                </>
+              )}
             </h2>
             <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: '#15803d' }}>
-              Kinjal's Designer Portal — Upload finalized files and update company collaterals
+              {isEdit
+                ? "Kinjal's Designer Portal — Update finalized files, title, notes or collaterals in this entry"
+                : isComplete
+                ? "Kinjal's Designer Portal — Fulfill sales request and upload completed design files"
+                : "Kinjal's Designer Portal — Create a brand new design entry for sales & marketing collaterals"}
             </p>
           </div>
           <button
@@ -255,8 +339,28 @@ export default function CompleteDesignModal({ isOpen, onClose, onSuccess, design
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           <div style={{ padding: '1.5rem 1.75rem', overflowY: 'auto', flex: 1 }}>
 
+            {/* If updating an existing entry, show helpful status banner */}
+            {isEdit && designRequest && (
+              <div style={{
+                background: '#ecfdf5',
+                border: '1px solid #a7f3d0',
+                borderRadius: '10px',
+                padding: '12px 14px',
+                marginBottom: '1.25rem',
+                fontSize: '0.85rem',
+                color: '#065f46'
+              }}>
+                <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Edit2 size={15} color="#059669" /> Updating Existing Entry: {designRequest.title}
+                </div>
+                <div style={{ fontSize: '0.8rem', marginTop: '2px', color: '#047857' }}>
+                  You are editing this entry directly. Any replaced or new files will update this entry and sync with Company Brochures.
+                </div>
+              </div>
+            )}
+
             {/* If fulfilling a sales request, show brief banner */}
-            {designRequest && (
+            {isComplete && designRequest && (
               <div style={{
                 background: '#f8fafc',
                 border: '1px solid #e2e8f0',
@@ -676,7 +780,13 @@ export default function CompleteDesignModal({ isOpen, onClose, onSuccess, design
                 <>
                   <Loader2 size={16} className="spin-animate" /> Saving...
                 </>
-              ) : 'Complete & Publish Design'}
+              ) : isEdit ? (
+                '💾 Update Design Entry'
+              ) : isComplete ? (
+                '✅ Complete & Publish Design'
+              ) : (
+                '✨ Create & Publish New Design'
+              )}
             </button>
           </div>
         </form>

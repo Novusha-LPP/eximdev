@@ -277,7 +277,9 @@ const ChargeLineSchema = new mongoose.Schema({
   tdsPercent: { type: Number, default: 0 },
   tdsAmount: { type: Number, default: 0 },
   tdsCategory: { type: String, default: '94C' },
-  netPayable: { type: Number, default: 0 }
+  netPayable: { type: Number, default: 0 },
+  virtualBalanceTerminal: { type: String, default: '' },
+  virtualBalanceType: { type: String, enum: ['TERMINAL', 'CFS', ''], default: '' }
 }, { _id: false });
 
 const ChargeSchema = new mongoose.Schema({

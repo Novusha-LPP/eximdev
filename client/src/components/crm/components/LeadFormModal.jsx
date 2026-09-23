@@ -162,7 +162,7 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
         } else {
           setCustomSource('');
         }
-        const standardTypes = ['OEM Tier 1', 'OEM Tier 2', 'OEM Tier 3'];
+        const standardTypes = ['OEM', 'Tier 1', 'Tier 2', 'Tier 3'];
         if (activeLead.companyType) {
           if (!standardTypes.includes(activeLead.companyType)) {
             setCustomCompanyType(activeLead.companyType);
@@ -508,7 +508,7 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Company Type</label>
                 <select
-                  value={isOtherCompanyType ? 'Other' : (['OEM Tier 1', 'OEM Tier 2', 'OEM Tier 3'].includes(formData.companyType) ? formData.companyType : '')}
+                  value={isOtherCompanyType ? 'Other' : (['OEM', 'Tier 1', 'Tier 2', 'Tier 3'].includes(formData.companyType) ? formData.companyType : '')}
                   onChange={e => {
                     const val = e.target.value;
                     if (val === 'Other') {
@@ -523,9 +523,10 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem', background: '#fff' }}
                 >
                   <option value="">-- Select Company Type --</option>
-                  <option value="OEM Tier 1">OEM Tier 1</option>
-                  <option value="OEM Tier 2">OEM Tier 2</option>
-                  <option value="OEM Tier 3">OEM Tier 3</option>
+                  <option value="OEM">OEM</option>
+                  <option value="Tier 1">Tier 1</option>
+                  <option value="Tier 2">Tier 2</option>
+                  <option value="Tier 3">Tier 3</option>
                   <option value="Other">Other (Manual)</option>
                 </select>
                 {isOtherCompanyType && (

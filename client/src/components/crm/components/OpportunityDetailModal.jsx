@@ -73,7 +73,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
         setCustomSource('');
       }
 
-      const standardTypes = ['OEM Tier 1', 'OEM Tier 2', 'OEM Tier 3'];
+      const standardTypes = ['OEM', 'Tier 1', 'Tier 2', 'Tier 3'];
       if (opportunity.companyType) {
         if (!standardTypes.includes(opportunity.companyType)) {
           setCustomCompanyType(opportunity.companyType);
@@ -1070,7 +1070,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Company Type</label>
                 <select
-                  value={isOtherCompanyType ? 'Other' : (['OEM Tier 1', 'OEM Tier 2', 'OEM Tier 3'].includes(formData.companyType) ? formData.companyType : '')}
+                  value={isOtherCompanyType ? 'Other' : (['OEM', 'Tier 1', 'Tier 2', 'Tier 3'].includes(formData.companyType) ? formData.companyType : '')}
                   onChange={e => {
                     const val = e.target.value;
                     if (val === 'Other') {
@@ -1085,9 +1085,10 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                   style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', color: '#334155', background: '#ffffff', outline: 'none' }}
                 >
                   <option value="">-- Select Company Type --</option>
-                  <option value="OEM Tier 1">OEM Tier 1</option>
-                  <option value="OEM Tier 2">OEM Tier 2</option>
-                  <option value="OEM Tier 3">OEM Tier 3</option>
+                  <option value="OEM">OEM</option>
+                  <option value="Tier 1">Tier 1</option>
+                  <option value="Tier 2">Tier 2</option>
+                  <option value="Tier 3">Tier 3</option>
                   <option value="Other">Other (Manual)</option>
                 </select>
                 {isOtherCompanyType && (
@@ -1813,7 +1814,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                                 </div>
                               </div>
                             </div>
-                            
+
                             {canModify && (
                               <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                                 <button

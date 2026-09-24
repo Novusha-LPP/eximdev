@@ -4,6 +4,7 @@ import VirtualBalanceModel from "../../model/virtualBalanceModel.mjs";
 import PurchaseBookEntryModel from "../../model/purchaseBookEntryModel.mjs";
 import CfsModel from "../../model/cfsModel.mjs";
 import CfsDirectoryModel from "../../model/cfsDirectoryModel.mjs";
+import EmptyYardDirectoryModel from "../../model/emptyYardDirectoryModel.mjs";
 
 const router = express.Router();
 
@@ -135,7 +136,7 @@ router.get(["/api/virtual-balance", "/api/cfs-virtual-balance"], async (req, res
     const purchaseBooks = await PurchaseBookEntryModel.find(pbQuery).lean();
 
     // 3. Fetch all CFS directory opening balances
-    const cfsList = type === "CFS" ? await CfsDirectoryModel.find().lean() : await CfsModel.find().lean();
+    const cfsList = type === "CFS" ? await CfsDirectoryModel.find().lean() : await EmptyYardDirectoryModel.find().lean();
     const cfsOpeningMap = {};
     cfsList.forEach((c) => {
       if (c.name) {
@@ -494,7 +495,7 @@ router.get(["/api/virtual-balance/jobs", "/api/cfs-virtual-balance/jobs"], async
 });
 
 // GET /api/virtual-balance/created-terminals - Fetch distinct terminal names (cfsName) that have virtual balance entries
-router.get(["/virtual-balance/created-terminals", "/api/virtual-balance/created-terminals", "/cfs-virtual-balance/created-names", "/api/cfs-virtual-balance/created-names"], async (req, res) => {
+router.get(["/virtual-balance/created-terminals", "/api/virtual-balance/created-terminals", "/cfs-virtual-balance/created-names", "/api/cfs-virtual-balance/created-names", "/empty-yard-virtual-balance/created-names", "/api/empty-yard-virtual-balance/created-names"], async (req, res) => {
   try {
     const distinctTerminals = await VirtualBalanceModel.distinct("cfsName", balanceFilter(req));
     const validTerminals = (distinctTerminals || [])

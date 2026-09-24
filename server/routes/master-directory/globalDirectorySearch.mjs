@@ -10,6 +10,8 @@ import PortModel from "../../model/portModel.mjs";
 import IndianPortModel from "../../model/indianPortModel.mjs";
 import CustomHouseModel from "../../model/customHouseModel.mjs";
 import CfsModel from "../../model/cfsModel.mjs";
+import CfsDirectoryModel from "../../model/cfsDirectoryModel.mjs";
+import EmptyYardDirectoryModel from "../../model/emptyYardDirectoryModel.mjs";
 import TransporterModel from "../../model/transporterModel.mjs";
 import GeneralOrgModel from "../../model/generalOrgModel.mjs";
 import EmptyOffLocationModel from "../../model/emptyOffLocationModel.mjs";
@@ -48,6 +50,8 @@ router.get("/global-search", async (req, res) => {
       transporters,
       customHouses,
       cfsList,
+      emptyYards,
+      cfsDirectories,
       suppliers,
       generalOrgs,
       countries,
@@ -126,8 +130,28 @@ router.get("/global-search", async (req, res) => {
         ]
       }).select("name code").limit(limit).lean().catch(() => []),
 
-      // 8. Terminals / CFS
+      // 8. Terminals
       CfsModel.find({
+        $or: [
+          { name: regex },
+          { "branches.branchName": regex },
+          { "branches.city": regex },
+          { "branches.gst": regex }
+        ]
+      }).select("name branches").limit(limit).lean().catch(() => []),
+
+      // 8a. Empty Yards
+      EmptyYardDirectoryModel.find({
+        $or: [
+          { name: regex },
+          { "branches.branchName": regex },
+          { "branches.city": regex },
+          { "branches.gst": regex }
+        ]
+      }).select("name branches").limit(limit).lean().catch(() => []),
+
+      // 8b. CFS Directory
+      CfsDirectoryModel.find({
         $or: [
           { name: regex },
           { "branches.branchName": regex },
@@ -359,6 +383,48 @@ router.get("/global-search", async (req, res) => {
         tagColor: "#059669",
         badgeBg: "#d1fae5",
         badgeColor: "#047857"
+      });
+    });
+
+    // Map Empty Yards
+    emptyYards.forEach(item => {
+      const bCity = item.branches?.find(b => b.city)?.city;
+      const bGst = item.branches?.find(b => b.gst)?.gst;
+      formatted.push({
+        directory: "Empty Yard",
+        directoryKey: "empty-yard",
+        path: "/empty-yard-directory",
+        id: item._id,
+        title: item.name,
+        subtitle: [
+          bCity ? `City: ${bCity}` : null,
+          bGst ? `GST: ${bGst}` : null,
+          item.branches?.length ? `${item.branches.length} Branches` : null
+        ].filter(Boolean).join(" • ") || "Empty Yard Partner",
+        tagColor: "#7c3aed",
+        badgeBg: "#f5f3ff",
+        badgeColor: "#6d28d9"
+      });
+    });
+
+    // Map CFS Directory
+    cfsDirectories.forEach(item => {
+      const bCity = item.branches?.find(b => b.city)?.city;
+      const bGst = item.branches?.find(b => b.gst)?.gst;
+      formatted.push({
+        directory: "CFS",
+        directoryKey: "cfs",
+        path: "/cfs-directory",
+        id: item._id,
+        title: item.name,
+        subtitle: [
+          bCity ? `City: ${bCity}` : null,
+          bGst ? `GST: ${bGst}` : null,
+          item.branches?.length ? `${item.branches.length} Branches` : null
+        ].filter(Boolean).join(" • ") || "CFS Partner",
+        tagColor: "#0284c7",
+        badgeBg: "#f0f9ff",
+        badgeColor: "#0369a1"
       });
     });
 

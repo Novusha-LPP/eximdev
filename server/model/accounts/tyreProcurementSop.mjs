@@ -325,6 +325,24 @@ const approvalSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const grnReferenceInfoSchema = new mongoose.Schema(
+  {
+    supplierName: String,
+    supplierContactNo: String,
+    deliveryNoteDcNo: String,
+    lrNumber: String,
+    vehicleNumber: String,
+    deliveryLocation: String,
+    invoiceNumber: String,
+    invoiceDate: Date,
+    invoiceAmount: { type: Number, default: 0 },
+    // S3 URL of the uploaded supplier invoice — case-sensitive, never uppercased
+    invoiceAttachment: String,
+    invoiceAttachmentName: String,
+  },
+  { _id: true }
+);
+
 const stage6Schema = new mongoose.Schema(
   {
     grnSeriesNo: String,
@@ -337,6 +355,7 @@ const stage6Schema = new mongoose.Schema(
     lrNumber: String,
     vehicleNumber: String,
     deliveryLocation: String,
+    referenceInfos: { type: [grnReferenceInfoSchema], default: [] },
     itemsReceived: { type: [grnTyreItemSchema], default: [] },
     qualityConformanceCheck: {
       tyresVerified: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },

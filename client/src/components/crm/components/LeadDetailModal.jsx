@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { X, Edit2, User, FileText, DollarSign } from 'lucide-react';
+import { X, Edit2, User, FileText, DollarSign, Trash2 } from 'lucide-react';
 import ActivityTimeline from './ActivityTimeline';
 import QuoteFormModal from './QuoteFormModal';
 import PricingRequestFormModal from './PricingRequestFormModal';
 
-export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefresh }) {
+export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefresh, onDelete, canDelete }) {
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
 
@@ -67,6 +67,14 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
             >
               <Edit2 size={16} /> Edit
             </button>
+            {canDelete && onDelete && (
+              <button
+                onClick={() => onDelete(lead)}
+                style={{ padding: '8px 12px', background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+              >
+                <Trash2 size={16} /> Delete
+              </button>
+            )}
             <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
               <X size={20} />
             </button>
@@ -91,16 +99,6 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
             </div>
           )}
 
-          {/* Reason for Loss (if lost) */}
-          {(lead.status === 'lost' || lead.closeReason) && (
-            <div style={{ marginBottom: '20px', background: '#fff1f2', padding: '12px 16px', borderRadius: '10px', borderLeft: '4px solid #e11d48' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#9f1239' }}>❌ Reason for Loss: </span>
-              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#be123c' }}>{lead.closeReason || 'Closed / Lost'}</span>
-              {lead.closeNotes && (
-                <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#881337' }}>{lead.closeNotes}</p>
-              )}
-            </div>
-          )}
 
           {/* Freight Forwarding Sync Indicator */}
           {lead.freightEnquiryRef && (

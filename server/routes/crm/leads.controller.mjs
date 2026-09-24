@@ -218,6 +218,7 @@ router.get('/', async (req, res) => {
 
     const leads = await Lead.find(query)
       .populate('ownerId', 'username first_name last_name')
+      .populate('createdBy', 'username first_name last_name')
       .populate('referredFromTeamId', 'nameCode teamName')
       .populate('referredToTeamId', 'nameCode teamName')
       .populate('referredByUserId', 'username first_name last_name')
@@ -235,6 +236,7 @@ router.get('/:id', async (req, res) => {
   try {
     const lead = await Lead.findById(req.params.id)
       .populate('ownerId', 'username first_name last_name')
+      .populate('createdBy', 'username first_name last_name')
       .populate('referredFromTeamId', 'nameCode teamName')
       .populate('referredToTeamId', 'nameCode teamName')
       .populate('referredByUserId', 'username first_name last_name');
@@ -357,6 +359,7 @@ router.post('/', async (req, res) => {
     const leadData = {
       ...req.body,
       ownerId: req.body.ownerId || userId,
+      createdBy: userId,
       lastActivityAt: new Date()
     };
 
@@ -418,8 +421,34 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/crm/leads/:id
 router.delete('/:id', async (req, res) => {
   try {
-    const lead = await Lead.findByIdAndDelete(req.params.id);
-    if (!lead) return res.status(404).json({ message: 'Lead not found' });
+    const lead = await Lead.findById(req.params.id);
+    if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
+
+    let userRole = req.user?.role || req.headers['user-role'];
+    let crmRole = req.user?.crmRole || req.headers['crm-role'];
+    const userId = req.user?._id || req.user?.id || req.headers['user-id'];
+
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      const dbUser = await UserModel.findById(userId).select('role crmRole isHod').lean();
+      if (dbUser) {
+        if (dbUser.role) userRole = dbUser.role;
+        if (dbUser.crmRole) crmRole = dbUser.crmRole;
+      }
+    }
+
+    const isHOD = userRole === 'HOD' || userRole === 'Head_of_Department' || (typeof userRole === 'string' && (userRole.toLowerCase() === 'hod' || userRole.toLowerCase() === 'head_of_department'));
+    const isCrmAdmin = crmRole === 'Admin' || (typeof crmRole === 'string' && crmRole.toLowerCase() === 'admin');
+    const isSystemAdmin = userRole === 'Admin' || (typeof userRole === 'string' && userRole.toLowerCase() === 'admin');
+    const isAdmin = (isCrmAdmin || isSystemAdmin) && !isHOD;
+
+    const creatorId = lead.createdBy?.toString() || lead.referredByUserId?.toString() || lead.ownerId?.toString();
+    const isCreator = userId && creatorId && (userId.toString() === creatorId);
+
+    if (!isAdmin && !isCreator) {
+      return res.status(403).json({ success: false, message: 'You are only allowed to delete leads that you created yourself.' });
+    }
+
+    await Lead.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: 'Lead deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

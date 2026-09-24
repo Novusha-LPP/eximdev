@@ -1,34 +1,35 @@
 import mongoose from 'mongoose';
 
 const allowedServices = [
-  'freight forwarding', 
-  'dgft', 
-  'e-lock', 
-  'client', 
-  'transportation', 
-  'paramount', 
-  'rabs', 
+  'freight forwarding',
+  'dgft',
+  'e-lock',
+  'client',
+  'transportation',
+  'paramount',
+  'rabs',
   'auto rack'
 ];
 
 const leadSchema = new mongoose.Schema({
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   company: { type: String, required: true },
   firstName: { type: String, required: true },
   lastName: { type: String },
   email: { type: String },
   phone: { type: String },
-  status: { 
-    type: String, 
-    enum: ['new', 'contacted', 'qualified', 'unqualified', 'converted', 'lost', 'rejected', 'duplicate', 'cancelled'], 
-    default: 'new' 
+  status: {
+    type: String,
+    enum: ['new', 'contacted', 'qualified', 'unqualified', 'converted', 'lost', 'rejected', 'duplicate', 'cancelled'],
+    default: 'new'
   },
-  interestedServices: [{ 
-    type: String, 
-    enum: allowedServices 
+  interestedServices: [{
+    type: String,
+    enum: allowedServices
   }],
-  source: { 
-    type: String, 
+  source: {
+    type: String,
     default: 'Web / Own Generated Lead'
   },
   score: { type: Number, default: 0 },

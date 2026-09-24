@@ -980,6 +980,14 @@ function HomePageContent() {
                 }
               />
               <Route
+                path="/empty-yard-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <CFSDirectory directoryType="empty_yard" />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/transporter-directory"
                 element={
                   <ProtectedRoute requiredModule="MasterDirectory">

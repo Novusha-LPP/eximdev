@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { message } from 'antd';
+import { message, Modal } from 'antd';
 
 import LeadFormModal from './components/LeadFormModal';
 import LeadDetailModal from './components/LeadDetailModal';
@@ -39,6 +39,35 @@ export default function LeadList() {
   const isCrmAdmin = crmRole === 'Admin' || (typeof crmRole === 'string' && crmRole.toLowerCase() === 'admin');
   const isSystemAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
   const isAdmin = (isSystemAdmin || isCrmAdmin) && !isHOD;
+  const currentUserId = user._id || user.id || '';
+
+  const canDeleteLead = (lead) => {
+    if (!lead) return false;
+    if (isAdmin) return true;
+    if (!currentUserId) return false;
+    const creatorId = lead.createdBy?._id || lead.createdBy || lead.referredByUserId?._id || lead.referredByUserId || lead.ownerId?._id || lead.ownerId;
+    return Boolean(creatorId && creatorId.toString() === currentUserId.toString());
+  };
+
+  const handleDeleteLead = (lead) => {
+    const leadName = lead.company || `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'this lead';
+    Modal.confirm({
+      title: 'Delete Lead',
+      content: `Are you sure you want to delete "${leadName}"? This action cannot be undone.`,
+      okText: 'Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      async onOk() {
+        try {
+          await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/leads/${lead._id}`, getHeaders());
+          message.success('Lead deleted successfully');
+          fetchLeads();
+        } catch (error) {
+          message.error(error.response?.data?.message || 'Error deleting lead');
+        }
+      }
+    });
+  };
 
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -303,6 +332,12 @@ export default function LeadList() {
           setSelectedLeadForEdit(lead);
           setIsModalOpen(true);
         }}
+        onDelete={(lead) => {
+          setIsDetailModalOpen(false);
+          setSelectedLead(null);
+          handleDeleteLead(lead);
+        }}
+        canDelete={selectedLead ? canDeleteLead(selectedLead) : false}
         onRefresh={fetchLeads}
       />
       {/* Refer Lead Modal */}
@@ -515,13 +550,12 @@ export default function LeadList() {
                 <th style={{ padding: '16px 12px', background: '#f0f9ff', color: '#0369a1', fontWeight: 800 }}>📍 Location</th>
                 <th style={{ padding: '16px 12px' }}>Contact Person</th>
                 <th style={{ padding: '16px 12px' }}>Status</th>
-                <th style={{ padding: '16px 12px', color: '#be123c', fontWeight: 700 }}>Reason for Loss</th>
                 <th style={{ padding: '16px 12px', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {leads.length === 0 ? (
-                <tr><td colSpan="6" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No leads found matching your criteria.</td></tr>
+                <tr><td colSpan="5" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No leads found matching your criteria.</td></tr>
               ) : leads.map(lead => (
                 <tr key={lead._id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   <td style={{ padding: '16px 12px', fontWeight: 600, color: '#334155' }}>
@@ -635,34 +669,6 @@ export default function LeadList() {
                       {lead.status}
                     </span>
                   </td>
-                  {/* Reason for Loss Column */}
-                  <td style={{ padding: '16px 12px' }}>
-                    {lead.closeReason ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span style={{
-                          fontSize: '0.75rem',
-                          background: '#fff1f2',
-                          color: '#be123c',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontWeight: 700,
-                          border: '1px solid #fecdd3',
-                          display: 'inline-block'
-                        }}>
-                          {lead.closeReason}
-                        </span>
-                        {lead.closeNotes && (
-                          <span style={{ fontSize: '0.7rem', color: '#881337', fontStyle: 'italic' }}>
-                            {lead.closeNotes}
-                          </span>
-                        )}
-                      </div>
-                    ) : lead.status === 'lost' ? (
-                      <span style={{ fontSize: '0.75rem', color: '#991b1b', fontWeight: 600 }}>Lost (No reason specified)</span>
-                    ) : (
-                      <span style={{ color: '#cbd5e1' }}>—</span>
-                    )}
-                  </td>
                   <td style={{ padding: '16px 12px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                       <button
@@ -710,6 +716,26 @@ export default function LeadList() {
                           }}
                         >
                           {converting === lead._id ? '⏳ Converting...' : 'Convert'}
+                        </button>
+                      )}
+                      {canDeleteLead(lead) && (
+                        <button
+                          onClick={() => handleDeleteLead(lead)}
+                          style={{
+                            background: '#fee2e2',
+                            color: '#991b1b',
+                            padding: '6px 14px',
+                            border: '1px solid #fecaca',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#fecaca'}
+                          onMouseLeave={e => e.currentTarget.style.background = '#fee2e2'}
+                        >
+                          Delete
                         </button>
                       )}
                     </div>

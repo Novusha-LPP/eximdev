@@ -34,49 +34,48 @@ export default function QuoteFormModal({
   const getChargeTemplate = (selectedType = 'import') => {
     const templates = {
       import: [
-        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 6000, discount: 0, tax: 18 },
-        { productName: 'Shipping Line Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 18 },
-        { productName: 'CFS Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 18 },
-        { productName: 'EDI Charges', hsnSac: '9987', quantity: 1, unitPrice: 70, discount: 0, tax: 18 },
-        { productName: 'Bond & Insurance Charges for Factory De-stuffing', hsnSac: '9987', quantity: 1, unitPrice: 750, discount: 0, tax: 18 },
-        { productName: 'Stamp Duty (0.1% of Assessable Value)', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
-        { productName: 'Lift off Charges', hsnSac: '9987', quantity: 1, unitPrice: 2000, discount: 0, tax: 18 },
-        { productName: 'Other Charges, If any', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 18 }
+        { productName: 'DOCUMENTATION CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 500, discount: 0, tax: 18 },
+        { productName: 'EXAMINATION CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 2500, discount: 0, tax: 18 },
+        { productName: 'IMPORT AGENCY CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 17500, discount: 0, tax: 18 },
+        { productName: 'EPCG/ADV.AUTH. Licence Debting Charges', hsnSac: '996713', quantity: 1, unitPrice: 500, discount: 0, tax: 18 },
+        { productName: 'ADANI CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 28290, discount: 0, tax: 18 },
+        { productName: 'MISCELLANEOUS CHARGES LOADING CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 1000, discount: 0, tax: 18 },
+        { productName: 'ADC NOC CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 1000, discount: 0, tax: 18 },
+        { productName: 'EDI', hsnSac: '996713', quantity: 1, unitPrice: 30, discount: 0, tax: 18 }
       ],
       export: [
-        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 2200, discount: 0, tax: 18 },
-        { productName: 'Shipping Line Documentation Charges', hsnSac: '9987', quantity: 1, unitPrice: 1800, discount: 0, tax: 18 },
-        { productName: 'Customs Filing Charges', hsnSac: '9987', quantity: 1, unitPrice: 1200, discount: 0, tax: 18 },
-        { productName: 'EDI Charges', hsnSac: '9987', quantity: 1, unitPrice: 60, discount: 0, tax: 18 },
-        { productName: 'CFS / Gate Charges', hsnSac: '9987', quantity: 1, unitPrice: 13000, discount: 0, tax: 18 },
-        { productName: 'Transport to Port / ICD', hsnSac: '9987', quantity: 1, unitPrice: 9500, discount: 0, tax: 18 },
-        { productName: 'Terminal Handling Charges', hsnSac: '9987', quantity: 1, unitPrice: 6000, discount: 0, tax: 18 },
-        { productName: 'Lift on / Lift off Charges', hsnSac: '9987', quantity: 1, unitPrice: 1800, discount: 0, tax: 18 },
-        { productName: 'Seal / Security Charges', hsnSac: '9987', quantity: 1, unitPrice: 1200, discount: 0, tax: 18 },
-        { productName: 'Documentation / Insurance', hsnSac: '9987', quantity: 1, unitPrice: 1500, discount: 0, tax: 18 }
+        { productName: 'DOCUMENTATION CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 500, discount: 0, tax: 18 },
+        { productName: 'EXAMINATION CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 1500, discount: 0, tax: 18 },
+        { productName: 'EXPORT AGENCY CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 3500, discount: 0, tax: 18 },
+        { productName: 'CUSTOMS FILING / CARTING CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 1200, discount: 0, tax: 18 },
+        { productName: 'PORT / CFS CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 15000, discount: 0, tax: 18 },
+        { productName: 'TRANSPORTATION CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 12000, discount: 0, tax: 18 },
+        { productName: 'MISCELLANEOUS CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 1000, discount: 0, tax: 18 },
+        { productName: 'EDI', hsnSac: '996713', quantity: 1, unitPrice: 30, discount: 0, tax: 18 }
       ],
       freight_import: [
-        { productName: 'Ocean Freight Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
-        { productName: 'Terminal Handling Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
-        { productName: 'Bill of Lading Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
-        { productName: 'Seal Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
-        { productName: 'Transportation / Trailer Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
-        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 6000, discount: 0, tax: 18 }
+        { productName: 'Ocean Freight Charges', hsnSac: '996713', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Terminal Handling Charges', hsnSac: '996713', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Bill of Lading Charges', hsnSac: '996713', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Seal Charges', hsnSac: '996713', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Transportation / Trailer Charges', hsnSac: '996713', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Agency Charges', hsnSac: '996713', quantity: 1, unitPrice: 6000, discount: 0, tax: 18 }
       ],
       freight_export: [
-        { productName: 'Ocean Freight Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
-        { productName: 'Terminal Handling Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
-        { productName: 'Bill of Lading Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
-        { productName: 'Seal Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
-        { productName: 'Transportation / Trailer Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
-        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 6000, discount: 0, tax: 18 }
+        { productName: 'Ocean Freight Charges', hsnSac: '996713', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Terminal Handling Charges', hsnSac: '996713', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Bill of Lading Charges', hsnSac: '996713', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Seal Charges', hsnSac: '996713', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Transportation / Trailer Charges', hsnSac: '996713', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Agency Charges', hsnSac: '996713', quantity: 1, unitPrice: 6000, discount: 0, tax: 18 }
       ],
       transport: [
         { productName: 'PICKUP AHMEDABAD (ICD KHODIYAR) STUFFING : PIPLEJ /NAROL RETURN : MUNDRA - 20FT UP TO 14 TONS+', hsnSac: '9967', quantity: 1, unitPrice: 0, discount: 0, tax: 12 },
         { productName: 'PICKUP AHMEDABAD (ICD KHODIYAR) STUFFING : PIPLEJ /NAROL RETURN : MUNDRA - 40HC UP TO 28 TONS+', hsnSac: '9967', quantity: 1, unitPrice: 0, discount: 0, tax: 12 }
       ],
       pfp: [
-        { productName: 'HDPE/PP Plastic Crate', hsnSac: '3923', quantity: 1, unitPrice: 0, discount: 0, tax: 18 }
+        { productName: '600 x 400 x 150 Flat Bottom, Closed Handle, Blue', hsnSac: '39231030', quantity: 1000, unitPrice: 464, discount: 0, tax: 18 },
+        { productName: '600/400 - LID', hsnSac: '392310', quantity: 1000, unitPrice: 220, discount: 0, tax: 18 }
       ],
       software_elock: [
         { productName: 'Software Installation & Initial Deployment', hsnSac: '9973', quantity: 1, unitPrice: 0, discount: 0, tax: 18 },
@@ -300,9 +299,17 @@ export default function QuoteFormModal({
       
       const shouldReplace = !quoteToEdit && (isDefault || prev.lineItems.length === 0);
 
+      const defaultPaymentTerms = nextType === 'pfp' ? '100% Advance' : 'Net 30';
+      const defaultNotes = nextType === 'pfp' ? 'Looking forward for your business.' : '';
+
       return {
         ...prev,
         tradeType: nextType,
+        terms: {
+          ...prev.terms,
+          paymentTerms: (!prev.terms?.paymentTerms || prev.terms?.paymentTerms === 'Net 30' || prev.terms?.paymentTerms === '100% Advance') ? defaultPaymentTerms : prev.terms.paymentTerms,
+          notes: (!prev.terms?.notes || prev.terms?.notes === 'Looking forward for your business.') ? defaultNotes : prev.terms.notes
+        },
         lineItems: shouldReplace 
           ? getChargeTemplate(nextType).map(item => ({ ...item, lineTotal: (item.quantity || 1) * (item.unitPrice || 0) }))
           : prev.lineItems
@@ -970,7 +977,8 @@ export default function QuoteFormModal({
                     <option value="Net 30">Net 30 Days</option>
                     <option value="Net 60">Net 60 Days</option>
                     <option value="COD">Cash on Delivery (COD)</option>
-                    <option value="Advance">100% Advance Payment</option>
+                    <option value="100% Advance">100% Advance</option>
+                    <option value="Advance">Advance Payment</option>
                   </select>
                 </div>
               </div>

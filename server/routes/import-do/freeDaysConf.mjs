@@ -21,6 +21,7 @@ import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 import mongoose from "mongoose";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
 import verifyToken from "../../middleware/authMiddleware.mjs";
+import { recalculateContainersDetention } from "../../utils/detentionHelper.mjs";
 
 const router = express.Router();
 
@@ -32,6 +33,7 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 100;
     const search = req.query.search || "";
     const importer = req.query.importer ? decodeURIComponent(req.query.importer).trim() : "";
+    const shippingLine = req.query.shippingLine ? decodeURIComponent(req.query.shippingLine).trim() : "";
     const selectedICD = req.query.selectedICD ? decodeURIComponent(req.query.selectedICD).trim() : "";
     const selectedYear = req.query.year ? req.query.year.trim() : ""; // ✅ Extract and trim year
     const branchId = req.query.branchId; // ✅ Extract branchId
@@ -88,6 +90,15 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
       baseQuery.$and.push({ importer: { $regex: new RegExp(`^${escapeRegex(importer)}$`, "i") } });
     }
 
+    // ✅ Apply Shipping Line Filter if provided
+    if (shippingLine && shippingLine !== "Select Shipping Line" && shippingLine !== "All Shipping Lines") {
+      baseQuery.$and.push({
+        shipping_line_airline: {
+          $regex: new RegExp(`^\\s*${escapeRegex(shippingLine)}\\s*$`, "i"),
+        },
+      });
+    }
+
     if (selectedICD && selectedICD !== "Select ICD") {
       baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${escapeRegex(selectedICD)}$`, "i") } });
     }
@@ -137,8 +148,8 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
 });
 
 
-// PATCH API that updates only the free_time
-router.patch("/api/update-free-time/:id", verifyToken, async (req, res) => {
+// Handler to update free_time and recalculate container detention & validity
+const handleUpdateFreeTime = async (req, res) => {
   try {
     const { id } = req.params; // Extract job ID from route parameters
     const { free_time } = req.body; // Extract free_time from request body
@@ -148,28 +159,47 @@ router.patch("/api/update-free-time/:id", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "free_time is required" });
     }
 
-    // Find the job by ID and update the free_time field only
-    const updatedJob = await JobModel.findByIdAndUpdate(
-      id,
-      { free_time, is_free_time_updated: true }, // Update only the free_time field
-      { new: true, runValidators: true } // Return the updated document
-    );
-
-    // If no job is found, return a 404 response
-    if (!updatedJob) {
+    // Find the job by ID
+    const job = await JobModel.findById(id);
+    if (!job) {
       return res.status(404).json({ error: "Job not found" });
     }
+
+    job.free_time = free_time;
+    job.is_free_time_updated = true;
+
+    if (Array.isArray(job.container_nos) && job.container_nos.length > 0) {
+      const { containers, do_validity_upto_job_level } = recalculateContainersDetention(
+        job.container_nos,
+        free_time,
+        {
+          mode: job.mode,
+          consignment_type: job.consignment_type,
+          type_of_b_e: job.type_of_b_e,
+        }
+      );
+      job.container_nos = containers;
+      if (do_validity_upto_job_level) {
+        job.do_validity_upto_job_level = do_validity_upto_job_level;
+      }
+    }
+
+    await job.save();
 
     // Return the updated job with a success message
     res.status(200).json({
       message: "Free time updated successfully",
-      job: updatedJob,
+      job,
     });
   } catch (error) {
     console.error("Error updating free_time:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
-});
+};
+
+// Support both PATCH and PUT for update-free-time
+router.patch("/api/update-free-time/:id", verifyToken, handleUpdateFreeTime);
+router.put("/api/update-free-time/:id", verifyToken, handleUpdateFreeTime);
 
 
 // PATCH API that updates free_time and all DO-related documents
@@ -189,47 +219,53 @@ router.patch("/api/update-free-days-config", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "_id is required" });
     }
 
-    // Build update object with only provided fields
-    const updateFields = {};
+    // Find the job by ID
+    const job = await JobModel.findById(_id);
+    if (!job) {
+      return res.status(404).json({ error: "Job not found" });
+    }
 
     if (free_time !== undefined && free_time !== "") {
-      updateFields.free_time = free_time;
-      updateFields.is_free_time_updated = true;
+      job.free_time = free_time;
+      job.is_free_time_updated = true;
+
+      if (Array.isArray(job.container_nos) && job.container_nos.length > 0) {
+        const { containers, do_validity_upto_job_level } = recalculateContainersDetention(
+          job.container_nos,
+          free_time,
+          {
+            mode: job.mode,
+            consignment_type: job.consignment_type,
+            type_of_b_e: job.type_of_b_e,
+          }
+        );
+        job.container_nos = containers;
+        if (do_validity_upto_job_level) {
+          job.do_validity_upto_job_level = do_validity_upto_job_level;
+        }
+      }
     }
 
     if (do_shipping_line_invoice !== undefined) {
-      updateFields.do_shipping_line_invoice = do_shipping_line_invoice;
+      job.do_shipping_line_invoice = do_shipping_line_invoice;
     }
-
     if (insurance_copy !== undefined) {
-      updateFields.insurance_copy = insurance_copy;
+      job.insurance_copy = insurance_copy;
     }
-
     if (other_do_documents !== undefined) {
-      updateFields.other_do_documents = other_do_documents;
+      job.other_do_documents = other_do_documents;
     }
-
     if (security_deposit !== undefined) {
-      updateFields.security_deposit = security_deposit;
+      job.security_deposit = security_deposit;
     }
 
-    // Find the job by ID and update the fields
-    const updatedJob = await JobModel.findByIdAndUpdate(
-      _id,
-      { $set: updateFields },
-      { new: true, runValidators: true }
-    );
-
-    // If no job is found, return a 404 response
-    if (!updatedJob) {
-      return res.status(404).json({ error: "Job not found" });
-    }
+    await job.save();
 
     // Return success response
     res.status(200).json({
       success: true,
       message: "Free days configuration updated successfully",
-      job: updatedJob,
+      job,
     });
   } catch (error) {
     console.error("Error updating free days config:", error);

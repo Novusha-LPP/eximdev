@@ -1,18 +1,52 @@
 
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
-import { fetchMRMItems, createMRMItem, updateMRMItem, deleteMRMItem, bulkDeleteMRMItems, importMRMItems, fetchMRMMetadata, saveMRMMetadata, fetchMRMUsers, reorderMRMItems } from '../../services/mrmService';
-import { IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Autocomplete, TextField, Menu, MenuItem, Tooltip } from '@mui/material';
+import {
+    fetchMRMItems, createMRMItem, updateMRMItem, deleteMRMItem,
+    bulkDeleteMRMItems, importMRMItems, fetchMRMMetadata,
+    saveMRMMetadata, fetchMRMUsers, reorderMRMItems,
+    submitMRM, approveMRM, requestMRMRevision, reopenMRM, updateObjectiveConfig,
+    fetchMRMFeatureStatus, fetchSegmentRollup, fetchHodScore
+} from '../../services/mrmService';
+import { IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Autocomplete, TextField, Menu, MenuItem, Tooltip, Checkbox, FormControlLabel, Snackbar, Alert, Box, Typography, Chip, Paper } from '@mui/material';
 import { Reorder, useDragControls } from "framer-motion";
 import SaveIcon from '@mui/icons-material/Save';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import TableChartIcon from '@mui/icons-material/TableChart';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import LockIcon from '@mui/icons-material/Lock';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import SendIcon from '@mui/icons-material/Send';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import FileUploadOutlinedIcon from '@mui/icons-material/FileUploadOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import AddIcon from '@mui/icons-material/Add';
+import FlagOutlinedIcon from '@mui/icons-material/FlagOutlined';
+import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
+import TrackChangesOutlinedIcon from '@mui/icons-material/TrackChangesOutlined';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import SegmentRollupView from './SegmentRollupView';
+import PreDeadlineTracker from './PreDeadlineTracker';
+import HodScoreCard from './HodScoreCard';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import MemberWeightConfigModal from './MemberWeightConfigModal';
 import '../../styles/mrm.scss';
 
-const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDeleteDialog, handleInsertItem, autoResizeTextarea, mrmUsers }) => {
+const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDeleteDialog, handleInsertItem, autoResizeTextarea, mrmUsers, isLocked, openBaselineDialog, handleStatusChange, hasTileAnomaly }) => {
     const controls = useDragControls();
 
     if (item.isTitleRow) {
@@ -21,38 +55,69 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                 as="tr"
                 key={item._id}
                 value={item}
-                dragListener={false}
+                dragListener={!isLocked}
                 dragControls={controls}
                 className="title-row-container"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 style={{ backgroundColor: item.bgColor || '#f8fafc' }}
+                onBlur={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget) && item.isDirty) {
+                        handleSaveItem(item, true);
+                    }
+                }}
             >
                 <td className="drag-handle-cell">
-                    <div className="drag-handle" onPointerDown={(e) => controls.start(e)}>
-                        <DragIndicatorIcon sx={{ fontSize: 20, color: '#64748b' }} />
-                    </div>
+                    {!isLocked && (
+                        <div className="drag-handle" onPointerDown={(e) => controls.start(e)}>
+                            <DragIndicatorIcon sx={{ fontSize: 20, color: '#64748b' }} />
+                        </div>
+                    )}
                 </td>
                 <td colSpan="13" className="title-row-content">
-                    <div className="title-row-inner">
-                        <input
-                            type="text"
-                            value={item.processDescription || ''}
-                            onChange={e => handleFieldChange(item._id, 'processDescription', e.target.value)}
-                            placeholder="Enter Title..."
-                            className="title-input"
-                        />
-                        <div className="title-actions">
-                            <IconButton onClick={() => handleSaveItem(item)} size="small" color={item.isDirty ? "primary" : "default"}>
-                                <SaveIcon sx={{ fontSize: 18 }} />
-                            </IconButton>
-                            <IconButton onClick={() => openDeleteDialog(item)} size="small" color="error">
-                                <DeleteIcon sx={{ fontSize: 18 }} />
-                            </IconButton>
-                            <IconButton onClick={(e) => handleInsertItem(index, 'normal')} size="small">
-                                <AddCircleOutlineIcon sx={{ fontSize: 18 }} />
-                            </IconButton>
+                    <div className="title-row-inner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '8px' }}>
+                            <input
+                                type="text"
+                                value={item.processDescription || ''}
+                                onChange={e => handleFieldChange(item._id, 'processDescription', e.target.value)}
+                                placeholder="Enter Title..."
+                                className="title-input"
+                                disabled={isLocked}
+                            />
+                            {hasTileAnomaly && (
+                                <span
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        fontSize: '0.72rem',
+                                        padding: '2px 8px',
+                                        borderRadius: '12px',
+                                        background: '#fef2f2',
+                                        color: '#b91c1c',
+                                        border: '1px solid #fecaca',
+                                        fontWeight: '700'
+                                    }}
+                                    title="One or more child objectives in this tile have a statistical anomaly"
+                                >
+                                    ⚡ Anomaly in Tile
+                                </span>
+                            )}
                         </div>
+                        {!isLocked && (
+                            <div className="title-actions">
+                                <IconButton onClick={() => handleSaveItem(item)} size="small" color={item.isDirty ? "primary" : "default"}>
+                                    <SaveIcon sx={{ fontSize: 18 }} />
+                                </IconButton>
+                                <IconButton onClick={() => openDeleteDialog(item)} size="small" color="error">
+                                    <DeleteIcon sx={{ fontSize: 18 }} />
+                                </IconButton>
+                                <IconButton onClick={(e) => handleInsertItem(index, 'normal')} size="small">
+                                    <AddCircleOutlineIcon sx={{ fontSize: 18 }} />
+                                </IconButton>
+                            </div>
+                        )}
                     </div>
                 </td>
             </Reorder.Item>
@@ -66,50 +131,127 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
             value={item}
             dragListener={false}
             dragControls={controls}
-            className={item.isDirty ? 'row-dirty' : ''}
+            className={`${item.isDirty ? 'row-dirty' : ''} ${item.status === 'Not Required' ? 'row-not-required' : ''}`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2 }}
+            onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget) && item.isDirty) {
+                    handleSaveItem(item, true);
+                }
+            }}
         >
             <td className="drag-handle-cell">
-                <div 
-                    className="drag-handle" 
-                    onPointerDown={(e) => controls.start(e)}
-                    style={{ cursor: 'grab', display: 'flex', justifyContent: 'center' }}
-                >
-                    <DragIndicatorIcon sx={{ fontSize: 20, color: '#94a3b8' }} />
-                </div>
+                {!isLocked && (
+                    <div
+                        className="drag-handle"
+                        onPointerDown={(e) => controls.start(e)}
+                        style={{ cursor: 'grab', display: 'flex', justifyContent: 'center' }}
+                    >
+                        <DragIndicatorIcon sx={{ fontSize: 20, color: '#94a3b8' }} />
+                    </div>
+                )}
             </td>
-            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+            <td onClick={e => !isLocked && e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: isLocked ? 'default' : 'text' }}>
                 <textarea
                     value={item.processDescription || ''}
                     onChange={e => handleFieldChange(item._id, 'processDescription', e.target.value, e)}
                     onFocus={autoResizeTextarea}
                     onInput={autoResizeTextarea}
+                    disabled={isLocked}
+                    rows={1}
                 />
             </td>
-            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+            <td onClick={e => !isLocked && e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: isLocked ? 'default' : 'text' }}>
                 <textarea
                     value={item.objective || ''}
                     onChange={e => handleFieldChange(item._id, 'objective', e.target.value, e)}
                     onFocus={autoResizeTextarea}
                     onInput={autoResizeTextarea}
+                    disabled={isLocked}
+                    rows={1}
                 />
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '3px', alignItems: 'center' }}>
+                    {item.anomaly?.isAnomaly && (
+                        <span
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '2px',
+                                fontSize: '0.67rem',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: '#fef2f2',
+                                color: '#b91c1c',
+                                border: '1px solid #fecaca',
+                                fontWeight: '700'
+                            }}
+                            title={`Statistical Anomaly: Trailing avg was ${item.anomaly.trailingMean}, sudden jump/drop of ${item.anomaly.diffPct}%`}
+                        >
+                            ⚡ Anomaly {item.anomaly.diffPct > 0 ? `+${item.anomaly.diffPct}%` : `${item.anomaly.diffPct}%`}
+                        </span>
+                    )}
+
+                    {/* Dual Delta Display (Abs and %) */}
+                    {item.yoyDelta ? (
+                        <span
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '2px',
+                                fontSize: '0.67rem',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: '#f0f9ff',
+                                color: '#0369a1',
+                                border: '1px solid #bae6fd',
+                                fontWeight: '600'
+                            }}
+                            title={`Baseline: ${item.yoyDelta.baseline} ${item.yoyDelta.metric || ''} | Abs: ${item.yoyDelta.absDelta > 0 ? `+${item.yoyDelta.absDelta}` : item.yoyDelta.absDelta}${item.yoyDelta.pctDelta != null ? ` (${item.yoyDelta.pctDelta > 0 ? `+${item.yoyDelta.pctDelta}%` : `${item.yoyDelta.pctDelta}%`})` : ''}`}
+                        >
+                            vs LY: {item.yoyDelta.formattedText || (item.yoyDelta.pctDelta != null ? `${item.yoyDelta.absDelta > 0 ? `+${item.yoyDelta.absDelta}` : item.yoyDelta.absDelta} (${item.yoyDelta.pctDelta > 0 ? `+${item.yoyDelta.pctDelta}%` : `${item.yoyDelta.pctDelta}%`})` : (item.yoyDelta.absDelta > 0 ? `+${item.yoyDelta.absDelta}` : item.yoyDelta.absDelta))}
+                        </span>
+                    ) : null}
+
+                    {/* Macro Reference Data Points Display */}
+                    {item.macroReferences && item.macroReferences.filter(m => m.label && m.value !== null && m.value !== undefined).map((m, mIdx) => (
+                        <span
+                            key={mIdx}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                fontSize: '0.65rem',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: '#f8fafc',
+                                color: '#334155',
+                                border: '1px solid #cbd5e1',
+                                fontWeight: 500
+                            }}
+                            title={`Macro Reference Data Point: ${m.label} = ${m.value} ${m.unit || ''}`}
+                        >
+                            📌 {m.label}: {m.value}{m.unit ? ` ${m.unit}` : ''}
+                        </span>
+                    ))}
+                </div>
             </td>
-            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+            <td onClick={e => !isLocked && e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: isLocked ? 'default' : 'text' }}>
                 <textarea
                     value={item.target || ''}
                     onChange={e => handleFieldChange(item._id, 'target', e.target.value, e)}
                     onFocus={autoResizeTextarea}
                     onInput={autoResizeTextarea}
+                    disabled={isLocked}
+                    rows={1}
                 />
             </td>
-            <td onClick={e => e.currentTarget.querySelector('select')?.focus()} style={{ cursor: 'pointer' }}>
+            <td onClick={e => !isLocked && e.currentTarget.querySelector('select')?.focus()} style={{ cursor: isLocked ? 'default' : 'pointer' }}>
                 <select
                     value={item.monitoringFrequency || ''}
                     onChange={e => handleFieldChange(item._id, 'monitoringFrequency', e.target.value)}
                     style={{ width: '100%', height: '35px', border: 'none', background: 'transparent', padding: '4px 8px', fontSize: '0.8rem' }}
+                    disabled={isLocked}
                 >
                     <option value="">Select...</option>
                     <option value="Week">Week</option>
@@ -119,41 +261,71 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                     <option value="Year">Year</option>
                 </select>
             </td>
-            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+            <td onClick={e => !isLocked && e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: isLocked ? 'default' : 'text' }}>
                 <textarea
                     value={item.responsibility || ''}
                     onChange={e => handleFieldChange(item._id, 'responsibility', e.target.value, e)}
                     onFocus={autoResizeTextarea}
                     onInput={autoResizeTextarea}
+                    disabled={isLocked}
+                    rows={1}
                 />
             </td>
-            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+            <td onClick={e => !isLocked && e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: isLocked ? 'default' : 'text' }}>
                 <textarea
                     value={item.actual || ''}
                     onChange={e => handleFieldChange(item._id, 'actual', e.target.value, e)}
                     onFocus={autoResizeTextarea}
                     onInput={autoResizeTextarea}
+                    disabled={isLocked}
+                    rows={1}
                 />
             </td>
-            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+            <td onClick={e => !isLocked && e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: isLocked ? 'default' : 'text' }}>
                 <textarea
                     value={item.plan || ''}
                     onChange={e => handleFieldChange(item._id, 'plan', e.target.value, e)}
                     onFocus={autoResizeTextarea}
                     onInput={autoResizeTextarea}
+                    disabled={isLocked}
+                    rows={1}
                 />
             </td>
-            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+            <td onClick={e => !isLocked && e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: isLocked ? 'default' : 'text' }}>
                 <textarea
                     value={item.actionPlan || ''}
                     onChange={e => handleFieldChange(item._id, 'actionPlan', e.target.value, e)}
                     onFocus={autoResizeTextarea}
                     onInput={autoResizeTextarea}
+                    disabled={isLocked}
+                    rows={1}
                 />
+                {item.openPointId && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
+                        <span
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                fontSize: '0.65rem',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: '#ecfdf5',
+                                color: '#047857',
+                                border: '1px solid #a7f3d0',
+                                fontWeight: '600'
+                            }}
+                            title="Action item is synchronized to Open Points module"
+                        >
+                            ✓ Open Point Synced
+                        </span>
+                    </div>
+                )}
             </td>
-            <td onClick={() => {}} style={{ cursor: 'pointer' }}>
+            <td onClick={() => { }} style={{ cursor: isLocked ? 'default' : 'pointer' }}>
                 <Autocomplete
                     size="small"
+                    disabled={isLocked}
                     options={mrmUsers}
                     getOptionLabel={(option) => {
                         if (typeof option === 'string') return option;
@@ -184,84 +356,111 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                     }}
                 />
             </td>
-            <td onClick={e => e.currentTarget.querySelector('input')?.focus()} style={{ cursor: 'pointer' }}>
+            <td onClick={e => !isLocked && e.currentTarget.querySelector('input')?.focus()} style={{ cursor: isLocked ? 'default' : 'pointer' }}>
                 <input
                     type="date"
+                    disabled={isLocked}
                     value={item.targetDate ? new Date(item.targetDate).toISOString().split('T')[0] : ''}
                     onChange={e => handleFieldChange(item._id, 'targetDate', e.target.value)}
                 />
             </td>
-            <td onClick={e => e.currentTarget.querySelector('select')?.focus()} style={{ cursor: 'pointer' }}>
+            <td onClick={e => !isLocked && e.currentTarget.querySelector('select')?.focus()} style={{ cursor: isLocked ? 'default' : 'pointer' }}>
                 <select
                     value={item.status || 'Green'}
-                    onChange={e => handleFieldChange(item._id, 'status', e.target.value)}
+                    disabled={isLocked}
+                    onChange={e => handleStatusChange ? handleStatusChange(item, e.target.value) : handleFieldChange(item._id, 'status', e.target.value)}
                     className={`status-badge ${item.status}`}
-                    style={{ width: '100%', height: '25px', border: 'none' }}
+                    style={{ width: '100%', height: '28px', border: 'none' }}
                 >
                     <option value="Green" style={{ background: 'white', color: '#166534' }}>Green</option>
                     <option value="Yellow" style={{ background: 'white', color: '#ca8a04' }}>Yellow</option>
                     <option value="Red" style={{ background: 'white', color: '#dc2626' }}>Red</option>
+                    <option value="Not Required" style={{ background: 'white', color: '#64748b' }}>Not Required</option>
                 </select>
             </td>
-            <td onClick={e => e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: 'text' }}>
+            <td onClick={e => !isLocked && e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: isLocked ? 'default' : 'text' }}>
                 <textarea
                     value={item.remarks || ''}
                     onChange={e => handleFieldChange(item._id, 'remarks', e.target.value, e)}
                     onFocus={autoResizeTextarea}
                     onInput={autoResizeTextarea}
+                    disabled={isLocked}
+                    rows={1}
                 />
             </td>
             <td className="action-cell">
-                <div className="action-buttons">
+                {isLocked ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                        <Tooltip title="Month is locked (Approved)">
+                            <LockIcon sx={{ fontSize: 18, color: '#94a3b8' }} />
+                        </Tooltip>
+                    </div>
+                ) : (
+                    <div className="action-buttons">
                         <IconButton
-                        onClick={(e) => {
-                            // We'll pass the anchor element to show a menu
-                            handleInsertItem(index, 'menu', e.currentTarget);
-                        }}
-                        size="small"
-                        sx={{
-                            backgroundColor: '#f0f9ff',
-                            color: '#0369a1',
-                            '&:hover': { backgroundColor: '#e0f2fe' },
-                            width: 24,
-                            height: 24,
-                            padding: '4px'
-                        }}
-                        title="Add row below"
-                    >
-                        <AddCircleOutlineIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                    <IconButton
-                        onClick={() => handleSaveItem(item)}
-                        size="small"
-                        sx={{
-                            backgroundColor: item.isDirty ? '#217346' : '#e5e7eb',
-                            color: item.isDirty ? 'white' : '#6b7280',
-                            '&:hover': { backgroundColor: item.isDirty ? '#1b5e20' : '#d1d5db' },
-                            width: 24,
-                            height: 24,
-                            padding: '4px'
-                        }}
-                        title="Save"
-                    >
-                        <SaveIcon sx={{ fontSize: 14 }} />
-                    </IconButton>
-                    <IconButton
-                        onClick={() => openDeleteDialog(item)}
-                        size="small"
-                        sx={{
-                            backgroundColor: '#fee2e2',
-                            color: '#dc2626',
-                            '&:hover': { backgroundColor: '#fecaca' },
-                            width: 24,
-                            height: 24,
-                            padding: '4px'
-                        }}
-                        title="Delete"
-                    >
-                        <DeleteIcon sx={{ fontSize: 14 }} />
-                    </IconButton>
-                </div>
+                            onClick={(e) => {
+                                handleInsertItem(index, 'menu', e.currentTarget);
+                            }}
+                            size="small"
+                            sx={{
+                                backgroundColor: '#f0f9ff',
+                                color: '#0369a1',
+                                '&:hover': { backgroundColor: '#e0f2fe' },
+                                width: 24,
+                                height: 24,
+                                padding: '4px'
+                            }}
+                            title="Add row below"
+                        >
+                            <AddCircleOutlineIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                        <IconButton
+                            onClick={() => openBaselineDialog(item)}
+                            size="small"
+                            sx={{
+                                backgroundColor: item.lastYearBaseline != null ? '#e0f2fe' : '#f1f5f9',
+                                color: item.lastYearBaseline != null ? '#0284c7' : '#64748b',
+                                '&:hover': { backgroundColor: '#bae6fd' },
+                                width: 24,
+                                height: 24,
+                                padding: '4px'
+                            }}
+                            title="Last Year Baseline & Macro References"
+                        >
+                            <TrendingUpIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                        <IconButton
+                            onClick={() => handleSaveItem(item)}
+                            size="small"
+                            sx={{
+                                backgroundColor: item.isDirty ? '#217346' : '#e5e7eb',
+                                color: item.isDirty ? 'white' : '#6b7280',
+                                '&:hover': { backgroundColor: item.isDirty ? '#1b5e20' : '#d1d5db' },
+                                width: 24,
+                                height: 24,
+                                padding: '4px'
+                            }}
+                            title="Save"
+                        >
+                            <SaveIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                        <IconButton
+                            onClick={() => openDeleteDialog(item)}
+                            size="small"
+                            sx={{
+                                backgroundColor: '#fee2e2',
+                                color: '#dc2626',
+                                '&:hover': { backgroundColor: '#fecaca' },
+                                width: 24,
+                                height: 24,
+                                padding: '4px'
+                            }}
+                            title="Delete"
+                        >
+                            <DeleteIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                    </div>
+                )}
             </td>
         </Reorder.Item>
     );
@@ -271,19 +470,135 @@ const MRMHome = () => {
     const { user } = useContext(UserContext);
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState(
+        searchParams.get('month') ? Number(searchParams.get('month')) : (new Date().getMonth() + 1)
+    );
+    const [selectedYear, setSelectedYear] = useState(
+        searchParams.get('year') ? Number(searchParams.get('year')) : new Date().getFullYear()
+    );
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    // Metadata State
-    const [metadata, setMetadata] = useState({ meetingDate: '', reviewDate: '' });
+    // Metadata State & Lifecycle Workflow
+    const [metadata, setMetadata] = useState({
+        meetingDate: '',
+        reviewDate: '',
+        status: 'Draft',
+        isLocked: false,
+        submittedAt: null,
+        approvedAt: null,
+        revisionHistory: [],
+        reopenHistory: []
+    });
+    const isAdmin = String(user?.role || '').toLowerCase() === 'admin';
+    const isApprover = isAdmin || user?.username === 'suraj_rajan' || String(user?.username || '').includes('suraj');
+    const canManagePresenters = isAdmin || isApprover;
 
-    // Admin View: User Selection - Dynamic check based on role
-    const isAdmin = user?.role === 'Admin';
+    // Submission & Workflow Dialog States
+    const [validationErrors, setValidationErrors] = useState([]);
+    const [showValidationModal, setShowValidationModal] = useState(false);
+    const [showRevisionModal, setShowRevisionModal] = useState(false);
+    const [revisionComment, setRevisionComment] = useState('');
+    const [showReopenModal, setShowReopenModal] = useState(false);
+    const [reopenReason, setReopenReason] = useState('');
+    const [actionLoading, setActionLoading] = useState(false);
+
+    // Baseline & Macro References Dialog State
+    const [baselineDialogOpen, setBaselineDialogOpen] = useState(false);
+    const [baselineTargetItem, setBaselineTargetItem] = useState(null);
+    const [baselineValue, setBaselineValue] = useState('');
+    const [baselineMetric, setBaselineMetric] = useState('');
+    const [macroReferences, setMacroReferences] = useState([
+        { label: '', value: '', unit: '' },
+        { label: '', value: '', unit: '' },
+        { label: '', value: '', unit: '' }
+    ]);
+    const [applyToAllMonths, setApplyToAllMonths] = useState(true);
+    const [baselineSaving, setBaselineSaving] = useState(false);
+
+    const openBaselineDialog = (item) => {
+        setBaselineTargetItem(item);
+        setBaselineValue(item.lastYearBaseline != null ? item.lastYearBaseline : '');
+        setBaselineMetric(item.lastYearBaselineMetric || '');
+        const existingMacros = item.macroReferences || [];
+        setMacroReferences([
+            existingMacros[0] || { label: '', value: '', unit: '' },
+            existingMacros[1] || { label: '', value: '', unit: '' },
+            existingMacros[2] || { label: '', value: '', unit: '' }
+        ]);
+        setApplyToAllMonths(true);
+        setBaselineDialogOpen(true);
+    };
+
+    const handleSaveBaseline = async () => {
+        if (!baselineTargetItem) return;
+        setBaselineSaving(true);
+        try {
+            const validMacros = macroReferences
+                .filter(m => m.label && m.label.trim())
+                .map(m => ({
+                    label: m.label.trim(),
+                    value: m.value !== '' ? Number(m.value) : null,
+                    unit: m.unit ? m.unit.trim() : ''
+                }));
+
+            const targetUserId = (canManagePresenters && selectedUserId) ? selectedUserId : user?._id;
+            await updateObjectiveConfig({
+                objective: baselineTargetItem.objective,
+                processDescription: baselineTargetItem.processDescription,
+                userId: targetUserId,
+                year: selectedYear,
+                lastYearBaseline: baselineValue !== '' ? Number(baselineValue) : null,
+                lastYearBaselineMetric: baselineMetric.trim(),
+                macroReferences: validMacros,
+                applyToAllMonths
+            });
+
+            setBaselineDialogOpen(false);
+            showToast("Baseline saved successfully", 'success');
+            await loadData();
+        } catch (err) {
+            console.error("Failed to save baseline", err);
+            showToast("Failed to save baseline: " + (err.response?.data?.error || err.message), 'error');
+        } finally {
+            setBaselineSaving(false);
+        }
+    };
+
+    // Admin View: User Selection
     const [mrmUsers, setMrmUsers] = useState([]);
-    // Initialize selectedUserId from URL param if present (for admin navigation from dashboard)
-    const [selectedUserId, setSelectedUserId] = useState(searchParams.get('userId') || '');
+    const initialParamUserId = searchParams.get('userId');
+    const [selectedUserId, setSelectedUserId] = useState((initialParamUserId && initialParamUserId !== 'undefined') ? initialParamUserId : '');
+
+    // MRM 2.0 — KPI Rollup & Sub-Team Segment State (Feature-Flagged)
+    const [rollupFeatureEnabled, setRollupFeatureEnabled] = useState(false);
+    const [segmentRollupData, setSegmentRollupData] = useState(null);
+    const [hodScoreData, setHodScoreData] = useState(null);
+    // Executive View Switcher: 'EXECUTIVE_MEETING' (Reds First), 'TEAM_SEGMENTS' (70%), 'HOD_OBJECTIVES' (30%)
+    const [mrmViewMode, setMrmViewMode] = useState('EXECUTIVE_MEETING');
+
+    const selectedUserObj = mrmUsers.find(u => String(u._id) === String(selectedUserId)) || user;
+    const activeDepartment = selectedUserObj?.department || user?.department || 'Import';
+
+    // Modern Toast Notification State
+    const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
+    const showToast = (message, severity = 'success') => setToast({ open: true, message, severity });
+
+    // Sync with URL parameters when navigation occurs from dashboard review buttons
+    useEffect(() => {
+        const pUserId = searchParams.get('userId');
+        const pMonth = searchParams.get('month');
+        const pYear = searchParams.get('year');
+        if (pUserId && pUserId !== 'undefined' && pUserId !== 'null') {
+            setSelectedUserId(pUserId);
+        }
+        if (pMonth && !isNaN(Number(pMonth))) {
+            setSelectedMonth(Number(pMonth));
+        }
+        if (pYear && !isNaN(Number(pYear))) {
+            setSelectedYear(Number(pYear));
+        }
+    }, [searchParams]);
 
     // Import Modal
     const [showImportModal, setShowImportModal] = useState(false);
@@ -292,7 +607,8 @@ const MRMHome = () => {
     const [importSourceYear, setImportSourceYear] = useState(selectedMonth === 1 ? selectedYear - 1 : selectedYear);
 
     // Status Filter
-    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'Green', 'Yellow', 'Red'
+    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'Green', 'Yellow', 'Red', 'Not Required'
+    const [openWeightConfigModal, setOpenWeightConfigModal] = useState(false);
 
     // Delete Confirmation Dialog
     const [deleteDialog, setDeleteDialog] = useState({
@@ -303,6 +619,9 @@ const MRMHome = () => {
 
     // Bulk Delete Dialog
     const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
+
+    // Approve & Lock Confirmation Dialog (Suraj / Admin)
+    const [showApproveModal, setShowApproveModal] = useState(false);
 
     // Load MRM users for admin dropdown
     // Load MRM users for dropdowns
@@ -324,7 +643,7 @@ const MRMHome = () => {
             // For admin: pass selectedUserId if selected, otherwise fetch all
             // For regular user: no userId param (backend will show shared data)
             // Determine distinct user ID for fetching/saving
-            const targetUserId = (isAdmin && selectedUserId) ? selectedUserId : user?._id;
+            const targetUserId = (canManagePresenters && selectedUserId) ? selectedUserId : user?._id;
 
             // Parallel fetch items and metadata
             const [itemsData, metaData] = await Promise.all([
@@ -333,18 +652,64 @@ const MRMHome = () => {
             ]);
 
             setItems(itemsData.map(i => ({ ...i, isDirty: false })));
+
+            const metaStatus = metaData?.status || (metaData?.meetingDone ? 'Approved' : 'Draft');
+            const metaLocked = Boolean(metaData?.isLocked || metaData?.meetingDone || metaStatus === 'Approved');
+
             setMetadata({
                 meetingDate: metaData?.meetingDate ? new Date(metaData.meetingDate).toISOString().split('T')[0] : '',
-                reviewDate: metaData?.reviewDate ? new Date(metaData.reviewDate).toISOString().split('T')[0] : ''
+                reviewDate: metaData?.reviewDate ? new Date(metaData.reviewDate).toISOString().split('T')[0] : '',
+                status: metaStatus,
+                isLocked: metaLocked,
+                submittedAt: metaData?.submittedAt || null,
+                approvedAt: metaData?.approvedAt || null,
+                revisionHistory: metaData?.revisionHistory || [],
+                reopenHistory: metaData?.reopenHistory || []
             });
 
+            // Check MRM 2.0 KPI Rollup Feature Flag
+            try {
+                const featureRes = await fetchMRMFeatureStatus();
+                const isFeatureOn = Boolean(featureRes?.enabled);
+                setRollupFeatureEnabled(isFeatureOn);
+
+                if (isFeatureOn) {
+                    const selectedUserObj = mrmUsers.find(u => String(u._id) === String(targetUserId)) || user;
+                    const activeDept = selectedUserObj?.department || user?.department || 'Import';
+
+                    const [segData, scoreData] = await Promise.all([
+                        fetchSegmentRollup({
+                            department: activeDept,
+                            month: monthStr,
+                            year: selectedYear,
+                            hodId: targetUserId
+                        }),
+                        fetchHodScore({
+                            department: activeDept,
+                            month: monthStr,
+                            year: selectedYear,
+                            hodId: targetUserId
+                        })
+                    ]);
+                    setSegmentRollupData(segData);
+                    setHodScoreData(scoreData);
+                } else {
+                    setSegmentRollupData(null);
+                    setHodScoreData(null);
+                }
+            } catch (fErr) {
+                setRollupFeatureEnabled(false);
+            }
+
             // Auto-resize all textareas after data loads
-            setTimeout(() => {
+            const resizeAll = () => {
                 document.querySelectorAll('.data-grid-container textarea').forEach(textarea => {
                     textarea.style.height = 'auto';
                     textarea.style.height = textarea.scrollHeight + 'px';
                 });
-            }, 100);
+            };
+            setTimeout(resizeAll, 100);
+            setTimeout(resizeAll, 400);
 
         } catch (error) {
             console.error(error);
@@ -353,12 +718,112 @@ const MRMHome = () => {
         }
     };
 
+    const handleSubmitForReview = async () => {
+        setActionLoading(true);
+        try {
+            // Auto-save any unsaved dirty rows so backend completeness validation checks latest inputs
+            const dirtyItems = items.filter(i => i.isDirty);
+            if (dirtyItems.length > 0) {
+                await Promise.all(dirtyItems.map(item => {
+                    const { isDirty, ...dataToSend } = item;
+                    return updateMRMItem(item._id, dataToSend);
+                }));
+            }
+
+            const targetUserId = (canManagePresenters && selectedUserId) ? selectedUserId : user?._id;
+            const res = await submitMRM({
+                month: String(selectedMonth).padStart(2, '0'),
+                year: selectedYear,
+                userId: targetUserId
+            });
+            showToast(res.message || "MRM successfully submitted to Suraj Rajan for review!", 'success');
+            await loadData();
+        } catch (err) {
+            if (err.response?.status === 422 && err.response?.data?.errors) {
+                setValidationErrors(err.response.data.errors);
+                setShowValidationModal(true);
+            } else {
+                showToast("Submission failed: " + (err.response?.data?.error || err.message), 'error');
+            }
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleApprove = async () => {
+        setActionLoading(true);
+        try {
+            const targetUserId = (canManagePresenters && selectedUserId) ? selectedUserId : user?._id;
+            const res = await approveMRM({
+                month: String(selectedMonth).padStart(2, '0'),
+                year: selectedYear,
+                userId: targetUserId
+            });
+            showToast(res.message || "MRM approved and locked.", 'success');
+            await loadData();
+        } catch (err) {
+            showToast("Approval failed: " + (err.response?.data?.error || err.message), 'error');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleSendRevision = async () => {
+        if (!revisionComment.trim()) {
+            showToast("Please provide feedback comments explaining what needs revision.", 'warning');
+            return;
+        }
+        setActionLoading(true);
+        try {
+            const targetUserId = (canManagePresenters && selectedUserId) ? selectedUserId : user?._id;
+            const res = await requestMRMRevision({
+                month: String(selectedMonth).padStart(2, '0'),
+                year: selectedYear,
+                userId: targetUserId,
+                comment: revisionComment
+            });
+            setShowRevisionModal(false);
+            setRevisionComment('');
+            showToast(res.message || "MRM sent back for revision.", 'info');
+            await loadData();
+        } catch (err) {
+            showToast("Failed to request revision: " + (err.response?.data?.error || err.message), 'error');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleReopen = async () => {
+        if (!reopenReason.trim()) {
+            showToast("Please enter a reason for reopening this approved month.", 'warning');
+            return;
+        }
+        setActionLoading(true);
+        try {
+            const targetUserId = (canManagePresenters && selectedUserId) ? selectedUserId : user?._id;
+            const res = await reopenMRM({
+                month: String(selectedMonth).padStart(2, '0'),
+                year: selectedYear,
+                userId: targetUserId,
+                reason: reopenReason
+            });
+            setShowReopenModal(false);
+            setReopenReason('');
+            showToast(res.message || "Month reopened for editing.", 'success');
+            await loadData();
+        } catch (err) {
+            showToast("Failed to reopen month: " + (err.response?.data?.error || err.message), 'error');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const handleMetadataChange = async (field, value) => {
         const newMeta = { ...metadata, [field]: value };
         setMetadata(newMeta);
 
         try {
-            const targetUserId = (isAdmin && selectedUserId) ? selectedUserId : user?._id;
+            const targetUserId = (canManagePresenters && selectedUserId) ? selectedUserId : user?._id;
 
             await saveMRMMetadata({
                 month: String(selectedMonth).padStart(2, '0'),
@@ -376,20 +841,28 @@ const MRMHome = () => {
     const [addRowIndex, setAddRowIndex] = useState(null);
 
     const handleAddItem = async () => {
-        const targetUserId = (isAdmin && selectedUserId) ? selectedUserId : user?._id;
+        const targetUserId = (canManagePresenters && selectedUserId) ? selectedUserId : user?._id;
+        let activeTile = 'General';
+        for (let i = items.length - 1; i >= 0; i--) {
+            if (items[i].isTitleRow) {
+                activeTile = (items[i].tileName || items[i].processDescription || 'General').trim();
+                break;
+            }
+        }
         const newItem = {
             month: String(selectedMonth).padStart(2, '0'),
             year: selectedYear,
             processDescription: "New Item",
             status: "Red",
-            createdBy: targetUserId
+            createdBy: targetUserId,
+            tileName: activeTile
         };
         try {
             const saved = await createMRMItem(newItem);
             setItems([...items, { ...saved, isDirty: false }]);
         } catch (err) {
-            console.error(err);
-            alert("Failed to create item: " + (err.response?.data?.error || err.message));
+            console.error("Failed to add item", err);
+            showToast("Failed to create item: " + (err.response?.data?.error || err.message), 'error');
         }
     };
 
@@ -401,8 +874,21 @@ const MRMHome = () => {
         }
 
         setAddRowMenu(null);
-        const targetUserId = (isAdmin && selectedUserId) ? selectedUserId : user?._id;
+        const targetUserId = (canManagePresenters && selectedUserId) ? selectedUserId : user?._id;
         const currentItem = items[index];
+
+        let parentTile = 'General';
+        if (type === 'title') {
+            parentTile = "New Title";
+        } else {
+            for (let i = index; i >= 0; i--) {
+                if (items[i].isTitleRow) {
+                    parentTile = (items[i].tileName || items[i].processDescription || 'General').trim();
+                    break;
+                }
+            }
+        }
+
         const newItem = {
             month: String(selectedMonth).padStart(2, '0'),
             year: selectedYear,
@@ -410,7 +896,8 @@ const MRMHome = () => {
             status: "Red",
             createdBy: targetUserId,
             insertAfterSeq: currentItem.seq,
-            isTitleRow: type === 'title'
+            isTitleRow: type === 'title',
+            tileName: parentTile
         };
         try {
             const saved = await createMRMItem(newItem);
@@ -421,7 +908,7 @@ const MRMHome = () => {
             setItems(newItems);
         } catch (err) {
             console.error(err);
-            alert("Failed to insert item");
+            showToast("Failed to insert item", 'error');
         }
     };
 
@@ -445,29 +932,190 @@ const MRMHome = () => {
         textarea.style.height = textarea.scrollHeight + 'px';
     };
 
+    // Auto-RAG status evaluation helper based on Actual vs Plan, Optimization Direction, and Tolerance Band
+    const evaluateAutoRAG = (actual, planOrTarget, direction = 'Higher', toleranceBand = 5) => {
+        if (actual === null || actual === undefined || actual === '' || planOrTarget === null || planOrTarget === undefined || planOrTarget === '') {
+            return null;
+        }
+        const cleanNum = (val) => {
+            const cleaned = String(val).replace(/[^0-9.-]/g, '');
+            const num = parseFloat(cleaned);
+            return isNaN(num) ? null : num;
+        };
+        const numActual = cleanNum(actual);
+        const numPlan = cleanNum(planOrTarget);
+        if (numActual === null || numPlan === null) return null;
+
+        const tol = Math.max(0, Number(toleranceBand) || 5);
+        const isHigher = String(direction || '').toLowerCase() !== 'lower';
+
+        if (isHigher) {
+            if (numActual >= numPlan) return 'Green';
+            if (numPlan === 0) return numActual >= 0 ? 'Green' : 'Red';
+            const shortfallPct = ((numPlan - numActual) / Math.abs(numPlan)) * 100;
+            return shortfallPct <= tol ? 'Yellow' : 'Red';
+        } else {
+            if (numActual <= numPlan) return 'Green';
+            if (numPlan === 0) return numActual <= 0 ? 'Green' : 'Red';
+            const overrunPct = ((numActual - numPlan) / Math.abs(numPlan)) * 100;
+            return overrunPct <= tol ? 'Yellow' : 'Red';
+        }
+    };
+
     // Only updates local state
     const handleFieldChange = (id, field, value, e) => {
-        setItems(prevItems => prevItems.map(item =>
-            item._id === id ? { ...item, [field]: value, isDirty: true } : item
-        ));
+        setItems(prevItems => prevItems.map(item => {
+            if (item._id !== id) return item;
+
+            const updatedItem = { ...item, [field]: value, isDirty: true };
+
+            // Auto-RAG status evaluation if actual, plan, or target changes (skip if explicitly Not Required)
+            if ((field === 'actual' || field === 'plan' || field === 'target') && item.status !== 'Not Required') {
+                const currentActual = field === 'actual' ? value : item.actual;
+                const currentPlan = field === 'plan' ? value : (item.plan || (field === 'target' ? value : item.target));
+                const computedStatus = evaluateAutoRAG(
+                    currentActual,
+                    currentPlan,
+                    item.optimizationDirection || 'Higher',
+                    item.toleranceBand != null ? item.toleranceBand : 5
+                );
+                if (computedStatus) {
+                    updatedItem.status = computedStatus;
+                }
+            }
+
+            return updatedItem;
+        }));
+
         // Auto-resize if it's a textarea
         if (e && e.target.tagName === 'TEXTAREA') {
             autoResizeTextarea(e);
         }
     };
 
+    // Managerial Governance Tile Insertion (Section 7)
+    const handleInsertManagerialTile = async () => {
+        if (metadata.isLocked) return;
+        try {
+            const targetUserId = selectedUserId || user?._id;
+            const monthStr = String(selectedMonth).padStart(2, '0');
+
+            // 1. Create Tile Header Row
+            const tileData = {
+                month: monthStr,
+                year: selectedYear,
+                processDescription: 'Team & Managerial Governance',
+                tileName: 'Team & Managerial Governance',
+                isTitleRow: true,
+                createdBy: targetUserId,
+                seq: items.length + 1
+            };
+            const createdTile = await createMRMItem(tileData);
+
+            // 2. Create the 4 recommended objectives
+            const objectivesDefs = [
+                {
+                    processDescription: 'Team Development',
+                    objective: 'Team Training & Skill Development (Hours / Sessions)',
+                    target: '100%',
+                    plan: '100%',
+                    actual: '',
+                    optimizationDirection: 'Higher',
+                    toleranceBand: 5,
+                    responsibility: user?.first_name || 'HOD',
+                    monitoringFrequency: 'Month'
+                },
+                {
+                    processDescription: 'Escalations',
+                    objective: 'Departmental Escalation Handling TAT',
+                    target: '< 24 hrs',
+                    plan: '24',
+                    actual: '',
+                    optimizationDirection: 'Lower',
+                    toleranceBand: 10,
+                    responsibility: user?.first_name || 'HOD',
+                    monitoringFrequency: 'Month'
+                },
+                {
+                    processDescription: 'Governance Follow-Through',
+                    objective: 'Action Item Follow-Through (% team Open Points closed on time)',
+                    target: '> 95%',
+                    plan: '95%',
+                    actual: '',
+                    optimizationDirection: 'Higher',
+                    toleranceBand: 5,
+                    responsibility: user?.first_name || 'HOD',
+                    monitoringFrequency: 'Month'
+                },
+                {
+                    processDescription: 'Team Stability',
+                    objective: 'Attrition & Team Morale Index',
+                    target: '0',
+                    plan: '0',
+                    actual: '',
+                    optimizationDirection: 'Lower',
+                    toleranceBand: 0,
+                    responsibility: user?.first_name || 'HOD',
+                    monitoringFrequency: 'Month'
+                }
+            ];
+
+            const createdItems = [createdTile];
+            for (let i = 0; i < objectivesDefs.length; i++) {
+                const def = objectivesDefs[i];
+                const objData = {
+                    month: monthStr,
+                    year: selectedYear,
+                    ...def,
+                    tileName: 'Team & Managerial Governance',
+                    isTitleRow: false,
+                    status: 'Gray',
+                    createdBy: targetUserId,
+                    seq: items.length + 2 + i
+                };
+                const created = await createMRMItem(objData);
+                createdItems.push(created);
+            }
+
+            setItems(prev => [...prev, ...createdItems]);
+            showToast("Team & Managerial Governance tile inserted successfully", 'success');
+        } catch (err) {
+            console.error("Failed to insert managerial tile", err);
+            showToast("Failed to insert managerial tile: " + (err.response?.data?.error || err.message), 'error');
+        }
+    };
+
     // Performs the API call
-    const handleSaveItem = async (item) => {
+    const handleSaveItem = async (item, silent = false) => {
         try {
             // Remove isDirty before sending if API is strict, but usually extra fields are ignored
             const { isDirty, ...dataToSend } = item;
-            await updateMRMItem(item._id, dataToSend);
+            const saved = await updateMRMItem(item._id, dataToSend);
 
-            // Reset dirty flag on success
-            setItems(prev => prev.map(i => i._id === item._id ? { ...i, isDirty: false } : i));
+            // Reset dirty flag on success and merge returned item (includes openPointId)
+            setItems(prev => prev.map(i => i._id === item._id ? { ...(saved || i), isDirty: false } : i));
+            if (!silent) showToast("Row saved successfully", 'success');
         } catch (err) {
             console.error("Failed to save", err);
-            alert("Failed to save row");
+            if (!silent) showToast("Failed to save row", 'error');
+        }
+    };
+
+    // Auto-save status change to trigger immediate bidirectional sync
+    const handleStatusChange = async (item, newStatus) => {
+        let itemToSave;
+        setItems(prev => prev.map(i => {
+            if (i._id === item._id) {
+                itemToSave = { ...i, status: newStatus };
+                return itemToSave;
+            }
+            return i;
+        }));
+        try {
+            const saved = await updateMRMItem(item._id, itemToSave || { ...item, status: newStatus });
+            setItems(prev => prev.map(i => i._id === item._id ? { ...(saved || i), status: newStatus, isDirty: false } : i));
+        } catch (err) {
+            console.error("Status auto-sync failed:", err);
         }
     };
 
@@ -489,13 +1137,13 @@ const MRMHome = () => {
     const confirmDelete = async () => {
         const id = deleteDialog.itemId;
         closeDeleteDialog();
-
         try {
             await deleteMRMItem(id);
             setItems(items.filter(i => i._id !== id));
+            showToast("Item deleted", 'info');
         } catch (err) {
             console.error(err);
-            alert("Failed to delete item");
+            showToast("Failed to delete item", 'error');
         }
     };
 
@@ -507,12 +1155,13 @@ const MRMHome = () => {
                 sourceMonth: String(importSourceMonth).padStart(2, '0'),
                 sourceYear: importSourceYear,
                 mode: importMode,
-                userId: (isAdmin && selectedUserId) ? selectedUserId : user?._id
+                userId: (canManagePresenters && selectedUserId) ? selectedUserId : user?._id
             });
             setShowImportModal(false);
+            showToast("Data imported successfully", 'success');
             loadData();
         } catch (err) {
-            alert("Import failed: " + (err.response?.data?.error || err.message));
+            showToast("Import failed: " + (err.response?.data?.error || err.message), 'error');
         }
     };
 
@@ -521,12 +1170,13 @@ const MRMHome = () => {
         setLoading(true);
         try {
             const monthStr = String(selectedMonth).padStart(2, '0');
-            const targetUserId = (isAdmin && selectedUserId) ? selectedUserId : user?._id;
+            const targetUserId = (canManagePresenters && selectedUserId) ? selectedUserId : user?._id;
             await bulkDeleteMRMItems(monthStr, selectedYear, targetUserId);
-            await loadData();
+            setItems([]);
+            showToast("Month data deleted", 'info');
         } catch (err) {
             console.error(err);
-            alert("Failed to delete month data: " + (err.response?.data?.error || err.message));
+            showToast("Failed to delete month data: " + (err.response?.data?.error || err.message), 'error');
         } finally {
             setLoading(false);
         }
@@ -534,6 +1184,7 @@ const MRMHome = () => {
 
     // Helper for labels
     const getMonthName = (m) => new Date(0, m - 1).toLocaleString('default', { month: 'short' });
+    const getMonthLong = (m) => new Date(0, m - 1).toLocaleString('default', { month: 'long' });
     const getYearShort = (y) => String(y).slice(-2);
 
     const currentMonthName = getMonthName(selectedMonth);
@@ -549,260 +1200,1590 @@ const MRMHome = () => {
     // Status counts for filter badges
     const statusCounts = {
         all: items.length,
-        Green: items.filter(i => i.status === 'Green' || !i.status).length,
+        Green: items.filter(i => (i.status === 'Green' || !i.status) && i.status !== 'Not Required').length,
         Yellow: items.filter(i => i.status === 'Yellow').length,
         Red: items.filter(i => i.status === 'Red').length,
+        NotRequired: items.filter(i => i.status === 'Not Required').length
     };
 
     // Help Modal State
     const [showHelpModal, setShowHelpModal] = useState(false);
+
+    // Export Menu
+    const [exportMenuAnchor, setExportMenuAnchor] = useState(null);
+
+    // ─── Export Helpers ──────────────────────────────────────────────────────────
+    const getExportRows = () => items.filter(i => !i.isTitleRow);
+
+    const formatDate = (val) => {
+        if (!val) return '';
+        const d = new Date(val);
+        if (isNaN(d)) return val;
+        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
+
+    const STATUS_COLORS = {
+        Green: { hex: '166534', fill: 'D1FAE5', text: '14532D' },
+        Yellow: { hex: 'CA8A04', fill: 'FEF9C3', text: '713F12' },
+        Red: { hex: 'DC2626', fill: 'FEE2E2', text: '7F1D1D' },
+        'Not Required': { hex: '64748B', fill: 'F1F5F9', text: '475569' },
+    };
+
+    // ─── Excel Export ─────────────────────────────────────────────────────────────
+    const handleExportExcel = async () => {
+        setExportMenuAnchor(null);
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'AlVision Exim';
+        workbook.created = new Date();
+
+        const ws = workbook.addWorksheet('MRM', {
+            pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+            views: [{ state: 'frozen', xSplit: 0, ySplit: 4 }]
+        });
+
+        const COLS = [
+            { header: '#', key: 'sno', width: 6 },
+            { header: 'Process Description', key: 'process', width: 36 },
+            { header: 'Objective', key: 'objective', width: 32 },
+            { header: 'Target', key: 'target', width: 14 },
+            { header: 'Freq.', key: 'freq', width: 14 },
+            { header: 'Responsibility', key: 'resp', width: 20 },
+            { header: `Act. (${prevMonthName}-${getYearShort(prevYearVal)})`, key: 'actual', width: 16 },
+            { header: `Plan (${currentMonthName}-${getYearShort(selectedYear)})`, key: 'plan', width: 16 },
+            { header: 'Action Plan', key: 'actionPlan', width: 36 },
+            { header: 'Act. Resp.', key: 'actResp', width: 20 },
+            { header: 'Target Date', key: 'targetDate', width: 16 },
+            { header: 'Status', key: 'status', width: 14 },
+            { header: 'Remarks', key: 'remarks', width: 32 },
+        ];
+        ws.columns = COLS;
+
+        // ── Row 1: Company Header ──
+        ws.mergeCells('A1:M1');
+        const r1 = ws.getRow(1);
+        r1.height = 36;
+        const c1 = ws.getCell('A1');
+        c1.value = 'AlVision Exim - Monthly Review Meeting (MRM)';
+        c1.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+        c1.alignment = { horizontal: 'center', vertical: 'middle' };
+        c1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF185A32' } };
+
+        // ── Row 2: Sub-header info ──
+        ws.mergeCells('A2:M2');
+        const c2 = ws.getCell('A2');
+        const reviewDateStr = metadata.reviewDate ? formatDate(metadata.reviewDate) : 'N/A';
+        const meetingDateStr = metadata.meetingDate ? formatDate(metadata.meetingDate) : 'N/A';
+        c2.value = `Month: ${getMonthLong(selectedMonth)} ${selectedYear}   |   Review Date: ${reviewDateStr}   |   Meeting Date: ${meetingDateStr}   |   Exported: ${new Date().toLocaleDateString('en-IN')}`;
+        c2.font = { name: 'Calibri', size: 10.5, color: { argb: 'FFFFFFFF' } };
+        c2.alignment = { horizontal: 'center', vertical: 'middle' };
+        c2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF217346' } };
+        ws.getRow(2).height = 22;
+
+        // ── Row 3: blank spacer ──
+        ws.mergeCells('A3:M3');
+        ws.getRow(3).height = 6;
+        ws.getCell('A3').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } };
+
+        // ── Row 4: Column headers ──
+        const headerRow = ws.getRow(4);
+        headerRow.height = 28;
+        COLS.forEach((col, ci) => {
+            const cell = headerRow.getCell(ci + 1);
+            cell.value = col.header;
+            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+            cell.border = {
+                top: { style: 'medium', color: { argb: 'FF217346' } },
+                bottom: { style: 'medium', color: { argb: 'FF217346' } },
+                left: { style: 'thin', color: { argb: 'FF334155' } },
+                right: { style: 'thin', color: { argb: 'FF334155' } },
+            };
+        });
+
+        // ── Data rows ──
+        let sno = 0;
+        items.forEach((item) => {
+            if (item.isTitleRow) {
+                // Title separator row spanning all columns (A to M)
+                const titleRowNum = ws.rowCount + 1;
+                ws.mergeCells(`A${titleRowNum}:M${titleRowNum}`);
+                const tr = ws.getRow(titleRowNum);
+                tr.height = 22;
+                const tc = ws.getCell(`A${titleRowNum}`);
+                tc.value = (item.processDescription || '').toUpperCase();
+                tc.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+                tc.alignment = { horizontal: 'center', vertical: 'middle' };
+                tc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+                tc.border = {
+                    top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                    bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                };
+                return;
+            }
+
+            sno++;
+            const status = item.status || 'Green';
+            const sc = STATUS_COLORS[status] || STATUS_COLORS.Green;
+            const dataRow = ws.addRow([
+                sno,
+                item.processDescription || '',
+                item.objective || '',
+                item.target || '',
+                item.monitoringFrequency || '',
+                item.responsibility || '',
+                item.actual || '',
+                item.plan || '',
+                item.actionPlan || '',
+                item.responsibilityAction || '',
+                formatDate(item.targetDate),
+                status,
+                item.remarks || '',
+            ]);
+            dataRow.height = 19;
+            dataRow.eachCell({ includeEmpty: true }, (cell, colNum) => {
+                cell.font = { name: 'Calibri', size: 9 };
+                cell.alignment = { vertical: 'top', wrapText: true, horizontal: [1, 4, 5, 7, 8, 11, 12].includes(colNum) ? 'center' : 'left' };
+                cell.border = {
+                    bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+                    right: { style: 'hair', color: { argb: 'FFE5E7EB' } },
+                };
+                // Status cell coloring (Col 12)
+                if (colNum === 12) {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${sc.fill}` } };
+                    cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: `FF${sc.text}` } };
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: `FF${sc.hex}` } },
+                        bottom: { style: 'thin', color: { argb: `FF${sc.hex}` } },
+                        left: { style: 'thin', color: { argb: `FF${sc.hex}` } },
+                        right: { style: 'thin', color: { argb: `FF${sc.hex}` } },
+                    };
+                }
+                // Alternate row shading
+                if (sno % 2 === 0 && colNum !== 12) {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+                }
+            });
+        });
+
+        // ── Summary footer ──
+        const footerRowNum = ws.rowCount + 2;
+        ws.mergeCells(`A${footerRowNum}:M${footerRowNum}`);
+        const footerCell = ws.getCell(`A${footerRowNum}`);
+        footerCell.value = `Total Items: ${sno}   |   Green: ${statusCounts.Green}   |   Yellow: ${statusCounts.Yellow}   |   Red: ${statusCounts.Red}   |   Not Required: ${statusCounts.NotRequired}`;
+        footerCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1F2937' } };
+        footerCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        footerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } };
+        footerCell.border = {
+            top: { style: 'medium', color: { argb: 'FF217346' } },
+            bottom: { style: 'medium', color: { argb: 'FF217346' } },
+        };
+        ws.getRow(footerRowNum).height = 24;
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+            `MRM_${getMonthLong(selectedMonth)}_${selectedYear}.xlsx`);
+    };
+
+    // ─── PDF Export (A4 Landscape) ────────────────────────────────────────────────
+    const handleExportPDF = () => {
+        setExportMenuAnchor(null);
+        // A4 landscape: 297 x 210 mm
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const pageW = doc.internal.pageSize.getWidth();   // 297
+        const pageH = doc.internal.pageSize.getHeight();  // 210
+        const margin = 10;
+
+        // ── Header: dark slate top + green accent stripe ──
+        doc.setFillColor(15, 23, 42);    // slate-950
+        doc.rect(0, 0, pageW, 14, 'F');
+        doc.setFillColor(33, 115, 70);   // brand green accent
+        doc.rect(0, 14, pageW, 3, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text('AlVision Exim - Monthly Review Meeting', pageW / 2, 9, { align: 'center' });
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(134, 239, 172);  // green-300
+        doc.text('MRM REPORT', pageW - margin, 9, { align: 'right' });
+
+        // ── Info row ──
+        doc.setFillColor(241, 245, 249);  // slate-100
+        doc.rect(0, 17, pageW, 9, 'F');
+        const reviewDateStr = metadata.reviewDate ? formatDate(metadata.reviewDate) : 'N/A';
+        const meetingDateStr = metadata.meetingDate ? formatDate(metadata.meetingDate) : 'N/A';
+        const exportedBy = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'N/A';
+        doc.setTextColor(51, 65, 85);
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${getMonthLong(selectedMonth).toUpperCase()} ${selectedYear}`, margin, 22.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        doc.text(
+            `Review Date: ${reviewDateStr}   |   Meeting Date: ${meetingDateStr}   |   Exported: ${new Date().toLocaleDateString('en-IN')}   |   By: ${exportedBy}`,
+            pageW / 2, 22.5, { align: 'center' }
+        );
+
+        // ── Status Summary Pills (Clean ASCII text, no symbols that corrupt) ──
+        const pillY = 28;
+        const pillH = 7;
+        const pills = [
+            { label: 'TOTAL:', value: items.filter(i => !i.isTitleRow).length, bg: [30, 41, 59], fg: [255, 255, 255] },
+            { label: 'GREEN:', value: statusCounts.Green, bg: [22, 101, 52], fg: [220, 252, 231] },
+            { label: 'YELLOW:', value: statusCounts.Yellow, bg: [161, 98, 7], fg: [254, 240, 138] },
+            { label: 'RED:', value: statusCounts.Red, bg: [185, 28, 28], fg: [254, 226, 226] },
+            { label: 'NOT REQ:', value: statusCounts.NotRequired, bg: [241, 245, 249], fg: [71, 85, 105] },
+        ];
+        const pillW = 34;
+        const pillsStartX = (pageW - pills.length * pillW - (pills.length - 1) * 3) / 2;
+        pills.forEach((p, i) => {
+            const x = pillsStartX + i * (pillW + 3);
+            doc.setFillColor(...p.bg);
+            doc.roundedRect(x, pillY, pillW, pillH, 2, 2, 'F');
+            doc.setTextColor(...p.fg);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${p.label} ${p.value}`, x + pillW / 2, pillY + 4.8, { align: 'center' });
+        });
+
+        // ── Build table body ──
+        const body = [];
+        let sno = 0;
+        items.forEach((item) => {
+            if (item.isTitleRow) {
+                body.push([{
+                    content: (item.processDescription || '').toUpperCase(),
+                    colSpan: 12,
+                    styles: {
+                        fontStyle: 'bold',
+                        fillColor: [226, 232, 240],
+                        textColor: [15, 23, 42],
+                        halign: 'center',
+                        fontSize: 7.5,
+                        cellPadding: { top: 3, bottom: 3, left: 4, right: 4 },
+                    }
+                }]);
+                return;
+            }
+            sno++;
+            const status = item.status || 'Green';
+            body.push([
+                { content: sno, styles: { halign: 'center', fontStyle: 'bold', textColor: [100, 116, 139] } },
+                item.processDescription || '',
+                item.objective || '',
+                { content: item.target || '', styles: { halign: 'center' } },
+                { content: item.monitoringFrequency || '', styles: { halign: 'center' } },
+                item.responsibility || '',
+                { content: item.actual || '', styles: { halign: 'center' } },
+                { content: item.plan || '', styles: { halign: 'center' } },
+                item.actionPlan || '',
+                item.responsibilityAction || '',
+                { content: formatDate(item.targetDate), styles: { halign: 'center' } },
+                { content: status, styles: getStatusCellStyle(status) },
+            ]);
+        });
+
+        // A4 landscape usable width = 277 mm (10 mm margins each side)
+        // Column widths: 7+42+34+13+13+22+14+14+50+22+18+28 = 277
+        autoTable(doc, {
+            startY: 38,
+            margin: { left: margin, right: margin },
+            head: [[
+                '#',
+                'Process Description',
+                'Objective',
+                'Target',
+                'Freq.',
+                'Responsibility',
+                `Act.\n(${prevMonthName}-${getYearShort(prevYearVal)})`,
+                `Plan\n(${currentMonthName}-${getYearShort(selectedYear)})`,
+                'Action Plan',
+                'Act. Resp.',
+                'Target Date',
+                'Status',
+            ]],
+            body,
+            theme: 'grid',
+            tableWidth: pageW - margin * 2,
+            styles: {
+                font: 'helvetica',
+                fontSize: 6.5,
+                cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 },
+                valign: 'top',
+                overflow: 'linebreak',
+                lineColor: [203, 213, 225],
+                lineWidth: 0.15,
+                textColor: [30, 41, 59],
+            },
+            headStyles: {
+                fillColor: [15, 23, 42],
+                textColor: [255, 255, 255],
+                fontStyle: 'bold',
+                fontSize: 7,
+                halign: 'center',
+                valign: 'middle',
+                cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
+                lineColor: [51, 65, 85],
+            },
+            alternateRowStyles: {
+                fillColor: [248, 250, 252],
+            },
+            columnStyles: {
+                0: { cellWidth: 7, halign: 'center' },
+                1: { cellWidth: 42 },
+                2: { cellWidth: 34 },
+                3: { cellWidth: 13, halign: 'center' },
+                4: { cellWidth: 13, halign: 'center' },
+                5: { cellWidth: 22 },
+                6: { cellWidth: 14, halign: 'center' },
+                7: { cellWidth: 14, halign: 'center' },
+                8: { cellWidth: 50 },
+                9: { cellWidth: 22 },
+                10: { cellWidth: 18, halign: 'center' },
+                11: { cellWidth: 28, halign: 'center' },
+            },
+            didDrawPage: (data) => {
+                // Green accent top stripe on continuation pages
+                doc.setFillColor(33, 115, 70);
+                doc.rect(0, 0, pageW, 2, 'F');
+                // Footer
+                const pageCount = doc.internal.getNumberOfPages();
+                doc.setFillColor(248, 250, 252);
+                doc.rect(0, pageH - 8, pageW, 8, 'F');
+                doc.setDrawColor(226, 232, 240);
+                doc.line(margin, pageH - 8, pageW - margin, pageH - 8);
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(148, 163, 184);
+                doc.text(
+                    `AlVision Exim - MRM Report - ${getMonthLong(selectedMonth)} ${selectedYear}`,
+                    margin, pageH - 3
+                );
+                doc.text(
+                    `Page ${data.pageNumber} of ${pageCount}`,
+                    pageW - margin, pageH - 3,
+                    { align: 'right' }
+                );
+            },
+        });
+
+        doc.save(`MRM_${getMonthLong(selectedMonth)}_${selectedYear}.pdf`);
+    };
+
+    const getStatusCellStyle = (status) => {
+        const map = {
+            Green: { fillColor: [220, 252, 231], textColor: [22, 101, 52], fontStyle: 'bold', halign: 'center' },
+            Yellow: { fillColor: [254, 240, 138], textColor: [133, 77, 14], fontStyle: 'bold', halign: 'center' },
+            Red: { fillColor: [254, 226, 226], textColor: [153, 27, 27], fontStyle: 'bold', halign: 'center' },
+            'Not Required': { fillColor: [241, 245, 249], textColor: [100, 116, 139], fontStyle: 'bold', halign: 'center' },
+        };
+        return map[status] || map.Green;
+    };
 
     return (
         <div className="mrm-container">
             {/* Title Bar */}
             <div className="title-bar">
                 <div className="title-center">
-                    <h1>Monthly Review Meeting (MRM)</h1>
+                    <div className="title-heading-row">
+                        <h1>Monthly Review Meeting</h1>
+                        <span className={`mrm-pill-badge ${metadata.status?.toLowerCase() || 'draft'}`}>
+                            {metadata.status === 'Approved' ? 'Approved & Locked' :
+                                metadata.status === 'Submitted' ? 'Submitted for Review' :
+                                    metadata.status === 'RevisionRequested' ? 'Revision Requested' :
+                                        'Draft'}
+                        </span>
+                    </div>
                     <span className="user-name">Welcome, {user?.first_name} {user?.last_name}</span>
                 </div>
                 <div className="title-buttons">
-                    {isAdmin && (
+                    {(isAdmin || isApprover) && (
                         <button
                             className="help-btn"
                             onClick={() => navigate('/mrm/admin')}
                             title="View All Users' MRM"
                         >
-                            <span>📊</span> Dashboard
+                            <DashboardOutlinedIcon sx={{ fontSize: 16 }} />
+                            <span>Dashboard</span>
                         </button>
                     )}
                     <button className="help-btn" onClick={() => setShowHelpModal(true)} title="What is MRM?">
-                        <span>ℹ️</span> Help
+                        <HelpOutlineIcon sx={{ fontSize: 16 }} />
+                        <span>Help</span>
                     </button>
-                </div>
-            </div>
 
-            {/* Controls Bar */}
-            <div className="header-actions">
-                <div className="date-controls">
-                    <div className="date-field">
-                        <label>Review Date:</label>
-                        <input
-                            type="date"
-                            value={metadata.reviewDate}
-                            onChange={e => handleMetadataChange('reviewDate', e.target.value)}
-                        />
-                    </div>
-                    <div className="date-field">
-                        <label>Meeting Date:</label>
-                        <input
-                            type="date"
-                            value={metadata.meetingDate}
-                            onChange={e => handleMetadataChange('meetingDate', e.target.value)}
-                        />
-                    </div>
-
-                    {/* Status Filter */}
-                    <div className="status-filter">
-                        <label>Filter:</label>
-                        <div className="filter-buttons">
-                            <button
-                                className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
-                                onClick={() => setStatusFilter('all')}
-                            >
-                                All ({statusCounts.all})
-                            </button>
-                            <button
-                                className={`filter-btn green ${statusFilter === 'Green' ? 'active' : ''}`}
-                                onClick={() => setStatusFilter('Green')}
-                            >
-                                🟢 {statusCounts.Green}
-                            </button>
-                            <button
-                                className={`filter-btn yellow ${statusFilter === 'Yellow' ? 'active' : ''}`}
-                                onClick={() => setStatusFilter('Yellow')}
-                            >
-                                🟡 {statusCounts.Yellow}
-                            </button>
-                            <button
-                                className={`filter-btn red ${statusFilter === 'Red' ? 'active' : ''}`}
-                                onClick={() => setStatusFilter('Red')}
-                            >
-                                🔴 {statusCounts.Red}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="action-controls">
-                    {/* Admin User Selector */}
-                    {isAdmin && (
-                        <select
-                            value={selectedUserId}
-                            onChange={e => setSelectedUserId(e.target.value)}
-                            className="user-selector"
-                        >
-                            <option value="" disabled>Select User</option>
-                            {mrmUsers
-                                .filter(u => ['Head_of_Department', 'Admin'].includes(u.role))
-                                .map(u => (
-                                    <option key={u._id} value={u._id}>
-                                        {u.first_name} {u.last_name}
-                                    </option>
-                                ))}
-                        </select>
-                    )}
-
-                    <select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))}>
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                            <option key={m} value={m}>{new Date(0, m - 1).toLocaleString('default', { month: 'long' })}</option>
-                        ))}
-                    </select>
-                    <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}>
-                        {[2024, 2025, 2026, 2027, 2028].map(y => (
-                            <option key={y} value={y}>{y}</option>
-                        ))}
-                    </select>
-
-                    <button className="secondary" onClick={() => setShowImportModal(true)}>Import / Copy</button>
-                    {items.length > 0 && (
+                    {/* Primary Presenter Action: Submit for Approval Button */}
+                    {(!metadata.isLocked && (metadata.status === 'Draft' || metadata.status === 'RevisionRequested' || !metadata.status)) && (
                         <button
-                            className="danger-btn-outline"
-                            onClick={() => setBulkDeleteDialog(true)}
-                            title="Delete all rows for this month"
+                            className="submit-approval-btn"
+                            onClick={handleSubmitForReview}
+                            disabled={actionLoading}
+                            title="Validate completeness and submit to Suraj for review"
                         >
-                            🗑️ Delete Month
+                            <SendIcon sx={{ fontSize: 14 }} />
+                            <span>{actionLoading ? 'Checking...' : 'Submit for Approval'}</span>
                         </button>
                     )}
-                    <button onClick={handleAddItem}>+ Add Row</button>
+
+                    {/* Approver Actions (Suraj / Admin) */}
+                    {isApprover && metadata.status === 'Submitted' && (
+                        <>
+                            <button
+                                className="submit-approval-btn approve-lock-btn"
+                                onClick={() => setShowApproveModal(true)}
+                                disabled={actionLoading}
+                            >
+                                <CheckCircleOutlineIcon sx={{ fontSize: 15 }} />
+                                <span>Approve & Lock</span>
+                            </button>
+                            <button
+                                className="help-btn revision-btn"
+                                onClick={() => setShowRevisionModal(true)}
+                                disabled={actionLoading}
+                            >
+                                <span>Request Revision</span>
+                            </button>
+                        </>
+                    )}
+
+                    {/* Reopen Action (Suraj / Admin) */}
+                    {isApprover && metadata.isLocked && (
+                        <button
+                            className="help-btn reopen-btn"
+                            onClick={() => setShowReopenModal(true)}
+                            disabled={actionLoading}
+                        >
+                            <LockOpenIcon sx={{ fontSize: 15 }} />
+                            <span>Reopen Month</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Help Modal */}
-            {showHelpModal && (
-                <div className="modal-overlay">
-                    <div className="modal-content help-modal">
-                        <h2>📋 What is MRM?</h2>
-                        <p><strong>Monthly Review Meeting (MRM)</strong> is a structured process to track organizational objectives, monitor performance, and plan corrective actions on a monthly basis.</p>
+            {/* Master Standardized Page Body Container */}
+            <div className="mrm-page-body">
+                {/* Controls Bar */}
+                <div className="header-actions">
+                    <div className="toolbar-row top-row">
+                        <div className="context-group">
+                            <div className="control-item">
+                                <span className="control-label">Review Date:</span>
+                                <input
+                                    type="date"
+                                    value={metadata.reviewDate}
+                                    onChange={e => handleMetadataChange('reviewDate', e.target.value)}
+                                />
+                            </div>
+                            <div className="control-item">
+                                <span className="control-label">Meeting Date:</span>
+                                <input
+                                    type="date"
+                                    value={metadata.meetingDate}
+                                    onChange={e => handleMetadataChange('meetingDate', e.target.value)}
+                                />
+                            </div>
 
-                        <h3>How should an MRM Point be?</h3>
-                        <ul>
-                            <li><strong>Specific</strong> – Clearly define what is being measured</li>
-                            <li><strong>Measurable</strong> – Include quantifiable targets</li>
-                            <li><strong>Actionable</strong> – Ensure there's a clear action plan</li>
-                            <li><strong>Time-bound</strong> – Set realistic target dates</li>
-                        </ul>
+                            <div className="toolbar-divider" />
 
-                        <h3>Field Descriptions</h3>
-                        <table className="help-table">
-                            <tbody>
-                                <tr><td><strong>Process Description</strong></td><td>The business process or activity being reviewed</td></tr>
-                                <tr><td><strong>Objective</strong></td><td>The goal or purpose of this process</td></tr>
-                                <tr><td><strong>Target</strong></td><td>The measurable target value (e.g., 95%, ₹10L)</td></tr>
-                                <tr><td><strong>Frequency</strong></td><td>How often this is monitored (Daily, Weekly, Monthly)</td></tr>
-                                <tr><td><strong>Responsibility</strong></td><td>Person accountable for this process</td></tr>
-                                <tr><td><strong>Actual (Prev Month)</strong></td><td>The actual achieved value from last month</td></tr>
-                                <tr><td><strong>Plan (Current Month)</strong></td><td>The planned target for current month</td></tr>
-                                <tr><td><strong>Action Plan</strong></td><td>Steps to be taken if target is not met</td></tr>
-                                <tr><td><strong>Resp. (Action)</strong></td><td>Person responsible for the action plan</td></tr>
-                                <tr><td><strong>Target Date</strong></td><td>Deadline for completing the action</td></tr>
-                                <tr><td><strong>Status</strong></td><td><span style={{ color: '#166534' }}>🟢 Green</span> = Completed, <span style={{ color: '#ca8a04' }}>🟡 Yellow</span> = In Progress, <span style={{ color: '#dc2626' }}>🔴 Red</span> = Not Started</td></tr>
-                                <tr><td><strong>Remarks</strong></td><td>Additional notes or comments</td></tr>
-                            </tbody>
-                        </table>
+                            {/* Admin / Approver Presenter Selector */}
+                            {canManagePresenters && (
+                                <div className="control-item">
+                                    <span className="control-label">Presenter:</span>
+                                    <div className="executive-select-wrapper">
+                                        <select
+                                            value={selectedUserId}
+                                            onChange={e => setSelectedUserId(e.target.value)}
+                                            className="executive-select"
+                                            style={{ minWidth: '180px' }}
+                                        >
+                                            <option value="" disabled>Select Presenter</option>
+                                            {mrmUsers
+                                                .filter(u => (u.displayName || u.first_name || u.username))
+                                                .map(u => {
+                                                    const name = u.displayName || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username;
+                                                    return (
+                                                        <option key={u._id} value={u._id}>
+                                                            {name}
+                                                        </option>
+                                                    );
+                                                })}
+                                        </select>
+                                        <span className="select-arrow">▼</span>
+                                    </div>
+                                </div>
+                            )}
 
-                        <div className="modal-actions">
-                            <button className="confirm" onClick={() => setShowHelpModal(false)}>Got it!</button>
+                            <div className="control-item">
+                                <span className="control-label">Period:</span>
+                                <div className="period-group" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => {
+                                            let m = selectedMonth - 1;
+                                            let y = selectedYear;
+                                            if (m < 1) {
+                                                m = 12;
+                                                y -= 1;
+                                            }
+                                            setSelectedMonth(m);
+                                            setSelectedYear(y);
+                                        }}
+                                        title="Previous Month"
+                                        sx={{ p: '4px', border: '1px solid #cbd5e1', bgcolor: '#ffffff', '&:hover': { bgcolor: '#f1f5f9' } }}
+                                    >
+                                        <ChevronLeftIcon sx={{ fontSize: 18, color: '#334155' }} />
+                                    </IconButton>
+
+                                    <div className="executive-select-wrapper">
+                                        <select
+                                            value={selectedMonth}
+                                            onChange={e => setSelectedMonth(Number(e.target.value))}
+                                            className="executive-select"
+                                            style={{ minWidth: '135px' }}
+                                        >
+                                            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                                <option key={m} value={m}>{new Date(0, m - 1).toLocaleString('default', { month: 'long' })}</option>
+                                            ))}
+                                        </select>
+                                        <span className="select-arrow">▼</span>
+                                    </div>
+                                    <div className="executive-select-wrapper">
+                                        <select
+                                            value={selectedYear}
+                                            onChange={e => setSelectedYear(Number(e.target.value))}
+                                            className="executive-select"
+                                            style={{ minWidth: '95px' }}
+                                        >
+                                            {[2024, 2025, 2026, 2027, 2028].map(y => (
+                                                <option key={y} value={y}>{y}</option>
+                                            ))}
+                                        </select>
+                                        <span className="select-arrow">▼</span>
+                                    </div>
+
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => {
+                                            const now = new Date();
+                                            const currY = now.getFullYear();
+                                            const currM = now.getMonth() + 1;
+                                            let m = selectedMonth + 1;
+                                            let y = selectedYear;
+                                            if (m > 12) {
+                                                m = 1;
+                                                y += 1;
+                                            }
+                                            if (y > currY || (y === currY && m > currM)) {
+                                                return;
+                                            }
+                                            setSelectedMonth(m);
+                                            setSelectedYear(y);
+                                        }}
+                                        title="Next Month"
+                                        disabled={selectedYear >= new Date().getFullYear() && selectedMonth >= (new Date().getMonth() + 1)}
+                                        sx={{ p: '4px', border: '1px solid #cbd5e1', bgcolor: '#ffffff', '&:hover': { bgcolor: '#f1f5f9' } }}
+                                    >
+                                        <ChevronRightIcon sx={{ fontSize: 18, color: '#334155' }} />
+                                    </IconButton>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="toolbar-row bottom-row">
+                        {/* Status Filter */}
+                        <div className="status-filter">
+                            <span className="control-label">Filter:</span>
+                            <div className="filter-buttons">
+                                <button
+                                    className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
+                                    onClick={() => setStatusFilter('all')}
+                                >
+                                    All ({statusCounts.all})
+                                </button>
+                                <button
+                                    className={`filter-btn green ${statusFilter === 'Green' ? 'active' : ''}`}
+                                    onClick={() => setStatusFilter('Green')}
+                                >
+                                    <span className="status-dot green" /> On-Track ({statusCounts.Green})
+                                </button>
+                                <button
+                                    className={`filter-btn yellow ${statusFilter === 'Yellow' ? 'active' : ''}`}
+                                    onClick={() => setStatusFilter('Yellow')}
+                                >
+                                    <span className="status-dot yellow" /> Attention ({statusCounts.Yellow})
+                                </button>
+                                <button
+                                    className={`filter-btn red ${statusFilter === 'Red' ? 'active' : ''}`}
+                                    onClick={() => setStatusFilter('Red')}
+                                >
+                                    <span className="status-dot red" /> Critical ({statusCounts.Red})
+                                </button>
+                                <button
+                                    className={`filter-btn not-required ${statusFilter === 'Not Required' ? 'active' : ''}`}
+                                    onClick={() => setStatusFilter('Not Required')}
+                                >
+                                    <span className="status-dot not-required" style={{ backgroundColor: '#94a3b8' }} /> Not Required ({statusCounts.NotRequired})
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Action Controls */}
+                        <div className="action-buttons-group">
+                            {!metadata.isLocked && (
+                                <button className="action-btn secondary" onClick={() => setShowImportModal(true)}>
+                                    <FileUploadOutlinedIcon sx={{ fontSize: 15 }} /> Import / Copy
+                                </button>
+                            )}
+
+                            {items.length > 0 && (
+                                <>
+                                    {/* Export Dropdown Button */}
+                                    <button
+                                        className="action-btn export-btn"
+                                        onClick={(e) => setExportMenuAnchor(e.currentTarget)}
+                                        title="Export MRM data"
+                                    >
+                                        <FileDownloadIcon sx={{ fontSize: 16 }} />
+                                        Export
+                                        <span className="export-arrow">▾</span>
+                                    </button>
+                                    <Menu
+                                        anchorEl={exportMenuAnchor}
+                                        open={Boolean(exportMenuAnchor)}
+                                        onClose={() => setExportMenuAnchor(null)}
+                                        PaperProps={{
+                                            sx: {
+                                                borderRadius: '12px',
+                                                boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+                                                minWidth: '200px',
+                                                overflow: 'visible',
+                                                mt: '6px',
+                                                border: '1px solid #e5e7eb',
+                                            }
+                                        }}
+                                        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                                        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                                    >
+                                        <div className="export-menu-header">Export {getMonthLong(selectedMonth)} {selectedYear}</div>
+                                        <MenuItem
+                                            onClick={handleExportExcel}
+                                            className="export-menu-item"
+                                            sx={{
+                                                gap: '10px',
+                                                py: '10px',
+                                                px: '16px',
+                                                fontSize: '0.875rem',
+                                                fontWeight: 500,
+                                                color: '#166534',
+                                                '&:hover': { background: '#f0fdf4' }
+                                            }}
+                                        >
+                                            <TableChartIcon sx={{ fontSize: 20, color: '#16a34a' }} />
+                                            <div>
+                                                <div style={{ fontWeight: 600 }}>Export to Excel</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 400 }}>Styled .xlsx with colors</div>
+                                            </div>
+                                        </MenuItem>
+                                        <MenuItem
+                                            onClick={handleExportPDF}
+                                            className="export-menu-item"
+                                            sx={{
+                                                gap: '10px',
+                                                py: '10px',
+                                                px: '16px',
+                                                fontSize: '0.875rem',
+                                                fontWeight: 500,
+                                                color: '#991b1b',
+                                                '&:hover': { background: '#fef2f2' }
+                                            }}
+                                        >
+                                            <PictureAsPdfIcon sx={{ fontSize: 20, color: '#dc2626' }} />
+                                            <div>
+                                                <div style={{ fontWeight: 600 }}>Export to PDF</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 400 }}>Landscape A3 format</div>
+                                            </div>
+                                        </MenuItem>
+                                    </Menu>
+                                    {!metadata.isLocked && (
+                                        <button
+                                            className="action-btn danger-btn-outline"
+                                            onClick={() => setBulkDeleteDialog(true)}
+                                            title="Delete all rows for this month"
+                                        >
+                                            <DeleteOutlineIcon sx={{ fontSize: 15 }} /> Delete Month
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                            {!metadata.isLocked && (
+                                <button className="action-btn primary" onClick={handleAddItem}>
+                                    <AddIcon sx={{ fontSize: 16 }} /> Add Row
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
-            )}
 
-            <div className="data-grid-container">
-                {loading ? <p style={{ padding: '20px', textAlign: 'center' }}>Loading...</p> : (
-                    <table>
-                        <thead>
-                            <tr>
-                                <th style={{ width: '30px' }}></th>
-                                <th style={{ width: '250px' }} title="Process Description">Process<br />Description</th>
-                                <th style={{ width: '180px' }} title="Objective">Objective</th>
-                                <th style={{ width: '70px' }} title="Target">Target</th>
-                                <th style={{ width: '80px' }} title="Monitoring Frequency">Monitoring<br />Freq.</th>
-                                <th style={{ width: '90px' }} title="Responsibility">Resp.</th>
-                                <th style={{ width: '90px' }} title={`Actual (${prevMonthName} ${prevYearVal})`}>Act.<br />({prevMonthName.substring(0, 3)}-{getYearShort(prevYearVal)})</th>
-                                <th style={{ width: '90px' }} title={`Plan (${currentMonthName} ${selectedYear})`}>Plan<br />({currentMonthName.substring(0, 3)}-{getYearShort(selectedYear)})</th>
-                                <th style={{ width: '220px' }} title="Action Plan">Action<br />Plan</th>
-                                <th style={{ width: '80px' }} title="Action Responsibility">Act.<br />Resp.</th>
-                                <th style={{ width: '95px' }} title="Target Date">Target<br />Date</th>
-                                <th style={{ width: '75px' }} title="Status">Status</th>
-                                <th style={{ width: '200px' }} title="Remarks">Remarks</th>
-                                <th style={{ width: '80px', textAlign: 'center' }} title="Actions">Act.</th>
-                            </tr>
-                        </thead>
-                        <Reorder.Group as="tbody" axis="y" values={filteredItems} onReorder={handleReorder}>
-                            {filteredItems.length === 0 ? (
-                                <tr>
-                                    <td colSpan="14" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
-                                        {items.length === 0
-                                            ? 'No entries for this month. Add a new row or import from previous month.'
-                                            : `No items with "${statusFilter}" status.`}
-                                    </td>
-                                </tr>
+                {/* Revision Requested Notice (Only displayed if revision is actively requested) */}
+                {metadata.status === 'RevisionRequested' && (
+                    <Alert
+                        severity="warning"
+                        icon={<WarningAmberIcon fontSize="inherit" />}
+                        sx={{
+                            borderRadius: '10px',
+                            border: '1px solid #fde68a',
+                            bgcolor: '#fffbeb',
+                            color: '#92400e',
+                            width: '100%',
+                            boxSizing: 'border-box'
+                        }}
+                    >
+                        <strong>Revision Requested by Suraj:</strong> "{metadata.revisionHistory?.[metadata.revisionHistory.length - 1]?.comment || 'Please update highlighted rows and re-submit.'}"
+                    </Alert>
+                )}
+
+                {/* Help Modal */}
+                <Dialog open={showHelpModal} onClose={() => setShowHelpModal(false)} maxWidth="md" fullWidth>
+                    <DialogTitle sx={{ color: '#064e3b', display: 'flex', alignItems: 'center', gap: 1, fontWeight: 800 }}>
+                        📋 What is MRM (Management Review Meeting)?
+                    </DialogTitle>
+                    <DialogContent>
+                        <DialogContentText sx={{ mb: 2, color: '#334155', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                            <strong>Monthly Review Meeting (MRM)</strong> is a structured operational governance process to track organizational objectives, monitor performance, and enforce corrective action plans on a monthly basis.
+                        </DialogContentText>
+
+                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px 18px', marginBottom: '16px' }}>
+                            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '8px', fontSize: '0.9rem' }}>
+                                Guiding Principles for Effective MRM Points
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                                <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                    <strong style={{ color: '#059669' }}>Specific</strong> – Clearly define what is measured
+                                </div>
+                                <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                    <strong style={{ color: '#0284c7' }}>Measurable</strong> – Include quantifiable targets
+                                </div>
+                                <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #ca8a04' }}>
+                                    <strong style={{ color: '#ca8a04' }}>Actionable</strong> – Action plan with owner
+                                </div>
+                                <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #dc2626' }}>
+                                    <strong style={{ color: '#dc2626' }}>Time-bound</strong> – Set realistic target dates
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '8px', fontSize: '0.9rem' }}>
+                            Field Definitions
+                        </div>
+                        <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                                <tbody>
+                                    {[
+                                        ['Process Description', 'The business process or activity being reviewed'],
+                                        ['Objective', 'The goal or purpose of this process'],
+                                        ['Target', 'The measurable target value (e.g., 95%, ₹10L)'],
+                                        ['Frequency', 'How often this is monitored (Daily, Weekly, Monthly)'],
+                                        ['Responsibility', 'Person accountable for this process'],
+                                        ['Actual (Prev Month)', 'The actual achieved value from last month'],
+                                        ['Plan (Current Month)', 'The planned target for current month'],
+                                        ['Action Plan', 'Corrective steps (automatically synced to Open Points at Save time)'],
+                                        ['Resp. (Action)', 'Person responsible for chasing the action item to closure'],
+                                        ['Target Date', 'Deadline for completing the action item'],
+                                        ['Status', '🟢 Green = On Target / Completed | 🟡 Yellow = In Progress | 🔴 Red = Off Target (Requires Action Plan)'],
+                                        ['Remarks', 'Additional notes, context, or escalation details']
+                                    ].map(([field, desc], i) => (
+                                        <tr key={i} style={{ background: i % 2 === 0 ? '#ffffff' : '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                            <td style={{ padding: '8px 14px', fontWeight: 600, color: '#1e293b', width: '180px' }}>{field}</td>
+                                            <td style={{ padding: '8px 14px', color: '#475569' }}>{desc}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </DialogContent>
+                    <DialogActions sx={{ p: 2 }}>
+                        <Button onClick={() => setShowHelpModal(false)} variant="contained" sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' } }}>
+                            Got it!
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
+                {/* MRM 2.0 — HOD Monthly Scorecard (Feature-Flagged) with Interactive View Switches */}
+                {rollupFeatureEnabled && hodScoreData && (
+                    <HodScoreCard
+                        scoreData={hodScoreData}
+                        activeView={mrmViewMode}
+                        onSelectView={(mode) => setMrmViewMode(mode)}
+                    />
+                )}
+
+                {/* Member Weight Configuration Modal */}
+                {openWeightConfigModal && (
+                    <MemberWeightConfigModal
+                        open={openWeightConfigModal}
+                        onClose={() => setOpenWeightConfigModal(false)}
+                        department={activeDepartment}
+                        hodId={user?._id || user?.id}
+                        month={String(selectedMonth).padStart(2, '0')}
+                        year={selectedYear}
+                        onSuccess={async () => {
+                            await loadData();
+                        }}
+                    />
+                )}
+
+                {/* Executive View Switcher Bar */}
+                {rollupFeatureEnabled && (
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 1.5,
+                        mb: 0,
+                        p: 0.6,
+                        bgcolor: '#f1f5f9',
+                        borderRadius: '10px',
+                        border: '1px solid #e2e8f0',
+                        width: '100%',
+                        boxSizing: 'border-box'
+                    }}>
+                        <Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
+                            <Button
+                                size="small"
+                                onClick={() => setMrmViewMode('EXECUTIVE_MEETING')}
+                                startIcon={<FlagOutlinedIcon sx={{ fontSize: 15, color: mrmViewMode === 'EXECUTIVE_MEETING' ? '#dc2626' : '#94a3b8' }} />}
+                                sx={{
+                                    textTransform: 'none',
+                                    fontWeight: mrmViewMode === 'EXECUTIVE_MEETING' ? 700 : 500,
+                                    fontSize: '12.5px',
+                                    borderRadius: '8px',
+                                    bgcolor: mrmViewMode === 'EXECUTIVE_MEETING' ? '#ffffff' : 'transparent',
+                                    color: mrmViewMode === 'EXECUTIVE_MEETING' ? '#0f172a' : '#64748b',
+                                    px: 1.5,
+                                    py: 0.6,
+                                    boxShadow: mrmViewMode === 'EXECUTIVE_MEETING' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                                    '&:hover': { bgcolor: mrmViewMode === 'EXECUTIVE_MEETING' ? '#ffffff' : 'rgba(255,255,255,0.6)', color: '#0f172a' }
+                                }}
+                            >
+                                Executive Meeting Focus
+                            </Button>
+
+                            <Button
+                                size="small"
+                                onClick={() => setMrmViewMode('TEAM_SEGMENTS')}
+                                startIcon={<GroupsOutlinedIcon sx={{ fontSize: 15, color: mrmViewMode === 'TEAM_SEGMENTS' ? '#2563eb' : '#94a3b8' }} />}
+                                sx={{
+                                    textTransform: 'none',
+                                    fontWeight: mrmViewMode === 'TEAM_SEGMENTS' ? 700 : 500,
+                                    fontSize: '12.5px',
+                                    borderRadius: '8px',
+                                    bgcolor: mrmViewMode === 'TEAM_SEGMENTS' ? '#ffffff' : 'transparent',
+                                    color: mrmViewMode === 'TEAM_SEGMENTS' ? '#0f172a' : '#64748b',
+                                    px: 1.5,
+                                    py: 0.6,
+                                    boxShadow: mrmViewMode === 'TEAM_SEGMENTS' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                                    '&:hover': { bgcolor: mrmViewMode === 'TEAM_SEGMENTS' ? '#ffffff' : 'rgba(255,255,255,0.6)', color: '#0f172a' }
+                                }}
+                            >
+                                Team Sub-Teams & KPIs (70%)
+                            </Button>
+
+                            <Button
+                                size="small"
+                                onClick={() => setMrmViewMode('HOD_OBJECTIVES')}
+                                startIcon={<TrackChangesOutlinedIcon sx={{ fontSize: 15, color: mrmViewMode === 'HOD_OBJECTIVES' ? '#7c3aed' : '#94a3b8' }} />}
+                                sx={{
+                                    textTransform: 'none',
+                                    fontWeight: mrmViewMode === 'HOD_OBJECTIVES' ? 700 : 500,
+                                    fontSize: '12.5px',
+                                    borderRadius: '8px',
+                                    bgcolor: mrmViewMode === 'HOD_OBJECTIVES' ? '#ffffff' : 'transparent',
+                                    color: mrmViewMode === 'HOD_OBJECTIVES' ? '#0f172a' : '#64748b',
+                                    px: 1.5,
+                                    py: 0.6,
+                                    boxShadow: mrmViewMode === 'HOD_OBJECTIVES' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                                    '&:hover': { bgcolor: mrmViewMode === 'HOD_OBJECTIVES' ? '#ffffff' : 'rgba(255,255,255,0.6)', color: '#0f172a' }
+                                }}
+                            >
+                                HOD Strategic Focus Areas (30%)
+                            </Button>
+                        </Box>
+
+                        {canManagePresenters && (
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<SettingsOutlinedIcon sx={{ fontSize: 14 }} />}
+                                onClick={() => setOpenWeightConfigModal(true)}
+                                sx={{
+                                    textTransform: 'none',
+                                    fontWeight: 600,
+                                    fontSize: '11.5px',
+                                    bgcolor: '#ffffff',
+                                    borderColor: '#cbd5e1',
+                                    color: '#475569',
+                                    borderRadius: '8px',
+                                    px: 1.4,
+                                    py: 0.5,
+                                    '&:hover': { bgcolor: '#f8fafc', borderColor: '#94a3b8', color: '#0f172a' }
+                                }}
+                            >
+                                MRM Settings
+                            </Button>
+                        )}
+                    </Box>
+                )}
+
+                {/* ═══ VIEW 1: EXECUTIVE MEETING FOCUS ═══ */}
+                {rollupFeatureEnabled && mrmViewMode === 'EXECUTIVE_MEETING' && (() => {
+                    const redSegments = (segmentRollupData?.segments || []).filter(s => s.final_rag === 'Red' || s.final_rag === 'Amber');
+                    const redObjectives = items.filter(it => !it.isTitleRow && (it.status === 'Red' || it.status === 'Yellow' || it.status === 'Amber'));
+
+                    return (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, width: '100%', boxSizing: 'border-box' }}>
+                            {/* Compact Pre-Deadline Tracker */}
+                            <PreDeadlineTracker
+                                department={activeDepartment}
+                                month={String(selectedMonth).padStart(2, '0')}
+                                year={selectedYear}
+                                onReminderSent={(m) => showToast(`Reminder ping sent to ${m.name}`)}
+                            />
+
+                            {/* Sub-Team Red & Amber Segments (Consolidated Single Header) */}
+                            {redSegments.length > 0 ? (
+                                <SegmentRollupView
+                                    title={`Sub-Team KPI Exceptions (${redSegments.length})`}
+                                    weightChip={<Chip label="Weight: 70%" size="small" sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#fee2e2', color: '#991b1b', height: '22px' }} />}
+                                    segments={redSegments}
+                                    department={activeDepartment}
+                                    month={String(selectedMonth).padStart(2, '0')}
+                                    year={selectedYear}
+                                    isHodOrAdmin={canManagePresenters}
+                                    onApprovalComplete={loadData}
+                                />
                             ) : (
-                                filteredItems.map((item, index) => (
-                                    <ReorderRow 
-                                        key={item._id} 
-                                        item={item} 
-                                        index={index}
-                                        handleFieldChange={handleFieldChange}
-                                        handleSaveItem={handleSaveItem}
-                                        openDeleteDialog={openDeleteDialog}
-                                        handleInsertItem={handleInsertItem}
-                                        autoResizeTextarea={autoResizeTextarea}
-                                        mrmUsers={mrmUsers}
-                                    />
-                                ))
+                                <Paper sx={{ p: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', boxSizing: 'border-box' }}>
+                                    <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 22 }} />
+                                    <Box>
+                                        <Typography variant="body2" fontWeight={700} color="#166534">
+                                            All {segmentRollupData?.segments?.length || 0} Sub-Teams are On-Track & Clean (Green)!
+                                        </Typography>
+                                        <Typography variant="caption" color="#15803d">
+                                            Zero blockers, rupee loss, or trend drops across team KPI sheets for {currentMonthName} {selectedYear}.
+                                        </Typography>
+                                    </Box>
+                                </Paper>
                             )}
-                        </Reorder.Group>
-                    </table>
+
+                            {/* Strategic Focus Areas Off-Target */}
+                            <Box sx={{ width: '100%', boxSizing: 'border-box' }}>
+                                <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+                                    <Typography variant="subtitle1" fontWeight={800} color="#0f172a" fontSize="15px">
+                                        Strategic Focus Areas Requiring Action ({redObjectives.length})
+                                    </Typography>
+                                    <Chip label="Weight: 30%" size="small" sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#ede9fe', color: '#6d28d9', height: '22px' }} />
+                                </Box>
+
+                                {redObjectives.length > 0 ? (
+                                    <div className="data-grid-container">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th style={{ width: '36px', minWidth: '36px' }}></th>
+                                                    <th style={{ width: '280px', minWidth: '260px' }}>Process Description</th>
+                                                    <th style={{ width: '320px', minWidth: '280px' }}>Objective</th>
+                                                    <th style={{ width: '120px', minWidth: '110px' }}>Target</th>
+                                                    <th style={{ width: '95px', minWidth: '90px' }}>Freq.</th>
+                                                    <th style={{ width: '110px', minWidth: '100px' }}>Resp.</th>
+                                                    <th style={{ width: '85px', minWidth: '80px' }}>Act.</th>
+                                                    <th style={{ width: '85px', minWidth: '80px' }}>Plan</th>
+                                                    <th style={{ width: '340px', minWidth: '300px' }}>Action Plan</th>
+                                                    <th style={{ width: '160px', minWidth: '150px' }}>Act. Resp.</th>
+                                                    <th style={{ width: '135px', minWidth: '130px' }}>Target Date</th>
+                                                    <th style={{ width: '120px', minWidth: '110px' }}>Status</th>
+                                                    <th style={{ width: '300px', minWidth: '260px' }}>Remarks</th>
+                                                    <th style={{ width: '120px', minWidth: '115px', textAlign: 'center' }}>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <Reorder.Group as="tbody" axis="y" values={redObjectives} onReorder={() => { }}>
+                                                {redObjectives.map((item, index) => (
+                                                    <ReorderRow
+                                                        key={item._id}
+                                                        item={item}
+                                                        index={index}
+                                                        handleFieldChange={handleFieldChange}
+                                                        handleSaveItem={handleSaveItem}
+                                                        openDeleteDialog={openDeleteDialog}
+                                                        handleInsertItem={handleInsertItem}
+                                                        autoResizeTextarea={autoResizeTextarea}
+                                                        mrmUsers={mrmUsers}
+                                                        isLocked={metadata.isLocked}
+                                                        openBaselineDialog={openBaselineDialog}
+                                                        handleStatusChange={handleStatusChange}
+                                                        hasTileAnomaly={false}
+                                                    />
+                                                ))}
+                                            </Reorder.Group>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <Paper sx={{ p: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', boxSizing: 'border-box' }}>
+                                        <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 22 }} />
+                                        <Box>
+                                            <Typography variant="body2" fontWeight={700} color="#166534">
+                                                All HOD Strategic Objectives are On-Target (Green) for this month!
+                                            </Typography>
+                                            <Typography variant="caption" color="#15803d">
+                                                No plan vs. actual shortfalls or off-target RAG statuses detected.
+                                            </Typography>
+                                        </Box>
+                                    </Paper>
+                                )}
+                            </Box>
+
+                            {/* Team Members & KPI Parameters */}
+                            {segmentRollupData?.segments?.length > 0 && (() => {
+                                const allMembers = [];
+                                const seen = new Set();
+                                (segmentRollupData.segments || []).forEach(seg => {
+                                    (seg.contributing_members || []).forEach(m => {
+                                        const id = m.userId?.toString();
+                                        if (id && !seen.has(id)) {
+                                            seen.add(id);
+                                            allMembers.push({ ...m, sub_team: seg.sub_team });
+                                        }
+                                    });
+                                });
+                                if (allMembers.length === 0) return null;
+
+                                const getScoreStyle = (score) => {
+                                    if (score >= 8) return { color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
+                                    if (score >= 5) return { color: '#b45309', bg: '#fffbeb', border: '#fde68a' };
+                                    return { color: '#b91c1c', bg: '#fef2f2', border: '#fecaca' };
+                                };
+
+                                return (
+                                    <Box sx={{ width: '100%', boxSizing: 'border-box' }}>
+                                        <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+                                            <GroupsOutlinedIcon sx={{ fontSize: 18, color: '#2563eb' }} />
+                                            <Typography variant="subtitle1" fontWeight={800} color="#0f172a" fontSize="15px">
+                                                Team Members & KPI Parameters
+                                            </Typography>
+                                            <Chip
+                                                label={`${allMembers.length} Members`}
+                                                size="small"
+                                                sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#eff6ff', color: '#1d4ed8', height: '22px', border: '1px solid #bfdbfe' }}
+                                            />
+                                        </Box>
+
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                            {allMembers.map((m, idx) => {
+                                                const rows = m.kpi_sheet_rows || [];
+                                                const totalScore = m.kpi_total_score;
+                                                const ragStatus = m.kpi_rag_status;
+                                                const totalStyle = getScoreStyle(totalScore || 0);
+                                                const karmaColor = (m.karma_points > 0) ? '#047857' : (m.karma_points < 0 ? '#b91c1c' : '#64748b');
+                                                const hasTargets = rows.some(r => r.target !== null && r.target !== undefined);
+                                                const totalWeights = rows.reduce((sum, r) => sum + (r.weight || 3), 0);
+
+                                                return (
+                                                    <Paper
+                                                        key={m.userId}
+                                                        elevation={0}
+                                                        sx={{
+                                                            border: '1px solid #e2e8f0',
+                                                            borderRadius: '10px',
+                                                            overflow: 'hidden',
+                                                            width: '100%',
+                                                            boxSizing: 'border-box'
+                                                        }}
+                                                    >
+                                                        {/* Member Name Header */}
+                                                        <Box sx={{
+                                                            px: 2,
+                                                            py: 1.2,
+                                                            bgcolor: '#f8fafc',
+                                                            borderBottom: '1px solid #e2e8f0',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            flexWrap: 'wrap',
+                                                            gap: 1
+                                                        }}>
+                                                            <Box display="flex" alignItems="center" gap={1}>
+                                                                <Typography variant="body2" fontWeight={700} color="#64748b" fontSize="12px" sx={{ minWidth: '22px' }}>
+                                                                    {idx + 1}.
+                                                                </Typography>
+                                                                <Typography variant="subtitle2" fontWeight={800} color="#0f172a" fontSize="14px">
+                                                                    {m.name}
+                                                                </Typography>
+                                                                <Chip
+                                                                    label={m.sub_team === 'General' ? `${activeDepartment} Team` : m.sub_team}
+                                                                    size="small"
+                                                                    sx={{ fontWeight: 600, fontSize: '10px', bgcolor: '#f1f5f9', color: '#475569', height: '20px', border: '1px solid #e2e8f0' }}
+                                                                />
+                                                            </Box>
+                                                            <Box display="flex" alignItems="center" gap={1.5}>
+                                                                <Box display="flex" alignItems="center" gap={0.5}>
+                                                                    <Typography variant="caption" color="#64748b" fontSize="10.5px" fontWeight={600}>Attendance:</Typography>
+                                                                    <Typography variant="caption" fontWeight={800} color={(m.attendance_score >= 85) ? '#047857' : (m.attendance_score >= 70 ? '#b45309' : '#b91c1c')} fontSize="11.5px">
+                                                                        {m.attendance_score != null ? `${m.attendance_score}%` : '—'}
+                                                                    </Typography>
+                                                                </Box>
+                                                                <Box sx={{ width: '1px', height: '14px', bgcolor: '#cbd5e1' }} />
+                                                                <Box display="flex" alignItems="center" gap={0.5}>
+                                                                    <Typography variant="caption" color="#64748b" fontSize="10.5px" fontWeight={600}>Karma:</Typography>
+                                                                    <Typography variant="caption" fontWeight={800} color={karmaColor} fontSize="11.5px">
+                                                                        {m.karma_points > 0 ? `+${m.karma_points}` : (m.karma_points || 0)} pts
+                                                                    </Typography>
+                                                                </Box>
+                                                                <Box sx={{ width: '1px', height: '14px', bgcolor: '#cbd5e1' }} />
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.3, borderRadius: '6px', bgcolor: totalStyle.bg, border: `1px solid ${totalStyle.border}` }}>
+                                                                    <Typography variant="caption" color={totalStyle.color} fontSize="10.5px" fontWeight={600}>KPI Total:</Typography>
+                                                                    <Typography variant="caption" fontWeight={800} color={totalStyle.color} fontSize="12px">
+                                                                        {totalScore != null ? `${totalScore}/10` : '—'}
+                                                                    </Typography>
+                                                                    {ragStatus && (
+                                                                        <Chip
+                                                                            label={ragStatus}
+                                                                            size="small"
+                                                                            sx={{
+                                                                                height: '16px',
+                                                                                fontSize: '9px',
+                                                                                fontWeight: 700,
+                                                                                bgcolor: ragStatus === 'GREEN' ? '#dcfce7' : (ragStatus === 'AMBER' ? '#fef3c7' : '#fee2e2'),
+                                                                                color: ragStatus === 'GREEN' ? '#166534' : (ragStatus === 'AMBER' ? '#92400e' : '#991b1b'),
+                                                                                ml: 0.3
+                                                                            }}
+                                                                        />
+                                                                    )}
+                                                                </Box>
+                                                            </Box>
+                                                        </Box>
+
+                                                        {/* KPI Parameters Table */}
+                                                        {rows.length > 0 ? (
+                                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                                                <thead>
+                                                                    <tr style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #f1f5f9' }}>
+                                                                        <th style={{ padding: '6px 16px', textAlign: 'left', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: hasTargets ? '30%' : '40%' }}>KPI PARAMETER</th>
+                                                                        {hasTargets && <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: '20%' }}>TARGET</th>}
+                                                                        <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: hasTargets ? '20%' : '30%' }}>{hasTargets ? 'ACTUAL' : 'TOTAL'}</th>
+                                                                        <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: '15%' }}>CONTRIBUTION /10</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {rows.map((row, ri) => {
+                                                                        const contribution = totalWeights > 0 ? ((row.weight || 3) / totalWeights) * 10 : 0;
+                                                                        const valStyle = hasTargets && row.target != null
+                                                                            ? (row.actual >= row.target ? { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' } : { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' })
+                                                                            : { bg: '#f8fafc', color: '#334155', border: '#e2e8f0' };
+                                                                        return (
+                                                                            <tr key={ri} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                                                                <td style={{ padding: '7px 16px', fontWeight: 600, color: '#334155', fontSize: '12px' }}>{row.label}</td>
+                                                                                {hasTargets && (
+                                                                                    <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 600, color: '#64748b', fontSize: '11.5px' }}>
+                                                                                        {row.target != null ? row.target : '—'}
+                                                                                    </td>
+                                                                                )}
+                                                                                <td style={{ padding: '7px 16px', textAlign: 'center' }}>
+                                                                                    <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '4px', fontWeight: 700, fontSize: '11.5px', backgroundColor: valStyle.bg, color: valStyle.color, border: `1px solid ${valStyle.border}` }}>
+                                                                                        {hasTargets ? (row.actual != null ? row.actual : '—') : (row.total != null ? row.total : '—')}
+                                                                                    </span>
+                                                                                </td>
+                                                                                <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 600, color: '#475569', fontSize: '11px' }}>
+                                                                                    {contribution.toFixed(1)}
+                                                                                </td>
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                                <tfoot>
+                                                                    <tr style={{ borderTop: '2px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+                                                                        <td colSpan={hasTargets ? 2 : 1} style={{ padding: '7px 16px', fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>TOTAL KPI SCORE</td>
+                                                                        <td style={{ padding: '7px 16px', textAlign: 'center' }}>
+                                                                            <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '4px', fontWeight: 800, fontSize: '12px', backgroundColor: totalStyle.bg, color: totalStyle.color, border: `1px solid ${totalStyle.border}` }}>
+                                                                                {totalScore != null ? `${totalScore}/10` : '—'}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>
+                                                                            {totalScore != null ? totalScore.toFixed(1) : '—'}
+                                                                        </td>
+                                                                    </tr>
+                                                                </tfoot>
+                                                            </table>
+                                                        ) : (
+                                                            <Box sx={{ p: 2, textAlign: 'center' }}>
+                                                                <Typography variant="caption" color="#94a3b8" fontSize="11px">No KPI sheet data available</Typography>
+                                                            </Box>
+                                                        )}
+                                                    </Paper>
+                                                );
+                                            })}
+                                        </Box>
+                                    </Box>
+                                );
+                            })()}
+                        </Box>
+                    );
+                })()}
+
+                {/* ═══ VIEW 2: DEDICATED TEAM KPI SUB-TEAMS (70%) ═══ */}
+                {rollupFeatureEnabled && mrmViewMode === 'TEAM_SEGMENTS' && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', boxSizing: 'border-box' }}>
+                        <PreDeadlineTracker
+                            department={activeDepartment}
+                            month={String(selectedMonth).padStart(2, '0')}
+                            year={selectedYear}
+                            onReminderSent={(m) => showToast(`Reminder ping sent to ${m.name}`)}
+                        />
+                        <SegmentRollupView
+                            segments={segmentRollupData?.segments || []}
+                            department={activeDepartment}
+                            month={String(selectedMonth).padStart(2, '0')}
+                            year={selectedYear}
+                            isHodOrAdmin={canManagePresenters}
+                            onApprovalComplete={loadData}
+                        />
+                    </Box>
+                )}
+
+                {/* ═══ VIEW 3: DEDICATED HOD STRATEGIC FOCUS AREAS (30%) ═══ */}
+                {(!rollupFeatureEnabled || mrmViewMode === 'HOD_OBJECTIVES') && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, width: '100%', boxSizing: 'border-box' }}>
+                        <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+                            <Box display="flex" alignItems="center" gap={1}>
+                                <Typography variant="h6" fontWeight={800} color="#0f172a" fontSize="16px">
+                                    Section 1: HOD Strategic Focus Areas
+                                </Typography>
+                                {rollupFeatureEnabled && (
+                                    <Chip
+                                        label="Weight: 30% of Monthly HOD Score | Target-Based RAG"
+                                        size="small"
+                                        sx={{ bgcolor: '#ede9fe', color: '#6d28d9', fontWeight: 700, fontSize: '10.5px', height: '22px' }}
+                                    />
+                                )}
+                            </Box>
+                        </Box>
+
+                        <div className="data-grid-container">
+                            {loading ? <p style={{ padding: '20px', textAlign: 'center' }}>Loading...</p> : (
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: '36px', minWidth: '36px' }}></th>
+                                            <th style={{ width: '280px', minWidth: '260px' }} title="Process Description">Process<br />Description</th>
+                                            <th style={{ width: '320px', minWidth: '280px' }} title="Objective">Objective</th>
+                                            <th style={{ width: '120px', minWidth: '110px' }} title="Target">Target</th>
+                                            <th style={{ width: '95px', minWidth: '90px' }} title="Monitoring Frequency">Monitoring<br />Freq.</th>
+                                            <th style={{ width: '110px', minWidth: '100px' }} title="Responsibility">Resp.</th>
+                                            <th style={{ width: '85px', minWidth: '80px' }} title={`Actual (${prevMonthName} ${prevYearVal})`}>Act.<br />({prevMonthName.substring(0, 3)}-{getYearShort(prevYearVal)})</th>
+                                            <th style={{ width: '85px', minWidth: '80px' }} title={`Plan (${currentMonthName} ${selectedYear})`}>Plan<br />({currentMonthName.substring(0, 3)}-{getYearShort(selectedYear)})</th>
+                                            <th style={{ width: '340px', minWidth: '300px' }} title="Action Plan">Action<br />Plan</th>
+                                            <th style={{ width: '160px', minWidth: '150px' }} title="Action Responsibility">Act.<br />Resp.</th>
+                                            <th style={{ width: '135px', minWidth: '130px' }} title="Target Date">Target<br />Date</th>
+                                            <th style={{ width: '120px', minWidth: '110px' }} title="Status">Status</th>
+                                            <th style={{ width: '300px', minWidth: '260px' }} title="Remarks">Remarks</th>
+                                            <th style={{ width: '120px', minWidth: '115px', textAlign: 'center' }} title="Actions">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <Reorder.Group as="tbody" axis="y" values={filteredItems} onReorder={handleReorder}>
+                                        {filteredItems.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="14" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
+                                                    {items.length === 0
+                                                        ? 'No entries for this month. Add a new row or import from previous month.'
+                                                        : `No items with "${statusFilter}" status.`}
+                                                </td>
+                                            </tr>
+                                        ) : (() => {
+                                            const tileAnomalyMap = new Map();
+                                            let activeTileId = null;
+                                            filteredItems.forEach(it => {
+                                                if (it.isTitleRow) {
+                                                    activeTileId = it._id;
+                                                    tileAnomalyMap.set(activeTileId, false);
+                                                } else if (activeTileId && it.anomaly?.isAnomaly) {
+                                                    tileAnomalyMap.set(activeTileId, true);
+                                                }
+                                            });
+
+                                            return filteredItems.map((item, index) => (
+                                                <ReorderRow
+                                                    key={item._id}
+                                                    item={item}
+                                                    index={index}
+                                                    handleFieldChange={handleFieldChange}
+                                                    handleSaveItem={handleSaveItem}
+                                                    openDeleteDialog={openDeleteDialog}
+                                                    handleInsertItem={handleInsertItem}
+                                                    autoResizeTextarea={autoResizeTextarea}
+                                                    mrmUsers={mrmUsers}
+                                                    isLocked={metadata.isLocked}
+                                                    openBaselineDialog={openBaselineDialog}
+                                                    handleStatusChange={handleStatusChange}
+                                                    hasTileAnomaly={item.isTitleRow ? Boolean(tileAnomalyMap.get(item._id)) : false}
+                                                />
+                                            ));
+                                        })()}
+                                    </Reorder.Group>
+                                </table>
+                            )}
+                        </div>
+
+                        {/* Team Members & KPI Parameters Below HOD MRM */}
+                        {rollupFeatureEnabled && segmentRollupData?.segments?.length > 0 && (() => {
+                            const allMembers = [];
+                            const seen = new Set();
+                            (segmentRollupData.segments || []).forEach(seg => {
+                                (seg.contributing_members || []).forEach(m => {
+                                    const id = m.userId?.toString();
+                                    if (id && !seen.has(id)) {
+                                        seen.add(id);
+                                        allMembers.push({ ...m, sub_team: seg.sub_team });
+                                    }
+                                });
+                            });
+                            if (allMembers.length === 0) return null;
+
+                            const getScoreStyle = (score) => {
+                                if (score >= 8) return { color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
+                                if (score >= 5) return { color: '#b45309', bg: '#fffbeb', border: '#fde68a' };
+                                return { color: '#b91c1c', bg: '#fef2f2', border: '#fecaca' };
+                            };
+
+                            return (
+                                <Box sx={{ mt: 2, width: '100%', boxSizing: 'border-box' }}>
+                                    <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+                                        <GroupsOutlinedIcon sx={{ fontSize: 18, color: '#2563eb' }} />
+                                        <Typography variant="subtitle1" fontWeight={800} color="#0f172a" fontSize="15px">
+                                            Team Members & KPI Parameters
+                                        </Typography>
+                                        <Chip
+                                            label={`${allMembers.length} Members`}
+                                            size="small"
+                                            sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#eff6ff', color: '#1d4ed8', height: '22px', border: '1px solid #bfdbfe' }}
+                                        />
+                                    </Box>
+
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                        {allMembers.map((m, idx) => {
+                                            const rows = m.kpi_sheet_rows || [];
+                                            const totalScore = m.kpi_total_score;
+                                            const ragStatus = m.kpi_rag_status;
+                                            const totalStyle = getScoreStyle(totalScore || 0);
+                                            const karmaColor = (m.karma_points > 0) ? '#047857' : (m.karma_points < 0 ? '#b91c1c' : '#64748b');
+                                            const hasTargets = rows.some(r => r.target !== null && r.target !== undefined);
+                                            const totalWeights = rows.reduce((sum, r) => sum + (r.weight || 3), 0);
+
+                                            return (
+                                                <Paper
+                                                    key={m.userId}
+                                                    elevation={0}
+                                                    sx={{
+                                                        border: '1px solid #e2e8f0',
+                                                        borderRadius: '10px',
+                                                        overflow: 'hidden',
+                                                        width: '100%',
+                                                        boxSizing: 'border-box'
+                                                    }}
+                                                >
+                                                    <Box sx={{
+                                                        px: 2,
+                                                        py: 1.2,
+                                                        bgcolor: '#f8fafc',
+                                                        borderBottom: '1px solid #e2e8f0',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        flexWrap: 'wrap',
+                                                        gap: 1
+                                                    }}>
+                                                        <Box display="flex" alignItems="center" gap={1}>
+                                                            <Typography variant="body2" fontWeight={700} color="#64748b" fontSize="12px" sx={{ minWidth: '22px' }}>
+                                                                {idx + 1}.
+                                                            </Typography>
+                                                            <Typography variant="subtitle2" fontWeight={800} color="#0f172a" fontSize="14px">
+                                                                {m.name}
+                                                            </Typography>
+                                                            <Chip
+                                                                label={m.sub_team === 'General' ? `${activeDepartment} Team` : m.sub_team}
+                                                                size="small"
+                                                                sx={{ fontWeight: 600, fontSize: '10px', bgcolor: '#f1f5f9', color: '#475569', height: '20px', border: '1px solid #e2e8f0' }}
+                                                            />
+                                                        </Box>
+                                                        <Box display="flex" alignItems="center" gap={1.5}>
+                                                            <Box display="flex" alignItems="center" gap={0.5}>
+                                                                <Typography variant="caption" color="#64748b" fontSize="10.5px" fontWeight={600}>Attendance:</Typography>
+                                                                <Typography variant="caption" fontWeight={800} color={(m.attendance_score >= 85) ? '#047857' : (m.attendance_score >= 70 ? '#b45309' : '#b91c1c')} fontSize="11.5px">
+                                                                    {m.attendance_score != null ? `${m.attendance_score}%` : '—'}
+                                                                </Typography>
+                                                            </Box>
+                                                            <Box sx={{ width: '1px', height: '14px', bgcolor: '#cbd5e1' }} />
+                                                            <Box display="flex" alignItems="center" gap={0.5}>
+                                                                <Typography variant="caption" color="#64748b" fontSize="10.5px" fontWeight={600}>Karma:</Typography>
+                                                                <Typography variant="caption" fontWeight={800} color={karmaColor} fontSize="11.5px">
+                                                                    {m.karma_points > 0 ? `+${m.karma_points}` : (m.karma_points || 0)} pts
+                                                                </Typography>
+                                                            </Box>
+                                                            <Box sx={{ width: '1px', height: '14px', bgcolor: '#cbd5e1' }} />
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.3, borderRadius: '6px', bgcolor: totalStyle.bg, border: `1px solid ${totalStyle.border}` }}>
+                                                                <Typography variant="caption" color={totalStyle.color} fontSize="10.5px" fontWeight={600}>KPI Total:</Typography>
+                                                                <Typography variant="caption" fontWeight={800} color={totalStyle.color} fontSize="12px">
+                                                                    {totalScore != null ? `${totalScore}/10` : '—'}
+                                                                </Typography>
+                                                                {ragStatus && (
+                                                                    <Chip
+                                                                        label={ragStatus}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            height: '16px',
+                                                                            fontSize: '9px',
+                                                                            fontWeight: 700,
+                                                                            bgcolor: ragStatus === 'GREEN' ? '#dcfce7' : (ragStatus === 'AMBER' ? '#fef3c7' : '#fee2e2'),
+                                                                            color: ragStatus === 'GREEN' ? '#166534' : (ragStatus === 'AMBER' ? '#92400e' : '#991b1b'),
+                                                                            ml: 0.3
+                                                                        }}
+                                                                    />
+                                                                )}
+                                                            </Box>
+                                                        </Box>
+                                                    </Box>
+
+                                                    {rows.length > 0 ? (
+                                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                                            <thead>
+                                                                <tr style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #f1f5f9' }}>
+                                                                    <th style={{ padding: '6px 16px', textAlign: 'left', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: hasTargets ? '30%' : '40%' }}>KPI PARAMETER</th>
+                                                                    {hasTargets && <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: '20%' }}>TARGET</th>}
+                                                                    <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: hasTargets ? '20%' : '30%' }}>{hasTargets ? 'ACTUAL' : 'TOTAL'}</th>
+                                                                    <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: '15%' }}>CONTRIBUTION /10</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {rows.map((row, ri) => {
+                                                                    const contribution = totalWeights > 0 ? ((row.weight || 3) / totalWeights) * 10 : 0;
+                                                                    const valStyle = hasTargets && row.target != null
+                                                                        ? (row.actual >= row.target ? { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' } : { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' })
+                                                                        : { bg: '#f8fafc', color: '#334155', border: '#e2e8f0' };
+                                                                    return (
+                                                                        <tr key={ri} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                                                            <td style={{ padding: '7px 16px', fontWeight: 600, color: '#334155', fontSize: '12px' }}>{row.label}</td>
+                                                                            {hasTargets && (
+                                                                                <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 600, color: '#64748b', fontSize: '11.5px' }}>
+                                                                                    {row.target != null ? row.target : '—'}
+                                                                                </td>
+                                                                            )}
+                                                                            <td style={{ padding: '7px 16px', textAlign: 'center' }}>
+                                                                                <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '4px', fontWeight: 700, fontSize: '11.5px', backgroundColor: valStyle.bg, color: valStyle.color, border: `1px solid ${valStyle.border}` }}>
+                                                                                    {hasTargets ? (row.actual != null ? row.actual : '—') : (row.total != null ? row.total : '—')}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 600, color: '#475569', fontSize: '11px' }}>
+                                                                                {contribution.toFixed(1)}
+                                                                            </td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                            <tfoot>
+                                                                <tr style={{ borderTop: '2px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+                                                                    <td colSpan={hasTargets ? 2 : 1} style={{ padding: '7px 16px', fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>TOTAL KPI SCORE</td>
+                                                                    <td style={{ padding: '7px 16px', textAlign: 'center' }}>
+                                                                        <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '4px', fontWeight: 800, fontSize: '12px', backgroundColor: totalStyle.bg, color: totalStyle.color, border: `1px solid ${totalStyle.border}` }}>
+                                                                            {totalScore != null ? `${totalScore}/10` : '—'}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>
+                                                                        {totalScore != null ? totalScore.toFixed(1) : '—'}
+                                                                    </td>
+                                                                </tr>
+                                                            </tfoot>
+                                                        </table>
+                                                    ) : (
+                                                        <Box sx={{ p: 2, textAlign: 'center' }}>
+                                                            <Typography variant="caption" color="#94a3b8" fontSize="11px">No KPI sheet data available</Typography>
+                                                        </Box>
+                                                    )}
+                                                </Paper>
+                                            );
+                                        })}
+                                    </Box>
+                                </Box>
+                            );
+                        })()}
+                    </Box>
                 )}
             </div>
 
             {/* Import Modal */}
-            {
-                showImportModal && (
-                    <div className="modal-overlay">
-                        <div className="modal-content">
-                            <h2>Import Data</h2>
-                            <div className="form-group">
-                                <label>Source Month</label>
-                                <div style={{ display: 'flex', gap: '10px' }}>
-                                    <select value={importSourceMonth} onChange={e => setImportSourceMonth(Number(e.target.value))}>
-                                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                                            <option key={m} value={m}>{new Date(0, m - 1).toLocaleString('default', { month: 'long' })}</option>
-                                        ))}
-                                    </select>
-                                    <select value={importSourceYear} onChange={e => setImportSourceYear(Number(e.target.value))}>
-                                        {[2024, 2025, 2026, 2027].map(y => (
-                                            <option key={y} value={y}>{y}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="form-group">
-                                <label>Import Mode</label>
-                                <select value={importMode} onChange={e => setImportMode(e.target.value)}>
-                                    <option value="as-is">As-Is (Copy Everything)</option>
-                                    <option value="blank">Blank (Structure/Objective Only)</option>
-                                </select>
-                            </div>
-                            <div className="modal-actions">
-                                <button className="cancel" onClick={() => setShowImportModal(false)}>Cancel</button>
-                                <button className="confirm" onClick={handleImport}>Import</button>
-                            </div>
+            <Dialog open={showImportModal} onClose={() => setShowImportModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ color: '#064e3b', display: 'flex', alignItems: 'center', gap: 1, fontWeight: 800 }}>
+                    📥 Import / Copy Previous MRM Data
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ mb: 2, fontSize: '0.85rem', color: '#475569' }}>
+                        Quickly copy structure or previous data from an earlier month as a template for this sheet.
+                    </DialogContentText>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                        <div>
+                            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                                Source Month
+                            </label>
+                            <select
+                                value={importSourceMonth}
+                                onChange={e => setImportSourceMonth(Number(e.target.value))}
+                                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                            >
+                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                    <option key={m} value={m}>{new Date(0, m - 1).toLocaleString('default', { month: 'long' })}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                                Source Year
+                            </label>
+                            <select
+                                value={importSourceYear}
+                                onChange={e => setImportSourceYear(Number(e.target.value))}
+                                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                            >
+                                {[2024, 2025, 2026, 2027, 2028].map(y => (
+                                    <option key={y} value={y}>{y}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
-                )
-            }
+
+                    <div style={{ marginBottom: '16px' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                            Import Mode
+                        </label>
+                        <select
+                            value={importMode}
+                            onChange={e => setImportMode(e.target.value)}
+                            style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                        >
+                            <option value="as-is">As-Is (Copy Objectives, Plans, Actuals & Action Plans)</option>
+                            <option value="blank">Blank (Structure & Objectives Only, Clear Numbers)</option>
+                        </select>
+                    </div>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button onClick={() => setShowImportModal(false)} variant="outlined">
+                        Cancel
+                    </Button>
+                    <Button onClick={handleImport} variant="contained" sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' } }}>
+                        Import Rows
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             {/* Delete Confirmation Dialog */}
             <Dialog
@@ -898,8 +2879,372 @@ const MRMHome = () => {
                 onClose={() => setAddRowMenu(null)}
             >
                 <MenuItem onClick={() => handleInsertItem(addRowIndex, 'normal')}>Normal Row</MenuItem>
-                <MenuItem onClick={() => handleInsertItem(addRowIndex, 'title')}>Title Row</MenuItem>
+                <MenuItem onClick={() => handleInsertItem(addRowIndex, 'title')}>Section Title Row</MenuItem>
+                <MenuItem onClick={() => { setAddRowMenu(null); handleInsertManagerialTile(); }}>Managerial Governance Preset</MenuItem>
             </Menu>
+
+            {/* Submission Completeness Validation Modal */}
+            <Dialog
+                open={showValidationModal}
+                onClose={() => setShowValidationModal(false)}
+                maxWidth="md"
+                fullWidth
+                PaperProps={{
+                    sx: {
+                        borderRadius: '16px',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                        overflow: 'hidden'
+                    }
+                }}
+            >
+                <DialogTitle sx={{
+                    bgcolor: '#fff1f2',
+                    color: '#b91c1c',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    borderBottom: '1px solid #fecdd3',
+                    py: 2
+                }}>
+                    <WarningAmberIcon sx={{ color: '#dc2626', fontSize: 28 }} />
+                    <div>
+                        <div style={{ fontSize: '1.05rem', fontWeight: 800 }}>Submission Blocked: Incomplete Objectives Found</div>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 500, color: '#9f1239', marginTop: '2px' }}>
+                            Mandatory fields must be completed before submitting for Suraj's review
+                        </div>
+                    </div>
+                </DialogTitle>
+                <DialogContent sx={{ py: 2.5, px: 3 }}>
+                    <DialogContentText sx={{ mb: 2, color: '#475569', fontSize: '0.88rem', lineHeight: 1.5 }}>
+                        Before submitting to <strong>Suraj</strong> for approval, all objectives must have both <strong>Plan</strong> and <strong>Actual</strong> filled in, and any objective marked <strong style={{ color: '#dc2626' }}>Red</strong> must include an <strong>Action Plan</strong> and <strong>Assigned Owner</strong>.
+                    </DialogContentText>
+                    <div className="validation-error-list">
+                        {validationErrors.map((err, idx) => (
+                            <div key={idx} className="val-error-item">
+                                <div className="error-info">
+                                    <span className="row-badge">Row {err.rowNum}</span>
+                                    <strong className="tile-badge">{err.tile || 'Process'}</strong>
+                                    <span className="obj-text">{err.objective || 'Unnamed Objective'}</span>
+                                </div>
+                                <div className="error-tags">
+                                    {err.missingFields.map((f, i) => (
+                                        <span key={i} className="missing-tag">
+                                            ⚠️ {f} Missing
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </DialogContent>
+                <DialogActions sx={{ p: 2, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0', justifyContent: 'flex-end' }}>
+                    <Button
+                        onClick={() => setShowValidationModal(false)}
+                        variant="contained"
+                        sx={{
+                            bgcolor: '#166534',
+                            '&:hover': { bgcolor: '#14532d' },
+                            fontWeight: 700,
+                            borderRadius: '8px',
+                            px: 3,
+                            py: 1,
+                            textTransform: 'none',
+                            fontSize: '0.88rem'
+                        }}
+                    >
+                        Back to Edit & Fix Rows
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Executive Approve & Lock Confirmation Dialog (Suraj / Admin) */}
+            <Dialog
+                open={showApproveModal}
+                onClose={() => !actionLoading && setShowApproveModal(false)}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{
+                    sx: {
+                        borderRadius: '14px',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+                        overflow: 'hidden'
+                    }
+                }}
+            >
+                <DialogTitle sx={{
+                    bgcolor: '#f0fdf4',
+                    borderBottom: '1px solid #bbf7d0',
+                    color: '#166534',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    py: 2,
+                    fontWeight: 700,
+                    fontSize: '1.15rem'
+                }}>
+                    <CheckCircleOutlineIcon sx={{ color: '#16a34a', fontSize: 26 }} />
+                    Approve & Lock MRM Sheet
+                </DialogTitle>
+                <DialogContent sx={{ pt: 2.5, pb: 1.5 }}>
+                    <DialogContentText sx={{ color: '#334155', fontSize: '0.92rem', mb: 2, lineHeight: 1.6 }}>
+                        Are you sure you want to <strong>APPROVE and LOCK</strong> the MRM submission for <strong>{getMonthLong(selectedMonth)} {selectedYear}</strong>?
+                    </DialogContentText>
+
+                    <div style={{
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        padding: '12px 16px',
+                        marginBottom: '12px',
+                        fontSize: '0.84rem',
+                        color: '#475569'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                            <span style={{ color: '#64748b' }}>Period:</span>
+                            <span style={{ fontWeight: 600, color: '#0f172a' }}>{getMonthLong(selectedMonth)} {selectedYear}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                            <span style={{ color: '#64748b' }}>Presenter:</span>
+                            <span style={{ fontWeight: 600, color: '#0f172a' }}>
+                                {(() => {
+                                    const curr = mrmUsers.find(u => String(u._id) === String(selectedUserId)) || user;
+                                    return curr?.displayName || (curr ? `${curr.first_name || ''} ${curr.last_name || ''}`.trim() : '') || curr?.username || 'Current Presenter';
+                                })()}
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#64748b' }}>Governance Effect:</span>
+                            <span style={{ fontWeight: 600, color: '#166534' }}>✓ Lock sheet & certify numbers into Annual Rollup</span>
+                        </div>
+                    </div>
+
+                    <div style={{ fontSize: '0.78rem', color: '#64748b', fontStyle: 'italic' }}>
+                        ⚠️ Once approved, the sheet is formally locked against further edits. Only Suraj Rajan or an Admin can reopen an approved month with an audit trail.
+                    </div>
+                </DialogContent>
+                <DialogActions sx={{ p: 2, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0', gap: 1 }}>
+                    <Button
+                        onClick={() => setShowApproveModal(false)}
+                        disabled={actionLoading}
+                        variant="outlined"
+                        sx={{
+                            borderRadius: '8px',
+                            color: '#64748b',
+                            borderColor: '#cbd5e1',
+                            '&:hover': { borderColor: '#94a3b8', bgcolor: '#f1f5f9' }
+                        }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={async () => {
+                            setShowApproveModal(false);
+                            await handleApprove();
+                        }}
+                        disabled={actionLoading}
+                        variant="contained"
+                        sx={{
+                            borderRadius: '8px',
+                            bgcolor: '#166534',
+                            '&:hover': { bgcolor: '#14532d' },
+                            fontWeight: 700,
+                            boxShadow: '0 2px 6px rgba(22, 101, 52, 0.3)'
+                        }}
+                    >
+                        {actionLoading ? 'Approving...' : '✓ Confirm & Lock Sheet'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Request Revision Modal (Suraj / Admin) */}
+            <Dialog open={showRevisionModal} onClose={() => setShowRevisionModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ color: '#dc2626' }}>
+                    Request Revision from Presenter
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ mb: 2 }}>
+                        Please provide a specific comment explaining why this MRM needs revision:
+                    </DialogContentText>
+                    <TextField
+                        autoFocus
+                        multiline
+                        rows={3}
+                        fullWidth
+                        variant="outlined"
+                        placeholder="e.g., Please provide an actionable recovery plan for the Customer Lead Time target..."
+                        value={revisionComment}
+                        onChange={e => setRevisionComment(e.target.value)}
+                    />
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button onClick={() => setShowRevisionModal(false)} variant="outlined">Cancel</Button>
+                    <Button onClick={handleSendRevision} variant="contained" sx={{ bgcolor: '#dc2626', '&:hover': { bgcolor: '#b91c1c' } }}>
+                        Send Feedback
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Formal Reopening Modal (Suraj / Admin) */}
+            <Dialog open={showReopenModal} onClose={() => setShowReopenModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ color: '#475569' }}>
+                    Formally Reopen Approved Month
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ mb: 2 }}>
+                        This month was previously approved and locked. Reopening it will unlock the sheet for edits and log your reason in the audit trail:
+                    </DialogContentText>
+                    <TextField
+                        autoFocus
+                        multiline
+                        rows={3}
+                        fullWidth
+                        variant="outlined"
+                        placeholder="e.g., Reopened to adjust billing target reconciliation..."
+                        value={reopenReason}
+                        onChange={e => setReopenReason(e.target.value)}
+                    />
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button onClick={() => setShowReopenModal(false)} variant="outlined">Cancel</Button>
+                    <Button onClick={handleReopen} variant="contained" sx={{ bgcolor: '#217346', '&:hover': { bgcolor: '#166534' } }}>
+                        Confirm Reopen
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Last Year Baseline & Macro References Dialog */}
+            <Dialog open={baselineDialogOpen} onClose={() => setBaselineDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ color: '#0369a1', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TrendingUpIcon sx={{ color: '#0284c7' }} /> Last Year Baseline & YoY Reference
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ mb: 2, fontSize: '0.85rem', color: '#475569' }}>
+                        Define a light historical reference (~3 macro numbers like monthly volume, unit count, or headcount). Presenters can self-serve and update these figures anytime.
+                    </DialogContentText>
+
+                    <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Objective</div>
+                        <div style={{ fontWeight: '600', color: '#1e293b' }}>
+                            {baselineTargetItem?.objective || baselineTargetItem?.processDescription || 'Selected Objective'}
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                        <div>
+                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#334155', display: 'block', marginBottom: '4px' }}>
+                                Last Year Baseline Value
+                            </label>
+                            <TextField
+                                fullWidth
+                                size="small"
+                                type="number"
+                                placeholder="e.g. 500"
+                                value={baselineValue}
+                                onChange={e => setBaselineValue(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#334155', display: 'block', marginBottom: '4px' }}>
+                                Metric / Unit Label
+                            </label>
+                            <TextField
+                                fullWidth
+                                size="small"
+                                placeholder="e.g. Volume, Headcount, TEUs"
+                                value={baselineMetric}
+                                onChange={e => setBaselineMetric(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginTop: '8px' }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: '600', color: '#0f172a', marginBottom: '4px' }}>
+                            Macro Reference Data Points (Up to 3)
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '10px' }}>
+                            Key reference markers for context (e.g. Peak Month, FTE, Avg TAT).
+                        </div>
+
+                        {macroReferences.map((macro, idx) => (
+                            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                                <TextField
+                                    size="small"
+                                    placeholder={`Reference #${idx + 1} Label`}
+                                    value={macro.label}
+                                    onChange={e => {
+                                        const updated = [...macroReferences];
+                                        updated[idx].label = e.target.value;
+                                        setMacroReferences(updated);
+                                    }}
+                                />
+                                <TextField
+                                    size="small"
+                                    type="number"
+                                    placeholder="Value"
+                                    value={macro.value}
+                                    onChange={e => {
+                                        const updated = [...macroReferences];
+                                        updated[idx].value = e.target.value;
+                                        setMacroReferences(updated);
+                                    }}
+                                />
+                                <TextField
+                                    size="small"
+                                    placeholder="Unit"
+                                    value={macro.unit}
+                                    onChange={e => {
+                                        const updated = [...macroReferences];
+                                        updated[idx].unit = e.target.value;
+                                        setMacroReferences(updated);
+                                    }}
+                                />
+                            </div>
+                        ))}
+                    </div>
+
+                    <div style={{ marginTop: '12px' }}>
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={applyToAllMonths}
+                                    onChange={e => setApplyToAllMonths(e.target.checked)}
+                                    size="small"
+                                    color="primary"
+                                />
+                            }
+                            label={<span style={{ fontSize: '0.8rem', color: '#334155' }}>Apply to all months of this objective in {selectedYear}</span>}
+                        />
+                    </div>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button onClick={() => setBaselineDialogOpen(false)} variant="outlined">Cancel</Button>
+                    <Button
+                        onClick={handleSaveBaseline}
+                        variant="contained"
+                        disabled={baselineSaving}
+                        sx={{ bgcolor: '#0284c7', '&:hover': { bgcolor: '#0369a1' } }}
+                    >
+                        {baselineSaving ? 'Saving...' : 'Save Baseline'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Modern Toast Notification */}
+            <Snackbar
+                open={toast.open}
+                autoHideDuration={4000}
+                onClose={() => setToast(prev => ({ ...prev, open: false }))}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert
+                    onClose={() => setToast(prev => ({ ...prev, open: false }))}
+                    severity={toast.severity}
+                    variant="filled"
+                    sx={{ width: '100%', fontWeight: 600, borderRadius: '8px', boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}
+                >
+                    {toast.message}
+                </Alert>
+            </Snackbar>
         </div >
     );
 };

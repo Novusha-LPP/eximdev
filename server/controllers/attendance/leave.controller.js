@@ -12,7 +12,7 @@ import Company from '../../model/attendance/Company.js';
 import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
 
 const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
-const STAGE_3_FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
+const STAGE_3_FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza', 'dev_master']);
 
 const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
 const isHodRole = (role) => {
@@ -1637,6 +1637,34 @@ export const cancelLeave = async (req, res) => {
                 });
             }
 
+            // Clean up attendance records for the cancelled date range
+            try {
+                let curr = cancelStart.clone();
+                while (curr.isSameOrBefore(cancelEnd, 'day')) {
+                    const attDate = moment.utc(curr.format('YYYY-MM-DD'), 'YYYY-MM-DD').startOf('day').toDate();
+                    await AttendanceRecord.deleteOne({
+                        employee_id: application.employee_id,
+                        attendance_date: attDate,
+                        status: { $in: ['leave', 'half_day'] },
+                        first_in: null,
+                        last_out: null
+                    });
+                    await AttendanceRecord.updateMany(
+                        {
+                            employee_id: application.employee_id,
+                            attendance_date: attDate,
+                            first_in: { $ne: null }
+                        },
+                        {
+                            $unset: { half_day_session: 1 }
+                        }
+                    );
+                    curr.add(1, 'day');
+                }
+            } catch (cleanupErr) {
+                console.error('Error cleaning up attendance records on leave cancel:', cleanupErr);
+            }
+
             return res.json({
                 message: `Partial cancellation successful. ${cancelledDays} day(s) cancelled and restored to balance.`,
                 cancelled_days: cancelledDays
@@ -1651,6 +1679,36 @@ export const cancelLeave = async (req, res) => {
         application.cancelled_at = new Date();
         if (cancellation_reason) application.cancellation_reason = cancellation_reason;
         await application.save();
+
+        // Clean up attendance records for the full cancelled leave
+        try {
+            const origStart = moment(application.from_date_str || application.from_date).startOf('day');
+            const origEnd = moment(application.to_date_str || application.to_date).startOf('day');
+            let curr = origStart.clone();
+            while (curr.isSameOrBefore(origEnd, 'day')) {
+                const attDate = moment.utc(curr.format('YYYY-MM-DD'), 'YYYY-MM-DD').startOf('day').toDate();
+                await AttendanceRecord.deleteOne({
+                    employee_id: application.employee_id,
+                    attendance_date: attDate,
+                    status: { $in: ['leave', 'half_day'] },
+                    first_in: null,
+                    last_out: null
+                });
+                await AttendanceRecord.updateMany(
+                    {
+                        employee_id: application.employee_id,
+                        attendance_date: attDate,
+                        first_in: { $ne: null }
+                    },
+                    {
+                        $unset: { half_day_session: 1 }
+                    }
+                );
+                curr.add(1, 'day');
+            }
+        } catch (cleanupErr) {
+            console.error('Error cleaning up attendance records on full leave cancel:', cleanupErr);
+        }
 
         if (balanceRecord) {
             await syncBalanceFromApplications({
@@ -1868,13 +1926,13 @@ export const updateBalance = async (req, res) => {
  */
 export const getBalancesBulk = async (req, res) => {
     try {
-        const { employee_ids } = req.query;
+        const { employee_ids, year, startDate, endDate } = req.query;
 
         if (!employee_ids) {
             return res.status(400).json({ message: 'employee_ids parameter is required' });
         }
 
-        // Parse comma-separated IDs
+        // Parse comma-separated IDs into strings and ObjectIds
         const idArray = String(employee_ids)
             .split(',')
             .map(id => id.trim())
@@ -1884,27 +1942,319 @@ export const getBalancesBulk = async (req, res) => {
             return res.status(400).json({ message: 'No valid employee IDs provided' });
         }
 
-        const currentYear = new Date().getFullYear();
+        const objIdArray = idArray.map(id => new mongoose.Types.ObjectId(id));
 
-        // Fetch all leave balances for the employees in the current year
-        const balances = await LeaveBalance.find({
-            employee_id: { $in: idArray },
-            year: currentYear
+        const refDate = startDate ? moment(startDate).tz('Asia/Kolkata') : moment().tz('Asia/Kolkata');
+        const currentYear = Number(year) || refDate.year();
+        const yearStart = moment(refDate).startOf('year').toDate();
+        const periodStart = moment(refDate).startOf('day').toDate();
+        const yearStartStr = moment(refDate).startOf('year').format('YYYY-MM-DD');
+        const periodStartStr = moment(refDate).startOf('day').format('YYYY-MM-DD');
+
+        // 1. Fetch all existing leave balances for the employees
+        const existingBalances = await LeaveBalance.find({
+            employee_id: { $in: objIdArray }
         }).lean();
 
-        // Return balances in a format that can be easily consumed
-        res.json({
-            success: true,
-            data: balances.map(balance => ({
-                employee_id: balance.employee_id.toString(),
+        const balanceMap = new Map();
+        const foundEmpIds = new Set();
+
+        existingBalances.forEach(b => {
+            const empIdStr = b.employee_id.toString();
+            const ltStr = String(b.leave_type || '').toLowerCase();
+            if (b.year === currentYear || !balanceMap.has(`${empIdStr}_${ltStr}`)) {
+                balanceMap.set(`${empIdStr}_${ltStr}`, b);
+                foundEmpIds.add(empIdStr);
+            }
+        });
+
+        // 2. Resolve missing employees from User / Company policies
+        const missingEmpIds = objIdArray.filter(id => !foundEmpIds.has(id.toString()));
+        if (missingEmpIds.length > 0) {
+            const missingUsers = await UserModel.find({ _id: { $in: missingEmpIds } })
+                .select('_id company_id leave_policy_id username')
+                .lean();
+
+            const companyIds = missingUsers.map(u => u.company_id).filter(Boolean);
+            const companies = await Company.find({ _id: { $in: companyIds } }).lean();
+            const companyMap = new Map(companies.map(c => [c._id.toString(), c]));
+
+            const allPolicyIds = [];
+            companies.forEach(c => {
+                if (Array.isArray(c.leave_policies)) allPolicyIds.push(...c.leave_policies);
+            });
+            missingUsers.forEach(u => {
+                if (u.leave_policy_id) allPolicyIds.push(u.leave_policy_id);
+            });
+
+            const policies = await LeavePolicy.find({
+                $or: [
+                    { _id: { $in: allPolicyIds } },
+                    { company_id: { $in: companyIds } }
+                ]
+            }).lean();
+
+            for (const user of missingUsers) {
+                const userCompany = user.company_id ? companyMap.get(user.company_id.toString()) : null;
+                let userPolicies = [];
+                if (userCompany && Array.isArray(userCompany.leave_policies) && userCompany.leave_policies.length > 0) {
+                    const compPolIds = new Set(userCompany.leave_policies.map(p => p.toString()));
+                    userPolicies = policies.filter(p => compPolIds.has(p._id.toString()));
+                }
+                if (userPolicies.length === 0 && user.company_id) {
+                    userPolicies = policies.filter(p => p.company_id && p.company_id.toString() === user.company_id.toString());
+                }
+                if (userPolicies.length === 0 && policies.length > 0) {
+                    userPolicies = policies;
+                }
+
+                userPolicies.forEach(p => {
+                    const ltStr = String(p.leave_type || '').toLowerCase();
+                    const quota = Number(p.annual_quota || 0);
+                    const mockBalance = {
+                        employee_id: user._id,
+                        leave_policy_id: p._id,
+                        leave_type: p.leave_type,
+                        opening_balance: quota,
+                        used: 0,
+                        pending_approval: 0,
+                        closing_balance: quota,
+                        year: currentYear
+                    };
+                    balanceMap.set(`${user._id.toString()}_${ltStr}`, mockBalance);
+                });
+            }
+        }
+
+        // 3. Compute leaves taken prior to startDate in current year to derive exact current period opening (Last Month Closing)
+        const isPrivilegeType = (type = '') => {
+            const t = String(type || '').toLowerCase();
+            return t.includes('privilege') || t.includes('earned') || t === 'pl' || t === 'el' || t.includes('casual') || t.includes('paid') || t === 'cl';
+        };
+
+        const isLwpType = (type = '') => {
+            const t = String(type || '').toLowerCase();
+            return t.includes('lwp') || t.includes('without pay') || t === 'lop' || t.includes('unpaid');
+        };
+
+        const periodEnd = endDate ? moment(endDate).tz('Asia/Kolkata').endOf('day').toDate() : moment(refDate).endOf('month').toDate();
+        const periodEndStr = endDate ? moment(endDate).tz('Asia/Kolkata').format('YYYY-MM-DD') : moment(refDate).endOf('month').format('YYYY-MM-DD');
+
+        const priorLeavesMap = new Map();
+        const periodLeavesMap = new Map();
+
+        if (moment(periodStart).isAfter(yearStart)) {
+            // A. Query LeaveApplication for prior period
+            const priorLeaves = await LeaveApplication.find({
+                employee_id: { $in: objIdArray },
+                approval_status: { $in: ['approved', 'pending', 'pending_hod', 'pending_shalini', 'pending_final', 'hod_approved_pending_admin', 'in_review'] },
+                $or: [
+                    { from_date: { $gte: yearStart, $lt: periodStart } },
+                    { from_date_str: { $gte: yearStartStr, $lt: periodStartStr } },
+                    { to_date: { $gte: yearStart, $lt: periodStart } },
+                    { to_date_str: { $gte: yearStartStr, $lt: periodStartStr } }
+                ]
+            }).lean();
+
+            for (const app of priorLeaves) {
+                const empIdStr = app.employee_id.toString();
+                const ltStr = String(app.leave_type || '').toLowerCase();
+
+                if (isLwpType(ltStr)) {
+                    continue;
+                }
+
+                const days = Number(app.total_days || (app.is_half_day ? 0.5 : 1));
+                if (isPrivilegeType(ltStr)) {
+                    const prev = priorLeavesMap.get(`${empIdStr}_privilege`) || 0;
+                    const updated = prev + days;
+                    priorLeavesMap.set(`${empIdStr}_privilege`, updated);
+                    priorLeavesMap.set(`${empIdStr}_pl`, updated);
+                } else {
+                    const key = `${empIdStr}_${ltStr}`;
+                    priorLeavesMap.set(key, (priorLeavesMap.get(key) || 0) + days);
+                }
+            }
+
+            // B. Also query AttendanceRecord for any daily leave records in prior period (excluding days worked as present)
+            const priorAttendanceLeaves = await AttendanceRecord.find({
+                employee_id: { $in: objIdArray },
+                $and: [
+                    {
+                        $or: [
+                            { attendance_date: { $gte: yearStart, $lt: periodStart } },
+                            { attendance_date_str: { $gte: yearStartStr, $lt: periodStartStr } }
+                        ]
+                    },
+                    {
+                        $or: [
+                            { status: 'leave' },
+                            { status: 'half_day', is_half_day: true },
+                            { is_on_leave: true, status: { $nin: ['present', 'late', 'weekly_off', 'holiday'] } }
+                        ]
+                    }
+                ]
+            }).populate({ path: 'leave_application_id', select: 'leave_type approval_status' }).lean();
+
+            // Track leave days per employee and avoid double counting with LeaveApplication
+            const attDaysByEmp = new Map();
+            for (const rec of priorAttendanceLeaves) {
+                // If the employee actually worked >= 8 hours, it is not an unworked leave
+                const wh = Number(rec.total_work_hours || 0);
+                if (wh >= 8 && ['present', 'late'].includes(String(rec.status || '').toLowerCase())) {
+                    continue;
+                }
+
+                // If linked to an LWP application or remarked as LWP, do NOT count as privilege leave
+                if (rec.leave_application_id) {
+                    const appType = String(rec.leave_application_id.leave_type || '').toLowerCase();
+                    if (isLwpType(appType)) {
+                        continue;
+                    }
+                }
+                const rem = String(rec.remarks || '').toLowerCase();
+                if (isLwpType(rem)) {
+                    continue;
+                }
+
+                const empIdStr = rec.employee_id.toString();
+                const dayVal = rec.is_half_day ? 0.5 : 1.0;
+                attDaysByEmp.set(empIdStr, (attDaysByEmp.get(empIdStr) || 0) + dayVal);
+            }
+
+            for (const [empIdStr, attDays] of attDaysByEmp.entries()) {
+                const existingPl = priorLeavesMap.get(`${empIdStr}_privilege`) || priorLeavesMap.get(`${empIdStr}_pl`) || 0;
+                if (attDays > existingPl) {
+                    priorLeavesMap.set(`${empIdStr}_privilege`, attDays);
+                    priorLeavesMap.set(`${empIdStr}_pl`, attDays);
+                }
+            }
+        }
+
+        // 4. Compute leaves taken within the requested period [periodStart, periodEnd]
+        if (startDate) {
+            const currentPeriodLeaves = await LeaveApplication.find({
+                employee_id: { $in: objIdArray },
+                approval_status: { $in: ['approved', 'pending', 'pending_hod', 'pending_shalini', 'pending_final', 'hod_approved_pending_admin', 'in_review'] },
+                $or: [
+                    { from_date: { $gte: periodStart, $lte: periodEnd } },
+                    { from_date_str: { $gte: periodStartStr, $lte: periodEndStr } },
+                    { to_date: { $gte: periodStart, $lte: periodEnd } },
+                    { to_date_str: { $gte: periodStartStr, $lte: periodEndStr } }
+                ]
+            }).lean();
+
+            for (const app of currentPeriodLeaves) {
+                const empIdStr = app.employee_id.toString();
+                const ltStr = String(app.leave_type || '').toLowerCase();
+
+                if (isLwpType(ltStr)) {
+                    continue;
+                }
+
+                const days = Number(app.total_days || (app.is_half_day ? 0.5 : 1));
+                if (isPrivilegeType(ltStr)) {
+                    const prev = periodLeavesMap.get(`${empIdStr}_privilege`) || 0;
+                    const updated = prev + days;
+                    periodLeavesMap.set(`${empIdStr}_privilege`, updated);
+                    periodLeavesMap.set(`${empIdStr}_pl`, updated);
+                } else {
+                    const key = `${empIdStr}_${ltStr}`;
+                    periodLeavesMap.set(key, (periodLeavesMap.get(key) || 0) + days);
+                }
+            }
+
+            const currentAttendanceLeaves = await AttendanceRecord.find({
+                employee_id: { $in: objIdArray },
+                $and: [
+                    {
+                        $or: [
+                            { attendance_date: { $gte: periodStart, $lte: periodEnd } },
+                            { attendance_date_str: { $gte: periodStartStr, $lte: periodEndStr } }
+                        ]
+                    },
+                    {
+                        $or: [
+                            { status: 'leave' },
+                            { status: 'half_day', is_half_day: true },
+                            { is_on_leave: true, status: { $nin: ['present', 'late', 'weekly_off', 'holiday'] } }
+                        ]
+                    }
+                ]
+            }).populate({ path: 'leave_application_id', select: 'leave_type approval_status' }).lean();
+
+            const curAttDaysByEmp = new Map();
+            for (const rec of currentAttendanceLeaves) {
+                const wh = Number(rec.total_work_hours || 0);
+                if (wh >= 8 && ['present', 'late'].includes(String(rec.status || '').toLowerCase())) {
+                    continue;
+                }
+
+                if (rec.leave_application_id) {
+                    const appType = String(rec.leave_application_id.leave_type || '').toLowerCase();
+                    if (isLwpType(appType)) {
+                        continue;
+                    }
+                }
+                const rem = String(rec.remarks || '').toLowerCase();
+                if (isLwpType(rem)) {
+                    continue;
+                }
+
+                const empIdStr = rec.employee_id.toString();
+                const dayVal = rec.is_half_day ? 0.5 : 1.0;
+                curAttDaysByEmp.set(empIdStr, (curAttDaysByEmp.get(empIdStr) || 0) + dayVal);
+            }
+
+            for (const [empIdStr, attDays] of curAttDaysByEmp.entries()) {
+                const existingPl = periodLeavesMap.get(`${empIdStr}_privilege`) || periodLeavesMap.get(`${empIdStr}_pl`) || 0;
+                if (attDays > existingPl) {
+                    periodLeavesMap.set(`${empIdStr}_privilege`, attDays);
+                    periodLeavesMap.set(`${empIdStr}_pl`, attDays);
+                }
+            }
+        }
+
+        const formattedData = Array.from(balanceMap.values()).map(balance => {
+            const empIdStr = balance.employee_id.toString();
+            const ltStr = String(balance.leave_type || '').toLowerCase();
+            const annualOpening = Number(balance.opening_balance || 0);
+            
+            let priorLeaves = 0;
+            let periodUsed = 0;
+            if (isPrivilegeType(ltStr)) {
+                priorLeaves = priorLeavesMap.get(`${empIdStr}_privilege`) || priorLeavesMap.get(`${empIdStr}_pl`) || 0;
+                periodUsed = startDate
+                    ? (periodLeavesMap.get(`${empIdStr}_privilege`) || periodLeavesMap.get(`${empIdStr}_pl`) || 0)
+                    : Number(balance.used || 0);
+            } else {
+                priorLeaves = priorLeavesMap.get(`${empIdStr}_${ltStr}`) || 0;
+                periodUsed = startDate
+                    ? (periodLeavesMap.get(`${empIdStr}_${ltStr}`) || 0)
+                    : Number(balance.used || 0);
+            }
+
+            // Period Opening = Annual Quota minus leaves taken till the start of this month
+            const periodOpening = Math.max(0, annualOpening - priorLeaves);
+            const periodClosing = Math.max(0, periodOpening - periodUsed);
+
+            return {
+                employee_id: empIdStr,
                 leave_policy_id: balance.leave_policy_id?.toString(),
                 leave_type: balance.leave_type,
-                opening_balance: balance.opening_balance || 0,
-                used: balance.used || 0,
+                annual_opening_balance: annualOpening,
+                prior_leaves_taken: priorLeaves,
+                opening_balance: periodOpening,
+                used: periodUsed,
                 pending_approval: balance.pending_approval || 0,
-                closing_balance: balance.closing_balance || 0,
+                closing_balance: periodClosing,
                 year: balance.year
-            }))
+            };
+        });
+
+        res.json({
+            success: true,
+            data: formattedData
         });
     } catch (err) {
         console.error('Error in getBalancesBulk:', err);

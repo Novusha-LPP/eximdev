@@ -210,7 +210,7 @@ router.get(
       } else {
         baseQuery = {
           $and: [
-            { status: { $regex: /^pending$/i } },
+            { status: { $in: ["pending", "Pending", "PENDING"] } },
             {
               bill_document_sent_to_accounts: {
                 $exists: true,
@@ -323,8 +323,73 @@ router.get(
   }
 );
 
+// Search completed import jobs by job number (for autocomplete in General Job copy UI)
+router.get("/api/search-completed-import-jobs", async (req, res) => {
+  try {
+    const { q = "" } = req.query;
+    if (!q || q.trim().length < 2) {
+      return res.status(200).json({ data: [] });
+    }
+    const searchRegex = new RegExp(q.trim(), "i");
+    const jobs = await JobModel.find({
+      status: "Completed",
+      $or: [
+        { job_number: searchRegex },
+        { job_no: searchRegex },
+        { be_no: searchRegex },
+        { importer: searchRegex },
+      ],
+    })
+      .select("job_number job_no year be_no importer branch_code trade_type mode")
+      .limit(20)
+      .lean();
+
+    const data = jobs.map((j) => ({
+      label: j.job_number || j.job_no,
+      job_number: j.job_number || j.job_no,
+      be_no: j.be_no || "",
+      importer: j.importer || "",
+    }));
+
+    return res.status(200).json({ data });
+  } catch (err) {
+    console.error("Error searching completed import jobs:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Get a single completed import job by job_number for copy to Tally
+router.get("/api/get-completed-import-job/:job_number", async (req, res) => {
+  try {
+    const { job_number } = req.params;
+    const decodedJobNumber = decodeURIComponent(job_number);
+
+    const job = await JobModel.findOne({
+      status: "Completed",
+      $or: [
+        { job_number: decodedJobNumber },
+        { job_no: decodedJobNumber },
+      ],
+    })
+      .select(
+        "job_number job_no year job_date be_no be_date importer importer_address consignee consignment_type type_of_b_e awb_bl_no awb_bl_date hawb_hbl_no shipping_line_airline custom_house port_of_reporting origin_country gross_weight job_net_weight no_of_pkgs container_nos vessel_berthing voyage_no gateway_igm gateway_igm_date igm_no igm_date mode trade_type branch_code cif_amount vessel_flight"
+      )
+      .lean();
+
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    return res.status(200).json(job);
+  } catch (err) {
+    console.error("Error fetching completed import job:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 router.get(
   "/api/get-completed-billing-import-job",
+
   applyUserIcdFilter,
   async (req, res) => {
     const {
@@ -484,14 +549,14 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
     if (detailed_status && detailed_status !== "All") {
       baseQuery.$and.push({
         $and: [
-          { status: { $regex: /^pending$/i } },
+          { status: { $in: ["pending", "Pending", "PENDING"] } },
           { detailed_status: detailed_status },
         ],
       });
     } else {
       baseQuery.$and.push({
         $and: [
-          { status: { $regex: /^pending$/i } },
+          { status: { $in: ["pending", "Pending", "PENDING"] } },
           {
             detailed_status: {
               $in: ["Billing Pending", "Custom Clearance Completed"],
@@ -591,7 +656,7 @@ router.get(
 
       const matchConditions = {
         $and: [
-          { status: { $in: [/pending/i, /Completed/i] } },
+          { status: { $in: ["pending", "Pending", "PENDING", "Completed", "completed", "COMPLETED"] } },
           { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] } } } }
         ],
       };
@@ -914,7 +979,7 @@ router.get(
 
       const matchConditions = {
         $and: [
-          { status: { $in: [/pending/i, /Completed/i] } },
+          { status: { $in: ["pending", "Pending", "PENDING", "Completed", "completed", "COMPLETED"] } },
           { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] }, [isApprovedField]: true } } }
         ],
       };
@@ -1116,7 +1181,7 @@ router.get(
 
       const matchConditions = {
         $and: [
-          { status: { $in: [/pending/i, /Completed/i] } },
+          { status: { $in: ["pending", "Pending", "PENDING", "Completed", "completed", "COMPLETED"] } },
           { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] } } } }
         ],
       };
@@ -1528,7 +1593,11 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
     } else {
       paymentRequestNo = request.requestNo;
       if (request.chargeRef) {
-        const pb = await PurchaseBookEntryModel.findOne({ chargeRef: request.chargeRef }).select('entryNo').lean();
+        const pb = await PurchaseBookEntryModel.findOne({ 
+          chargeRef: request.chargeRef,
+          status: { $ne: 'Rejected' },
+          isRejected: { $ne: true }
+        }).select('entryNo').lean();
         if (pb) {
           purchaseBookNo = pb.entryNo;
         }
@@ -1551,10 +1620,10 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
             );
           }
           if (linkedCharge) {
-            if (linkedCharge.purchase_book_no && !purchaseBookNo) {
+            if (linkedCharge.purchase_book_no && linkedCharge.purchase_book_status !== 'Rejected' && !purchaseBookNo) {
               purchaseBookNo = linkedCharge.purchase_book_no;
             }
-            if (linkedCharge.payment_request_no && !paymentRequestNo) {
+            if (linkedCharge.payment_request_no && linkedCharge.payment_request_status !== 'Rejected' && !paymentRequestNo) {
               paymentRequestNo = linkedCharge.payment_request_no;
             }
           }

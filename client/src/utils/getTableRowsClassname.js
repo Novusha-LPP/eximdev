@@ -7,7 +7,7 @@ export const getTableRowsClassname = (params) => {
   const mapping = (s) => {
     switch (s) {
       case "Billed":
-        return "bg-green";
+        return "";
       case "Billing Pending":
         return "billing-pending";
       case "Custom Clearance Completed":
@@ -53,7 +53,7 @@ export const getTableRowInlineStyle = (params) => {
   const mapping = (s) => {
     switch (s) {
       case "Billed":
-        return "bg-green";
+        return "";
       case "Billing Pending":
         return "billing-pending";
       case "Custom Clearance Completed":

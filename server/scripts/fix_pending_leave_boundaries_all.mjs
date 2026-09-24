@@ -19,7 +19,7 @@ const getArg = (name, fallback = '') => {
 
 const DRY_RUN = !hasFlag('--apply');
 const TZ_OVERRIDE = getArg('--tz', '');
-const MONGO_URI = getArg('--uri', process.env.PROD_MONGODB_URI || 'mongodb://localhost:27017/exim');
+const MONGO_URI = getArg('--uri', process.env.PROD_MONGODB_URI || 'mongodb://0.0.0.0:27017/exim');
 const COMPANY_ID = getArg('--company', '');
 const EMPLOYEE_ID = getArg('--employee', '');
 const LIMIT = Number(getArg('--limit', '0')) || 0;
@@ -161,6 +161,6 @@ async function main() {
 
 main().catch(async (err) => {
   console.error('Script failed:', err);
-  try { await mongoose.disconnect(); } catch (e) {}
+  try { await mongoose.disconnect(); } catch (e) { }
   process.exit(1);
 });

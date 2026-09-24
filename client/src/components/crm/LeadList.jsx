@@ -5,6 +5,7 @@ import { message } from 'antd';
 import LeadFormModal from './components/LeadFormModal';
 import LeadDetailModal from './components/LeadDetailModal';
 import FilterBar from './components/FilterBar';
+import CrmFilterAutocomplete from './components/CrmFilterAutocomplete';
 
 const ALLOWED_SERVICES = [
   'freight forwarding',
@@ -31,6 +32,14 @@ const getHeaders = () => {
 };
 
 export default function LeadList() {
+  const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+  const role = user.role || '';
+  const crmRole = user.crmRole || '';
+  const isHOD = role === 'HOD' || role === 'Head_of_Department' || (typeof role === 'string' && (role.toLowerCase() === 'hod' || role.toLowerCase() === 'head_of_department'));
+  const isCrmAdmin = crmRole === 'Admin' || (typeof crmRole === 'string' && crmRole.toLowerCase() === 'admin');
+  const isSystemAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
+  const isAdmin = (isSystemAdmin || isCrmAdmin) && !isHOD;
+
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,8 +56,17 @@ export default function LeadList() {
   const [selectedService, setSelectedService] = useState('');
   const [selectedLeadForDuplicate, setSelectedLeadForDuplicate] = useState(null);
   const [selectedLeadForEdit, setSelectedLeadForEdit] = useState(null);
+  const [selectedLeadForRefer, setSelectedLeadForRefer] = useState(null);
+  const [targetReferTeamId, setTargetReferTeamId] = useState('');
+  const [isReferring, setIsReferring] = useState(false);
+  const [allTeams, setAllTeams] = useState([]);
   const [searchReferral, setSearchReferral] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('');
+  const [selectedHsnCode, setSelectedHsnCode] = useState('');
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [hsnSuggestions, setHsnSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   const [filters, setFilters] = useState(() => {
     try {
@@ -78,7 +96,17 @@ export default function LeadList() {
     });
   };
 
-  const fetchLeads = async (teamId = selectedTeamId, source = selectedSource, service = selectedService, referral = searchReferral, activeFilters = filters, scope = viewScope, query = searchQuery) => {
+  const fetchLeads = async (
+    teamId = selectedTeamId,
+    source = selectedSource,
+    service = selectedService,
+    referral = searchReferral,
+    activeFilters = filters,
+    scope = viewScope,
+    query = searchQuery,
+    location = selectedLocation,
+    hsnCode = selectedHsnCode
+  ) => {
     if (!activeFilters) return;
     setLoading(true);
     setError(null);
@@ -90,6 +118,8 @@ export default function LeadList() {
       if (service) queryParams.append('service', service);
       if (referral) queryParams.append('referralSourceName', referral);
       if (query) queryParams.append('searchQuery', query);
+      if (location) queryParams.append('location', location);
+      if (hsnCode) queryParams.append('hsnCode', hsnCode);
 
       if (activeFilters.startDate && activeFilters.endDate) {
         queryParams.append('startDate', activeFilters.startDate);
@@ -120,7 +150,7 @@ export default function LeadList() {
       const userId = user._id || user.id || '';
 
       const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/crm/teams`,
+        `${process.env.REACT_APP_API_STRING}/crm/teams?all=true`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -133,7 +163,9 @@ export default function LeadList() {
         }
       );
 
-      const myTeams = (res.data.teams || []).filter(team => {
+      const teamsList = res.data.teams || [];
+      setAllTeams(teamsList);
+      const myTeams = teamsList.filter(team => {
         const isManager = team.managerId === userId || team.managerId?._id === userId;
         const isMember = team.memberIds?.some(m => m === userId || m?._id === userId);
         return isManager || isMember;
@@ -144,22 +176,73 @@ export default function LeadList() {
     }
   };
 
+  const handleReferSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedLeadForRefer || !targetReferTeamId) return;
+    setIsReferring(true);
+    try {
+      await axios.put(
+        `${process.env.REACT_APP_API_STRING}/crm/leads/${selectedLeadForRefer._id}/refer`,
+        { targetTeamId: targetReferTeamId },
+        getHeaders()
+      );
+      message.success('Lead referred to internal team successfully!');
+      setSelectedLeadForRefer(null);
+      setTargetReferTeamId('');
+      fetchLeads();
+    } catch (err) {
+      console.error('Referral failed:', err);
+      message.error(err.response?.data?.message || 'Failed to refer lead');
+    } finally {
+      setIsReferring(false);
+    }
+  };
+
+  const fetchSuggestions = async () => {
+    try {
+      setSuggestionsLoading(true);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/leads/suggestions`,
+        getHeaders()
+      );
+      if (res.data) {
+        setLocationSuggestions(res.data.locations || []);
+        setHsnSuggestions(res.data.hsnCodes || []);
+      }
+    } catch (err) {
+      console.error('Failed to load lead suggestions:', err);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchUserTeams();
+    fetchSuggestions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (filters) {
-      // Adding a small debounce for the search query if the user is typing fast
+      // Adding a small debounce for the search queries
       const delayDebounceFn = setTimeout(() => {
-        fetchLeads(selectedTeamId, selectedSource, selectedService, searchReferral, filters, viewScope, searchQuery);
-      }, 500);
+        fetchLeads(
+          selectedTeamId,
+          selectedSource,
+          selectedService,
+          searchReferral,
+          filters,
+          viewScope,
+          searchQuery,
+          selectedLocation,
+          selectedHsnCode
+        );
+      }, 400);
 
       return () => clearTimeout(delayDebounceFn);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, selectedTeamId, selectedSource, selectedService, searchReferral, viewScope, searchQuery]);
+  }, [filters, selectedTeamId, selectedSource, selectedService, searchReferral, viewScope, searchQuery, selectedLocation, selectedHsnCode]);
 
   const handleConvert = async (leadId, leadName) => {
     if (!window.confirm(`Convert "${leadName}" into an Account & Opportunity?\n\nThis will create a new account, contact, and sales opportunity.`)) {
@@ -222,6 +305,53 @@ export default function LeadList() {
         }}
         onRefresh={fetchLeads}
       />
+      {/* Refer Lead Modal */}
+      {selectedLeadForRefer && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }}>
+          <div style={{ background: '#fff', padding: '24px', borderRadius: '16px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: '1.1rem', color: '#1e293b', fontWeight: 700 }}>
+              Refer Lead to Internal Team
+            </h3>
+            <p style={{ margin: '0 0 16px', fontSize: '0.85rem', color: '#64748b' }}>
+              Refer <strong>{selectedLeadForRefer.company}</strong> to another team (e.g. Team Paramount → Team eLock). Both teams will retain visibility.
+            </p>
+            <form onSubmit={handleReferSubmit}>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>Target Internal Team *</label>
+              <select
+                required
+                value={targetReferTeamId}
+                onChange={e => setTargetReferTeamId(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '20px', fontSize: '0.9rem', background: '#fff' }}
+              >
+                <option value="">-- Select Target Team --</option>
+                {allTeams.map(team => (
+                  <option key={team._id} value={team._id}>{team.name || team.teamName}</option>
+                ))}
+              </select>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedLeadForRefer(null)}
+                  style={{ background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isReferring}
+                  style={{ background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  {isReferring ? 'Referring...' : 'Confirm Referral'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Error notification */}
       {error && (
@@ -249,30 +379,32 @@ export default function LeadList() {
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {/* View Scope Dropdown */}
-          <select
-            value={viewScope}
-            onChange={(e) => {
-              setViewScope(e.target.value);
-              if (e.target.value === 'all') {
-                setSelectedTeamId('');
-              }
-            }}
-            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#4f46e5', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
-          >
-            <option value="my_teams">My Team Leads</option>
-            <option value="all">All Company Leads</option>
-          </select>
+          {isAdmin && (
+            <select
+              value={viewScope}
+              onChange={(e) => {
+                setViewScope(e.target.value);
+                if (e.target.value === 'all') {
+                  setSelectedTeamId('');
+                }
+              }}
+              style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#4f46e5', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
+            >
+              <option value="my_teams">My Team Leads</option>
+              <option value="all">All Company Leads</option>
+            </select>
+          )}
 
           {/* Team Filter Dropdown */}
-          {userTeams.length > 0 && viewScope !== 'all' && (
+          {(userTeams.length > 0 || allTeams.length > 0) && (
             <select
               value={selectedTeamId}
               onChange={(e) => setSelectedTeamId(e.target.value)}
               style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', cursor: 'pointer' }}
             >
-              <option value="">All My Teams</option>
-              {userTeams.map(team => (
-                <option key={team._id} value={team._id}>{team.name}</option>
+              {isAdmin && <option value="">All Teams</option>}
+              {(userTeams.length > 0 ? userTeams : allTeams).map(team => (
+                <option key={team._id} value={team._id}>{team.name || team.teamName}</option>
               ))}
             </select>
           )}
@@ -311,13 +443,39 @@ export default function LeadList() {
             ))}
           </select>
 
+          {/* Location Filter Input (Primary Focus) with Autocomplete */}
+          <CrmFilterAutocomplete
+            icon="📍"
+            label="Location"
+            primary={true}
+            placeholder="Port / City..."
+            value={selectedLocation}
+            onChange={setSelectedLocation}
+            options={locationSuggestions}
+            loading={suggestionsLoading}
+            width="170px"
+          />
+
+          {/* HSN Code Filter Input with Autocomplete */}
+          <CrmFilterAutocomplete
+            icon="🏷️"
+            label="HSN"
+            primary={false}
+            placeholder="HSN Code..."
+            value={selectedHsnCode}
+            onChange={setSelectedHsnCode}
+            options={hsnSuggestions}
+            loading={suggestionsLoading}
+            width="130px"
+          />
+
           {/* Referral Search Input */}
           <input
             type="text"
             placeholder="Search Referral By..."
             value={searchReferral}
             onChange={(e) => setSearchReferral(e.target.value)}
-            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', width: '160px' }}
+            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', width: '150px' }}
           />
 
           {/* General Search Input */}
@@ -326,7 +484,7 @@ export default function LeadList() {
             placeholder="Search Leads..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', width: '160px' }}
+            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', width: '150px' }}
           />
 
           <button
@@ -354,14 +512,16 @@ export default function LeadList() {
             <thead>
               <tr style={{ borderBottom: '2px solid #f1f5f9', textAlign: 'left', color: '#64748b', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 <th style={{ padding: '16px 12px' }}>Company</th>
+                <th style={{ padding: '16px 12px', background: '#f0f9ff', color: '#0369a1', fontWeight: 800 }}>📍 Location</th>
                 <th style={{ padding: '16px 12px' }}>Contact Person</th>
                 <th style={{ padding: '16px 12px' }}>Status</th>
+                <th style={{ padding: '16px 12px', color: '#be123c', fontWeight: 700 }}>Reason for Loss</th>
                 <th style={{ padding: '16px 12px', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {leads.length === 0 ? (
-                <tr><td colSpan="4" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No leads found in your pipeline.</td></tr>
+                <tr><td colSpan="6" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No leads found matching your criteria.</td></tr>
               ) : leads.map(lead => (
                 <tr key={lead._id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   <td style={{ padding: '16px 12px', fontWeight: 600, color: '#334155' }}>
@@ -396,6 +556,20 @@ export default function LeadList() {
                           {lead.source}
                         </span>
                       )}
+                      {lead.isReferral && (
+                        <span style={{
+                          fontSize: '0.65rem', background: '#fef2f2', color: '#b91c1c',
+                          padding: '2px 8px', borderRadius: '12px', fontWeight: 800, border: '1px solid #fecaca',
+                          display: 'inline-flex', alignItems: 'center', gap: '4px'
+                        }}>
+                          <span>⚡ Referred ({lead.referredFromTeamId?.teamName || lead.referredFromTeamId?.name || 'Team'} → {lead.referredToTeamId?.teamName || lead.referredToTeamId?.name || 'Team'})</span>
+                          {lead.referredAt && (
+                            <span style={{ color: '#991b1b', fontWeight: 600, borderLeft: '1px solid #fca5a5', paddingLeft: '4px' }}>
+                              📅 {new Date(lead.referredAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </div>
                     {lead.source === 'Referral' && lead.referralSourceName && (
                       <div style={{ fontSize: '0.75rem', color: '#165b33', marginTop: '4px', fontWeight: 600 }}>
@@ -416,11 +590,24 @@ export default function LeadList() {
                       </div>
                     )}
                   </td>
+                  {/* Location Column (Primary Focus) */}
+                  <td style={{ padding: '16px 12px', background: '#f8fafc' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span style={{ fontWeight: 700, color: '#0369a1', fontSize: '0.85rem' }}>
+                        {lead.location ? `📍 ${lead.location}` : (lead.pod || lead.pol ? `📍 ${lead.pod || lead.pol}` : '—')}
+                      </span>
+                      {lead.hsnCode && (
+                        <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>
+                          🏷️ HSN: {lead.hsnCode}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td style={{ padding: '16px 12px', color: '#475569' }}>{lead.firstName} {lead.lastName}</td>
                   <td style={{ padding: '16px 12px' }}>
                     <span style={{
-                      background: lead.status === 'converted' ? '#dcfce7' : '#fef3c7',
-                      color: lead.status === 'converted' ? '#166534' : '#92400e',
+                      background: lead.status === 'converted' ? '#dcfce7' : lead.status === 'lost' ? '#fee2e2' : '#fef3c7',
+                      color: lead.status === 'converted' ? '#166534' : lead.status === 'lost' ? '#991b1b' : '#92400e',
                       padding: '6px 12px',
                       borderRadius: '20px',
                       fontSize: '0.75rem',
@@ -429,6 +616,34 @@ export default function LeadList() {
                     }}>
                       {lead.status}
                     </span>
+                  </td>
+                  {/* Reason for Loss Column */}
+                  <td style={{ padding: '16px 12px' }}>
+                    {lead.closeReason ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          background: '#fff1f2',
+                          color: '#be123c',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontWeight: 700,
+                          border: '1px solid #fecdd3',
+                          display: 'inline-block'
+                        }}>
+                          {lead.closeReason}
+                        </span>
+                        {lead.closeNotes && (
+                          <span style={{ fontSize: '0.7rem', color: '#881337', fontStyle: 'italic' }}>
+                            {lead.closeNotes}
+                          </span>
+                        )}
+                      </div>
+                    ) : lead.status === 'lost' ? (
+                      <span style={{ fontSize: '0.75rem', color: '#991b1b', fontWeight: 600 }}>Lost (No reason specified)</span>
+                    ) : (
+                      <span style={{ color: '#cbd5e1' }}>—</span>
+                    )}
                   </td>
                   <td style={{ padding: '16px 12px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
@@ -440,6 +655,15 @@ export default function LeadList() {
                         style={{ background: '#f8fafc', color: '#475569', padding: '6px 14px', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
                       >
                         View
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedLeadForRefer(lead);
+                          setTargetReferTeamId('');
+                        }}
+                        style={{ background: '#fef3c7', color: '#92400e', padding: '6px 14px', border: '1px solid #fde68a', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                      >
+                        Refer
                       </button>
                       <button
                         onClick={() => {

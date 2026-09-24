@@ -155,6 +155,15 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     "Revenue SGST": initialData.revenueSgst ? Number(initialData.revenueSgst).toFixed(2) : '0.00',
                     "Revenue IGST": initialData.revenueIgst ? Number(initialData.revenueIgst).toFixed(2) : '0.00',
                     "Revenue Total": Math.round(revTot),
+                    "Revenue Rate": initialData.revenueRate !== undefined && initialData.revenueRate !== null ? initialData.revenueRate : (initialData.revenueRateAmount || initialData.revenue?.rate || ''),
+                    "Revenue Currency Amount": initialData.revenueCurrencyAmount !== undefined && initialData.revenueCurrencyAmount !== null ? initialData.revenueCurrencyAmount : (initialData.revenueCurrencyAmountVal || initialData.revenue?.currencyAmount || ''),
+                    revenueRate: initialData.revenueRate !== undefined && initialData.revenueRate !== null ? initialData.revenueRate : (initialData.revenueRateAmount || initialData.revenue?.rate || ''),
+                    revenueCurrencyAmount: initialData.revenueCurrencyAmount !== undefined && initialData.revenueCurrencyAmount !== null ? initialData.revenueCurrencyAmount : (initialData.revenueCurrencyAmountVal || initialData.revenue?.currencyAmount || ''),
+                    "Qty": initialData.qty !== undefined && initialData.qty !== null ? initialData.qty : 1,
+                    "Rate": initialData.rate !== undefined && initialData.rate !== null ? initialData.rate : (initialData.amount || 0),
+                    "Currency": initialData.costCurrency || (initialData.cost && initialData.cost.currency) || 'INR',
+                    "Currency Amount": initialData.currencyAmount || initialData.foreignCurrencyAmount || (initialData.currency && initialData.currency !== 'INR' ? (initialData.amount || initialData.basicAmount || '') : ''),
+                    "Exchange Rate": initialData.exchangeRate || initialData.exRate || 1,
                     "Charge Heading": initialData.chargeHead || '',
                     "SAC": initialData.cthNo || '',
                     "Status": '',
@@ -307,6 +316,12 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
             revenueSgst: Number(finalFormData["Revenue SGST"] || initialData?.revenueSgst || 0),
             revenueIgst: Number(finalFormData["Revenue IGST"] || initialData?.revenueIgst || 0),
             revenueTotal: revTot,
+            "Revenue Amount": revAmt.toFixed(2),
+            "Revenue CGST": Number(finalFormData["Revenue CGST"] || initialData?.revenueCgst || 0),
+            "Revenue SGST": Number(finalFormData["Revenue SGST"] || initialData?.revenueSgst || 0),
+            "Revenue IGST": Number(finalFormData["Revenue IGST"] || initialData?.revenueIgst || 0),
+            "Revenue Rate": Number(finalFormData["Revenue Rate"] || initialData?.revenueRate || 0),
+            "Revenue Currency Amount": Number(finalFormData["Revenue Currency Amount"] || initialData?.revenueCurrencyAmount || 0),
             invoiceNumber: finalFormData["Supplier Inv No"] || initialData?.invoice_number || '',
             invoiceDate: finalFormData["Supplier Inv Date"] || initialData?.invoice_date || ''
         };
@@ -314,10 +329,16 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
         finalFormData["Revenue Amount"] = revAmt.toFixed(2);
         finalFormData["Revenue Basic Amount"] = revBasic.toFixed(2);
         finalFormData["Revenue GST Amount"] = revGst.toFixed(2);
+        finalFormData["Revenue CGST"] = Number(finalFormData["Revenue CGST"] || initialData?.revenueCgst || 0).toFixed(2);
+        finalFormData["Revenue SGST"] = Number(finalFormData["Revenue SGST"] || initialData?.revenueSgst || 0).toFixed(2);
+        finalFormData["Revenue IGST"] = Number(finalFormData["Revenue IGST"] || initialData?.revenueIgst || 0).toFixed(2);
         finalFormData["Revenue Total"] = Math.round(revTot);
         finalFormData.revenueAmount = revAmt;
         finalFormData.revenueBasicAmount = revBasic;
         finalFormData.revenueGstAmount = revGst;
+        finalFormData.revenueCgst = Number(finalFormData["Revenue CGST"] || initialData?.revenueCgst || 0);
+        finalFormData.revenueSgst = Number(finalFormData["Revenue SGST"] || initialData?.revenueSgst || 0);
+        finalFormData.revenueIgst = Number(finalFormData["Revenue IGST"] || initialData?.revenueIgst || 0);
         finalFormData.revenueTotal = revTot;
 
         finalFormData.chargeItems = [singleChargeItem];

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import OpportunityDetailModal from './components/OpportunityDetailModal';
 import TaskFormModal from './components/TaskFormModal';
+import CrmFilterAutocomplete from './components/CrmFilterAutocomplete';
 import FilterBar from './components/FilterBar';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -81,18 +82,25 @@ export default function CRMKanbanBoard() {
   const [seeAllData, setSeeAllData] = useState(false);
 
   // CR-010 & CR-008 Filter States
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedStage, setSelectedStage] = useState(() => getInitialParam('stage', 'all'));
   const [selectedSource, setSelectedSource] = useState(() => getInitialParam('source', ''));
   const [selectedTimePeriod, setSelectedTimePeriod] = useState(() => getInitialParam('periodType', 'monthly'));
   const [selectedDate, setSelectedDate] = useState(() => getInitialParam('date', new Date().toISOString().substring(0, 10)));
   const [selectedWeek, setSelectedWeek] = useState(() => getInitialParam('week', new Date().toISOString().substring(0, 10)));
   const [selectedMonth, setSelectedMonth] = useState(() => getInitialParam('month', new Date().toISOString().substring(0, 7)));
+  const [selectedLocation, setSelectedLocation] = useState(() => getInitialParam('location', ''));
+  const [selectedHsnCode, setSelectedHsnCode] = useState(() => getInitialParam('hsnCode', ''));
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [hsnSuggestions, setHsnSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   // Lost Reason Modal States
   const [isLostModalOpen, setIsLostModalOpen] = useState(false);
   const [lostOpportunityId, setLostOpportunityId] = useState(null);
   const [lostFromStage, setLostFromStage] = useState(null);
   const [lostReason, setLostReason] = useState('');
+  const [lostCustomReason, setLostCustomReason] = useState('');
   const [lostNotes, setLostNotes] = useState('');
 
   // Quick Duplicate Modal States
@@ -106,6 +114,13 @@ export default function CRMKanbanBoard() {
   // Task Management States
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedTaskForModal, setSelectedTaskForModal] = useState(null);
+
+  // Refer Deal Modal States
+  const [isReferModalOpen, setIsReferModalOpen] = useState(false);
+  const [selectedOppForRefer, setSelectedOppForRefer] = useState(null);
+  const [targetReferTeamId, setTargetReferTeamId] = useState('');
+  const [isReferringOpp, setIsReferringOpp] = useState(false);
+  const [allTeams, setAllTeams] = useState([]);
 
   const [filters, setFilters] = useState(() => {
     try {
@@ -176,6 +191,12 @@ export default function CRMKanbanBoard() {
       const params = {};
       if (selectedSource) {
         params.source = selectedSource;
+      }
+      if (selectedLocation && selectedLocation.trim()) {
+        params.location = selectedLocation.trim();
+      }
+      if (selectedHsnCode && selectedHsnCode.trim()) {
+        params.hsnCode = selectedHsnCode.trim();
       }
       if (selectedTeam && selectedTeam !== 'all') {
         params.teamId = selectedTeam;
@@ -312,10 +333,58 @@ export default function CRMKanbanBoard() {
     return Array.from(membersMap.values());
   };
 
-  const visibleMembers = getTeamMembers();
+  // FR-11: Restrict member filter to users who have created at least one lead/deal,
+  // and who are members of the CRM/team the pipeline belongs to.
+  const activeMembersWithDeals = React.useMemo(() => {
+    const rawMembers = getTeamMembers();
+    const dealUserIds = new Set();
+    
+    // Check all deals in current board/list
+    Object.values(board).forEach(stageOpps => {
+      if (Array.isArray(stageOpps)) {
+        stageOpps.forEach(opp => {
+          if (opp.ownerId) {
+            const id = typeof opp.ownerId === 'object' ? (opp.ownerId._id || opp.ownerId.id) : opp.ownerId;
+            if (id) dealUserIds.add(id.toString());
+          }
+          if (opp.createdBy) {
+            const id = typeof opp.createdBy === 'object' ? (opp.createdBy._id || opp.createdBy.id) : opp.createdBy;
+            if (id) dealUserIds.add(id.toString());
+          }
+        });
+      }
+    });
+
+    // Also check dealsList if stage view is active
+    (dealsList || []).forEach(opp => {
+      if (opp.ownerId) {
+        const id = typeof opp.ownerId === 'object' ? (opp.ownerId._id || opp.ownerId.id) : opp.ownerId;
+        if (id) dealUserIds.add(id.toString());
+      }
+      if (opp.createdBy) {
+        const id = typeof opp.createdBy === 'object' ? (opp.createdBy._id || opp.createdBy.id) : opp.createdBy;
+        if (id) dealUserIds.add(id.toString());
+      }
+    });
+
+    // Filter to only those members who have created or own deals, fallback to rawMembers if board is still empty/loading
+    if (dealUserIds.size === 0) return rawMembers;
+    const filtered = rawMembers.filter(m => dealUserIds.has((m._id || m.id)?.toString()));
+    return filtered.length > 0 ? filtered : rawMembers;
+  }, [board, dealsList, teams, users, selectedTeam, seeAllData, isAdmin]);
+
+  const visibleMembers = activeMembersWithDeals;
+  const searchIsActive = Boolean(searchQuery.trim());
 
   const fetchMyTeams = async (all = false) => {
     try {
+      const resAll = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/teams?all=true`,
+        getHeaders()
+      );
+      const fetchedAllTeams = resAll.data?.teams || resAll.data || [];
+      setAllTeams(fetchedAllTeams);
+
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/crm/teams/my-teams`,
         {
@@ -323,7 +392,10 @@ export default function CRMKanbanBoard() {
           ...getHeaders()
         }
       );
-      const fetchedTeams = res.data || [];
+      let fetchedTeams = res.data || [];
+      if (fetchedTeams.length === 0) {
+        fetchedTeams = fetchedAllTeams;
+      }
       setTeams(fetchedTeams);
       if (!all && isRestricted && fetchedTeams.length > 0) {
         setSelectedTeam(prev => prev === 'all' ? fetchedTeams[0]._id : prev);
@@ -354,6 +426,29 @@ export default function CRMKanbanBoard() {
     fetchUsers();
   }, []);
 
+  // Fetch Location & HSN Suggestions from existing CRM opportunities
+  const fetchSuggestions = async () => {
+    try {
+      setSuggestionsLoading(true);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/suggestions`,
+        getHeaders()
+      );
+      if (res.data) {
+        setLocationSuggestions(res.data.locations || []);
+        setHsnSuggestions(res.data.hsnCodes || []);
+      }
+    } catch (err) {
+      console.error('Failed to load suggestions:', err);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSuggestions();
+  }, []);
+
   // Sync URL Params
   useEffect(() => {
     try {
@@ -364,6 +459,8 @@ export default function CRMKanbanBoard() {
       if (selectedTimePeriod === 'daily') params.set('date', selectedDate);
       if (selectedTimePeriod === 'weekly') params.set('week', selectedWeek);
       if (selectedTimePeriod === 'monthly') params.set('month', selectedMonth);
+      if (selectedLocation) params.set('location', selectedLocation);
+      if (selectedHsnCode) params.set('hsnCode', selectedHsnCode);
 
       const newSearch = params.toString() ? `?${params.toString()}` : '';
       if (window.location.search !== newSearch) {
@@ -372,11 +469,11 @@ export default function CRMKanbanBoard() {
     } catch (e) {
       console.error('Error syncing URL params:', e);
     }
-  }, [selectedStage, selectedSource, selectedTimePeriod, selectedDate, selectedWeek, selectedMonth]);
+  }, [selectedStage, selectedSource, selectedTimePeriod, selectedDate, selectedWeek, selectedMonth, selectedLocation, selectedHsnCode]);
 
   useEffect(() => {
     fetchBoard();
-  }, [filters, selectedStage, selectedSource, selectedTimePeriod, selectedDate, selectedWeek, selectedMonth, selectedTeam, selectedOwner, seeAllData]);
+  }, [filters, selectedStage, selectedSource, selectedTimePeriod, selectedDate, selectedWeek, selectedMonth, selectedLocation, selectedHsnCode, selectedTeam, selectedOwner, seeAllData]);
 
   const handleDragStart = (e, opportunity, fromStage) => {
     setDraggedOpportunity({ opportunity, fromStage });
@@ -414,7 +511,8 @@ export default function CRMKanbanBoard() {
   };
 
   const handleConfirmLost = async () => {
-    if (!lostReason) return;
+    const effectiveLostReason = lostReason === 'Other (Manual)' ? (lostCustomReason.trim() || 'Other') : lostReason;
+    if (!effectiveLostReason) return;
     setIsLostModalOpen(false);
     setUpdating(true);
     try {
@@ -422,7 +520,7 @@ export default function CRMKanbanBoard() {
         `${process.env.REACT_APP_API_STRING}/crm/opportunities/${lostOpportunityId}`,
         {
           stage: 'lost',
-          closeReason: lostReason,
+          closeReason: effectiveLostReason,
           closeNotes: lostNotes
         },
         getHeaders()
@@ -596,6 +694,29 @@ export default function CRMKanbanBoard() {
     }
   };
 
+  const handleReferOppSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedOppForRefer || !targetReferTeamId) return;
+    setIsReferringOpp(true);
+    try {
+      await axios.put(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${selectedOppForRefer._id}/refer`,
+        { targetTeamId: targetReferTeamId },
+        getHeaders()
+      );
+      message.success('Deal referred to internal team successfully!');
+      setIsReferModalOpen(false);
+      setSelectedOppForRefer(null);
+      setTargetReferTeamId('');
+      fetchBoard();
+    } catch (err) {
+      console.error('Referral failed:', err);
+      message.error(err.response?.data?.message || 'Failed to refer deal');
+    } finally {
+      setIsReferringOpp(false);
+    }
+  };
+
   return (
     <>
       <AnimatePresence>
@@ -686,11 +807,60 @@ export default function CRMKanbanBoard() {
         justifyContent: 'space-between'
       }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
+          {/* Live Search Box */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Search:</span>
+            <input
+              type="text"
+              placeholder="Search deals, company, owner..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{
+                padding: '8px 14px',
+                border: '1px solid #e2e8f0',
+                borderRadius: '10px',
+                fontSize: '0.85rem',
+                color: '#334155',
+                background: '#ffffff',
+                fontWeight: 600,
+                outline: 'none',
+                width: '180px'
+              }}
+            />
+          </div>
+
+          {/* Location Filter (Primary Focus) with Autocomplete */}
+          <CrmFilterAutocomplete
+            icon="📍"
+            label="LOCATION"
+            primary={true}
+            placeholder="Filter Location / Port..."
+            value={selectedLocation}
+            onChange={setSelectedLocation}
+            options={locationSuggestions}
+            loading={suggestionsLoading}
+            width="180px"
+          />
+
+          {/* HSN Code Filter with Autocomplete */}
+          <CrmFilterAutocomplete
+            icon="🏷️"
+            label="HSN"
+            primary={false}
+            placeholder="Filter HSN Code..."
+            value={selectedHsnCode}
+            onChange={setSelectedHsnCode}
+            options={hsnSuggestions}
+            loading={suggestionsLoading}
+            width="150px"
+          />
+
           {/* Stage Dropdown */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Stage:</span>
             <select
               value={selectedStage}
+              disabled={searchIsActive}
               onChange={e => setSelectedStage(e.target.value)}
               style={{
                 padding: '8px 14px',
@@ -700,7 +870,8 @@ export default function CRMKanbanBoard() {
                 color: '#334155',
                 background: '#ffffff',
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: searchIsActive ? 'not-allowed' : 'pointer',
+                opacity: searchIsActive ? 0.5 : 1,
                 outline: 'none'
               }}
             >
@@ -716,6 +887,7 @@ export default function CRMKanbanBoard() {
             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Source:</span>
             <select
               value={selectedSource}
+              disabled={searchIsActive}
               onChange={e => setSelectedSource(e.target.value)}
               style={{
                 padding: '8px 14px',
@@ -725,7 +897,8 @@ export default function CRMKanbanBoard() {
                 color: '#334155',
                 background: '#ffffff',
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: searchIsActive ? 'not-allowed' : 'pointer',
+                opacity: searchIsActive ? 0.5 : 1,
                 outline: 'none'
               }}
             >
@@ -739,11 +912,12 @@ export default function CRMKanbanBoard() {
           </div>
 
           {/* Teams Dropdown */}
-          {(!isRestricted || seeAllData || teams.length > 1) && teams && teams.length > 0 && (
+          {teams && teams.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Team:</span>
               <select
                 value={selectedTeam}
+                disabled={searchIsActive}
                 onChange={e => {
                   setSelectedTeam(e.target.value);
                   setSelectedOwner('all'); // Reset owner on team change
@@ -756,13 +930,14 @@ export default function CRMKanbanBoard() {
                   color: '#334155',
                   background: '#ffffff',
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: searchIsActive ? 'not-allowed' : 'pointer',
+                  opacity: searchIsActive ? 0.5 : 1,
                   outline: 'none'
                 }}
               >
-                {(!isRestricted || seeAllData) && <option value="all">All Teams</option>}
+                {isAdmin && <option value="all">All Teams</option>}
                 {teams.map(t => (
-                  <option key={t._id} value={t._id}>{t.name}</option>
+                  <option key={t._id} value={t._id}>{t.name || t.teamName}</option>
                 ))}
               </select>
             </div>
@@ -774,6 +949,7 @@ export default function CRMKanbanBoard() {
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Member:</span>
               <select
                 value={selectedOwner}
+                disabled={searchIsActive}
                 onChange={e => setSelectedOwner(e.target.value)}
                 style={{
                   padding: '8px 14px',
@@ -783,7 +959,8 @@ export default function CRMKanbanBoard() {
                   color: '#334155',
                   background: '#ffffff',
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: searchIsActive ? 'not-allowed' : 'pointer',
+                  opacity: searchIsActive ? 0.5 : 1,
                   outline: 'none'
                 }}
               >
@@ -799,10 +976,11 @@ export default function CRMKanbanBoard() {
           )}
 
           {/* See All Toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '4px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', userSelect: 'none' }}>
-              <div style={{
-                position: 'relative',
+          {isAdmin && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '4px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', userSelect: 'none' }}>
+                <div style={{
+                  position: 'relative',
                 width: '38px',
                 height: '20px',
                 backgroundColor: seeAllData ? '#10b981' : '#cbd5e1',
@@ -835,6 +1013,7 @@ export default function CRMKanbanBoard() {
               />
             </label>
           </div>
+          )}
         </div>
 
         {selectedStage !== 'all' ? (
@@ -889,7 +1068,7 @@ export default function CRMKanbanBoard() {
             </div>
           </div>
         ) : (
-          <FilterBar moduleName="pipeline" onChange={handleFilterChange} />
+          <FilterBar moduleName="pipeline" onChange={handleFilterChange} disabled={searchIsActive} />
         )}
       </div>
 
@@ -919,10 +1098,14 @@ export default function CRMKanbanBoard() {
                 <tr style={{ borderBottom: '2px solid #f1f5f9', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   <th style={{ padding: '12px 16px' }}>Deal Name</th>
                   <th style={{ padding: '12px 16px' }}>Company</th>
+                  <th style={{ padding: '12px 16px', color: '#0284c7' }}>📍 Location</th>
+                  <th style={{ padding: '12px 16px' }}>🏷️ HSN</th>
                   <th style={{ padding: '12px 16px', textAlign: 'right' }}>Value</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center' }}>Probability</th>
                   <th style={{ padding: '12px 16px' }}>Crate Size</th>
                   <th style={{ padding: '12px 16px' }}>Lead Source</th>
+                  <th style={{ padding: '12px 16px', color: '#dc2626' }}>Reason for Loss</th>
+                  <th style={{ padding: '12px 16px' }}>Referred Info</th>
                   <th style={{ padding: '12px 16px' }}>Created Date</th>
                   <th style={{ padding: '12px 16px' }}>Last Updated</th>
                   <th style={{ padding: '12px 16px' }}>Assigned To</th>
@@ -931,7 +1114,7 @@ export default function CRMKanbanBoard() {
               <tbody>
                 {dealsList.length === 0 ? (
                   <tr>
-                    <td colSpan="9" style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
+                    <td colSpan="13" style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
                       No deals found matching the active stage and period filter.
                     </td>
                   </tr>
@@ -954,6 +1137,11 @@ export default function CRMKanbanBoard() {
                             {deal.carry_forward && (
                               <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#b45309', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
                                 🔄 Carried
+                              </span>
+                            )}
+                            {deal.freightEnquiryRef && (
+                              <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, border: '1px solid #93c5fd' }}>
+                                🚢 FF: {deal.freightData?.pipelineStage || 'Synced'}
                               </span>
                             )}
                           </div>
@@ -1002,6 +1190,14 @@ export default function CRMKanbanBoard() {
                       <td style={{ padding: '16px', color: '#475569' }}>
                         {typeof deal.accountId === 'object' ? (deal.accountId?.name || 'N/A') : (deal.accountId || 'N/A')}
                       </td>
+                      {/* Location (Primary Focus) */}
+                      <td style={{ padding: '16px', color: '#0369a1', fontWeight: 600 }}>
+                        {deal.location || (deal.pol || deal.pod ? `${deal.pol || ''}${deal.pol && deal.pod ? ' → ' : ''}${deal.pod || ''}` : '—')}
+                      </td>
+                      {/* HSN Code */}
+                      <td style={{ padding: '16px', color: '#475569', fontFamily: 'monospace', fontWeight: 600 }}>
+                        {deal.hsnCode || '—'}
+                      </td>
                       <td style={{ padding: '16px', textAlign: 'right', fontWeight: 700, color: '#10b981', fontFamily: 'monospace' }}>
                         ₹{deal.value ? deal.value.toLocaleString('en-IN') : '0'}
                       </td>
@@ -1042,6 +1238,48 @@ export default function CRMKanbanBoard() {
                           </span>
                         ) : '—'}
                       </td>
+                      {/* Reason for Loss */}
+                      <td style={{ padding: '16px' }}>
+                        {deal.stage === 'lost' || deal.closeReason ? (
+                          <span style={{
+                            display: 'inline-block',
+                            background: '#fee2e2',
+                            color: '#b91c1c',
+                            border: '1px solid #fca5a5',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700
+                          }}>
+                            {deal.closeReason || 'Not Specified'}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#94a3b8' }}>—</span>
+                        )}
+                      </td>
+                      {/* Referred Info & Date */}
+                      <td style={{ padding: '16px' }}>
+                        {deal.isReferral ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <span style={{
+                              fontSize: '0.68rem',
+                              background: '#fef2f2',
+                              color: '#b91c1c',
+                              padding: '2px 6px',
+                              borderRadius: '6px',
+                              fontWeight: 700,
+                              border: '1px solid #fecaca'
+                            }}>
+                              ⚡ {deal.referredFromTeamId?.teamName || deal.referredFromTeamId?.name || 'Team'} → {deal.referredToTeamId?.teamName || deal.referredToTeamId?.name || 'Team'}
+                            </span>
+                            <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                              📅 {deal.referredAt ? new Date(deal.referredAt).toLocaleDateString('en-IN') : (deal.createdAt ? new Date(deal.createdAt).toLocaleDateString('en-IN') : '—')}
+                            </span>
+                          </div>
+                        ) : (
+                          <span style={{ color: '#94a3b8' }}>—</span>
+                        )}
+                      </td>
                       <td style={{ padding: '16px', color: '#64748b' }}>
                         {new Date(deal.createdAt).toLocaleDateString('en-IN')}
                       </td>
@@ -1075,7 +1313,19 @@ export default function CRMKanbanBoard() {
           }}
         >
           {PIPELINE_STAGES.map(stage => {
-            const opps = board[stage.id] || [];
+            const rawOpps = board[stage.id] || [];
+            const opps = rawOpps.filter(opp => {
+              if (!searchQuery.trim()) return true;
+              const q = searchQuery.toLowerCase();
+              const nameMatch = opp.name?.toLowerCase().includes(q);
+              const accountMatch = opp.accountId?.name?.toLowerCase().includes(q);
+              const ownerMatch = (opp.ownerId?.first_name || opp.ownerId?.username || '').toLowerCase().includes(q);
+              const serviceMatch = opp.services?.some(s => s.toLowerCase().includes(q));
+              const valMatch = opp.value?.toString().includes(q);
+              const locationMatch = (opp.location || opp.pol || opp.pod || '').toLowerCase().includes(q);
+              const hsnMatch = (opp.hsnCode || '').toLowerCase().includes(q);
+              return nameMatch || accountMatch || ownerMatch || serviceMatch || valMatch || locationMatch || hsnMatch;
+            });
             return (
               <div key={stage.id} style={{
                 width: '320px', flexShrink: 0, background: '#ebf1f7', borderRadius: '12px',
@@ -1146,6 +1396,22 @@ export default function CRMKanbanBoard() {
                         }}
                       >
                         <div style={{ position: 'absolute', top: 0, left: 0, width: '3px', height: '100%', background: stage.color }}></div>
+                        {opp.isReferral && (
+                          <div style={{ marginBottom: '8px' }}>
+                            <span style={{
+                              fontSize: '0.65rem', background: '#fef2f2', color: '#b91c1c',
+                              padding: '2px 8px', borderRadius: '12px', fontWeight: 800, border: '1px solid #fecaca',
+                              display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap'
+                            }}>
+                              <span>⚡ Referred ({opp.referredFromTeamId?.teamName || opp.referredFromTeamId?.name || 'Team'} → {opp.referredToTeamId?.teamName || opp.referredToTeamId?.name || 'Team'})</span>
+                              {(opp.referredAt || opp.createdAt) && (
+                                <span style={{ color: '#7f1d1d', fontWeight: 600 }}>
+                                  • {new Date(opp.referredAt || opp.createdAt).toLocaleDateString('en-IN')}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        )}
                         {isVirtualSalesVisit && (
                           <div style={{ marginBottom: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                             <span style={{
@@ -1167,42 +1433,67 @@ export default function CRMKanbanBoard() {
                           </div>
                         )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', margin: '0 0 6px 0' }}>
-                          <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b', fontWeight: 600, paddingRight: '20px' }}>{opp.name}</h4>
-                          <button
-                            title="Duplicate Deal for another Service"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDuplicatingOpp(opp);
-                              setDuplicateName(`${opp.name}`);
-                              setDuplicateService(opp.services && opp.services.length > 0 ? opp.services[0] : '');
-                              setDuplicateValue(opp.value || 0);
-                              setDuplicateCloseDate(opp.expectedCloseDate ? opp.expectedCloseDate.substring(0, 10) : '');
-                              setIsDuplicateModalOpen(true);
-                            }}
-                            style={{
-                              background: '#f1f5f9',
-                              border: '1px solid #cbd5e1',
-                              borderRadius: '4px',
-                              color: '#475569',
-                              cursor: 'pointer',
-                              fontSize: '0.9rem',
-                              fontWeight: 700,
-                              padding: '2px 6px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.2s',
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                              position: 'absolute',
-                              top: '12px',
-                              right: '12px',
-                              zIndex: 10
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#475569'; }}
-                          >
-                            +
-                          </button>
+                          <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b', fontWeight: 600, paddingRight: '55px' }}>{opp.name}</h4>
+                          <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', gap: '4px', zIndex: 10 }}>
+                            <button
+                              title="Refer Deal to Internal Team"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedOppForRefer(opp);
+                                setIsReferModalOpen(true);
+                              }}
+                              style={{
+                                background: '#fef2f2',
+                                border: '1px solid #fecaca',
+                                borderRadius: '4px',
+                                color: '#b91c1c',
+                                cursor: 'pointer',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                padding: '2px 6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; }}
+                            >
+                              ⚡ Refer
+                            </button>
+                            <button
+                              title="Duplicate Deal for another Service"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDuplicatingOpp(opp);
+                                setDuplicateName(`${opp.name}`);
+                                setDuplicateService(opp.services && opp.services.length > 0 ? opp.services[0] : '');
+                                setDuplicateValue(opp.value || 0);
+                                setDuplicateCloseDate(opp.expectedCloseDate ? opp.expectedCloseDate.substring(0, 10) : '');
+                                setIsDuplicateModalOpen(true);
+                              }}
+                              style={{
+                                background: '#f1f5f9',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '4px',
+                                color: '#475569',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem',
+                                fontWeight: 700,
+                                padding: '2px 6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#475569'; }}
+                            >
+                              +
+                            </button>
+                          </div>
                         </div>
                         <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>
                           {typeof opp.accountId === 'object' ? (opp.accountId?.name || 'No Account') : (opp.accountId || 'No Account')}
@@ -1239,6 +1530,28 @@ export default function CRMKanbanBoard() {
                           </div>
                         )}
 
+                        {/* Freight Forwarding Badge */}
+                        {opp.freightEnquiryRef && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
+                            <span style={{
+                              fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af',
+                              padding: '2px 8px', borderRadius: '12px', fontWeight: 700,
+                              border: '1px solid #93c5fd', display: 'inline-flex', alignItems: 'center', gap: '4px'
+                            }}>
+                              🚢 FF: {opp.freightData?.pipelineStage || 'Synced'}
+                            </span>
+                            {opp.freightData?.enquiryNo && (
+                              <span style={{
+                                fontSize: '0.65rem', background: '#f0fdf4', color: '#166534',
+                                padding: '2px 8px', borderRadius: '12px', fontWeight: 600,
+                                border: '1px solid #bbf7d0'
+                              }}>
+                                {opp.freightData.successNo || opp.freightData.enquiryNo}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
                         {opp.crateSize && (
                           <div style={{
                             fontSize: '0.7rem', color: '#64748b', marginBottom: '12px',
@@ -1253,8 +1566,8 @@ export default function CRMKanbanBoard() {
                         )}
 
                         {/* CR-008 Source badge on deal card */}
-                        {opp.source && (
-                          <div style={{ marginBottom: '8px' }}>
+                        <div style={{ marginBottom: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+                          {opp.source && (
                             <span style={{
                               fontSize: '0.65rem',
                               background: opp.source === 'IndiaMart Lead' ? '#ffedd5'
@@ -1282,8 +1595,76 @@ export default function CRMKanbanBoard() {
                             }}>
                               {opp.source}
                             </span>
-                          </div>
-                        )}
+                          )}
+                          {(() => {
+                            const actDate = opp.lastActivityAt ? new Date(opp.lastActivityAt) : (opp.updatedAt ? new Date(opp.updatedAt) : null);
+                            if (!actDate || Number.isNaN(actDate.getTime())) return null;
+                            const diffDays = Math.floor((Date.now() - actDate.getTime()) / (1000 * 60 * 60 * 24));
+                            if (diffDays < 2) return null;
+                            if (['won', 'lost', 'rejected', 'cancelled'].includes(opp.stage)) return null;
+                            return (
+                              <span style={{
+                                fontSize: '0.62rem',
+                                background: '#fef2f2',
+                                color: '#b91c1c',
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                fontWeight: 800,
+                                border: '1px solid #fecaca'
+                              }}>
+                                ⚠ Stagnant ({diffDays}d)
+                              </span>
+                            );
+                          })()}
+                          {/* Location & HSN badges */}
+                          {(opp.location || opp.pol || opp.pod) && (
+                            <span style={{
+                              fontSize: '0.65rem',
+                              background: '#f0f9ff',
+                              color: '#0369a1',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontWeight: 700,
+                              border: '1px solid #bae6fd',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}>
+                              📍 {opp.location || `${opp.pol || ''}${opp.pol && opp.pod ? ' → ' : ''}${opp.pod || ''}`}
+                            </span>
+                          )}
+                          {opp.hsnCode && (
+                            <span style={{
+                              fontSize: '0.65rem',
+                              background: '#f8fafc',
+                              color: '#475569',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontWeight: 600,
+                              border: '1px solid #e2e8f0',
+                              fontFamily: 'monospace'
+                            }}>
+                              🏷️ HSN: {opp.hsnCode}
+                            </span>
+                          )}
+                          {/* Reason for Loss Badge if Lost */}
+                          {(opp.stage === 'lost' || opp.closeReason) && (
+                            <span style={{
+                              fontSize: '0.65rem',
+                              background: '#fee2e2',
+                              color: '#b91c1c',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontWeight: 800,
+                              border: '1px solid #fca5a5',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}>
+                              ❌ Loss Reason: {opp.closeReason || 'Not specified'}
+                            </span>
+                          )}
+                        </div>
 
                         {/* Pricing Request Status / Price on Kanban Card */}
                         {(() => {
@@ -1521,8 +1902,33 @@ export default function CRMKanbanBoard() {
                 <option value="Price Lost">Price Lost — Lost due to competitor offering lower price</option>
                 <option value="Product Lost">Product Lost — Product did not meet client specifications</option>
                 <option value="No Reply / No Response">No Reply / No Response — Client became unresponsive</option>
+                <option value="Lost due to Location">Lost due to Location — Location did not suit client needs</option>
+                <option value="Other (Manual)">Other — Enter reason manually</option>
               </select>
             </div>
+            {lostReason === 'Other (Manual)' && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#475569', fontWeight: 600, fontSize: '0.875rem' }}>
+                  Specify Reason <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={lostCustomReason}
+                  onChange={(e) => setLostCustomReason(e.target.value)}
+                  placeholder="Describe the reason for losing this deal..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                    color: '#1e293b',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            )}
 
             <div style={{ marginBottom: '24px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: '#475569', fontWeight: 600, fontSize: '0.875rem' }}>
@@ -1553,6 +1959,9 @@ export default function CRMKanbanBoard() {
                   setIsLostModalOpen(false);
                   setLostOpportunityId(null);
                   setLostFromStage(null);
+                  setLostReason('');
+                  setLostCustomReason('');
+                  setLostNotes('');
                 }}
                 style={{
                   padding: '10px 18px',
@@ -1570,14 +1979,14 @@ export default function CRMKanbanBoard() {
               </button>
               <button
                 onClick={handleConfirmLost}
-                disabled={!lostReason}
+                disabled={!lostReason || (lostReason === 'Other (Manual)' && !lostCustomReason.trim())}
                 style={{
                   padding: '10px 18px',
-                  background: lostReason ? '#ef4444' : '#fca5a5',
+                  background: (lostReason && !(lostReason === 'Other (Manual)' && !lostCustomReason.trim())) ? '#ef4444' : '#fca5a5',
                   color: '#ffffff',
                   border: 'none',
                   borderRadius: '8px',
-                  cursor: lostReason ? 'pointer' : 'not-allowed',
+                  cursor: (lostReason && !(lostReason === 'Other (Manual)' && !lostCustomReason.trim())) ? 'pointer' : 'not-allowed',
                   fontWeight: 600,
                   fontSize: '0.875rem',
                   transition: 'all 0.2s'
@@ -1690,6 +2099,54 @@ export default function CRMKanbanBoard() {
                 Duplicate Deal
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Refer Deal Modal */}
+      {isReferModalOpen && selectedOppForRefer && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }}>
+          <div style={{ background: '#fff', padding: '24px', borderRadius: '16px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: '1.1rem', color: '#1e293b', fontWeight: 700 }}>
+              Refer Deal to Internal Team
+            </h3>
+            <p style={{ margin: '0 0 16px', fontSize: '0.85rem', color: '#64748b' }}>
+              Refer <strong>{selectedOppForRefer.name}</strong> to another team (e.g. Team Paramount → Team eLock). Both teams will retain visibility.
+            </p>
+            <form onSubmit={handleReferOppSubmit}>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>Target Internal Team *</label>
+              <select
+                required
+                value={targetReferTeamId}
+                onChange={e => setTargetReferTeamId(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '20px', fontSize: '0.9rem', background: '#fff' }}
+              >
+                <option value="">-- Select Target Team --</option>
+                {(allTeams.length > 0 ? allTeams : teams).map(team => (
+                  <option key={team._id} value={team._id}>{team.name || team.teamName}</option>
+                ))}
+              </select>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => { setIsReferModalOpen(false); setSelectedOppForRefer(null); }}
+                  style={{ background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isReferringOpp}
+                  style={{ background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  {isReferringOpp ? 'Referring...' : 'Confirm Referral'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

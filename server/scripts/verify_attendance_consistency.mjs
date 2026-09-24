@@ -1,7 +1,7 @@
 import axios from 'axios';
 import moment from 'moment';
 
-const BASE_URL = 'http://localhost:9006';
+const BASE_URL = 'http://0.0.0.0:9006';
 const EMPLOYEE_ID = '6672a2501aa931b68b091fd0';
 
 const USERS = {
@@ -78,7 +78,7 @@ async function run() {
     console.log(`Akash Modi Company ID: ${accounts.akash_modi.company_id}`);
 
     console.log('\nFetching data from all perspectives...');
-    
+
     const dashboardData = await fetchData(`${BASE_URL}/api/attendance/dashboard?month=4&year=2026`, accounts.akash_modi.token);
     const hodProfileData = await fetchData(`${BASE_URL}/api/attendance/employee-full-profile/${EMPLOYEE_ID}?startDate=2026-04-01&endDate=2026-04-30&company_id`, accounts.chirag_shah.token);
     const adminProfileData = await fetchData(`${BASE_URL}/api/attendance/employee-full-profile/${EMPLOYEE_ID}?startDate=2026-04-01&endDate=2026-04-30`, accounts.uday_zope.token);
@@ -110,7 +110,7 @@ async function run() {
         const aRec = adminAttendance[date];
 
         const statusMatch = (dRec?.status === hRec?.status) && (hRec?.status === aRec?.status);
-        
+
         if (!statusMatch) {
             mismatches++;
             console.log(`[MISMATCH] Date: ${date}`);

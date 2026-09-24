@@ -22,6 +22,7 @@ router.get(
         year = "24-25",
         selectedICD = "",
         importer = "",
+        shippingLine = "",
         unresolvedOnly,
         emergency, // ✅ Extract emergency param
         freeTimeFilter, // ✅ Extract freeTimeFilter param
@@ -45,6 +46,9 @@ router.get(
       // Decode and trim query params
       const decodedImporter = importer
         ? decodeURIComponent(importer).trim()
+        : "";
+      const decodedShippingLine = shippingLine
+        ? decodeURIComponent(shippingLine).trim()
         : "";
       const decodedICD = selectedICD
         ? decodeURIComponent(selectedICD).trim()
@@ -120,6 +124,19 @@ router.get(
       if (decodedImporter && decodedImporter !== "Select Importer") {
         baseQuery.$and.push({
           importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") },
+        });
+      }
+
+      // ✅ If shippingLine is selected, add it to the query
+      if (
+        decodedShippingLine &&
+        decodedShippingLine !== "Select Shipping Line" &&
+        decodedShippingLine !== "All Shipping Lines"
+      ) {
+        baseQuery.$and.push({
+          shipping_line_airline: {
+            $regex: new RegExp(`^\\s*${escapeRegex(decodedShippingLine)}\\s*$`, "i"),
+          },
         });
       }
 

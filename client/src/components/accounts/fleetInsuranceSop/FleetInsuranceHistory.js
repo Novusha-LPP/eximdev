@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useContext } from "react";
 import {
   Box,
   Typography,
@@ -39,10 +39,14 @@ import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import { useParams, useNavigate } from "react-router-dom";
+import { UserContext } from "../../../contexts/UserContext";
 
 function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack }) {
   const { registrationNo: urlRegNo } = useParams();
   const navigate = useNavigate();
+  const { user } = useContext(UserContext);
+  const userRole = (user?.role || "").toLowerCase();
+  const isAdmin = userRole === "admin" || userRole === "superadmin";
   const [activeRegNo, setActiveRegNo] = useState(registrationNo || urlRegNo || "");
   const [allVehicles, setAllVehicles] = useState([]);
   const [history, setHistory] = useState([]);
@@ -187,7 +191,8 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
     const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
 
     if (diffDays <= 0) return <Chip label="Expired" size="small" color="error" />;
-    if (diffDays <= 30) return <Chip label={`Expiring (${diffDays} days)`} size="small" color="warning" />;
+    if (diffDays <= 7) return <Chip label={`Expiring (${diffDays} days)`} size="small" color="error" />;
+    if (diffDays <= 15) return <Chip label={`Expiring (${diffDays} days)`} size="small" color="warning" />;
     return <Chip label="Active" size="small" color="success" />;
   };
 
@@ -370,6 +375,18 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
                   ? new Date(rec.policyFromDate).getFullYear()
                   : "N/A";
                 const isLatest = index === 0;
+                const nextRecord = index > 0 ? filteredHistory[index - 1] : null;
+
+                const renewedInsurer = rec.newInsuranceCompany || (nextRecord ? nextRecord.insuranceCompany : "");
+                const renewedPolicyNo = rec.newPolicyNo || (nextRecord ? nextRecord.policyNo : "");
+                const renewedFromDate = rec.newPolicyFromDate || (nextRecord ? nextRecord.policyFromDate : "");
+                const renewedToDate = rec.newPolicyToDate || (nextRecord ? nextRecord.policyToDate : "");
+                const renewedIdv = (rec.newTotalIdv || rec.newIdv) || (nextRecord ? (nextRecord.totalIdv || nextRecord.idv) : 0);
+                const renewedJackCover = (rec.newHydraulicJackCover || rec.newHydrolicJackCover) || (nextRecord ? (nextRecord.hydraulicJackCover || nextRecord.hydrolicJackCover) : 0);
+                const renewedModeration = (rec.newModerationAmount || rec.newModerationAmountTipper) || (nextRecord ? (nextRecord.moderationAmount || nextRecord.moderationAmountTipper) : 0);
+                const renewedTotalPremium = (rec.newTotalPolicyPremium || rec.newPremium) || (nextRecord ? (nextRecord.totalPolicyPremium || nextRecord.premiumAmount) : 0);
+
+                const hasRenewedDetails = Boolean(renewedInsurer || renewedPolicyNo || renewedToDate);
 
                 return (
                   <Paper
@@ -426,15 +443,17 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
                             Renew from this Year
                           </Button>
                         )}
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="error"
-                          startIcon={<DeleteIcon />}
-                          onClick={() => handleDelete(rec)}
-                        >
-                          Delete
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            startIcon={<DeleteIcon />}
+                            onClick={() => handleDelete(rec)}
+                          >
+                            Delete
+                          </Button>
+                        )}
                       </Box>
                     </Box>
 
@@ -488,43 +507,43 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
 
                       {/* Section 2: Renewed Policy Details */}
                       <Grid item xs={12} md={6}>
-                        <Paper variant="outlined" sx={{ p: 2, backgroundColor: rec.newInsuranceCompany || rec.newPolicyNo ? "#e8f5e9" : "#fffde7" }}>
-                          <Typography variant="subtitle2" fontWeight="bold" color={rec.newInsuranceCompany ? "success.main" : "warning.dark"} gutterBottom>
-                            Renewed Policy Details {rec.newInsuranceCompany ? "(Completed)" : "(Pending / Draft)"}
+                        <Paper variant="outlined" sx={{ p: 2, backgroundColor: hasRenewedDetails ? "#e8f5e9" : "#fffde7" }}>
+                          <Typography variant="subtitle2" fontWeight="bold" color={hasRenewedDetails ? "success.main" : "warning.dark"} gutterBottom>
+                            Renewed Policy Details {hasRenewedDetails ? (nextRecord ? `(Renewed into Policy: ${renewedPolicyNo || "Next Cycle"})` : "(Completed)") : "(Pending / Draft)"}
                           </Typography>
                           <Grid container spacing={1}>
                             <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">Renewed Insurer</Typography>
-                              <Typography variant="body2" fontWeight="bold">{rec.newInsuranceCompany || "-"}</Typography>
+                              <Typography variant="body2" fontWeight="bold">{renewedInsurer || "-"}</Typography>
                             </Grid>
                             <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">Renewed Policy No.</Typography>
-                              <Typography variant="body2" fontWeight="bold">{rec.newPolicyNo || "-"}</Typography>
+                              <Typography variant="body2" fontWeight="bold">{renewedPolicyNo || "-"}</Typography>
                             </Grid>
                             <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">Renewed From</Typography>
-                              <Typography variant="body2">{rec.newPolicyFromDate ? new Date(rec.newPolicyFromDate).toLocaleDateString("en-IN") : "-"}</Typography>
+                              <Typography variant="body2">{renewedFromDate ? new Date(renewedFromDate).toLocaleDateString("en-IN") : "-"}</Typography>
                             </Grid>
                             <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">Renewed To</Typography>
-                              <Typography variant="body2">{rec.newPolicyToDate ? new Date(rec.newPolicyToDate).toLocaleDateString("en-IN") : "-"}</Typography>
+                              <Typography variant="body2">{renewedToDate ? new Date(renewedToDate).toLocaleDateString("en-IN") : "-"}</Typography>
                             </Grid>
                             <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">Renewed Total IDV</Typography>
-                              <Typography variant="body2">₹ {(rec.newTotalIdv || rec.newIdv || 0).toLocaleString("en-IN")}</Typography>
+                              <Typography variant="body2">₹ {Number(renewedIdv || 0).toLocaleString("en-IN")}</Typography>
                             </Grid>
                             <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">Renewed Hydraulic Jack</Typography>
-                              <Typography variant="body2">₹ {(rec.newHydraulicJackCover || rec.newHydrolicJackCover || 0).toLocaleString("en-IN")}</Typography>
+                              <Typography variant="body2">₹ {Number(renewedJackCover || 0).toLocaleString("en-IN")}</Typography>
                             </Grid>
                             <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">Renewed Moderation Amount</Typography>
-                              <Typography variant="body2">₹ {(rec.newModerationAmount || rec.newModerationAmountTipper || 0).toLocaleString("en-IN")}</Typography>
+                              <Typography variant="body2">₹ {Number(renewedModeration || 0).toLocaleString("en-IN")}</Typography>
                             </Grid>
                             <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">Renewed Total Premium</Typography>
                               <Typography variant="body2" fontWeight="bold" color="success.main">
-                                ₹ {(rec.newTotalPolicyPremium || rec.newPremium || 0).toLocaleString("en-IN")}
+                                ₹ {Number(renewedTotalPremium || 0).toLocaleString("en-IN")}
                               </Typography>
                             </Grid>
                           </Grid>
@@ -568,27 +587,31 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredHistory.map((row) => (
-                    <TableRow key={row._id} hover>
-                      <TableCell sx={{ fontWeight: "bold" }}>
-                        {row.policyFromDate ? new Date(row.policyFromDate).getFullYear() : "-"}
-                      </TableCell>
-                      <TableCell>{row.insuranceCompany || "-"}</TableCell>
-                      <TableCell>{row.policyNo || "-"}</TableCell>
-                      <TableCell>
-                        {row.policyFromDate ? new Date(row.policyFromDate).toLocaleDateString("en-IN") : "-"} to{" "}
-                        {row.policyToDate ? new Date(row.policyToDate).toLocaleDateString("en-IN") : "-"}
-                      </TableCell>
-                      <TableCell>₹ {(row.totalIdv || row.idv || 0).toLocaleString("en-IN")}</TableCell>
-                      <TableCell sx={{ fontWeight: "bold" }}>
-                        ₹ {(row.totalPolicyPremium || row.premiumAmount || 0).toLocaleString("en-IN")}
-                      </TableCell>
-                      <TableCell>{row.newInsuranceCompany || "-"}</TableCell>
-                      <TableCell sx={{ color: "success.main", fontWeight: "bold" }}>
-                        {row.newTotalPolicyPremium ? `₹ ${Number(row.newTotalPolicyPremium).toLocaleString("en-IN")}` : "-"}
-                      </TableCell>
-                      <TableCell>{row.prNumber || "-"}</TableCell>
-                      <TableCell>{getExpiryBadge(row.policyToDate || row.newPolicyToDate)}</TableCell>
+                  {filteredHistory.map((row, idx) => {
+                    const nxt = idx > 0 ? filteredHistory[idx - 1] : null;
+                    const rIns = row.newInsuranceCompany || (nxt ? nxt.insuranceCompany : "-");
+                    const rPrem = row.newTotalPolicyPremium || (nxt ? (nxt.totalPolicyPremium || nxt.premiumAmount) : null);
+                    return (
+                      <TableRow key={row._id} hover>
+                        <TableCell sx={{ fontWeight: "bold" }}>
+                          {row.policyFromDate ? new Date(row.policyFromDate).getFullYear() : "-"}
+                        </TableCell>
+                        <TableCell>{row.insuranceCompany || "-"}</TableCell>
+                        <TableCell>{row.policyNo || "-"}</TableCell>
+                        <TableCell>
+                          {row.policyFromDate ? new Date(row.policyFromDate).toLocaleDateString("en-IN") : "-"} to{" "}
+                          {row.policyToDate ? new Date(row.policyToDate).toLocaleDateString("en-IN") : "-"}
+                        </TableCell>
+                        <TableCell>₹ {(row.totalIdv || row.idv || 0).toLocaleString("en-IN")}</TableCell>
+                        <TableCell sx={{ fontWeight: "bold" }}>
+                          ₹ {(row.totalPolicyPremium || row.premiumAmount || 0).toLocaleString("en-IN")}
+                        </TableCell>
+                        <TableCell>{rIns}</TableCell>
+                        <TableCell sx={{ color: "success.main", fontWeight: "bold" }}>
+                          {rPrem ? `₹ ${Number(rPrem).toLocaleString("en-IN")}` : "-"}
+                        </TableCell>
+                        <TableCell>{row.prNumber || "-"}</TableCell>
+                        <TableCell>{getExpiryBadge(row.policyToDate || row.newPolicyToDate)}</TableCell>
                       <TableCell align="center">
                         <Stack direction="row" spacing={0.5} justifyContent="center">
                           {onView && (
@@ -612,15 +635,18 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
                               </IconButton>
                             </Tooltip>
                           )}
-                          <Tooltip title="Delete Record">
-                            <IconButton size="small" color="error" onClick={() => handleDelete(row)}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                          {isAdmin && (
+                            <Tooltip title="Delete Record">
+                              <IconButton size="small" color="error" onClick={() => handleDelete(row)}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </Stack>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>

@@ -26,7 +26,7 @@ const resolveMongoUri = () => {
     process.env.PROD_MONGODB_URI ||
     process.env.MONGODB_URI ||
     process.env.MONGO_URI ||
-    'mongodb://localhost:27017/exim'
+    'mongodb://0.0.0.0:27017/exim'
   );
 };
 
@@ -57,8 +57,8 @@ const logBalance = (label, balance) => {
 
   console.log(
     `${label}: leave_type=${balance.leave_type}, policy=${balance.leave_policy_id}, year=${balance.year}, ` +
-      `opening=${toFixedNum(balance.opening_balance)}, used=${toFixedNum(balance.used)}, ` +
-      `pending_approval=${toFixedNum(balance.pending_approval)}, closing=${toFixedNum(balance.closing_balance)}`
+    `opening=${toFixedNum(balance.opening_balance)}, used=${toFixedNum(balance.used)}, ` +
+    `pending_approval=${toFixedNum(balance.pending_approval)}, closing=${toFixedNum(balance.closing_balance)}`
   );
 };
 
@@ -112,11 +112,11 @@ const cancelApprovedLeave = async ({ leave, actorUserId, dryRun }) => {
 
   const afterBalance = balanceRecord
     ? {
-        ...balanceRecord.toObject(),
-        used: balanceRecord.used,
-        pending_approval: balanceRecord.pending_approval,
-        closing_balance: balanceRecord.closing_balance
-      }
+      ...balanceRecord.toObject(),
+      used: balanceRecord.used,
+      pending_approval: balanceRecord.pending_approval,
+      closing_balance: balanceRecord.closing_balance
+    }
     : null;
 
   logBalance('  Balance AFTER ', afterBalance);

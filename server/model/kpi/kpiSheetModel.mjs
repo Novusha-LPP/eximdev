@@ -17,7 +17,7 @@ const KPISheetRowSchema = new Schema({
     label_hi: {
         type: String, // Hindi translated label (copied from template)
     },
-    type: { // "numeric" | "checkbox" - copied from template
+    type: { // "numeric"
         type: String,
         default: "numeric"
     },
@@ -29,6 +29,14 @@ const KPISheetRowSchema = new Schema({
     total: {
         type: Number,
         default: 0,
+    },
+    actual: {
+        type: Number,
+        default: 0, // Row-wise sum of all days (matches total)
+    },
+    target: {
+        type: Number,
+        default: null, // Optional target
     },
     is_custom: {
         type: Boolean,
@@ -65,6 +73,10 @@ const KPISheetSchema = new Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "KPITemplate",
             required: true,
+        },
+        has_targets: {
+            type: Boolean,
+            default: false,
         },
         rows: [KPISheetRowSchema],
 
@@ -129,7 +141,20 @@ const KPISheetSchema = new Schema(
             total_value_score: { type: Number, default: 0 },
             average_complexity: { type: Number, default: 0 },
             performance_quadrant: { type: String, enum: ["Star", "Specialist", "Engine", "Drainer", ""], default: "" },
-            total_quantity: { type: Number, default: 0 }
+            total_quantity: { type: Number, default: 0 },
+            business_loss_nothing_to_report: { type: Boolean, default: false },
+            business_loss_remarks: { type: String, default: "" },
+            blockers_nothing_to_report: { type: Boolean, default: false },
+            blockers_recurrence_key: { type: String, default: "" },
+            open_points: [{
+                title: { type: String, default: "" },
+                targetDate: { type: Date },
+                responsibility: { type: String, default: "" },
+                priority: { type: String, enum: ["High", "Medium", "Low"], default: "Medium" }
+            }],
+            open_points_nothing_to_report: { type: Boolean, default: false },
+            open_points_count: { type: Number, default: 0 },
+            is_submitted_on_time: { type: Boolean, default: true }
         },
 
         // Signature Metadata
@@ -155,7 +180,7 @@ const KPISheetSchema = new Schema(
             changed_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
             changed_by_name: String,
             timestamp: { type: Date, default: Date.now },
-            action: { type: String, enum: ["CREATE", "UPDATE", "DELETE", "ADD_ROW", "REMOVE_ROW"] }
+            action: { type: String, enum: ["CREATE", "UPDATE", "DELETE", "ADD_ROW", "REMOVE_ROW", "UPDATE_TARGET", "TOGGLE_TARGETS"], default: "UPDATE" }
         }]
     },
     { timestamps: true }

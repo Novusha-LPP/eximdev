@@ -13,7 +13,7 @@ const CurrencyModel = mongoose.models.Currency || mongoose.model("Currency", cur
 
 async function seed() {
   try {
-    await mongoose.connect('mongodb://localhost:27017/eximNew');
+    await mongoose.connect('mongodb://0.0.0.0:27017/eximNew');
     console.log('Connected to MongoDB');
 
     const filePath = 'd:\\eximdev\\cuurency.txt';

@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 import { useFormik } from "formik";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 import { Checkbox } from "@mui/material";
@@ -68,20 +68,12 @@ const excelStyles = {
   }
 };
 
-const getExportApiString = (importApiString) => {
-  if (!importApiString) return "";
-  if (importApiString.includes("localhost:9006")) {
-    return importApiString.replace("localhost:9006", "localhost:9002");
-  }
-  if (importApiString.includes("/import/api")) {
-    return importApiString.replace("/import/api", "/export/api");
-  }
-  return importApiString.replace("9006", "9002").replace("/import/", "/export/");
-};
+
 
 const ViewBillingJob = () => {
   const routeLocation = useLocation();
   const { branch_code, trade_type, mode, job_no, year } = useParams();
+  const [urlSearchParams] = useSearchParams();
   const bl_no_ref = useRef();
   const [data, setData] = useState(null);
   const [fileSnackbar, setFileSnackbar] = useState(false);
@@ -107,13 +99,14 @@ const ViewBillingJob = () => {
       }
       setSearchJobLoading(true);
       try {
-        const exportApiString = getExportApiString(process.env.REACT_APP_API_STRING);
-        const response = await axios.get(`${exportApiString}/job-numbers-search?completed=true&q=${searchJobInputValue}`);
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/search-completed-import-jobs?q=${encodeURIComponent(searchJobInputValue)}`
+        );
         if (active) {
           setSearchJobOptions(response.data.data || []);
         }
       } catch (err) {
-        console.error("Error searching completed export job numbers:", err);
+        console.error("Error searching completed import job numbers:", err);
       } finally {
         setSearchJobLoading(false);
       }
@@ -127,43 +120,46 @@ const ViewBillingJob = () => {
   const handleCopyFromJob = async (selectedJobNo) => {
     if (!selectedJobNo) return;
 
-    if (window.confirm(`⚠️ DO YOU WANT TO COPY COMPLETED JOB DATA (${selectedJobNo}) INTO THIS GENERAL JOB? \n\nThis will overwrite the billing fields with the completed export job details.`)) {
+    if (window.confirm(`⚠️ DO YOU WANT TO COPY COMPLETED IMPORT JOB DATA (${selectedJobNo}) INTO THIS GENERAL JOB? \n\nThis will overwrite the billing fields with the completed import job details.`)) {
       try {
-        const exportApiString = getExportApiString(process.env.REACT_APP_API_STRING);
-        const response = await axios.get(`${exportApiString}/get-export-job/${encodeURIComponent(selectedJobNo)}`);
-        const exportJob = response.data;
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-completed-import-job/${encodeURIComponent(selectedJobNo)}`
+        );
+        const importJob = response.data;
 
-        if (exportJob) {
-          const invoice = exportJob.invoices?.[0] || {};
-          const customerRef = exportJob.exporter_ref_no || "";
-          
-          // Calculate CIF Value
-          const fobVal = parseFloat(invoice.freightInsuranceCharges?.fobValue?.amount || invoice.invoiceValue || 0);
-          const freightVal = parseFloat(invoice.freightInsuranceCharges?.freight?.amount || 0);
-          const insuranceVal = parseFloat(invoice.freightInsuranceCharges?.insurance?.amount || 0);
-          const calculatedCif = fobVal + freightVal + insuranceVal;
+        if (importJob) {
+          // Extract container numbers as a comma-separated string
+          const containerNos = (importJob.container_nos || [])
+            .map((c) => c.container_number)
+            .filter(Boolean)
+            .join(", ");
 
           formik.setValues({
             ...formik.values,
-            sb_no: exportJob.sb_no || "",
-            sb_date: exportJob.sb_date || "",
-            consignment_type: exportJob.consignmentType || "",
-            vessel_flight: exportJob.vessel_name || exportJob.vessel || "",
-            po_no: customerRef,
-            invoice_number: invoice.invoiceNumber || "",
-            invoice_date: invoice.invoiceDate || "",
-            toi: invoice.termsOfInvoice || "",
-            total_inv_value: invoice.invoiceValue ? String(invoice.invoiceValue) : "",
-            cifValue: calculatedCif ? String(calculatedCif) : "",
-            assbl_value: exportJob.assbl_value || exportJob.assessableValue || "",
-            total_duty: exportJob.total_duty || "",
+            // BE fields instead of SB fields
+            sb_no: importJob.be_no || "",
+            sb_date: importJob.be_date || "",
+            consignment_type: importJob.consignment_type || "",
+            vessel_flight: importJob.vessel_berthing || importJob.vessel_flight || "",
+            po_no: importJob.importer || "",
+            invoice_number: importJob.awb_bl_no || importJob.hawb_hbl_no || "",
+            invoice_date: importJob.awb_bl_date || "",
+            toi: importJob.type_of_b_e || "",
+            total_inv_value: importJob.cif_amount || "",
+            cifValue: importJob.cif_amount || "",
+            assbl_value: importJob.cif_amount || "",
+            total_duty: "",
           });
 
-          alert("Job data copied successfully!");
+          alert(`Import job data copied successfully!\n\nJob: ${importJob.job_number || importJob.job_no}\nImporter: ${importJob.importer || ""}\nBE No: ${importJob.be_no || "N/A"}`);
         }
       } catch (err) {
-        console.error("Error copying job data:", err);
-        alert("Error fetching source job data.");
+        console.error("Error copying import job data:", err);
+        if (err.response?.status === 404) {
+          alert("Job not found. Please make sure the job is completed.");
+        } else {
+          alert("Error fetching source job data.");
+        }
       }
     }
   };
@@ -184,12 +180,23 @@ const ViewBillingJob = () => {
     }
   }, [routeLocation.state]);
   const handleBackClick = () => {
-    const tabIndex =
-      storedSearchParams?.currentTab !== undefined
-        ? storedSearchParams.currentTab
-        : (sessionStorage.getItem("import_billing_tab") !== null
-            ? Number(sessionStorage.getItem("import_billing_tab"))
-            : 0);
+    // Priority: URL query param > route state > branch_code auto-detect > sessionStorage > 0
+    const urlTab = urlSearchParams.get("currentTab");
+    let tabIndex;
+    if (urlTab !== null) {
+      tabIndex = Number(urlTab);
+    } else if (storedSearchParams?.currentTab !== undefined) {
+      tabIndex = storedSearchParams.currentTab;
+    } else if (branch_code === "GEN" || job_no?.toUpperCase().startsWith("GEN")) {
+      tabIndex = 2; // General Job tab
+    } else if (sessionStorage.getItem("import_billing_tab") !== null) {
+      tabIndex = Number(sessionStorage.getItem("import_billing_tab"));
+    } else {
+      tabIndex = 0;
+    }
+
+    // Sync sessionStorage so ImportBillingTab restores correctly
+    sessionStorage.setItem("import_billing_tab", tabIndex.toString());
 
     navigate("/import-billing", {
       state: {
@@ -565,25 +572,31 @@ const ViewBillingJob = () => {
                       open={searchJobOpen}
                       onOpen={() => setSearchJobOpen(true)}
                       onClose={() => setSearchJobOpen(false)}
-                      isOptionEqualToValue={(option, value) => option === value}
-                      getOptionLabel={(option) => option}
+                      isOptionEqualToValue={(option, value) => option?.job_number === value?.job_number}
+                      getOptionLabel={(option) => option?.job_number || option || ""}
                       options={searchJobOptions}
                       loading={searchJobLoading}
                       onInputChange={(event, newInputValue) => {
                         setSearchJobInputValue(newInputValue);
                       }}
                       onChange={(event, newValue) => {
-                        handleCopyFromJob(newValue);
+                        if (newValue?.job_number) {
+                          handleCopyFromJob(newValue.job_number);
+                        }
                       }}
                       renderOption={(props, option) => (
                         <li {...props} style={{ fontSize: 13, padding: '6px 12px' }}>
-                          {option}
+                          <div>
+                            <div style={{ fontWeight: 600 }}>{option.job_number}</div>
+                            {option.be_no && <div style={{ fontSize: 11, color: '#666' }}>BE: {option.be_no}</div>}
+                            {option.importer && <div style={{ fontSize: 11, color: '#888' }}>{option.importer}</div>}
+                          </div>
                         </li>
                       )}
                       renderInput={(params) => (
                         <TextField
                           {...params}
-                          placeholder="Search Job No..."
+                          placeholder="Search Job No / BE No / Importer..."
                           variant="outlined"
                           size="small"
                           InputProps={{
@@ -621,7 +634,7 @@ const ViewBillingJob = () => {
                       fullWidth
                     />
                     <TextField
-                      label="SB No"
+                      label="BE No"
                       name="sb_no"
                       value={formik.values.sb_no}
                       onChange={formik.handleChange}
@@ -629,7 +642,7 @@ const ViewBillingJob = () => {
                       fullWidth
                     />
                     <TextField
-                      label="SB Date"
+                      label="BE Date"
                       name="sb_date"
                       value={formik.values.sb_date}
                       onChange={formik.handleChange}
@@ -653,7 +666,7 @@ const ViewBillingJob = () => {
                       fullWidth
                     />
                     <TextField
-                      label="Customer Ref."
+                      label="Importer Name"
                       name="po_no"
                       value={formik.values.po_no}
                       onChange={formik.handleChange}
@@ -665,7 +678,7 @@ const ViewBillingJob = () => {
                   {/* Right Column */}
                   <Col md={6} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
                     <TextField
-                      label="Invoice Number"
+                      label="BL / AWB No"
                       name="invoice_number"
                       value={formik.values.invoice_number}
                       onChange={formik.handleChange}
@@ -673,7 +686,7 @@ const ViewBillingJob = () => {
                       fullWidth
                     />
                     <TextField
-                      label="Inv Date"
+                      label="BL / AWB Date"
                       name="invoice_date"
                       value={formik.values.invoice_date}
                       onChange={formik.handleChange}
@@ -681,7 +694,7 @@ const ViewBillingJob = () => {
                       fullWidth
                     />
                     <TextField
-                      label="Terms of Invoice"
+                      label="Type of BE"
                       name="toi"
                       value={formik.values.toi}
                       onChange={formik.handleChange}

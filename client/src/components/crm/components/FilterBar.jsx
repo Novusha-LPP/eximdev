@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Filter, RotateCcw } from 'lucide-react';
 
-export default function FilterBar({ moduleName, onChange }) {
+export default function FilterBar({ moduleName, onChange, disabled = false }) {
   const getInitialFilters = () => {
     try {
       const stored = localStorage.getItem(`crm_filters_${moduleName}`);
@@ -151,13 +151,15 @@ export default function FilterBar({ moduleName, onChange }) {
             <button
               key={btn.id}
               onClick={() => handleQuickFilter(btn.id)}
+              disabled={disabled}
               style={{
                 padding: '8px 16px',
                 borderRadius: '10px',
                 border: '1px solid',
                 fontSize: '0.85rem',
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                opacity: disabled ? 0.5 : 1,
                 transition: 'all 0.2s',
                 ...(isActive ? activeBtnStyle : inactiveBtnStyle)
               }}
@@ -176,6 +178,7 @@ export default function FilterBar({ moduleName, onChange }) {
           <select
             value={filters.month || ''}
             onChange={handleMonthChange}
+            disabled={disabled}
             style={{
               padding: '8px 14px',
               border: '1px solid #e2e8f0',
@@ -184,7 +187,8 @@ export default function FilterBar({ moduleName, onChange }) {
               color: '#334155',
               background: '#ffffff',
               fontWeight: 600,
-              cursor: 'pointer',
+              cursor: disabled ? 'not-allowed' : 'pointer',
+              opacity: disabled ? 0.5 : 1,
               outline: 'none'
             }}
           >
@@ -201,28 +205,32 @@ export default function FilterBar({ moduleName, onChange }) {
           <input
             type="date"
             value={filters.startDate || ''}
+            disabled={disabled}
             onChange={(e) => handleCustomDateChange('startDate', e.target.value)}
-            style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '0.85rem', color: '#334155', fontWeight: 600 }}
+            style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '0.85rem', color: '#334155', fontWeight: 600, opacity: disabled ? 0.5 : 1 }}
           />
           <span style={{ color: '#cbd5e1', fontWeight: 700 }}>to</span>
           <input
             type="date"
             value={filters.endDate || ''}
+            disabled={disabled}
             onChange={(e) => handleCustomDateChange('endDate', e.target.value)}
-            style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '0.85rem', color: '#334155', fontWeight: 600 }}
+            style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '0.85rem', color: '#334155', fontWeight: 600, opacity: disabled ? 0.5 : 1 }}
           />
         </div>
 
         {/* Reset */}
         <button
           onClick={handleReset}
+          disabled={disabled}
           style={{
             background: '#ffffff',
             border: '1px solid #e2e8f0',
             color: '#64748b',
             borderRadius: '10px',
             padding: '8px',
-            cursor: 'pointer',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            opacity: disabled ? 0.5 : 1,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

@@ -4,11 +4,11 @@ credentials-file: D:\eximdev\cloudflare\exim-import.json
 ingress:
   # Frontend
   - hostname: test-frontend.alvision.in
-    service: http://localhost:3000
+    service: http://0.0.0.0:3000
 
   # Backend API
   - hostname: test-backend.alvision.in
-    service: http://localhost:9006
+    service: http://0.0.0.0:9006
 
   # Catch-all
   - service: http_status:404

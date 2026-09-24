@@ -31,12 +31,71 @@ export default function QuoteFormModal({
   initialEmail,
   initialContactName
 }) {
+  const getChargeTemplate = (selectedType = 'import') => {
+    const templates = {
+      import: [
+        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 6000, discount: 0, tax: 18 },
+        { productName: 'Shipping Line Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 18 },
+        { productName: 'CFS Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 18 },
+        { productName: 'EDI Charges', hsnSac: '9987', quantity: 1, unitPrice: 70, discount: 0, tax: 18 },
+        { productName: 'Bond & Insurance Charges for Factory De-stuffing', hsnSac: '9987', quantity: 1, unitPrice: 750, discount: 0, tax: 18 },
+        { productName: 'Stamp Duty (0.1% of Assessable Value)', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Lift off Charges', hsnSac: '9987', quantity: 1, unitPrice: 2000, discount: 0, tax: 18 },
+        { productName: 'Other Charges, If any', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 18 }
+      ],
+      export: [
+        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 2200, discount: 0, tax: 18 },
+        { productName: 'Shipping Line Documentation Charges', hsnSac: '9987', quantity: 1, unitPrice: 1800, discount: 0, tax: 18 },
+        { productName: 'Customs Filing Charges', hsnSac: '9987', quantity: 1, unitPrice: 1200, discount: 0, tax: 18 },
+        { productName: 'EDI Charges', hsnSac: '9987', quantity: 1, unitPrice: 60, discount: 0, tax: 18 },
+        { productName: 'CFS / Gate Charges', hsnSac: '9987', quantity: 1, unitPrice: 13000, discount: 0, tax: 18 },
+        { productName: 'Transport to Port / ICD', hsnSac: '9987', quantity: 1, unitPrice: 9500, discount: 0, tax: 18 },
+        { productName: 'Terminal Handling Charges', hsnSac: '9987', quantity: 1, unitPrice: 6000, discount: 0, tax: 18 },
+        { productName: 'Lift on / Lift off Charges', hsnSac: '9987', quantity: 1, unitPrice: 1800, discount: 0, tax: 18 },
+        { productName: 'Seal / Security Charges', hsnSac: '9987', quantity: 1, unitPrice: 1200, discount: 0, tax: 18 },
+        { productName: 'Documentation / Insurance', hsnSac: '9987', quantity: 1, unitPrice: 1500, discount: 0, tax: 18 }
+      ],
+      freight_import: [
+        { productName: 'Ocean Freight Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Terminal Handling Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Bill of Lading Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Seal Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Transportation / Trailer Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 6000, discount: 0, tax: 18 }
+      ],
+      freight_export: [
+        { productName: 'Ocean Freight Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Terminal Handling Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Bill of Lading Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Seal Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Transportation / Trailer Charges', hsnSac: '9987', quantity: 1, unitPrice: 0, discount: 0, tax: 0 },
+        { productName: 'Agency Charges', hsnSac: '9987', quantity: 1, unitPrice: 6000, discount: 0, tax: 18 }
+      ],
+      transport: [
+        { productName: 'PICKUP AHMEDABAD (ICD KHODIYAR) STUFFING : PIPLEJ /NAROL RETURN : MUNDRA - 20FT UP TO 14 TONS+', hsnSac: '9967', quantity: 1, unitPrice: 0, discount: 0, tax: 12 },
+        { productName: 'PICKUP AHMEDABAD (ICD KHODIYAR) STUFFING : PIPLEJ /NAROL RETURN : MUNDRA - 40HC UP TO 28 TONS+', hsnSac: '9967', quantity: 1, unitPrice: 0, discount: 0, tax: 12 }
+      ],
+      pfp: [
+        { productName: 'HDPE/PP Plastic Crate', hsnSac: '3923', quantity: 1, unitPrice: 0, discount: 0, tax: 18 }
+      ],
+      software_elock: [
+        { productName: 'Software Installation & Initial Deployment', hsnSac: '9973', quantity: 1, unitPrice: 0, discount: 0, tax: 18 },
+        { productName: 'Monthly Software Subscription', hsnSac: '9973', quantity: 1, unitPrice: 0, discount: 0, tax: 18 },
+        { productName: 'E-Lock Usage / Rental - Per Trip', hsnSac: '9973', quantity: 1, unitPrice: 0, discount: 0, tax: 18 }
+      ]
+    };
+
+    return templates[selectedType] || templates.import;
+  };
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     accountId: '',
     opportunityId: '',
     contactId: '',
+    tradeType: 'import',
+    companyTemplate: 'standard',
     placeOfSupply: 'Gujarat (24)',
     billToAddress: '',
     shipToAddress: '',
@@ -103,6 +162,8 @@ export default function QuoteFormModal({
               accountId: accId,
               opportunityId: oppId,
               contactId: cntId,
+              tradeType: quoteToEdit.tradeType || 'import',
+              companyTemplate: quoteToEdit.companyTemplate || 'standard',
               placeOfSupply: quoteToEdit.placeOfSupply || 'Gujarat (24)',
               billToAddress: quoteToEdit.billToAddress || '',
               shipToAddress: quoteToEdit.shipToAddress || '',
@@ -188,18 +249,20 @@ export default function QuoteFormModal({
             const selectedCnt = contsRes.data.find(c => c._id === cntId);
             setContactSearch(selectedCnt ? `${selectedCnt.firstName} ${selectedCnt.lastName || ''}`.trim() : (initialContactName || ''));
 
+            const initialTradeType = /export/i.test(initialOpportunityName || initialTitle || '') ? 'export' : 'import';
+
             setFormData({
               title: initialTitle || '',
               description: '',
               accountId: accId,
               opportunityId: oppId,
               contactId: cntId,
+              tradeType: initialTradeType,
+              companyTemplate: 'standard',
               placeOfSupply: 'Gujarat (24)',
               billToAddress: selectedAcc ? (selectedAcc.address || '') : '',
               shipToAddress: selectedAcc ? (selectedAcc.address || '') : '',
-              lineItems: [
-                { productName: '', hsnSac: '392310', quantity: 1, unitPrice: 0, discount: 0, tax: 0, lineTotal: 0 }
-              ],
+              lineItems: getChargeTemplate(initialTradeType),
               terms: {
                 validFrom: today.toISOString().substring(0, 10),
                 validUntil: nextMonth.toISOString().substring(0, 10),
@@ -221,6 +284,31 @@ export default function QuoteFormModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, quoteToEdit, initialAccountId, initialOpportunityId, initialContactId, initialCompany, initialEmail, initialContactName, initialOpportunityName]);
+
+  const handleTradeTypeChange = (nextType) => {
+    setFormData(prev => {
+      // Check if current lines perfectly match any of the default templates
+      const currentLinesStr = JSON.stringify(prev.lineItems.map(i => i.productName));
+      const importLinesStr = JSON.stringify(getChargeTemplate('import').map(i => i.productName));
+      const exportLinesStr = JSON.stringify(getChargeTemplate('export').map(i => i.productName));
+      const frImportLinesStr = JSON.stringify(getChargeTemplate('freight_import').map(i => i.productName));
+      const frExportLinesStr = JSON.stringify(getChargeTemplate('freight_export').map(i => i.productName));
+      const transportLinesStr = JSON.stringify(getChargeTemplate('transport').map(i => i.productName));
+      const pfpLinesStr = JSON.stringify(getChargeTemplate('pfp').map(i => i.productName));
+      const softwareElockLinesStr = JSON.stringify(getChargeTemplate('software_elock').map(i => i.productName));
+      const isDefault = currentLinesStr === importLinesStr || currentLinesStr === exportLinesStr || currentLinesStr === frImportLinesStr || currentLinesStr === frExportLinesStr || currentLinesStr === transportLinesStr || currentLinesStr === pfpLinesStr || currentLinesStr === softwareElockLinesStr;
+      
+      const shouldReplace = !quoteToEdit && (isDefault || prev.lineItems.length === 0);
+
+      return {
+        ...prev,
+        tradeType: nextType,
+        lineItems: shouldReplace 
+          ? getChargeTemplate(nextType).map(item => ({ ...item, lineTotal: (item.quantity || 1) * (item.unitPrice || 0) }))
+          : prev.lineItems
+      };
+    });
+  };
 
   // Handle line item update
   const handleLineItemChange = (index, field, value) => {
@@ -307,7 +395,7 @@ export default function QuoteFormModal({
         // Create new
         const res = await axios.post(
           `${process.env.REACT_APP_API_STRING}/crm/quotes`,
-          formData,
+          { ...formData, tradeType: formData.tradeType || 'import' },
           getHeaders()
         );
         message.success('Quotation created successfully');
@@ -443,7 +531,7 @@ export default function QuoteFormModal({
           <div className="scrollable-body" style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
             {/* Meta Section */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>PROPOSAL TITLE *</label>
                 <input
@@ -466,6 +554,23 @@ export default function QuoteFormModal({
                   <option value="sent">Sent</option>
                   <option value="accepted">Accepted</option>
                   <option value="rejected">Rejected</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>QUOTE TYPE</label>
+                <select
+                  value={formData.tradeType || 'import'}
+                  onChange={e => handleTradeTypeChange(e.target.value)}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', background: '#fff' }}
+                >
+                  <option value="import">Customs Clearance - Import</option>
+                  <option value="export">Customs Clearance - Export</option>
+                  <option value="freight_import">Freight Forwarding - Import</option>
+                  <option value="freight_export">Freight Forwarding - Export</option>
+                  <option value="transport">Transportation (SRCC)</option>
+                  <option value="pfp">Plastic Crates (Paramount)</option>
+                  <option value="software_elock">Software & E-Lock Services</option>
                 </select>
               </div>
             </div>
@@ -596,7 +701,19 @@ export default function QuoteFormModal({
                         <div
                           key={o._id}
                           onClick={() => {
-                            setFormData(prev => ({ ...prev, opportunityId: o._id }));
+                            // FR-18: Auto-select template based on opportunity vertical or service
+                            let autoTemplate = formData.companyTemplate;
+                            const servicesStr = (o.services || []).join(' ').toLowerCase();
+                            const vertStr = (o.businessVertical || '').toLowerCase();
+                            if (servicesStr.includes('e-lock') || servicesStr.includes('elock') || vertStr.includes('elock')) {
+                              autoTemplate = 'elock';
+                            } else if (servicesStr.includes('freight') || vertStr.includes('freight') || vertStr.includes('export') || vertStr.includes('import')) {
+                              autoTemplate = 'exim';
+                            } else if (vertStr.includes('paramount') || servicesStr.includes('paramount')) {
+                              autoTemplate = 'paramount';
+                            }
+
+                            setFormData(prev => ({ ...prev, opportunityId: o._id, companyTemplate: autoTemplate }));
                             setOpportunitySearch(o.name);
                             setIsOpportunityDropdownOpen(false);
                           }}

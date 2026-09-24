@@ -308,7 +308,7 @@ const buildQuoteEmailHTML = (quote, customBody) => {
 // CREATE quote
 router.post('/', async (req, res) => {
   try {
-    const { opportunityId, accountId, contactId, title, description, lineItems = [], terms, placeOfSupply, billToAddress, shipToAddress } = req.body;
+    const { opportunityId, accountId, contactId, title, description, lineItems = [], terms, placeOfSupply, billToAddress, shipToAddress, companyTemplate, tradeType } = req.body;
 
     if (!accountId || !title) {
       return res.status(400).json({ message: 'Account and title are required' });
@@ -366,6 +366,8 @@ router.post('/', async (req, res) => {
       placeOfSupply,
       billToAddress,
       shipToAddress,
+      companyTemplate: companyTemplate || 'standard',
+      tradeType: tradeType || 'import',
       createdById: creatorId,
       businessVertical: finalVertical
     });
@@ -486,6 +488,8 @@ router.put('/:id', async (req, res) => {
     if (req.body.placeOfSupply !== undefined) quote.placeOfSupply = req.body.placeOfSupply;
     if (req.body.billToAddress !== undefined) quote.billToAddress = req.body.billToAddress;
     if (req.body.shipToAddress !== undefined) quote.shipToAddress = req.body.shipToAddress;
+    if (req.body.companyTemplate !== undefined) quote.companyTemplate = req.body.companyTemplate || 'standard';
+    if (req.body.tradeType !== undefined) quote.tradeType = ['import', 'export'].includes(req.body.tradeType) ? req.body.tradeType : 'import';
 
     await quote.save();
 
@@ -625,6 +629,29 @@ router.post('/:id/send', async (req, res) => {
         : `Quote ${quote.quoteNumber} marked as sent to ${recipientEmail}`,
       quote: populated
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Send quote for invoice processing
+router.post('/:id/send-for-invoice', async (req, res) => {
+  try {
+    const { companyTemplate, invoiceReference } = req.body;
+    const quote = await Quote.findOne({ _id: req.params.id });
+    if (!quote) return res.status(404).json({ message: 'Quote not found' });
+
+    if (!['accepted', 'converted', 'viewed'].includes(quote.status)) {
+      return res.status(400).json({ message: 'Only accepted, viewed, or converted quotes can be sent for invoicing' });
+    }
+
+    quote.companyTemplate = companyTemplate || quote.companyTemplate || 'standard';
+    quote.invoiceReference = invoiceReference || `INV-${quote.quoteNumber.replace('QT', 'INV')}`;
+    quote.invoiceRequestStatus = 'requested';
+    quote.status = 'invoice_requested';
+    await quote.save();
+
+    res.json({ success: true, message: 'Quote sent for invoice processing', quote });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

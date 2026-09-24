@@ -16,6 +16,18 @@ import HistoryIcon from '@mui/icons-material/History';
 
 const roundWholeAmount = (value) => Math.round(Number(value || 0));
 
+const NO_GST_DEFAULT_CHARGES = [
+  "SIMS APPLICATION FEES",
+  "PIMS APPLICATION FEES",
+  "SIMS REGISTRATION CHARGES",
+  "PIMS REGISTRATION CHARGES"
+];
+
+const isNoGstDefaultCharge = (chargeHead) => {
+  if (!chargeHead) return false;
+  return NO_GST_DEFAULT_CHARGES.includes(chargeHead.toUpperCase().trim());
+};
+
 const EditChargeModal = ({
   isOpen,
   onClose,
@@ -299,9 +311,11 @@ const EditChargeModal = ({
           ? charge.cost.isTds
           : Boolean(charge.cost?.tdsAmount > 0 || charge.cost?.tdsCategory || charge.tdsCategory);
 
+        const isNoGstDefault = isNoGstDefaultCharge(charge.chargeHead);
+
         const costIsGst = (charge.cost && charge.cost.isGst !== undefined)
-          ? charge.cost.isGst
-          : true;
+          ? (isNoGstDefault && charge.payment_request_status !== 'Paid' && !charge.cost?.userModifiedGst ? false : charge.cost.isGst)
+          : (isNoGstDefault ? false : true);
 
         const costTdsPercent = parseFloat(charge.cost?.tdsPercent) || (costIsTds ? 2 : 0);
         const costTdsCat = charge.cost?.tdsCategory || charge.tdsCategory || '94C';
@@ -326,17 +340,19 @@ const EditChargeModal = ({
           sacHsn: charge.sacHsn || definedSacHsn || '',
           revenue: {
             ...(charge.revenue || {}),
-            isGst: revIsGst,
-            isTds: revIsTds,
-            tdsPercent: revTdsPercent,
-            tdsCategory: revTdsCat,
-            tdsAmount: roundWholeAmount(charge.revenue?.tdsAmount),
+            isGst: false,
+            isTds: false,
+            tdsPercent: 0,
+            tdsCategory: '',
+            tdsAmount: 0,
             partyType: charge.revenue?.partyType || 'Customer',
             partyName: charge.revenue?.partyName || localImporterName || importerName || ''
           },
           cost: {
             ...(charge.cost || {}),
             isGst: costIsGst,
+            gstAmount: costIsGst ? charge.cost?.gstAmount : 0,
+            basicAmount: costIsGst ? charge.cost?.basicAmount : (charge.cost?.amount || ((parseFloat(charge.cost?.qty) || 1) * (parseFloat(charge.cost?.rate) || 0))),
             isTds: costIsTds,
             tdsPercent: costTdsPercent,
             tdsCategory: costTdsCat,
@@ -395,6 +411,13 @@ const EditChargeModal = ({
       if (section) {
         updated[index][section] = updated[index][section] || {};
         updated[index][section][field] = value;
+
+        if (field === 'isGst') {
+          updated[index][section].userModifiedGst = true;
+          if (value === true && !updated[index][section].gstRate) {
+            updated[index][section].gstRate = 18;
+          }
+        }
 
         if (field === 'tdsPercent') {
           const valNum = parseFloat(value) || 0;
@@ -517,33 +540,33 @@ const EditChargeModal = ({
             if (field === 'basicAmount' && section === secKey) {
               derivedBasic = parseFloat(value) || 0;
               // Keep total amount (amount) unaffected
-            } else if (['qty', 'rate', 'gstRate'].includes(field)) {
-              derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
+            } else if (['qty', 'rate', 'gstRate', 'isGst'].includes(field)) {
+              derivedBasic = includeGst ? Number((amount / (1 + (gstRate / 100))).toFixed(2)) : amount;
             } else {
               if (amount === 0 && (sectionRef.amount || sectionRef.basicAmount)) {
-                amount = parseFloat(sectionRef.amount) || (parseFloat(sectionRef.basicAmount) * (1 + (gstRate / 100))) || 0;
-                derivedBasic = parseFloat(sectionRef.basicAmount) || Number((amount / (1 + (gstRate / 100))).toFixed(2));
+                amount = parseFloat(sectionRef.amount) || (includeGst ? (parseFloat(sectionRef.basicAmount) * (1 + (gstRate / 100))) : parseFloat(sectionRef.basicAmount)) || 0;
+                derivedBasic = parseFloat(sectionRef.basicAmount) || (includeGst ? Number((amount / (1 + (gstRate / 100))).toFixed(2)) : amount);
               } else {
-                derivedBasic = parseFloat(sectionRef.basicAmount) || 0;
+                derivedBasic = parseFloat(sectionRef.basicAmount) || amount;
               }
             }
-            derivedGst = 0;
+            derivedGst = includeGst ? Number((amount - derivedBasic).toFixed(2)) : 0;
           } else {
             // INCLUSIVE LOGIC for other categories
             if (field === 'basicAmount' && section === secKey) {
               derivedBasic = parseFloat(value) || 0;
               // Keep total amount (amount) unaffected
             } else if (['qty', 'rate', 'gstRate', 'isGst'].includes(field)) {
-              derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
+              derivedBasic = includeGst ? Number((amount / (1 + (gstRate / 100))).toFixed(2)) : amount;
             } else {
               if (amount === 0 && (sectionRef.amount || sectionRef.basicAmount)) {
-                amount = parseFloat(sectionRef.amount) || (parseFloat(sectionRef.basicAmount) * (1 + (gstRate / 100))) || 0;
-                derivedBasic = parseFloat(sectionRef.basicAmount) || Number((amount / (1 + (gstRate / 100))).toFixed(2));
+                amount = parseFloat(sectionRef.amount) || (includeGst ? (parseFloat(sectionRef.basicAmount) * (1 + (gstRate / 100))) : parseFloat(sectionRef.basicAmount)) || 0;
+                derivedBasic = parseFloat(sectionRef.basicAmount) || (includeGst ? Number((amount / (1 + (gstRate / 100))).toFixed(2)) : amount);
               } else {
-                derivedBasic = parseFloat(sectionRef.basicAmount) || 0;
+                derivedBasic = parseFloat(sectionRef.basicAmount) || amount;
               }
             }
-            derivedGst = amount - derivedBasic;
+            derivedGst = includeGst ? (amount - derivedBasic) : 0;
           }
 
           // Back-calculate rate if it got out of sync (e.g. manual basicAmount entry or DB load)
@@ -606,12 +629,24 @@ const EditChargeModal = ({
           // Net Payable Calculation:
           // "Include GST" (Checked): Net = Total Amount - TDS
           // "Exclude GST" (Unchecked): Net = Basic Amount - TDS
-          if (includeGst) {
-            sectionRef.netPayable = Math.round(amount - sectionRef.tdsAmount);
-            sectionRef.netReceivable = Math.round(amount - sectionRef.tdsAmount);
+          if (secKey === 'revenue') {
+            sectionRef.isGst = false;
+            sectionRef.gstAmount = 0;
+            sectionRef.cgst = 0;
+            sectionRef.sgst = 0;
+            sectionRef.igst = 0;
+            sectionRef.isTds = false;
+            sectionRef.tdsAmount = 0;
+            sectionRef.tdsPercent = 0;
+            sectionRef.tdsCategory = '';
+            sectionRef.basicAmount = sectionRef.amountINR || amount * exRate;
+            sectionRef.netReceivable = Math.round(sectionRef.amountINR || amount * exRate);
           } else {
-            sectionRef.netPayable = Math.round(sectionRef.basicAmount - sectionRef.tdsAmount);
-            sectionRef.netReceivable = Math.round(sectionRef.basicAmount - sectionRef.tdsAmount);
+            if (includeGst) {
+              sectionRef.netPayable = Math.round(amount - sectionRef.tdsAmount);
+            } else {
+              sectionRef.netPayable = Math.round(sectionRef.basicAmount - sectionRef.tdsAmount);
+            }
           }
         });
       }
@@ -686,11 +721,13 @@ const EditChargeModal = ({
       rate: cost.rate,
       currency: cost.currency,
       exchangeRate: cost.exchangeRate || 1,
-      isGst: cost.isGst !== undefined ? cost.isGst : true,
-      gstRate: cost.gstRate || 18,
-      isTds: cost.isTds !== undefined ? cost.isTds : false,
-      tdsPercent: cost.tdsPercent || 0,
-      tdsCategory: cost.tdsCategory || '',
+      isGst: false,
+      gstRate: 0,
+      gstAmount: 0,
+      isTds: false,
+      tdsPercent: 0,
+      tdsAmount: 0,
+      tdsCategory: '',
       chargeDescription: cost.chargeDescription,
       partyName: updated[index].revenue?.partyName || localImporterName || importerName || '',
       partyType: updated[index].revenue?.partyType || 'Customer',
@@ -706,15 +743,9 @@ const EditChargeModal = ({
 
     revenue.amount = amount;
     revenue.amountINR = amount * exRate;
-
-    const gstRate = parseFloat(revenue.gstRate) || 18;
-    const isMargin = updated[index].category === 'Margin';
-    const isReimbursement = updated[index].category === 'Reimbursement';
-    const derivedBasic = isMargin ? amount : Number((amount / (1 + (gstRate / 100))).toFixed(2));
-    const derivedGst = (isMargin || isReimbursement) ? 0 : (amount - derivedBasic);
-
-    revenue.gstAmount = derivedGst;
-    revenue.basicAmount = derivedBasic;
+    revenue.gstAmount = 0;
+    revenue.basicAmount = amount * exRate;
+    revenue.netReceivable = Math.round(amount * exRate);
 
     updated[index].revenue = revenue;
     setFormData(updated);
@@ -732,8 +763,13 @@ const EditChargeModal = ({
       rate: cost.rate,
       currency: cost.currency,
       exchangeRate: cost.exchangeRate || 1,
-      isGst: cost.isGst !== undefined ? cost.isGst : true,
-      gstRate: cost.gstRate || 18,
+      isGst: false,
+      gstRate: 0,
+      gstAmount: 0,
+      isTds: false,
+      tdsPercent: 0,
+      tdsAmount: 0,
+      tdsCategory: '',
       chargeDescription: cost.chargeDescription,
       partyName: updated[index].revenue?.partyName || localImporterName || importerName || '',
       partyType: updated[index].revenue?.partyType || 'Customer',
@@ -746,18 +782,12 @@ const EditChargeModal = ({
     const rate = parseFloat(revenue.rate) || 0;
     const exRate = parseFloat(revenue.exchangeRate) || 1;
     const amount = qty * rate;
-    const isMargin = updated[index].category === 'Margin';
-    const isReimbursement = updated[index].category === 'Reimbursement';
 
     revenue.amount = amount;
     revenue.amountINR = amount * exRate;
-
-    const gstRate = parseFloat(revenue.gstRate) || 18;
-    const derivedBasic = isMargin ? amount : Number((amount / (1 + (gstRate / 100))).toFixed(2));
-    const derivedGst = (isMargin || isReimbursement) ? 0 : (amount - derivedBasic);
-
-    revenue.gstAmount = derivedGst;
-    revenue.basicAmount = derivedBasic;
+    revenue.gstAmount = 0;
+    revenue.basicAmount = amount * exRate;
+    revenue.netReceivable = Math.round(amount * exRate);
 
     updated[index].revenue = revenue;
     setFormData(updated);
@@ -1253,61 +1283,10 @@ const EditChargeModal = ({
                                   }
                                   return null;
                                 })()}
-
-                                {/* GST FIELDS FOR REVENUE */}
-                                <div className="charges-ep-row">
-                                  <span className="charges-ep-label">Include GST?</span>
-                                  <div className="charges-ep-inline">
-                                    <input type="checkbox" disabled={effectiveReadOnly} checked={row.revenue?.isGst !== false} onChange={e => handleFieldChange(i, 'isGst', e.target.checked, 'revenue')} />
-                                    {row.revenue?.isGst !== false && (
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <input type="number" disabled={effectiveReadOnly} style={{ width: '50px' }} value={row.revenue?.gstRate ?? 18} onChange={e => handleFieldChange(i, 'gstRate', e.target.value, 'revenue')} onBlur={() => triggerAutoSave(i, true)} />
-                                        <span style={{ fontSize: '11px' }}>%</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="charges-ep-row">
-                                  <span className="charges-ep-label">Basic Amount</span>
-                                  <div className="charges-ep-inline">
-                                    <input type="number" step="0.01" disabled={effectiveReadOnly} className="ep-input-small" style={{ background: '#fff', border: '1px solid #ddd', borderRadius: '4px', padding: '2px 6px', width: '100%' }} value={row.revenue?.basicAmount || ''} onChange={e => handleFieldChange(i, 'basicAmount', e.target.value, 'revenue')} onBlur={() => triggerAutoSave(i, true)} />
-                                  </div>
-                                </div>
-                                <div className="charges-ep-row">
-                                  <span className="charges-ep-label">GST Amount</span>
-                                  <div className="charges-ep-inline">
-                                    <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={formatNumber(row.revenue?.gstAmount)} />
-                                  </div>
-                                </div>
-                                <div className="charges-ep-row">
-                                  <span className="charges-ep-label">Apply TDS?</span>
-                                  <div className="charges-ep-inline">
-                                    <input type="checkbox" disabled={effectiveReadOnly} checked={row.revenue?.isTds || false} onChange={e => handleFieldChange(i, 'isTds', e.target.checked, 'revenue')} />
-                                    {row.revenue?.isTds && (
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <input type="number" disabled={effectiveReadOnly} style={{ width: '50px' }} value={row.revenue?.tdsPercent ?? 2} onChange={e => handleFieldChange(i, 'tdsPercent', e.target.value, 'revenue')} onBlur={() => triggerAutoSave(i, true)} />
-                                        <span style={{ fontSize: '11px' }}>%</span>
-                                        <select className="charges-ep-select" disabled={effectiveReadOnly} style={{ width: '70px', marginLeft: '6px', fontSize: '10px' }} value={row.revenue?.tdsCategory || ''} onChange={e => handleFieldChange(i, 'tdsCategory', e.target.value, 'revenue')}>
-                                          <option value="">--</option>
-                                          <option value="94C">94C</option>
-                                          <option value="94J">94J</option>
-                                          <option value="94I">94I</option>
-                                          <option value="94H">94H</option>
-                                        </select>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="charges-ep-row">
-                                  <span className="charges-ep-label">TDS Amount</span>
-                                  <div className="charges-ep-inline">
-                                    <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={roundWholeAmount(row.revenue?.tdsAmount)} />
-                                  </div>
-                                </div>
                                 <div className="charges-ep-row">
                                   <span className="charges-ep-label" style={{ fontWeight: 'bold', color: '#1565c0' }}>Net Receivable</span>
                                   <div className="charges-ep-inline">
-                                    <input type="number" readOnly className="ep-read" style={{ background: '#e3f2fd', fontWeight: 'bold', color: '#1565c0', border: '1px solid #90caf9' }} value={row.revenue?.netReceivable} />
+                                    <input type="number" readOnly className="ep-read" style={{ background: '#e3f2fd', fontWeight: 'bold', color: '#1565c0', border: '1px solid #90caf9' }} value={row.revenue?.amountINR || 0} />
                                   </div>
                                 </div>
                               </div>
@@ -1568,43 +1547,6 @@ const EditChargeModal = ({
                                   </div>
                                 </div>
                                  <div className="charges-ep-row">
-                                   <span className="charges-ep-label">GST Amount</span>
-                                   <div className="charges-ep-inline">
-                                     <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={formatNumber(row.revenue?.gstAmount)} />
-                                   </div>
-                                 </div>
-                                 <div className="charges-ep-row">
-                                   <span className="charges-ep-label">Apply TDS?</span>
-                                   <div className="charges-ep-inline">
-                                     <input type="checkbox" disabled={effectiveReadOnly} checked={row.revenue?.isTds || false} onChange={e => handleFieldChange(i, 'isTds', e.target.checked, 'revenue')} />
-                                     {row.revenue?.isTds && (
-                                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                         <input type="number" disabled={effectiveReadOnly} style={{ width: '50px' }} value={row.revenue?.tdsPercent ?? 2} onChange={e => handleFieldChange(i, 'tdsPercent', e.target.value, 'revenue')} onBlur={() => triggerAutoSave(i, true)} />
-                                         <span style={{ fontSize: '11px' }}>%</span>
-                                         <select className="charges-ep-select" disabled={effectiveReadOnly} style={{ width: '70px', marginLeft: '6px', fontSize: '10px' }} value={row.revenue?.tdsCategory || ''} onChange={e => handleFieldChange(i, 'tdsCategory', e.target.value, 'revenue')}>
-                                           <option value="">--</option>
-                                           <option value="94C">94C</option>
-                                           <option value="94J">94J</option>
-                                           <option value="94I">94I</option>
-                                           <option value="94H">94H</option>
-                                         </select>
-                                       </div>
-                                     )}
-                                   </div>
-                                 </div>
-                                 <div className="charges-ep-row">
-                                   <span className="charges-ep-label">TDS Amount</span>
-                                   <div className="charges-ep-inline">
-                                     <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={roundWholeAmount(row.revenue?.tdsAmount)} />
-                                   </div>
-                                 </div>
-                                 <div className="charges-ep-row">
-                                   <span className="charges-ep-label" style={{ fontWeight: 'bold', color: '#1565c0' }}>Net Receivable</span>
-                                   <div className="charges-ep-inline">
-                                     <input type="number" readOnly className="ep-read" style={{ background: '#e3f2fd', fontWeight: 'bold', color: '#1565c0', border: '1px solid #90caf9' }} value={row.revenue?.netReceivable} />
-                                   </div>
-                                 </div>
-                                 <div className="charges-ep-row">
                                    <span className="charges-ep-label">Total Amount</span>
                                    <div className="charges-ep-inline">
                                      <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={row.cost?.amountINR || 0} />
@@ -1689,12 +1631,10 @@ const EditChargeModal = ({
                                   <span className="charges-ep-label">Include GST?</span>
                                   <div className="charges-ep-inline">
                                     <input type="checkbox" disabled={effectiveReadOnly} checked={row.cost?.isGst !== false} onChange={e => handleFieldChange(i, 'isGst', e.target.checked, 'cost')} />
-                                    {row.cost?.isGst !== false && (
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <input type="number" disabled={effectiveReadOnly} style={{ width: '50px' }} value={row.cost?.gstRate || ''} onChange={e => handleFieldChange(i, 'gstRate', e.target.value, 'cost')} onBlur={() => triggerAutoSave(i, true)} />
-                                        <span style={{ fontSize: '11px' }}>%</span>
-                                      </div>
-                                    )}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <input type="number" disabled={effectiveReadOnly} style={{ width: '50px' }} value={row.cost?.gstRate !== undefined && row.cost?.gstRate !== '' ? row.cost.gstRate : 18} onChange={e => handleFieldChange(i, 'gstRate', e.target.value, 'cost')} onBlur={() => triggerAutoSave(i, true)} />
+                                      <span style={{ fontSize: '11px' }}>%</span>
+                                    </div>
                                   </div>
                                 </div>
                                 <div className="charges-ep-row">
@@ -1868,6 +1808,8 @@ const EditChargeModal = ({
                                               revenueSgst: Number(revenue.sgst || 0),
                                               revenueIgst: Number(revenue.igst || 0),
                                               revenueTotal: revenue.amountINR || revenue.totalAmount || revenue.amount || 0,
+                                              revenueRate: revenue.rate !== undefined && revenue.rate !== null ? Number(revenue.rate) : (revenue.amount !== undefined && revenue.amount !== null ? Number(revenue.amount) : 0),
+                                              revenueCurrencyAmount: revenue.currencyAmount !== undefined && revenue.currencyAmount !== null ? Number(revenue.currencyAmount) : (revenue.currency && revenue.currency !== 'INR' ? (revenue.amount !== undefined && revenue.amount !== null ? Number(revenue.amount) : (revenue.qty && revenue.rate ? Number(revenue.qty) * Number(revenue.rate) : 0)) : 0),
                                               revenuePartyName: revenue.partyName,
                                               chargeHead: row.chargeHead,
                                               invoice_number: row.invoice_number,
@@ -1882,6 +1824,12 @@ const EditChargeModal = ({
                                               tdsCategory: row.cost?.tdsCategory || '94C',
                                               tdsPercent: row.cost?.tdsPercent || 0,
                                               awbBlNo: awbBlNo,
+                                              costCurrency: cost.currency || 'INR',
+                                              currency: cost.currency || 'INR',
+                                              currencyAmount: (cost.currency && cost.currency !== 'INR') ? (cost.amount !== undefined && cost.amount !== null ? cost.amount : (cost.qty && cost.rate ? Number(cost.qty) * Number(cost.rate) : '')) : (cost.currencyAmount || cost.foreignCurrencyAmount || ''),
+                                              exchangeRate: cost.exchangeRate || cost.exRate || row.exchangeRate || row.exRate || 1,
+                                              qty: cost.qty !== undefined && cost.qty !== null ? Number(cost.qty) : (row.qty ? Number(row.qty) : 1),
+                                              rate: cost.rate !== undefined && cost.rate !== null ? Number(cost.rate) : (cost.amount !== undefined && cost.amount !== null ? Number(cost.amount) : 0),
                                               attachments: [
                                                 ...(Array.isArray(row.cost?.url) ? row.cost.url : []),
                                                 ...(Array.isArray(row.cost?.url_draft) ? row.cost.url_draft : []),

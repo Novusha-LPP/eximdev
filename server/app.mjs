@@ -3,6 +3,7 @@ import logger from "./logger.js";
 import dotenv from "dotenv";
 import moment from "moment-timezone";
 
+
 dotenv.config();
 
 let nodeProfilingIntegration;
@@ -31,6 +32,7 @@ process.on("unhandledRejection", (reason, promise) => {
 
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import cors from "cors";
 import mongoose from "mongoose";
@@ -46,6 +48,8 @@ import { setupDgftWebSocket } from "./setupDgftWebSocket.mjs";
 
 import monthlyContainersRouter from "./routes/report/monthlyContainers.mjs";
 import monthlyClearanceRouter from "./routes/report/importClearanceMonthly.mjs";
+import emailRoutes from "./routes/admin/emailRoutes.mjs";
+// import userRoutes from "./routes/it-helpdesk/userRoutes.mjs";
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
@@ -180,6 +184,7 @@ import getImporterJobs from "./routes/import-dsr/getImporterJobs.mjs";
 import getImporterUsers from "./routes/import-dsr/getImporterUsers.mjs";
 import getJob from "./routes/import-dsr/getJob.mjs";
 import getJobList from "./routes/import-dsr/getJobList.mjs";
+import getJobTabCounts from "./routes/import-dsr/getJobTabCounts.mjs";
 import getJobsOverview from "./routes/import-dsr/getJobsOverview.mjs";
 import getLastJobsDate from "./routes/import-dsr/getLastJobsDate.mjs";
 import importerListToAssignJobs from "./routes/import-dsr/importerListToAssignJobs.mjs";
@@ -189,6 +194,7 @@ import containerTrack from "./routes/import-dsr/containerTrack.mjs";
 import checkDuplicateJob from "./routes/import-dsr/checkDuplicateJob.mjs";
 import getNextJobNumber from "./routes/import-dsr/getNextJobNumber.mjs";
 import importDSRAnalytics from "./routes/import-dsr/importDSRAnalytics.mjs";
+import boeOcr from "./routes/import-dsr/boeOcr.mjs";
 // import ImportCreateJob from "./routes/import-dsr/ImportCreateJob.mjs";
 
 // Import Operations
@@ -242,7 +248,7 @@ import feedback from "./routes/feedbackRoutes.js";
 
 //scrapper
 import cron from "node-cron";
-import { scrapeAndSaveCurrencyRates } from "./services/currencyRateScraper.js";
+// import { scrapeAndSaveCurrencyRates } from "./services/currencyRateScraper.js";
 import ActiveSession from "./model/attendance/ActiveSession.js";
 import AttendanceRecord from "./model/attendance/AttendanceRecord.js";
 import Opportunity from "./model/crm/Opportunity.mjs";
@@ -258,6 +264,9 @@ import uploadFileRoutes from "./routes/upload/uploadFile.mjs";
 
 // Project Nucleus
 import nucleusReports from "./routes/project-nucleus/nucleusReports.mjs";
+import invoicingNucleusRoutes from "./routes/project-nucleus/invoicingNucleusRoutes.mjs";
+import importPendingProductivityRoutes from "./routes/project-nucleus/importPendingProductivityRoutes.mjs";
+import { seedDefaultInvoicingData, initInvoicingCronScheduler } from "./services/invoicing/invoicingSyncService.mjs";
 import clientQueryRoutes from "./routes/clientQueryRoutes.mjs";
 
 // KPI Module
@@ -271,12 +280,33 @@ import dgftRoutes from "./routes/dgft/dgftRoutes.mjs";
 
 // CRM Module
 import crmRoutes from "./routes/crm/crmRoutes.mjs";
+
 // Admin Branch Module
 import branchRoutes from "./routes/admin/branchRoutes.mjs";
 import jobMigrationRouter from "./routes/admin/jobMigration.mjs";
 
-// HR Asset Module
 import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
+import userAssetEquipmentRoutes from "./routes/user/userAssets.mjs";
+
+// Scorecard Module
+import scorecardRoutes from "./routes/scorecards/scorecards.js";
+
+// AMC Suppliers Renewal Module
+import amcRenewalRoutes from "./routes/amc-renewals/amcRenewalRoutes.mjs";
+import amcVisitorLogRoutes from "./routes/amc-renewals/amcVisitorLogRoutes.mjs";
+import adminEquipmentChecklistRoutes from "./routes/amc-renewals/adminEquipmentChecklistRoutes.mjs";
+
+// IT Asset & Helpdesk Module
+import assetRoutes from "./routes/it-helpdesk/assetRoutes.mjs";
+import ticketRoutes from "./routes/it-helpdesk/ticketRoutes.mjs";
+import vendorRoutes from "./routes/it-helpdesk/vendorRoutes.mjs";
+import contractRoutes from "./routes/it-helpdesk/contractRoutes.mjs";
+import licenseRoutes from "./routes/it-helpdesk/licenseRoutes.mjs";
+import inventoryRoutes from "./routes/it-helpdesk/inventoryRoutes.mjs";
+import userRoutes from "./routes/it-helpdesk/userRoutes.mjs";
+import itNotificationRoutes from "./routes/it-helpdesk/notificationRoutes.mjs";
+import itReportsExportRoutes from "./routes/it-helpdesk/itReportsExportRoutes.mjs";
+
 import employeeKPIRoutes from "./routes/hr/employeeKPIRoutes.mjs";
 import profileCompletionRoutes from "./routes/hr/profileCompletionRoutes.mjs";
 import pfEsicRoutes from "./routes/hr/pfEsicRoutes.mjs";
@@ -366,6 +396,7 @@ import customHouseRoutes from "./routes/master-directory/customHouseRoutes.mjs";
 import cfsRoutes from "./routes/master-directory/cfsRoutes.mjs";
 import transporterRoutes from "./routes/master-directory/transporterRoutes.mjs";
 import emptyOffLocationRoutes from "./routes/master-directory/emptyOffLocationRoutes.mjs";
+import masterDirectoryNotificationRoutes from "./routes/master-directory/notificationRoutes.mjs";
 
 // Tally API
 import tallyRoutes from "./tallyapi/tallyRoutes.mjs";
@@ -399,7 +430,7 @@ const MONGODB_URI =
 //     ? process.env.SERVER_CLIENT_URI
 //     : process.env.DEV_CLIENT_URI;
 
-const numOfCPU = os.availableParallelism();
+const numOfCPU = Math.min(os.availableParallelism(), 2); // Cap at 2 workers to prevent MongoDB connection exhaustion
 
 // Export app for Testing
 export const app = express();
@@ -408,6 +439,7 @@ app.use(bodyParser.json({ limit: "100mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
 
 app.use((req, res, next) => {
   const isBrowserRequest =
@@ -433,9 +465,11 @@ app.use((req, res, next) => {
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, server-to-server, etc.)
       if (!origin || origin === "null") return callback(null, true);
-      
+
       const allowedOrigins = [
+        "null",
         "http://eximdev.s3-website.ap-south-1.amazonaws.com",
         "http://localhost:3000",
         "http://localhost:3001",
@@ -443,10 +477,14 @@ app.use(
         "http://localhost:9007",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
-        "http://localhost:3002",
+        "http://0.0.0.0:3000",
+        "http://0.0.0.0:3001",
+        "http://0.0.0.0:9007",
         "http://192.168.1.105:3000",
         "http://192.168.1.105:3001",
+        "http://192.168.1.103:3000",
         "http://192.168.2.36:3002",
+        "http://192.168.2.95:3000",
         "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
         "https://import.alvision.in",
         "https://test-frontend.alvision.in",
@@ -454,13 +492,13 @@ app.use(
         "https://export.alvision.in"
       ];
 
-      const isLocalIp = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|172\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin);
+      const localNetworkPattern = /^http:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/;
 
-      if (allowedOrigins.includes(origin) || isLocalIp) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
+      if (allowedOrigins.includes(origin) || localNetworkPattern.test(origin)) {
+        return callback(null, true);
       }
+
+      callback(null, true);
     },
     credentials: true,
     // Allow custom headers for audit trail
@@ -520,6 +558,7 @@ app.use(getYears);
 app.use(login);
 app.use(logout);
 app.use(me);
+
 
 // handle delete
 app.use(handleS3Deletation);
@@ -625,6 +664,7 @@ app.use(getImporterJobs);
 app.use(getImporterUsers);
 app.use(getJob);
 app.use(getJobList);
+app.use(getJobTabCounts);
 app.use(getJobsOverview);
 app.use(getLastJobsDate);
 app.use(importerListToAssignJobs);
@@ -634,6 +674,7 @@ app.use(containerTrack);
 app.use(checkDuplicateJob);
 app.use("/api", getNextJobNumber);
 app.use(importDSRAnalytics);
+app.use(boeOcr);
 // app.use(ImportCreateJob);
 
 // Import Operations
@@ -705,6 +746,8 @@ app.use(uploadFileRoutes);
 
 // Project Nucleus
 app.use("/api/project-nucleus", nucleusReports);
+app.use("/api/project-nucleus/invoicing", invoicingNucleusRoutes);
+app.use("/api/project-nucleus/import-pending", importPendingProductivityRoutes);
 
 // KPI Module
 app.use(kpiRoutes);
@@ -715,14 +758,39 @@ app.use(teamRoutes);
 // DGFT Module
 app.use(dgftRoutes);
 
-// CRM Module (existing)
+// CRM Module
+app.use("/crm", crmRoutes);
 app.use("/api/crm", crmRoutes);
+
+
 
 // Admin Branch Module
 app.use("/api/admin", branchRoutes);
 app.use("/api/admin/job-migration", jobMigrationRouter);
+app.use("/api/admin/email", emailRoutes);
 
 app.use(userAssetsRoutes);
+app.use(userAssetEquipmentRoutes);
+
+// Scorecard Module
+app.use("/api/scorecards", scorecardRoutes);
+
+// AMC Suppliers Renewal Module
+app.use("/api/amc-renewals", amcRenewalRoutes);
+app.use("/api/amc-visitor", amcVisitorLogRoutes);
+app.use("/api/equipment-checklist", adminEquipmentChecklistRoutes);
+
+// IT Asset & Helpdesk Module
+app.use("/api/it-helpdesk/assets", assetRoutes);
+app.use("/api/it-helpdesk/tickets", ticketRoutes);
+app.use("/api/it-helpdesk/vendors", vendorRoutes);
+app.use("/api/it-helpdesk/contracts", contractRoutes);
+app.use("/api/it-helpdesk/licenses", licenseRoutes);
+app.use("/api/it-helpdesk/inventory", inventoryRoutes);
+app.use("/api/it-helpdesk/users", userRoutes);
+app.use("/api/it-helpdesk/notifications", itNotificationRoutes);
+app.use("/api/it-helpdesk/reports", itReportsExportRoutes);
+
 app.use(employeeKPIRoutes);
 app.use(profileCompletionRoutes);
 app.use(pfEsicRoutes);
@@ -746,6 +814,7 @@ app.use("/api", cfsRoutes);
 app.use("/api", transporterRoutes);
 app.use("/api", generalOrgRoutes);
 app.use("/api", emptyOffLocationRoutes);
+app.use(masterDirectoryNotificationRoutes);
 
 
 // Tally API
@@ -762,6 +831,17 @@ app.use('/api/first-aid', firstAidRoutes);
 app.use('/uploads/leaves', express.static(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'leaves')
 ));
+app.use('/uploads/it-helpdesk', express.static(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'it-helpdesk')
+));
+app.use('/uploads/it-helpdesk', (req, res) => {
+  const ext = path.extname(req.path).toLowerCase();
+  const fallbackImg = path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'it-helpdesk', '1783326044383-564841636.png');
+  if (['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg'].includes(ext) && fs.existsSync(fallbackImg)) {
+    return res.sendFile(fallbackImg);
+  }
+  res.status(404).send('File not found');
+});
 // ─────────────────────────────────────────────────────────────────────────────
 // Client Queries API
 app.use("/api/client-queries", clientQueryRoutes);
@@ -786,13 +866,31 @@ app.use(function onError(err, req, res, next) {
 const disableCluster = process.env.DISABLE_CLUSTER === "true";
 
 if (!disableCluster && cluster.isPrimary) {
-  console.log(`🚀 Primary Process running. Detected ${numOfCPU} CPUs. Forking ${numOfCPU} workers...`);
+  console.log(`🚀 Primary Process running. Detected ${os.availableParallelism()} CPUs. Forking ${numOfCPU} workers (capped)...`);
+  let isShuttingDown = false;
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
   }
-  cluster.on("exit", (worker) => {
-    cluster.fork();
+  cluster.on("exit", (worker, code, signal) => {
+    if (!isShuttingDown) {
+      console.error(`⚠️ Worker ${worker.process.pid} exited (code: ${code}, signal: ${signal}). Restarting...`);
+      cluster.fork();
+    }
   });
+
+  const shutdownWorkers = () => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.log("Closing cluster workers...");
+    for (const id in cluster.workers) {
+      cluster.workers[id]?.kill();
+    }
+    process.exit(0);
+  };
+
+  process.on("SIGINT", shutdownWorkers);
+  process.on("SIGTERM", shutdownWorkers);
+  process.on("SIGUSR2", shutdownWorkers);
 } else {
   // Worker Process
   if (disableCluster) {
@@ -850,8 +948,8 @@ if (!disableCluster && cluster.isPrimary) {
         appName: "exim", // Identifies this app in Atlas logs
         // useNewUrlParser: true,
         // useUnifiedTopology: true,
-        minPoolSize: 0,
-        maxPoolSize: 30, // Reduced from 30 to 5 to prevent connection spikes in clustered mode
+        minPoolSize: 2,
+        maxPoolSize: 20, // Increased to prevent connection starvation during parallel requests (2 workers × 20 = 40 max connections)
         maxIdleTimeMS: 30000,
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,
@@ -863,14 +961,13 @@ if (!disableCluster && cluster.isPrimary) {
           cron.schedule(
             "1 0 * * *",
             async () => {
-              console.log(
-                "🕐 Running scheduled currency rate scraper at 12:01 AM..."
-              );
+              console.log('Running scheduled currency rate scraper via Export API at 12:01 AM...');
               try {
-                const result = await scrapeAndSaveCurrencyRates();
-                console.log("✅ Scheduled scrape completed:", result);
+                const { default: axios } = await import('axios');
+                const res = await axios.post('https://eximbot.alvision.in/export/api/currency-rates/scrape', {}, { timeout: 30000 });
+                console.log('Scheduled scrape completed via Export API:', res.data);
               } catch (error) {
-                console.error("❌ Scheduled scrape failed:", error);
+                console.error('Scheduled scrape via Export API failed:', error.message);
               }
             },
             {
@@ -931,6 +1028,29 @@ if (!disableCluster && cluster.isPrimary) {
 
           // Initialize reminder system cron
           initReminderSystem();
+
+          // Initialize Invoicing Module seed and auto-retrieve scheduler
+          seedDefaultInvoicingData();
+          initInvoicingCronScheduler();
+
+          // Periodic Job Status Reconciliation (every 2 minutes)
+          cron.schedule(
+            "*/2 * * * *",
+            async () => {
+              try {
+                const { reconcileJobStatuses } = await import("./services/jobStatusReconciliationService.mjs");
+                const res = await reconcileJobStatuses();
+                if (res.updated > 0) {
+                  console.log(`✅ [JobStatusReconciliation] Reconciled ${res.updated} jobs.`);
+                }
+              } catch (err) {
+                console.error("❌ [JobStatusReconciliation] Periodic job failed:", err);
+              }
+            },
+            {
+              timezone: "Asia/Kolkata",
+            }
+          );
         }
 
         // Initialize WebSocket logic
@@ -958,7 +1078,7 @@ if (!disableCluster && cluster.isPrimary) {
           }
         });
 
-        const port = Number(process.env.PORT || 9006);
+        const port = Number(process.env.PORT || 9007);
 
         server.listen(port, "0.0.0.0", () => {
           console.log(`🟢 Server listening on port ${port}`);

@@ -272,7 +272,6 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
             }
           });
           if (!merged.prDate) merged.prDate = todayStr;
-          if (!merged.paymentDate) merged.paymentDate = todayStr;
           if (merged.readyForPr === "Yes" && !merged.prNumber) {
             loadPrNumber(merged);
           } else if (merged.readyForPr !== "Yes") {
@@ -289,7 +288,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
         })
         .finally(() => setLoading(false));
     } else {
-      const initial = { ...emptyRecord, prDate: todayStr, paymentDate: todayStr, financialApprovalStatus: "Pending" };
+      const initial = { ...emptyRecord, prDate: todayStr, paymentDate: "", renewalDate: "", financialApprovalStatus: "Pending" };
       if (initial.readyForPr === "Yes" && !initial.prNumber) {
         loadPrNumber(initial);
       } else {
@@ -299,20 +298,17 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
     }
   }, [proposal, isRenew]);
 
-  // Auto-calc: TAT days counting from PR generation date to Payment Date (defaults to current date)
+  // Auto-calc: TAT days counting from PR generation date to Payment Date
   useEffect(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
-    const targetPayDate = formData.paymentDate || todayStr;
-    if (formData.prDate && targetPayDate) {
+    if (formData.prDate && formData.paymentDate) {
       const pr = new Date(formData.prDate);
-      const pay = new Date(targetPayDate);
-      if (!isNaN(pr) && !isNaN(pay)) {
+      const pay = new Date(formData.paymentDate);
+      if (!isNaN(pr.getTime()) && !isNaN(pay.getTime())) {
         const diffTime = Math.max(0, pay - pr);
         const calcTat = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (formData.tat !== calcTat || !formData.paymentDate) {
+        if (formData.tat !== calcTat) {
           setFormData((prev) => ({
             ...prev,
-            paymentDate: prev.paymentDate || todayStr,
             tat: calcTat
           }));
         }
@@ -337,7 +333,8 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
             (Number(prev.odPremium) > 0) ||
             (Number(prev.totalPolicyPremium) > 0) ||
             (Number(prev.newPremiumAmount) > 0) ||
-            (Number(prev.premiumAmount) > 0);
+            (Number(prev.premiumAmount) > 0) ||
+            (Number(prev.premium) > 0);
           if (!hasPremium) missing.push("Premium Amount");
 
           if (missing.length > 0) {
@@ -364,6 +361,13 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
           }
         } else if (val !== "Yes") {
           next.prNumber = "";
+        }
+      }
+
+      if (field === "paymentDate") {
+        if (val) {
+          next.renewalDate = val;
+          next.renewedDate = val;
         }
       }
 
@@ -441,13 +445,21 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       dataToSave.newPolicyFromDate
     );
 
-    // If new policy details are entered OR payment UTR is completed, mark renewed status as YES
-    if (hasRenewedFields || (dataToSave.paymentUtr && dataToSave.paymentUtr.trim().length > 0)) {
+    const hasCompletedUtr = Boolean(
+      dataToSave.paymentUtr && String(dataToSave.paymentUtr).trim().length > 0
+    );
+
+    // Only set renewed = YES and renewalStatus = Renewed when payment UTR is completed
+    if (hasCompletedUtr) {
       dataToSave.renewed = "YES";
       dataToSave.renewalStatus = "Renewed";
+      dataToSave.renewalDate = formData.renewalDate || dataToSave.paymentDate || "";
+      dataToSave.renewedDate = formData.renewedDate || formData.renewalDate || dataToSave.paymentDate || "";
     } else {
       dataToSave.renewed = "NO";
       dataToSave.renewalStatus = "Pending";
+      dataToSave.renewalDate = formData.renewalDate || "";
+      dataToSave.renewedDate = formData.renewedDate || formData.renewalDate || "";
     }
 
     // ONCE THE PAYMENT UTR STAGE IS COMPLETED (paymentUtr entered), RENEW THE OLD POLICY WITH THE NEW POLICY
@@ -554,7 +566,27 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
 
 
   const formatDateValue = useCallback((dateStr) => {
-    return dateStr ? String(dateStr).split("T")[0] : "";
+    if (!dateStr) return "";
+    if (typeof dateStr === "string") {
+      if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+        return dateStr.split("T")[0];
+      }
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) {
+        const year = parsed.getFullYear();
+        const month = String(parsed.getMonth() + 1).padStart(2, "0");
+        const day = String(parsed.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+      return dateStr.split("T")[0];
+    }
+    if (dateStr instanceof Date && !isNaN(dateStr.getTime())) {
+      const year = dateStr.getFullYear();
+      const month = String(dateStr.getMonth() + 1).padStart(2, "0");
+      const day = String(dateStr.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+    return "";
   }, []);
 
   const handleRegistrationBlur = useCallback(async (e) => {
@@ -728,108 +760,146 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
         </Typography>
       </Box>
 
-      {/* Floating Save/Cancel Buttons */}
+      {/* Floating Action Buttons */}
       <Box
         sx={{
           position: "fixed",
-          bottom: 24,
+          bottom: 20,
           right: 24,
           display: "flex",
-          gap: 1.5,
-          zIndex: 1200,
+          gap: 1.2,
+          zIndex: 9999,
+          bgcolor: "rgba(255, 255, 255, 0.95)",
+          backdropFilter: "blur(6px)",
+          p: 0.8,
+          borderRadius: "30px",
+          border: "1px solid #e2e8f0",
+          boxShadow: "0 6px 20px rgba(0,0,0,0.15)",
         }}
       >
-        {!isView && (
-          <Button
-            variant="contained"
-            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
-            onClick={handleSave}
-            disabled={saving}
-            sx={{ boxShadow: 4, borderRadius: 2, px: 3 }}
-          >
-            Save
-          </Button>
-        )}
-        <Button
-          variant="outlined"
-          startIcon={<Cancel />}
+        <button
+          type="button"
+          className="sop-btn pill-close"
           onClick={handleCancelClick}
           disabled={saving}
-          sx={{ boxShadow: 4, borderRadius: 2, px: 3, backgroundColor: "white" }}
         >
-          {isView ? "Back" : "Cancel"}
-        </Button>
+          CLOSE
+        </button>
+        {!isView && (
+          <button
+            type="button"
+            className="sop-btn pill-save"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? "SAVING..." : "SAVE RECORD"}
+          </button>
+        )}
       </Box>
 
-      {/* Vehicle Summary Context (Visible across all tabs EXCEPT the first one) */}
+      {/* Vehicle Summary Context Header Card */}
       {tabValue !== 0 && (
-        <Paper sx={{ p: 2, mb: 2, backgroundColor: "#f8f9fa" }}>
+        <Paper elevation={0} sx={{ p: 1.2, mb: 1.5, borderRadius: "6px",
+            border: "1px solid",
+            borderColor: "divider",
+            background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+          }}
+        >
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="body2" color="textSecondary">Registration No.</Typography>
-              <Typography variant="subtitle1" fontWeight="bold">{formData.registrationNo || "-"}</Typography>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                Registration No.
+              </Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#2563eb" }}>
+                {formData.registrationNo || "-"}
+              </Typography>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="body2" color="textSecondary">Insurance Company</Typography>
-              <Typography variant="subtitle1" fontWeight="bold">
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                Insurance Company
+              </Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#0f172a" }}>
                 {formData.newInsuranceCompany || formData.insuranceCompany || "-"}
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="body2" color="textSecondary">Renewal Total IDV</Typography>
-              <Typography variant="subtitle1" fontWeight="bold">
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                Renewal Total IDV
+              </Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#0f172a" }}>
                 ₹ {Number(formData.newTotalIdv || formData.totalIdv || 0).toLocaleString("en-IN")}
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="body2" color="textSecondary">Expiry Date</Typography>
-              <Typography variant="subtitle1" fontWeight="bold" color='red'>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                Expiry Date
+              </Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#dc2626" }}>
                 {formData.policyToDate ? new Date(formData.policyToDate).toLocaleDateString("en-IN") : "-"}
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="body2" color="textSecondary">Renewed Premium</Typography>
-              <Typography variant="subtitle1" fontWeight="bold" color="primary">
-                ₹ {Number(formData.newTotalPolicyPremium || formData.totalPolicyPremium || 0).toLocaleString("en-IN")}
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                {(formData.renewalStatus === "Renewed" || formData.paymentUtr) ? "Renewed Premium" : "Policy Premium"}
+              </Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: (formData.renewalStatus === "Renewed" || formData.paymentUtr) ? "#16a34a" : "#0f172a" }}>
+                ₹ {Number(formData.newTotalPolicyPremium || formData.totalPolicyPremium || formData.premiumAmount || formData.premium || 0).toLocaleString("en-IN")}
               </Typography>
             </Grid>
           </Grid>
         </Paper>
       )}
 
-      <Paper sx={{ width: '100%', mb: 2 }}>
-        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+      {/* Stage Stepper Tabs */}
+      <Paper elevation={0} sx={{ borderRadius: "6px", border: "1px solid #e2e8f0", mb: 1.5, overflow: "hidden" }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "#f8fafc", px: 1 }}>
           <Tabs
             value={tabValue}
             onChange={handleChangeTab}
             variant="scrollable"
             scrollButtons="auto"
             aria-label="fleet insurance stage tabs"
+            sx={{
+              minHeight: 34, "& .MuiTabs-indicator": { backgroundColor: "#2563eb", height: 2, borderRadius: "2px 2px 0 0", },
+            }}
           >
             {stageTabs.map((tab, idx) => (
-              <Tab key={idx} label={tab.label} {...a11yProps(idx)} />
+              <Tab
+                key={idx}
+                label={tab.label}
+                {...a11yProps(idx)}
+                sx={{
+                  fontWeight: 600,
+                  fontSize: "12px", textTransform: "none", color: tabValue === idx ? "#2563eb" : "#64748b", minHeight: 34, py: 0.6, px: 1.8,
+                  "&.Mui-selected": {
+                    fontWeight: 700,
+                  },
+                }}
+              />
             ))}
           </Tabs>
         </Box>
-      </Paper>
 
-      {stageTabs.map((tab, idx) => {
-        const Component = tab.component;
-        return (
-          <CustomTabPanel key={idx} value={tabValue} index={idx}>
-            <fieldset disabled={isView} style={{ border: "none", padding: 0, margin: 0 }}>
-              <Component
-                formData={formData}
-                handleChange={handleChange}
-                handleRegistrationBlur={handleRegistrationBlur}
-                formatDateValue={formatDateValue}
-                isView={isView}
-                isRenew={isRenew}
-              />
-            </fieldset>
-          </CustomTabPanel>
-        );
-      })}
+        <Box sx={{ p: 1.5 }}>
+          {stageTabs.map((tab, idx) => {
+            const Component = tab.component;
+            return (
+              <CustomTabPanel key={idx} value={tabValue} index={idx}>
+                <fieldset disabled={isView} style={{ border: "none", padding: 0, margin: 0 }}>
+                  <Component
+                    formData={formData}
+                    handleChange={handleChange}
+                    handleRegistrationBlur={handleRegistrationBlur}
+                    formatDateValue={formatDateValue}
+                    isView={isView}
+                    isRenew={isRenew}
+                  />
+                </fieldset>
+              </CustomTabPanel>
+            );
+          })}
+        </Box>
+      </Paper>
     </Box>
   );
 }

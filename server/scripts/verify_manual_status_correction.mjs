@@ -23,7 +23,7 @@ const payloadArg = getArg('payload');
 const payloadFile = getArg('payloadFile');
 const username = getArg('username');
 const password = getArg('password');
-const baseUrl = getArg('baseUrl') || 'http://localhost:9006';
+const baseUrl = getArg('baseUrl') || 'http://0.0.0.0:9006';
 const mongoUri = process.env.DEV_MONGODB_URI;
 
 if (!recordId) {
@@ -128,5 +128,5 @@ try {
   console.error('Verification script failed:', error);
   process.exitCode = 1;
 } finally {
-  await mongoose.disconnect().catch(() => {});
+  await mongoose.disconnect().catch(() => { });
 }

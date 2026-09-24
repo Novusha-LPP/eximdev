@@ -535,7 +535,7 @@ const AllUsersPage = () => {
   const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'
   const [filters, setFilters] = useState({
     page: 1,
-    limit: 12,
+    limit: 10,
     username: '',
     sortBy: 'count',
     sortOrder: 'desc',

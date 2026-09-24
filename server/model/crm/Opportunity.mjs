@@ -50,9 +50,17 @@ const opportunitySchema = new mongoose.Schema({
   referralSourceName: { type: String },
   businessVertical: {
     type: String,
-    enum: ['Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],
+    enum: ['Novusha', 'Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],
     default: 'Paramount'
   },
+  referredFromTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'SalesTeam' },
+  referredToTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'SalesTeam' },
+  referredByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  referredAt: { type: Date },
+  isReferral: { type: Boolean, default: false },
+  location: { type: String, trim: true },
+  hsnCode: { type: String, trim: true },
+  lastActivityAt: { type: Date, default: Date.now },
   monthlyVolume: { type: String },
   monthlyRevenue: { type: String },
   source: { type: String },
@@ -61,6 +69,8 @@ const opportunitySchema = new mongoose.Schema({
   period: { type: String, default: () => new Date().toISOString().substring(0, 7) },
   closeReason: { type: String },
   closeNotes: { type: String },
+  competitor: { type: String },
+  lostStageBeforeLoss: { type: String },
   stageHistory: [{
     stage: { type: String },
     enteredAt: { type: Date, default: Date.now },
@@ -80,7 +90,33 @@ const opportunitySchema = new mongoose.Schema({
     isCancelled: { type: Boolean, default: false },
     cancelledAt: { type: Date },
     createdAt: { type: Date, default: Date.now }
-  }]
+  }],
+  // Cross-reference to Export Freight Forwarding enquiry_no
+  freightEnquiryRef: { type: String, sparse: true, index: true },
+  // Freight Forwarding operational data synced from Export project
+  freightData: {
+    pipelineStage: { type: String },
+    enquiryNo: { type: String },
+    successNo: { type: String },
+    sourceJobNo: { type: String },
+    portOfLoading: { type: String },
+    portOfDestination: { type: String },
+    consignmentType: { type: String },
+    containerSize: { type: String },
+    grossWeight: { type: String },
+    netWeight: { type: String },
+    sailingDate: { type: String },
+    etaDate: { type: String },
+    arrivalDate: { type: String },
+    finalDeliveryDate: { type: String },
+    draftBlApproved: { type: Boolean },
+    billingCompleted: { type: Boolean },
+    shippingLine: { type: String },
+    vesselName: { type: String },
+    bookingNo: { type: String },
+    blNo: { type: String },
+    lastSyncedAt: { type: Date }
+  }
 }, { timestamps: true });
 
 export default mongoose.model('Opportunity', opportunitySchema);

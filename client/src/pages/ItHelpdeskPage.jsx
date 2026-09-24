@@ -1,0 +1,61 @@
+import React, { useContext } from "react";
+import { Box } from "@mui/material";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { UserContext } from "../contexts/UserContext";
+import { isHRAdminUser } from "../utils/hrAdminRoleHelper";
+import ITHelpdeskHome from "../components/it-helpdesk/ITHHelpdeskHome";
+import AssetManagement from "../components/it-helpdesk/AssetManagement";
+import TicketManagement from "../components/it-helpdesk/TicketManagement";
+import VendorManagement from "../components/it-helpdesk/VendorManagement";
+import InventoryManagement from "../components/it-helpdesk/InventoryManagement";
+import LicenseManagement from "../components/it-helpdesk/LicenseManagement";
+import ITReports from "../components/it-helpdesk/ITReports";
+import ITNotifications from "../components/it-helpdesk/ITNotifications";
+import UserManagement from "../components/it-helpdesk/UserManagement";
+import RolesPermissions from "../components/it-helpdesk/RolesPermissions";
+import AuditLogs from "../components/it-helpdesk/AuditLogs";
+// import SystemSettings from "../components/it-helpdesk/SystemSettings";
+// import { AuditLogProvider } from "../contexts/AuditLogContext";
+
+export default function ItHelpdeskPage() {
+  const { user } = useContext(UserContext);
+  const isHRAdmin = isHRAdminUser(user);
+
+  // Normal users (non-HR Admin, non-Hardware & Network Engineer, non-Admin)
+  // only have access to Helpdesk & Tickets view
+  if (!isHRAdmin) {
+    return (
+      <Box>
+        <Routes>
+          <Route path="/" element={<TicketManagement />} />
+          <Route path="/tickets" element={<TicketManagement />} />
+          <Route path="*" element={<Navigate to="/it-helpdesk/tickets" replace />} />
+        </Routes>
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Routes>
+        <Route path="/" element={<ITHelpdeskHome />} />
+        <Route path="/assets" element={<AssetManagement />} />
+        <Route path="/tickets" element={<TicketManagement />} />
+        <Route path="/vendors" element={<VendorManagement />} />
+        <Route path="/inventory" element={<InventoryManagement />} />
+        <Route path="/licenses" element={<LicenseManagement />} />
+        <Route path="/reports" element={<ITReports />} />
+        <Route path="/notifications" element={<ITNotifications />} />
+        <Route path="/administration/audit" element={<AuditLogs />} />
+        <Route path="/audit" element={<AuditLogs />} />
+        <Route path="/administration/roles" element={<RolesPermissions />} />
+        <Route path="/roles" element={<RolesPermissions />} />
+        <Route path="/administration/users" element={<UserManagement />} />
+        <Route path="/users" element={<UserManagement />} />
+        <Route path="/administration/settings" element={<Navigate to="/it-helpdesk" replace />} />
+        <Route path="/administration/setting" element={<Navigate to="/it-helpdesk" replace />} />
+        <Route path="*" element={<Navigate to="/it-helpdesk" replace />} />
+      </Routes>
+    </Box>
+  );
+}

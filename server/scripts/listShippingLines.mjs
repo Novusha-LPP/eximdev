@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import ShippingLineModel from "../model/shippingLineModel.mjs";
 
 dotenv.config({ path: "./.env" });
-const MONGODB_URI = process.env.DEV_MONGODB_URI || "mongodb://localhost:27017/eximNew";
+const MONGODB_URI = process.env.DEV_MONGODB_URI || "mongodb://0.0.0.0:27017/eximNew";
 
 async function list() {
   await mongoose.connect(MONGODB_URI);

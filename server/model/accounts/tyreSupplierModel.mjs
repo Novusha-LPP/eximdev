@@ -14,6 +14,7 @@ const tyreSupplierSchema = new mongoose.Schema(
     supplierNameInBank: { type: String, default: "" },
     paymentTerms: { type: String, default: "" },
     address: { type: String, default: "" },
+    supplierAddress: { type: String, default: "" },
     deliveryLocation: { type: String, default: "" },
   },
   { timestamps: true }

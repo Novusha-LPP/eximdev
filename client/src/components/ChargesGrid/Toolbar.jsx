@@ -1,7 +1,7 @@
 import React from 'react';
 import './charges.css';
 
-const Toolbar = ({ onAddCharge, onAddHeading, onDeleteSelected, readOnly, isDeleteDisabled, onMultiPurchaseBook }) => {
+const Toolbar = ({ onAddCharge, onAddHeading, onDeleteSelected, readOnly, isDeleteDisabled, onMultiPurchaseBook, purchaseBookLabel = 'Purchase Book' }) => {
   if (readOnly) return null;
 
   return (
@@ -56,7 +56,7 @@ const Toolbar = ({ onAddCharge, onAddHeading, onDeleteSelected, readOnly, isDele
               <line x1="12" y1="18" x2="12" y2="12" />
               <line x1="9" y1="15" x2="15" y2="15" />
             </svg>
-            Combined Purchase Book
+            {purchaseBookLabel}
           </button>
         </>
       )}

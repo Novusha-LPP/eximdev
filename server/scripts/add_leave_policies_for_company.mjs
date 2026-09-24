@@ -6,7 +6,7 @@
 import mongoose from 'mongoose';
 import LeavePolicy from '../model/attendance/LeavePolicy.js';
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.SERVER_MONGODB_URI || 'mongodb://localhost:27017/exim';
+const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.SERVER_MONGODB_URI || 'mongodb://0.0.0.0:27017/exim';
 
 async function addLeavePolicies() {
     try {
@@ -18,20 +18,20 @@ async function addLeavePolicies() {
         const db = mongoose.connection.db;
         const usersCollection = db.collection('users');
         const companies = await usersCollection.distinct('company_id', { company_id: { $exists: true } });
-        
+
         console.log(`📋 Found ${companies.length} companies\n`);
 
         let policiesCreated = 0;
 
         for (const companyId of companies) {
             console.log(`🏢 Processing company: ${companyId}`);
-            
+
             // Check existing policies
             const existingPolicies = await LeavePolicy.find({
                 company_id: companyId,
                 status: 'active'
             }).select('leave_type');
-            
+
             const existingTypes = existingPolicies.map(p => p.leave_type);
             console.log(`  Existing types: ${existingTypes.join(', ') || 'none'}`);
 
@@ -98,7 +98,7 @@ async function addLeavePolicies() {
 
             // Filter out existing types
             const newPolicies = allPolicies.filter(p => !existingTypes.includes(p.leave_type));
-            
+
             if (newPolicies.length > 0) {
                 const result = await LeavePolicy.insertMany(newPolicies);
                 policiesCreated += result.length;

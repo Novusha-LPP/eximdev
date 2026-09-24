@@ -18,12 +18,13 @@ router.get("/api/get-job/:branch_code/:trade_type/:mode/:year/:jobNo", async (re
       query.mode = mode.toUpperCase();
     }
 
-    const job = await JobModel.findOne(query);
+    const job = await JobModel.findOne(query).lean();
 
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
 
+    res.set("Cache-Control", "private, max-age=15");
     res.json(job);
   } catch (error) {
     console.error(error);
@@ -39,12 +40,13 @@ router.get("/api/get-job/:mode/:year/:jobNo", async (req, res) => {
       mode: mode.toUpperCase(),
       year,
       job_no: jobNo,
-    });
+    }).lean();
 
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
 
+    res.set("Cache-Control", "private, max-age=15");
     res.json(job);
   } catch (error) {
     console.error(error);

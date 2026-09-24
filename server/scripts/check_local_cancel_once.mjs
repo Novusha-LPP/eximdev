@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:9006';
+const BASE_URL = process.env.BASE_URL || 'http://0.0.0.0:9006';
 const USERNAME = process.env.ADMIN_USERNAME || 'manu_pillai';
 const PASSWORD = process.env.ADMIN_PASSWORD || '12345678';
 const TARGET_LEAVE_TYPE = String(process.env.TARGET_LEAVE_TYPE || 'privilege').toLowerCase();

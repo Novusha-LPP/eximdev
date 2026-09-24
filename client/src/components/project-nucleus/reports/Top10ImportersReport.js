@@ -7,7 +7,9 @@ const Top10ImportersReport = ({
     selectedMonth,
     selectedYear,
     selectedQuarter,
-    dateRange
+    dateRange,
+    category = 'all',
+    branchId = ''
 }) => {
     const [top10Data, setTop10Data] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -24,7 +26,9 @@ const Top10ImportersReport = ({
                     year: selectedYear,
                     quarter: selectedQuarter,
                     startDate: dateRange.start,
-                    endDate: dateRange.end
+                    endDate: dateRange.end,
+                    category: category || 'all',
+                    branchId: branchId || ''
                 };
 
                 const res = await axios.get(endpoint, { params, withCredentials: true });
@@ -36,7 +40,7 @@ const Top10ImportersReport = ({
             }
         };
         fetchTop10();
-    }, [filterType, selectedMonth, selectedYear, selectedQuarter, dateRange]);
+    }, [filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, category, branchId]);
 
     const handleSort = (key) => {
         let direction = 'desc';

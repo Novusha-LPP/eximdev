@@ -434,27 +434,40 @@ function CompletedOperations() {
 
 
         return (
-          <Link
-            to={`/import-operations/view-job/${branch_code}/${trade_type}/${mode}/${jobNo}/${year}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'inline-block',
-              backgroundColor: selectedJobId === jobNo ? "#ffffcc" : "transparent",
-              textAlign: "center",
-              cursor: "pointer",
-              color: "blue",
-              padding: "5px",
-              borderRadius: "5px",
-              textDecoration: "none",
-              whiteSpace: "nowrap",
-            }}
-            onClick={() => setSelectedJobId(jobNo)}
-          >
-            {job_number || jobNo}
-            <br />
-            <small>{icdCode}</small>
-          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+            <Link
+              to={`/import-operations/view-job/${branch_code}/${trade_type}/${mode}/${jobNo}/${year}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-block',
+                backgroundColor: selectedJobId === jobNo ? "#ffffcc" : "transparent",
+                textAlign: "center",
+                cursor: "pointer",
+                color: "blue",
+                padding: "5px",
+                borderRadius: "5px",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
+              onClick={() => setSelectedJobId(jobNo)}
+            >
+              {job_number || jobNo}
+              <br />
+              <small>{icdCode}</small>
+            </Link>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopy(e, job_number || jobNo);
+              }}
+              sx={{ p: 0.2 }}
+              title="Copy Job Number"
+            >
+              <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+            </IconButton>
+          </div>
         );
       },
     },

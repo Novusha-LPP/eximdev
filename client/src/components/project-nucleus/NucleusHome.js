@@ -22,9 +22,24 @@ import ElockBillingReport from './reports/ElockBillingReport';
 import TransportAccountsReport from './reports/TransportAccountsReport';
 import KarmaReport from './reports/KarmaReport';
 import ExportPulseReport from './reports/ExportPulseReport';
+import ExportLeoSummaryReport from './reports/ExportLeoSummaryReport';
 import ImportPendingSummaryReport from './reports/ImportPendingSummaryReport';
 import ImportOutOfChargeSummaryReport from './reports/ImportOutOfChargeSummaryReport';
 import TransportMonitoringReport from './reports/TransportMonitoringReport';
+import UninvoicedJobsReport from './reports/UninvoicedJobsReport';
+
+// Invoicing & Sales Intelligence Module
+import InvoicingGroupDashboard from './reports/InvoicingGroupDashboard';
+import InvoicingCompanyDashboard from './reports/InvoicingCompanyDashboard';
+import InvoicingDailyGridReport from './reports/InvoicingDailyGridReport';
+import InvoicingPendingUnbilledReport from './reports/InvoicingPendingUnbilledReport';
+import InvoicingProformaReport from './reports/InvoicingProformaReport';
+import InvoicingYoYComparisonReport from './reports/InvoicingYoYComparisonReport';
+import InvoicingExceptionReport from './reports/InvoicingExceptionReport';
+import InvoicingTargetAchievementReport from './reports/InvoicingTargetAchievementReport';
+import InvoicingCreditNoteReport from './reports/InvoicingCreditNoteReport';
+import InvoicingCustomerReport from './reports/InvoicingCustomerReport';
+import InvoicingSettingsReport from './reports/InvoicingSettingsReport';
 
 const NucleusHome = () => {
     const { selectedCategory, selectedBranchGroup } = useContext(BranchContext);
@@ -38,7 +53,7 @@ const NucleusHome = () => {
                 { id: 'fine', label: 'Bill of Entry – Fine Report' },
                 { id: 'penalty', label: 'Bill of Entry – Penalty Report' },
                 { id: 'top10', label: 'Top 10 Importers' },
-                { id: 'import_pending_summary', label: 'Pending Job Summary' },
+                { id: 'import_pending_summary', label: 'Import Pending Job & Productivity' },
                 { id: 'import_out_of_charge_summary', label: 'Out of Charge Summary' }
             ]
         },
@@ -47,7 +62,8 @@ const NucleusHome = () => {
             label: 'Export',
             icon: '🛫',
             reports: [
-                { id: 'export_pulse', label: 'Export Pulse Dashboard' }
+                { id: 'export_pulse', label: 'Export Pulse Dashboard' },
+                { id: 'export_leo_summary', label: 'Let Export Order (LEO) Summary' }
             ]
         },
         {
@@ -58,7 +74,8 @@ const NucleusHome = () => {
                 { id: 'fleet_utilization', label: 'Fleet Utilization' },
                 { id: 'transport_table', label: 'Top 10 Transporters' },
                 { id: 'elock_lr_completed', label: 'LR Completed Count' },
-                { id: 'transport_monitoring', label: 'Pending LRs & Dispatch Monitoring' }
+                { id: 'transport_monitoring', label: 'Pending LRs & Dispatch Monitoring' },
+                { id: 'uninvoiced_jobs', label: 'Uninvoiced LR Jobs' }
             ]
         },
         {
@@ -81,6 +98,24 @@ const NucleusHome = () => {
                 { id: 'elock_utilization', label: 'E-Lock Utilization' },
                 { id: 'elock_assigned_count', label: 'E-Lock Assigned Count' },
                 { id: 'elock_billing', label: 'E-Lock Billing' }
+            ]
+        },
+        {
+            id: 'invoicing',
+            label: 'Invoicing & Sales',
+            icon: '📊',
+            reports: [
+                { id: 'invoicing_group', label: 'Group Invoicing Dashboard' },
+                { id: 'invoicing_company', label: 'Company Invoicing Deep-Dive' },
+                { id: 'invoicing_daily', label: 'Daily Sales Grid & Overrides' },
+                { id: 'invoicing_targets', label: 'Targets & Projections Matrix' },
+                { id: 'invoicing_unbilled', label: 'Pending Unbilled Jobs (AlVision)' },
+                { id: 'invoicing_proforma', label: 'Proforma Invoice Monitoring' },
+                { id: 'invoicing_credit_notes', label: 'Credit Note Impact & Reversals' },
+                { id: 'invoicing_customers', label: 'Customer Billing Intelligence' },
+                { id: 'invoicing_yoy', label: 'Last Year YoY Comparison' },
+                { id: 'invoicing_exceptions', label: 'Exception Resolution Center' },
+                { id: 'invoicing_settings', label: '⚙️ Settings & Configuration' }
             ]
         },
         {
@@ -132,10 +167,10 @@ const NucleusHome = () => {
     useEffect(() => {
         if (activeReport === 'transport_monitoring') {
             setFilterType('day');
-        } else if (['import_pending_summary', 'import_out_of_charge_summary'].includes(activeReport)) {
+        } else if (activeReport === 'uninvoiced_jobs') {
             setFilterType('fin-year');
         } else {
-            if (filterType === 'fin-year') setFilterType('year');
+            if (filterType === 'fin-year' && !['import_out_of_charge_summary', 'import_pending_summary', 'export_leo_summary', 'uninvoiced_jobs'].includes(activeReport)) setFilterType('year');
         }
     }, [activeReport]);
 
@@ -151,14 +186,19 @@ const NucleusHome = () => {
         const fetchReports = async () => {
             setLoading(true);
             try {
-                let apiUrl = process.env.REACT_APP_API_STRING || 'http://localhost:9006';
+                let apiUrl = process.env.REACT_APP_API_STRING || 'http://0.0.0.0:9006';
                 if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
 
                 const endpoint = apiUrl.endsWith('/api')
                     ? `${apiUrl}/project-nucleus/reports`
                     : `${apiUrl}/api/project-nucleus/reports`;
 
-                const response = await axios.get(endpoint, { withCredentials: true });
+                const params = {
+                    branchId: selectedBranchGroup === 'all' ? '' : selectedBranchGroup,
+                    category: selectedCategory || 'all'
+                };
+
+                const response = await axios.get(endpoint, { params, withCredentials: true });
                 setData(response.data || []);
             } catch (error) {
                 console.error("Error fetching reports:", error);
@@ -168,7 +208,7 @@ const NucleusHome = () => {
         };
 
         fetchReports();
-    }, []);
+    }, [selectedBranchGroup, selectedCategory]);
 
 
 
@@ -218,6 +258,8 @@ const NucleusHome = () => {
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
                         selectedFinancialYear={selectedFinancialYear}
+                        category={selectedCategory}
+                        branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
                     />
                 );
             case 'udyam':
@@ -230,6 +272,20 @@ const NucleusHome = () => {
                 return <NewCustomersReport />;
             case 'export_pulse':
                 return <ExportPulseReport />;
+            case 'export_leo_summary':
+                return (
+                    <ExportLeoSummaryReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                        selectedCategory={selectedCategory}
+                        selectedBranch={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
+                    />
+                );
             case 'transport_table':
                 return (
                     <Top10TransportersReport
@@ -243,7 +299,30 @@ const NucleusHome = () => {
                     />
                 );
             case 'transport_monitoring':
-                return <TransportMonitoringReport selectedDay={selectedDay} />;
+                return (
+                    <TransportMonitoringReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                    />
+                );
+            case 'uninvoiced_jobs':
+                return (
+                    <UninvoicedJobsReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                        selectedBranchGroup={selectedBranchGroup}
+                    />
+                );
             case 'fleet_utilization':
                 return (
                     <FleetUtilizationReport
@@ -340,6 +419,7 @@ const NucleusHome = () => {
                         selectedDay={selectedDay}
                         category={selectedCategory}
                         branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
+                        selectedBranchGroup={selectedBranchGroup}
                     />
                 );
             case 'import_out_of_charge_summary':
@@ -354,15 +434,41 @@ const NucleusHome = () => {
                         selectedDay={selectedDay}
                         category={selectedCategory}
                         branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
+                        selectedBranchGroup={selectedBranchGroup}
                     />
                 );
+            case 'invoicing_group':
+                return <InvoicingGroupDashboard />;
+            case 'invoicing_company':
+                return <InvoicingCompanyDashboard />;
+            case 'invoicing_daily':
+                return <InvoicingDailyGridReport />;
+            case 'invoicing_targets':
+                return <InvoicingTargetAchievementReport />;
+            case 'invoicing_unbilled':
+                return <InvoicingPendingUnbilledReport />;
+            case 'invoicing_proforma':
+                return <InvoicingProformaReport />;
+            case 'invoicing_credit_notes':
+                return <InvoicingCreditNoteReport />;
+            case 'invoicing_customers':
+                return <InvoicingCustomerReport />;
+            case 'invoicing_yoy':
+                return <InvoicingYoYComparisonReport />;
+            case 'invoicing_exceptions':
+                return <InvoicingExceptionReport />;
+            case 'invoicing_settings':
+                return <InvoicingSettingsReport />;
             default:
                 return <div style={{ padding: '20px', color: '#64748b' }}>Select a report from the sidebar</div>;
         }
     };
 
-    // Determine if date controls are needed (udyam, training, client login analytics, new_customers don't need them)
-    const showDateControls = !['udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse', 'import_pending_summary', 'transport_monitoring'].includes(activeReport);
+    // Determine if date controls are needed (udyam, training, client login analytics, new_customers, invoicing reports don't need them)
+    const showDateControls = ![
+        'udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse',
+        'invoicing_group', 'invoicing_company', 'invoicing_daily', 'invoicing_targets', 'invoicing_unbilled', 'invoicing_proforma', 'invoicing_credit_notes', 'invoicing_customers', 'invoicing_yoy', 'invoicing_exceptions', 'invoicing_settings'
+    ].includes(activeReport);
 
     return (
         <div className="nucleus-layout">
@@ -429,8 +535,10 @@ const NucleusHome = () => {
                                                     if (['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts'].includes(report.id)) {
                                                         setFilterType('day');
                                                         setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
-                                                    } else if (['import_pending_summary', 'import_out_of_charge_summary'].includes(report.id)) {
-                                                        setFilterType('fin-year');
+                                                    } else if (report.id === 'import_out_of_charge_summary') {
+                                                        if (filterType === 'fin-year') {
+                                                            setFilterType('month');
+                                                        }
                                                     } else {
                                                         if (filterType === 'day') {
                                                             setFilterType('month');
@@ -464,27 +572,25 @@ const NucleusHome = () => {
                     <div className="nucleus-controls-container">
                         <div className="nucleus-filter-section">
                             <div className="filter-row custom-filter-row" style={{ marginTop: 0, paddingLeft: 0, background: 'transparent' }}>
-                                {!["import_pending_summary", "import_out_of_charge_summary"].includes(activeReport) && (
-                                    <div className="filter-type-selector">
-                                        <span className="filter-label" style={{ minWidth: 'auto', marginRight: '10px' }}>Filter Period:</span>
-                                        <select
-                                            value={filterType}
-                                            onChange={(e) => setFilterType(e.target.value)}
-                                            className="nucleus-select"
-                                        >
-                                            {['transport_monitoring', 'fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts', 'import_pending_summary'].includes(activeReport) && (
-                                                <option value="day">Day Wise</option>
-                                            )}
-                                            <option value="week">Week Wise</option>
-                                            <option value="month">Month Wise</option>
-                                            <option value="quarter">Quarter Wise</option>
-                                            <option value="year">Year Wise</option>
-                                            {["import_pending_summary", "import_out_of_charge_summary"].includes(activeReport) && <option value="fin-year">Financial Year</option>}
-                                            <option value="date-range">Date Range</option>
-                                            <option value="all">Unfiltered (All Time)</option>
-                                        </select>
-                                    </div>
-                                )}
+                                <div className="filter-type-selector">
+                                    <span className="filter-label" style={{ minWidth: 'auto', marginRight: '10px' }}>Filter Period:</span>
+                                    <select
+                                        value={filterType}
+                                        onChange={(e) => setFilterType(e.target.value)}
+                                        className="nucleus-select"
+                                    >
+                                        {['transport_monitoring', 'fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts', 'import_pending_summary', 'import_out_of_charge_summary', 'export_leo_summary', 'uninvoiced_jobs'].includes(activeReport) && (
+                                            <option value="day">Day Wise</option>
+                                        )}
+                                        <option value="week">Week Wise</option>
+                                        <option value="month">Month Wise</option>
+                                        <option value="quarter">Quarter Wise</option>
+                                        <option value="year">Year Wise</option>
+                                        {["import_pending_summary", "import_out_of_charge_summary", "export_leo_summary", "uninvoiced_jobs"].includes(activeReport) && <option value="fin-year">Financial Year</option>}
+                                        <option value="date-range">Date Range</option>
+                                        <option value="all">Unfiltered (All Time)</option>
+                                    </select>
+                                </div>
 
                                 {filterType === 'day' && (
                                     <div className="custom-inputs">

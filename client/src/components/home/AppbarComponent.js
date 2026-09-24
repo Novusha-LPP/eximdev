@@ -75,6 +75,14 @@ function AppbarComponent(props) {
       .map(b => b.category);
   }, [branches, selectedBranchGroup]);
 
+  const handleGoBack = () => {
+    if (window.history.state && typeof window.history.state.idx === "number" && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate("/");
+    }
+  };
+
   return (
     <AppBar
       position="fixed"
@@ -97,15 +105,17 @@ function AppbarComponent(props) {
           <MenuIcon sx={{ color: "#000" }} />
         </IconButton>
 
-        <IconButton
-          color="inherit"
-          aria-label="open drawer"
-          edge="start"
-          onClick={() => window.history.back()}
-          sx={{ mr: 1 }}
-        >
-          <ArrowBackIcon sx={{ color: "#000" }} />
-        </IconButton>
+        {!pathname.includes("/it-helpdesk") && (
+          <IconButton
+            color="inherit"
+            aria-label="go back"
+            edge="start"
+            onClick={handleGoBack}
+            sx={{ mr: 1 }}
+          >
+            <ArrowBackIcon sx={{ color: "#000" }} />
+          </IconButton>
+        )}
 
         <div>
           <img

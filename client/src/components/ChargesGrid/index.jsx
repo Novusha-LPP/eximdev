@@ -64,8 +64,8 @@ const ChargesGrid = ({
 
   const handleMultiPurchaseBook = async () => {
     const selectedCharges = charges.filter(c => selectedIds.has(c._id));
-    if (selectedCharges.length < 2) {
-      alert("Please select at least 2 charges to create a combined Purchase Book.");
+    if (selectedCharges.length < 1) {
+      alert("Please select at least 1 charge to create a Purchase Book.");
       return;
     }
 
@@ -159,6 +159,25 @@ const ChargesGrid = ({
       }
 
       const revenue = c.revenue || {};
+
+      const costCurrency = (cost.currency && String(cost.currency).trim()) ? String(cost.currency).trim() : (cost.costCurrency ? String(cost.costCurrency).trim() : 'INR');
+      const costExRate = Number(cost.exchangeRate || cost.exRate || 1);
+
+      const revCurrency = (revenue.currency && String(revenue.currency).trim()) ? String(revenue.currency).trim() : 'INR';
+      const revExRate = Number(revenue.exchangeRate || revenue.exRate || costExRate || 1);
+
+      const costQty = cost.qty !== undefined && cost.qty !== null && cost.qty !== '' ? Number(cost.qty) : 1;
+      const costRate = cost.rate !== undefined && cost.rate !== null && cost.rate !== '' ? Number(cost.rate) : (cost.amount !== undefined && cost.amount !== null ? Number(cost.amount) : 0);
+      const costCurrAmt = costCurrency !== 'INR'
+        ? (cost.amount !== undefined && cost.amount !== null && cost.amount !== '' ? Number(cost.amount) : costQty * costRate)
+        : 0;
+
+      const revQty = revenue.qty !== undefined && revenue.qty !== null && revenue.qty !== '' ? Number(revenue.qty) : costQty;
+      const revRate = revenue.rate !== undefined && revenue.rate !== null && revenue.rate !== '' ? Number(revenue.rate) : (revenue.amount !== undefined && revenue.amount !== null ? Number(revenue.amount) : 0);
+      const revCurrAmt = revCurrency !== 'INR'
+        ? (revenue.amount !== undefined && revenue.amount !== null && revenue.amount !== '' ? Number(revenue.amount) : revQty * revRate)
+        : (revenue.amount !== undefined && revenue.amount !== null && revenue.amount !== '' ? Number(revenue.amount) : revQty * revRate);
+
       return {
         partyName: targetPartyName,
         chargeHeading: c.category === 'Margin' ? (targetPartyName || '') : `NEW - ${targetPartyName}`,
@@ -172,7 +191,11 @@ const ChargesGrid = ({
         igst: !isGujarat ? totalGst : 0,
         tdsAmount: cost.tdsAmount,
         netPayable: cost.netPayable,
-        rate: cost.rate,
+        rate: costRate,
+        qty: costQty,
+        currency: costCurrency,
+        currencyAmount: costCurrAmt,
+        exchangeRate: costCurrency !== 'INR' ? costExRate : revExRate,
         totalAmount: cost.totalAmount,
         revenueAmount: revenue.amount,
         revenueBasicAmount: revenue.basicAmount,
@@ -182,6 +205,8 @@ const ChargesGrid = ({
         revenueSgst: revenue.sgst,
         revenueIgst: revenue.igst,
         revenueTotal: revenue.amountINR || revenue.totalAmount || revenue.amount,
+        revenueRate: revRate,
+        revenueCurrencyAmount: revCurrAmt,
         revenuePartyName: revenue.partyName,
         chargeHead: c.chargeHead,
         invoice_number: c.invoice_number,
@@ -385,7 +410,8 @@ const ChargesGrid = ({
          onDeleteSelected={handleDeleteSelected}
          readOnly={readOnlyFinal}
          isDeleteDisabled={isDeleteDisabled}
-         onMultiPurchaseBook={selectedIds.size >= 2 ? handleMultiPurchaseBook : null}
+         onMultiPurchaseBook={selectedIds.size >= 1 ? handleMultiPurchaseBook : null}
+         purchaseBookLabel={selectedIds.size > 1 ? 'Combined Purchase Book' : 'Purchase Book'}
       />
       
       <div style={{ position: 'relative' }}>
@@ -468,38 +494,28 @@ const ChargesGrid = ({
         <FileUploadModal 
           isOpen={!!fileModalCharge}
           onClose={() => setFileModalCharge(null)}
-          chargeLabel={`${fileModalCharge.charge.chargeHead} (${fileModalCharge.tab})`}
+          chargeLabel={fileModalCharge.charge.chargeHead}
           showTypeSelection={fileModalCharge.charge.chargeHead?.trim().toUpperCase() === shippingLineAirline?.trim().toUpperCase()}
-          initialUrls={
-            fileModalCharge.tab === 'cost' 
-              ? [
-                  ...(fileModalCharge.charge.cost?.url || []),
-                  ...(fileModalCharge.charge.cost?.url_draft || []),
-                  ...(fileModalCharge.charge.cost?.url_final || [])
-                ]
-              : [
-                  ...(fileModalCharge.charge.revenue?.url || []),
-                  ...(fileModalCharge.charge.revenue?.url_draft || []),
-                  ...(fileModalCharge.charge.revenue?.url_final || [])
-                ]
-          }
-          categorizedUrls={
-            fileModalCharge.tab === 'cost' 
-              ? { 
-                  draft: [
-                    ...(fileModalCharge.charge.cost?.url || []),
-                    ...(fileModalCharge.charge.cost?.url_draft || [])
-                  ], 
-                  final: fileModalCharge.charge.cost?.url_final || [] 
-                }
-              : { 
-                  draft: [
-                    ...(fileModalCharge.charge.revenue?.url || []),
-                    ...(fileModalCharge.charge.revenue?.url_draft || [])
-                  ], 
-                  final: fileModalCharge.charge.revenue?.url_final || [] 
-                }
-          }
+          initialUrls={[...new Set([
+            ...(fileModalCharge.charge.cost?.url || []),
+            ...(fileModalCharge.charge.cost?.url_draft || []),
+            ...(fileModalCharge.charge.cost?.url_final || []),
+            ...(fileModalCharge.charge.revenue?.url || []),
+            ...(fileModalCharge.charge.revenue?.url_draft || []),
+            ...(fileModalCharge.charge.revenue?.url_final || [])
+          ])]}
+          categorizedUrls={{
+            draft: [...new Set([
+              ...(fileModalCharge.charge.cost?.url || []),
+              ...(fileModalCharge.charge.cost?.url_draft || []),
+              ...(fileModalCharge.charge.revenue?.url || []),
+              ...(fileModalCharge.charge.revenue?.url_draft || [])
+            ])],
+            final: [...new Set([
+              ...(fileModalCharge.charge.cost?.url_final || []),
+              ...(fileModalCharge.charge.revenue?.url_final || [])
+            ])]
+          }}
           onAttach={handleAttachFiles}
         />
       )}

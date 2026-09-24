@@ -36,6 +36,7 @@ export default function SelectImporterModal(props) {
   const [importerData, setImporterData] = React.useState([]);
   const [selectedImporter, setSelectedImporter] = React.useState("");
   const [checked, setChecked] = React.useState(false);
+  const [remarkAtEnd, setRemarkAtEnd] = React.useState(false);
   const [selectedApiYears, setSelectedApiYears] = React.useState([]);
 
   const [branches, setBranches] = React.useState([]);
@@ -83,9 +84,13 @@ export default function SelectImporterModal(props) {
           // Filter importers based on user assignment if not Admin
           if (user && user.role !== 'Admin') {
             const assignedImporters = user.assigned_importer_name || [];
-            fetchedImporters = fetchedImporters.filter(item =>
-              assignedImporters.includes(item.importer)
-            );
+            const hasAllAccess = assignedImporters.some(imp => imp && imp.toUpperCase() === 'ALL');
+            if (!hasAllAccess) {
+              const lowerAssigned = new Set(assignedImporters.map(imp => (imp || '').trim().toLowerCase()));
+              fetchedImporters = fetchedImporters.filter(item =>
+                lowerAssigned.has((item.importer || '').trim().toLowerCase())
+              );
+            }
           }
 
           setImporters(fetchedImporters);
@@ -106,8 +111,9 @@ export default function SelectImporterModal(props) {
     const uniqueImporters = new Set();
     return importerData
       .filter((importer) => {
-        if (uniqueImporters.has(importer.importer)) return false;
-        uniqueImporters.add(importer.importer);
+        const key = (importer.importer || '').trim().toLowerCase();
+        if (uniqueImporters.has(key)) return false;
+        uniqueImporters.add(key);
         return true;
       })
       .map((importer, index) => ({
@@ -154,7 +160,8 @@ export default function SelectImporterModal(props) {
         res.data,
         selectedImporter,
         props.status,
-        props.detailedStatus
+        props.detailedStatus,
+        remarkAtEnd
       );
     }
   };
@@ -176,7 +183,7 @@ export default function SelectImporterModal(props) {
         `${process.env.REACT_APP_API_STRING}/download-report/${yearString}/${props.status}${branchParam}`
       );
 
-      downloadAllReport(res.data, props.status, props.detailedStatus);
+      downloadAllReport(res.data, props.status, props.detailedStatus, remarkAtEnd);
     }
   };
 
@@ -240,6 +247,15 @@ export default function SelectImporterModal(props) {
                 />
               }
               label="Download all importers"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={remarkAtEnd}
+                  onChange={(e) => setRemarkAtEnd(e.target.checked)}
+                />
+              }
+              label="Add Remark column in last"
             />
           </FormGroup>
 

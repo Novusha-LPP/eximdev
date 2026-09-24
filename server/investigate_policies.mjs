@@ -5,10 +5,10 @@ dotenv.config();
 
 async function checkPolicies() {
   try {
-    await mongoose.connect('mongodb://localhost:27017/exim');
+    await mongoose.connect('mongodb://0.0.0.0:27017/exim');
     const Policy = mongoose.model('WeekOffPolicy', new mongoose.Schema({}, { strict: false }));
     const policies = await Policy.find().lean();
-    
+
     console.log(`Total policies found: ${policies.length}`);
     policies.forEach(p => {
       console.log(`- ${p.policy_name} (ID: ${p._id})`);

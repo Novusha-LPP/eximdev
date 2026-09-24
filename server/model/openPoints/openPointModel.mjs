@@ -19,6 +19,7 @@ const pointSchema = new mongoose.Schema({
     department: { type: String, default: 'General' },
     priority: { type: String, enum: ['Low', 'Medium', 'High', 'Emergency', 'P1', 'P2', 'P3', 'P4'], default: 'Low' },
     status: { type: String, enum: ['Green', 'Yellow', 'Red', 'Orange'], default: 'Red' },
+    creation_date: { type: Date, index: true },
     target_date: { type: Date }, // Can be optional if not always known
     completion_date: { type: Date }, // Automatically set when status is Green
 
@@ -36,7 +37,31 @@ const pointSchema = new mongoose.Schema({
         changed_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         timestamp: { type: Date, default: Date.now },
         remarks: String
-    }]
+    }],
+
+    // Originating Context for external integrations (MRM, etc.)
+    originModule: {
+        type: String,
+        enum: ['MRM', 'CRM', 'MANUAL', null],
+        default: null,
+        index: true
+    },
+    originContext: {
+        mrmItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'MRMItem', index: true },
+        personId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+        personName: { type: String },
+        tile: { type: String },
+        objective: { type: String },
+        month: { type: String },
+        year: { type: Number }
+    }
+});
+
+pointSchema.pre('save', function (next) {
+    if (this.isNew && !this.creation_date) {
+        this.creation_date = new Date();
+    }
+    next();
 });
 
 pointSchema.plugin(auditPlugin, { documentType: "OpenPoint" });

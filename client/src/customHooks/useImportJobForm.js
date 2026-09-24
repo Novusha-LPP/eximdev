@@ -712,7 +712,8 @@ const useImportJobForm = () => {
     const isInsuranceManual = updatedRows[rowIndex].is_insurance_manual;
 
     // Auto-calculate freight and insurance based on TOI
-    const toiValue = field === "toi" ? value : (updatedRows[rowIndex].toi || "CIF");
+    const rawToi = field === "toi" ? value : (updatedRows[rowIndex].toi || "CIF");
+    const toiValue = (rawToi === "CF" || rawToi === "C&F" || rawToi === "C & F") ? "C&F" : ((rawToi === "CI" || rawToi === "C&I" || rawToi === "C & I") ? "C&I" : rawToi);
     const pv = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
 
     const descriptionLength = description_details?.length || 0;
@@ -726,7 +727,7 @@ const useImportJobForm = () => {
             updatedRows[rowIndex].insurance = pv > 0 ? (pv * 0.01125).toFixed(2) : "";
           }
         }
-      } else if (toiValue === "CF") {
+      } else if (toiValue === "C&F" || toiValue === "CF") {
         // C&F: auto-calculate insurance as 1.125% of invoice value
         if (field === "product_value" || field === "toi") {
           updatedRows[rowIndex].freight = "";
@@ -734,7 +735,7 @@ const useImportJobForm = () => {
             updatedRows[rowIndex].insurance = pv > 0 ? (pv * 0.01125).toFixed(2) : "";
           }
         }
-      } else if (toiValue === "CI") {
+      } else if (toiValue === "C&I" || toiValue === "CI") {
         // C&I: auto-calculate freight as 20% of invoice value
         if (field === "product_value" || field === "toi") {
           if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
@@ -784,6 +785,20 @@ const useImportJobForm = () => {
           if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
             updatedRows[rowIndex].insurance = calculateInsuranceValue();
           }
+        }
+      } else if (toiValue === "C&F" || toiValue === "CF") {
+        if (triggerFields.includes(field)) {
+          updatedRows[rowIndex].freight = "";
+          if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
+            updatedRows[rowIndex].insurance = calculateInsuranceValue();
+          }
+        }
+      } else if (toiValue === "C&I" || toiValue === "CI") {
+        if (triggerFields.includes(field)) {
+          if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
+            updatedRows[rowIndex].freight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
+          }
+          updatedRows[rowIndex].insurance = "";
         }
       } else if (field === "toi") {
         updatedRows[rowIndex].freight = "";

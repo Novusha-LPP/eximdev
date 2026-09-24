@@ -4,10 +4,13 @@ import React, {
   useEffect,
   useMemo,
   useCallback,
+  useRef,
 } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "../../styles/job-list.scss";
 import useJobColumns from "../../customHooks/useJobColumns";
+import TableRowsIcon from "@mui/icons-material/TableRows";
+import ViewHeadlineIcon from "@mui/icons-material/ViewHeadline";
 import {
   getTableRowsClassname,
   getTableRowInlineStyle,
@@ -244,6 +247,22 @@ function JobList(props) {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
 
+  // View Mode: 'full' (Current UI) vs 'shrink' (Compact List with Latest Date in Seq)
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem("exim_joblist_view_mode") || "full";
+    } catch (e) {
+      return "full";
+    }
+  });
+
+  const handleViewModeChange = useCallback((mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("exim_joblist_view_mode", mode);
+    } catch (e) { }
+  }, []);
+
   // Query Management States
   const [clientQueriesStatus, setClientQueriesStatus] = useState({});
   const [queryChatOpen, setQueryChatOpen] = useState(false);
@@ -316,10 +335,20 @@ function JobList(props) {
     // eslint-disable-next-line
   }, []);
 
+  // Importer list client cache (60-second TTL)
+  const importerListClientCache = useRef(new Map());
+
   // Importer list
   useEffect(() => {
     async function getImporterList() {
       if (!selectedYearState) return;
+      const cacheKey = `${selectedYearState}_${detailedStatus || "all"}_${selectedBranch || "all"}_${selectedCategory || "all"}_${user?.role === "Admin" ? "admin" : user?.assigned_importer_name?.join(",") || ""}`;
+      const cached = importerListClientCache.current.get(cacheKey);
+      if (cached && Date.now() - cached.ts < 60000) {
+        setImporters(cached.data);
+        return;
+      }
+
       const params = new URLSearchParams();
       if (detailedStatus && detailedStatus !== "all") {
         params.append("detailedStatus", detailedStatus);
@@ -341,11 +370,16 @@ function JobList(props) {
       // Filter based on assigned importers if not Admin
       if (user && user.role !== 'Admin') {
         const assignedImporters = user.assigned_importer_name || [];
-        fetchedImporters = fetchedImporters.filter(item =>
-          assignedImporters.includes(item.importer)
-        );
+        const hasAllAccess = assignedImporters.some(imp => imp && imp.toUpperCase() === 'ALL');
+        if (!hasAllAccess) {
+          const lowerAssigned = new Set(assignedImporters.map(imp => (imp || '').trim().toLowerCase()));
+          fetchedImporters = fetchedImporters.filter(item =>
+            lowerAssigned.has((item.importer || '').trim().toLowerCase())
+          );
+        }
       }
 
+      importerListClientCache.current.set(cacheKey, { data: fetchedImporters, ts: Date.now() });
       setImporters(fetchedImporters);
     }
     getImporterList();
@@ -356,8 +390,9 @@ function JobList(props) {
     const seen = new Set();
     return importerData
       .filter((x) => {
-        if (seen.has(x.importer)) return false;
-        seen.add(x.importer);
+        const key = (x.importer || '').trim().toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
         return true;
       })
       .map((x, i) => ({ label: x.importer, key: `${x.importer}-${i}` }));
@@ -402,7 +437,7 @@ function JobList(props) {
     }
   }, [rows, fetchQueryStatusForJobs]);
 
-  // Sort jobs list with active query priority at TOP (resolved queries do not bypass normal order)
+  // Sort jobs list with active query priority at TOP (preserves server-provided sequence in place otherwise)
   const sortedRows = useMemo(() => {
     if (!rows || rows.length === 0) return [];
     return [...rows].sort((a, b) => {
@@ -1121,9 +1156,9 @@ function JobList(props) {
             variant="body1"
             sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
           >
-          {props.status} Jobs: {total}
-        </Typography>
-      </Box>
+            {props.status} Jobs: {total}
+          </Typography>
+        </Box>
 
         <TextField
           select
@@ -1220,6 +1255,69 @@ function JobList(props) {
           ))}
         </TextField>
 
+        {/* View Mode Toggle Switch */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0.5,
+            bgcolor: "#f1f5f9",
+            p: "2px",
+            borderRadius: "8px",
+            border: "1px solid #cbd5e1",
+            marginRight: "10px",
+          }}
+        >
+          <Tooltip title="Full Table View (Current UI)" arrow>
+            <button
+              type="button"
+              className={`toggle-btn ${viewMode === "full" ? "active" : ""}`}
+              onClick={() => handleViewModeChange("full")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "5px 9px",
+                border: "none",
+                borderRadius: "6px",
+                backgroundColor: viewMode === "full" ? "#ffffff" : "transparent",
+                color: viewMode === "full" ? "#2563eb" : "#64748b",
+                fontWeight: "700",
+                fontSize: "12px",
+                cursor: "pointer",
+                boxShadow: viewMode === "full" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+              }}
+            >
+              <TableRowsIcon sx={{ fontSize: 16 }} />
+              Full
+            </button>
+          </Tooltip>
+          <Tooltip title="Shrink List View (Job No, IGM & Latest Date in Seq)" arrow>
+            <button
+              type="button"
+              className={`toggle-btn ${viewMode === "shrink" ? "active" : ""}`}
+              onClick={() => handleViewModeChange("shrink")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "5px 9px",
+                border: "none",
+                borderRadius: "6px",
+                backgroundColor: viewMode === "shrink" ? "#ffffff" : "transparent",
+                color: viewMode === "shrink" ? "#2563eb" : "#64748b",
+                fontWeight: "700",
+                fontSize: "12px",
+                cursor: "pointer",
+                boxShadow: viewMode === "shrink" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+              }}
+            >
+              <ViewHeadlineIcon sx={{ fontSize: 16 }} />
+              Shrink
+            </button>
+          </Tooltip>
+        </Box>
+
         {/* Simple search input (no typeahead/suggestions) */}
         <TextField
           value={localInput}
@@ -1262,8 +1360,20 @@ function JobList(props) {
       handleBeTypeChange, // dependency
       dynamicICDs,
       myRequestsOpen, // Added myRequestsOpen to dependencies
+      viewMode,
+      handleViewModeChange,
     ]
   );
+
+  const [expandedRowIds, setExpandedRowIds] = useState({});
+
+  const toggleRowExpanded = useCallback((rowId) => {
+    if (!rowId) return;
+    setExpandedRowIds((prev) => ({
+      ...prev,
+      [rowId]: !prev[rowId],
+    }));
+  }, []);
 
   const columns = useJobColumns(
     (jobId, updatedData) => handleRowDataUpdate(jobId, updatedData),
@@ -1301,7 +1411,10 @@ function JobList(props) {
     handleRedClick,
     handleYellowClick,
     handleResolveOpenQuery,
-    handleOpenQueryChat
+    handleOpenQueryChat,
+    viewMode,
+    expandedRowIds,
+    toggleRowExpanded
   );
 
   const table = useMaterialReactTable({
@@ -1322,8 +1435,41 @@ function JobList(props) {
     enableStickyHeader: true,
     enablePinning: true,
     muiTableContainerProps: { sx: { maxHeight: "690px", overflowY: "auto" } },
-    muiTableBodyRowProps: getRowProps,
-    muiTableHeadCellProps: { sx: { position: "sticky", top: 0, zIndex: 999 } },
+    muiTableBodyRowProps: ({ row }) => {
+      const baseProps = getRowProps({ row });
+      if (viewMode === "shrink") {
+        return {
+          ...baseProps,
+          style: {
+            ...(baseProps.style || {}),
+            cursor: "pointer",
+          },
+          onClick: (event) => {
+            const targetTagName = event.target?.tagName?.toLowerCase() || "";
+            if (["a", "button", "input", "textarea", "select"].includes(targetTagName)) {
+              return;
+            }
+            if (
+              event.target?.closest?.(
+                "a, button, input, textarea, select, .MuiIconButton-root, .MuiChip-root"
+              )
+            ) {
+              return;
+            }
+            toggleRowExpanded(row.original._id);
+          },
+        };
+      }
+      return baseProps;
+    },
+    muiTableHeadCellProps: {
+      sx: {
+        position: "sticky",
+        top: 0,
+        zIndex: 999,
+        backgroundColor: "#f8fafc",
+      },
+    },
     renderTopToolbarCustomActions: renderTopToolbarCustomActions,
   });
 

@@ -22,13 +22,18 @@ import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
 import MedicalServicesIcon from "@mui/icons-material/MedicalServices";
+import ComputerIcon from "@mui/icons-material/Computer";
+import SupportAgentIcon from "@mui/icons-material/SupportAgent";
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
+import RaiseTicketModal from "../it-helpdesk/RaiseTicketModal";
 
 function Sidebar() {
   const navigate = useNavigate();
   const { user, setUser } = useContext(UserContext);
   const [currencyDialogOpen, setCurrencyDialogOpen] = useState(false);
+  const [raiseTicketModalOpen, setRaiseTicketModalOpen] = useState(false);
   const [pendingCorrectionCount, setPendingCorrectionCount] = useState(0);
 
   useEffect(() => {
@@ -65,6 +70,7 @@ function Sidebar() {
       "selected_importer",
       "selected_importer_url",
       "tab_value",
+      "token",
     ].forEach((key) => localStorage.removeItem(key));
 
     // Remove all non-HttpOnly cookies available to JS.
@@ -251,6 +257,7 @@ function Sidebar() {
         </Tooltip>
       )}
 
+
       {/* NEW: Currency Exchange Rates Icon */}
       <Tooltip title="Currency Exchange Rates" enterDelay={0} placement="right">
         <ListItemButton
@@ -265,11 +272,22 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
-
-
+      {/* Helpdesk & Tickets Icon */}
+      <Tooltip title="Helpdesk & Tickets" enterDelay={0} placement="right">
+        <ListItemButton
+          sx={{ textAlign: "left" }}
+          className="appbar-links"
+          aria-label="list-item"
+          onClick={() => navigate("/it-helpdesk/tickets")}
+        >
+          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+            <SupportAgentIcon />
+          </IconButton>
+        </ListItemButton>
+      </Tooltip>
 
       {
-        ['suraj_rajan', 'uday_zope', 'geethanjali_b', 'masood_raza'].includes(user.username) && (
+        ['suraj_rajan', 'geethanjali_b', 'masood_raza', 'dev_master'].includes(user.username) && (
           <Tooltip title="Project Nucleus" enterDelay={0} placement="right">
             <ListItemButton
               className="appbar-links"
@@ -340,6 +358,12 @@ function Sidebar() {
       <CurrencyRateDialog
         open={currencyDialogOpen}
         onClose={() => setCurrencyDialogOpen(false)}
+      />
+
+      {/* Raise Support Ticket Modal */}
+      <RaiseTicketModal
+        open={raiseTicketModalOpen}
+        onClose={() => setRaiseTicketModalOpen(false)}
       />
     </div>
   );

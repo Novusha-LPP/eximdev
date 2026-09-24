@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.SERVER_MONGODB_URI || "mongodb://localhost:27017/eximNew";
+const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.SERVER_MONGODB_URI || "mongodb://0.0.0.0:27017/eximNew";
 
 // Helper to generate initials from a name
 function generateInitials(name) {

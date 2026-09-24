@@ -7,6 +7,7 @@ import TeamModel from "../../model/teamModel.mjs";
 import mongoose from "mongoose";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import { syncOpenPointStatusToMRM } from "../../services/mrmOpenPointsSyncService.mjs";
 
 const router = express.Router();
 
@@ -51,25 +52,24 @@ const verifyProjectAccess = async (req, res, next) => {
         const { projectId } = req.params;
         const userId = req.user._id;
 
-
-
         if (!userId) {
-            // console.log("Debug Auth: Missing User ID");
             return res.status(401).json({ error: "Unauthorized" });
         }
 
         const project = await OpenPointProject.findById(projectId);
         if (!project) return res.status(404).json({ error: "Project not found" });
 
-        const isOwner = project.owner.toString() === userId;
-        const isMember = project.team_members.some(m => m.user.toString() === userId);
+        const isOwner = project.owner && project.owner.toString() === userId.toString();
+        const isMember = project.team_members && project.team_members.some(m => m.user && m.user.toString() === userId.toString());
+        const isAdmin = ['Admin', 'admin'].includes(req.user.role);
+        const isSystemMRM = (project.initials === 'MRM' || project.name === 'MRM Action Points');
 
-        if (!isOwner && !isMember) {
+        if (!isOwner && !isMember && !isAdmin && !isSystemMRM) {
             return res.status(403).json({ error: "Access Denied: You are not part of this project" });
         }
 
         req.project = project;
-        req.userRole = isOwner ? 'L4' : project.team_members.find(m => m.user.toString() === userId)?.role;
+        req.userRole = (isOwner || isAdmin) ? 'L4' : (project.team_members?.find(m => m.user && m.user.toString() === userId.toString())?.role || 'L2');
         next();
     } catch (error) {
         console.error("Access Verify Error", error);
@@ -261,12 +261,18 @@ router.get("/api/open-points/my-projects", authMiddleware, async (req, res) => {
             return res.status(404).json({ error: "User not found" });
         }
 
-        const projects = await OpenPointProject.find({
+        const projectQuery = {
             $or: [
                 { owner: user._id },
-                { "team_members.user": user._id }
+                { "team_members.user": user._id },
+                { initials: 'MRM' },
+                { name: 'MRM Action Points' }
             ]
-        }).populate('owner', 'username').populate('team_members.user', 'username employee_photo first_name last_name');
+        };
+
+        const projects = await OpenPointProject.find(projectQuery)
+            .populate('owner', 'username')
+            .populate('team_members.user', 'username employee_photo first_name last_name');
 
 
         // Calculate health stats for each project
@@ -321,14 +327,14 @@ router.get("/api/open-points/project/:projectId", authMiddleware, verifyProjectA
 router.get("/api/open-points/project/:projectId/points", authMiddleware, verifyProjectAccess, async (req, res) => {
     try {
         const project = req.project; // Populated by verifyProjectAccess
-        
+
         let query = { project_id: req.params.projectId };
         let updateQuery = { project_id: req.params.projectId };
 
         if (project && project.name && project.name.trim().toLowerCase() === "internal software team") {
             const memberIds = project.team_members.map(m => m.user);
             if (project.owner) memberIds.push(project.owner);
-            
+
             const virtualCondition = {
                 $or: [
                     { project_id: req.params.projectId },
@@ -396,6 +402,9 @@ router.post("/api/open-points/points", authMiddleware, auditMiddleware("OpenPoin
         }
 
         pointData.created_by = req.user._id;
+        if (!pointData.creation_date) {
+            pointData.creation_date = new Date();
+        }
 
         // Fetch project and generate initials if missing
         const project = await OpenPointProject.findById(pointData.project_id);
@@ -493,6 +502,11 @@ router.put("/api/open-points/points/:pointId", authMiddleware, auditMiddleware("
         });
 
         await point.save();
+
+        // Reverse sync hook: If point originated from MRM, sync status back
+        if (point.originModule === 'MRM') {
+            syncOpenPointStatusToMRM(point).catch(err => console.error("Safe sync error:", err));
+        }
 
         // Return updated point
         res.json(point);
@@ -682,7 +696,7 @@ router.get("/api/open-points/my-pending-count", authMiddleware, async (req, res)
     try {
         const { userId, username } = req.headers;
         const authUserId = req.user ? req.user._id : null;
-        
+
         // Find user using same logic as my-assigned-points
         let user = null;
         if (authUserId) {
@@ -690,7 +704,7 @@ router.get("/api/open-points/my-pending-count", authMiddleware, async (req, res)
         } else if (userId) {
             user = await UserModel.findById(userId);
         }
-        
+
         if (!user && username) {
             user = await UserModel.findOne({ username });
         }
@@ -739,16 +753,16 @@ router.get("/api/open-points/my-assigned-to-others-points", authMiddleware, asyn
         // 1. Created by me
         // 2. OR (Created By is null AND belongs to a project I own - fallback for historical data)
         // AND always excluding points assigned TO me (responsible_person === userId)
-        const points = await OpenPoint.find({ 
+        const points = await OpenPoint.find({
             $or: [
                 { created_by: userId },
-                { 
+                {
                     $and: [
                         { created_by: { $exists: false } },
                         { project_id: { $in: myOwnedProjectIds } }
                     ]
                 },
-                { 
+                {
                     $and: [
                         { created_by: null },
                         { project_id: { $in: myOwnedProjectIds } }
@@ -903,7 +917,7 @@ router.get("/api/open-points/pulse/teams", authMiddleware, async (req, res) => {
     try {
         // Fetch all active teams
         const teams = await TeamModel.find({ isActive: { $ne: false } }).sort({ name: 1 });
-        
+
         // Auto-add HOD to members if not already present (fixes old teams)
         for (const team of teams) {
             const hodInMembers = team.members.some(m => m.username === team.hodUsername);
@@ -982,7 +996,7 @@ router.get("/api/open-points/pulse/teams", authMiddleware, async (req, res) => {
 function enrichedTeamsArray(teamsLean, hodMap, memberMap, countsMap) {
     return teamsLean.map(team => {
         const hodDetails = hodMap[team.hodId?.toString()] || null;
-        
+
         // Map members details and get their pending count
         const membersDetails = team.members.map(m => {
             const uDetails = memberMap[m.username] || {};
@@ -1026,7 +1040,7 @@ router.get("/api/open-points/suggestions", authMiddleware, async (req, res) => {
         if (!q || !q.trim()) {
             return res.json([]);
         }
-        
+
         // Find matching projects user has access to (respect permissions)
         const userId = req.user._id;
         const projects = await OpenPointProject.distinct('_id', {
@@ -1044,8 +1058,8 @@ router.get("/api/open-points/suggestions", authMiddleware, async (req, res) => {
                 { title: { $regex: new RegExp(q.trim(), "i") } }
             ]
         })
-        .select('unique_id title project_id')
-        .limit(10);
+            .select('unique_id title project_id')
+            .limit(10);
 
         res.json(points);
     } catch (error) {
@@ -1061,10 +1075,10 @@ router.get("/api/open-points/search/:uniqueId", authMiddleware, async (req, res)
         if (!uniqueId) {
             return res.status(400).json({ error: "Unique ID is required" });
         }
-        
+
         // Case-insensitive search on unique_id
-        const point = await OpenPoint.findOne({ 
-            unique_id: { $regex: new RegExp(`^${uniqueId.trim()}$`, "i") } 
+        const point = await OpenPoint.findOne({
+            unique_id: { $regex: new RegExp(`^${uniqueId.trim()}$`, "i") }
         });
 
         if (!point) {

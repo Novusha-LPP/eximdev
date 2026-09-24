@@ -11,7 +11,8 @@ import translate from "google-translate-api-x";
 import EmployeeKPI from "../../model/hr/employeeKPIModel.mjs";
 import AttendanceRecord from "../../model/attendance/AttendanceRecord.js";
 import moment from "moment";
-import fs from "fs";
+import { isFeatureEnabled } from "../../config/featureFlags.mjs";
+import calculateAttendanceMetrics from "../../utils/attendanceScoreUtil.mjs";
 
 const router = express.Router();
 
@@ -97,47 +98,17 @@ const autoCalculateKPIScores = async (sheet) => {
     const queryMonth = sheet.month;
 
     // 1. Attendance Metrics
-    const monthStr = `${queryYear}-${String(queryMonth).padStart(2, '0')}`;
     let present_days = 0;
     let working_days = 0;
     
     try {
-        const attendanceRecords = await AttendanceRecord.find({
-            employee_id: employeeId,
-            year_month: monthStr,
+        const attMetrics = await calculateAttendanceMetrics({
+            employeeId,
+            year: queryYear,
+            month: queryMonth
         });
-
-        let weekly_off_count = 0;
-        let holiday_count = 0;
-
-        attendanceRecords.forEach((rec) => {
-            const status = rec.status;
-            if (status === "weekly_off" || rec.is_weekly_off) {
-                weekly_off_count++;
-            } else if (status === "holiday" || rec.is_holiday) {
-                holiday_count++;
-            } else if (["present", "on_duty", "leave", "late"].includes(status)) {
-                present_days += 1;
-            } else if (status === "half_day" || rec.is_half_day) {
-                present_days += 0.5;
-            } else if (status === "incomplete" || rec.missed_punch) {
-                present_days += 0.5;
-            }
-        });
-
-        const daysInMonth = moment(`${queryYear}-${String(queryMonth).padStart(2, '0')}-01`, "YYYY-MM-DD").daysInMonth();
-        working_days = daysInMonth - (weekly_off_count + holiday_count);
-
-        if (working_days <= 0 || attendanceRecords.length === 0) {
-            let sundays = 0;
-            for (let d = 1; d <= daysInMonth; d++) {
-                const dayOfWeek = moment(`${queryYear}-${String(queryMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`, "YYYY-MM-DD").day();
-                if (dayOfWeek === 0) {
-                    sundays++;
-                }
-            }
-            working_days = daysInMonth - sundays;
-        }
+        present_days = attMetrics.present_days;
+        working_days = attMetrics.working_days;
     } catch (err) {
         console.error("Error fetching attendance in autoCalculateKPIScores:", err);
     }
@@ -155,7 +126,13 @@ const autoCalculateKPIScores = async (sheet) => {
                 : 0);
 
         completedTasks = sheet.summary?.total_quantity || 0;
-        assignedTargets = completedTasks;
+
+        if (sheet.has_targets && sheet.rows?.length > 0) {
+            assignedTargets = sheet.rows.reduce((sum, row) => sum + (Number(row.target) || 0), 0);
+        }
+        if (!assignedTargets) {
+            assignedTargets = completedTasks;
+        }
     }
 
     // 3. Open Points Metrics
@@ -214,7 +191,7 @@ const autoCalculateKPIScores = async (sheet) => {
 // Create or Update Template
 router.post("/api/kpi/template", verifyToken, auditMiddleware("KPI_Template"), async (req, res) => {
     try {
-        const { id, name, department, rows } = req.body;
+        const { id, name, department, rows, has_targets } = req.body;
         console.log("POST /api/kpi/template called", req.body);
         let targetDept = department;
         if (Array.isArray(targetDept)) targetDept = targetDept[0];
@@ -264,6 +241,7 @@ router.post("/api/kpi/template", verifyToken, auditMiddleware("KPI_Template"), a
                 owner: existing.owner, // Keep original owner
                 name: name || existing.name,
                 department: targetDept || (Array.isArray(existing.department) ? existing.department[0] : existing.department) || "General",
+                has_targets: has_targets !== undefined ? Boolean(has_targets) : Boolean(existing.has_targets),
                 rows: rows,
                 version: (existing.version || 1) + 1,
                 parent_template: existing._id
@@ -277,6 +255,7 @@ router.post("/api/kpi/template", verifyToken, auditMiddleware("KPI_Template"), a
                 owner: req.user._id,
                 name,
                 department: targetDept || "General",
+                has_targets: Boolean(has_targets),
                 rows
             });
             await newTemplate.save();
@@ -494,13 +473,15 @@ router.post("/api/kpi/import-template", verifyToken, auditMiddleware("KPI_Templa
         const newTemplate = new KPITemplate({
             name: templateName,
             department: sourceTemplate.department,
+            has_targets: Boolean(sourceTemplate.has_targets),
             rows: sourceTemplate.rows.map(row => ({
                 id: row.id,
                 label: row.label,
                 type: row.type || 'numeric',
                 category: row.category,
                 is_high_volume: row.is_high_volume,
-                weight: row.weight || 3
+                weight: row.weight || 3,
+                target: row.target !== undefined && row.target !== null ? row.target : null
             })),
             owner: req.user._id,
             is_active: true,
@@ -907,6 +888,8 @@ router.post("/api/kpi/sheet/generate", verifyToken, auditMiddleware("KPI_Sheet")
             label_hi: r.label_hi || '',
             type: r.type || 'numeric',
             weight: r.weight || 3,
+            target: r.target !== undefined && r.target !== null ? r.target : null,
+            actual: 0,
             daily_values: {},
             total: 0
         }));
@@ -949,6 +932,7 @@ router.post("/api/kpi/sheet/generate", verifyToken, auditMiddleware("KPI_Sheet")
             year,
             month,
             template_version: template._id,
+            has_targets: Boolean(template.has_targets),
             rows: sheetRows,
             status: "DRAFT",
             signatures: {
@@ -1097,7 +1081,8 @@ router.put("/api/kpi/sheet/entry", verifyToken, auditMiddleware("KPI_Sheet"), as
         // Build atomic update
         const updateDoc = {
             $set: {
-                "rows.$.total": sum
+                "rows.$.total": sum,
+                "rows.$.actual": sum
             },
             $push: {
                 audit_log: {
@@ -1345,9 +1330,53 @@ router.post("/api/kpi/sheet/submit", verifyToken, async (req, res) => {
             return res.status(403).json({ message: `KPI locked. Submission deadline (${deadlineDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}) has passed. Contact Admin for extension.` });
         }
 
+        // Validate mandatory submission fields if MRM 2.0 KPI Rollup is enabled
+        if (isFeatureEnabled('MRM_KPI_ROLLUP_ENABLED')) {
+            const sumObj = summary || sheet.summary || {};
+            const errors = [];
+
+            // 1. Business Loss: mandatory rupee amount OR "Nothing to report"
+            const lossNTR = Boolean(sumObj.business_loss_nothing_to_report);
+            const lossVal = Number(sumObj.business_loss) || 0;
+            const lossRemarks = (sumObj.business_loss_remarks || sumObj.loss_description || '').trim();
+
+            if (!lossNTR && lossVal > 0 && lossRemarks.length < 15) {
+                errors.push("Business loss remarks must include an actionable remedial recommendation (minimum 15 characters).");
+            } else if (!lossNTR && (sumObj.business_loss === undefined || sumObj.business_loss === null || isNaN(Number(sumObj.business_loss)))) {
+                errors.push("Business loss is required. Enter ₹ 0 or select 'Nothing to report'.");
+            }
+
+            // 2. Blockers: mandatory text OR "Nothing to report"
+            const blockersNTR = Boolean(sumObj.blockers_nothing_to_report);
+            const blockersText = (sumObj.blockers || '').trim();
+            if (!blockersNTR && (!blockersText || blockersText === 'NONE: No blockers to select' || blockersText.toUpperCase() === 'NONE')) {
+                errors.push("Blockers field is required. Provide details or select 'Nothing to report'.");
+            }
+
+            // 3. Open Points: mandatory OR "Nothing to report"
+            const openPointsNTR = Boolean(sumObj.open_points_nothing_to_report);
+            const openPointsList = Array.isArray(sumObj.open_points) ? sumObj.open_points : [];
+            const openPointsCount = Number(sumObj.open_points_count) || openPointsList.length;
+            if (!openPointsNTR && openPointsCount === 0 && openPointsList.length === 0) {
+                errors.push("Open points entry is required. Add open points or select 'Nothing to report'.");
+            }
+
+            if (errors.length > 0) {
+                return res.status(422).json({
+                    message: "Validation failed for monthly KPI submission",
+                    errors
+                });
+            }
+        }
+
         // Update Summary if provided
         if (summary) {
-            sheet.summary = { ...sheet.summary, ...summary, submission_date: new Date() };
+            sheet.summary = { 
+                ...sheet.summary, 
+                ...summary, 
+                submission_date: new Date(),
+                is_submitted_on_time: todayDate <= deadlineDate 
+            };
         }
 
         // Always recalculate metrics to ensure they are present and correct
@@ -1899,6 +1928,8 @@ router.post("/api/kpi/sheet/row", verifyToken, async (req, res) => {
             label: row.label,
             daily_values: new Map(),
             total: 0,
+            actual: 0,
+            target: row.target !== undefined && row.target !== null && row.target !== '' ? Number(row.target) : null,
             is_custom: true,
             weight: 3
         });
@@ -1974,7 +2005,85 @@ router.delete("/api/kpi/sheet/row/:sheetId/:rowId", verifyToken, async (req, res
     }
 });
 
-// DELETE Template (Admin Only)
+// Update Target for a Row in Sheet
+router.put("/api/kpi/sheet/target", verifyToken, auditMiddleware("KPI_Sheet"), async (req, res) => {
+    try {
+        console.log("PUT /api/kpi/sheet/target called", req.body);
+        const { sheetId, rowId, target } = req.body;
+
+        const sheet = await KPISheet.findById(sheetId);
+        if (!sheet) return res.status(404).json({ message: "Sheet not found" });
+
+        // Security: Check User
+        if (sheet.user.toString() !== req.user._id.toString() && req.user.role !== 'Admin' && req.user.role !== 'Head_of_Department') {
+            return res.status(403).json({ message: "Not authorized to edit this sheet" });
+        }
+
+        // Locking Checks
+        if (sheet.status !== "DRAFT" && sheet.status !== "REJECTED") {
+            return res.status(400).json({ message: "Sheet is locked due to status" });
+        }
+
+        const numericTarget = (target === "" || target === null || target === undefined) ? null : Number(target);
+        if (numericTarget !== null && numericTarget < 0) {
+            return res.status(400).json({ message: "Negative targets are not allowed" });
+        }
+
+        const row = sheet.rows.find(r => r.row_id === rowId);
+        if (!row) return res.status(404).json({ message: "Row not found" });
+
+        const oldTarget = row.target;
+
+        const updatedSheet = await KPISheet.findOneAndUpdate(
+            { _id: sheetId, "rows.row_id": rowId },
+            {
+                $set: { "rows.$.target": numericTarget },
+                $push: {
+                    audit_log: {
+                        field: `row:${row.label}:target`,
+                        old_value: oldTarget,
+                        new_value: numericTarget,
+                        changed_by: req.user._id,
+                        action: "UPDATE_TARGET"
+                    }
+                }
+            },
+            { new: true }
+        );
+
+        console.log("PUT /api/kpi/sheet/target - Success");
+        res.json(updatedSheet || sheet);
+    } catch (err) {
+        console.error("PUT /api/kpi/sheet/target ERROR:", err);
+        res.status(500).json({ message: "Server Error: " + err.message });
+    }
+});
+
+// Toggle Target & Actual tracking on Sheet
+router.put("/api/kpi/sheet/toggle-targets", verifyToken, auditMiddleware("KPI_Sheet"), async (req, res) => {
+    try {
+        console.log("PUT /api/kpi/sheet/toggle-targets called", req.body);
+        const { sheetId, has_targets } = req.body;
+
+        const sheet = await KPISheet.findById(sheetId);
+        if (!sheet) return res.status(404).json({ message: "Sheet not found" });
+
+        // Security: Check User
+        if (sheet.user.toString() !== req.user._id.toString() && req.user.role !== 'Admin' && req.user.role !== 'Head_of_Department') {
+            return res.status(403).json({ message: "Not authorized to edit this sheet" });
+        }
+
+        sheet.has_targets = Boolean(has_targets);
+        await sheet.save();
+
+        console.log("PUT /api/kpi/sheet/toggle-targets - Success:", sheet.has_targets);
+        res.json({ success: true, has_targets: sheet.has_targets });
+    } catch (err) {
+        console.error("PUT /api/kpi/sheet/toggle-targets ERROR:", err);
+        res.status(500).json({ message: "Server Error: " + err.message });
+    }
+});
+
 // DELETE Template (Admin or Owner)
 router.delete("/api/kpi/template/:id", verifyToken, async (req, res) => {
     try {

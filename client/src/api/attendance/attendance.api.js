@@ -408,10 +408,14 @@ const attendanceAPI = {
   /**
    * Get leave balances for multiple employees
    */
-  getLeaveBalances: async (employeeIds) => {
+  getLeaveBalances: async (employeeIds, startDate, endDate) => {
     try {
       const response = await apiClient.get('/leave/balances-bulk', { 
-        params: { employee_ids: employeeIds.join(',') } 
+        params: { 
+          employee_ids: Array.isArray(employeeIds) ? employeeIds.join(',') : employeeIds,
+          startDate,
+          endDate
+        } 
       });
       return response.data;
     } catch (error) {

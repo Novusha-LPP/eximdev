@@ -33,6 +33,8 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import axios from 'axios';
 
+const EXPORT_API_BASE_URL = "https://eximbot.alvision.in/export/api";
+
 const CurrencyRateDialog = ({ open, onClose }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currencyData, setCurrencyData] = useState(null);
@@ -62,7 +64,7 @@ const CurrencyRateDialog = ({ open, onClose }) => {
       const formattedDate = `${day}-${month}-${year}`;
 
       const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${formattedDate}`
+        `${EXPORT_API_BASE_URL}/currency-rates/by-date/${formattedDate}`
       );
 
       if (response.data.success) {
@@ -103,7 +105,7 @@ const CurrencyRateDialog = ({ open, onClose }) => {
     setLoading(true);
 
     await axios.post(
-      `${process.env.REACT_APP_API_STRING}/currency-rates/scrape`
+      `${EXPORT_API_BASE_URL}/currency-rates/scrape`
     );
 
     // After scrape completes, re-fetch for the selected date

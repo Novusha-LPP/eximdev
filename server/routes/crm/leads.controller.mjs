@@ -5,6 +5,7 @@ import Account from '../../model/crm/Account.mjs';
 import Contact from '../../model/crm/Contact.mjs';
 import Opportunity from '../../model/crm/Opportunity.mjs';
 import SalesTeam from '../../model/crm/SalesTeam.mjs';
+import UserModel from '../../model/userModel.mjs';
 
 const router = express.Router();
 
@@ -32,19 +33,28 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 
   const objectIdUserId = new mongoose.Types.ObjectId(userId.toString());
 
+  const userDoc = await UserModel.findById(userId).select('isHod crmManagedTeams').lean();
+  const managedTeamIds = (userDoc?.crmManagedTeams || []).map(id => id.toString());
+  const isHodUser = isHOD || Boolean(userDoc?.isHod);
+
   if (requestedTeamId && requestedTeamId !== 'all' && mongoose.Types.ObjectId.isValid(requestedTeamId)) {
     const team = await SalesTeam.findById(requestedTeamId).lean();
     if (team) {
       const isManager = team.managerId?.toString() === userId?.toString();
       const isMember = team.memberIds?.some(m => m?.toString() === userId?.toString());
-      if (isAdmin || isManager || isMember) {
+      const isHodForTeam = isHodUser && managedTeamIds.includes(team._id.toString());
+      if (isAdmin || isManager || isMember || isHodForTeam) {
         const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
         if (team.managerId) {
           objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
         }
+        const reqTeamObjectId = new mongoose.Types.ObjectId(requestedTeamId);
         const orConditions = [
           { ownerId: { $in: objectIdMemberIds } },
-          { createdBy: { $in: objectIdMemberIds } }
+          { createdBy: { $in: objectIdMemberIds } },
+          { referredByUserId: { $in: objectIdMemberIds } },
+          { referredFromTeamId: reqTeamObjectId },
+          { referredToTeamId: reqTeamObjectId }
         ];
         return { $or: orConditions };
       }
@@ -53,13 +63,19 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 
   if (isAdmin) return {};
 
+  const teamOrConditions = [
+    { managerId: userId },
+    { memberIds: userId }
+  ];
+  if (managedTeamIds.length > 0) {
+    teamOrConditions.push({ _id: { $in: managedTeamIds } });
+  }
+
   const myTeams = await SalesTeam.find({
-    $or: [
-      { managerId: userId },
-      { memberIds: userId }
-    ]
+    $or: teamOrConditions
   }).lean();
 
+  const myTeamIds = myTeams.map(t => t._id);
   let visibleUserIds = [objectIdUserId];
 
   if (myTeams && myTeams.length > 0) {
@@ -77,8 +93,17 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 
   const orConditions = [
     { ownerId: { $in: uniqueUserIds } },
-    { createdBy: { $in: uniqueUserIds } }
+    { createdBy: { $in: uniqueUserIds } },
+    { referredByUserId: { $in: uniqueUserIds } },
+    { hasPlannedVisit: true },
+    { status: 'sales_visit' },
+    { 'plannedVisits.0': { $exists: true } }
   ];
+
+  if (myTeamIds.length > 0) {
+    orConditions.push({ referredFromTeamId: { $in: myTeamIds } });
+    orConditions.push({ referredToTeamId: { $in: myTeamIds } });
+  }
 
   return { $or: orConditions };
 }
@@ -87,10 +112,48 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 // ROUTES
 // ─────────────────────────────────────────────────────────────────────────────
 
+// GET /api/crm/leads/suggestions
+// Returns distinct existing locations (location, pol, pod) and hsn codes from leads
+router.get('/suggestions', async (req, res) => {
+  try {
+    const ownerFilter = await buildOwnerFilter(req.user, null, req);
+    const query = { ...ownerFilter };
+
+    const [leadLocations, leadPols, leadPods, leadHsns] = await Promise.all([
+      Lead.find(query).distinct('location'),
+      Lead.find(query).distinct('pol'),
+      Lead.find(query).distinct('pod'),
+      Lead.find(query).distinct('hsnCode')
+    ]);
+
+    const cleanLocations = [...new Set(
+      [...leadLocations, ...leadPols, ...leadPods]
+        .filter(Boolean)
+        .map(s => String(s).trim())
+        .filter(s => s.length > 0 && s !== '-')
+    )].sort((a, b) => a.localeCompare(b));
+
+    const cleanHsns = [...new Set(
+      leadHsns
+        .filter(Boolean)
+        .map(s => String(s).trim())
+        .filter(s => s.length > 0 && s !== '-')
+    )].sort((a, b) => a.localeCompare(b));
+
+    res.json({
+      locations: cleanLocations,
+      hsnCodes: cleanHsns
+    });
+  } catch (error) {
+    console.error('Error fetching lead suggestions:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // GET /api/crm/leads
 router.get('/', async (req, res) => {
   try {
-    const { status, source, referralSourceName, teamId, startDate, endDate, period, service, businessVertical, searchQuery } = req.query;
+    const { status, source, referralSourceName, teamId, startDate, endDate, period, service, businessVertical, searchQuery, location, hsnCode } = req.query;
     const ownerFilter = await buildOwnerFilter(req.user, teamId, req);
     const query = { ...ownerFilter };
     
@@ -107,6 +170,25 @@ router.get('/', async (req, res) => {
         delete query.$or;
       } else {
         query.$or = searchOr;
+      }
+    }
+
+    if (hsnCode && hsnCode.trim()) {
+      query.hsnCode = { $regex: hsnCode.trim(), $options: 'i' };
+    }
+
+    if (location && location.trim()) {
+      const locRegex = { $regex: location.trim(), $options: 'i' };
+      const locOr = [
+        { location: locRegex },
+        { pol: locRegex },
+        { pod: locRegex }
+      ];
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: locOr }];
+        delete query.$or;
+      } else {
+        query.$or = locOr;
       }
     }
 
@@ -136,6 +218,9 @@ router.get('/', async (req, res) => {
 
     const leads = await Lead.find(query)
       .populate('ownerId', 'username first_name last_name')
+      .populate('referredFromTeamId', 'nameCode teamName')
+      .populate('referredToTeamId', 'nameCode teamName')
+      .populate('referredByUserId', 'username first_name last_name')
       .sort({ createdAt: -1 });
       
     console.log(`[CRM GET Leads] Returning ${leads.length} leads to user ${userId}`);
@@ -149,13 +234,120 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const lead = await Lead.findById(req.params.id)
-      .populate('ownerId', 'username first_name last_name');
+      .populate('ownerId', 'username first_name last_name')
+      .populate('referredFromTeamId', 'nameCode teamName')
+      .populate('referredToTeamId', 'nameCode teamName')
+      .populate('referredByUserId', 'username first_name last_name');
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
     res.json(lead);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+
+// PUT /api/crm/leads/:id/refer - Transfer/Refer lead to internal team or individual
+router.put('/:id/refer', async (req, res) => {
+  try {
+    const { targetTeamId, targetUserId, targetOwnerId, fromTeamId } = req.body;
+    const userId = req.user?._id || req.user?.id || req.headers['user-id'];
+
+    const lead = await Lead.findById(req.params.id);
+    if (!lead) {
+      return res.status(404).json({ success: false, message: 'Lead not found' });
+    }
+
+    const assignedTargetUser = targetUserId || targetOwnerId;
+
+    let referringTeamId = fromTeamId;
+    if (!referringTeamId && userId && mongoose.Types.ObjectId.isValid(userId)) {
+      const referringTeam = await SalesTeam.findOne({
+        $or: [
+          { managerId: userId },
+          { memberIds: userId }
+        ]
+      }).lean();
+      if (referringTeam) {
+        referringTeamId = referringTeam._id;
+      }
+    }
+
+    let receivingTeamId = targetTeamId;
+    if (assignedTargetUser && mongoose.Types.ObjectId.isValid(assignedTargetUser)) {
+      lead.ownerId = assignedTargetUser;
+      if (!receivingTeamId) {
+        const targetTeam = await SalesTeam.findOne({
+          $or: [
+            { managerId: assignedTargetUser },
+            { memberIds: assignedTargetUser }
+          ]
+        }).lean();
+        if (targetTeam) {
+          receivingTeamId = targetTeam._id;
+        }
+      }
+    } else if (receivingTeamId && mongoose.Types.ObjectId.isValid(receivingTeamId)) {
+      const targetTeam = await SalesTeam.findById(receivingTeamId).lean();
+      if (targetTeam && targetTeam.managerId && !lead.ownerId) {
+        lead.ownerId = targetTeam.managerId;
+      }
+    }
+
+    if (!receivingTeamId && !assignedTargetUser) {
+      return res.status(400).json({ success: false, message: 'Target team or target user is required' });
+    }
+
+    if (referringTeamId) lead.referredFromTeamId = referringTeamId;
+    if (receivingTeamId) lead.referredToTeamId = receivingTeamId;
+    if (userId) lead.referredByUserId = userId;
+    lead.isReferral = true;
+    lead.referredAt = new Date();
+    lead.lastActivityAt = new Date();
+
+    await lead.save();
+
+    const updatedLead = await Lead.findById(lead._id)
+      .populate('ownerId', 'username first_name last_name')
+      .populate('referredFromTeamId', 'nameCode teamName name')
+      .populate('referredToTeamId', 'nameCode teamName name')
+      .populate('referredByUserId', 'username first_name last_name');
+
+    res.json({ success: true, message: 'Lead referred successfully. Lead is now visible to both referring and target teams.', lead: updatedLead });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Helper to find a SalesTeam matching the selected service(s) (e.g. E-Lock, DGFT)
+async function findTeamForServices(services) {
+  if (!services || !Array.isArray(services) || services.length === 0) return null;
+  const normalizedServices = services.map(s => String(s).toLowerCase().trim());
+
+  if (normalizedServices.some(s => s.includes('e-lock') || s.includes('elock'))) {
+    const team = await SalesTeam.findOne({
+      isActive: true,
+      name: { $regex: /e-?lock/i }
+    }).lean();
+    if (team) return team;
+  }
+
+  if (normalizedServices.some(s => s.includes('dgft'))) {
+    const team = await SalesTeam.findOne({
+      isActive: true,
+      name: { $regex: /dgft/i }
+    }).lean();
+    if (team) return team;
+  }
+
+  if (normalizedServices.some(s => s.includes('freight forwarding') || s.includes('forwarding'))) {
+    const team = await SalesTeam.findOne({
+      isActive: true,
+      name: { $regex: /freight/i }
+    }).lean();
+    if (team) return team;
+  }
+
+  return null;
+}
 
 // POST /api/crm/leads
 router.post('/', async (req, res) => {
@@ -164,8 +356,36 @@ router.post('/', async (req, res) => {
     const userId = req.user?._id || req.user?.id || req.headers['user-id'];
     const leadData = {
       ...req.body,
-      ownerId: req.body.ownerId || userId
+      ownerId: req.body.ownerId || userId,
+      lastActivityAt: new Date()
     };
+
+    if (!leadData.referredToTeamId && Array.isArray(leadData.interestedServices) && leadData.interestedServices.length > 0) {
+      const targetTeam = await findTeamForServices(leadData.interestedServices);
+      if (targetTeam) {
+        if (!leadData.referredFromTeamId && userId && mongoose.Types.ObjectId.isValid(userId)) {
+          const creatorTeam = await SalesTeam.findOne({
+            isActive: true,
+            $or: [{ managerId: userId }, { memberIds: userId }]
+          }).lean();
+          if (creatorTeam && creatorTeam._id.toString() !== targetTeam._id.toString()) {
+            leadData.referredFromTeamId = creatorTeam._id;
+          }
+        }
+        const isAlreadyInTeam = targetTeam.managerId?.toString() === userId?.toString() ||
+          (targetTeam.memberIds || []).some(m => m?.toString() === userId?.toString());
+        if (!isAlreadyInTeam) {
+          leadData.referredToTeamId = targetTeam._id;
+          leadData.isReferral = true;
+          leadData.referredAt = new Date();
+          if (userId) leadData.referredByUserId = userId;
+        }
+      }
+    } else if (leadData.isReferral || leadData.referredToTeamId) {
+      leadData.isReferral = true;
+      if (!leadData.referredAt) leadData.referredAt = new Date();
+    }
+
     const newLead = new Lead(leadData);
     await newLead.save();
     res.status(201).json(newLead);
@@ -179,7 +399,7 @@ router.put('/:id', async (req, res) => {
   try {
     const updatedLead = await Lead.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      { ...req.body, lastActivityAt: new Date() },
       { new: true }
     );
     if (!updatedLead) return res.status(404).json({ message: 'Lead not found' });
@@ -206,7 +426,7 @@ router.patch('/:id/assign', async (req, res) => {
     const { ownerId } = req.body;
     const lead = await Lead.findByIdAndUpdate(
       req.params.id,
-      { ownerId },
+      { ownerId, lastActivityAt: new Date() },
       { new: true }
     ).populate('ownerId', 'username first_name last_name');
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
@@ -249,15 +469,49 @@ router.post('/:id/convert', async (req, res) => {
     await contact.save();
 
     // 3. Create Opportunity
+    const userId = req.user?._id || req.user?.id || req.headers['user-id'];
+    const oppOwnerId = lead.ownerId || userId;
+    let bv = lead.businessVertical;
+    if (!bv || bv === 'all' || (Array.isArray(lead.interestedServices) && lead.interestedServices.some(s => typeof s === 'string' && s.toLowerCase().includes('auto rack')))) {
+      if (!bv || bv === 'all') bv = 'Paramount';
+    }
+
+    // Carry over referral info or auto-link from interestedServices
+    let referredToTeamId = lead.referredToTeamId;
+    let referredFromTeamId = lead.referredFromTeamId;
+    let referredByUserId = lead.referredByUserId;
+    let isReferral = lead.isReferral || false;
+
+    if (!referredToTeamId && Array.isArray(lead.interestedServices) && lead.interestedServices.length > 0) {
+      const targetTeam = await findTeamForServices(lead.interestedServices);
+      if (targetTeam) {
+        const isAlreadyInTeam = targetTeam.managerId?.toString() === userId?.toString() ||
+          (targetTeam.memberIds || []).some(m => m?.toString() === userId?.toString());
+        if (!isAlreadyInTeam) {
+          referredToTeamId = targetTeam._id;
+          isReferral = true;
+          if (userId && !referredByUserId) referredByUserId = userId;
+        }
+      }
+    }
+
     const opportunity = new Opportunity({
       accountId: account._id,
       primaryContactId: contact._id,
       name: `${lead.company} - Deal`,
       stage: 'lead',
       services: lead.interestedServices || [],
-      ownerId: lead.ownerId,
-      createdBy: req.user?._id,
+      ownerId: oppOwnerId,
+      createdBy: userId,
       convertedFromLead: lead._id,
+      referredToTeamId,
+      referredFromTeamId,
+      referredByUserId,
+      referredAt: isReferral ? (lead.referredAt || new Date()) : undefined,
+      isReferral,
+      location: lead.location,
+      hsnCode: lead.hsnCode,
+      lastActivityAt: new Date(),
       probability: 10,
       stageHistory: [{ stage: 'lead', enteredAt: new Date() }],
       source: lead.source,
@@ -278,7 +532,7 @@ router.post('/:id/convert', async (req, res) => {
       referralSourceName: lead.referralSourceName,
       monthlyVolume: lead.monthlyVolume,
       monthlyRevenue: lead.monthlyRevenue,
-      businessVertical: lead.businessVertical
+      businessVertical: bv
     });
     await opportunity.save();
 

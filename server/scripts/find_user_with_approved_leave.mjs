@@ -12,7 +12,7 @@ const uri =
   process.env.PROD_MONGODB_URI ||
   process.env.MONGODB_URI ||
   process.env.MONGO_URI ||
-  'mongodb://localhost:27017/eximdev';
+  'mongodb://0.0.0.0:27017/eximdev';
 
 const main = async () => {
   await mongoose.connect(uri);

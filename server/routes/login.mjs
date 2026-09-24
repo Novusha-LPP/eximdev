@@ -12,18 +12,22 @@ router.post("/api/login", async (req, res) => {
 
   try {
     const user = await UserModel.findOne({ username })
+      .select('+password')
       .populate("hod_id")
       .populate("attendance_settings.manager_id");
     if (!user) {
       return res.status(400).json({ message: "User not registered" });
     }
 
+    if (!user.password) {
+      console.error(`Login Error: User '${username}' exists but has no password in the database.`);
+      return res.status(500).json({ message: "Account configuration error: Password missing." });
+    }
+
     if (user.isActive === false) {
-      return res
-        .status(403)
-        .json({
-          message: "User is deactivated. Please contact administrator.",
-        });
+      return res.status(403).json({
+        message: "User is deactivated. Please contact administrator.",
+      });
     }
 
     bcrypt.compare(password, user.password, async (passwordErr, passwordResult) => {
@@ -50,7 +54,6 @@ router.post("/api/login", async (req, res) => {
         const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
         const passwordExpired = (Date.now() - new Date(passwordChangedAt).getTime()) > thirtyDaysInMs;
 
-        // Create a new object with only the required fields
         const userResponse = {
           _id: user._id,
           username: user.username,
@@ -83,7 +86,7 @@ router.post("/api/login", async (req, res) => {
         if (completion.hasCriticalMissing && user.role !== 'Admin') {
           const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
           const alreadyNotified = user.profile_manager_notified_at && user.profile_manager_notified_at > oneDayAgo;
-          
+
           if (!alreadyNotified) {
             const manager = user.hod_id || user.attendance_settings?.manager_id;
             if (manager && manager.email) {
@@ -99,6 +102,7 @@ router.post("/api/login", async (req, res) => {
           }
         }
 
+        // Generate signed JWT authentication token containing essential user identity and claims
         const token = jwt.sign(
           {
             _id: user._id,
@@ -108,24 +112,32 @@ router.post("/api/login", async (req, res) => {
             department_id: user.department_id,
             shift_id: user.shift_id,
             current_status: user.current_status,
-            last_punch_date: user.last_punch_date
+            last_punch_date: user.last_punch_date,
+            tokenVersion: user.tokenVersion || 0,
           },
           process.env.JWT_SECRET || "fallback_secret_do_not_use_in_prod",
-          { expiresIn: "10h" }
+          { expiresIn: "12h" }
         );
 
+        // Set httpOnly auth cookie:
+        // - In Development: sameSite 'lax' + secure false ensures local HTTP requests (localhost / 127.0.0.1) accept the cookie without browser rejection.
+        // - In Production: sameSite 'none' + secure true ensures cross-origin / HTTPS requests accept the cookie properly.
         res.cookie("token", token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 10 * 60 * 60 * 1000, // 10 hours
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+          path: "/",
+          maxAge: 12 * 60 * 60 * 1000,
         });
 
-        return res.status(200).json(userResponse);
+        // Return user profile and token in the response payload:
+        // - Enables frontend Axios interceptors to store and send the token via 'Authorization: Bearer <token>' header as a resilient fallback.
+        return res.status(200).json({
+          ...userResponse,
+          token
+        });
       } else {
-        return res
-          .status(400)
-          .json({ message: "Username or password didn't match" });
+        return res.status(400).json({ message: "Username or password didn't match" });
       }
     });
   } catch (err) {

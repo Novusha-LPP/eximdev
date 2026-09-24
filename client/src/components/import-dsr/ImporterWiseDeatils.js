@@ -174,8 +174,11 @@ function ImporterWiseDetails() {
         options={importerNames}
         getOptionLabel={(option) => option.label}
         value={
-          importerNames.find((option) => option.label === selectedImporter) ||
-          null
+          importerNames.find(
+            (option) =>
+              (option.label || "").trim().toLowerCase() ===
+              (selectedImporter || "").trim().toLowerCase()
+          ) || null
         }
         onChange={handleImporterChange}
         renderInput={(params) => (

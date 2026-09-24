@@ -6,9 +6,15 @@ const statusEnum = [
   "PR Raised",
   "Preparing for Quotation",
   "Quotation Received",
+  "Quotation Updated",
   "Finance Approved",
   "Payment Done",
   "Order Placed",
+  "Dispatched",
+  "Dispatched / Site GRN Ready",
+  "GRN Ready",
+  "GRN Received",
+  "GRN Completed",
   "GRN Done",
   "Closed",
 ];
@@ -17,7 +23,8 @@ const statusEnum = [
 const tyreItemSchema = new mongoose.Schema(
   {
     sNo: { type: Number, default: 1 },
-    tyreType: { type: String, default: "New Tyre" }, // New Tyre / Remould Tyre
+    productName: { type: String, default: "" }, // Generic product name (e.g. Paper, Ink, Printer, Tyre, etc.)
+    tyreType: { type: String, default: "" }, // Kept for backward compatibility
     brandPreference: String,
     sizeSpec: String,
     loadRating: String,
@@ -35,7 +42,7 @@ const routingChecklistSchema = new mongoose.Schema(
     action: String,
     responsible: String,
     date: Date,
-    status: { type: String, enum: ["Pending", "Done", ""], default: "" },
+    status: { type: String, enum: ["Pending", "Done", "In Progress", "PENDING", "DONE", "IN PROGRESS", ""], default: "" },
   },
   { _id: true }
 );
@@ -47,11 +54,14 @@ const stage1Schema = new mongoose.Schema(
     preparedBy: String,
     contactNumber: String,
     departmentLocation: String,
+    deliveryLocation: String,
+    deliveryContactPerson: String,
+    deliveryContactNumber: String,
     neededByDate: Date,
     hodValidation: {
-      validatedBy: String,
+      validatedBy: { type: String, default: "MOHIT SINGH" },
       designation: String,
-      approvalMode: { type: String, enum: ["WhatsApp", "Phone Call", "Email", "In-Person", ""], default: "" },
+      approvalMode: { type: String, enum: ["WhatsApp", "Phone Call", "Email", "In-Person", "WHATSAPP", "PHONE CALL", "EMAIL", "IN-PERSON", ""], default: "" },
       dateTimeOfApproval: Date,
       hodSignature: String,
     },
@@ -76,7 +86,10 @@ const supplierQuoteSchema = new mongoose.Schema(
     phoneNumber: String,
     emailWhatsApp: String,
     gstNumber: String,
+    supplierAddress: String,
+    address: String,
     selectedTyreType: String,
+    selectedProduct: String,
     bankAccountNo: String,
     bankName: String,
     bankIfscCode: String,
@@ -90,9 +103,12 @@ const supplierQuoteSchema = new mongoose.Schema(
     freightCharges: { type: Number, default: 0 },
     deliveryTimeline: String,
     deliveryLocation: String,
+    deliveryContact: String,
     warrantyGuarantee: String,
     paymentTerms: String,
     discountOffered: { type: Number, default: 0 },
+    gstRate: { type: String, default: "" },
+    gstAmount: { type: Number, default: 0 },
     remarks: String,
   },
   { _id: true }
@@ -101,8 +117,16 @@ const supplierQuoteSchema = new mongoose.Schema(
 const selectedSupplierSchema = new mongoose.Schema(
   {
     selectedSupplier: String,
+    poNumber: String,
+    contactPerson: String,
+    supplierAddress: String,
+    address: String,
+    deliveryLocation: String,
+    deliveryContact: String,
     priceQuoted: { type: Number, default: 0 },
     totalOrderValue: { type: Number, default: 0 },
+    gstRate: { type: String, default: "" },
+    gstAmount: { type: Number, default: 0 },
     reasonForSelection: String,
   },
   { _id: true }
@@ -114,6 +138,9 @@ const stage2Schema = new mongoose.Schema(
     poNumber: String,
     purchaseOfficerName: String,
     poDate: Date,
+    deliveryLocation: String,
+    deliveryContactPerson: String,
+    deliveryContactNumber: String,
     suppliers: { type: [supplierQuoteSchema], default: [] },
     selectedSupplierL1: String,
     l1PriceQuoted: { type: Number, default: 0 },
@@ -136,18 +163,18 @@ const stage3Schema = new mongoose.Schema(
     purchaseOfficerName: String,
     dateReceivedByFinance: Date,
     reviewChecklist: {
-      budgetAvailable: { type: String, enum: ["Yes", "No", ""], default: "" },
-      priceReasonable: { type: String, enum: ["Yes", "No", ""], default: "" },
-      gstVerified: { type: String, enum: ["Yes", "No", ""], default: "" },
-      paymentTermsAccepted: { type: String, enum: ["Yes", "No", ""], default: "" },
-      docsAttached: { type: String, enum: ["Yes", "No", ""], default: "" },
+      budgetAvailable: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },
+      priceReasonable: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },
+      gstVerified: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },
+      paymentTermsAccepted: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },
+      docsAttached: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },
     },
     decision: {
       decision: { type: String, enum: ["APPROVED", "REJECTED", "On Hold", ""], default: "" },
       remarksRejectionReason: String,
     },
     signOff: {
-      financeManagerName: String,
+      financeManagerName: { type: String, default: "CHIRAG SHAH" },
       dateOfApproval: Date,
       signatureDigitalApprovalRef: String,
       timeOfApproval: String,
@@ -218,6 +245,8 @@ const supplierDispatchSchema = new mongoose.Schema(
     orderPlacedDate: Date,
     orderConfirmation: String,
     modeOfConfirmation: String,
+    dispatchDone: { type: Boolean, default: false },
+    isDispatchDone: { type: Boolean, default: false },
     dispatchDetails: {
       dispatchDate: Date,
       expectedDeliveryDate: Date,
@@ -238,6 +267,8 @@ const supplierDispatchSchema = new mongoose.Schema(
 
 const stage5Schema = new mongoose.Schema(
   {
+    dispatchDone: { type: Boolean, default: false },
+    isDispatchDone: { type: Boolean, default: false },
     prNumber: String,
     poNumber: String,
     supplierName: String,
@@ -274,9 +305,9 @@ const grnTyreItemSchema = new mongoose.Schema(
     tyreBrand: String,
     sizeSpec: String,
     type: { type: String, default: "New" }, // New / Remould
-    hotStampDone: { type: String, enum: ["Yes", "No", ""], default: "" },
-    photoTaken: { type: String, enum: ["Yes", "No", ""], default: "" },
-    acceptedRejected: { type: String, enum: ["Accepted", "Rejected", ""], default: "" },
+    hotStampDone: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },
+    photoTaken: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },
+    acceptedRejected: { type: String, enum: ["Accepted", "Rejected", "ACCEPTED", "REJECTED", ""], default: "" },
     remarks: String,
   },
   { _id: true }
@@ -306,12 +337,12 @@ const stage6Schema = new mongoose.Schema(
     deliveryLocation: String,
     itemsReceived: { type: [grnTyreItemSchema], default: [] },
     qualityConformanceCheck: {
-      tyresVerified: { type: String, enum: ["Yes", "No", ""], default: "" },
-      tyreNumbersMatched: { type: String, enum: ["Yes", "No", ""], default: "" },
-      hotStampingCompleted: { type: String, enum: ["Yes", "No", ""], default: "" },
-      photosTaken: { type: String, enum: ["Yes", "No", ""], default: "" },
-      invoiceVerified: { type: String, enum: ["Yes", "No", ""], default: "" },
-      returnClauseReviewed: { type: String, enum: ["Yes", "No", ""], default: "" },
+      tyresVerified: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },
+      tyreNumbersMatched: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },
+      hotStampingCompleted: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },
+      photosTaken: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },
+      invoiceVerified: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },
+      returnClauseReviewed: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },
     },
     inspectionNotes: String,
     approvals: { type: [approvalSchema], default: [] },

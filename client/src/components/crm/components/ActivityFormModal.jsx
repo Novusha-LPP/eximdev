@@ -30,6 +30,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
     outcome: 'neutral',
     nextSteps: '',
     activityDate: getLocalISOString(),
+    attachments: [],
     relatedTo: {
       model: '',
       id: '',
@@ -54,6 +55,30 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
       },
       withCredentials: true
     };
+  };
+
+  const handleAttachmentChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    try {
+      const prepared = await Promise.all(files.map(file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({
+          name: file.name,
+          url: reader.result,
+          mimeType: file.type || 'application/octet-stream',
+          size: file.size || 0
+        });
+        reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
+        reader.readAsDataURL(file);
+      })));
+
+      setFormData(prev => ({ ...prev, attachments: [...(prev.attachments || []), ...prepared] }));
+      e.target.value = '';
+    } catch (error) {
+      message.error(error.message || 'Could not read selected attachment');
+    }
   };
 
   const fetchEntityOptions = async (model) => {
@@ -85,6 +110,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
       if (activity) {
         setFormData({
           ...activity,
+          attachments: activity.attachments || [],
           activityDate: getLocalISOString(activity.activityDate),
           relatedTo: activity.relatedTo || { model: '', id: '', name: '' }
         });
@@ -104,6 +130,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
           outcome: 'neutral',
           nextSteps: '',
           activityDate: getLocalISOString(),
+          attachments: [],
           relatedTo: {
             model: initialModel || '',
             id: linkedId || '',
@@ -134,7 +161,9 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
 
       const dataToSubmit = {
         ...formData,
+        subject: formData.type === 'note' && !formData.subject ? (formData.description?.slice(0, 30) || 'Note') : formData.subject,
         userId: userId,
+        attachments: formData.attachments || [],
         relatedTo: linkedId ? {
           model: modelMap[linkedType],
           id: linkedId
@@ -194,80 +223,136 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
         </div>
 
         <form onSubmit={handleSubmit} className="modal-scroll" style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px', margin: 0 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Activity Type *</label>
-              <select
-                required
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
-              >
-                <option value="call">Call</option>
-                <option value="email">Email</option>
-                <option value="meeting">Meeting</option>
-                <option value="demo">Demo</option>
-                <option value="note">Note</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Outcome</label>
-              <select
-                value={formData.outcome}
-                onChange={(e) => setFormData({ ...formData, outcome: e.target.value })}
-                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
-              >
-                <option value="positive">Positive</option>
-                <option value="neutral">Neutral</option>
-                <option value="negative">Negative</option>
-              </select>
-            </div>
-          </div>
+          {(() => {
+            const currentType = (formData.type || 'call').toLowerCase();
+            const showOutcome = ['call', 'meeting', 'demo', 'visit'].includes(currentType);
+            const showDuration = ['call', 'meeting', 'demo', 'visit'].includes(currentType);
+            const showNextSteps = ['call', 'meeting', 'demo', 'visit'].includes(currentType);
+            const descLabel = currentType === 'note' ? 'Note Details' : currentType === 'email' ? 'Email Content / Summary' : currentType === 'visit' ? 'Meeting / Visit Agenda & Location' : 'Description';
+            const descPlaceholder = currentType === 'note' ? 'Write note here...' : currentType === 'email' ? 'Enter email summary...' : 'Add detailed notes about this activity...';
 
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Subject *</label>
-            <input
-              type="text"
-              required
-              value={formData.subject}
-              onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-              placeholder="e.g., Quarterly Business Review"
-              style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
-            />
-          </div>
+            return (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: showOutcome ? '1fr 1fr' : '1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Activity Type *</label>
+                    <select
+                      required
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                    >
+                      <option value="call">Call</option>
+                      <option value="meeting">Meeting</option>
+                      <option value="visit">Visit / On-site Visit</option>
+                      <option value="email">Email</option>
+                      <option value="note">Note</option>
+                      <option value="demo">Demo</option>
+                    </select>
+                  </div>
+                  {showOutcome && (
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Outcome</label>
+                      <select
+                        value={formData.outcome}
+                        onChange={(e) => setFormData({ ...formData, outcome: e.target.value })}
+                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                      >
+                        <option value="positive">Positive</option>
+                        <option value="neutral">Neutral</option>
+                        <option value="negative">Negative</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
 
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Description</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Add detailed notes about this activity..."
-              style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', minHeight: '80px', fontFamily: 'inherit' }}
-            />
-          </div>
+                {currentType !== 'note' && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Subject / Title *</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.subject}
+                      onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                      placeholder="e.g., Sales Visit / Product Inquiry Call"
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                    />
+                  </div>
+                )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Duration (minutes)</label>
-              <input
-                type="number"
-                value={formData.duration}
-                onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                placeholder="e.g., 30"
-                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Activity Date & Time *</label>
-              <input
-                type="datetime-local"
-                required
-                value={formData.activityDate}
-                onChange={(e) => setFormData({ ...formData, activityDate: e.target.value })}
-                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', background: '#fff' }}
-              />
-            </div>
-          </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>{descLabel}</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder={descPlaceholder}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', minHeight: '80px', fontFamily: 'inherit' }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Attachments</label>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleAttachmentChange}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', background: '#fff' }}
+                  />
+                  {formData.attachments && formData.attachments.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
+                      {formData.attachments.map((attachment, idx) => (
+                        <span key={`${attachment.name}-${idx}`} style={{
+                          background: '#eff6ff', color: '#1d4ed8', borderRadius: '999px',
+                          padding: '4px 8px', fontSize: '0.75rem', fontWeight: 600,
+                          border: '1px solid #bfdbfe'
+                        }}>
+                          {attachment.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {showNextSteps && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Next Action Steps</label>
+                    <input
+                      type="text"
+                      value={formData.nextSteps || ''}
+                      onChange={(e) => setFormData({ ...formData, nextSteps: e.target.value })}
+                      placeholder="e.g., Send proposal by Friday"
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: showDuration ? '1fr 1fr' : '1fr', gap: '16px', marginBottom: '16px' }}>
+                  {showDuration && (
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Duration (minutes)</label>
+                      <input
+                        type="number"
+                        value={formData.duration}
+                        onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                        placeholder="e.g., 30"
+                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Activity Date & Time *</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={formData.activityDate}
+                      onChange={(e) => setFormData({ ...formData, activityDate: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', background: '#fff' }}
+                    />
+                  </div>
+                </div>
+              </>
+            );
+          })()}
 
           {/* Polymorphic Record Linker (Only if linkedId is not pre-specified) */}
           {!linkedId && (

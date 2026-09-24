@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useContext } from 'react';
+import axios from 'axios';
 import { Grid, Card, Box, Typography, Chip, Grow } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -110,10 +111,9 @@ const StatsCards = ({ stats, colorPalette, glassMorphismCard, AnimatedCounter, S
 
   useEffect(() => {
     setTopUsersLoading(true);
-    fetch(`${process.env.REACT_APP_API_STRING}/audit-trail/top-users?limit=4`)
-      .then(res => res.json())
-      .then(data => {
-        setTopUsers(data.topUsers || []);
+    axios.get(`${process.env.REACT_APP_API_STRING}/audit-trail/top-users?limit=4`, { withCredentials: true })
+      .then(res => {
+        setTopUsers(res.data?.topUsers || []);
         setTopUsersLoading(false);
       })
       .catch(err => {

@@ -69,7 +69,7 @@ const normalizeDateStr = (dateStr) => {
             const d = String(parsed.getDate()).padStart(2, '0');
             return `${y}-${m}-${d}`;
         }
-    } catch (e) {}
+    } catch (e) { }
 
     return datePart;
 };
@@ -431,20 +431,20 @@ const ElockUtilizationReport = ({
         if (startDate && endDate) {
             let current = new Date(startDate);
             const end = new Date(endDate);
-            
+
             while (current <= end) {
                 const yyyy = current.getFullYear();
                 const mm = String(current.getMonth() + 1).padStart(2, '0');
                 const dd = String(current.getDate()).padStart(2, '0');
                 const normDate = `${yyyy}-${mm}-${dd}`;
-                
+
                 // Use backend's pre-computed values if available, otherwise default to 0
                 const dayData = dateDataMap[normDate];
                 const locksUsed = dayData ? dayData.locksUsed : 0;
                 const avail = dayData ? dayData.availableLocks : Math.max(0, totalLocks - maintenanceCount);
                 const maint = dayData ? dayData.maintenanceLocks : maintenanceCount;
                 const util = totalLocks > 0 ? parseFloat(((locksUsed / totalLocks) * 100).toFixed(1)) : 0;
-                
+
                 result.push({
                     date: normDate,
                     locksUsed,
@@ -453,7 +453,7 @@ const ElockUtilizationReport = ({
                     totalLocks,
                     utilPercent: util
                 });
-                
+
                 current.setDate(current.getDate() + 1);
             }
         }
@@ -480,7 +480,7 @@ const ElockUtilizationReport = ({
         const { startDate: filterStart, endDate: filterEnd } = getTransportDates(
             filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange
         );
-        
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const refDate = filterEnd ? new Date(filterEnd) : (filterStart ? new Date(filterStart) : today);
@@ -513,10 +513,10 @@ const ElockUtilizationReport = ({
                 // As-Of-Date Pending check: Dispatched on/before refDate AND (Not returned yet OR returned strictly AFTER refDate)
                 if (assignDate.getTime() <= refDate.getTime() && (returnDate === null || returnDate.getTime() > refDate.getTime())) {
                     totalOutInField++;
-                    
+
                     const start = parseDate(row.date);
                     const elapsedHours = Math.round((calcRefTime - start) / (1000 * 60 * 60));
-                    
+
                     if (elapsedHours > tatLimitHours) {
                         tatAlertsCount++;
                         const severity = elapsedHours >= tatLimitHours * 2 ? 'critical' : 'warning';
@@ -555,7 +555,7 @@ const ElockUtilizationReport = ({
         });
 
         const totalLocksUsedDuringPeriod = actualTripRows.length;
-        
+
         // Count unique e-locks used during this period
         const uniqueLocksSet = new Set();
         actualTripRows.forEach(row => {
@@ -564,7 +564,7 @@ const ElockUtilizationReport = ({
             }
         });
         const uniqueLocksUsedDuringPeriod = uniqueLocksSet.size;
-        
+
         // Calculate true daily average using the daily trend table data (backend-computed)
         const sumDailyLocksUsed = elockDailyTrendData.reduce((sum, d) => sum + d.locksUsed, 0);
         const averageDailyLocksUsed = elockDailyTrendData.length > 0 ? Math.round(sumDailyLocksUsed / elockDailyTrendData.length) : 0;
@@ -584,7 +584,7 @@ const ElockUtilizationReport = ({
             const startD = new Date(startDate);
             daysInMonth = new Date(startD.getFullYear(), startD.getMonth() + 1, 0).getDate();
         }
-        
+
         let daysInPeriod = elockDailyTrendData.length || 1;
         const averageTripsPerDay = totalLocksUsedDuringPeriod / daysInPeriod;
         const projectedVolume = Math.round(averageTripsPerDay * daysInMonth);
@@ -624,7 +624,7 @@ const ElockUtilizationReport = ({
         const srccRatio = totalLocksUsedDuringPeriod > 0 ? (srccLocksUsed / totalLocksUsedDuringPeriod) : 0;
         const srccProjectedVolume = Math.round(projectedVolume * srccRatio);
         const othersProjectedVolume = projectedVolume - srccProjectedVolume;
-        
+
         const srccProjectedLockRequirement = Math.round(projectedLockRequirement * srccRatio);
         const othersProjectedLockRequirement = projectedLockRequirement - srccProjectedLockRequirement;
 
@@ -649,7 +649,7 @@ const ElockUtilizationReport = ({
         if (calculatedKPIs.assignedReturnPendingLocks > 0) data.push({ name: 'Return Pending', value: calculatedKPIs.assignedReturnPendingLocks, fill: DONUT_COLORS.returnPending });
         if (calculatedKPIs.idleLocks > 0) data.push({ name: 'Idle / Available', value: calculatedKPIs.idleLocks, fill: DONUT_COLORS.idle });
         if (calculatedKPIs.maintenanceLocks > 0) data.push({ name: 'Maintenance', value: calculatedKPIs.maintenanceLocks, fill: DONUT_COLORS.maintenance });
-        
+
         if (data.length === 0) data.push({ name: 'No Data', value: 1, fill: '#e2e8f0' });
         return data;
     }, [calculatedKPIs]);
@@ -919,47 +919,47 @@ const ElockUtilizationReport = ({
                 <KpiCard label="Total Locks" value={calculatedKPIs.totalLocks} color="#667eea" />
                 {isSingleDay ? (
                     <>
-                        <KpiCard 
-                            label="Assigned (This Period)" 
-                            subtitle="Trips dispatched" 
-                            value={`${calculatedKPIs.usedLocks || 0}`} 
-                            pct={`${calculatedKPIs.assetUtilizationPercent}%`} 
-                            color={DONUT_COLORS.used} 
+                        <KpiCard
+                            label="Assigned (This Period)"
+                            subtitle="Trips dispatched"
+                            value={`${calculatedKPIs.usedLocks || 0}`}
+                            pct={`${calculatedKPIs.assetUtilizationPercent}%`}
+                            color={DONUT_COLORS.used}
                         />
-                        <KpiCard 
-                            label="Returned (This Period)" 
-                            subtitle="Trips completed" 
-                            value={`${calculatedKPIs.returnedDuringPeriod || 0}`} 
-                            pct={calculatedKPIs.totalLocks ? ((calculatedKPIs.returnedDuringPeriod / calculatedKPIs.totalLocks) * 100).toFixed(1) : '0'} 
-                            color="#10b981" 
+                        <KpiCard
+                            label="Returned (This Period)"
+                            subtitle="Trips completed"
+                            value={`${calculatedKPIs.returnedDuringPeriod || 0}`}
+                            pct={calculatedKPIs.totalLocks ? ((calculatedKPIs.returnedDuringPeriod / calculatedKPIs.totalLocks) * 100).toFixed(1) : '0'}
+                            color="#10b981"
                         />
-                        <KpiCard 
-                            label="Idle / Available" 
-                            value={`${calculatedKPIs.idleLocks}`} 
-                            pct={calculatedKPIs.totalLocks ? ((calculatedKPIs.idleLocks / calculatedKPIs.totalLocks) * 100).toFixed(1) : '0'} 
-                            subtitle="Ready to assign" 
-                            color={DONUT_COLORS.idle} 
+                        <KpiCard
+                            label="Idle / Available"
+                            value={`${calculatedKPIs.idleLocks}`}
+                            pct={calculatedKPIs.totalLocks ? ((calculatedKPIs.idleLocks / calculatedKPIs.totalLocks) * 100).toFixed(1) : '0'}
+                            subtitle="Ready to assign"
+                            color={DONUT_COLORS.idle}
                         />
-                        <KpiCard 
-                            label="Asset Utilization" 
-                            value={`${calculatedKPIs.assetUtilizationPercent}%`} 
-                            color={getUtilColor(calculatedKPIs.assetUtilizationPercent)} 
+                        <KpiCard
+                            label="Asset Utilization"
+                            value={`${calculatedKPIs.assetUtilizationPercent}%`}
+                            color={getUtilColor(calculatedKPIs.assetUtilizationPercent)}
                         />
                     </>
                 ) : (
                     <>
-                        <KpiCard 
-                            label="Total Elock Used" 
-                            subtitle="Total assignments in period" 
-                            value={`${calculatedKPIs.totalLocksUsedDuringPeriod || 0}`} 
-                            color="#8b5cf6" 
+                        <KpiCard
+                            label="Total Elock Used"
+                            subtitle="Total assignments in period"
+                            value={`${calculatedKPIs.totalLocksUsedDuringPeriod || 0}`}
+                            color="#8b5cf6"
                         />
-                        <KpiCard 
-                            label="Unique E-Locks Used" 
-                            subtitle={`Out of ${calculatedKPIs.totalLocks} total fleet`} 
-                            value={`${calculatedKPIs.uniqueLocksUsedDuringPeriod || 0}`} 
+                        <KpiCard
+                            label="Unique E-Locks Used"
+                            subtitle={`Out of ${calculatedKPIs.totalLocks} total fleet`}
+                            value={`${calculatedKPIs.uniqueLocksUsedDuringPeriod || 0}`}
                             pct={calculatedKPIs.totalLocks ? ((calculatedKPIs.uniqueLocksUsedDuringPeriod / calculatedKPIs.totalLocks) * 100).toFixed(1) : '0'}
-                            color={DONUT_COLORS.used} 
+                            color={DONUT_COLORS.used}
                         />
                         <KpiCard label="Avg Daily Locks Used" subtitle="Active per day" value={`${calculatedKPIs.averageDailyLocksUsed}`} pct={`${calculatedKPIs.averageDailyUtilizationPercent}%`} color={getUtilColor(calculatedKPIs.averageDailyUtilizationPercent)} />
                         <KpiCard label="Avg Idle Locks" value={`${Math.round(Math.max(0, calculatedKPIs.totalLocks - calculatedKPIs.averageDailyLocksUsed - calculatedKPIs.maintenanceLocks))}`} pct={calculatedKPIs.totalLocks ? ((Math.max(0, calculatedKPIs.totalLocks - calculatedKPIs.averageDailyLocksUsed - calculatedKPIs.maintenanceLocks) / calculatedKPIs.totalLocks) * 100).toFixed(1) : '0'} subtitle="Available per day" color="#10b981" />
@@ -972,19 +972,19 @@ const ElockUtilizationReport = ({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
                         <KpiCard label="Peak Day Used" value={`${calculatedKPIs.maxLocksUsedSingleDay || 0}`} subtitle="Max used in one day" color={getInverseUtilColor(calculatedKPIs.highestSingleDayUtilizationPercent)} large />
-                        <KpiCard 
-                            label="Projected Volume" 
-                            value={`${calculatedKPIs.projectedVolume}`} 
-                            subtitle="Expected monthly usage" 
-                            color="#8b5cf6" large 
-                            footer={<div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}><span style={{ color: '#4f46e5' }}>SRCC: {calculatedKPIs.srccProjectedVolume}</span><span style={{ color: '#d97706' }}>Others: {calculatedKPIs.othersProjectedVolume}</span></div>} 
+                        <KpiCard
+                            label="Projected Volume"
+                            value={`${calculatedKPIs.projectedVolume}`}
+                            subtitle="Expected monthly usage"
+                            color="#8b5cf6" large
+                            footer={<div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}><span style={{ color: '#4f46e5' }}>SRCC: {calculatedKPIs.srccProjectedVolume}</span><span style={{ color: '#d97706' }}>Others: {calculatedKPIs.othersProjectedVolume}</span></div>}
                         />
-                        <KpiCard 
-                            label="Projected Lock Need" 
-                            value={`${calculatedKPIs.projectedLockRequirement}`} 
-                            subtitle={`Avg Retention: ${calculatedKPIs.averageLockRetentionDays.toFixed(1)} days`} 
-                            color="#10b981" large 
-                            footer={<div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}><span style={{ color: '#10b981' }}>SRCC: {calculatedKPIs.srccProjectedLockRequirement}</span><span style={{ color: '#d97706' }}>Others: {calculatedKPIs.othersProjectedLockRequirement}</span></div>} 
+                        <KpiCard
+                            label="Projected Lock Need"
+                            value={`${calculatedKPIs.projectedLockRequirement}`}
+                            subtitle={`Avg Retention: ${calculatedKPIs.averageLockRetentionDays.toFixed(1)} days`}
+                            color="#10b981" large
+                            footer={<div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}><span style={{ color: '#10b981' }}>SRCC: {calculatedKPIs.srccProjectedLockRequirement}</span><span style={{ color: '#d97706' }}>Others: {calculatedKPIs.othersProjectedLockRequirement}</span></div>}
                         />
                     </div>
                 </div>
@@ -992,7 +992,7 @@ const ElockUtilizationReport = ({
 
             {/* Row 3: Locks Not Available breakdown cards */}
             <div style={{ fontSize: '13px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '24px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>⚠️</span> Locks Not Available 
+                <span>⚠️</span> Locks Not Available
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                 <KpiCard label="Locks Not Available" value={`${calculatedKPIs.assignedReturnPendingLocks + calculatedKPIs.maintenanceLocks}`} pct={calculatedKPIs.totalLocks ? (((calculatedKPIs.assignedReturnPendingLocks + calculatedKPIs.maintenanceLocks) / calculatedKPIs.totalLocks) * 100).toFixed(1) : '0'} color="#f59e0b" accentColor="#f59e0b" large border="1px solid #f59e0b33" />
@@ -1004,13 +1004,13 @@ const ElockUtilizationReport = ({
                 <span>🚨</span> Turnaround Time (TAT) Monitoring
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-                <KpiCard 
-                    label="TAT Alerts" 
-                    value={`${calculatedKPIs.elockTatAlerts}`} 
+                <KpiCard
+                    label="TAT Alerts"
+                    value={`${calculatedKPIs.elockTatAlerts}`}
                     pct={calculatedKPIs.totalLocks ? ((calculatedKPIs.elockTatAlerts / calculatedKPIs.totalLocks) * 100).toFixed(1) : '0'}
-                    color={calculatedKPIs.elockTatAlerts > 0 ? '#ef4444' : '#10b981'} 
-                    accentColor={calculatedKPIs.elockTatAlerts > 0 ? '#ef4444' : '#10b981'} 
-                    subtitle={`Exceeding ${tatLimitHours}h`} 
+                    color={calculatedKPIs.elockTatAlerts > 0 ? '#ef4444' : '#10b981'}
+                    accentColor={calculatedKPIs.elockTatAlerts > 0 ? '#ef4444' : '#10b981'}
+                    subtitle={`Exceeding ${tatLimitHours}h`}
                 />
             </div>
 
@@ -1137,7 +1137,7 @@ const ElockUtilizationReport = ({
                     </div>
                 </div>
             )}
-            
+
             {/* Daily Breakdown Table */}
             {elockDailyTrendData.length > 0 && (
                 <div className="elock-table-wrap" style={{ marginTop: '32px' }}>
@@ -1229,7 +1229,7 @@ const ElockUtilizationReport = ({
                         No trend data available for the selected period.
                     </div>
                 )}
-                
+
                 {/* Daily Breakdown Table moved to Dashboard tab */}
             </div>
         </>
@@ -1347,65 +1347,65 @@ const ElockUtilizationReport = ({
             <style>{STYLES}</style>
 
             {/* Tab Bar */}
-            
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-            <div className="elock-tabs">
-                {TABS.map(tab => (
-                    <button
-                        key={tab.id}
-                        className="elock-tab"
-                        data-active={activeTab === tab.id ? 'true' : 'false'}
-                        onClick={() => setActiveTab(tab.id)}
-                    >
-                        {tab.label}
-                    </button>
-                ))}
-            </div>
-            
-            <div className="kpi-info-wrap">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: 'rgba(255,255,255,0.5)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.6)', cursor: 'pointer', boxShadow: '0 4px 24px rgba(0,0,0,0.03)', width: '36px', height: '36px' }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
-                </div>
-                <div className="kpi-info-tip" style={{ width: '400px', bottom: 'auto', top: '100%', right: '0', transform: 'translateY(-10px)' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9' }}>Average Daily SR E-Lock Utilisation</div>
-                    <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', marginBottom: '16px' }}>
-                        <thead>
-                            <tr style={{ color: '#475569', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
-                                <th style={{ padding: '6px 0', fontWeight: 700 }}>Status</th>
-                                <th style={{ padding: '6px 0', fontWeight: 700 }}>Utilisation</th>
-                                <th style={{ padding: '6px 0', fontWeight: 700 }}>Average Locks/Day</th>
-                            </tr>
-                        </thead>
-                        <tbody style={{ color: '#64748b', fontWeight: 600 }}>
-                            <tr><td style={{ padding: '4px 0', color: '#10b981' }}>🟢 Green</td><td>&gt; 60%</td><td>11 or more locks/day</td></tr>
-                            <tr><td style={{ padding: '4px 0', color: '#f59e0b' }}>🟡 Yellow</td><td>50% – 60%</td><td>9–10 locks/day</td></tr>
-                            <tr><td style={{ padding: '4px 0', color: '#ef4444' }}>🔴 Red</td><td>&lt; 50%</td><td>8 or fewer locks/day</td></tr>
-                        </tbody>
-                    </table>
 
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9' }}>Highest Single-Day Utilisation</div>
-                    <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ color: '#475569', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
-                                <th style={{ padding: '6px 0', fontWeight: 700 }}>Status</th>
-                                <th style={{ padding: '6px 0', fontWeight: 700 }}>Utilisation</th>
-                            </tr>
-                        </thead>
-                        <tbody style={{ color: '#64748b', fontWeight: 600 }}>
-                            <tr><td style={{ padding: '4px 0', color: '#10b981' }}>🟢 Green</td><td>&lt; 40%</td></tr>
-                            <tr><td style={{ padding: '4px 0', color: '#f59e0b' }}>🟡 Yellow</td><td>40% – 60%</td></tr>
-                            <tr><td style={{ padding: '4px 0', color: '#ef4444' }}>🔴 Red</td><td>&gt; 60%</td></tr>
-                        </tbody>
-                    </table>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                <div className="elock-tabs">
+                    {TABS.map(tab => (
+                        <button
+                            key={tab.id}
+                            className="elock-tab"
+                            data-active={activeTab === tab.id ? 'true' : 'false'}
+                            onClick={() => setActiveTab(tab.id)}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="kpi-info-wrap">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: 'rgba(255,255,255,0.5)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.6)', cursor: 'pointer', boxShadow: '0 4px 24px rgba(0,0,0,0.03)', width: '36px', height: '36px' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                    </div>
+                    <div className="kpi-info-tip" style={{ width: '400px', bottom: 'auto', top: '100%', right: '0', transform: 'translateY(-10px)' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9' }}>Average Daily SR E-Lock Utilisation</div>
+                        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', marginBottom: '16px' }}>
+                            <thead>
+                                <tr style={{ color: '#475569', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
+                                    <th style={{ padding: '6px 0', fontWeight: 700 }}>Status</th>
+                                    <th style={{ padding: '6px 0', fontWeight: 700 }}>Utilisation</th>
+                                    <th style={{ padding: '6px 0', fontWeight: 700 }}>Average Locks/Day</th>
+                                </tr>
+                            </thead>
+                            <tbody style={{ color: '#64748b', fontWeight: 600 }}>
+                                <tr><td style={{ padding: '4px 0', color: '#10b981' }}>🟢 Green</td><td>&gt; 60%</td><td>11 or more locks/day</td></tr>
+                                <tr><td style={{ padding: '4px 0', color: '#f59e0b' }}>🟡 Yellow</td><td>50% – 60%</td><td>9–10 locks/day</td></tr>
+                                <tr><td style={{ padding: '4px 0', color: '#ef4444' }}>🔴 Red</td><td>&lt; 50%</td><td>8 or fewer locks/day</td></tr>
+                            </tbody>
+                        </table>
+
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9' }}>Highest Single-Day Utilisation</div>
+                        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ color: '#475569', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
+                                    <th style={{ padding: '6px 0', fontWeight: 700 }}>Status</th>
+                                    <th style={{ padding: '6px 0', fontWeight: 700 }}>Utilisation</th>
+                                </tr>
+                            </thead>
+                            <tbody style={{ color: '#64748b', fontWeight: 600 }}>
+                                <tr><td style={{ padding: '4px 0', color: '#10b981' }}>🟢 Green</td><td>&lt; 40%</td></tr>
+                                <tr><td style={{ padding: '4px 0', color: '#f59e0b' }}>🟡 Yellow</td><td>40% – 60%</td></tr>
+                                <tr><td style={{ padding: '4px 0', color: '#ef4444' }}>🔴 Red</td><td>&gt; 60%</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
+
+            {/* Tab Content */}
+            {activeTab === 'dashboard' && renderDashboard()}
+            {activeTab === 'trend' && renderTrend()}
+            {activeTab === 'transactions' && renderTransactions()}
         </div>
-
-        {/* Tab Content */}
-        {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'trend' && renderTrend()}
-        {activeTab === 'transactions' && renderTransactions()}
-    </div>
     );
 };
 

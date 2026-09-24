@@ -7,7 +7,7 @@ const router = express.Router();
 // CREATE team — creator becomes manager automatically
 router.post('/', async (req, res) => {
   try {
-    const { name, description, parentTeamId, type, assignedTerritories, memberIds = [], businessVertical, quotas } = req.body;
+    const { name, description, parentTeamId, type, assignedTerritories, memberIds = [], businessVertical, quotas, stagnantDays } = req.body;
 
     // The logged-in user is the team owner/manager
     const creatorId = req.user?._id || req.user?.id || req.headers['user-id'];
@@ -27,7 +27,8 @@ router.post('/', async (req, res) => {
       assignedTerritories,
       memberIds: allMemberIds,
       businessVertical: businessVertical || 'Paramount',
-      quotas: quotas || { monthlyRevenue: 0, dealCount: 0 }
+      quotas: quotas || { monthlyRevenue: 0, dealCount: 0 },
+      stagnantDays: stagnantDays !== undefined ? stagnantDays : 2
     });
 
     await newTeam.save();
@@ -51,19 +52,22 @@ router.post('/', async (req, res) => {
 // GET all teams
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 20, type } = req.query;
+    const { page = 1, limit = 100, type, all } = req.query;
     let query = { isActive: true };
 
     if (type) query.type = type;
 
-    const teams = await SalesTeam.find(query)
+    let teamsQuery = SalesTeam.find(query)
       .populate('managerId', 'username first_name last_name email')
       .populate('memberIds', 'username first_name last_name')
       .populate('assignedTerritories', 'name')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
+      .sort({ name: 1 });
 
+    if (all !== 'true') {
+      teamsQuery = teamsQuery.skip((page - 1) * limit).limit(Number(limit));
+    }
+
+    const teams = await teamsQuery;
     const total = await SalesTeam.countDocuments(query);
 
     res.json({
@@ -89,10 +93,17 @@ router.get('/my-teams', async (req, res) => {
     let query = { isActive: true };
     const seeAll = req.query.all === 'true' || req.query.seeAll === 'true';
     if (!isAdmin && !seeAll && userId) {
-      query.$or = [
+      const userDoc = await UserModel.findById(userId).select('isHod crmManagedTeams').lean();
+      const managedTeamIds = (userDoc?.crmManagedTeams || []).map(id => id.toString());
+      
+      const orConditions = [
         { managerId: userId },
         { memberIds: userId }
       ];
+      if (managedTeamIds.length > 0) {
+        orConditions.push({ _id: { $in: managedTeamIds } });
+      }
+      query.$or = orConditions;
     }
 
     const teams = await SalesTeam.find(query)
@@ -201,6 +212,58 @@ router.get('/:id/performance', async (req, res) => {
         revenue: Math.round((team.performance.currentRevenue / (team.quotas.monthlyRevenue || 1)) * 100),
         deals: team.quotas.dealCount > 0 ? Math.round((team.performance.currentDeals / team.quotas.dealCount) * 100) : 0
       }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// FR-12: HOD Multi-Team Management Endpoints
+// GET all HODs and their assigned teams
+router.get('/hod-assignments', async (req, res) => {
+  try {
+    const hods = await UserModel.find({
+      $or: [
+        { isHod: true },
+        { role: { $in: ['HOD', 'Head_of_Department'] } }
+      ]
+    })
+    .select('first_name last_name username email role crmRole isHod crmManagedTeams')
+    .populate('crmManagedTeams', 'name businessVertical')
+    .lean();
+
+    res.json({ success: true, hods });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Admin updates HOD designation and multi-team assignments
+router.post('/assign-hod-teams', async (req, res) => {
+  try {
+    const { userId, isHod, teamIds = [] } = req.body;
+    if (!userId) {
+      return res.status(400).json({ message: 'userId is required' });
+    }
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      userId,
+      {
+        isHod: Boolean(isHod),
+        crmManagedTeams: teamIds
+      },
+      { new: true }
+    ).select('first_name last_name username email role crmRole isHod crmManagedTeams')
+    .populate('crmManagedTeams', 'name businessVertical');
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'HOD teams updated successfully',
+      user: updatedUser
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

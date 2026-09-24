@@ -6,7 +6,7 @@ export const getRowColorFromStatus = (detailed_status) => {
 
   switch (detailed_status) {
     case "Billed":
-      return "bg-green";
+      return "";
     case "Billing Pending":
       return "billing-pending";
     case "Custom Clearance Completed":

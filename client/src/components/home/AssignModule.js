@@ -22,9 +22,7 @@ const allModules = [
   "Export - Operation",
   "Accounts",
   "Billing Reports",
-  "RM Procurement SOP",
-  "Tyre Procurement SOP",
-  "Fleet Insurance SOP",
+  "Procurement & Insurance SOPs",
   "Employee Onboarding",
   "Employee KYC",
   "HR",
@@ -39,6 +37,10 @@ const allModules = [
   "Document Collection",
   "KPI",
   "Open Points",
+  "Supplier Scorecard",
+  "AMC Suppliers Renewal",
+  "AMC Visitor Logs",
+  "Admin Equipment Checklist",
   "MRM",
   "DGFT",
   "Pulse",
@@ -46,6 +48,7 @@ const allModules = [
   "MasterDirectory",
   "Attendance",
   "Bill Cover",
+  "IT Helpdesk",
   "Karma Points",
   "Tally Transactions",
   "5S Audit",
@@ -78,9 +81,17 @@ function AssignModule({ selectedUser, allowedModules, allowInactive = false }) {
       setLoading(true);
       try {
         const res = await axios(
-          `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}${allowInactive ? "?includeInactive=true" : ""}`
+          `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}${allowInactive ? "?includeInactive=true" : ""}`,
+          { withCredentials: true }
         );
-        const userModules = res.data.modules || [];
+        let userModules = res.data.modules || [];
+        // Map legacy individual procurement sub-module entries to the unified module
+        const hasProcurement = userModules.some(m =>
+          ["Procurement & Insurance SOPs", "RM Procurement SOP", "Tyre Procurement SOP", "Fleet Insurance SOP"].includes(m)
+        );
+        if (hasProcurement && !userModules.includes("Procurement & Insurance SOPs")) {
+          userModules = [...userModules, "Procurement & Insurance SOPs"];
+        }
         // Filter out any modules that might be in DB but not in our static list effectively ensures valid keys
         setTargetKeys(userModules.filter(m => allModules.includes(m)));
       } catch (error) {
@@ -92,7 +103,7 @@ function AssignModule({ selectedUser, allowedModules, allowInactive = false }) {
     }
 
     getUserModules();
-  }, [selectedUser]);
+  }, [selectedUser, allowInactive]);
 
   const onChange = async (nextTargetKeys, direction, moveKeys) => {
     // innovative UI: optimistic update
@@ -104,21 +115,23 @@ function AssignModule({ selectedUser, allowedModules, allowInactive = false }) {
         await axios.post(`${process.env.REACT_APP_API_STRING}/assign-modules`, {
           modules: moveKeys,
           username: selectedUser,
-        });
+        }, { withCredentials: true });
         message.success(`Assigned ${moveKeys.length} module(s)`);
       } else {
-        // Unassign modules
+        // Unassign modules - if removing Procurement, also clean up legacy sub-module keys
+        let keysToRemove = [...moveKeys];
+        if (moveKeys.includes("Procurement & Insurance SOPs")) {
+          keysToRemove.push("RM Procurement SOP", "Tyre Procurement SOP", "Fleet Insurance SOP");
+        }
         await axios.post(`${process.env.REACT_APP_API_STRING}/unassign-modules`, {
-          modules: moveKeys,
+          modules: keysToRemove,
           username: selectedUser,
-        });
+        }, { withCredentials: true });
         message.success(`Removed ${moveKeys.length} module(s)`);
       }
     } catch (error) {
       console.error("Error updating modules:", error);
-      message.error("Failed to update modules");
-      // Revert state if API fails (optional but good practice, though simple fetch refresh works too)
-      // For now, let's keep it simple as we fetch often
+      message.error(error.response?.data?.message || "Failed to update modules");
     }
   };
 
@@ -134,6 +147,9 @@ function AssignModule({ selectedUser, allowedModules, allowInactive = false }) {
           titles={["Available", "Assigned"]}
           targetKeys={targetKeys}
           onChange={onChange}
+          filterOption={(inputValue, item) =>
+            item.title.toLowerCase().includes(inputValue.toLowerCase())
+          }
           render={(item) => item.title}
           listStyle={{
             width: '45%',

@@ -69,6 +69,29 @@ const verifyToken = async (req, res, next) => {
         const { calculateProfileCompletion } = await import("../utils/profileCompletion.mjs");
         
         const fullUser = await UserModel.findById(verified._id).lean();
+        const cookieClearOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            path: "/",
+        };
+
+        if (!fullUser) {
+            res.clearCookie("token", cookieClearOptions);
+            return res.status(401).json({ success: false, message: "User account not found or deactivated. Please log in again." });
+        }
+
+        // Validate tokenVersion to support universal multi-device logout
+        const userTokenVersion = fullUser.tokenVersion || 0;
+        const tokenVersion = verified.tokenVersion || 0;
+        if (tokenVersion !== userTokenVersion) {
+            res.clearCookie("token", cookieClearOptions);
+            return res.status(401).json({
+                success: false,
+                message: "Session expired or logged out from another device. Please log in again."
+            });
+        }
+
         if (fullUser) {
             const completion = calculateProfileCompletion(fullUser);
             req.user.profileCompletion = completion;
@@ -78,10 +101,10 @@ const verifyToken = async (req, res, next) => {
             if (fullUser.role !== 'Admin') {
                 const isWriteRequest = ['POST', 'PUT', 'DELETE'].includes(req.method);
                 
-                // Allowed paths that bypass restrictions:
                 // - Auth/user profile: me, getUserData, logout, change-password, complete-kyc, complete-onboarding, update-profile-photo
                 // - Attendance/payroll/statutory compliance: attendance, leave, regularization, payroll
-                const allowedPathPattern = /^\/api\/(login|logout|me|getUserData|complete-kyc|complete-onboarding|update-profile-photo|attendance|leave|payroll|regularization)/i;
+                // - Admin/HOD user management: assign-modules, unassign-modules, assign-role, assign-department, assign-module-to-all
+                const allowedPathPattern = /^\/api\/(login|logout|me|getUserData|complete-kyc|complete-onboarding|update-profile-photo|attendance|leave|payroll|regularization|assign-modules|unassign-modules|assign-role|assign-department|assign-module-to-all)/i;
                 const isAllowedPath = allowedPathPattern.test(req.path);
 
                 if (completion.isBlocked && !isAllowedPath) {
@@ -113,8 +136,23 @@ const verifyToken = async (req, res, next) => {
         // Run subsequent middleware and controller in the user context
         context.run({ user: req.user, req }, next);
     } catch (err) {
-        console.error("Auth token verification failed:", err);
-        return res.status(403).json({ message: "Invalid Token" });
+        const cookieClearOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            path: "/",
+        };
+
+        if (err.name === 'TokenExpiredError') {
+            res.clearCookie("token", cookieClearOptions);
+            return res.status(401).json({ success: false, message: "Session expired. Please log in again." });
+        }
+        if (err.name === 'JsonWebTokenError') {
+            res.clearCookie("token", cookieClearOptions);
+            return res.status(401).json({ success: false, message: "Invalid authentication token. Please log in again." });
+        }
+        console.error("Auth token verification failed:", err.message || err);
+        return res.status(401).json({ success: false, message: "Invalid Token" });
     }
 };
 

@@ -8,11 +8,11 @@ import {
 
 const getKarmaForTask = (task) => {
     const p = task.priority || 'Medium';
-    if (['P1', 'Emergency', 'Critical'].includes(p)) return 10;
-    if (['P2', 'High'].includes(p)) return 5;
-    if (['P3', 'Medium'].includes(p)) return 3;
-    if (['P4', 'Low'].includes(p)) return 1;
-    return 3;
+    if (['P1', 'Emergency', 'Critical'].includes(p)) return 20;
+    if (['P2', 'High'].includes(p)) return 15;
+    if (['P3', 'Medium'].includes(p)) return 10;
+    if (['P4', 'Low'].includes(p)) return 5;
+    return 5;
 };
 
 const PlannedDashboard = () => {

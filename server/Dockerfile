@@ -16,8 +16,11 @@ COPY . .
 # Copy environment variables file (optional – can also mount during run)
 COPY .env .env
 
+# Set production environment
+ENV NODE_ENV=production
+
 # Expose the application port
 EXPOSE 9006
 
-# Start the application
-CMD ["npm", "start"]
+# Start the application directly (no nodemon in production)
+CMD ["node", "app.mjs"]

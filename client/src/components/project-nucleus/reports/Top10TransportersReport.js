@@ -75,7 +75,7 @@ const Top10TransportersReport = ({
                         value={transportSortBy}
                         onChange={e => { setTransportSortBy(e.target.value); setTransportTablePage(1); }}
                         className="nucleus-select"
-                        style={{ padding: '6px 12px', fontSize: '13px' }}
+                        style={{ padding: '6px 34px 6px 12px', fontSize: '13px' }}
                     >
                         <option value="totalShipments">Total Shipments</option>
                         <option value="consignor">Consignor</option>
@@ -87,7 +87,7 @@ const Top10TransportersReport = ({
                         value={transportSortOrder}
                         onChange={e => { setTransportSortOrder(e.target.value); setTransportTablePage(1); }}
                         className="nucleus-select"
-                        style={{ padding: '6px 12px', fontSize: '13px' }}
+                        style={{ padding: '6px 34px 6px 12px', fontSize: '13px' }}
                     >
                         <option value="desc">Descending</option>
                         <option value="asc">Ascending</option>

@@ -50,13 +50,27 @@ const leadSchema = new mongoose.Schema({
   referralSourceName: { type: String },
   businessVertical: {
     type: String,
-    enum: ['Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],
+    enum: ['Novusha', 'Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],
     default: 'Paramount'
   },
+  referredFromTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'SalesTeam' },
+  referredToTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'SalesTeam' },
+  referredByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  referredAt: { type: Date },
+  isReferral: { type: Boolean, default: false },
+  location: { type: String, trim: true },
+  hsnCode: { type: String, trim: true },
+  closeReason: { type: String },
+  closeNotes: { type: String },
+  hasPlannedVisit: { type: Boolean, default: false },
+  lastActivityAt: { type: Date, default: Date.now },
   monthlyVolume: { type: String },
   monthlyRevenue: { type: String },
+  companyType: { type: String, trim: true },
   period: { type: String, default: () => new Date().toISOString().substring(0, 7) },
   convertedAt: { type: Date },
+  // Cross-reference to Export Freight Forwarding enquiry_no
+  freightEnquiryRef: { type: String, sparse: true, index: true },
   convertedTo: {
     accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account' },
     contactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' },

@@ -273,15 +273,15 @@ const IgstModal = ({
   // Autosave calculation to DB debounced
   useEffect(() => {
     if (!open || !onAutosave) return;
-    
+
     const timeoutId = setTimeout(() => {
       const totalDuty = (
         parseFloat(igstValues.bcd_ammount || 0) +
         parseFloat(igstValues.igst_ammount || 0) +
         parseFloat(igstValues.sws_ammount || 0) +
         parseFloat(igstValues.intrest_ammount || 0) +
-        parseFloat(igstValues.penalty_amount || 0) + 
-        parseFloat(igstValues.fine_amount || 0)      
+        parseFloat(igstValues.penalty_amount || 0) +
+        parseFloat(igstValues.fine_amount || 0)
       ).toFixed(2);
 
       const updateData = {
@@ -290,8 +290,8 @@ const IgstModal = ({
         bcd_ammount: igstValues.bcd_ammount,
         sws_ammount: igstValues.sws_ammount,
         intrest_ammount: igstValues.intrest_ammount,
-        penalty_amount: igstValues.penalty_amount, 
-        fine_amount: igstValues.fine_amount,       
+        penalty_amount: igstValues.penalty_amount,
+        fine_amount: igstValues.fine_amount,
         total_duty: totalDuty,
         igst_rate: igstValues.igstRate,
         penalty_by_us: igstValues.penalty_by_us,
@@ -309,7 +309,7 @@ const IgstModal = ({
     if (rowData?.cth_no && rowData?.job_no) {
       try {
         const apiUrl =
-          process.env.REACT_APP_API_STRING || "http://localhost:9006";
+          process.env.REACT_APP_API_STRING || "http://0.0.0.0:9006";
         const response = await fetch(
           `${apiUrl}/jobs/${rowData.job_no}/update-duty-from-cth`,
           {

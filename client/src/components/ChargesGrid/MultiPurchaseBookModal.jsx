@@ -118,9 +118,23 @@ const MultiPurchaseBookModal = ({ isOpen, onClose, chargesData, jobNumber, jobDi
                     revenueSgst: revSgst,
                     revenueIgst: revIgst,
                     revenueTotal: revTot,
+                    "Revenue Amount": revAmt.toFixed(2),
+                    "Revenue CGST": revCgst,
+                    "Revenue SGST": revSgst,
+                    "Revenue IGST": revIgst,
+                    "Revenue GST%": Number(c.revenueGstRate || 0),
+                    revenueRate: Number(c.revenueRate !== undefined && c.revenueRate !== null ? c.revenueRate : (c.revenueRateAmount || c.revenue?.rate || (c.qty ? revAmt / c.qty : revAmt))),
+                    revenueCurrencyAmount: Number(c.revenueCurrencyAmount !== undefined && c.revenueCurrencyAmount !== null ? c.revenueCurrencyAmount : (c.revenueCurrencyAmountVal || c.revenue?.currencyAmount || (c.revenueCurrency && c.revenueCurrency !== 'INR' ? (c.revenueAmount || c.revenueBasicAmount) : 0))),
+                    "Revenue Rate": Number(c.revenueRate !== undefined && c.revenueRate !== null ? c.revenueRate : (c.revenueRateAmount || c.revenue?.rate || (c.qty ? revAmt / c.qty : revAmt))),
+                    "Revenue Currency Amount": Number(c.revenueCurrencyAmount !== undefined && c.revenueCurrencyAmount !== null ? c.revenueCurrencyAmount : (c.revenueCurrencyAmountVal || c.revenue?.currencyAmount || (c.revenueCurrency && c.revenueCurrency !== 'INR' ? (c.revenueAmount || c.revenueBasicAmount) : 0))),
 
                     invoiceNumber: c.invoice_number || '',
-                    invoiceDate: c.invoice_date || ''
+                    invoiceDate: c.invoice_date || '',
+                    qty: c.qty !== undefined && c.qty !== null ? Number(c.qty) : 1,
+                    rate: c.rate !== undefined && c.rate !== null ? Number(c.rate) : Number(c.basicAmount || c.amount || 0),
+                    currency: c.costCurrency || (c.cost && c.cost.currency) || 'INR',
+                    currencyAmount: Number(c.currencyAmount || c.foreignCurrencyAmount || (c.currency && c.currency !== 'INR' ? (c.amount || c.basicAmount) : 0)),
+                    exchangeRate: Number(c.exchangeRate || c.exRate || 1)
                 };
             });
             setChargeItems(items);
@@ -201,7 +215,7 @@ const MultiPurchaseBookModal = ({ isOpen, onClose, chargesData, jobNumber, jobDi
                 "PAN": branch.pan || '',
                 "CIN": party?.cin || '',
                 "Credit Terms": party?.credit_terms || '',
-                "Description of Services": `COMBINED PB - ${chargeHeadList}`,
+                "Description of Services": items.length === 1 ? (items[0].chargeHead || '') : `COMBINED PB - ${chargeHeadList}`,
                 "SAC": items[0]?.sac || '',
                 "Taxable Value": totalTaxable.toFixed(2),
                 "GST%": '',
@@ -224,6 +238,15 @@ const MultiPurchaseBookModal = ({ isOpen, onClose, chargesData, jobNumber, jobDi
                 revenueSgst: totalRevSGST,
                 revenueIgst: totalRevIGST,
                 revenueTotal: totalRevTotal,
+                "Revenue Rate": firstCharge.revenueRate !== undefined && firstCharge.revenueRate !== null ? firstCharge.revenueRate : (firstCharge.revenueRateAmount || firstCharge.revenue?.rate || ''),
+                "Revenue Currency Amount": firstCharge.revenueCurrencyAmount !== undefined && firstCharge.revenueCurrencyAmount !== null ? firstCharge.revenueCurrencyAmount : (firstCharge.revenueCurrencyAmountVal || firstCharge.revenue?.currencyAmount || ''),
+                revenueRate: firstCharge.revenueRate !== undefined && firstCharge.revenueRate !== null ? firstCharge.revenueRate : (firstCharge.revenueRateAmount || firstCharge.revenue?.rate || ''),
+                revenueCurrencyAmount: firstCharge.revenueCurrencyAmount !== undefined && firstCharge.revenueCurrencyAmount !== null ? firstCharge.revenueCurrencyAmount : (firstCharge.revenueCurrencyAmountVal || firstCharge.revenue?.currencyAmount || ''),
+                "Qty": firstCharge.qty !== undefined && firstCharge.qty !== null ? firstCharge.qty : 1,
+                "Rate": firstCharge.rate !== undefined && firstCharge.rate !== null ? firstCharge.rate : (firstCharge.amount || 0),
+                "Currency": firstCharge.costCurrency || (firstCharge.cost && firstCharge.cost.currency) || 'INR',
+                "Currency Amount": firstCharge.currencyAmount || firstCharge.foreignCurrencyAmount || (firstCharge.currency && firstCharge.currency !== 'INR' ? (firstCharge.amount || firstCharge.basicAmount || '') : ''),
+                "Exchange Rate": firstCharge.exchangeRate || firstCharge.exRate || 1,
                 "Charge Head Category": firstCharge.chargeHeadCategory || '',
                 "TDS Category": '94C_1',
                 "chargeRef": chargesData.map(c => c.chargeId).filter(Boolean).join(','),
@@ -268,7 +291,7 @@ const MultiPurchaseBookModal = ({ isOpen, onClose, chargesData, jobNumber, jobDi
             );
 
             if (response.data.success) {
-                alert("Combined Purchase Book Entry Submitted Successfully!");
+                alert(chargeItems.length === 1 ? "Purchase Book Entry Submitted Successfully!" : "Combined Purchase Book Entry Submitted Successfully!");
                 if (onSuccess) onSuccess(formData["Entry No"]);
                 onClose();
             } else {
@@ -276,7 +299,7 @@ const MultiPurchaseBookModal = ({ isOpen, onClose, chargesData, jobNumber, jobDi
             }
         } catch (error) {
             console.error("Submission Error:", error);
-            alert("Error submitting Combined Purchase Book. Please check the logs.");
+            alert("Error submitting Purchase Book. Please check the logs.");
         } finally {
             setLoading(false);
         }
@@ -286,8 +309,10 @@ const MultiPurchaseBookModal = ({ isOpen, onClose, chargesData, jobNumber, jobDi
         <div className="charge-modal-overlay active" style={{ zIndex: 1100 }}>
             <div className="edit-charge-modal" style={{ width: '1100px', maxWidth: '95vw', maxHeight: '90vh', overflow: 'auto' }}>
                 <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '2px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 600 }}>COMBINED</span>
-                    Purchase Book Entry — {chargeItems.length} Charges
+                    <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '2px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 600 }}>
+                        {chargeItems.length > 1 ? 'COMBINED' : 'PURCHASE BOOK'}
+                    </span>
+                    Purchase Book Entry {chargeItems.length > 1 ? `— ${chargeItems.length} Charges` : `— ${chargeItems[0]?.chargeHead || ''}`}
                 </div>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">

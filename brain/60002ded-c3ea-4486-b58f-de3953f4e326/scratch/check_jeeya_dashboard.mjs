@@ -31,7 +31,7 @@ const Attendance = mongoose.model('Attendance', attendanceSchema);
 
 async function checkDashboard() {
   try {
-    await mongoose.connect('mongodb://localhost:27017/exim');
+    await mongoose.connect('mongodb://0.0.0.0:27017/exim');
     console.log('Connected to MongoDB');
 
     const user = await User.findOne({ username: 'jeeya_inamdar' });
@@ -44,7 +44,7 @@ async function checkDashboard() {
     // We need to simulate the dashboard logic or check the DB for these dates
     // The user wants to check the dashboard API response.
     // I will try to find if there are attendance records for 25th and 26th April 2026.
-    
+
     const startDate = moment.tz('2026-04-20', 'Asia/Kolkata').startOf('day').toDate();
     const endDate = moment.tz('2026-04-30', 'Asia/Kolkata').endOf('day').toDate();
 

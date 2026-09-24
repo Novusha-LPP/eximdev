@@ -1,0 +1,372 @@
+/* Enterprise SOP Compact Styling - Shared between Tyre Procurement & Fleet Insurance */
+
+.sop-container {
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  padding: 12px;
+  margin: 8px 0;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.sop-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 10px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sop-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 8px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sop-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 8px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.sop-card {
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-sizing: border-box;
+}
+
+.sop-card-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #a37035; /* Enterprise bronze from reference */
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  letter-spacing: 0.2px;
+}
+
+.sop-card-title.navy {
+  color: #1e3a8a;
+}
+
+.sop-card-title.teal {
+  color: #0f766e;
+}
+
+.sop-card-title.slate {
+  color: #334155;
+}
+
+.sop-field-group {
+  margin-bottom: 10px;
+  flex: 1;
+}
+
+.sop-field-label {
+  font-size: 12px;
+  color: #475569;
+  font-weight: 600;
+  margin-bottom: 4px;
+  user-select: none;
+  display: block;
+}
+
+.sop-input {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  padding: 5px 10px;
+  height: 34px;
+  width: 100%;
+  background: #fafaff;
+  outline: none;
+  box-sizing: border-box;
+  font-weight: 500;
+  color: #0f172a;
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  &:focus {
+    border-color: #2563eb;
+    background: #ffffff;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+  }
+
+  &:disabled, &[readonly] {
+    background: #f1f5f9;
+    color: #64748b;
+    cursor: not-allowed;
+  }
+}
+
+.sop-select {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  padding: 5px 10px;
+  height: 34px;
+  width: 100%;
+  background: #fafaff;
+  outline: none;
+  box-sizing: border-box;
+  font-weight: 500;
+  color: #0f172a;
+
+  &:focus {
+    border-color: #2563eb;
+    background: #ffffff;
+  }
+}
+
+.sop-textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  padding: 8px 10px;
+  width: 100%;
+  background: #fafaff;
+  outline: none;
+  box-sizing: border-box;
+  font-weight: 500;
+  color: #0f172a;
+  resize: vertical;
+
+  &:focus {
+    border-color: #2563eb;
+    background: #ffffff;
+  }
+}
+
+.sop-table-container {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  background: #ffffff;
+}
+
+.sop-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+
+  th {
+    background-color: #0f172a;
+    color: #ffffff;
+    font-weight: 700;
+    padding: 6px 10px;
+    border: 1px solid #1e293b;
+    text-align: left;
+    white-space: nowrap;
+    font-size: 12px;
+    letter-spacing: 0.2px;
+  }
+
+  td {
+    padding: 3px 6px;
+    border: 1px solid #e2e8f0;
+    font-size: 12px;
+    vertical-align: middle;
+    color: #1e293b;
+
+    &:first-child {
+      padding-left: 10px;
+      padding-right: 10px;
+      white-space: nowrap;
+    }
+  }
+
+  tr:nth-child(even) {
+    background-color: #f8fafc;
+  }
+
+  tr:hover {
+    background-color: #f1f5f9;
+  }
+
+  // Compact input and select elements when embedded inside table rows
+  .sop-input,
+  input.sop-input,
+  input[type="text"],
+  input[type="number"],
+  input[type="date"] {
+    height: 26px !important;
+    min-height: 26px !important;
+    padding: 2px 7px !important;
+    font-size: 12px !important;
+    border-radius: 4px !important;
+    line-height: 1.2 !important;
+  }
+
+  .sop-select,
+  select.sop-select,
+  select {
+    height: 26px !important;
+    min-height: 26px !important;
+    padding: 2px 6px !important;
+    font-size: 12px !important;
+    border-radius: 4px !important;
+    line-height: 1.2 !important;
+  }
+}
+
+.sop-total-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 10px 16px;
+  margin: 10px 0 14px 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #991b1b;
+}
+
+.sop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &.primary {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #1d4ed8;
+    &:hover {
+      background: #1d4ed8;
+    }
+  }
+
+  &.outline {
+    background: #ffffff;
+    color: #475569;
+    border-color: #cbd5e1;
+    &:hover {
+      background: #f8fafc;
+      border-color: #94a3b8;
+    }
+  }
+
+  &.danger {
+    background: #ef4444;
+    color: #ffffff;
+    &:hover {
+      background: #dc2626;
+    }
+  }
+
+  &.success {
+    background: #16a34a;
+    color: #ffffff;
+    &:hover {
+      background: #15803d;
+    }
+  }
+
+  &.pill-close {
+    border-radius: 20px;
+    border: 2px solid #ef4444;
+    color: #ef4444;
+    background: #ffffff;
+    font-weight: 700;
+    padding: 0 22px;
+    height: 36px;
+    font-size: 13px;
+    &:hover {
+      background: #fef2f2;
+    }
+  }
+
+  &.pill-save {
+    border-radius: 20px;
+    background: #1d4ed8;
+    color: #ffffff;
+    font-weight: 700;
+    padding: 0 24px;
+    height: 36px;
+    font-size: 13px;
+    border: none;
+    box-shadow: 0 2px 8px rgba(29, 78, 216, 0.35);
+    &:hover {
+      background: #1e40af;
+    }
+  }
+}
+
+/* Compact Horizontal Tabs matching reference */
+.sop-nav-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1.5px solid #e2e8f0;
+  margin-bottom: 10px;
+  background: #ffffff;
+  padding: 0 4px;
+
+  .sop-nav-tab {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    border-bottom: 2.5px solid transparent;
+    margin-bottom: -1.5px;
+    transition: all 0.15s ease;
+
+    &:hover {
+      color: #1e293b;
+    }
+
+    &.active {
+      color: #2563eb;
+      border-bottom-color: #2563eb;
+      font-weight: 700;
+    }
+
+    .sop-tab-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: #f1f5f9;
+      color: #64748b;
+      margin-left: 5px;
+    }
+
+    &.active .sop-tab-badge {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+  }
+}

@@ -102,10 +102,29 @@ const OpenPointsHome = () => {
     };
 
     // Filter & Infinite Scroll Logic
-    const filteredProjects = projects.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.description && p.description.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filteredProjects = projects.filter(p => {
+        if (!searchTerm || !searchTerm.trim()) return true;
+        const term = searchTerm.toLowerCase().trim();
+        const name = (p.name || '').toLowerCase();
+        const desc = (p.description || '').toLowerCase();
+        const initials = (p.initials || '').toLowerCase();
+
+        // 1. Direct match
+        if (name.includes(term) || desc.includes(term) || initials.includes(term)) return true;
+
+        // 2. Synonym match (e.g. "items" <-> "points")
+        const normalizedTerm = term.replace(/\bitems?\b/g, 'points').replace(/\btasks?\b/g, 'points');
+        if (name.includes(normalizedTerm) || desc.includes(normalizedTerm)) return true;
+
+        // 3. Multi-word match: every word must match somewhere in name, desc, or initials
+        const words = term.split(/\s+/).filter(w => w.length > 0);
+        const allWordsMatch = words.every(w => {
+            const normalizedW = w.replace(/^items?$/, 'point');
+            return name.includes(w) || desc.includes(w) || initials.includes(w) ||
+                   name.includes(normalizedW) || desc.includes(normalizedW);
+        });
+        return allWordsMatch;
+    });
 
     const visibleProjects = filteredProjects.slice(0, visibleCount);
     const hasMore = visibleCount < filteredProjects.length;
@@ -512,8 +531,8 @@ const OpenPointsHome = () => {
                                             </thead>
                                             <tbody>
                                                 {visibleProjects.map(project => (
-                                                    <tr 
-                                                        key={project._id} 
+                                                    <tr
+                                                        key={project._id}
                                                         onClick={() => navigate(`/open-points/project/${project._id}`)}
                                                         style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer', transition: 'background 0.2s' }}
                                                         onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}

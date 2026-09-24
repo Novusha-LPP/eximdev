@@ -61,7 +61,7 @@ function ESanchitTab() {
           >
             <Tab label="ESanchit" {...a11yProps(0)} />
             <Tab label="ESanchit Completed" {...a11yProps(1)} />
-            <Tab label="NFIMS/SIMS Request" {...a11yProps(2)} />
+            <Tab label="NFMIMS/SIMS/PIMS Request" {...a11yProps(2)} />
           </Tabs>
         </Box>
 

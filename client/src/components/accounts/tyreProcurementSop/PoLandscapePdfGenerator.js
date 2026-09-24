@@ -12,7 +12,7 @@ const fmtDate = (d) => {
     return dt.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
-      year: "2-digit",
+      year: "numeric",
     });
   } catch (e) {
     return String(d);
@@ -25,16 +25,32 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
   const pdfRef = useRef(null);
 
   // Extract common data fields
-  const prNumber = globalData?.prNumber || globalData?.stage1?.prNumber || "TT-TYRE-2026-0042";
-  const poNumber = globalData?.poNumber || globalData?.stage3?.poNumber || globalData?.stage2?.poNumber || "PO/TYR/2627/021";
-  const prDate = fmtDate(globalData?.createdAt || globalData?.stage1?.prDate || globalData?.stage1?.routingChecklist?.[0]?.date || new Date());
-  const poDate = fmtDate(globalData?.stage3?.poDate || globalData?.stage2?.poDate || globalData?.stage3?.signOff?.dateOfApproval || new Date());
-  const prRaisedBy = globalData?.stage1?.requesterName || globalData?.stage2?.purchaseOfficerName || "Mr. Jishnu";
+  const prNumber = globalData?.prNumber || globalData?.stage1?.prNumber || "-";
+  const poNumber = globalData?.poNumber || globalData?.stage3?.poNumber || globalData?.stage2?.poNumber || "-";
+  const prDate = fmtDate(globalData?.createdAt || globalData?.stage1?.prDate || globalData?.stage1?.routingChecklist?.[0]?.date);
+  const poDate = fmtDate(globalData?.stage3?.poDate || globalData?.stage2?.poDate || globalData?.stage3?.signOff?.dateOfApproval);
+  const prRaisedBy = globalData?.stage1?.preparedBy || globalData?.stage1?.requesterName || globalData?.stage2?.purchaseOfficerName || "-";
 
-  // Stage 1 Item / Tyre Details
-  const items = globalData?.stage1?.items || [];
-  const primaryItem = items[0] || {};
-  const quantity = primaryItem.quantityRequested || 3;
+  // Company / Buyer details (Defaults to S R CONTAINER CARRIERS official details if not specifically overridden)
+  const companyName = globalData?.companyName || globalData?.buyerName || globalData?.stage1?.companyName || "S R CONTAINER CARRIERS";
+  const companyAddress =
+    globalData?.companyAddress ||
+    globalData?.buyerAddress ||
+    globalData?.stage1?.companyAddress ||
+    "A/206, WALL STREET II, OPP. ORIENT CLUB, ELLISBRIDGE, Ahmedabad, Gujarat, 380006";
+  const companyGstin =
+    globalData?.companyGstin ||
+    globalData?.gstin ||
+    globalData?.stage1?.companyGstin ||
+    "24ANGPR7652E1ZV";
+  const companyContact =
+    globalData?.companyContact ||
+    globalData?.contactNumber ||
+    globalData?.stage1?.contactNumber ||
+    "9924301166";
+
+  // Items / Tyre Details
+  const rawItems = globalData?.stage1?.itemsRequired || globalData?.stage1?.items || [];
 
   // Stage 2 Selected Suppliers
   const stage2Suppliers = globalData?.stage2?.suppliers || [];
@@ -42,75 +58,193 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
 
   let awardedSuppliers = [];
   if (targetSupplier) {
-    const sName = typeof targetSupplier === 'string' ? targetSupplier : (targetSupplier.selectedSupplier || targetSupplier.supplierName);
+    const sName = typeof targetSupplier === "string" ? targetSupplier : (targetSupplier.selectedSupplier || targetSupplier.supplierName);
     const full = stage2Suppliers.find(
-      (s) => s.supplierName === sName || s._id === sName || s.supplierNameInBank === sName
+      (s) =>
+        s.supplierName === sName ||
+        s._id === sName ||
+        s.supplierNameInBank === sName ||
+        (sName && s.supplierName && s.supplierName.trim().toUpperCase() === sName.trim().toUpperCase())
     ) || {};
     awardedSuppliers = [{
-      supplierName: sName || "Supplier",
-      totalOrderValue: Number(targetSupplier.totalOrderValue) || 0,
-      priceQuoted: Number(targetSupplier.priceQuoted) || 0,
-      reasonForSelection: targetSupplier.reasonForSelection || "",
-      ...full
+      supplierName: sName || full.supplierName || "Supplier",
+      totalOrderValue: Number(targetSupplier.totalOrderValue) || full.totalOrderValue || 0,
+      priceQuoted: Number(targetSupplier.priceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
+      reasonForSelection: targetSupplier.reasonForSelection || full.reasonForSelection || "",
+      poNumber: targetSupplier.poNumber || globalData?.poNumber || "-",
+      ...full,
+      ...(typeof targetSupplier === "object" ? targetSupplier : {}),
     }];
   } else if (stage2Selected && stage2Selected.length > 0) {
     awardedSuppliers = stage2Selected.map((sel) => {
       const sName = sel.selectedSupplier || sel.supplierName;
       const full = stage2Suppliers.find(
-        (s) => s.supplierName === sName || s._id === sName || s.supplierNameInBank === sName
+        (s) =>
+          s.supplierName === sName ||
+          s._id === sName ||
+          s.supplierNameInBank === sName ||
+          (sName && s.supplierName && s.supplierName.trim().toUpperCase() === sName.trim().toUpperCase())
       ) || {};
       return {
         supplierName: sName || full.supplierName || full.supplierNameInBank || "Supplier",
-        totalOrderValue: Number(sel.totalOrderValue) || 0,
-        priceQuoted: Number(sel.priceQuoted) || 0,
+        totalOrderValue: Number(sel.totalOrderValue) || full.totalOrderValue || 0,
+        priceQuoted: Number(sel.priceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
         reasonForSelection: sel.reasonForSelection || "",
+        poNumber: sel.poNumber || globalData?.poNumber || "-",
         ...full,
+        ...sel,
       };
     });
   } else {
     awardedSuppliers = stage2Suppliers.length > 0 ? stage2Suppliers : [
       {
-        supplierName: "SHREE RAM TYRES",
-        supplierNameInBank: "SHREE RAM TYRES",
-        gstNumber: "24DGMPS8775K1ZD",
-        phoneNumber: "8291199218",
-        emailWhatsApp: "shreeramtyres2016@gmail.com",
-        bankName: "IDFC FIRST BANK, NARODA BRANCH",
-        bankAccountNo: "10042041535",
-        bankIfscCode: "IDFB0040314",
-        paymentTerms: "100% advance, Rates are Inclusive of Tax",
+        supplierName: "-",
+        gstNumber: "-",
+        phoneNumber: "-",
+        emailWhatsApp: "-",
+        bankName: "-",
+        bankAccountNo: "-",
+        bankIfscCode: "-",
+        paymentTerms: "-",
       },
     ];
   }
 
   // Current active vendor being rendered
   const currentVendor = awardedSuppliers[activeVendorIndex] || awardedSuppliers[0] || {};
-  const vendorName = currentVendor.supplierName || currentVendor.supplierNameInBank || "Supplier";
-  const vendorAddress = currentVendor.deliveryLocation || currentVendor.address || "321/4, PATEL VAS, NAVSANSKAR SCHOOL BUILDING, JUNA WADAJ, Ahmedabad, Gujarat, 380013";
-  const vendorGst = currentVendor.gstNumber || currentVendor.gstin || "24DGMPS8775K1ZD";
-  const vendorContact = `${currentVendor.phoneNumber || "8291199218"} | ${currentVendor.emailWhatsApp || "shreeramtyres2016@gmail.com"}`;
-  const vendorBank = currentVendor.bankName || "IDFC FIRST BANK, NARODA BRANCH";
-  const vendorAccNo = currentVendor.bankAccountNo || "10042041535";
-  const vendorIfsc = currentVendor.bankIfscCode || "IDFB0040314";
-  const vendorPaymentTerms = currentVendor.paymentTerms || "100% advance, Rates are Inclusive of Tax";
+  const vendorName = currentVendor.supplierName || currentVendor.supplierNameInBank || "-";
 
-  const totalAmount = currentVendor.totalOrderValue || (currentVendor.priceQuoted ? currentVendor.priceQuoted * quantity : 57300);
-  const unitRate = currentVendor.priceQuoted || currentVendor.unitPriceNew || (quantity ? Math.round(totalAmount / quantity) : 19100);
+  // Prioritize supplierAddress / address.
+  // If blank because the user previously put the supplier address into delivery address, use delivery address!
+  const rawVendorAddress =
+    currentVendor.supplierAddress ||
+    currentVendor.address ||
+    currentVendor.deliveryLocation ||
+    globalData?.stage2?.deliveryLocation ||
+    "";
+  const vendorAddress = rawVendorAddress || "-";
 
-  // Delivery Details
-  const deliveryLocation = globalData?.stage1?.deliveryLocationSite || "SRCC MAINTENANCE CENTER\nC/o. SR CONTAINER CARRIERS\nNEW SANJHA CHULLA GARDEN RESTAURANT-2\nNEXT TO ADANI SAHNTIGRAM, NR. KHODIAR PETROL PUMP, KHORAJ, ICD Khodiyar, GANDHINAGAR, Gujarat-382501";
-  const deliveryContact = globalData?.stage1?.deliveryContactPerson ? `${globalData.stage1.deliveryContactPerson} // Mr. Jishnu | 6238291722` : "Sunil Kumar | 9924304633 // Mr. Jishnu | 6238291722";
-  const expectedDeliveryDate = fmtDate(globalData?.stage1?.requiredByDate || new Date());
+  const vendorGst = currentVendor.gstNumber || currentVendor.gstin || "-";
+  const vendorContactPerson = currentVendor.contactPerson || "";
+  const vendorPhone = currentVendor.phoneNumber || "";
+  const vendorEmail = currentVendor.emailWhatsApp || "";
+  const vendorContactDetails = [vendorPhone, vendorEmail].filter(Boolean).join(" | ");
+  const vendorContact = [vendorContactPerson, vendorContactDetails].filter(Boolean).join(" - ") || "-";
+  const vendorBank = currentVendor.bankName || "-";
+  const vendorAccNo = currentVendor.bankAccountNo || currentVendor.accountNumber || "-";
+  const vendorIfsc = currentVendor.bankIfscCode || currentVendor.ifscCode || "-";
+  const vendorPaymentTerms = currentVendor.paymentTerms || "-";
 
-  // Signatures
+  // Delivery Details:
+  // Taken directly from the quotation (currentVendor), falling back to stage2 / stage1 / company details
+  const vendorDeliveryLoc =
+    (currentVendor.deliveryLocation && currentVendor.deliveryLocation !== vendorAddress)
+      ? currentVendor.deliveryLocation
+      : "";
+
+  const isVendorAddrInDelivery =
+    Boolean(vendorAddress && vendorAddress !== "-") &&
+    (globalData?.stage2?.deliveryLocation === vendorAddress ||
+     currentVendor.deliveryLocation === vendorAddress);
+
+  const deliveryLocation =
+    vendorDeliveryLoc ||
+    (isVendorAddrInDelivery
+      ? (globalData?.stage1?.departmentLocation ||
+         globalData?.stage1?.deliveryLocationSite ||
+         companyAddress ||
+         "-")
+      : (globalData?.stage2?.deliveryLocation ||
+         globalData?.stage1?.deliveryLocation ||
+         globalData?.stage1?.departmentLocation ||
+         globalData?.stage1?.deliveryLocationSite ||
+         globalData?.deliveryLocation ||
+         "-"));
+
+  const deliveryContact =
+    currentVendor.deliveryContact ||
+    (globalData?.stage2?.deliveryContact && String(globalData?.stage2?.deliveryContact).includes("|")
+      ? globalData.stage2.deliveryContact
+      : (globalData?.stage1?.deliveryContact && String(globalData?.stage1?.deliveryContact).includes("|"))
+        ? globalData.stage1.deliveryContact
+        : [
+            globalData?.stage2?.deliveryContactPerson || globalData?.stage1?.deliveryContactPerson || globalData?.stage1?.preparedBy,
+            globalData?.stage2?.deliveryContactNumber || globalData?.stage1?.deliveryContactNumber || globalData?.stage1?.contactNumber,
+          ].filter(Boolean).join(" | ")) || "-";
+  const expectedDeliveryDate = fmtDate(globalData?.stage1?.neededByDate || globalData?.stage1?.requiredByDate);
+
+  // Calculate items quantity, rates, and GST breakdown
+  let totalQtyFromItems = 0;
+  rawItems.forEach((it) => {
+    totalQtyFromItems += Number(it.qty || it.quantityRequested || it.quantity || 0);
+  });
+  const quantity = totalQtyFromItems > 0 ? totalQtyFromItems : 1;
+  const vendorTotalOrderValue = Number(currentVendor.totalOrderValue) || 0;
+  const vendorUnitPrice = Number(currentVendor.unitPriceNew || currentVendor.priceQuoted || 0);
+
+  let calculatedSubTotal = 0;
+  let calculatedTotalGst = 0;
+
+  const itemsList = rawItems.length > 0 ? rawItems : [{}];
+  const computedItems = itemsList.map((item) => {
+    const itemQty = Number(item.qty || item.quantityRequested || item.quantity || (rawItems.length === 0 ? quantity : 1));
+    const itemRate = Number(
+      vendorUnitPrice ||
+      item.estUnitCost ||
+      item.ratePerTyre ||
+      (quantity ? Math.round(vendorTotalOrderValue / quantity) : 0)
+    );
+    const itemBase = itemQty * itemRate;
+
+    let itemGst = 0;
+    if (currentVendor.gstAmount !== undefined && currentVendor.gstAmount !== null && currentVendor.gstAmount !== "" && Number(currentVendor.gstAmount) > 0) {
+      itemGst = rawItems.length > 1 ? Math.round(Number(currentVendor.gstAmount) / rawItems.length) : Number(currentVendor.gstAmount);
+    } else if (currentVendor.gstRate) {
+      const rateVal = parseFloat(String(currentVendor.gstRate).replace("%", "")) || 0;
+      itemGst = Math.round((itemBase * rateVal) / 100);
+    } else if (item.gstAmount) {
+      itemGst = Number(item.gstAmount) || 0;
+    } else if (vendorTotalOrderValue > 0 && rawItems.length <= 1) {
+      const diff = vendorTotalOrderValue - itemBase;
+      if (diff > 0) itemGst = diff;
+    }
+
+    const itemTotal = (vendorTotalOrderValue > 0 && rawItems.length <= 1)
+      ? vendorTotalOrderValue
+      : (itemBase + itemGst);
+
+    calculatedSubTotal += itemBase;
+    calculatedTotalGst += itemGst;
+
+    return {
+      raw: item,
+      itemQty,
+      itemRate,
+      itemBase,
+      itemGst,
+      itemTotal,
+    };
+  });
+
+  const grandTotal = vendorTotalOrderValue > 0 ? vendorTotalOrderValue : (calculatedSubTotal + calculatedTotalGst);
+  const subTotalToDisplay = calculatedSubTotal > 0 ? calculatedSubTotal : (grandTotal - calculatedTotalGst);
+
+  // Signatures / Approvals
   const preparedBy = prRaisedBy;
-  const transportHeadApproved = globalData?.stage1?.hodValidation?.approvedByName
-    ? `${globalData.stage1.hodValidation.approvedByName} (Approved on WhatsApp)`
-    : "Mohit Singh (Approved on WhatsApp to Jishnu)";
-  const transportHeadDate = fmtDate(globalData?.stage1?.hodValidation?.dateTimeOfApproval || new Date());
+  const thName = globalData?.stage1?.hodValidation?.validatedBy || "MOHIT SINGH";
+  const thMode = globalData?.stage1?.hodValidation?.approvalMode
+    ? ` (${globalData.stage1.hodValidation.approvalMode})`
+    : "";
+  const transportHeadApproved = `${thName}${thMode}`;
+  const transportHeadDate =
+    fmtDate(globalData?.stage1?.hodValidation?.dateTimeOfApproval) ||
+    fmtDate(globalData?.stage1?.prDate || globalData?.prDate);
 
-  const financeManagerApproved = globalData?.stage3?.signOff?.financeManagerName || stage3Data?.signOff?.financeManagerName || "Chirag Shah";
-  const financeManagerDate = fmtDate(globalData?.stage3?.signOff?.dateOfApproval || stage3Data?.signOff?.dateOfApproval || new Date());
+  const financeManagerApproved =
+    globalData?.stage3?.signOff?.financeManagerName ||
+    stage3Data?.signOff?.financeManagerName ||
+    "CHIRAG SHAH";
+  const financeManagerDate = fmtDate(globalData?.stage3?.signOff?.dateOfApproval || stage3Data?.signOff?.dateOfApproval);
 
   const handleGeneratePdf = async () => {
     if (!pdfRef.current) return;
@@ -119,10 +253,12 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
       const element = pdfRef.current;
       element.style.display = "block";
 
-      for (let i = 0; i < awardedSuppliers.length; i++) {
-        setActiveVendorIndex(i);
-        // Allow DOM to update
-        await new Promise((resolve) => setTimeout(resolve, 250));
+      const poClean = poNumber !== "-" ? poNumber.replace(/[\/\\]/g, "_") : "PO";
+
+      if (targetSupplier) {
+        // Generate single supplier PO PDF (Portrait)
+        setActiveVendorIndex(0);
+        await new Promise((resolve) => setTimeout(resolve, 200));
 
         const canvas = await html2canvas(element, {
           scale: 2,
@@ -132,8 +268,7 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
         });
 
         const imgData = canvas.toDataURL("image/png");
-        const pdf = new jsPDF("landscape", "pt", "a4");
-
+        const pdf = new jsPDF("portrait", "pt", "a4");
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
 
@@ -141,10 +276,37 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
         pdf.addImage(imgData, "PNG", 20, 20, imgWidth, Math.min(imgHeight, pdfHeight - 40));
-        
-        const suppNameClean = (awardedSuppliers[i].supplierName || `Supplier_${i+1}`).replace(/[^a-zA-Z0-9_-]/g, "_");
-        const poClean = poNumber.replace(/[\/\\]/g, "_");
+        const suppNameClean = (awardedSuppliers[0].supplierName || "Supplier").replace(/[^a-zA-Z0-9_-]/g, "_");
         pdf.save(`Purchase_Order_${suppNameClean}_${poClean}.pdf`);
+      } else {
+        // Generate Combined PO PDF for ALL Awarded Suppliers in one PDF file
+        const pdf = new jsPDF("portrait", "pt", "a4");
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+
+        for (let i = 0; i < awardedSuppliers.length; i++) {
+          setActiveVendorIndex(i);
+          await new Promise((resolve) => setTimeout(resolve, 200));
+
+          const canvas = await html2canvas(element, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: "#ffffff",
+          });
+
+          const imgData = canvas.toDataURL("image/png");
+          const imgWidth = pdfWidth - 40;
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+          if (i > 0) {
+            pdf.addPage();
+          }
+
+          pdf.addImage(imgData, "PNG", 20, 20, imgWidth, Math.min(imgHeight, pdfHeight - 40));
+        }
+
+        pdf.save(`Combined_Purchase_Orders_${poClean}.pdf`);
       }
 
       element.style.display = "none";
@@ -156,7 +318,11 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
     }
   };
 
-  const labelText = buttonLabel || (downloading ? "Generating PO PDF(s)..." : `Download PO PDF${awardedSuppliers.length > 1 ? "s" : ""} (Landscape)`);
+  const labelText =
+    buttonLabel ||
+    (downloading
+      ? "Generating PO PDF..."
+      : `DOWNLOAD COMBINED PO PDF (${awardedSuppliers.length})`);
 
   return (
     <>
@@ -176,54 +342,69 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
         {labelText}
       </Button>
 
-      {/* Hidden DOM element rendered specifically for html2canvas PDF export */}
+      {/* Hidden DOM element rendered specifically for html2canvas Portrait PDF export */}
       <div
         ref={pdfRef}
         style={{
           display: "none",
-          width: "1100px",
+          width: "740px",
+          minWidth: "740px",
           backgroundColor: "#ffffff",
-          color: "#000000",
+          color: "#111111",
           fontFamily: "Arial, sans-serif",
-          fontSize: "12px",
-          padding: "10px",
+          fontSize: "11px",
+          padding: "16px",
           boxSizing: "border-box",
-          border: "2px solid #000000",
+          border: "1.5px solid #222222",
         }}
       >
-        {/* Header */}
+        {/* Header Title */}
         <div
           style={{
             textAlign: "center",
             fontWeight: "bold",
-            fontSize: "14px",
-            borderBottom: "1.5px solid #000000",
-            paddingBottom: "4px",
-            marginBottom: "8px",
+            fontSize: "16px",
+            borderBottom: "2px solid #222222",
+            paddingBottom: "6px",
+            marginBottom: "12px",
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
           }}
         >
           Purchase Order (PO)
         </div>
 
-        {/* Top Details Section: 2 Columns */}
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8px" }}>
+        {/* 2-Column Section: Buyer & Vendor */}
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            marginBottom: "10px",
+            boxSizing: "border-box",
+          }}
+        >
           <tbody>
             <tr>
-              {/* Left Column: Buyer & Order Details */}
-              <td style={{ width: "50%", verticalAlign: "top", paddingRight: "6px" }}>
-                {/* Buyer Details */}
-                <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8px" }}>
+              {/* Left: Buyer Details */}
+              <td style={{ width: "50%", verticalAlign: "top", paddingRight: "6px", boxSizing: "border-box" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    marginBottom: "8px",
+                  }}
+                >
                   <thead>
                     <tr>
                       <th
                         colSpan="2"
                         style={{
                           textAlign: "left",
-                          border: "1px solid #000000",
-                          padding: "3px 6px",
+                          border: "1px solid #333333",
+                          padding: "4px 8px",
                           fontSize: "11px",
                           fontWeight: "bold",
-                          backgroundColor: "#f5f5f5",
+                          backgroundColor: "#e8ecef",
                         }}
                       >
                         Buyer Details
@@ -232,43 +413,48 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
                   </thead>
                   <tbody>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold", width: "30%" }}>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
                         Company Name
                       </td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>
-                        S R CONTAINER CARRIERS
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
+                        {companyName}
                       </td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>Billing Address</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontSize: "11px" }}>
-                        A/206, WALL STREET II, OPP. ORIENT CLUB, ELLISBRIDGE, Ahmedabad, Gujarat, 380006
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Billing Address</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontSize: "10px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal", lineHeight: "1.3" }}>
+                        {companyAddress}
                       </td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>GSTIN</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px" }}>24ANGPR7652E1ZV</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>GSTIN</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{companyGstin}</td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>Contact</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px" }}>9924301166 | ajay@surajforwarders.com</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Contact</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{companyContact}</td>
                     </tr>
                   </tbody>
                 </table>
 
                 {/* Order Details */}
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                  }}
+                >
                   <thead>
                     <tr>
                       <th
                         colSpan="2"
                         style={{
                           textAlign: "left",
-                          border: "1px solid #000000",
-                          padding: "3px 6px",
+                          border: "1px solid #333333",
+                          padding: "4px 8px",
                           fontSize: "11px",
                           fontWeight: "bold",
-                          backgroundColor: "#f5f5f5",
+                          backgroundColor: "#e8ecef",
                         }}
                       >
                         Order Details
@@ -277,59 +463,53 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
                   </thead>
                   <tbody>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold", width: "35%" }}>PO Number</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px" }}>{poNumber}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>PO Number</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
+                        {currentVendor.poNumber || poNumber}
+                      </td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>PO Date</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px" }}>{poDate}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>PO Date</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{poDate}</td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>Delivery Location</td>
-                      <td
-                        style={{
-                          border: "1px solid #000000",
-                          padding: "3px 6px",
-                          backgroundColor: "#ffff00",
-                          fontWeight: "bold",
-                          whiteSpace: "pre-line",
-                          fontSize: "10.5px",
-                        }}
-                      >
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Delivery Location</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontSize: "10px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal", lineHeight: "1.3" }}>
                         {deliveryLocation}
                       </td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>
-                        Delivery Location Contact Person/Number
-                      </td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", backgroundColor: "#ffff00", fontWeight: "bold" }}>
-                        {deliveryContact}
-                      </td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Delivery Contact</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{deliveryContact}</td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>Expected Delivery Date</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px" }}>{expectedDeliveryDate}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Expected Date</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{expectedDeliveryDate}</td>
                     </tr>
                   </tbody>
                 </table>
               </td>
 
-              {/* Right Column: Vendor Details & PR Reference */}
-              <td style={{ width: "50%", verticalAlign: "top", paddingLeft: "6px" }}>
-                {/* Vendor Details */}
-                <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8px" }}>
+              {/* Right: Vendor Details & PR Reference */}
+              <td style={{ width: "50%", verticalAlign: "top", paddingLeft: "6px", boxSizing: "border-box" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    marginBottom: "8px",
+                  }}
+                >
                   <thead>
                     <tr>
                       <th
                         colSpan="2"
                         style={{
                           textAlign: "left",
-                          border: "1px solid #000000",
-                          padding: "3px 6px",
+                          border: "1px solid #333333",
+                          padding: "4px 8px",
                           fontSize: "11px",
                           fontWeight: "bold",
-                          backgroundColor: "#f5f5f5",
+                          backgroundColor: "#e8ecef",
                         }}
                       >
                         Vendor Details
@@ -338,57 +518,63 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
                   </thead>
                   <tbody>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold", width: "30%" }}>Vendor Name</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>{vendorName}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Vendor Name</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorName}</td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>Address</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontSize: "11px" }}>{vendorAddress}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Address</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontSize: "10px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal", lineHeight: "1.3" }}>{vendorAddress}</td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>GSTIN</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px" }}>{vendorGst}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>GSTIN</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorGst}</td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>Contact</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px" }}>{vendorContact}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Contact Person</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorContactPerson || "-"}</td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>Bank Details</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px" }}>{vendorBank}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Phone / Email</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorContactDetails || "-"}</td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>A/c No</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px" }}>{vendorAccNo}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Bank Details</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorBank}</td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>IFSC</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px" }}>{vendorIfsc}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>A/c No</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorAccNo}</td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>Payment Terms</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", backgroundColor: "#ffff00", fontWeight: "bold" }}>
-                        <div>{vendorPaymentTerms}</div>
-                        <div style={{ fontSize: "10px", marginTop: "2px" }}>Delivery Charges Extra Payable Directly to Auto Driver</div>
-                      </td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>IFSC</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorIfsc}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Payment Terms</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorPaymentTerms}</td>
                     </tr>
                   </tbody>
                 </table>
 
                 {/* PR Reference */}
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                  }}
+                >
                   <tbody>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold", width: "35%" }}>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
                         PR Number & Date
                       </td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
                         {prNumber} // {prDate}
                       </td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>PR Raised by</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px" }}>{prRaisedBy}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>PR Raised By</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{prRaisedBy}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -397,86 +583,92 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
           </tbody>
         </table>
 
-        {/* Tyre Details Table */}
-        <div style={{ fontWeight: "bold", marginBottom: "3px" }}>Tyre Details</div>
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8px", textAlign: "center" }}>
+        {/* Item Details Table */}
+        <div style={{ fontWeight: "bold", fontSize: "12px", marginBottom: "4px", marginTop: "6px" }}>
+          Item Details
+        </div>
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            marginBottom: "12px",
+            textAlign: "center",
+            boxSizing: "border-box",
+          }}
+        >
           <thead>
-            <tr style={{ backgroundColor: "#f5f5f5" }}>
-              <th style={{ border: "1px solid #000000", padding: "4px", width: "6%" }}>Sr.No</th>
-              <th style={{ border: "1px solid #000000", padding: "4px", width: "24%" }}>Brand</th>
-              <th style={{ border: "1px solid #000000", padding: "4px", width: "14%" }}>Size</th>
-              <th style={{ border: "1px solid #000000", padding: "4px", width: "12%" }}>Model</th>
-              <th style={{ border: "1px solid #000000", padding: "4px", width: "14%" }}>Category</th>
-              <th style={{ border: "1px solid #000000", padding: "4px", width: "12%" }}>Rate/Tyre</th>
-              <th style={{ border: "1px solid #000000", padding: "4px", width: "6%" }}>Qty</th>
-              <th style={{ border: "1px solid #000000", padding: "4px", width: "12%" }}>Total Cost</th>
+            <tr style={{ backgroundColor: "#e8ecef" }}>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "5%" }}>Sr.No</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "22%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Product / Item</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "13%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Brand</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "16%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Specification</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "7%" }}>Qty</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "12%" }}>Unit Price (₹)</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "12%" }}>GST Amount (₹)</th>
+              <th style={{ border: "1px solid #333333", padding: "5px", width: "13%" }}>Total (₹)</th>
             </tr>
           </thead>
           <tbody>
-            {items.length > 0 ? (
-              items.map((item, idx) => (
+            {computedItems.map((cItem, idx) => {
+              const item = cItem.raw || {};
+              return (
                 <tr key={idx}>
-                  <td style={{ border: "1px solid #000000", padding: "4px" }}>{idx + 1}</td>
-                  <td style={{ border: "1px solid #000000", padding: "4px", fontWeight: "bold" }}>
-                    {item.tyreBrand || currentVendor.tyreBrand || "MRF TTF"}
+                  <td style={{ border: "1px solid #333333", padding: "5px" }}>{idx + 1}</td>
+                  <td style={{ border: "1px solid #333333", padding: "5px", fontWeight: "bold", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
+                    {item.productName || item.tyreType || currentVendor.selectedProduct || "Item"}
                   </td>
-                  <td style={{ border: "1px solid #000000", padding: "4px" }}>
-                    {item.sizeSpecification || currentVendor.sizeSpecification || "1000*20"}
+                  <td style={{ border: "1px solid #333333", padding: "5px", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
+                    {item.brandPreference || item.tyreBrand || currentVendor.tyreBrand || "-"}
                   </td>
-                  <td style={{ border: "1px solid #000000", padding: "4px" }}>
-                    {item.tyreModel || "SM 99"}
+                  <td style={{ border: "1px solid #333333", padding: "5px", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
+                    {item.sizeSpec || item.sizeSpecification || item.specification || currentVendor.sizeSpecification || "-"}
                   </td>
-                  <td style={{ border: "1px solid #000000", padding: "4px" }}>
-                    {item.tyreType || "Nylon"}
+                  <td style={{ border: "1px solid #333333", padding: "5px" }}>{cItem.itemQty}</td>
+                  <td style={{ border: "1px solid #333333", padding: "5px", textAlign: "right" }}>
+                    {cItem.itemRate ? `₹ ${cItem.itemRate.toLocaleString("en-IN")}` : "-"}
                   </td>
-                  <td style={{ border: "1px solid #000000", padding: "4px" }}>
-                    {unitRate.toLocaleString("en-IN")}
+                  <td style={{ border: "1px solid #333333", padding: "5px", textAlign: "right" }}>
+                    {cItem.itemGst ? `₹ ${cItem.itemGst.toLocaleString("en-IN")}` : "₹ 0"}
                   </td>
-                  <td style={{ border: "1px solid #000000", padding: "4px" }}>
-                    {item.quantityRequested || currentVendor.qtyAvailable || quantity}
-                  </td>
-                  <td style={{ border: "1px solid #000000", padding: "4px", fontWeight: "bold" }}>
-                    {totalAmount.toLocaleString("en-IN")}
+                  <td style={{ border: "1px solid #333333", padding: "5px", fontWeight: "bold", textAlign: "right" }}>
+                    ₹ {cItem.itemTotal.toLocaleString("en-IN")}
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td style={{ border: "1px solid #000000", padding: "4px" }}>1</td>
-                <td style={{ border: "1px solid #000000", padding: "4px", fontWeight: "bold" }}>
-                  {currentVendor.tyreBrand || "MRF TTF"}
-                </td>
-                <td style={{ border: "1px solid #000000", padding: "4px" }}>
-                  {currentVendor.sizeSpecification || "1000*20"}
-                </td>
-                <td style={{ border: "1px solid #000000", padding: "4px" }}>SM 99</td>
-                <td style={{ border: "1px solid #000000", padding: "4px" }}>Nylon</td>
-                <td style={{ border: "1px solid #000000", padding: "4px" }}>{unitRate.toLocaleString("en-IN")}</td>
-                <td style={{ border: "1px solid #000000", padding: "4px" }}>{quantity}</td>
-                <td style={{ border: "1px solid #000000", padding: "4px", fontWeight: "bold" }}>{totalAmount.toLocaleString("en-IN")}</td>
-              </tr>
-            )}
+              );
+            })}
           </tbody>
         </table>
 
-        {/* Bottom Section: Approvals & Totals */}
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        {/* Approvals & Totals Summary */}
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            marginTop: "6px",
+            boxSizing: "border-box",
+          }}
+        >
           <tbody>
             <tr>
-              {/* Left Column: Approval Section */}
-              <td style={{ width: "70%", verticalAlign: "top", paddingRight: "6px" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              {/* Left Column: Signatures & Approvals */}
+              <td style={{ width: "65%", verticalAlign: "top", paddingRight: "6px", boxSizing: "border-box" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                  }}
+                >
                   <thead>
                     <tr>
                       <th
                         colSpan="4"
                         style={{
                           textAlign: "left",
-                          border: "1px solid #000000",
-                          padding: "3px 6px",
+                          border: "1px solid #333333",
+                          padding: "4px 8px",
                           fontSize: "11px",
                           fontWeight: "bold",
-                          backgroundColor: "#f5f5f5",
+                          backgroundColor: "#e8ecef",
                         }}
                       >
                         Approval Section
@@ -485,47 +677,56 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
                   </thead>
                   <tbody>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold", width: "25%" }}>Prepared By</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", width: "45%" }}>{preparedBy}</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold", width: "10%" }}>Date</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold", width: "20%" }}>{prDate}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "28%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Prepared By</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "42%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{preparedBy}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "12%" }}>Date</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "18%" }}>{prDate}</td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>Approved By (Transport Head)</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px" }}>{transportHeadApproved}</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>Date</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>{transportHeadDate}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "28%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Transport Head</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "42%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{transportHeadApproved}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "12%" }}>Date</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "18%" }}>{transportHeadDate}</td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>Approved By (Accounts Manager)</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px" }}>{financeManagerApproved}</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>Date</td>
-                      <td style={{ border: "1px solid #000000", padding: "3px 6px", fontWeight: "bold" }}>{financeManagerDate}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "28%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Finance Manager</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "42%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{financeManagerApproved}</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "12%" }}>Date</td>
+                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "18%" }}>{financeManagerDate}</td>
                     </tr>
                   </tbody>
                 </table>
               </td>
 
-              {/* Right Column: Totals Summary */}
-              <td style={{ width: "30%", verticalAlign: "top" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              {/* Right Column: Grand Total Summary */}
+              <td style={{ width: "35%", verticalAlign: "top", boxSizing: "border-box" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                  }}
+                >
                   <tbody>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "4px 6px", fontWeight: "bold" }}>Sub Total</td>
-                      <td style={{ border: "1px solid #000000", padding: "4px 6px", textAlign: "right", fontWeight: "bold" }}>
-                        ₹ {totalAmount.toLocaleString("en-IN")}
+                      <td style={{ border: "1px solid #333333", padding: "5px 8px", fontWeight: "bold", width: "50%" }}>Sub Total</td>
+                      <td style={{ border: "1px solid #333333", padding: "5px 8px", textAlign: "right", fontWeight: "bold", width: "50%" }}>
+                        ₹ {subTotalToDisplay.toLocaleString("en-IN")}
                       </td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "4px 6px", fontWeight: "bold" }}>Delivery Charges</td>
-                      <td style={{ border: "1px solid #000000", padding: "4px 6px", textAlign: "right", backgroundColor: "#ffff00", fontWeight: "bold" }}>
-                        ₹ 0
+                      <td style={{ border: "1px solid #333333", padding: "5px 8px", fontWeight: "bold", width: "50%" }}>GST Amount</td>
+                      <td style={{ border: "1px solid #333333", padding: "5px 8px", textAlign: "right", width: "50%" }}>
+                        ₹ {calculatedTotalGst.toLocaleString("en-IN")}
                       </td>
                     </tr>
                     <tr>
-                      <td style={{ border: "1px solid #000000", padding: "4px 6px", fontWeight: "bold", fontSize: "13px" }}>Grand Total</td>
-                      <td style={{ border: "1px solid #000000", padding: "4px 6px", textAlign: "right", fontWeight: "bold", fontSize: "13px" }}>
-                        ₹ {totalAmount.toLocaleString("en-IN")}
+                      <td style={{ border: "1px solid #333333", padding: "5px 8px", fontWeight: "bold", width: "50%" }}>Delivery Charges</td>
+                      <td style={{ border: "1px solid #333333", padding: "5px 8px", textAlign: "right", width: "50%" }}>₹ 0</td>
+                    </tr>
+                    <tr style={{ backgroundColor: "#e8ecef" }}>
+                      <td style={{ border: "1px solid #333333", padding: "6px 8px", fontWeight: "bold", fontSize: "12px", width: "50%" }}>Grand Total</td>
+                      <td style={{ border: "1px solid #333333", padding: "6px 8px", textAlign: "right", fontWeight: "bold", fontSize: "12px", width: "50%" }}>
+                        ₹ {grandTotal.toLocaleString("en-IN")}
                       </td>
                     </tr>
                   </tbody>

@@ -337,38 +337,65 @@ function ImportCompletedBilling() {
           }).toString();
 
           return currentTab === 0 ? (
-            <a
-              href={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "inline-block",
-                cursor: "pointer",
-                color: textColor,
-                backgroundColor: bgColor || "transparent",
-                padding: "10px",
-                borderRadius: "5px",
-                textAlign: "center",
-                textDecoration: "none", whiteSpace: "nowrap",
-              }}
-            >
-              {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-              {custom_house}
-            </a>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <a
+                href={`/view-billing-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "inline-block",
+                  cursor: "pointer",
+                  color: textColor,
+                  backgroundColor: bgColor || "transparent",
+                  padding: "10px",
+                  borderRadius: "5px",
+                  textAlign: "center",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+                {custom_house}
+              </a>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(e, cell.row.original.job_number || job_no);
+                }}
+                sx={{ p: 0.2 }}
+                title="Copy Job Number"
+              >
+                <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+              </IconButton>
+            </div>
           ) : (
-            <div
-              style={{
-                display: "inline-block",
-                cursor: "default",
-                color: textColor,
-                backgroundColor: bgColor || "transparent",
-                padding: "10px",
-                borderRadius: "5px",
-                textAlign: "center",
-              }}
-            >
-              {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-              {custom_house}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <div
+                style={{
+                  display: "inline-block",
+                  cursor: "default",
+                  color: textColor,
+                  backgroundColor: bgColor || "transparent",
+                  padding: "10px",
+                  borderRadius: "5px",
+                  textAlign: "center",
+                }}
+              >
+                {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+                {custom_house}
+              </div>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(e, cell.row.original.job_number || job_no);
+                }}
+                sx={{ p: 0.2 }}
+                title="Copy Job Number"
+              >
+                <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+              </IconButton>
             </div>
           );
         },

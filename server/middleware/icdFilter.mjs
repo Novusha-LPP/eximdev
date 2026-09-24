@@ -136,7 +136,7 @@ export const applyUserImporterFilter = async (req, res, next) => {
     }
 
     // Fetch user data from database
-    const user = await UserModel.findOne({ username }).select('assigned_importer_name role _id');
+    const user = await UserModel.findOne({ username }).select('username assigned_importer_name role _id');
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });

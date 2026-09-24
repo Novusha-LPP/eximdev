@@ -1,10 +1,12 @@
 import express from "express";
 import XLSX from "xlsx";
 import TyreProcurementSop from "../../model/accounts/tyreProcurementSop.mjs";
+import UserModel from "../../model/userModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import logger from "../../logger.js";
 
 import TyreSupplierModel from "../../model/accounts/tyreSupplierModel.mjs";
+import ProcurementProductModel from "../../model/accounts/procurementProductModel.mjs";
 
 const router = express.Router();
 
@@ -29,6 +31,84 @@ function uppercaseDeep(obj) {
   return obj;
 }
 
+function normalizeTyreEnums(payload) {
+  if (!payload || typeof payload !== "object") return payload;
+
+  const approvalModeMap = {
+    WHATSAPP: "WhatsApp",
+    "PHONE CALL": "Phone Call",
+    EMAIL: "Email",
+    "IN-PERSON": "In-Person",
+  };
+
+  const yesNoMap = {
+    YES: "Yes",
+    NO: "No",
+  };
+
+  const acceptedRejectedMap = {
+    ACCEPTED: "Accepted",
+    REJECTED: "Rejected",
+  };
+
+  const typeMap = {
+    NEW: "New",
+    REMOULD: "Remould",
+  };
+
+  const statusMap = {
+    DONE: "Done",
+    PENDING: "Pending",
+    "IN PROGRESS": "In Progress",
+  };
+
+  ["stage1", "stage2", "stage3", "stage4", "stage5", "stage6"].forEach((stg) => {
+    if (payload[stg]?.routingChecklist && Array.isArray(payload[stg].routingChecklist)) {
+      payload[stg].routingChecklist.forEach((item) => {
+        if (item && item.status && statusMap[item.status]) {
+          item.status = statusMap[item.status];
+        }
+      });
+    }
+  });
+
+  if (payload.stage1?.hodValidation?.approvalMode) {
+    const val = payload.stage1.hodValidation.approvalMode;
+    if (approvalModeMap[val]) {
+      payload.stage1.hodValidation.approvalMode = approvalModeMap[val];
+    }
+  }
+
+  if (payload.stage3?.reviewChecklist) {
+    const cl = payload.stage3.reviewChecklist;
+    ["budgetAvailable", "priceReasonable", "gstVerified", "paymentTermsAccepted", "docsAttached"].forEach((key) => {
+      if (cl[key] && yesNoMap[cl[key]]) {
+        cl[key] = yesNoMap[cl[key]];
+      }
+    });
+  }
+
+  if (payload.stage6?.itemsReceived && Array.isArray(payload.stage6.itemsReceived)) {
+    payload.stage6.itemsReceived.forEach((item) => {
+      if (item.type && typeMap[item.type]) item.type = typeMap[item.type];
+      if (item.hotStampDone && yesNoMap[item.hotStampDone]) item.hotStampDone = yesNoMap[item.hotStampDone];
+      if (item.photoTaken && yesNoMap[item.photoTaken]) item.photoTaken = yesNoMap[item.photoTaken];
+      if (item.acceptedRejected && acceptedRejectedMap[item.acceptedRejected]) item.acceptedRejected = acceptedRejectedMap[item.acceptedRejected];
+    });
+  }
+
+  if (payload.stage6?.qualityConformanceCheck) {
+    const qcc = payload.stage6.qualityConformanceCheck;
+    ["tyresVerified", "tyreNumbersMatched", "hotStampingCompleted", "photosTaken", "invoiceVerified", "returnClauseReviewed"].forEach((key) => {
+      if (qcc[key] && yesNoMap[qcc[key]]) {
+        qcc[key] = yesNoMap[qcc[key]];
+      }
+    });
+  }
+
+  return payload;
+}
+
 async function saveSuppliersFromDoc(doc) {
   try {
     const suppliers = doc?.stage2?.suppliers || [];
@@ -47,6 +127,8 @@ async function saveSuppliersFromDoc(doc) {
           bankBranchCode: s.bankBranchCode ? String(s.bankBranchCode).toUpperCase() : "",
           supplierNameInBank: s.supplierNameInBank ? String(s.supplierNameInBank).toUpperCase() : "",
           paymentTerms: s.paymentTerms ? String(s.paymentTerms).toUpperCase() : "",
+          address: (s.address || s.supplierAddress) ? String(s.address || s.supplierAddress).toUpperCase() : "",
+          supplierAddress: (s.supplierAddress || s.address) ? String(s.supplierAddress || s.address).toUpperCase() : "",
         };
         await TyreSupplierModel.findOneAndUpdate(
           { supplierName: name },
@@ -57,6 +139,52 @@ async function saveSuppliersFromDoc(doc) {
     }
   } catch (err) {
     logger.error("Error auto-saving suppliers from Tyre Procurement doc:", err);
+  }
+}
+
+async function saveProductsFromDoc(doc) {
+  try {
+    const items = doc?.stage1?.itemsRequired || [];
+    for (const it of items) {
+      const name = (it.productName || it.tyreType || "").trim().toUpperCase();
+      if (name) {
+        const updateFields = { productName: name };
+        const brand = (it.brandPreference || "").trim().toUpperCase();
+        const spec = (it.specification || it.sizeSpec || "").trim().toUpperCase();
+        const cost = Number(it.estUnitCost) || 0;
+        if (brand) updateFields.brandPreference = brand;
+        if (spec) updateFields.specification = spec;
+        if (cost) updateFields.estUnitCost = cost;
+
+        await ProcurementProductModel.findOneAndUpdate(
+          { productName: name },
+          { $set: updateFields },
+          { upsert: true, new: true }
+        );
+      }
+    }
+
+    const stage2Suppliers = doc?.stage2?.suppliers || [];
+    for (const sup of stage2Suppliers) {
+      const name = (sup.selectedProduct || sup.selectedTyreType || "").trim().toUpperCase();
+      if (name) {
+        const updateFields = { productName: name };
+        const brand = (sup.brand || sup.tyreBrand || "").trim().toUpperCase();
+        const spec = (sup.sizeSpecification || "").trim().toUpperCase();
+        const cost = Number(sup.unitPriceNew) || 0;
+        if (brand) updateFields.brandPreference = brand;
+        if (spec) updateFields.specification = spec;
+        if (cost) updateFields.estUnitCost = cost;
+
+        await ProcurementProductModel.findOneAndUpdate(
+          { productName: name },
+          { $set: updateFields },
+          { upsert: true, new: true }
+        );
+      }
+    }
+  } catch (err) {
+    logger.error("Error auto-saving products from Procurement doc:", err);
   }
 }
 
@@ -72,6 +200,7 @@ function parseCreditDays(terms) {
 }
 
 function deriveStatus(doc) {
+  if (!doc) return "Draft";
   const s6 = doc.stage6 || {};
   const s5 = doc.stage5 || {};
   const s4 = doc.stage4 || {};
@@ -79,64 +208,54 @@ function deriveStatus(doc) {
   const s2 = doc.stage2 || {};
   const s1 = doc.stage1 || {};
 
+  // Check Stage 6 Approvals
   const s6Approvals = s6.approvals || [];
-  const purchaseOfficerReview = s6Approvals[2] || s6Approvals.find((a) => a && (a.role?.includes("Purchase Officer") || a.reviewedByPurchaseOfficer));
-  const isPurchaseOfficerDone = Boolean(purchaseOfficerReview?.date || purchaseOfficerReview?.signature || purchaseOfficerReview?.name || s6.reviewedByPurchaseOfficer);
+  const validApprovals = s6Approvals.filter((a) => a && (a.checked || a.status === "Done" || a.status === "DONE" || a.signature || a.date || a.name));
+  const allGrnApprovalsDone = s6Approvals.length >= 3 && s6Approvals.every((a) => a && (a.checked || a.status === "Done" || a.status === "DONE" || a.signature || a.date));
 
-  if (doc.status === "Closed" || doc.status === "GRN Received" || isPurchaseOfficerDone) {
-    return "GRN Received";
+  if (doc.status === "Closed" || doc.status === "GRN Completed" || doc.status === "GRN Done" || allGrnApprovalsDone) {
+    return "GRN Done";
   }
 
-  if (s5.dispatchDone || s5.isDispatchDone || s6.grnSeriesNo || s5.orderPlacedDate || s5.dispatchDetails?.dispatchDate) {
+  if (doc.status === "GRN Received" || doc.status === "GRN Ready" || validApprovals.length > 0 || s6.grnSeriesNo) {
+    return "GRN Ready";
+  }
+
+  // Check Stage 5 Dispatch
+  const isDispatchDone = Boolean(s5.dispatchDone) || Boolean(s5.isDispatchDone) || (s5.supplierDispatches || []).some((sd) => sd.dispatchDone || sd.isDispatchDone);
+  if (isDispatchDone || doc.status === "Order Placed" || doc.status === "Dispatched") {
     return "Order Placed";
   }
 
+  // Check Stage 4 Payment UTR
+  const supplierPayments = s4.supplierPayments || [];
+  const hasUtr =
+    supplierPayments.length > 0
+      ? supplierPayments.some((sp) => Boolean(sp.utrNumber?.trim()))
+      : Boolean(
+          s4.paymentDetails?.paymentReferenceUtr?.trim() ||
+          s4.paymentDetails?.paymentDate
+        );
+
+  if (hasUtr || doc.status === "Payment Done") {
+    return "Payment Done";
+  }
+
+  // Check Stage 3 Finance Approval
   const isFinanceApproved = s3.decision?.decision === "APPROVED" || Boolean(s3.signOff?.dateOfApproval);
-
-  if (isFinanceApproved) {
-    const stage2Suppliers = s2.suppliers || [];
-    const selectedSuppliers = s2.selectedSuppliers || [];
-
-    const awardedQuoteSuppliers = stage2Suppliers.filter((s) =>
-      selectedSuppliers.some(
-        (sel) => sel.selectedSupplier === s.supplierName || sel.selectedSupplier === s._id
-      )
-    );
-    const targetSuppliers = awardedQuoteSuppliers.length > 0 ? awardedQuoteSuppliers : stage2Suppliers;
-
-    const hasCreditTerms = targetSuppliers.some((s) => parseCreditDays(s.paymentTerms) > 0);
-
-    if (hasCreditTerms) {
-      // Skips Stage 4 payment waiting tab and moves straight to Order & Dispatch!
-      return "Payment Done";
-    }
-
-    const supplierPayments = s4.supplierPayments || [];
-    const allPaid =
-      supplierPayments.length > 0
-        ? supplierPayments.every((sp) => sp.isPaid && sp.utrNumber?.trim())
-        : Boolean(
-            s4.paymentDetails?.paymentReferenceUtr?.trim() ||
-            s4.paymentDetails?.paymentDate ||
-            doc.status === "Payment Done"
-          );
-
-    if (allPaid) {
-      return "Payment Done";
-    }
-
+  if (isFinanceApproved || doc.status === "Finance Approved") {
     return "Finance Approved";
   }
 
-  if (s2.routingChecklist?.[0]?.status === "Done" || s2.routingChecklist?.[0]?.date) {
+  if (s2.routingChecklist?.[0]?.status === "Done" || s2.routingChecklist?.[0]?.status === "DONE" || s2.routingChecklist?.[0]?.date || (s2.suppliers || []).some((s) => s.supplierName)) {
     return "Quotation Received";
   }
 
-  if (s1.routingChecklist?.[1]?.status === "Done" || s1.routingChecklist?.[1]?.date || s1.hodValidation?.dateTimeOfApproval) {
+  if (s1.routingChecklist?.[1]?.status === "Done" || s1.routingChecklist?.[1]?.status === "DONE" || s1.routingChecklist?.[1]?.date || s1.hodValidation?.dateTimeOfApproval) {
     return "Preparing for Quotation";
   }
 
-  if (s1.routingChecklist?.[0]?.status === "Done" || s1.routingChecklist?.[0]?.date) {
+  if (s1.routingChecklist?.[0]?.status === "Done" || s1.routingChecklist?.[0]?.status === "DONE" || s1.routingChecklist?.[0]?.date || s1.prNumber) {
     return "PR Raised";
   }
 
@@ -144,6 +263,7 @@ function deriveStatus(doc) {
 }
 
 function computeDoc(doc) {
+  if (!doc) return doc;
   const clone = JSON.parse(JSON.stringify(doc));
 
   // Compute estTotal for Stage 1 items
@@ -154,6 +274,17 @@ function computeDoc(doc) {
   });
   if (clone.stage1) {
     clone.stage1.estimatedTotalCost = estTotalCost;
+    if (!clone.stage1.hodValidation) clone.stage1.hodValidation = {};
+    if (!clone.stage1.hodValidation.validatedBy) {
+      clone.stage1.hodValidation.validatedBy = "MOHIT SINGH";
+    }
+  }
+
+  if (clone.stage3) {
+    if (!clone.stage3.signOff) clone.stage3.signOff = {};
+    if (!clone.stage3.signOff.financeManagerName) {
+      clone.stage3.signOff.financeManagerName = "CHIRAG SHAH";
+    }
   }
 
   clone.status = deriveStatus(clone);
@@ -172,8 +303,8 @@ function emptyRow(cols) {
 
 // Helper to generate next PR Number and PO Number
 // Formats:
-// PR: TT/TYRE/{MONTH}/{SEQ}/{FINANCIAL_YEAR}  e.g. TT/TYRE/AUG/01/26-27
-// PO: TYRE/{MONTH}-{SEQ}/{FINANCIAL_YEAR}     e.g. TYRE/AUG-01/26-27
+// PR: PR/{MONTH}/{SEQ}/{FINANCIAL_YEAR}  e.g. PR/SEP/01/26-27 (supports legacy TT/TYRE/...)
+// PO: PO/{MONTH}-{SEQ}/{FINANCIAL_YEAR}  e.g. PO/SEP-01/26-27 (supports legacy TYRE/...)
 async function generateNextTyreNumbers(dateInput) {
   const d = dateInput ? new Date(dateInput) : new Date();
   const monthShort = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
@@ -181,35 +312,128 @@ async function generateNextTyreNumbers(dateInput) {
 
   let startYear, endYear;
   if (m >= 3) {
-    // April (3) to Dec (11)
     startYear = d.getFullYear();
     endYear = d.getFullYear() + 1;
   } else {
-    // Jan (0) to Mar (2)
     startYear = d.getFullYear() - 1;
     endYear = d.getFullYear();
   }
   const fyCode = `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`;
 
-  const regex = new RegExp(`^TT/TYRE/${monthShort}/(\\d+)/${fyCode}$`, "i");
-  const records = await TyreProcurementSop.find({ prNumber: { $regex: regex } }).select("prNumber").lean();
+  // Find all PRs for the month to get highest sequence
+  const prPattern = new RegExp(`^(?:PR|TT/TYRE)/${monthShort}/(\\d+)/${fyCode}$`, "i");
+  const records = await TyreProcurementSop.find({ prNumber: { $regex: prPattern } }).select("prNumber").lean();
 
-  let maxSeq = 0;
+  let maxPrSeq = 0;
   records.forEach((rec) => {
     if (rec.prNumber) {
-      const match = rec.prNumber.match(new RegExp(`^TT/TYRE/${monthShort}/(\\d+)/${fyCode}$`, "i"));
+      const match = rec.prNumber.match(prPattern);
       if (match && match[1]) {
         const seq = parseInt(match[1], 10);
-        if (seq > maxSeq) maxSeq = seq;
+        if (seq > maxPrSeq) maxPrSeq = seq;
       }
     }
   });
 
-  const nextSeq = String(maxSeq + 1).padStart(2, "0");
-  const prNumber = `TT/TYRE/${monthShort}/${nextSeq}/${fyCode}`;
-  const poNumber = `TYRE/${monthShort}-${nextSeq}/${fyCode}`;
+  // Also check all existing PO numbers across records and selectedSuppliers to ensure strictly continuous PO series
+  const poPattern = new RegExp(`^(?:PO|TYRE)/${monthShort}-(\\d+)/${fyCode}$`, "i");
+  const allDocs = await TyreProcurementSop.find({}).select("poNumber stage2.selectedSuppliers.poNumber").lean();
 
-  return { prNumber, poNumber, seq: nextSeq, monthShort, fyCode };
+  let maxPoSeq = 0;
+  allDocs.forEach((doc) => {
+    if (doc.poNumber) {
+      const mMatch = doc.poNumber.match(poPattern);
+      if (mMatch && mMatch[1]) {
+        const seq = parseInt(mMatch[1], 10);
+        if (seq > maxPoSeq) maxPoSeq = seq;
+      }
+    }
+    const supList = doc.stage2?.selectedSuppliers || [];
+    supList.forEach((s) => {
+      if (s && s.poNumber) {
+        const mMatch = s.poNumber.match(poPattern);
+        if (mMatch && mMatch[1]) {
+          const seq = parseInt(mMatch[1], 10);
+          if (seq > maxPoSeq) maxPoSeq = seq;
+        }
+      }
+    });
+  });
+
+  const nextPrSeq = String(maxPrSeq + 1).padStart(2, "0");
+  const nextPoSeq = String(maxPoSeq + 1).padStart(2, "0");
+
+  const prNumber = `PR/${monthShort}/${nextPrSeq}/${fyCode}`;
+  const poNumber = `PO/${monthShort}-${nextPoSeq}/${fyCode}`;
+
+  return {
+    prNumber,
+    poNumber,
+    seq: nextPrSeq,
+    nextPoSeq: maxPoSeq + 1,
+    monthShort,
+    fyCode,
+  };
+}
+
+// Helper to generate next sequential PO numbers for a list of suppliers
+async function generateSupplierPoNumbers(suppliers = [], dateInput, excludeDocId = null) {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  const monthShort = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
+  const m = d.getMonth();
+
+  let startYear, endYear;
+  if (m >= 3) {
+    startYear = d.getFullYear();
+    endYear = d.getFullYear() + 1;
+  } else {
+    startYear = d.getFullYear() - 1;
+    endYear = d.getFullYear();
+  }
+  const fyCode = `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`;
+
+  const poPattern = new RegExp(`^(?:PO|TYRE)/${monthShort}-(\\d+)/${fyCode}$`, "i");
+  const query = {};
+  if (excludeDocId) {
+    query._id = { $ne: excludeDocId };
+  }
+  const allDocs = await TyreProcurementSop.find(query).select("poNumber stage2.selectedSuppliers.poNumber").lean();
+
+  let maxPoSeq = 0;
+  allDocs.forEach((doc) => {
+    if (doc.poNumber) {
+      const mMatch = doc.poNumber.match(poPattern);
+      if (mMatch && mMatch[1]) {
+        const seq = parseInt(mMatch[1], 10);
+        if (seq > maxPoSeq) maxPoSeq = seq;
+      }
+    }
+    const supList = doc.stage2?.selectedSuppliers || [];
+    supList.forEach((s) => {
+      if (s && s.poNumber) {
+        const mMatch = s.poNumber.match(poPattern);
+        if (mMatch && mMatch[1]) {
+          const seq = parseInt(mMatch[1], 10);
+          if (seq > maxPoSeq) maxPoSeq = seq;
+        }
+      }
+    });
+  });
+
+  let currentSeq = maxPoSeq;
+  const supplierToPo = {};
+
+  suppliers.forEach((s) => {
+    const sName = (typeof s === "string" ? s : (s?.selectedSupplier || s?.supplierName || "")).trim().toUpperCase();
+    if (!sName) return;
+    if (!supplierToPo[sName]) {
+      currentSeq += 1;
+      const seqStr = String(currentSeq).padStart(2, "0");
+      supplierToPo[sName] = `PO/${monthShort}-${seqStr}/${fyCode}`;
+    }
+  });
+
+  return { supplierToPo, nextPoSeq: currentSeq + 1, monthShort, fyCode };
 }
 
 // Helper to generate next GRN Number
@@ -262,6 +486,131 @@ router.get("/tyre-procurement/next-numbers", authMiddleware, async (req, res) =>
   }
 });
 
+// Endpoint to generate PO numbers for multiple selected suppliers
+router.post("/tyre-procurement/next-po-numbers", authMiddleware, async (req, res) => {
+  try {
+    const { suppliers = [], date, currentId } = req.body;
+    const result = await generateSupplierPoNumbers(suppliers, date, currentId);
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    logger.error("Error generating supplier PO numbers:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ─── Procurement Product Master Endpoints ───
+
+// Fetch all saved procurement products
+router.get("/procurement-products", authMiddleware, async (req, res) => {
+  try {
+    const products = await ProcurementProductModel.find().sort({ productName: 1 }).lean();
+    res.status(200).json({ success: true, products });
+  } catch (err) {
+    logger.error("Error fetching procurement products:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Save a new procurement product
+router.post("/procurement-products", authMiddleware, async (req, res) => {
+  try {
+    const { productName, brandPreference, specification, estUnitCost } = req.body;
+    if (!productName || !productName.trim()) {
+      return res.status(400).json({ success: false, message: "Product name is required" });
+    }
+    const name = productName.trim().toUpperCase();
+    const updateFields = { productName: name };
+    if (brandPreference) updateFields.brandPreference = brandPreference.trim().toUpperCase();
+    if (specification) updateFields.specification = specification.trim().toUpperCase();
+    if (estUnitCost !== undefined && estUnitCost !== "") updateFields.estUnitCost = Number(estUnitCost) || 0;
+
+    const product = await ProcurementProductModel.findOneAndUpdate(
+      { productName: name },
+      { $set: updateFields },
+      { upsert: true, new: true }
+    );
+    res.status(200).json({ success: true, product });
+  } catch (err) {
+    logger.error("Error saving procurement product:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Pending Count for Dashboard Notification Badge ───
+router.get("/tyre-procurement/pending-count", authMiddleware, async (req, res) => {
+  try {
+    const user = await UserModel.findById(req.user._id).lean();
+    if (!user) {
+      return res.status(200).json({ success: true, count: 0 });
+    }
+
+    const isAdmin =
+      user.role === "Admin" ||
+      user.role === "admin" ||
+      user.role === "SuperAdmin" ||
+      user.role === "superadmin";
+
+    const userTabs = user.tyre_procurement_tabs || [];
+
+    // Map each tab to the PR statuses requiring action in that stage
+    const tabStatusMap = {
+      "1. Purchase Request": ["Draft"],
+      "2. Supplier Quotation": ["PR Raised", "Preparing for Quotation", "HoD Validated"],
+      "3. Finance Approval": ["Quotation Received", "Quotation Updated"],
+      "4. Payment & UTR": ["Finance Approved", "Finance Review"],
+      "5. Order & Dispatch": ["Payment Done", "Advance Paid", "Order Placed", "Dispatched"],
+      "6. Site GRN": ["Dispatched / Site GRN Ready", "GRN Ready", "In Transit", "GRN Received"],
+      "7. Completed": ["GRN Done", "GRN Completed", "Closed"],
+    };
+
+    let targetStatuses = [];
+
+    if (!isAdmin && userTabs.length > 0) {
+      // User has specific assigned tabs (e.g. Finance Approval)
+      for (const tab of userTabs) {
+        if (tabStatusMap[tab]) {
+          targetStatuses.push(...tabStatusMap[tab]);
+        }
+      }
+      targetStatuses = [...new Set(targetStatuses)];
+    } else {
+      // Admin or user without specific tab restrictions: count all non-closed PRs or active PRs
+      targetStatuses = [
+        "Draft",
+        "PR Raised",
+        "Preparing for Quotation",
+        "HoD Validated",
+        "Quotation Received",
+        "Quotation Updated",
+        "Finance Approved",
+        "Finance Review",
+        "Payment Done",
+        "Advance Paid",
+        "Order Placed",
+        "Dispatched",
+        "Dispatched / Site GRN Ready",
+        "GRN Ready",
+        "GRN Received",
+        "GRN Done",
+        "GRN Completed",
+      ];
+    }
+
+    if (targetStatuses.length === 0) {
+      return res.status(200).json({ success: true, count: 0 });
+    }
+
+    const count = await TyreProcurementSop.countDocuments({
+      status: { $in: targetStatuses },
+    });
+
+    res.status(200).json({ success: true, count });
+  } catch (error) {
+    logger.error("Error fetching procurement pending count:", error);
+    res.status(500).json({ success: false, message: error.message, count: 0 });
+  }
+});
+
 // Endpoint to fetch next GRN number
 router.get("/tyre-procurement/next-grn-number", authMiddleware, async (req, res) => {
   try {
@@ -277,28 +626,43 @@ router.get("/tyre-procurement/next-grn-number", authMiddleware, async (req, res)
 // List Tyre PRs
 router.get("/tyre-procurement", authMiddleware, async (req, res) => {
   try {
+    // Sync status field in DB for records to reflect payment completeness
+    const docsToSync = await TyreProcurementSop.find({}).lean();
+    for (const d of docsToSync) {
+      const computed = deriveStatus(d);
+      if (d.status !== computed) {
+        await TyreProcurementSop.updateOne({ _id: d._id }, { $set: { status: computed } });
+      }
+    }
+
     const { search, stageTab, page = 1, limit = 50 } = req.query;
     const query = {};
 
-    if (stageTab && stageTab !== "0") {
+    if (stageTab !== undefined && stageTab !== null) {
       switch (stageTab) {
+        case "0":
+          query.status = { $nin: ["GRN Done", "Closed", "GRN Completed"] };
+          break;
         case "1":
           query.status = "Draft";
           break;
         case "2":
-          query.status = { $in: ["PR Raised", "Preparing for Quotation"] };
+          query.status = { $in: ["PR Raised", "Preparing for Quotation", "HoD Validated"] };
           break;
         case "3":
-          query.status = "Quotation Received";
+          query.status = { $in: ["Quotation Received", "Quotation Updated"] };
           break;
         case "4":
           query.status = "Finance Approved";
           break;
         case "5":
-          query.status = { $in: ["Payment Done", "Order Placed"] };
+          query.status = { $in: ["Payment Done", "Order Placed", "Dispatched"] };
           break;
         case "6":
-          query.status = { $in: ["GRN Done", "Closed"] };
+          query.status = { $in: ["Dispatched / Site GRN Ready", "GRN Ready", "GRN Received"] };
+          break;
+        case "7":
+          query.status = { $in: ["GRN Done", "Closed", "GRN Completed"] };
           break;
         default:
           break;
@@ -385,7 +749,7 @@ router.post("/tyre-suppliers", authMiddleware, async (req, res) => {
 // Create Tyre PR
 router.post("/tyre-procurement", authMiddleware, async (req, res) => {
   try {
-    let payload = uppercaseDeep(req.body);
+    let payload = normalizeTyreEnums(uppercaseDeep(req.body));
     const { prNumber } = payload;
     if (!prNumber?.trim()) {
       return res.status(400).json({ success: false, message: "PR Number is required" });
@@ -398,6 +762,7 @@ router.post("/tyre-procurement", authMiddleware, async (req, res) => {
     const doc = new TyreProcurementSop(payload);
     await doc.save();
     await saveSuppliersFromDoc(doc);
+    await saveProductsFromDoc(doc);
     res.status(201).json({ success: true, data: computeDoc(doc.toObject()) });
   } catch (error) {
     logger.error("Error creating Tyre Procurement SOP:", error);
@@ -408,7 +773,7 @@ router.post("/tyre-procurement", authMiddleware, async (req, res) => {
 // Update Tyre PR
 router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
   try {
-    let payload = uppercaseDeep(req.body);
+    let payload = normalizeTyreEnums(uppercaseDeep(req.body));
     const { prNumber } = payload;
     const existing = await TyreProcurementSop.findById(req.params.id);
     if (!existing) {
@@ -427,6 +792,7 @@ router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
       { new: true, runValidators: true }
     ).lean();
     await saveSuppliersFromDoc(doc);
+    await saveProductsFromDoc(doc);
     res.json({ success: true, data: computeDoc(doc) });
   } catch (error) {
     logger.error("Error updating Tyre Procurement SOP:", error);
@@ -437,6 +803,10 @@ router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
 // Delete Tyre PR
 router.delete("/tyre-procurement/:id", authMiddleware, async (req, res) => {
   try {
+    const role = (req.user?.role || "").toLowerCase();
+    if (role !== "admin" && role !== "superadmin") {
+      return res.status(403).json({ success: false, message: "Only admin users can delete PRs" });
+    }
     const doc = await TyreProcurementSop.findByIdAndDelete(req.params.id);
     if (!doc) {
       return res.status(404).json({ success: false, message: "Tyre PR not found" });
@@ -808,6 +1178,44 @@ router.get("/tyre-procurement/template/download", authMiddleware, async (req, re
   } catch (error) {
     logger.error("Error downloading Tyre Procurement template:", error);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ─── GET & ASSIGN TYRE PROCUREMENT TAB PERMISSIONS ───
+router.get("/tyre-procurement/user-tabs/:username", authMiddleware, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const user = await UserModel.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+    res.status(200).json({
+      success: true,
+      allowed_tabs: user.tyre_procurement_tabs || [],
+    });
+  } catch (error) {
+    logger.error("Error fetching user procurement tabs:", error);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+});
+
+router.post("/tyre-procurement/assign-user-tabs", authMiddleware, async (req, res) => {
+  try {
+    const { username, allowed_tabs } = req.body;
+    const user = await UserModel.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+    user.tyre_procurement_tabs = allowed_tabs || [];
+    await user.save();
+    res.status(200).json({
+      success: true,
+      message: "Procurement tab permissions updated successfully",
+      allowed_tabs: user.tyre_procurement_tabs,
+    });
+  } catch (error) {
+    logger.error("Error assigning procurement tabs:", error);
+    res.status(500).json({ success: false, error: "Failed to assign tab permissions" });
   }
 });
 

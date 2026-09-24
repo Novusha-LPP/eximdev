@@ -2,8 +2,10 @@ import { useEffect, useState, useContext } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { useFormik } from "formik";
+import toast from "react-hot-toast";
 import { TabContext } from "../components/import-operations/ImportOperations";
 import { UserContext } from "../contexts/UserContext";
+import { validateTareWeight } from "../utils/handleTareWeightChange";
 
 function useFetchOperationTeamJob(params) {
   const [data, setData] = useState(null);
@@ -85,8 +87,38 @@ function useFetchOperationTeamJob(params) {
       documents_send_to_accounts: "",
     },
 
+    validate: (values) => {
+      const errors = {};
+      if (values.container_nos && Array.isArray(values.container_nos)) {
+        const containerErrors = [];
+        let hasError = false;
+        values.container_nos.forEach((container, idx) => {
+          const tareError = validateTareWeight(container?.size, container?.tare_weight);
+          if (tareError) {
+            hasError = true;
+            containerErrors[idx] = { tare_weight: tareError };
+          }
+        });
+        if (hasError) {
+          errors.container_nos = containerErrors;
+        }
+      }
+      return errors;
+    },
+
     onSubmit: async (values) => {
       try {
+        // Tare weight validation check
+        if (values.container_nos && Array.isArray(values.container_nos)) {
+          for (const container of values.container_nos) {
+            const tareError = validateTareWeight(container?.size, container?.tare_weight);
+            if (tareError) {
+              toast.error(tareError);
+              return;
+            }
+          }
+        }
+
         // CRITICAL SECURITY CHECK: Validate container_nos match the current job
         // This prevents accidental submission of a previous job's container data
         if (data && values.container_nos && values.container_nos.length > 0) {
@@ -144,6 +176,7 @@ function useFetchOperationTeamJob(params) {
 
       } catch (error) {
         console.error("Error updating job:", error);
+        toast.error(error?.response?.data?.message || error?.message || "Error updating job");
       }
     },
   });

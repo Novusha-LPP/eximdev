@@ -14,7 +14,7 @@ import { recalculateLicenseUtilization } from "../services/licenseUtilizationSer
 
 dotenv.config();
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || "mongodb://localhost:27017/eximdev";
+const MONGODB_URI = process.env.DEV_MONGODB_URI || "mongodb://0.0.0.0:27017/eximdev";
 
 async function runMigration() {
   try {

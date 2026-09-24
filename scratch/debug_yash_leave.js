@@ -4,7 +4,7 @@ import User from './server/model/userModel.mjs';
 
 async function debug() {
     try {
-        await mongoose.connect('mongodb://localhost:27017/eximdev');
+        await mongoose.connect('mongodb://0.0.0.0:27017/eximdev');
         console.log('Connected');
 
         const user = await User.findOne({ username: /yash_gupta/i });

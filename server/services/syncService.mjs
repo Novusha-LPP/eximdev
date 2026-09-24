@@ -1,8 +1,9 @@
+
 import { MongoClient } from "mongodb";
 import mongoose from "mongoose";
 import { migrateJobs, migrateGandhidhamJobs } from "../utils/migrationLogic.mjs";
 
-const SKIP_COLLECTIONS = ["cths", "audittrails", "users", "graph_notifications"];
+const SKIP_COLLECTIONS = ["cths", "audittrails", "users", "graph_notifications", "serverlogs"];
 
 export async function syncProductionToLocal(options = { onProgress: null }) {
     const { runSync = true, runMigrateJobs = false, runMigrateGandhidham = false, onProgress = null } = options;
@@ -45,12 +46,12 @@ export async function syncProductionToLocal(options = { onProgress: null }) {
             const sourceDb = sourceClient.db();
             const localDb = localClient.db();
 
-            // Clear all local collections except 'users' before starting the sync
-            console.log("🧹 Clearing existing local collections (except 'users')...");
+            // Clear all local collections except skipped collections before starting the sync
+            console.log("🧹 Clearing existing local collections (except skipped collections)...");
             const localCollections = await localDb.listCollections().toArray();
             for (const col of localCollections) {
                 const name = col.name;
-                if (name === "users" || name.startsWith("system.")) {
+                if (SKIP_COLLECTIONS.includes(name) || name.startsWith("system.")) {
                     continue;
                 }
                 console.log(`   🧹 Clearing local collection: ${name}`);
@@ -138,7 +139,20 @@ export async function syncProductionToLocal(options = { onProgress: null }) {
                                 console.warn(`Could not verify unique indexes for collection ${name}:`, e.message);
                             }
 
-                            await localCollection.insertMany(cleanedData);
+                            // Insert in chunks of 1000 to prevent BSON/memory overflow
+                            const BATCH_SIZE = 1000;
+                            for (let i = 0; i < cleanedData.length; i += BATCH_SIZE) {
+                                const chunk = cleanedData.slice(i, i + BATCH_SIZE);
+                                try {
+                                    await localCollection.insertMany(chunk, { ordered: false });
+                                } catch (insertErr) {
+                                    if (insertErr.code === 11000 || (insertErr.writeErrors && insertErr.writeErrors.length > 0)) {
+                                        console.warn(`⚠️ Warning: Duplicate keys skipped in ${name}: ${insertErr.message}`);
+                                    } else {
+                                        throw insertErr;
+                                    }
+                                }
+                            }
                         }
 
                         results.sync.push({ collection: name, count: data.length });

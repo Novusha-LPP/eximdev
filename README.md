@@ -6,12 +6,27 @@ AlVision Exim is a comprehensive application designed to streamline export-impor
 
 ## Features
 
+
 - **Admin Accounts**: Creation of two initial admin accounts with capabilities to onboard new employees and manage their access to different modules.
 - **Employee Management**: Admins can onboard new employees by providing details such as name, email, company, and designation. Employees receive credentials via email and can subsequently complete their profiles.
 - **Module-Based Access**: Specific modules can be assigned to or removed from employees by admins. Employees will have access only to the modules assigned to them.
 - **Data Handling**: Supports uploading and parsing of Excel sheets manually or from email attachments.
 - **Interactive Dashboards**: Visualization of operational data such as job statuses and detailed reports for specific importers using React-ApexCharts and MUI Data Grid.
+
+
 - **Document Management**: Ability to upload and manage documents via AWS S3.
+
+## 📚 Documentation
+
+All comprehensive documentation, module guides, workflow specifications, architecture documents, and test plans are organized in the [`docs/`](docs/README.md) directory:
+- **[Attendance & HR](docs/attendance-and-hr/)** — Attendance tracking, leave policies, shifts, geofencing, and HR framework.
+- **[Workflows & Operations](docs/workflows-and-operations/)** — Special approvals, operations, and maintenance workflows.
+- **[Feature Modules](docs/modules/)** — Guides for DGFT, CRM, KPI, MRM, OpenPoints, etc.
+- **[Integrations & APIs](docs/integrations-and-api/)** — Tally ERP API, SCMCube, and Analytics.
+- **[Architecture & Migration](docs/architecture-and-migration/)** — System architecture, deployment, and DB migrations.
+- **[Testing](docs/testing/)** — Functional, integration, regression, and smoke test suites across all modules.
+
+See the full **[Documentation Index (docs/README.md)](docs/README.md)** for more details.
 
 ## Modules
 

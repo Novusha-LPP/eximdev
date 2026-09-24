@@ -10,6 +10,8 @@ export const SearchQueryContext = createContext({
   setSelectedICD: () => { },
   selectedImporter: "",
   setSelectedImporter: () => { },
+  selectedShippingLine: "",
+  setSelectedShippingLine: () => { },
   selectedBeType: "all",
   setSelectedBeType: () => { },
   selectedMode: "all",
@@ -51,6 +53,7 @@ export const SearchQueryProvider = ({ children }) => {
   const [detailedStatus, setDetailedStatus] = useState("all");
   const [selectedICD, setSelectedICD] = useState("all");
   const [selectedImporter, setSelectedImporter] = useState("");
+  const [selectedShippingLine, setSelectedShippingLine] = useState("");
   const [selectedBeType, setSelectedBeType] = useState("all");
   const [selectedMode, setSelectedMode] = useState("all");
   const [currentPageTab0, setCurrentPageTab0] = useState(1); // ESanchit tab
@@ -80,6 +83,8 @@ export const SearchQueryProvider = ({ children }) => {
         setSelectedICD,
         selectedImporter,
         setSelectedImporter,
+        selectedShippingLine,
+        setSelectedShippingLine,
         currentPageTab0,
         setCurrentPageTab0,
         currentPageTab1,

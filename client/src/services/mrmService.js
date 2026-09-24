@@ -1,7 +1,7 @@
 
 import axios from 'axios';
 
-const API_URL = (process.env.REACT_APP_API_STRING || 'http://localhost:9006/api') + '/mrm';
+const API_URL = (process.env.REACT_APP_API_STRING || 'http://0.0.0.0:9006/api') + '/mrm';
 
 const getHeaders = () => {
     const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
@@ -74,9 +74,14 @@ export const deleteMRMItem = async (id) => {
     }
 };
 
-export const bulkDeleteMRMItems = async (month, year, userId) => {
+export const bulkDeleteMRMItems = async (monthOrObj, year, userId) => {
     try {
-        const params = { month, year, userId };
+        let params;
+        if (typeof monthOrObj === 'object' && monthOrObj !== null) {
+            params = monthOrObj;
+        } else {
+            params = { month: monthOrObj, year, userId };
+        }
         const response = await axios.delete(`${API_URL}-bulk/delete`, { params, ...getHeaders() });
         return response.data;
     } catch (error) {
@@ -112,3 +117,242 @@ export const fetchMRMUsers = async () => {
         throw error;
     }
 };
+
+// Fetch dashboard submissions summary
+export const fetchMRMDashboard = async (month, year) => {
+    try {
+        const params = { month, year };
+        const response = await axios.get(`${API_URL}/dashboard`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Submit MRM for approval (triggers completeness validation)
+export const submitMRM = async (data) => {
+    try {
+        const response = await axios.post(`${API_URL}/submit`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Approve MRM and lock month (Suraj/Admin only)
+export const approveMRM = async (data) => {
+    try {
+        const response = await axios.post(`${API_URL}/approve`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Request revision on MRM (Suraj/Admin only)
+export const requestMRMRevision = async (data) => {
+    try {
+        const response = await axios.post(`${API_URL}/request-revision`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Reopen an approved/locked month (Suraj/Admin only)
+export const reopenMRM = async (data) => {
+    try {
+        const response = await axios.post(`${API_URL}/reopen`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Fetch executive approval queue (Suraj/Admin only)
+export const fetchApprovalQueue = async (year = null) => {
+    try {
+        const params = {};
+        if (year) params.year = year;
+        const response = await axios.get(`${API_URL}/approval-queue`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Fetch annual rollup and forecasts (Approved months only)
+export const fetchAnnualRollup = async ({ year, userId, forecastMethod = 'best_worst' }) => {
+    try {
+        const params = { year, forecastMethod };
+        if (userId) params.userId = userId;
+        const response = await axios.get(`${API_URL}/annual-rollup`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Fetch recurring issues analysis
+export const fetchRecurringIssues = async (year = null) => {
+    try {
+        const params = {};
+        if (year) params.year = year;
+        const response = await axios.get(`${API_URL}/recurring-issues`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Fetch Open Points tagged with MRM origin
+export const fetchMRMOpenPoints = async (filterParams = {}) => {
+    try {
+        const response = await axios.get(`${API_URL}/open-points`, { params: filterParams, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Update Objective Configuration (Aggregation, Optimization, Tolerance, Baseline & Macro References)
+export const updateObjectiveConfig = async (data) => {
+    try {
+        const response = await axios.put(`${API_URL}/objective/config`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// ==========================================
+// MRM 2.0 — KPI ROLLUP & HOD SCORING (FLAG-GATED)
+// ==========================================
+
+export const fetchMRMFeatureStatus = async () => {
+    try {
+        const response = await axios.get(`${API_URL}/feature-status`, getHeaders());
+        return response.data;
+    } catch (error) {
+        return { enabled: false };
+    }
+};
+
+export const fetchSegmentRollup = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/segments/rollup`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const fetchHodScore = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/hod-score`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const fetchHodRankings = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/hod-scores/rankings`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const fetchPreDeadlineTracker = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/pre-deadline-tracker`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const fetchRecurringBlockers = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/recurring-blockers`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const fetchAnnualBusinessLoss = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/annual-business-loss`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const manageSubTeams = async (data) => {
+    try {
+        const response = await axios.post(`${API_URL}/sub-teams/manage`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const approveSegmentsRollup = async (data) => {
+    try {
+        const response = await axios.post(`${API_URL}/segments/approve`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const fetchMemberWeights = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/member-weights`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const saveMemberWeights = async (data) => {
+    try {
+        const response = await axios.put(`${API_URL}/member-weights`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const saveComponentWeights = async (data) => {
+    try {
+        const response = await axios.put(`${API_URL}/component-weights`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const fetchHodWeights = async (params) => {
+    try {
+        const response = await axios.get(`${API_URL}/hod-weights`, { params, ...getHeaders() });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const saveHodWeights = async (data) => {
+    try {
+        const response = await axios.put(`${API_URL}/hod-weights`, data, getHeaders());
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+

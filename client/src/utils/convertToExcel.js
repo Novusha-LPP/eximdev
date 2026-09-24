@@ -41,7 +41,8 @@ export const convertToExcel = async (
   rows,
   importer,
   status,
-  detailedStatus
+  detailedStatus,
+  remarkAtEnd = false
 ) => {
   const filteredRows = Array.isArray(rows) ? rows : [];
 
@@ -73,7 +74,7 @@ export const convertToExcel = async (
       importer === "BHAVYA MACHINE TOOLS"
       ? ["HSS NAME"]
       : [];
-  const headers = [
+  let headers = [
     "JOB NO AND DATE",
     ...additionalHeaders,
     "SUPPLIER/ EXPORTER",
@@ -95,6 +96,11 @@ export const convertToExcel = async (
     "DETAILED STATUS",
     "NFIMS / SIMS"
   ];
+
+  if (remarkAtEnd) {
+    headers = headers.filter((h) => h !== "REMARKS");
+    headers.push("REMARKS");
+  }
 
 
   // Row headers
@@ -200,11 +206,7 @@ export const convertToExcel = async (
     }
     const invoice_value_and_unit_price = `${item.inv_currency || ''} | ${calculated_inv_val} | ${item.unit_price || ''}`;
 
-    // Safely calculate net weight
-    const net_weight = item.container_nos?.reduce((sum, container) => {
-      const weight = parseFloat(container.net_weight);
-      return sum + (isNaN(weight) ? 0 : weight);
-    }, 0) || 0;
+
 
     const cleanLoadingPort = item.loading_port
       ? item.loading_port.replace(/\(.*?\)\s*/, "")
@@ -219,7 +221,7 @@ export const convertToExcel = async (
         "INVOICE VALUE AND UNIT PRICE": invoice_value_and_unit_price,
         "BL NUMBER AND DATE": blNoAndDate,
         COMMODITY: item.description || '',
-        "NET WEIGHT": item.job_net_weight || net_weight || '',
+        "NET WEIGHT": item.job_net_weight || item.net_weight || '',
         PORT: `POL: ${cleanLoadingPort}\nPOD: ${cleanPortOfReporting}`,
         "ARRIVAL DATE": arrivalDates,
         "FREE TIME": item.free_time || '',

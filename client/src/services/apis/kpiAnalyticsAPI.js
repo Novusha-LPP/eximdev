@@ -18,7 +18,7 @@
  * });
  */
 
-const API_BASE = process.env.REACT_APP_API_STRING || 'http://localhost:5000';
+const API_BASE = process.env.REACT_APP_API_STRING || 'http://0.0.0.0:5000';
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // ms
 
@@ -35,19 +35,38 @@ const RETRY_DELAY = 1000; // ms
  */
 async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
     try {
+        // Attach Bearer token for auth (raw fetch doesn't inherit axios interceptors)
+        const token = localStorage.getItem('token');
+        const headers = { ...(options.headers || {}) };
+        if (token && !headers.Authorization) {
+            headers.Authorization = `Bearer ${token}`;
+        }
+
         const response = await fetch(url, {
             ...options,
+            headers,
             credentials: 'include' // Include cookies for auth
         });
 
         if (!response.ok) {
+            let errorData = null;
+            try {
+                errorData = await response.clone().json();
+            } catch (e) {
+                // Response body is not JSON
+            }
+            const errorMsg = errorData?.message || errorData?.error || `HTTP ${response.status}: ${response.statusText}`;
+
             if (response.status === 401) {
-                // Auth error - redirect to login
-                window.location.href = '/login';
-                throw new Error('Unauthorized - redirecting to login');
+                // Auth error - clean session, store notification and redirect to home
+                sessionStorage.setItem('auth_error_message', errorMsg || 'Your session has expired. Please log in again.');
+                localStorage.removeItem('token');
+                localStorage.removeItem('exim_user');
+                window.location.href = '/';
+                throw new Error(errorMsg || 'Unauthorized - redirecting to login');
             }
 
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(errorMsg);
         }
 
         return response;

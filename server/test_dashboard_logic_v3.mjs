@@ -11,7 +11,7 @@ dotenv.config();
 
 async function testDashboard() {
   try {
-    await mongoose.connect('mongodb://localhost:27017/exim');
+    await mongoose.connect('mongodb://0.0.0.0:27017/exim');
     const user = await User.findOne({ username: 'jeeya_inamdar' });
     const company = await Company.findById(user.company_id);
     const tz = company?.timezone || 'Asia/Kolkata';
@@ -31,14 +31,14 @@ async function testDashboard() {
       const dateStr = `${currentYearMonth}-${String(i).padStart(2, '0')}`;
       const dayMoment = moment.tz(dateStr, 'YYYY-MM-DD', tz);
       const dayDate = dayMoment.toDate();
-      
+
       const holidayStatus = await WorkingDayEngine.getHolidayInfo(dayMoment, companyId, resolvedHolidayPolicy);
       const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(dayDate, resolvedWeekOffPolicy);
 
       if (dateStr === '2026-04-11' || dateStr === '2026-04-25') {
-          console.log(`--- ${dateStr} ---`);
-          console.log(`  Holiday: ${holidayStatus?.isHoliday}`);
-          console.log(`  WeekOff: ${weekOffStatus?.isOff}`);
+        console.log(`--- ${dateStr} ---`);
+        console.log(`  Holiday: ${holidayStatus?.isHoliday}`);
+        console.log(`  WeekOff: ${weekOffStatus?.isOff}`);
       }
     }
     process.exit(0);

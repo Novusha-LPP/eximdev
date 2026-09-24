@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 async function testDashboard() {
-    const API_URL = 'http://localhost:9006/api';
+    const API_URL = 'http://0.0.0.0:9006/api';
     const credentials = {
         username: 'shalini_arun',
         password: '1234'
@@ -11,7 +11,7 @@ async function testDashboard() {
         console.log(`Logging in as ${credentials.username}...`);
         // Using axios.post to /api/login
         const loginResponse = await axios.post(`${API_URL}/login`, credentials);
-        
+
         // Extract token from set-cookie header
         const setCookie = loginResponse.headers['set-cookie'];
         let token = '';
@@ -37,7 +37,7 @@ async function testDashboard() {
 
         console.log('\n--- DASHBOARD STATS ---');
         console.log(JSON.stringify(dashboardResponse.data.data.stats, null, 2));
-        
+
         console.log('\n--- SUCCESS ---');
         process.exit(0);
     } catch (err) {

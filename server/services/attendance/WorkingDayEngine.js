@@ -45,10 +45,16 @@ class WorkingDayEngine {
     }
 
     // No policy provided: query legacy collection via PolicyResolver helper
-    const year = moment(targetDate).year();
+    const year = moment.tz(targetDate, 'Asia/Kolkata').year();
     const holidays = await PolicyResolver.getHolidayList(companyId, year);
-    const dateStr = moment(targetDate).format('YYYY-MM-DD');
-    const entry = holidays.find(h => moment(h.holiday_date).format('YYYY-MM-DD') === dateStr);
+    const dateStr = typeof targetDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(targetDate)
+      ? targetDate
+      : moment.tz(targetDate, 'Asia/Kolkata').format('YYYY-MM-DD');
+    const entry = holidays.find(h => {
+      const hDateUtc = moment.utc(h.holiday_date).format('YYYY-MM-DD');
+      const hDateTz = moment.tz(h.holiday_date, 'Asia/Kolkata').format('YYYY-MM-DD');
+      return hDateUtc === dateStr || hDateTz === dateStr;
+    });
     if (!entry) return { isHoliday: false, isOptional: false, name: null };
     return {
       isHoliday:  !entry.is_optional,

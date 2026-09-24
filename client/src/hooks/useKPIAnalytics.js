@@ -38,56 +38,56 @@ function calculateDateRange(dateRange, customDates = {}) {
     let yearStart, monthStart, yearEnd, monthEnd;
 
     switch (dateRange) {
-    case 'current_month':
-        yearStart = currentYear;
-        monthStart = currentMonth;
-        yearEnd = currentYear;
-        monthEnd = currentMonth;
-        break;
+        case 'current_month':
+            yearStart = currentYear;
+            monthStart = currentMonth;
+            yearEnd = currentYear;
+            monthEnd = currentMonth;
+            break;
 
-    case 'last_3_months':
-        yearEnd = currentYear;
-        monthEnd = currentMonth;
-        // Go back 3 months
-        monthStart = currentMonth - 2;
-        yearStart = currentYear;
-        if (monthStart <= 0) {
-            monthStart += 12;
-            yearStart -= 1;
-        }
-        break;
+        case 'last_3_months':
+            yearEnd = currentYear;
+            monthEnd = currentMonth;
+            // Go back 3 months
+            monthStart = currentMonth - 2;
+            yearStart = currentYear;
+            if (monthStart <= 0) {
+                monthStart += 12;
+                yearStart -= 1;
+            }
+            break;
 
-    case 'last_6_months':
-        yearEnd = currentYear;
-        monthEnd = currentMonth;
-        // Go back 6 months
-        monthStart = currentMonth - 5;
-        yearStart = currentYear;
-        if (monthStart <= 0) {
-            monthStart += 12;
-            yearStart -= 1;
-        }
-        break;
+        case 'last_6_months':
+            yearEnd = currentYear;
+            monthEnd = currentMonth;
+            // Go back 6 months
+            monthStart = currentMonth - 5;
+            yearStart = currentYear;
+            if (monthStart <= 0) {
+                monthStart += 12;
+                yearStart -= 1;
+            }
+            break;
 
-    case 'ytd':
-        yearStart = currentYear;
-        monthStart = 1;
-        yearEnd = currentYear;
-        monthEnd = currentMonth;
-        break;
+        case 'ytd':
+            yearStart = currentYear;
+            monthStart = 1;
+            yearEnd = currentYear;
+            monthEnd = currentMonth;
+            break;
 
-    case 'custom':
-        yearStart = customDates.yearStart || currentYear;
-        monthStart = customDates.monthStart || 1;
-        yearEnd = customDates.yearEnd || currentYear;
-        monthEnd = customDates.monthEnd || currentMonth;
-        break;
+        case 'custom':
+            yearStart = customDates.yearStart || currentYear;
+            monthStart = customDates.monthStart || 1;
+            yearEnd = customDates.yearEnd || currentYear;
+            monthEnd = customDates.monthEnd || currentMonth;
+            break;
 
-    default:
-        yearStart = currentYear;
-        monthStart = currentMonth;
-        yearEnd = currentYear;
-        monthEnd = currentMonth;
+        default:
+            yearStart = currentYear;
+            monthStart = currentMonth;
+            yearEnd = currentYear;
+            monthEnd = currentMonth;
     }
 
     return { yearStart, monthStart, yearEnd, monthEnd };

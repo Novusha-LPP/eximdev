@@ -71,7 +71,11 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
     setGatePassFiles(cell.row.original.gate_pass_copies || []);
   }, [cell.row.original.gate_pass_copies]);
 
-  const beNumber = cell?.getValue()?.toString();
+  const beNumber = (
+    typeof cell?.getValue === "function"
+      ? cell.getValue()
+      : cell?.row?.original?.be_no
+  )?.toString() || "";
   const rawBeDate = cell.row.original.be_date;
   const customHouse = cell.row.original.custom_house;
   const beDate = formatDateDisplay(rawBeDate); // For display

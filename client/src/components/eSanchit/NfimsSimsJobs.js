@@ -42,7 +42,9 @@ function NfimsSimsJobs() {
         "NFMIMS APPLICATION FEES",
         "NFMIMS REGISTRATION CHARGES",
         "SIMS APPLICATION FEES",
-        "SIMS REGISTRATION CHARGES"
+        "SIMS REGISTRATION CHARGES",
+        "PIMS APPLICATION FEES",
+        "PIMS REGISTRATION CHARGES"
     ];
 
     useEffect(() => {
@@ -85,7 +87,7 @@ function NfimsSimsJobs() {
             setTotalPages(res.data.totalPages);
             setTotalJobs(res.data.totalJobs);
         } catch (err) {
-            console.error("Error fetching NFIMS/SIMS jobs:", err);
+            console.error("Error fetching NFMIMS/SIMS/PIMS jobs:", err);
             setRows([]);
         } finally {
             setLoading(false);
@@ -129,17 +131,30 @@ function NfimsSimsJobs() {
             Cell: ({ cell }) => {
                 const { job_no, job_number, year, type_of_b_e, consignment_type, custom_house, branch_code, trade_type, mode } = cell.row.original;
                 return (
-                    <a
-                        href={`/esanchit-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
-                        style={{
-                            cursor: "pointer", color: "blue", textDecoration: "none", display: "inline-block", width: "100%", textAlign: "center",
-                            backgroundColor: cell.row.original.priorityJob === "High Priority" ? "orange" : cell.row.original.priorityJob === "Priority" ? "yellow" : "transparent",
-                            padding: "5px", borderRadius: "4px"
-                        }}
-                        target="_blank" rel="noreferrer"
-                    >
-                        {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
-                    </a>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                        <a
+                            href={`/esanchit-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+                            style={{
+                                cursor: "pointer", color: "blue", textDecoration: "none", display: "inline-block", textAlign: "center",
+                                backgroundColor: cell.row.original.priorityJob === "High Priority" ? "orange" : cell.row.original.priorityJob === "Priority" ? "yellow" : "transparent",
+                                padding: "5px", borderRadius: "4px"
+                            }}
+                            target="_blank" rel="noreferrer"
+                        >
+                            {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+                        </a>
+                        <IconButton
+                            size="small"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopy(e, job_number || job_no);
+                            }}
+                            sx={{ p: 0.2 }}
+                            title="Copy Job Number"
+                        >
+                            <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+                        </IconButton>
+                    </div>
                 );
             }
         },
@@ -149,7 +164,7 @@ function NfimsSimsJobs() {
             size: 150,
         },
         {
-            header: "Pending NFIMS/SIMS Charges",
+            header: "Pending NFMIMS/SIMS/PIMS Charges",
             size: 250,
             Cell: ({ cell }) => {
                 const charges = cell.row.original.charges || [];
@@ -197,7 +212,7 @@ function NfimsSimsJobs() {
     return (
         <Box sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Typography variant="h6">NFIMS/SIMS Jobs: {totalJobs}</Typography>
+                <Typography variant="h6">NFMIMS/SIMS/PIMS Jobs: {totalJobs}</Typography>
                 
                 <Autocomplete
                     sx={{ width: 300 }}

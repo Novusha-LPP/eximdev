@@ -7,6 +7,7 @@ const MasterDirectory = () => {
   const navigate = useNavigate();
 
   const masterCategories = [
+    { title: "Notification Directory", path: "/notification-directory", description: "Tariff & exemption notifications for Section B (Item Duty), Section C (Other Duties), and Section D (Other Duties-A)." },
     { title: "Custom Houses", path: "/custom-house-directory", description: "List of supported custom houses (ICD)." },
     { title: "Shipping Lines", path: "/shipping-line-directory", description: "Database of shipping line partners." },
     { title: "Terminals", path: "/terminal-directory", description: "Database of Terminal partners." },

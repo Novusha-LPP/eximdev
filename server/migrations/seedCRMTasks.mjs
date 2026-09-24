@@ -20,7 +20,7 @@ async function seedTasks() {
     console.log("🌱 Starting CRM Tasks Seeding...\n");
 
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/eximdev");
+    await mongoose.connect(process.env.MONGODB_URI || "mongodb://0.0.0.0:27017/eximdev");
     console.log("✅ Connected to MongoDB\n");
 
     // Get first organization and user for seeding

@@ -42,7 +42,7 @@ export function setupAnalyticsWebSocket(server) {
                     console.error('Error sending analytics update:', err);
                 }
             }
-        }, 10000);
+        }, 30000); // 30 seconds — reduced from 10s to ease MongoDB connection pressure
 
         ws.on('close', () => {
             // console.log('❌ Analytics WebSocket client disconnected');

@@ -120,6 +120,8 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
         closeReason: formData.closeReason,
         closeNotes: formData.closeNotes,
         crateSize: formData.crateSize,
+        location: formData.location,
+        hsnCode: formData.hsnCode,
         source: formData.source,
         referralSourceName: formData.referralSourceName
       };
@@ -410,54 +412,124 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       <div style={{
         background: '#fff',
         width: '100%',
-        maxWidth: '700px',
-        borderRadius: '16px',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+        maxWidth: '750px',
+        borderRadius: '12px',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         overflow: 'hidden',
-        maxHeight: '80vh',
-        overflowY: 'auto'
+        maxHeight: '85vh',
+        display: 'flex',
+        flexDirection: 'column'
       }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white' }}>
-          <div>
-            <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.2rem' }}>{formData.name || opportunity.name}</h3>
-            <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Stage: {formData.stage || opportunity.stage}</span>
+        {/* Modal Header */}
+        <div style={{ 
+          padding: '20px 24px', 
+          borderBottom: '1px solid #e2e8f0', 
+          display: 'flex', 
+          flexDirection: 'column',
+          gap: '16px',
+          background: '#f8fafc',
+          position: 'relative',
+          flexShrink: 0
+        }}>
+          {/* Close Button Absolute */}
+          <button 
+            onClick={handleClose} 
+            style={{ 
+              position: 'absolute', 
+              top: '16px', 
+              right: '16px', 
+              background: '#f1f5f9', 
+              border: 'none', 
+              cursor: 'pointer', 
+              color: '#64748b',
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'background 0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = '#e2e8f0'}
+            onMouseOut={(e) => e.currentTarget.style.background = '#f1f5f9'}
+          >
+            <X size={18} />
+          </button>
+
+          {/* Title Area */}
+          <div style={{ paddingRight: '40px' }}>
+            <h3 style={{ margin: '0 0 4px 0', color: '#0f172a', fontWeight: 700, fontSize: '1.3rem', lineHeight: '1.2' }}>
+              {formData.name || opportunity.name}
+            </h3>
+            <div style={{ display: 'inline-flex', alignItems: 'center', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>
+              Stage: {formData.stage || opportunity.stage}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
+
+          {/* Action Buttons Area */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {!isEditMode && (
               <>
                 <button
                   onClick={() => setIsQuoteModalOpen(true)}
-                  style={{ padding: '8px 12px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  style={{ whiteSpace: 'nowrap', padding: '8px 14px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, fontSize: '0.85rem', transition: 'opacity 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+                  onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                 >
-                  <FileText size={16} /> Create Quote
+                  <FileText size={15} /> Create Quote
                 </button>
                 <button
                   onClick={() => setIsPricingModalOpen(true)}
-                  style={{ padding: '8px 12px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  style={{ whiteSpace: 'nowrap', padding: '8px 14px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, fontSize: '0.85rem', transition: 'opacity 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+                  onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                 >
-                  <DollarSign size={16} /> Request Pricing
+                  <DollarSign size={15} /> Request Pricing
                 </button>
                 <button
                   onClick={() => setIsEditMode(true)}
-                  style={{ padding: '8px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  style={{ whiteSpace: 'nowrap', padding: '8px 14px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, fontSize: '0.85rem', transition: 'opacity 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+                  onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                 >
-                  <Edit2 size={16} /> Edit
+                  <Edit2 size={15} /> Edit
                 </button>
                 <button
                   onClick={handleDelete}
-                  style={{ padding: '8px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  style={{ whiteSpace: 'nowrap', padding: '8px 14px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500, fontSize: '0.85rem', transition: 'background 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.background = '#fecaca'}
+                  onMouseOut={(e) => e.currentTarget.style.background = '#fee2e2'}
                 >
-                  <Trash2 size={16} /> Delete
+                  <Trash2 size={15} /> Delete
                 </button>
               </>
             )}
-            <button onClick={handleClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
-              <X size={20} />
-            </button>
           </div>
         </div>
 
-        <div style={{ padding: '24px' }}>
+        {/* Modal Body - Scrollable */}
+        <div style={{ padding: '24px', overflowY: 'auto', flexGrow: 1 }}>
+          {/* Referral Highlighting Banner */}
+          {(formData.isReferral || formData.referredFromTeamId || formData.referredToTeamId) && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px',
+              padding: '10px 16px', background: '#fef2f2', borderRadius: '8px',
+              marginBottom: '20px', border: '1px solid #fecaca', color: '#991b1b'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800 }}>⚡ Cross-Team Referral:</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>
+                  Referred from {formData.referredFromTeamId?.teamName || formData.referredFromTeamId?.name || 'Team'} → {formData.referredToTeamId?.teamName || formData.referredToTeamId?.name || 'Team'}
+                </span>
+              </div>
+              {(formData.referredAt || formData.createdAt) && (
+                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#b91c1c' }}>
+                  📅 Referred on: {new Date(formData.referredAt || formData.createdAt).toLocaleDateString('en-IN')} {new Date(formData.referredAt || formData.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Quick Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
             <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #4f46e5' }}>
@@ -501,6 +573,95 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
             );
           })()}
 
+          {/* ── Freight Forwarding Info Section (Auto-synced from Export) ── */}
+          {formData.freightEnquiryRef && formData.freightData && (
+            <div style={{
+              marginBottom: '20px', padding: '16px', background: '#eff6ff',
+              borderRadius: '12px', border: '1px solid #bfdbfe'
+            }}>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px'
+              }}>
+                <h4 style={{ margin: 0, color: '#1e40af', fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🚢 Freight Forwarding Status
+                </h4>
+                <span style={{
+                  fontSize: '0.7rem', background: '#dbeafe', color: '#1e40af',
+                  padding: '3px 10px', borderRadius: '12px', fontWeight: 700, border: '1px solid #93c5fd'
+                }}>
+                  {formData.freightData.pipelineStage || 'Synced'}
+                </span>
+              </div>
+
+              {/* Freight Pipeline Progress Bar */}
+              {(() => {
+                const stages = ['Enquiry', 'Draft BL', 'SOB', 'Billing', 'ETA Pending', 'Delivery', 'Completed'];
+                const currentIdx = stages.indexOf(formData.freightData.pipelineStage);
+                return (
+                  <div style={{ display: 'flex', gap: '2px', marginBottom: '14px' }}>
+                    {stages.map((s, i) => (
+                      <div key={s} style={{
+                        flex: 1, height: '6px', borderRadius: '3px',
+                        background: i <= currentIdx ? '#3b82f6' : '#e2e8f0',
+                        transition: 'background 0.3s'
+                      }} title={s} />
+                    ))}
+                  </div>
+                );
+              })()}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.8rem' }}>
+                {formData.freightData.enquiryNo && (
+                  <div><span style={{ color: '#64748b' }}>Enquiry No: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.enquiryNo}</strong></div>
+                )}
+                {formData.freightData.successNo && (
+                  <div><span style={{ color: '#64748b' }}>Job No: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.successNo}</strong></div>
+                )}
+                {formData.freightData.portOfLoading && (
+                  <div><span style={{ color: '#64748b' }}>POL: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.portOfLoading}</strong></div>
+                )}
+                {formData.freightData.portOfDestination && (
+                  <div><span style={{ color: '#64748b' }}>POD: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.portOfDestination}</strong></div>
+                )}
+                {formData.freightData.consignmentType && (
+                  <div><span style={{ color: '#64748b' }}>Type: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.consignmentType}</strong></div>
+                )}
+                {formData.freightData.containerSize && (
+                  <div><span style={{ color: '#64748b' }}>Container: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.containerSize}</strong></div>
+                )}
+                {formData.freightData.shippingLine && (
+                  <div><span style={{ color: '#64748b' }}>S/Line: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.shippingLine}</strong></div>
+                )}
+                {formData.freightData.vesselName && (
+                  <div><span style={{ color: '#64748b' }}>Vessel: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.vesselName}</strong></div>
+                )}
+                {formData.freightData.bookingNo && (
+                  <div><span style={{ color: '#64748b' }}>Booking: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.bookingNo}</strong></div>
+                )}
+                {formData.freightData.blNo && (
+                  <div><span style={{ color: '#64748b' }}>BL No: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.blNo}</strong></div>
+                )}
+                {formData.freightData.sailingDate && (
+                  <div><span style={{ color: '#64748b' }}>Sailing: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.sailingDate}</strong></div>
+                )}
+                {formData.freightData.etaDate && (
+                  <div><span style={{ color: '#64748b' }}>ETA: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.etaDate}</strong></div>
+                )}
+                {formData.freightData.arrivalDate && (
+                  <div><span style={{ color: '#64748b' }}>Arrival: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.arrivalDate}</strong></div>
+                )}
+                {formData.freightData.finalDeliveryDate && (
+                  <div><span style={{ color: '#64748b' }}>Delivery: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.finalDeliveryDate}</strong></div>
+                )}
+              </div>
+
+              {formData.freightData.lastSyncedAt && (
+                <div style={{ marginTop: '10px', fontSize: '0.7rem', color: '#94a3b8', textAlign: 'right' }}>
+                  Last synced: {new Date(formData.freightData.lastSyncedAt).toLocaleString('en-IN')}
+                </div>
+              )}
+            </div>
+          )}
           {isEditMode ? (
             // Edit Form
             <div>
@@ -534,14 +695,25 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                     </label>
                     <select
                       value={formData.closeReason || ''}
-                      onChange={(e) => setFormData({ ...formData, closeReason: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, closeReason: e.target.value === 'Other (Manual)' ? '' : e.target.value, _closeReasonMode: e.target.value })}
                       style={{ width: '100%', padding: '10px 12px', border: '1px solid #fca5a5', borderRadius: '8px', fontSize: '0.9rem', color: '#991b1b', background: '#ffffff', outline: 'none' }}
                     >
                       <option value="">-- Select a Reason --</option>
                       <option value="Price Lost">Price Lost — Lost due to competitor offering lower price</option>
                       <option value="Product Lost">Product Lost — Product did not meet client specifications</option>
                       <option value="No Reply / No Response">No Reply / No Response — Client became unresponsive</option>
+                      <option value="Lost due to Location">Lost due to Location — Location did not suit client needs</option>
+                      <option value="Other (Manual)">Other — Enter reason manually</option>
                     </select>
+                    {(formData._closeReasonMode === 'Other (Manual)' || (formData.closeReason && !['Price Lost','Product Lost','No Reply / No Response','Lost due to Location'].includes(formData.closeReason))) && (
+                      <input
+                        type="text"
+                        value={['Price Lost','Product Lost','No Reply / No Response','Lost due to Location'].includes(formData.closeReason) ? '' : formData.closeReason || ''}
+                        onChange={(e) => setFormData({ ...formData, closeReason: e.target.value, _closeReasonMode: 'Other (Manual)' })}
+                        placeholder="Describe the reason for losing this deal..."
+                        style={{ width: '100%', marginTop: '8px', padding: '10px 12px', border: '1px solid #fca5a5', borderRadius: '8px', fontSize: '0.9rem', color: '#991b1b', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    )}
                   </div>
                   <div>
                     <label style={{ display: 'block', marginBottom: '6px', color: '#991b1b', fontWeight: 600, fontSize: '0.85rem' }}>
@@ -580,6 +752,30 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                     />
                     <span style={{ minWidth: '40px', textAlign: 'center', fontWeight: 700, color: '#4f46e5' }}>{formData.probability || 0}%</span>
                   </div>
+                </div>
+              </div>
+
+              {/* Location and HSN Code */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#0369a1', fontWeight: 700, fontSize: '0.9rem' }}>📍 Location / Port</label>
+                  <input
+                    type="text"
+                    value={formData.location || ''}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    placeholder="Ex. Mumbai / Nhava Sheva / Mundra"
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #bae6fd', borderRadius: '8px', fontSize: '0.9rem', background: '#f0f9ff' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>🏷️ HSN Code</label>
+                  <input
+                    type="text"
+                    value={formData.hsnCode || ''}
+                    onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
+                    placeholder="Ex. 8471, 7308"
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', fontFamily: 'monospace' }}
+                  />
                 </div>
               </div>
 
@@ -923,6 +1119,18 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                   <div>
                     <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Forecast Category</span>
                     <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.forecastCategory || 'Pipeline'}</p>
+                  </div>
+                </div>
+
+                {/* Location & HSN Code */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <span style={{ fontSize: '0.8rem', color: '#0369a1', fontWeight: 700 }}>📍 Location / Port</span>
+                    <p style={{ margin: '4px 0 0 0', color: '#0369a1', fontWeight: 600 }}>{formData.location || (formData.pol || formData.pod ? `${formData.pol || ''}${formData.pol && formData.pod ? ' → ' : ''}${formData.pod || ''}` : 'Not set')}</p>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>🏷️ HSN Code</span>
+                    <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600, fontFamily: 'monospace' }}>{formData.hsnCode || 'Not set'}</p>
                   </div>
                 </div>
 

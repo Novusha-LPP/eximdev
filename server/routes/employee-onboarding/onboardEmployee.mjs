@@ -3,24 +3,14 @@ import bcrypt from "bcryptjs";
 import UserModel from "../../model/userModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import verifyToken from "../../middleware/authMiddleware.mjs";
-import requireRole from "../../middleware/requireRole.mjs";
-import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import dotenv from "dotenv";
 import crypto from "crypto";
 
 dotenv.config();
 
 const router = express.Router();
-
-// Configure AWS SES
-const sesClient = new SESClient({
-  region: "ap-south-1",
-  credentials: {
-    accessKeyId: process.env.REACT_APP_ACCESS_KEY,
-    secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
-  },
-});
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const CLIENT_URI =
   process.env.NODE_ENV === "production"
@@ -29,10 +19,7 @@ const CLIENT_URI =
       ? process.env.SERVER_CLIENT_URI
       : process.env.DEV_CLIENT_URI;
 
-// Create Nodemailer SES transporter
-let transporter = nodemailer.createTransport({
-  SES: { ses: sesClient, aws: { SendRawEmailCommand } },
-});
+const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || "onboarding@alvision.in";
 
 router.post("/api/onboard-employee", verifyToken, (req, res, next) => {
   const role = String(req.user?.role || '').toUpperCase();
@@ -83,7 +70,6 @@ router.post("/api/onboard-employee", verifyToken, (req, res, next) => {
     const username = `${trimmedFirstName.toLowerCase()}_${trimmedLastName.toLowerCase()}`;
     const password = crypto.randomBytes(8).toString("hex");
 
-    // Check if employee with same username exists
     const existingEmployee = await UserModel.findOne({ username });
     if (existingEmployee) {
       return res.status(200).send({
@@ -91,11 +77,9 @@ router.post("/api/onboard-employee", verifyToken, (req, res, next) => {
       });
     }
 
-    // Hash password
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Create new user
     const newUser = new UserModel({
       first_name: trimmedFirstName.toUpperCase(),
       middle_name: middle_name && typeof middle_name === "string" ? middle_name.trim().toUpperCase() : "",
@@ -111,9 +95,8 @@ router.post("/api/onboard-employee", verifyToken, (req, res, next) => {
 
     await newUser.save();
 
-    // Prepare and send email
-    let mailOptions = {
-      from: "connect@surajgroupofcompanies.com",
+    const mailOptions = {
+      from: DEFAULT_FROM,
       to: trimmedEmail,
       subject: `Welcome to the Team, ${trimmedFirstName.toUpperCase()}!`,
       html: `
@@ -135,13 +118,17 @@ router.post("/api/onboard-employee", verifyToken, (req, res, next) => {
       `,
     };
 
-    try {
-      await transporter.sendMail(mailOptions);
-      console.log("Message sent");
-    } catch (emailError) {
-      console.error("Error sending onboarding email:", emailError);
-      // We continue even if email fails, as the user is already created.
-      // Optionally you could append a warning to the response message.
+    if (resend) {
+      try {
+        const { error } = await resend.emails.send(mailOptions);
+        if (error) {
+          console.error("Error sending onboarding email:", error);
+        }
+      } catch (emailError) {
+        console.error("Error sending onboarding email:", emailError);
+      }
+    } else {
+      console.warn("RESEND_API_KEY is not configured; skipping onboarding email");
     }
     res.status(201).send({ message: "User onboarded successfully" });
   } catch (error) {

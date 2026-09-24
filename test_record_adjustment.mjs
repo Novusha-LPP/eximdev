@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'http://0.0.0.0:5000/api';
 
 // Original failing payload from user report
 const testPayload = {

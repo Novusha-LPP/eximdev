@@ -6,6 +6,8 @@ import { useNavigate } from "react-router-dom";
 import AWS from "aws-sdk";
 import toast from "react-hot-toast";
 
+let cachedGlobalDocs = null;
+
 const getFormattedDateForRates = (dateInput) => {
   if (!dateInput) dateInput = new Date();
   if (dateInput instanceof Date) {
@@ -245,9 +247,10 @@ function useFetchJobDetails(
     ],
   };
 
-  // Fetch job details for Ex-Bond details.
+  // Fetch job details for Ex-Bond details only when needed
   useEffect(() => {
     async function fetchJobDetails() {
+      if (data?.type_of_b_e !== "Ex-Bond") return;
       try {
         const response = await axios.post(
           `${process.env.REACT_APP_API_STRING}/jobs/add-job-all-In-bond`
@@ -257,8 +260,10 @@ function useFetchJobDetails(
         console.error("Error fetching job details:", error);
       }
     }
-    fetchJobDetails();
-  }, []);
+    if (data?.type_of_b_e === "Ex-Bond") {
+      fetchJobDetails();
+    }
+  }, [data?.type_of_b_e]);
 
   const commonCthCodes = [
     "72041000",
@@ -314,17 +319,23 @@ function useFetchJobDetails(
     getJobDetails();
   }, [params.job_no, params.selected_year, params.year, params.mode, params.branch_code, params.trade_type]);
 
-  // Fetch documents
+  // Fetch documents with memory caching
   useEffect(() => {
     async function getDocuments() {
+      if (cachedGlobalDocs && Array.isArray(cachedGlobalDocs) && cachedGlobalDocs.length > 0) {
+        setDocuments(cachedGlobalDocs);
+        return;
+      }
       try {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/get-docs`
         );
-        setDocuments(Array.isArray(res.data) ? res.data : []); // Ensure data is an array
+        const docs = Array.isArray(res.data) ? res.data : [];
+        cachedGlobalDocs = docs;
+        setDocuments(docs);
       } catch (error) {
         console.error("Error fetching documents:", error);
-        setDocuments([]); // Fallback to an empty array
+        setDocuments([]);
       }
     }
 
@@ -550,6 +561,7 @@ function useFetchJobDetails(
       submissionQueries: [],
       eSachitQueries: [],
       processed_be_attachment: [],
+      part_iii_duties: [],
       ooc_copies: [],
       in_bond_ooc_copies: [],
       gate_pass_copies: [],
@@ -822,6 +834,7 @@ function useFetchJobDetails(
             submissionQueries: values.submissionQueries,
             eSachitQueries: values.eSachitQueries,
             processed_be_attachment: values.processed_be_attachment,
+            part_iii_duties: values.part_iii_duties,
             ooc_copies: values.ooc_copies,
             in_bond_ooc_copies: values.in_bond_ooc_copies,
             gate_pass_copies: values.gate_pass_copies,
@@ -966,6 +979,7 @@ function useFetchJobDetails(
           : safeValue(container.arrival_date)
             ? convertDateFormatForUI(container.arrival_date)
             : "",
+        detention_from: safeValue(container.detention_from, ""),
         container_number: safeValue(container.container_number),
         size: safeValue(container.size, "20"),
         seal_number: Array.isArray(container.seal_number) ? container.seal_number : (container.seal_number ? [container.seal_number] : []),
@@ -1009,6 +1023,7 @@ function useFetchJobDetails(
             ).toFixed(2)
             : safeValue(container.weight_excess),
         transporter: safeValue(container.transporter),
+        transporter_date_time: safeValue(container.transporter_date_time),
       }));
 
 
@@ -1099,7 +1114,65 @@ function useFetchJobDetails(
                 igst_amount_inr: safeValue(row.igst_amount_inr, ""),
                 igst_amount_manual: Boolean(safeValue(row.igst_amount_manual, false)),
                 comp_cess_percent: safeValue(row.comp_cess_percent, ""),
-                comp_cess_amount: safeValue(row.comp_cess_amount, "")
+                comp_cess_amount: safeValue(row.comp_cess_amount, ""),
+
+                bcd_notn: safeValue(row.bcd_notn, ""),
+                bcd_sr_no: safeValue(row.bcd_sr_no, ""),
+                bcd_rate: safeValue(row.bcd_rate, ""),
+                bcd_specific_rate: safeValue(row.bcd_specific_rate, ""),
+                bcd_unit: safeValue(row.bcd_unit, ""),
+                bcd_flag: safeValue(row.bcd_flag, ""),
+                bcd_amount: safeValue(row.bcd_amount, ""),
+
+                aidc_notn: safeValue(row.aidc_notn, ""),
+                aidc_sr_no: safeValue(row.aidc_sr_no, ""),
+                aidc_rate: safeValue(row.aidc_rate, ""),
+                aidc_specific_rate: safeValue(row.aidc_specific_rate, ""),
+                aidc_unit: safeValue(row.aidc_unit, ""),
+                aidc_amount: safeValue(row.aidc_amount, ""),
+
+                sw_surcharge_notn: safeValue(row.sw_surcharge_notn, ""),
+                sw_surcharge_sr_no: safeValue(row.sw_surcharge_sr_no, ""),
+                sw_surcharge_rate: safeValue(row.sw_surcharge_rate, "10.00"),
+                sw_surcharge_foc: safeValue(row.sw_surcharge_foc, "No"),
+                sw_surcharge_amount: safeValue(row.sw_surcharge_amount, ""),
+
+                igst_notn: safeValue(row.igst_notn, ""),
+                igst_sr_no: safeValue(row.igst_sr_no, ""),
+                igst_specific_rate: safeValue(row.igst_specific_rate, ""),
+                igst_unit: safeValue(row.igst_unit, ""),
+                igst_type: safeValue(row.igst_type, "C - Customs"),
+
+                igst_exc_notn: safeValue(row.igst_exc_notn, ""),
+                igst_exc_sr_no: safeValue(row.igst_exc_sr_no, ""),
+                igst_exc_rate: safeValue(row.igst_exc_rate, ""),
+                igst_exc_amount: safeValue(row.igst_exc_amount, ""),
+
+                comp_cess_notn: safeValue(row.comp_cess_notn, ""),
+                comp_cess_sr_no: safeValue(row.comp_cess_sr_no, ""),
+                comp_cess_specific_rate: safeValue(row.comp_cess_specific_rate, ""),
+                comp_cess_unit: safeValue(row.comp_cess_unit, ""),
+
+                comp_exc_notn: safeValue(row.comp_exc_notn, ""),
+                comp_exc_sr_no: safeValue(row.comp_exc_sr_no, ""),
+                comp_exc_rate: safeValue(row.comp_exc_rate, ""),
+                comp_exc_specific_rate: safeValue(row.comp_exc_specific_rate, ""),
+                comp_exc_amount: safeValue(row.comp_exc_amount, ""),
+
+                safeguard_notn: safeValue(row.safeguard_notn, ""),
+                safeguard_sr_no: safeValue(row.safeguard_sr_no, ""),
+                safeguard_rate: safeValue(row.safeguard_rate, ""),
+                safeguard_specific_rate: safeValue(row.safeguard_specific_rate, ""),
+                safeguard_amount: safeValue(row.safeguard_amount, ""),
+
+                sapta_notn: safeValue(row.sapta_notn, ""),
+                sapta_sr_no: safeValue(row.sapta_sr_no, ""),
+                sapta_rate: safeValue(row.sapta_rate, ""),
+                sapta_amount: safeValue(row.sapta_amount, ""),
+
+                standard_uqc_qty: safeValue(row.standard_uqc_qty, ""),
+                standard_uqc_unit: safeValue(row.standard_uqc_unit, ""),
+                total_duty_amount: safeValue(row.total_duty_amount, "")
               }))
             : [
               {
@@ -1154,7 +1227,65 @@ function useFetchJobDetails(
                 igst_amount_inr: "",
                 igst_amount_manual: false,
                 comp_cess_percent: "",
-                comp_cess_amount: ""
+                comp_cess_amount: "",
+
+                bcd_notn: "",
+                bcd_sr_no: "",
+                bcd_rate: "",
+                bcd_specific_rate: "",
+                bcd_unit: "",
+                bcd_flag: "",
+                bcd_amount: "",
+
+                aidc_notn: "",
+                aidc_sr_no: "",
+                aidc_rate: "",
+                aidc_specific_rate: "",
+                aidc_unit: "",
+                aidc_amount: "",
+
+                sw_surcharge_notn: "",
+                sw_surcharge_sr_no: "",
+                sw_surcharge_rate: "10.00",
+                sw_surcharge_foc: "No",
+                sw_surcharge_amount: "",
+
+                igst_notn: "",
+                igst_sr_no: "",
+                igst_specific_rate: "",
+                igst_unit: "",
+                igst_type: "C - Customs",
+
+                igst_exc_notn: "",
+                igst_exc_sr_no: "",
+                igst_exc_rate: "",
+                igst_exc_amount: "",
+
+                comp_cess_notn: "",
+                comp_cess_sr_no: "",
+                comp_cess_specific_rate: "",
+                comp_cess_unit: "",
+
+                comp_exc_notn: "",
+                comp_exc_sr_no: "",
+                comp_exc_rate: "",
+                comp_exc_specific_rate: "",
+                comp_exc_amount: "",
+
+                safeguard_notn: "",
+                safeguard_sr_no: "",
+                safeguard_rate: "",
+                safeguard_specific_rate: "",
+                safeguard_amount: "",
+
+                sapta_notn: "",
+                sapta_sr_no: "",
+                sapta_rate: "",
+                sapta_amount: "",
+
+                standard_uqc_qty: "",
+                standard_uqc_unit: "",
+                total_duty_amount: ""
               },
             ],
         consignment_type: safeValue(data.consignment_type),
@@ -1231,6 +1362,7 @@ function useFetchJobDetails(
         submissionQueries: safeValue(data.submissionQueries, []),
         eSachitQueries: safeValue(data.eSachitQueries, []),
         processed_be_attachment: safeValue(data.processed_be_attachment, []),
+        part_iii_duties: safeValue(data.part_iii_duties, []),
         ooc_copies: safeValue(data.ooc_copies, []),
         in_bond_ooc_copies: safeValue(data.in_bond_ooc_copies, []),
         gate_pass_copies: safeValue(data.gate_pass_copies, []),
@@ -1366,76 +1498,110 @@ function useFetchJobDetails(
 
   // Update detention from dates and set do_validity_upto_job_level
   useEffect(() => {
-    function addDaysToDate(dateString, days) {
-      if (!dateString) return "";
+    function getDateOnly(dateInput) {
+      if (!dateInput) return "";
+      const str = String(dateInput).trim();
+      const matchYMD = str.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+      if (matchYMD) return `${matchYMD[1]}-${matchYMD[2]}-${matchYMD[3]}`;
+      const matchDMY = str.match(/^(\d{2})[-/](\d{2})[-/](\d{4})/);
+      if (matchDMY) return `${matchDMY[3]}-${matchDMY[2]}-${matchDMY[1]}`;
+      const d = new Date(dateInput);
+      if (isNaN(d.getTime())) return "";
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
 
-      const date = new Date(dateString);
-      date.setDate(date.getDate() + days);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
+    function addDaysToDate(dateString, days) {
+      const base = getDateOnly(dateString);
+      const free = parseInt(days, 10);
+      if (!base || isNaN(free) || free <= 0) return "";
+      const [y, m, d] = base.split("-").map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      if (isNaN(dt.getTime())) return "";
+      dt.setUTCDate(dt.getUTCDate() + free);
+      const yy = dt.getUTCFullYear();
+      const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(dt.getUTCDate()).padStart(2, "0");
+      return `${yy}-${mm}-${dd}`;
+    }
+
+    function subtractOneDay(dateString) {
+      const base = getDateOnly(dateString);
+      if (!base) return "";
+      const [y, m, d] = base.split("-").map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      if (isNaN(dt.getTime())) return "";
+      dt.setUTCDate(dt.getUTCDate() - 1);
+      const yy = dt.getUTCFullYear();
+      const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(dt.getUTCDate()).padStart(2, "0");
+      return `${yy}-${mm}-${dd}`;
     }
 
     if (formik.values.container_nos?.length > 0) {
+      const freeDays = parseInt(formik.values.free_time, 10) || 0;
       let updatedDate = [];
 
       // If all containers arrive at the same time, use the common arrival date
       if (formik.values.checked) {
         const commonDate = formik.values.arrival_date;
-        updatedDate = formik.values.container_nos.map(() =>
-          addDaysToDate(commonDate, parseInt(formik.values.free_time) || 0)
-        );
+        updatedDate = formik.values.container_nos.map((container) => {
+          const arrDate = commonDate || container.arrival_date;
+          return freeDays > 0 && arrDate ? addDaysToDate(arrDate, freeDays) : "";
+        });
       } else {
         // Use individual container arrival dates
         updatedDate = formik.values.container_nos.map((container) =>
-          addDaysToDate(
-            container.arrival_date,
-            parseInt(formik.values.free_time) || 0
-          )
+          freeDays > 0 && container.arrival_date ? addDaysToDate(container.arrival_date, freeDays) : ""
         );
       }
 
       setDetentionFrom(updatedDate);
 
-      // Find the earliest date from updatedDate
-      // Find the earliest date from updatedDate
-      const earliestDate = updatedDate.reduce((earliest, current) => {
-        return current < earliest ? current : earliest;
-      }, "9999-12-31");
+      // Keep container_nos in sync with calculated detention_from
+      const hasDetentionDiff = formik.values.container_nos.some((c, i) => {
+        // If free_time is 0/unset but arrival_date is present, preserve existing detention_from
+        if (freeDays <= 0 && c.arrival_date && c.detention_from) {
+          return false;
+        }
+        const cur = c.detention_from || "";
+        const expected = updatedDate[i] || "";
+        return cur !== expected;
+      });
 
-      // Helper to subtract one day safely
-      function subtractOneDay(dateString) {
-        if (!dateString) return "";
-        const date = new Date(dateString);
-        date.setDate(date.getDate() - 1);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        return `${year}-${month}-${day}`;
+      if (hasDetentionDiff) {
+        const updatedContainers = formik.values.container_nos.map((c, i) => {
+          const nextDetention = (freeDays <= 0 && c.arrival_date && c.detention_from)
+            ? c.detention_from
+            : (updatedDate[i] || "");
+          return {
+            ...c,
+            detention_from: nextDetention,
+            do_validity_upto_container_level: nextDetention
+              ? subtractOneDay(nextDetention)
+              : (c.do_validity_upto_container_level || ""),
+          };
+        });
+        formik.setFieldValue("container_nos", updatedContainers);
       }
 
-      if (earliestDate !== "9999-12-31") {
-        const earliest = new Date(earliestDate);
-        const oneDayBefore = new Date(earliest);
-        oneDayBefore.setDate(oneDayBefore.getDate() - 1);
+      // Find the earliest date from updatedDate
+      const validDates = updatedDate.filter(Boolean);
+      const earliestDate = validDates.reduce((earliest, current) => {
+        return !earliest || current < earliest ? current : earliest;
+      }, "");
 
-        // If difference between earliestDate and oneDayBefore is > 0, use oneDayBefore
-        const diffDays = (earliest - oneDayBefore) / (1000 * 60 * 60 * 24);
-
-        const validityDate =
-          diffDays > 0
-            ? subtractOneDay(earliestDate)
-            : earliestDate;
-
+      if (earliestDate) {
+        const validityDate = subtractOneDay(earliestDate);
         formik.setFieldValue("do_validity_upto_job_level", validityDate);
-      } else {
+      } else if (data?.do_validity_upto_job_level) {
         formik.setFieldValue(
           "do_validity_upto_job_level",
           data.do_validity_upto_job_level
         );
       }
-
     }
     // eslint-disable-next-line
   }, [

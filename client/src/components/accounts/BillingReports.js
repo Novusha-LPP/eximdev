@@ -176,6 +176,7 @@ const PendingBillingUtility = () => {
   const [filters, setFilters] = useState({
     reportType: "pb",
     year: "",
+    jobNo: "",
     startDate: "",
     endDate: "",
     completionStartDate: "",
@@ -186,6 +187,7 @@ const PendingBillingUtility = () => {
   });
 
   const reportTypeOptions = [
+    { value: "all_charges", label: "All Charges" },
     { value: "pb", label: "Purchase Book Report" },
     { value: "pr", label: "Payment Request Report" },
     { value: "pr_no_pb", label: "PR Pending Purchase Book" },
@@ -197,6 +199,7 @@ const PendingBillingUtility = () => {
   const statusOptions = [
     { value: "all", label: "All Statuses" },
     { value: "billing_pending", label: "Billing Pending" },
+    { value: "billed", label: "Billed" },
     { value: "eta_date_pending", label: "ETA Date Pending" },
     { value: "estimated_time_of_arrival", label: "Estimated Time of Arrival" },
     { value: "gateway_igm_filed", label: "Gateway IGM Filed" },
@@ -322,6 +325,7 @@ const PendingBillingUtility = () => {
     setFilters({
       reportType: "pb",
       year: defaultYear,
+      jobNo: "",
       startDate: "",
       endDate: "",
       completionStartDate: "",
@@ -346,6 +350,7 @@ const PendingBillingUtility = () => {
         params: {
           type: activeFilters.reportType,
           year: activeFilters.year && activeFilters.year !== "all" ? activeFilters.year : undefined,
+          job_no: activeFilters.jobNo && activeFilters.jobNo.trim() ? activeFilters.jobNo.trim() : undefined,
           branchId: activeFilters.branchId,
           mode: activeFilters.mode,
           detailedStatus: activeFilters.detailedStatus,
@@ -400,6 +405,7 @@ const PendingBillingUtility = () => {
         params: {
           type: filters.reportType,
           year: filters.year && filters.year !== "all" ? filters.year : undefined,
+          job_no: filters.jobNo && filters.jobNo.trim() ? filters.jobNo.trim() : undefined,
           branchId: filters.branchId,
           mode: filters.mode,
           detailedStatus: filters.detailedStatus,
@@ -425,6 +431,7 @@ const PendingBillingUtility = () => {
       }
 
       const filenames = {
+        all_charges: `All_Charges_Report_${dateLabel}.xlsx`,
         pr: `Payment_Request_Report_${dateLabel}.xlsx`,
         pb: `Purchase_Book_Report_${dateLabel}.xlsx`,
         pr_no_pb: `PR_Pending_PB_Report_${dateLabel}.xlsx`,
@@ -513,6 +520,7 @@ const PendingBillingUtility = () => {
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.year && filters.year !== "all") count += 1;
+    if (filters.jobNo && filters.jobNo.trim()) count += 1;
     if (filters.branchId && filters.branchId !== "all") count += 1;
     if (filters.mode && filters.mode !== "all") count += 1;
     if (filters.detailedStatus && filters.detailedStatus !== "all") count += 1;
@@ -585,9 +593,9 @@ const PendingBillingUtility = () => {
           </Button>
         </Box>
 
-        {/* Row 1: Primary Dimensions (5 Dropdowns) */}
+        {/* Row 1: Primary Dimensions */}
         <Grid container spacing={1.5} mb={1.5}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={2.5}>
             <FormControl fullWidth size="small">
               <InputLabel sx={{ fontSize: "0.78rem" }}>Report Type</InputLabel>
               <Select
@@ -604,6 +612,28 @@ const PendingBillingUtility = () => {
           </Grid>
 
           <Grid item xs={12} sm={6} md={2}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Job No (Optional)"
+              placeholder="e.g. 03256"
+              value={filters.jobNo || ""}
+              onChange={(e) => setFilters({ ...filters, jobNo: e.target.value })}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 1.5,
+                  fontSize: "0.8rem",
+                  height: 36,
+                  bgcolor: "#f8fafc",
+                },
+                "& .MuiInputLabel-root": {
+                  fontSize: "0.78rem",
+                }
+              }}
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={1.5}>
             <FormControl fullWidth size="small">
               <InputLabel sx={{ fontSize: "0.78rem" }}>Financial Year</InputLabel>
               <Select
@@ -620,7 +650,7 @@ const PendingBillingUtility = () => {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={2.5}>
+          <Grid item xs={12} sm={6} md={2}>
             <FormControl fullWidth size="small">
               <InputLabel sx={{ fontSize: "0.78rem" }}>Branch</InputLabel>
               <Select
@@ -655,7 +685,7 @@ const PendingBillingUtility = () => {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={2.5}>
             <FormControl fullWidth size="small">
               <InputLabel sx={{ fontSize: "0.78rem" }}>Detailed Status</InputLabel>
               <Select
@@ -1035,7 +1065,10 @@ const PendingBillingUtility = () => {
                         return <TableCell key={`total-${index}`} sx={{ fontWeight: "800", fontSize: "0.8rem", py: 1, color: "#0f172a" }}>Total</TableCell>;
                       }
                       const amountHeaders = [
-                        "Net Payable", "Net Amount", "Net Amount (INR)"
+                        "Net Payable", "Net Amount", "Net Amount (INR)",
+                        "Cost Amount", "Revenue Amount", "Cost Net Payable",
+                        "Cost Basic Amount", "Cost GST Amount", "Cost TDS Amount",
+                        "Taxable", "GST", "TDS", "Total", "Basic Amount", "GST Amount", "TDS Amount", "Total Amount"
                       ];
                       const isAmountColumn = amountHeaders.includes(header);
                       if (isAmountColumn) {

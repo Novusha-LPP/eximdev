@@ -92,11 +92,25 @@ export default function ProcurementInsuranceSopsContainer() {
         ]);
 
         let fleetCount = 0;
-        if (fleetAppRes.status === "fulfilled" && Array.isArray(fleetAppRes.value.data)) {
-          fleetCount += fleetAppRes.value.data.length;
-        }
-        if (fleetPayRes.status === "fulfilled" && Array.isArray(fleetPayRes.value.data)) {
-          fleetCount += fleetPayRes.value.data.filter((r) => !r.paymentUtr).length;
+        const appRecords = fleetAppRes.status === "fulfilled"
+          ? (Array.isArray(fleetAppRes.value.data) ? fleetAppRes.value.data : fleetAppRes.value.data?.data || [])
+          : [];
+        const payRecords = fleetPayRes.status === "fulfilled"
+          ? (Array.isArray(fleetPayRes.value.data) ? fleetPayRes.value.data : fleetPayRes.value.data?.data || [])
+          : [];
+
+        const pendingApprovalCount = appRecords.length;
+        const pendingPaymentUtrCount = payRecords.filter((r) => !r.paymentUtr).length;
+
+        if (!isAdmin && userTabs.length > 0) {
+          if (userTabs.includes("Approval")) {
+            fleetCount += pendingApprovalCount;
+          }
+          if (userTabs.includes("Payment & UTR")) {
+            fleetCount += pendingPaymentUtrCount;
+          }
+        } else {
+          fleetCount = pendingApprovalCount + pendingPaymentUtrCount;
         }
 
         let rmCount = 0;

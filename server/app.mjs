@@ -90,6 +90,7 @@ import getBillCover from "./routes/accounts/getBillCover.mjs";
 import rmProcurementSopRoutes from "./routes/accounts/rmProcurementSop.mjs";
 import tyreProcurementSopRoutes from "./routes/accounts/tyreProcurementSop.mjs";
 import fleetInsuranceSopRoutes from "./routes/accounts/fleetInsuranceSop.mjs";
+import transportInvoicingRoutes from "./routes/invoicing/transportInvoicingRoutes.mjs";
 
 // Documentation
 import updateDocumentationJob from "./routes/documentation/updateDocumentationJob.mjs";
@@ -395,6 +396,7 @@ import indianPortRoutes from "./routes/master-directory/indianPortRoutes.mjs";
 import customHouseRoutes from "./routes/master-directory/customHouseRoutes.mjs";
   import cfsRoutes from "./routes/master-directory/cfsRoutes.mjs";
   import cfsDirectoryRoutes from "./routes/master-directory/cfsDirectoryRoutes.mjs";
+  import emptyYardDirectoryRoutes from "./routes/master-directory/emptyYardDirectoryRoutes.mjs";
 import transporterRoutes from "./routes/master-directory/transporterRoutes.mjs";
 import emptyOffLocationRoutes from "./routes/master-directory/emptyOffLocationRoutes.mjs";
 import masterDirectoryNotificationRoutes from "./routes/master-directory/notificationRoutes.mjs";
@@ -578,6 +580,7 @@ app.use("/api", rmProcurementSopRoutes);
 app.use("/api", tyreProcurementSopRoutes);
 app.use("/api", fleetInsuranceSopRoutes);
 app.use("/api/billing", invoiceGenerator);
+app.use("/api/transport-invoicing", transportInvoicingRoutes);
 
 // Documentation
 app.use(updateDocumentationJob);
@@ -814,6 +817,8 @@ app.use("/api", indianPortRoutes);
 app.use("/api", customHouseRoutes);
   app.use("/api", cfsRoutes);
   app.use("/api", cfsDirectoryRoutes);
+  app.use("/api", emptyYardDirectoryRoutes);
+  app.use(emptyYardDirectoryRoutes);
 app.use("/api", transporterRoutes);
 app.use("/api", generalOrgRoutes);
 app.use("/api", emptyOffLocationRoutes);

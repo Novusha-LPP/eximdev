@@ -90,52 +90,15 @@ function isSameDay(a, b) {
   const da = a instanceof Date ? a : new Date(a);
   const db = b instanceof Date ? b : new Date(b);
   if (isNaN(da.getTime()) || isNaN(db.getTime())) return false;
-  
-  // 1. Local date match
-  if (
+
+  // Compare local date components only. Matching UTC components as well made a
+  // single event land on two adjacent day cells for anyone not in UTC
+  // (e.g. IST: a Sept 23 event also rendered on Sept 24).
+  return (
     da.getFullYear() === db.getFullYear() &&
     da.getMonth() === db.getMonth() &&
     da.getDate() === db.getDate()
-  ) {
-    return true;
-  }
-
-  // 2. da UTC matching db local (handles UTC midnight stored dates)
-  if (
-    da.getUTCFullYear() === db.getFullYear() &&
-    da.getUTCMonth() === db.getMonth() &&
-    da.getUTCDate() === db.getDate()
-  ) {
-    return true;
-  }
-
-  // 3. da local matching db UTC
-  if (
-    da.getFullYear() === db.getUTCFullYear() &&
-    da.getMonth() === db.getUTCMonth() &&
-    da.getDate() === db.getUTCDate()
-  ) {
-    return true;
-  }
-
-  // 4. da UTC matching db UTC
-  if (
-    da.getUTCFullYear() === db.getUTCFullYear() &&
-    da.getUTCMonth() === db.getUTCMonth() &&
-    da.getUTCDate() === db.getUTCDate()
-  ) {
-    return true;
-  }
-
-  // 5. String prefix match (YYYY-MM-DD)
-  if (typeof a === 'string' && a.length >= 10) {
-    const aPrefix = a.slice(0, 10);
-    const dbLocalStr = `${db.getFullYear()}-${String(db.getMonth() + 1).padStart(2, '0')}-${String(db.getDate()).padStart(2, '0')}`;
-    const dbUtcStr = `${db.getUTCFullYear()}-${String(db.getUTCMonth() + 1).padStart(2, '0')}-${String(db.getUTCDate()).padStart(2, '0')}`;
-    if (aPrefix === dbLocalStr || aPrefix === dbUtcStr) return true;
-  }
-
-  return false;
+  );
 }
 
 // Ensure visits ALWAYS appear at the top of any list, followed by pending tasks and activities

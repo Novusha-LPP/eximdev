@@ -64,7 +64,7 @@ function uppercaseDeep(obj) {
   if (typeof obj === "object" && !(obj instanceof Date)) {
     const res = {};
     for (const key of Object.keys(obj)) {
-      if (key === "_id" || key === "createdAt" || key === "updatedAt" || key === "__v" || key.endsWith("Date") || key.endsWith("Time") || key.endsWith("Dt") || key === "date") {
+      if (key === "_id" || key === "createdAt" || key === "updatedAt" || key === "__v" || key.endsWith("Date") || key.endsWith("Time") || key.endsWith("Dt") || key === "date" || key.toLowerCase().includes("attachment")) {
         res[key] = obj[key];
       } else {
         res[key] = uppercaseDeep(obj[key]);

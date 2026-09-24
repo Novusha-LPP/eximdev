@@ -178,7 +178,7 @@ export default function ActivityTimeline({ linkedId, linkedType = 'opportunity' 
                 </div>
 
                 {activity.description && (
-                  <p style={{ margin: '8px 0', color: '#475569', fontSize: '0.9rem' }}>{activity.description}</p>
+                  <p style={{ margin: '8px 0', color: '#475569', fontSize: '0.9rem', whiteSpace: 'pre-wrap' }}>{activity.description}</p>
                 )}
 
                 <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: '#64748b', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.05)', flexWrap: 'wrap' }}>
@@ -223,7 +223,7 @@ export default function ActivityTimeline({ linkedId, linkedType = 'opportunity' 
                 )}
 
                 {activity.nextSteps && (
-                  <div style={{ marginTop: '8px', padding: '8px', background: '#f1f5f9', borderRadius: '4px', fontSize: '0.85rem', color: '#475569', borderLeft: '3px solid #4f46e5' }}>
+                  <div style={{ marginTop: '8px', padding: '8px', background: '#f1f5f9', borderRadius: '4px', fontSize: '0.85rem', color: '#475569', borderLeft: '3px solid #4f46e5', whiteSpace: 'pre-wrap' }}>
                     <strong>Next Steps:</strong> {activity.nextSteps}
                   </div>
                 )}

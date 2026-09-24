@@ -46,6 +46,7 @@ import {
   LocalShipping,
   CheckCircle,
   AccountBalance,
+  AttachFile,
 } from "@mui/icons-material";
 import { toast } from "react-hot-toast";
 
@@ -67,6 +68,10 @@ const isCompletedSiteGrn = (row) => {
   );
   return allApprovalsDone || ["GRN Done", "GRN Completed", "Closed"].includes(row.status);
 };
+
+// Supplier invoice attachments recorded at Site GRN (stage 6)
+const getGrnInvoiceAttachments = (row) =>
+  (row.stage6?.referenceInfos || []).filter((info) => info && info.invoiceAttachment);
 
 function TyreProcurementList({ onEdit, onView, onCreate }) {
   const { user } = useContext(UserContext);
@@ -804,13 +809,14 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                   <TableCell>Total Value (₹)</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Created At</TableCell>
+                  {stageTab === "7" && <TableCell>Invoice</TableCell>}
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {data.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 4, color: "#64748b" }}>
+                    <TableCell colSpan={stageTab === "7" ? 9 : 8} align="center" sx={{ py: 4, color: "#64748b" }}>
                       <Typography sx={{ fontWeight: 500, fontSize: "13px" }}>
                         No procurement records found for this view.
                       </Typography>
@@ -881,6 +887,49 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                         <TableCell sx={{ color: "#64748b", fontSize: "12.5px", py: 1, px: 1.5 }}>
                           {row.createdAt ? new Date(row.createdAt).toLocaleDateString("en-GB") : "-"}
                         </TableCell>
+                        {stageTab === "7" && (
+                          <TableCell sx={{ py: 1, px: 1.5 }}>
+                            {(() => {
+                              const invoices = getGrnInvoiceAttachments(row);
+                              if (invoices.length === 0) {
+                                return <Typography sx={{ color: "#94a3b8", fontSize: "12px" }}>—</Typography>;
+                              }
+                              return (
+                                <Stack spacing={0.2}>
+                                  {invoices.map((info) => (
+                                    <Tooltip
+                                      key={info._id || info.invoiceAttachment}
+                                      title={[
+                                        info.supplierName,
+                                        info.invoiceAttachmentName || "Invoice",
+                                        info.invoiceAmount ? `₹${Number(info.invoiceAmount).toLocaleString("en-IN")}` : null,
+                                      ].filter(Boolean).join(" — ")}
+                                    >
+                                      <a
+                                        href={info.invoiceAttachment}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        style={{
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: 3,
+                                          fontSize: "11.5px",
+                                          fontWeight: 600,
+                                          color: "#2563eb",
+                                          textDecoration: "none",
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        <AttachFile sx={{ fontSize: 13 }} />
+                                        {info.invoiceNumber || info.invoiceAttachmentName || "View Invoice"}
+                                      </a>
+                                    </Tooltip>
+                                  ))}
+                                </Stack>
+                              );
+                            })()}
+                          </TableCell>
+                        )}
                         <TableCell align="center" sx={{ py: 1, px: 1.5 }}>
                           <Stack direction="row" spacing={0.8} justifyContent="center" alignItems="center">
                             {canApproveFinance(row) && (

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { X, Edit2, Trash2, FileText, DollarSign, MapPin, Hash, Calendar, Building2, Tag, AlertOctagon, User, Clock, TrendingUp, Percent, Briefcase, CheckCircle2, AlertTriangle, Layers } from 'lucide-react';
-import { message, Modal, AutoComplete, Input } from 'antd';
+import { message, Modal } from 'antd';
+import GarudaTeamMemberInput from './GarudaTeamMemberInput';
 import { UserContext } from '../../../contexts/UserContext';
 import ActivityTimeline from './ActivityTimeline';
 import QuoteFormModal from './QuoteFormModal';
@@ -51,7 +52,6 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
   const [isOtherCompanyType, setIsOtherCompanyType] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedTaskForModal, setSelectedTaskForModal] = useState(null);
-  const [users, setUsers] = useState([]);
 
   const { user } = useContext(UserContext);
   const fullUserName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'Unknown User';
@@ -89,19 +89,6 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
     }
   }, [isOpen, opportunity]);
 
-  useEffect(() => {
-    if (isOpen) {
-      const fetchUsers = async () => {
-        try {
-          const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`, getHeaders());
-          setUsers(res.data || []);
-        } catch (err) {
-          console.error('Failed to load users list in opportunity detail modal:', err);
-        }
-      };
-      fetchUsers();
-    }
-  }, [isOpen]);
 
   const toggleService = (service) => {
     const currentServices = formData.services || [];
@@ -144,39 +131,6 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
     };
   };
 
-  const garudaUserOptions = useMemo(() => {
-    const list = (users || []).map(u => {
-      const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
-      const displayName = fullName || u.username || '';
-      return {
-        value: displayName,
-        searchStr: `${displayName} ${u.username || ''} ${u.department || ''} ${u.employee_code || ''} ${u.designation || ''}`.toLowerCase(),
-        label: (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
-            <div>
-              <span style={{ fontWeight: 600, color: '#1e293b' }}>{displayName}</span>
-              {u.username && displayName !== u.username && (
-                <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '6px' }}>({u.username})</span>
-              )}
-            </div>
-            {u.department && (
-              <span style={{ fontSize: '0.7rem', color: '#4f46e5', background: '#eef2ff', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
-                {u.department}
-              </span>
-            )}
-          </div>
-        )
-      };
-    }).filter(opt => opt.value);
-
-    const seen = new Set();
-    return list.filter(item => {
-      const key = item.value.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [users]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -1179,28 +1133,12 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                   <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>
                     Garuda Team Member Name <span style={{ color: '#ef4444' }}>*</span>
                   </label>
-                  <AutoComplete
-                    style={{ width: '100%' }}
+                  <GarudaTeamMemberInput
                     value={formData.garudaTeamMemberName || ''}
-                    options={garudaUserOptions}
-                    filterOption={(inputValue, option) =>
-                      (option?.searchStr || option?.value || '').toLowerCase().indexOf((inputValue || '').toLowerCase()) !== -1
-                    }
                     onChange={(val) => setFormData({ ...formData, garudaTeamMemberName: val })}
+                    required
                     placeholder="Search or enter Garuda team member name..."
-                    allowClear
-                  >
-                    <Input
-                      required
-                      size="large"
-                      placeholder="Search or enter Garuda team member name..."
-                      style={{
-                        borderRadius: '8px',
-                        fontSize: '0.9rem',
-                        borderColor: '#e2e8f0'
-                      }}
-                    />
-                  </AutoComplete>
+                  />
                   <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
                     💡 Select from the Garuda user suggestions or manually enter any team member name.
                   </div>

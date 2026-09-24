@@ -52,7 +52,6 @@ import {
   Search,
   Clear
 } from "@mui/icons-material";
-
 import FleetInsuranceHistory from "./FleetInsuranceHistory";
 
 function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, onOpenPaymentUtr, onEdit, onView }) {
@@ -216,6 +215,8 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
   useEffect(() => {
     const delay = setTimeout(() => {
       fetchRecords();
+      fetchApprovalRecords();
+      fetchPaymentUtrRecords();
     }, 500);
     return () => clearTimeout(delay);
   }, [page, rowsPerPage, search, month, year, filters]);
@@ -594,6 +595,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
     return diffDays <= 7;
   });
 
+
   return (
     <Box sx={{ width: "100%" }}>
       {/* Top Fleet Operational Metrics Header Cards */}
@@ -826,7 +828,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                 label="Vehicle Records"
                 value={0}
                 id="fleet-tab-0"
-                sx={{ fontWeight: 600, fontSize: "13px", minHeight: 40, py: 1, px: 2, textTransform: "none", color: "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
+                sx={{ fontWeight: 600, fontSize: "13px", minHeight: 40, py: 1, px: 2, textTransform: "none", color: mainTab === 0 ? "#2563eb" : "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
               />
             )}
             {isTabVisible(1) && (
@@ -834,31 +836,63 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                 label="Policy History & Dashboard"
                 value={1}
                 id="fleet-tab-1"
-                sx={{ fontWeight: 600, fontSize: "13px", minHeight: 40, py: 1, px: 2, textTransform: "none", color: "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
+                sx={{ fontWeight: 600, fontSize: "13px", minHeight: 40, py: 1, px: 2, textTransform: "none", color: mainTab === 1 ? "#2563eb" : "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
               />
             )}
             {isTabVisible(2) && (
               <Tab
                 label={
-                  <Badge badgeContent={approvalRecords.length} color="error" offset={[10, 0]}>
-                    Approval
-                  </Badge>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <span>Approval</span>
+                    {approvalRecords.length > 0 && (
+                      <Badge
+                        badgeContent={approvalRecords.length}
+                        color="error"
+                        sx={{
+                          ml: 0.5,
+                          "& .MuiBadge-badge": {
+                            fontSize: "10px",
+                            height: "18px",
+                            minWidth: "18px",
+                            fontWeight: 700,
+                            px: 0.5,
+                          },
+                        }}
+                      />
+                    )}
+                  </Box>
                 }
                 value={2}
                 id="fleet-tab-2"
-                sx={{ fontWeight: 600, fontSize: "13px", minHeight: 40, py: 1, px: 2, textTransform: "none", color: "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
+                sx={{ fontWeight: 600, fontSize: "13px", minHeight: 40, py: 1, px: 2, textTransform: "none", color: mainTab === 2 ? "#2563eb" : "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
               />
             )}
             {isTabVisible(3) && (
               <Tab
                 label={
-                  <Badge badgeContent={paymentUtrRecords.filter((r) => !r.paymentUtr).length} color="success" offset={[10, 0]}>
-                    Payment & UTR
-                  </Badge>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <span>Payment & UTR</span>
+                    {paymentUtrRecords.filter((r) => !r.paymentUtr).length > 0 && (
+                      <Badge
+                        badgeContent={paymentUtrRecords.filter((r) => !r.paymentUtr).length}
+                        color="warning"
+                        sx={{
+                          ml: 0.5,
+                          "& .MuiBadge-badge": {
+                            fontSize: "10px",
+                            height: "18px",
+                            minWidth: "18px",
+                            fontWeight: 700,
+                            px: 0.5,
+                          },
+                        }}
+                      />
+                    )}
+                  </Box>
                 }
                 value={3}
                 id="fleet-tab-3"
-                sx={{ fontWeight: 600, fontSize: "13px", minHeight: 40, py: 1, px: 2, textTransform: "none", color: "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
+                sx={{ fontWeight: 600, fontSize: "13px", minHeight: 40, py: 1, px: 2, textTransform: "none", color: mainTab === 3 ? "#2563eb" : "#64748b", "&.Mui-selected": { color: "#2563eb", fontWeight: 700 } }}
               />
             )}
           </Tabs>

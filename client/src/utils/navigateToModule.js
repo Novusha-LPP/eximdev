@@ -114,6 +114,9 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/audit-5s");
     case "First Aid":
       return navigate("/first-aid");
+    case "Transport Invoicing":
+    case "Transport":
+      return navigate("/invoice/transport");
     default:
       return navigate("/home");
   }

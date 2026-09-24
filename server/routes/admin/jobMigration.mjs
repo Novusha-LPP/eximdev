@@ -2,6 +2,7 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import JobCounterModel from "../../model/jobCounterModel.mjs";
 import BranchModel from "../../model/branchModel.mjs";
+import DocumentCollectionModel from "../../model/documentCollectionModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import { generateJobNumber } from "../../services/jobNumberService.mjs";
@@ -20,18 +21,22 @@ const adminOnly = (req, res, next) => {
 router.get("/get-job", authMiddleware, adminOnly, async (req, res) => {
     try {
         const { query } = req.query; // General query string
-        if (!query) {
+        if (!query || !query.trim()) {
             return res.status(400).json({ message: "Search query is required." });
         }
+
+        const cleanQuery = query.trim();
 
         // Search across job_number, bl_no, and be_no
         const job = await JobModel.findOne({
             $or: [
-                { job_number: query },
-                { awb_bl_no: query },
-                { be_no: query }
+                { job_number: cleanQuery },
+                { awb_bl_no: cleanQuery },
+                { be_no: cleanQuery }
             ]
-        }).lean();
+        })
+        .populate("branch_id", "branch_name branch_code category")
+        .lean();
 
         if (!job) {
             return res.status(404).json({ message: "Job not found." });
@@ -45,14 +50,14 @@ router.get("/get-job", authMiddleware, adminOnly, async (req, res) => {
 });
 
 /**
- * Preview the migration: Calculate the next sequence in the target year
+ * Preview the migration: Calculate the next sequence in target year, branch, and division (mode)
  */
 router.get("/preview", authMiddleware, adminOnly, async (req, res) => {
     try {
-        const { jobId, targetYear } = req.query;
+        const { jobId, targetYear, targetBranchCode, targetMode } = req.query;
 
-        if (!jobId || !targetYear) {
-            return res.status(400).json({ message: "jobId and targetYear are required." });
+        if (!jobId) {
+            return res.status(400).json({ message: "jobId is required." });
         }
 
         const job = await JobModel.findById(jobId).lean();
@@ -60,24 +65,41 @@ router.get("/preview", authMiddleware, adminOnly, async (req, res) => {
             return res.status(404).json({ message: "Job not found." });
         }
 
-        const { branch_id, trade_type, mode, branch_code } = job;
+        const year = targetYear || job.year || job.financial_year;
+        const mode = (targetMode || job.mode || "SEA").toUpperCase();
+        const branchCode = (targetBranchCode || job.branch_code || (job.branch_id && job.branch_id.branch_code) || "AMD").toUpperCase();
+        const tradeType = (job.trade_type || "IMP").toUpperCase();
 
-        // 1. Get current counter for the target year
+        // 1. Resolve target branch for this branch code and division (category)
+        const targetBranch = await BranchModel.findOne({
+            branch_code: branchCode,
+            category: mode
+        }).lean();
+
+        if (!targetBranch) {
+            return res.status(400).json({
+                message: `Target branch '${branchCode}' with division '${mode}' not found in the system.`
+            });
+        }
+
+        const branchId = targetBranch._id;
+
+        // 2. Get current counter for the target scope
         let counter = await JobCounterModel.findOne({
-            branch_id,
-            financial_year: targetYear,
-            trade_type,
+            branch_id: branchId,
+            financial_year: year,
+            trade_type: tradeType,
             mode
         }).lean();
 
         let nextSequence = (counter ? counter.last_sequence : 0) + 1;
 
-        // 2. Self-healing check (similar to generateJobNumber service)
+        // 3. Self-healing check (similar to generateJobNumber service)
         // Find the absolute maximum sequence currently in the database to avoid collision
         const maxJob = await JobModel.findOne({
-            branch_id,
-            year: targetYear,
-            trade_type,
+            branch_id: branchId,
+            year: year,
+            trade_type: tradeType,
             mode
         }).sort({ sequence_number: -1 }).select("sequence_number").lean();
 
@@ -86,7 +108,7 @@ router.get("/preview", authMiddleware, adminOnly, async (req, res) => {
         }
 
         const paddedSequence = nextSequence.toString().padStart(5, '0');
-        const proposedJobNumber = `${branch_code}/${trade_type}/${mode}/${paddedSequence}/${targetYear}`;
+        const proposedJobNumber = `${branchCode}/${tradeType}/${mode}/${paddedSequence}/${year}`;
 
         res.status(200).json({
             success: true,
@@ -94,7 +116,10 @@ router.get("/preview", authMiddleware, adminOnly, async (req, res) => {
             proposedJobNumber,
             nextSequence,
             paddedSequence,
-            targetYear
+            targetYear: year,
+            targetBranchCode: branchCode,
+            targetBranchName: targetBranch.branch_name,
+            targetMode: mode
         });
 
     } catch (error) {
@@ -104,14 +129,14 @@ router.get("/preview", authMiddleware, adminOnly, async (req, res) => {
 });
 
 /**
- * List sequence gaps in the target year
+ * List sequence gaps in the target scope (branch, mode, year)
  */
 router.get("/gaps", authMiddleware, adminOnly, async (req, res) => {
     try {
-        const { jobId, targetYear } = req.query;
+        const { jobId, targetYear, targetBranchCode, targetMode } = req.query;
 
-        if (!jobId || !targetYear) {
-            return res.status(400).json({ message: "jobId and targetYear are required." });
+        if (!jobId) {
+            return res.status(400).json({ message: "jobId is required." });
         }
 
         const job = await JobModel.findById(jobId).lean();
@@ -119,13 +144,27 @@ router.get("/gaps", authMiddleware, adminOnly, async (req, res) => {
             return res.status(404).json({ message: "Job not found." });
         }
 
-        const { branch_id, trade_type, mode } = job;
+        const year = targetYear || job.year || job.financial_year;
+        const mode = (targetMode || job.mode || "SEA").toUpperCase();
+        const branchCode = (targetBranchCode || job.branch_code || (job.branch_id && job.branch_id.branch_code) || "AMD").toUpperCase();
+        const tradeType = (job.trade_type || "IMP").toUpperCase();
+
+        const targetBranch = await BranchModel.findOne({
+            branch_code: branchCode,
+            category: mode
+        }).lean();
+
+        if (!targetBranch) {
+            return res.status(200).json({ gaps: [] });
+        }
+
+        const branchId = targetBranch._id;
 
         // 1. Get current counter to know the max range
         const counter = await JobCounterModel.findOne({
-            branch_id,
-            financial_year: targetYear,
-            trade_type,
+            branch_id: branchId,
+            financial_year: year,
+            trade_type: tradeType,
             mode
         }).lean();
 
@@ -133,15 +172,21 @@ router.get("/gaps", authMiddleware, adminOnly, async (req, res) => {
             return res.status(200).json({ gaps: [] });
         }
 
-        // 2. Fetch all existing sequences in the target year
+        // 2. Fetch all existing sequences in the target scope
         const existingJobs = await JobModel.find({
-            branch_id,
-            year: targetYear,
-            trade_type,
+            branch_id: branchId,
+            year: year,
+            trade_type: tradeType,
             mode
-        }).select("sequence_number").lean();
+        }).select("sequence_number job_no").lean();
 
-        const usedSequences = new Set(existingJobs.map(j => j.sequence_number));
+        const usedSequences = new Set();
+        existingJobs.forEach(j => {
+            if (j.sequence_number) usedSequences.add(j.sequence_number);
+            const parsed = parseInt(j.job_no, 10);
+            if (!isNaN(parsed)) usedSequences.add(parsed);
+        });
+
         const gaps = [];
 
         // 3. Identify missing numbers from 1 to current max
@@ -167,10 +212,10 @@ router.get("/gaps", authMiddleware, adminOnly, async (req, res) => {
  */
 router.post("/execute", authMiddleware, adminOnly, auditMiddleware("Job"), async (req, res) => {
     try {
-        const { jobId, targetYear, requestedSequence } = req.body;
+        const { jobId, targetYear, targetBranchCode, targetMode, requestedSequence } = req.body;
 
-        if (!jobId || !targetYear) {
-            return res.status(400).json({ message: "jobId and targetYear are required." });
+        if (!jobId) {
+            return res.status(400).json({ message: "jobId is required." });
         }
 
         const job = await JobModel.findById(jobId);
@@ -178,17 +223,46 @@ router.post("/execute", authMiddleware, adminOnly, auditMiddleware("Job"), async
             return res.status(404).json({ message: "Job not found." });
         }
 
-        // Check if a job with the same BL number already exists in the target year
+        const year = targetYear || job.year || job.financial_year;
+        const mode = (targetMode || job.mode || "SEA").toUpperCase();
+        const branchCode = (targetBranchCode || job.branch_code || "AMD").toUpperCase();
+        const tradeType = (job.trade_type || "IMP").toUpperCase();
+
+        const targetBranch = await BranchModel.findOne({
+            branch_code: branchCode,
+            category: mode
+        });
+
+        if (!targetBranch) {
+            return res.status(400).json({
+                message: `Target branch '${branchCode}' with division '${mode}' not found in the system.`
+            });
+        }
+
+        // Validation: Ensure at least one aspect is changing or sequence reuse is requested
+        const isYearSame = (job.year === year || job.financial_year === year);
+        const isBranchSame = (String(job.branch_id) === String(targetBranch._id) && job.branch_code === branchCode);
+        const isModeSame = (job.mode === mode);
+
+        if (isYearSame && isBranchSame && isModeSame && !requestedSequence) {
+            return res.status(400).json({
+                message: "No change detected in Financial Year, Branch, or Division. Migration cancelled."
+            });
+        }
+
+        // Check if a job with the same BL number already exists in the target scope
         if (job.awb_bl_no) {
             const duplicateBL = await JobModel.findOne({
                 awb_bl_no: job.awb_bl_no,
-                year: targetYear,
+                branch_id: targetBranch._id,
+                year,
+                mode,
                 _id: { $ne: jobId } // Exclude the job being migrated
             }).lean();
 
             if (duplicateBL) {
                 return res.status(400).json({ 
-                    message: `A job with the same BL/AWB number (${job.awb_bl_no}) already exists in the target year ${targetYear}. Duplicate migration is blocked.` 
+                    message: `A job with the same BL/AWB number (${job.awb_bl_no}) already exists in ${branchCode} (${mode}) for year ${year}. Duplicate migration is blocked.` 
                 });
             }
         }
@@ -196,54 +270,83 @@ router.post("/execute", authMiddleware, adminOnly, auditMiddleware("Job"), async
         let newJobData;
 
         if (requestedSequence) {
-            // Verify sequence is still available
+            const paddedSequence = requestedSequence.toString().padStart(5, '0');
+            const targetJobNumber = `${branchCode}/${tradeType}/${mode}/${paddedSequence}/${year}`;
+
+            // Verify sequence and job_number are still available
             const existing = await JobModel.findOne({
-                branch_id: job.branch_id,
-                year: targetYear,
-                trade_type: job.trade_type,
-                mode: job.mode,
-                sequence_number: requestedSequence
+                $or: [
+                    { branch_id: targetBranch._id, year, trade_type: tradeType, mode, sequence_number: requestedSequence },
+                    { branch_id: targetBranch._id, year, trade_type: tradeType, mode, job_no: paddedSequence },
+                    { job_number: targetJobNumber }
+                ],
+                _id: { $ne: jobId }
             }).lean();
 
             if (existing) {
-                return res.status(400).json({ message: `Sequence ${requestedSequence} is already in use.` });
+                return res.status(400).json({ message: `Sequence ${requestedSequence} is already in use in the target scope.` });
             }
-
-            const branch = await BranchModel.findById(job.branch_id).lean();
-            const paddedSequence = requestedSequence.toString().padStart(5, '0');
             
             newJobData = {
-                job_number: `${branch.branch_code}/${job.trade_type}/${job.mode}/${paddedSequence}/${targetYear}`,
+                job_number: targetJobNumber,
                 sequence_number: requestedSequence,
                 job_no: paddedSequence,
-                branch_code: branch.branch_code
+                branch_code: branchCode
             };
+
+            // Ensure the counter tracks this sequence if it is higher than current
+            await JobCounterModel.findOneAndUpdate(
+                { branch_id: targetBranch._id, financial_year: year, trade_type: tradeType, mode },
+                { $max: { last_sequence: requestedSequence } },
+                { upsert: true }
+            );
         } else {
-            // Default logic: increment counter
+            // Default logic: increment counter for target branch, year, trade_type, and mode
             newJobData = await generateJobNumber({
-                branch_id: job.branch_id,
-                trade_type: job.trade_type,
-                mode: job.mode,
-                financial_year: targetYear
+                branch_id: targetBranch._id,
+                trade_type: tradeType,
+                mode,
+                financial_year: year
             });
         }
 
         // Update the job document
         const oldJobNumber = job.job_number;
-        job.year = targetYear;
-        job.financial_year = targetYear;
+        job.branch_id = targetBranch._id;
+        job.branch_code = branchCode;
+        job.mode = mode;
+        job.year = year;
+        job.financial_year = year;
         job.job_no = newJobData.job_no;
         job.sequence_number = newJobData.sequence_number;
         job.job_number = newJobData.job_number;
-        job.branch_code = newJobData.branch_code;
 
         await job.save();
+
+        // Update any associated document collections if present
+        try {
+            await DocumentCollectionModel.updateMany(
+                { job_number: oldJobNumber },
+                {
+                    $set: {
+                        job_number: job.job_number,
+                        branch_code: branchCode,
+                        year: year
+                    }
+                }
+            );
+        } catch (docErr) {
+            console.warn("Could not sync DocumentCollection during job migration:", docErr.message);
+        }
 
         res.status(200).json({
             success: true,
             message: `Job migrated successfully from ${oldJobNumber} to ${job.job_number}`,
             oldJobNumber,
-            newJobNumber: job.job_number
+            newJobNumber: job.job_number,
+            branch_code: branchCode,
+            mode,
+            year
         });
 
     } catch (error) {

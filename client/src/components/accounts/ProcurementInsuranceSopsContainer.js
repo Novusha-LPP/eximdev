@@ -70,21 +70,31 @@ export default function ProcurementInsuranceSopsContainer() {
   useEffect(() => {
     async function fetchNotificationCounts() {
       try {
-        let userTabs = [];
+        let tyreUserTabs = [];
+        let fleetUserTabs = [];
         if (user?.username && !isAdmin) {
           try {
-            const tabsRes = await axios.get(
-              `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
-            );
-            if (tabsRes.data?.success && tabsRes.data.allowed_tabs?.length > 0) {
-              userTabs = tabsRes.data.allowed_tabs;
+            const [tyreTabsRes, fleetTabsRes] = await Promise.allSettled([
+              axios.get(
+                `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
+              ),
+              axios.get(
+                `${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/user-tabs/${user.username}`
+              ),
+            ]);
+            if (tyreTabsRes.status === "fulfilled" && tyreTabsRes.value.data?.success && tyreTabsRes.value.data.allowed_tabs?.length > 0) {
+              tyreUserTabs = tyreTabsRes.value.data.allowed_tabs;
+            }
+            if (fleetTabsRes.status === "fulfilled" && fleetTabsRes.value.data?.success && fleetTabsRes.value.data.allowed_tabs?.length > 0) {
+              fleetUserTabs = fleetTabsRes.value.data.allowed_tabs;
             }
           } catch (e) {
             console.error("Error fetching user tabs for container count:", e);
           }
         }
 
-        const [fleetAppRes, fleetPayRes, rmRes, tyreRes] = await Promise.allSettled([
+        const [fleetPendingRes, fleetAppRes, fleetPayRes, rmRes, tyreRes] = await Promise.allSettled([
+          axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/pending-count`),
           axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/approvals/list`),
           axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/payment-utr/list`),
           axios.get(`${process.env.REACT_APP_API_STRING}/rm-procurement`),
@@ -92,31 +102,35 @@ export default function ProcurementInsuranceSopsContainer() {
         ]);
 
         let fleetCount = 0;
-        const appRecords = fleetAppRes.status === "fulfilled"
-          ? (Array.isArray(fleetAppRes.value.data) ? fleetAppRes.value.data : fleetAppRes.value.data?.data || [])
-          : [];
-        const payRecords = fleetPayRes.status === "fulfilled"
-          ? (Array.isArray(fleetPayRes.value.data) ? fleetPayRes.value.data : fleetPayRes.value.data?.data || [])
-          : [];
-
-        const pendingApprovalCount = appRecords.length;
-        const pendingPaymentUtrCount = payRecords.filter((r) => !r.paymentUtr).length;
-
-        if (!isAdmin && userTabs.length > 0) {
-          if (userTabs.includes("Approval")) {
-            fleetCount += pendingApprovalCount;
-          }
-          if (userTabs.includes("Payment & UTR")) {
-            fleetCount += pendingPaymentUtrCount;
-          }
+        if (fleetPendingRes.status === "fulfilled" && typeof fleetPendingRes.value.data?.count === "number") {
+          fleetCount = fleetPendingRes.value.data.count;
         } else {
-          fleetCount = pendingApprovalCount + pendingPaymentUtrCount;
+          const appRecords = fleetAppRes.status === "fulfilled"
+            ? (Array.isArray(fleetAppRes.value.data) ? fleetAppRes.value.data : fleetAppRes.value.data?.data || [])
+            : [];
+          const payRecords = fleetPayRes.status === "fulfilled"
+            ? (Array.isArray(fleetPayRes.value.data) ? fleetPayRes.value.data : fleetPayRes.value.data?.data || [])
+            : [];
+
+          const pendingApprovalCount = appRecords.length;
+          const pendingPaymentUtrCount = payRecords.filter((r) => !r.paymentUtr).length;
+
+          if (!isAdmin && fleetUserTabs.length > 0) {
+            if (fleetUserTabs.includes("Approval")) {
+              fleetCount += pendingApprovalCount;
+            }
+            if (fleetUserTabs.includes("Payment & UTR")) {
+              fleetCount += pendingPaymentUtrCount;
+            }
+          } else {
+            fleetCount = pendingApprovalCount + pendingPaymentUtrCount;
+          }
         }
 
         let rmCount = 0;
         if (rmRes.status === "fulfilled" && rmRes.value.data?.data) {
-          if (!isAdmin && userTabs.length > 0) {
-            const allowedStatuses = userTabs.flatMap((t) => tabStatusMap[t] || []);
+          if (!isAdmin && tyreUserTabs.length > 0) {
+            const allowedStatuses = tyreUserTabs.flatMap((t) => tabStatusMap[t] || []);
             rmCount = rmRes.value.data.data.filter((d) => allowedStatuses.includes(d.status)).length;
           } else {
             rmCount = rmRes.value.data.data.filter((d) => d.status && d.status !== "Closed" && d.status !== "GRN Done").length;
@@ -125,8 +139,8 @@ export default function ProcurementInsuranceSopsContainer() {
 
         let tyreCount = 0;
         if (tyreRes.status === "fulfilled" && tyreRes.value.data?.data) {
-          if (!isAdmin && userTabs.length > 0) {
-            const allowedStatuses = userTabs.flatMap((t) => tabStatusMap[t] || []);
+          if (!isAdmin && tyreUserTabs.length > 0) {
+            const allowedStatuses = tyreUserTabs.flatMap((t) => tabStatusMap[t] || []);
             tyreCount = tyreRes.value.data.data.filter((d) => allowedStatuses.includes(d.status)).length;
           } else {
             tyreCount = tyreRes.value.data.data.filter((d) => d.status && d.status !== "Closed" && d.status !== "GRN Done").length;
@@ -141,7 +155,13 @@ export default function ProcurementInsuranceSopsContainer() {
 
     fetchNotificationCounts();
     const interval = setInterval(fetchNotificationCounts, 30000);
-    return () => clearInterval(interval);
+    window.addEventListener("fleet-insurance-updated", fetchNotificationCounts);
+    window.addEventListener("procurement-updated", fetchNotificationCounts);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("fleet-insurance-updated", fetchNotificationCounts);
+      window.removeEventListener("procurement-updated", fetchNotificationCounts);
+    };
   }, [user, isAdmin]);
 
   useEffect(() => {

@@ -288,6 +288,8 @@ function Home() {
   const [openPointsCount, setOpenPointsCount] = useState(0);
   const [billingConfirmCount, setBillingConfirmCount] = useState(0);
   const [procurementPendingCount, setProcurementPendingCount] = useState(0);
+  const [fleetPendingCount, setFleetPendingCount] = useState(0);
+  const [tyrePendingCount, setTyrePendingCount] = useState(0);
 
   useEffect(() => {
     sessionStorage.removeItem("it_helpdesk_expiry_modal_shown");
@@ -332,12 +334,24 @@ function Home() {
 
     async function fetchProcurementPendingCount() {
       try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/tyre-procurement/pending-count`
-        );
-        if (res.data?.success && typeof res.data.count === "number") {
-          setProcurementPendingCount(res.data.count);
+        const [tyreRes, fleetRes] = await Promise.allSettled([
+          axios.get(`${process.env.REACT_APP_API_STRING}/tyre-procurement/pending-count`),
+          axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/pending-count`),
+        ]);
+
+        let tyreCount = 0;
+        let fleetCount = 0;
+
+        if (tyreRes.status === "fulfilled" && tyreRes.value.data?.success && typeof tyreRes.value.data.count === "number") {
+          tyreCount = tyreRes.value.data.count;
         }
+        if (fleetRes.status === "fulfilled" && fleetRes.value.data?.success && typeof fleetRes.value.data.count === "number") {
+          fleetCount = fleetRes.value.data.count;
+        }
+
+        setTyrePendingCount(tyreCount);
+        setFleetPendingCount(fleetCount);
+        setProcurementPendingCount(tyreCount + fleetCount);
       } catch (err) {
         console.error("Error fetching procurement pending count:", err);
       }
@@ -818,7 +832,7 @@ function Home() {
                           {billingConfirmCount}
                         </span>
                       )}
-                      {["Procurement & Insurance SOPs", "Tyre Procurement SOP", "Procurement SOP"].includes(module) && procurementPendingCount > 0 && (
+                      {["Procurement & Insurance SOPs", "Procurement SOP"].includes(module) && procurementPendingCount > 0 && (
                         <span
                           style={{
                             position: "absolute",
@@ -840,6 +854,54 @@ function Home() {
                           }}
                         >
                           {procurementPendingCount}
+                        </span>
+                      )}
+                      {["Fleet Insurance SOP", "Fleet Insurance"].includes(module) && (fleetPendingCount || procurementPendingCount) > 0 && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "-10px",
+                            right: "-10px",
+                            backgroundColor: "#ef4444",
+                            color: "white",
+                            borderRadius: "50%",
+                            width: "22px",
+                            height: "22px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                            border: "2px solid white",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                            zIndex: 10,
+                          }}
+                        >
+                          {fleetPendingCount || procurementPendingCount}
+                        </span>
+                      )}
+                      {["Tyre Procurement SOP", "RM Procurement SOP"].includes(module) && tyrePendingCount > 0 && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "-10px",
+                            right: "-10px",
+                            backgroundColor: "#ef4444",
+                            color: "white",
+                            borderRadius: "50%",
+                            width: "22px",
+                            height: "22px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                            border: "2px solid white",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                            zIndex: 10,
+                          }}
+                        >
+                          {tyrePendingCount}
                         </span>
                       )}
                     </div>

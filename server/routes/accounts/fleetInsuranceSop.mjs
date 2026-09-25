@@ -859,5 +859,60 @@ router.post("/fleet-insurance-sop/assign-user-tabs", authMiddleware, async (req,
   }
 });
 
+// ─── GET PENDING COUNT FOR NOTIFICATIONS ───
+router.get("/fleet-insurance-sop/pending-count", authMiddleware, async (req, res) => {
+  try {
+    const user = await UserModel.findById(req.user._id).lean();
+    if (!user) {
+      return res.status(200).json({ success: true, count: 0, approvalCount: 0, paymentUtrCount: 0 });
+    }
+
+    const isAdmin =
+      user.role === "Admin" ||
+      user.role === "admin" ||
+      user.role === "SuperAdmin" ||
+      user.role === "superadmin";
+
+    const allowedTabs = user.fleet_insurance_tabs || [];
+
+    // Pending Approvals: PR generated, pending financial approval
+    const pendingApprovalCount = await FleetInsuranceSopModel.countDocuments({
+      prNumber: { $exists: true, $ne: "" },
+      financialApprovalStatus: { $nin: ["Approved", "Rejected"] }
+    });
+
+    // Pending Payment & UTR: Approved by Finance with active PR awaiting UTR
+    const pendingPaymentUtrCount = await FleetInsuranceSopModel.countDocuments({
+      prNumber: { $exists: true, $ne: "" },
+      financialApprovalStatus: "Approved",
+      renewed: { $ne: "YES" },
+      renewalStatus: { $ne: "Renewed" },
+      $or: [{ paymentUtr: { $exists: false } }, { paymentUtr: null }, { paymentUtr: "" }]
+    });
+
+    let totalCount = 0;
+    if (!isAdmin && allowedTabs.length > 0) {
+      if (allowedTabs.includes("Approval")) {
+        totalCount += pendingApprovalCount;
+      }
+      if (allowedTabs.includes("Payment & UTR")) {
+        totalCount += pendingPaymentUtrCount;
+      }
+    } else {
+      totalCount = pendingApprovalCount + pendingPaymentUtrCount;
+    }
+
+    res.status(200).json({
+      success: true,
+      count: totalCount,
+      approvalCount: pendingApprovalCount,
+      paymentUtrCount: pendingPaymentUtrCount
+    });
+  } catch (error) {
+    console.error("Error fetching fleet insurance pending count:", error);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+});
+
 export default router;
 

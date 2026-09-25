@@ -308,7 +308,7 @@ const buildQuoteEmailHTML = (quote, customBody) => {
 // CREATE quote
 router.post('/', async (req, res) => {
   try {
-    const { opportunityId, accountId, contactId, title, description, lineItems = [], terms, placeOfSupply, billToAddress, shipToAddress, companyTemplate, tradeType } = req.body;
+    const { opportunityId, accountId, contactId, title, description, lineItems = [], terms, placeOfSupply, billToAddress, shipToAddress, companyTemplate, tradeType, companyId, templateId, templateColumns } = req.body;
 
     if (!accountId || !title) {
       return res.status(400).json({ message: 'Account and title are required' });
@@ -317,6 +317,8 @@ router.post('/', async (req, res) => {
     // Sanitize optional ObjectIds to avoid BSONTypeError for empty strings
     const cleanOpportunityId = opportunityId && opportunityId.trim() ? opportunityId : undefined;
     const cleanContactId = contactId && contactId.trim() ? contactId : undefined;
+    const cleanCompanyId = companyId && companyId.trim() ? companyId : undefined;
+    const cleanTemplateId = templateId && templateId.trim() ? templateId : undefined;
     const creatorId = req.user?._id || req.user?.id || req.headers['user-id'];
 
     if (!creatorId) {
@@ -355,6 +357,9 @@ router.post('/', async (req, res) => {
       opportunityId: cleanOpportunityId,
       accountId,
       contactId: cleanContactId,
+      companyId: cleanCompanyId,
+      templateId: cleanTemplateId,
+      templateColumns: templateColumns || [],
       title,
       description,
       lineItems,
@@ -373,7 +378,7 @@ router.post('/', async (req, res) => {
     });
 
     await newQuote.save();
-    await newQuote.populate('createdById accountId contactId');
+    await newQuote.populate('createdById accountId contactId companyId templateId');
 
     res.status(201).json(newQuote);
   } catch (error) {
@@ -396,6 +401,8 @@ router.get('/', async (req, res) => {
     const quotes = await Quote.find(query)
       .populate('accountId', 'name')
       .populate('contactId', 'firstName lastName email')
+      .populate('companyId')
+      .populate('templateId')
       .populate('createdById', 'name email')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
@@ -421,6 +428,8 @@ router.get('/:id', async (req, res) => {
     const quote = await Quote.findOne(query)
       .populate('accountId')
       .populate('contactId')
+      .populate('companyId')
+      .populate('templateId')
       .populate('createdById')
       .populate('opportunityId');
 
@@ -438,7 +447,7 @@ router.put('/:id', async (req, res) => {
     const quote = await Quote.findOne({ _id: req.params.id, ...ownerFilter });
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
 
-    const { lineItems, terms, createNewVersion } = req.body;
+    const { lineItems, terms, createNewVersion, companyId, templateId, templateColumns } = req.body;
 
     // Handle Version Control Archive
     if (createNewVersion) {
@@ -478,6 +487,9 @@ router.put('/:id', async (req, res) => {
     if (req.body.title) quote.title = req.body.title;
     if (req.body.description) quote.description = req.body.description;
     if (req.body.status) quote.status = req.body.status;
+    if (companyId !== undefined) quote.companyId = companyId || undefined;
+    if (templateId !== undefined) quote.templateId = templateId || undefined;
+    if (templateColumns !== undefined) quote.templateColumns = templateColumns;
     if (req.body.accountId) quote.accountId = req.body.accountId;
     if (req.body.opportunityId !== undefined) {
       quote.opportunityId = req.body.opportunityId && req.body.opportunityId.trim() ? req.body.opportunityId : undefined;

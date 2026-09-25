@@ -2,9 +2,9 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 // Helper: Convert number to Indian currency words
-function numberToIndianWords(num) {
-  const integerPart = Math.floor(num);
-  if (integerPart === 0) return 'Rupees Zero Only';
+function numberToIndianWords(num, prefix = 'Rupees') {
+  const integerPart = Math.round(Number(num) || 0);
+  if (integerPart === 0) return `${prefix} Zero Only`;
 
   const single = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
   const double = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
@@ -48,7 +48,7 @@ function numberToIndianWords(num) {
     result += convertLessThanThousand(tempNum) + ' ';
   }
 
-  return 'Rupees ' + result.trim() + ' Only';
+  return `${prefix} ${result.trim()} Only`;
 }
 
 const getTradeChargeRows = (tradeType = 'import') => {
@@ -82,218 +82,831 @@ const getTradeChargeRows = (tradeType = 'import') => {
   ];
 };
 
-// ─── Paramount Propack Estimate PDF (GST Invoice-style) ───
+// ─── Format 2: Paramount Propack Estimate PDF (ESTIMATE format) ───
 const buildParamountEstimatePDF = (doc, quote) => {
-};
-
-const buildSurajQuotePDF = (doc, quote) => {
-  // Page width and height limits
   const pageWidth = 210;
   const pageHeight = 297;
-  const customRows = getTradeChargeRows(quote?.tradeType || 'import');
+  const m = 10;
+  const cw = pageWidth - 2 * m; // 190
 
-  // Draw Page Border (8mm margins)
+  // 1. Outer Border
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.3);
-  doc.rect(8, 8, pageWidth - 16, pageHeight - 16);
+  doc.rect(m, m, cw, pageHeight - 2 * m);
 
-  // Exim Logistics / Freight Forwarding Branding
+  // 2. Header
+  // Paramount Logo: Red Rounded Square with White 'P'
+  doc.setFillColor(225, 29, 72); // Rose/Red
+  doc.roundedRect(14, 14, 11, 11, 1.8, 1.8, 'F');
+
+  // White inner P graphic
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(0.7);
+  doc.line(17.5, 16.5, 17.5, 22.5);
+  doc.roundedRect(17.5, 16.5, 4.5, 3.2, 0.8, 0.8, 'S');
+
+  // Text beside logo
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.setTextColor(37, 99, 235); // Royal Blue
-  doc.text('EXIM', 14, 18);
+  doc.setFontSize(10.5);
   doc.setTextColor(30, 41, 59);
-  doc.text('LOGISTICS', 32, 18);
-  doc.setFontSize(8);
+  doc.text('PARAMOUNT', 28, 18);
+  doc.setFontSize(5.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('GLOBAL FREIGHT & EXIM SOLUTIONS', 14, 22);
+  doc.text('PROPACK PVT. LTD.', 28, 21.5);
 
+  // Company Address Details
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
+  doc.setFontSize(11);
   doc.setTextColor(15, 23, 42);
-  doc.text('Exim Logistics Pvt Ltd', 68, 16);
+  doc.text('Paramount Propack Pvt Ltd', 55, 14.5);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105);
-  doc.text('International Freight & Customs Broking Division,', 68, 20.5);
-  doc.text('Mundra Port Road, Sector 8, Gandhidham,', 68, 24.5);
-  doc.text('Kutch, Gujarat 370201', 68, 28.5);
-  doc.text('India. Phone: +91 2836 234567, Email: quotes@eximlogistics.com', 68, 32.5);
-  doc.text('GSTIN 24AABCE9876G1Z2', 68, 36.5);
-
-  // --- Document Title (Top Right) ---
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(22);
-  doc.setTextColor(30, 41, 59);
-  doc.text('ESTIMATE', 196, 26, { align: 'right' });
-
-  // Suraj Title Bar
-  doc.setFillColor(156, 175, 199);
-  doc.rect(8, 41, 194, 6, 'F');
+  doc.setFontSize(7.5);
+  doc.setTextColor(51, 65, 85);
+  doc.text('A-306, Wall Street 2, Opp. Orient Club,', 55, 18.5);
+  doc.text('Nr. Gujarat College, Ellis Bridge,', 55, 22);
+  doc.text('Ahmedabad 380006', 55, 25.5);
+  doc.text('India. Phone : 9924304363, Mo.9924330777', 55, 29);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  doc.setTextColor(255, 255, 255);
-  doc.text('QUOTATION', 105, 45.3, { align: 'center' });
+  doc.text('GSTIN 24AAHCP4599D1Z8', 55, 33);
+
+  // Title: ESTIMATE (Top Right)
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(26);
+  doc.setTextColor(15, 23, 42);
+  doc.text('ESTIMATE', pageWidth - m - 4, 27, { align: 'right' });
+
+  // Divider line
   doc.setDrawColor(200, 200, 200);
-  doc.line(8, 48, 202, 48);
+  doc.setLineWidth(0.3);
+  doc.line(m, 39, pageWidth - m, 39);
 
-  const yOff = 8;
+  // 3. Meta Row
+  const qDate = quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('en-GB') : '27/04/2026';
 
-  // --- Info Section Row ---
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
-  doc.text('#', 14, 45 + yOff);
-  doc.text('Estimate Date', 14, 49 + yOff);
+  doc.text('#', 14, 43.5);
+  doc.text(`: ${quote.quoteNumber || 'EST-822'}`, 34, 43.5);
 
-  doc.setFont('helvetica', 'normal');
-  doc.text(`: ${quote.quoteNumber}`, 38, 45 + yOff);
-  doc.text(`: ${new Date(quote.createdAt).toLocaleDateString('en-IN')}`, 38, 49 + yOff);
+  doc.text('Place Of Supply', 110, 43.5);
+  doc.text(`: ${quote.placeOfSupply || 'Gujarat (24)'}`, 145, 43.5);
 
-  doc.setFont('helvetica', 'bold');
-  doc.text('Place Of Supply', 110, 45 + yOff);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`: ${quote.placeOfSupply || 'Gujarat (24)'}`, 136, 45 + yOff);
+  doc.text('Estimate Date', 14, 47.5);
+  doc.text(`: ${qDate}`, 34, 47.5);
 
-  // Divider below info row
-  doc.line(8, 52 + yOff, 202, 52 + yOff);
+  doc.line(m, 50, pageWidth - m, 50);
 
-  // --- Addresses (Bill To / Ship To) Title background ---
-  doc.setFillColor(241, 245, 249); // slate-100 gray
-  doc.rect(8.2, 52.2 + yOff, 193.6, 6, 'F');
-
+  // 4. Bill To Section
+  doc.setFillColor(248, 250, 252);
+  doc.rect(m, 50, cw, 6, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(30, 41, 59);
-  doc.text('Bill To', 14, 56.5 + yOff);
-  doc.text('Ship To', 110, 56.5 + yOff);
+  doc.text('Bill To', 14, 54.2);
 
-  // Vertical line divider for addresses
-  doc.line(106, 52 + yOff, 106, 80 + yOff);
+  doc.line(m, 56, pageWidth - m, 56);
 
-  // Address text content
-  const customerName = quote.accountId?.name || 'Customer Name';
+  const accName = quote.accountId?.name || 'Alza Global';
+  const contactName = quote.contactId ? `${quote.contactId.firstName} ${quote.contactId.lastName || ''}`.trim() : (quote.description || 'Mr. Rohit Jain');
+  const billAddress = quote.billToAddress || 'Ahmedabad\n382470 Gujarat\nIndia';
+
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(9.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(customerName, 14, 63 + yOff);
-  doc.text(customerName, 110, 63 + yOff);
+  doc.text(accName, 14, 62);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105);
+  doc.setTextColor(51, 65, 85);
+  doc.text(contactName, 14, 66.5);
+  doc.text(billAddress, 14, 71, { maxWidth: 170 });
 
-  // Wrap address text lines cleanly
-  doc.text(quote.billToAddress || '', 14, 67 + yOff, { maxWidth: 85 });
-  doc.text(quote.shipToAddress || quote.billToAddress || '', 110, 67 + yOff, { maxWidth: 85 });
+  doc.line(m, 82, pageWidth - m, 82);
 
-  // Divider below addresses
-  doc.line(8, 80 + yOff, 202, 80 + yOff);
-
-  // --- Line Items Table ---
-  const startY = 88;
+  // 5. Items Table
   const tableHeaders = [
     [
-      { content: 'Particulars', styles: { halign: 'center', fillColor: [191, 219, 254], textColor: [15, 23, 42], fontStyle: 'bold' } },
-      { content: 'Qty', styles: { halign: 'center', fillColor: [191, 219, 254], textColor: [15, 23, 42], fontStyle: 'bold' } },
-      { content: 'Unit Price', styles: { halign: 'center', fillColor: [191, 219, 254], textColor: [15, 23, 42], fontStyle: 'bold' } },
-      { content: 'Tax %', styles: { halign: 'center', fillColor: [191, 219, 254], textColor: [15, 23, 42], fontStyle: 'bold' } },
-      { content: 'Amount (Rs)', styles: { halign: 'center', fillColor: [191, 219, 254], textColor: [15, 23, 42], fontStyle: 'bold' } }
+      { content: '#', styles: { halign: 'center' } },
+      { content: 'Item & Description', styles: { halign: 'left' } },
+      { content: 'HSN\n/SAC', styles: { halign: 'center' } },
+      { content: 'Qty', styles: { halign: 'right' } },
+      { content: 'Rate', styles: { halign: 'right' } },
+      { content: '%\nCGST', styles: { halign: 'center' } },
+      { content: 'Amt\nCGST', styles: { halign: 'right' } },
+      { content: '%\nSGST', styles: { halign: 'center' } },
+      { content: 'Amt\nSGST', styles: { halign: 'right' } },
+      { content: 'Amount', styles: { halign: 'right' } }
     ]
   ];
 
-  const items = quote.lineItems || [];
-  const tableRows = items.map((it) => {
+  let rawItems = quote.lineItems || [];
+  if (rawItems.length === 0) {
+    rawItems = [
+      { productName: '600 x 400 x 150\nFlat Bottom, Closed Handle,\nBlue', hsnSac: '39231030', quantity: 1000, unitPrice: 464, tax: 18 },
+      { productName: '600/400 - LID', hsnSac: '392310', quantity: 1000, unitPrice: 220, tax: 18 }
+    ];
+  }
+
+  let subTotal = 0;
+  let totalCGST = 0;
+  let totalSGST = 0;
+
+  const tableBody = rawItems.map((it, idx) => {
+    const qty = Number(it.quantity || 1);
+    const rate = Number(it.unitPrice || 0);
+    const amount = qty * rate;
+    const taxRate = it.tax !== undefined ? Number(it.tax) : 18;
+    const halfTax = taxRate / 2;
+    const cgstAmt = amount * (halfTax / 100);
+    const sgstAmt = amount * (halfTax / 100);
+
+    subTotal += amount;
+    totalCGST += cgstAmt;
+    totalSGST += sgstAmt;
+
     return [
-      it.productName || '',
-      it.quantity || 1,
-      Number(it.unitPrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      it.tax ? `${it.tax}%` : '-',
-      Number(it.lineTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      String(idx + 1),
+      it.productName || 'Plastic Crate Product',
+      it.hsnSac || '392310',
+      qty.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+      rate.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+      `${halfTax}%`,
+      cgstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+      `${halfTax}%`,
+      sgstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+      amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })
     ];
   });
 
+  const grandTotal = subTotal + totalCGST + totalSGST;
+
   doc.autoTable({
-    startY: startY,
+    startY: 82,
     head: tableHeaders,
-    body: tableRows,
+    body: tableBody,
     theme: 'grid',
     headStyles: {
-      fillColor: [191, 219, 254],
+      fillColor: [248, 250, 252],
       textColor: [15, 23, 42],
-      fontSize: 8,
-      fontStyle: 'bold'
+      fontSize: 7.5,
+      fontStyle: 'bold',
+      lineWidth: 0.15,
+      lineColor: [200, 200, 200],
+      cellPadding: 1.5
     },
     bodyStyles: {
       fontSize: 7.5,
-      textColor: [51, 65, 85],
+      textColor: [30, 41, 59],
       lineWidth: 0.15,
-      lineColor: [200, 200, 200]
+      lineColor: [200, 200, 200],
+      cellPadding: 1.5
     },
     columnStyles: {
-      0: { cellWidth: 94 },
-      1: { cellWidth: 15, halign: 'center' },
-      2: { cellWidth: 25, halign: 'right' },
-      3: { cellWidth: 20, halign: 'center' },
-      4: { cellWidth: 40, halign: 'right' }
+      0: { cellWidth: 8, halign: 'center' },
+      1: { cellWidth: 54, halign: 'left' },
+      2: { cellWidth: 18, halign: 'center' },
+      3: { cellWidth: 16, halign: 'right' },
+      4: { cellWidth: 16, halign: 'right' },
+      5: { cellWidth: 12, halign: 'center' },
+      6: { cellWidth: 18, halign: 'right' },
+      7: { cellWidth: 12, halign: 'center' },
+      8: { cellWidth: 18, halign: 'right' },
+      9: { cellWidth: 18, halign: 'right' }
     },
-    margin: { left: 8, right: 8 }
+    margin: { left: m, right: m }
   });
 
-  const grandTotal = quote.total || quote.lineItems?.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0) || 0;
+  const finalY = doc.lastAutoTable.finalY + 4;
+  doc.line(125, finalY, pageWidth - m, finalY);
 
-  doc.setFillColor(140, 92, 180);
-  doc.rect(8, doc.lastAutoTable.finalY + 4, 194, 9, 'F');
+  // 6. Summary Section
+  // Left Side: In Words, Notes, Terms
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(255, 255, 255);
-  doc.text('GRAND TOTAL', 14, doc.lastAutoTable.finalY + 10.5);
-  doc.text(`Rs. ${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 196, doc.lastAutoTable.finalY + 10.5, { align: 'right' });
-
-  // --- Footer summary area ---
-  const footerY = doc.lastAutoTable.finalY + 8;
-  doc.setDrawColor(200, 200, 200);
-  doc.line(8, footerY, 202, footerY);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(30, 41, 59);
-  doc.text('Total In Words', 12, footerY + 6);
+  doc.text('Total In Words', 14, finalY + 5);
 
-  doc.setFont('helvetica', 'italic');
+  doc.setFont('helvetica', 'bolditalic');
+  doc.setFontSize(8);
   doc.setTextColor(15, 23, 42);
-  doc.text(numberToIndianWords(Number(grandTotal || 0)), 12, footerY + 12, { maxWidth: 110 });
+  doc.text(numberToIndianWords(grandTotal, 'Rupees'), 14, finalY + 9.5, { maxWidth: 105 });
 
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
   doc.setTextColor(30, 41, 59);
-  doc.text('Payment Terms', 135, footerY + 6);
+  doc.text('Notes', 14, finalY + 17);
+
   doc.setFont('helvetica', 'normal');
-  doc.text(quote.terms?.paymentTerms || '100% Advance', 135, footerY + 12);
+  doc.setFontSize(7.5);
+  doc.setTextColor(51, 65, 85);
+  doc.text(quote.terms?.notes || 'Looking forward for your business.', 14, finalY + 21);
 
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
   doc.setTextColor(30, 41, 59);
-  doc.text('Authorized Signature', 155, 276, { align: 'center' });
-
-  const defaultTerms = [
-    '>>> Payment: 100% Advance',
-    '>>> The above terms are subject to local conditions on both sides',
-    '>>> The above terms are subject to space availability, equipment, rate approval, and acceptance.',
-    '>>> Booking cancellation fees as per liner tariff.',
-    '>>> The above terms apply to only hazarodus cargo only.',
-    '>>> Exchange rate taken only for calculation purpose. (Final exchange rate will be differ)',
-    '>>> Wooden Packaging: If wooden packaging is used, fumigation with an ISPM-15 stamp is mandatory. This will be the responsibility of the exporter.',
-    '>>> Additional Services: Any landing, chocking, greasing, forklift, or crane services required will incur extra charges.',
-    '>>> Hidden Charges: Any hidden charges incurred at the time of clearance and forwarding will be charged at actual costs, subject to prior approval.',
-    '>>> GST: Extra, as applicable.'
-  ];
+  doc.text('Terms & Conditions', 14, finalY + 28);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.2);
-  doc.setTextColor(71, 85, 105);
-  defaultTerms.forEach((term, idx) => {
-    doc.text(term, 12, footerY + 20 + idx * 4.2, { maxWidth: 185 });
+  doc.setTextColor(51, 65, 85);
+  const terms = [
+    `Payment Terms: ${quote.terms?.paymentTerms || '100% Advance'}.`,
+    'Freight charges will be extra.',
+    'Delivery Within 10 -12 Working Days.',
+    'Prices: The price is quoted in INR.',
+    'Bank Detail: Kotak Mahindra Bank,',
+    'Branch: Chandan House, Opp.Abhijit 3, Ahmedabad.',
+    'A/c. No.1512264287, IFSC Code : KKBK0000812',
+    'Other Detail: PAN No. AAHCP4599D',
+    'GSTIN No.- 24AAHCP4599D1Z8'
+  ];
+  terms.forEach((t, i) => {
+    doc.text(t, 14, finalY + 32.5 + i * 4);
   });
+
+  // Right Side: Totals Box & Signature
+  const rX = 125;
+  const valX = pageWidth - m - 4;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Sub Total', rX + 4, finalY + 5);
+  doc.text(subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 }), valX, finalY + 5, { align: 'right' });
+
+  doc.text('CGST9 (9%)', rX + 4, finalY + 10);
+  doc.text(totalCGST.toLocaleString('en-IN', { minimumFractionDigits: 2 }), valX, finalY + 10, { align: 'right' });
+
+  doc.text('SGST9 (9%)', rX + 4, finalY + 15);
+  doc.text(totalSGST.toLocaleString('en-IN', { minimumFractionDigits: 2 }), valX, finalY + 15, { align: 'right' });
+
+  doc.line(rX, finalY + 17.5, pageWidth - m, finalY + 17.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Total', rX + 4, finalY + 22.5);
+  doc.text(`Rs. ${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valX, finalY + 22.5, { align: 'right' });
+
+  doc.line(rX, finalY + 25.5, pageWidth - m, finalY + 25.5);
+
+  // Authorized Signature Box
+  const sigBoxY = finalY + 28;
+  doc.rect(rX, sigBoxY, pageWidth - m - rX, 35);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Authorized Signature', rX + (pageWidth - m - rX) / 2, sigBoxY + 31, { align: 'center' });
+};
+
+// ─── Format 1: SURAJ FORWARDERS PVT. LTD. (Import / Export Invoice & Quotation Format) ───
+const buildSurajQuotePDF = (doc, quote) => {
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const m = 7;
+  const cw = pageWidth - 2 * m; // 196
+
+  // 1. Outer Border
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.4);
+  doc.rect(m, m, cw, pageHeight - 2 * m);
+
+  // 2. Header Section
+  // Sun Logo on left
+  const logoCenterX = 18;
+  const logoCenterY = 17;
+  doc.setFillColor(234, 88, 12); // Orange / Sun Red
+  doc.circle(logoCenterX, logoCenterY, 3.2, 'F');
+
+  // Sun Rays
+  doc.setDrawColor(234, 88, 12);
+  doc.setLineWidth(0.6);
+  for (let i = 0; i < 8; i++) {
+    const angle = (i * Math.PI) / 4;
+    const x1 = logoCenterX + Math.cos(angle) * 4.2;
+    const y1 = logoCenterY + Math.sin(angle) * 4.2;
+    const x2 = logoCenterX + Math.cos(angle) * 6.2;
+    const y2 = logoCenterY + Math.sin(angle) * 6.2;
+    doc.line(x1, y1, x2, y2);
+  }
+
+  // Logo Brand Text
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.text('SURAJ', 28, 17.5);
+  doc.setFontSize(5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('FORWARDERS PVT. LTD.', 28, 20.5);
+
+  // Center Header Details
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text('SURAJ FORWARDERS PVT. LTD.', 112, 12.5, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.2);
+  doc.setTextColor(30, 41, 59);
+  doc.text('A/204-205, WALL STREET II, OPP. ORIENT CLUB, NR. GUJARAT COLLEGE, ELLIS BRIDGE, AHMEDABAD - 380006.', 112, 16, { align: 'center' });
+  doc.text('Contact : 07926402005 | E-Mail : account@surajforwarders.com | www.surajforwarders.com', 112, 19.5, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('GSTIN : 24AAKCS6838D1Z8          State : [24] GUJARAT', 112, 23, { align: 'center' });
+  doc.text('PAN No : AAKCS6838D              CIN : U63090GJ2007PTC050253', 112, 26.5, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.text('MSME : UDYAM : GJ-01-0010319 (Small Services)', 112, 30, { align: 'center' });
+
+  // Right QR Placeholder Box
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.rect(180, 8.5, 21, 22.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(5.5);
+  doc.text('e-INVOICE', 190.5, 14, { align: 'center' });
+  doc.text('QR VERIFIED', 190.5, 17, { align: 'center' });
+  doc.setDrawColor(80, 80, 80);
+  doc.rect(184, 19, 13, 10);
+  doc.setFontSize(4.5);
+  doc.text('SURAJ IRN', 190.5, 25, { align: 'center' });
+
+  // Divider below header
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.line(m, 32.5, pageWidth - m, 32.5);
+
+  // 3. Reference Strip
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.5);
+  doc.text('ACK', 9, 36);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${quote.quoteNumber || '162625115562138'}`, 18, 36);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('IRN', 65, 36);
+  doc.setFont('helvetica', 'normal');
+  const irn = String(quote._id || quote.quoteNumber || 'cc7255fee7d5ad1daea18f08ce70134622f1811babe4b2c0e2bf92e42681e7b6');
+  doc.text(`: ${irn.length > 50 ? irn.substring(0, 50) + '...' : irn}`, 72, 36);
+
+  doc.line(m, 38, pageWidth - m, 38);
+
+  // 4. Two-Column Metadata Box
+  doc.line(105, 38, 105, 84); // Vertical Center Divider
+
+  // Customer Details (Left)
+  const custName = quote.accountId?.name || 'CADILA PHARMACEUTICALS LTD';
+  const custAddress = quote.billToAddress || '1389, TRASAD ROAD, DHOLKA';
+  const custPan = quote.accountId?.pan || quote.panNo || 'AAACC6251E';
+  const custGstin = quote.accountId?.gstin || quote.gstin || '24AAACC6251E1Z5';
+  const custState = quote.placeOfSupply || 'Gujarat-24';
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.text('Customer', 9, 41.5);
+  doc.setFontSize(8);
+  doc.text(custName, 9, 45);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.text(custAddress, 9, 48.5, { maxWidth: 94 });
+  doc.setFont('helvetica', 'bold');
+  doc.text(`PAN No : ${custPan}`, 9, 53.5);
+  doc.text(`GSTIN : ${custGstin}     State : ${custState}`, 9, 57);
+
+  // Horizontal sub-divider in left column
+  doc.line(m, 59, 105, 59);
+
+  // Consignment Details (Left Bottom)
+  const beNum = quote.beNumber || '9988930';
+  const beDate = quote.beDate || '19-Jun-26';
+  const mblNo = quote.mblNo || '15763249900';
+  const mblDate = quote.mblDate || '17-Jun-26';
+  const hblNo = quote.hblNo || '1075291239';
+  const hblDate = quote.hblDate || '17-Jun-26';
+  const customHouse = quote.opportunityId?.pod || 'AHMEDABAD AIR CARGO';
+  const vessel = quote.opportunityId?.shippingLine || 'QR0132';
+  const originPort = quote.opportunityId?.pol || 'ROME';
+  const pkgs = quote.packages || '4.560 KGS';
+  const grossWt = quote.opportunityId?.containerWeight || '5601.600';
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('BE Number', 9, 62.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${beNum}`, 32, 62.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Date', 66, 62.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${beDate}`, 76, 62.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('BE Type', 9, 66);
+  doc.setFont('helvetica', 'normal');
+  doc.text(': Home', 32, 66);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('MBL No.', 9, 69.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${mblNo}`, 32, 69.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Date', 66, 69.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${mblDate}`, 76, 69.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('HBL No.', 9, 73);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${hblNo}`, 32, 73);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Date', 66, 73);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${hblDate}`, 76, 73);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Consignment Type', 9, 76.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(':', 32, 76.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Packages', 66, 76.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${pkgs}`, 78, 76.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Gross Weight', 9, 80);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${grossWt}`, 32, 80);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Net Wt.', 66, 80);
+  doc.setFont('helvetica', 'normal');
+  doc.text(': —', 78, 80);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Custom House', 9, 83.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${customHouse}`, 32, 83.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Chg. Wt.', 66, 83.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(': —', 78, 83.5);
+
+  // Quotation / Invoice Details (Right)
+  const qDate = quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-') : '30-Jun-26';
+  const dueDate = quote.terms?.validUntil ? new Date(quote.terms.validUntil).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-') : qDate;
+  const isExport = String(quote.tradeType || '').toLowerCase().includes('export');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.text('Invoice No.', 108, 42);
+  doc.text(`: ${quote.quoteNumber || 'GIA/1534/26-27'}`, 140, 42);
+
+  doc.setFontSize(6.5);
+  doc.text('Invoice Date', 108, 45.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${qDate}`, 140, 45.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Due Date', 108, 49);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${dueDate}`, 140, 49);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Place of Supply', 108, 52.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${quote.placeOfSupply || '[24] Gujarat'}`, 140, 52.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Job Number', 108, 56);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${quote.jobNumber || 'AMD/IMP/AIR/00124/26-27'}`, 140, 56);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Job Type', 108, 59.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${isExport ? 'Export' : 'Import'}`, 140, 59.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Customer Ref.', 108, 63);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${quote.description || 'POND: 200000102'}`, 140, 63);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Invoice Number', 108, 66.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${quote.quoteNumber || '1210000312'}`, 140, 66.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Date', 170, 66.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${qDate}`, 178, 66.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Terms of Invoice', 108, 70);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${quote.terms?.paymentTerms || 'Net 30'}`, 140, 70);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Shipper Name', 108, 73.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${quote.opportunityId?.shipper || 'RECORDATI SPA'}`, 140, 73.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('BE Heading', 108, 77);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${quote.title || 'METHENAMINE HIPPURATE BATCH'}`, 140, 77);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Vessel / Voyage', 108, 80.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${vessel}`, 140, 80.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Origin Port', 108, 84);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${originPort}`, 140, 84);
+
+  // Horizontal divider below top meta
+  doc.line(m, 86, pageWidth - m, 86);
+
+  // Importer Name & Containers
+  doc.setFont('helvetica', 'bold');
+  doc.text('Importer Name', 9, 89.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${custName}`, 35, 89.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Containers', 108, 89.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`: ${quote.opportunityId?.containerType || '—'}`, 140, 89.5);
+
+  doc.line(m, 92, pageWidth - m, 92);
+
+  // 5. Charges Table
+  const tableHeaders = [
+    [
+      { content: 'Sr.\nNo', styles: { halign: 'center' } },
+      { content: 'Description', styles: { halign: 'left' } },
+      { content: 'Invoice\nNo', styles: { halign: 'center' } },
+      { content: 'Invoice\nDate', styles: { halign: 'center' } },
+      { content: 'HSN\n/SAC', styles: { halign: 'center' } },
+      { content: 'Tax\nType', styles: { halign: 'center' } },
+      { content: 'Taxable\nValue', styles: { halign: 'right' } },
+      { content: '%', styles: { halign: 'center' } },
+      { content: 'CGST', styles: { halign: 'right' } },
+      { content: '%', styles: { halign: 'center' } },
+      { content: 'SGST', styles: { halign: 'right' } },
+      { content: 'Total\n(INR)', styles: { halign: 'right' } }
+    ]
+  ];
+
+  let rawItems = quote.lineItems || [];
+  if (rawItems.length === 0) {
+    rawItems = [
+      { productName: 'DOCUMENTATION CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 500, tax: 18 },
+      { productName: 'EXAMINATION CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 2500, tax: 18 },
+      { productName: 'IMPORT AGENCY CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 17500, tax: 18 },
+      { productName: 'EPCG/ADV.AUTH. Licence Debting Charges', hsnSac: '996713', quantity: 1, unitPrice: 500, tax: 18 },
+      { productName: 'ADANI CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 28290, tax: 18 },
+      { productName: 'MISCELLANEOUS CHARGES\nLOADING CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 1000, tax: 18 },
+      { productName: 'ADC NOC CHARGES', hsnSac: '996713', quantity: 1, unitPrice: 1000, tax: 18 },
+      { productName: 'EDI', hsnSac: '996713', quantity: 1, unitPrice: 30, tax: 18 }
+    ];
+  }
+
+  let totalTaxable = 0;
+  let totalCGST = 0;
+  let totalSGST = 0;
+  let totalINR = 0;
+
+  const tableBody = rawItems.map((it, idx) => {
+    const qty = Number(it.quantity || 1);
+    const unitPrice = Number(it.unitPrice || 0);
+    const discount = Number(it.discount || 0);
+    const baseVal = qty * unitPrice * (1 - discount / 100);
+    const taxRate = it.tax !== undefined ? Number(it.tax) : 18;
+    const halfTax = taxRate / 2;
+    const cgstAmt = baseVal * (halfTax / 100);
+    const sgstAmt = baseVal * (halfTax / 100);
+    const rowTotal = baseVal + cgstAmt + sgstAmt;
+
+    totalTaxable += baseVal;
+    totalCGST += cgstAmt;
+    totalSGST += sgstAmt;
+    totalINR += rowTotal;
+
+    return [
+      String(idx + 1),
+      it.productName || 'Charge Item',
+      '',
+      '',
+      it.hsnSac || '996713',
+      'T',
+      baseVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      halfTax ? String(halfTax) : '9',
+      cgstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      halfTax ? String(halfTax) : '9',
+      sgstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      rowTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    ];
+  });
+
+  // Subtotal row
+  tableBody.push([
+    { content: 'Sub Total', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold' } },
+    { content: totalTaxable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
+    '',
+    { content: totalCGST.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
+    '',
+    { content: totalSGST.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
+    { content: totalINR.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } }
+  ]);
+
+  doc.autoTable({
+    startY: 92,
+    head: tableHeaders,
+    body: tableBody,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [255, 255, 255],
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      fontSize: 6.2,
+      lineWidth: 0.2,
+      lineColor: [0, 0, 0],
+      cellPadding: 1
+    },
+    bodyStyles: {
+      fontSize: 6.2,
+      textColor: [0, 0, 0],
+      lineWidth: 0.15,
+      lineColor: [0, 0, 0],
+      cellPadding: 1
+    },
+    columnStyles: {
+      0: { cellWidth: 8, halign: 'center' },
+      1: { cellWidth: 54, halign: 'left' },
+      2: { cellWidth: 15, halign: 'center' },
+      3: { cellWidth: 14, halign: 'center' },
+      4: { cellWidth: 14, halign: 'center' },
+      5: { cellWidth: 10, halign: 'center' },
+      6: { cellWidth: 17, halign: 'right' },
+      7: { cellWidth: 7, halign: 'center' },
+      8: { cellWidth: 15, halign: 'right' },
+      9: { cellWidth: 7, halign: 'center' },
+      10: { cellWidth: 15, halign: 'right' },
+      11: { cellWidth: 20, halign: 'right' }
+    },
+    margin: { left: m, right: m }
+  });
+
+  const finalY = doc.lastAutoTable.finalY;
+
+  // Legend bar
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.5);
+  doc.text('T:axable  P:Pure Agent  E:Exemption  R:Reverse Charge  N:Non Taxable', 9, finalY + 3.5);
+
+  const botY = finalY + 5;
+  doc.setLineWidth(0.3);
+  doc.line(m, botY, pageWidth - m, botY);
+  doc.line(110, botY, 110, 290); // Vertical divider for bottom section
+
+  // Left Bottom Section: Bank Details
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.text('Bank Details', 9, botY + 4.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.5);
+  doc.text('Bank Name', 9, botY + 8.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(': Kotak Mahindra Bank Ltd.', 32, botY + 8.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('A/c No.', 9, botY + 12);
+  doc.text(': 8611785699', 32, botY + 12);
+
+  doc.text('IFSC', 9, botY + 15.5);
+  doc.text(': KKBK0000812', 32, botY + 15.5);
+
+  doc.text('Branch', 9, botY + 19);
+  doc.setFont('helvetica', 'normal');
+  doc.text(': Chandan House, Ahmedabad', 32, botY + 19);
+
+  // Amount in Words
+  doc.line(m, botY + 22, 110, botY + 22);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.5);
+  doc.text('Amount in Word :', 9, botY + 26);
+  doc.text(numberToIndianWords(totalINR, 'INR'), 32, botY + 26, { maxWidth: 76 });
+
+  // HSN Breakdown Mini Table
+  doc.line(m, botY + 29, 110, botY + 29);
+  doc.autoTable({
+    startY: botY + 30,
+    head: [['HSN/SAC', 'Taxable Value', 'Rate', 'Amount', 'Rate', 'Amount', 'Tax Amount']],
+    body: [
+      [
+        '996713',
+        totalTaxable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        '9%',
+        totalCGST.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        '9%',
+        totalSGST.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        (totalCGST + totalSGST).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      ]
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontSize: 5, fontStyle: 'bold', lineWidth: 0.15, cellPadding: 0.8 },
+    bodyStyles: { textColor: [0, 0, 0], fontSize: 5, lineWidth: 0.15, cellPadding: 0.8 },
+    margin: { left: m },
+    tableWidth: 100
+  });
+
+  const termsY = doc.lastAutoTable.finalY + 3;
+  doc.line(m, termsY, 110, termsY);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.5);
+  doc.text('Remarks :', 9, termsY + 4);
+  doc.setFont('helvetica', 'normal');
+  doc.text(quote.terms?.notes || '—', 25, termsY + 4, { maxWidth: 83 });
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Terms & Conditions :', 9, termsY + 9);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.5);
+  const termsList = [
+    '* In case of any discrepancy in the invoice, please bring the same to our attention',
+    '  within 7 days of receipt of invoice; else the same would be treated as correct.',
+    '* Delay in payment beyond the agreed credit period will attract interest @ 18% p.a.',
+    '* Government Taxes applied as per the prevailing rates.',
+    '* All disputes are subject to AHMEDABAD Jurisdiction.',
+    'E & O.E'
+  ];
+  termsList.forEach((t, i) => {
+    doc.text(t, 9, termsY + 13 + i * 3.2);
+  });
+
+  // Right Bottom Section: Financial Totals Box
+  const totalBoxX = 110;
+  const totalBoxW = pageWidth - m - totalBoxX; // 93mm
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.text('Total Amount Before Tax', totalBoxX + 3, botY + 5);
+  doc.text(totalTaxable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), pageWidth - m - 3, botY + 5, { align: 'right' });
+  doc.line(totalBoxX, botY + 7, pageWidth - m, botY + 7);
+
+  doc.text('Add:GST', totalBoxX + 3, botY + 11.5);
+  doc.text((totalCGST + totalSGST).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), pageWidth - m - 3, botY + 11.5, { align: 'right' });
+  doc.line(totalBoxX, botY + 13.5, pageWidth - m, botY + 13.5);
+
+  doc.text('Total Invoice Value', totalBoxX + 3, botY + 18);
+  doc.text(totalINR.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), pageWidth - m - 3, botY + 18, { align: 'right' });
+  doc.line(totalBoxX, botY + 20, pageWidth - m, botY + 20);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('Less : Advance Received', totalBoxX + 3, botY + 24.5);
+  doc.text('—', pageWidth - m - 3, botY + 24.5, { align: 'right' });
+  doc.line(totalBoxX, botY + 26.5, pageWidth - m, botY + 26.5);
+
+  const roundOff = Math.round(totalINR) - totalINR;
+  doc.text('Round Off', totalBoxX + 3, botY + 31);
+  doc.text(roundOff.toFixed(2), pageWidth - m - 3, botY + 31, { align: 'right' });
+  doc.line(totalBoxX, botY + 33, pageWidth - m, botY + 33);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('Net Payable', totalBoxX + 3, botY + 38);
+  doc.text(Math.round(totalINR).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), pageWidth - m - 3, botY + 38, { align: 'right' });
+  doc.line(totalBoxX, botY + 41, pageWidth - m, botY + 41);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.text('Tax Payable on Reverse Charges', totalBoxX + 3, botY + 45.5);
+  doc.line(totalBoxX, botY + 48, pageWidth - m, botY + 48);
+
+  // Authorised Signatory Block
+  const sigY = botY + 54;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.text('for SURAJ FORWARDERS PVT. LTD.', totalBoxX + totalBoxW / 2, sigY, { align: 'center' });
+
+  // Stylized Signature
+  doc.setDrawColor(30, 41, 59);
+  doc.setLineWidth(0.6);
+  doc.line(totalBoxX + 25, sigY + 14, totalBoxX + 65, sigY + 14);
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(9);
+  doc.text('Agam', totalBoxX + 45, sigY + 12, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.text('Authorised Signatory', totalBoxX + totalBoxW / 2, sigY + 18, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.text('Page: 1/1', pageWidth - m - 3, 287, { align: 'right' });
 };
 
 const buildTransportQuotePDF = (doc, quote) => {
@@ -430,138 +1043,7 @@ const buildTransportQuotePDF = (doc, quote) => {
 };
 
 const buildParamountQuotePDF = (doc, quote) => {
-  const pw = 210;
-  const m = 14;
-  const cw = pw - 2 * m;
-
-  // Header
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.text('QUOTATION FOR PLASTIC CRATES', m, m + 10);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.text(`Quotation No.: ${quote.quoteNumber || '_______'}`, m, m + 20);
-  doc.text(`Date: ${new Date(quote.createdAt || Date.now()).toLocaleDateString('en-IN')}`, m, m + 25);
-
-  doc.text('To,', m, m + 35);
-  doc.text(`M/s. ${quote.accountId?.name || '_________________________'}`, m, m + 40);
-  doc.text(`Address: ${quote.billToAddress || '_________________________'}`, m, m + 45);
-  doc.text('GSTIN: _________________________', m, m + 50);
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Subject: Quotation for Supply of Plastic Crates', m, m + 60);
-
-  doc.setFont('helvetica', 'normal');
-  doc.text('Dear Sir/Madam,', m, m + 70);
-  doc.text('We are pleased to submit our quotation for the supply of HDPE/PP Plastic Crates as per the required specifications.', m, m + 80, { maxWidth: cw });
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('PLASTIC CRATE PRICE LIST', m, m + 92);
-
-  const sizes = [
-    '600 × 400 × 150 mm', '600 × 400 × 200 mm', '600 × 400 × 250 mm', '600 × 400 × 300 mm',
-    '600 × 400 × 350 mm', '600 × 400 × 400 mm', '500 × 350 × 150 mm', '500 × 350 × 200 mm',
-    '400 × 300 × 150 mm', '400 × 300 × 200 mm', '400 × 300 × 250 mm', '300 × 200 × 150 mm'
-  ];
-
-  doc.autoTable({
-    startY: m + 95,
-    head: [['Sr. No.', 'Crate Size (L × W × H)', 'Approx. Capacity', 'Material', 'Unit Price']],
-    body: sizes.map((size, idx) => [
-      String(idx + 1),
-      size,
-      '______ Ltr.',
-      'PP / HDPE',
-      'Rs ______ / Pc'
-    ]),
-    theme: 'plain',
-    headStyles: { fontStyle: 'bold', textColor: [0, 0, 0] },
-    bodyStyles: { textColor: [0, 0, 0] },
-    margin: { left: m, right: m }
-  });
-
-  const nextY = doc.lastAutoTable.finalY + 10;
-  
-  doc.setFont('helvetica', 'bold');
-  doc.text('SPECIFICATIONS', m + 10, nextY);
-  
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  const specs = [
-    'Product: Plastic Crate', 'Material: PP / HDPE', 'Colour: ____________',
-    'Crate Type: Open / Closed / Ventilated', 'Loading Capacity: ____________',
-    'Weight per Crate: ____________ Kg', 'Stackable: Yes / No', 'Food Grade: Yes / No',
-    'Printing / Logo: Available on request', 'Custom Colour: Available subject to MOQ',
-    'Custom Size: Available as per mould/design requirements'
-  ];
-  let sy = nextY + 8;
-  specs.forEach(sp => {
-    doc.text(sp, m + 15, sy);
-    sy += 5;
-  });
-
-  doc.addPage();
-  let py = 20;
-  doc.setFont('helvetica', 'bold');
-  doc.text('COMMERCIAL TERMS', m, py);
-  
-  doc.autoTable({
-    startY: py + 5,
-    head: [['Particulars', 'Terms']],
-    body: [
-      ['Price Basis', 'Ex-Works / FOR __________'],
-      ['GST', 'Extra as applicable'],
-      ['Packing', 'Included / Extra'],
-      ['Freight', 'Extra / Included'],
-      ['Minimum Order Quantity', '__________ pcs'],
-      ['Delivery', '______ days from confirmed order'],
-      ['Payment Terms', `${quote.terms?.paymentTerms || '______% Advance / ______ days'}`],
-      ['Price Validity', '30 days'],
-      ['Mould / Die Charges', 'Extra, if applicable'],
-      ['Transportation', 'Extra / At Actual'],
-      ['Loading Charges', 'Extra / Included']
-    ],
-    theme: 'plain',
-    headStyles: { fontStyle: 'bold', textColor: [0, 0, 0] },
-    bodyStyles: { textColor: [0, 0, 0] },
-    margin: { left: m + 10, right: m + 10 }
-  });
-
-  let ny = doc.lastAutoTable.finalY + 10;
-  doc.setFont('helvetica', 'bold');
-  doc.text('NOTE', m, ny);
-  doc.setFont('helvetica', 'normal');
-  const notes = [
-    '1. Final price will depend on crate size, weight, material grade, colour, design and quantity.',
-    '2. Any change in raw material or product specification may result in a change in price.',
-    '3. GST will be charged as applicable.',
-    '4. Freight and transportation charges will be charged separately unless specifically included in the quotation.',
-    '5. Custom printing/logo and special colours are subject to MOQ and additional charges.',
-    '6. Delivery period will be confirmed at the time of purchase order.'
-  ];
-  
-  ny += 8;
-  notes.forEach(n => {
-    doc.splitTextToSize(n, cw).forEach(line => {
-      doc.text(line, m, ny);
-      ny += 5;
-    });
-    ny += 3;
-  });
-
-  ny += 10;
-  doc.text('We look forward to receiving your valued order and assure you of quality products and timely delivery.', m, ny);
-  
-  ny += 15;
-  doc.text('For Paramount Propack Pvt Ltd', m, ny);
-  ny += 20;
-  doc.text('Authorized Signatory', m, ny);
-  ny += 10;
-  doc.text('Name: ______________________________', m, ny);
-  doc.text('Designation: ________________________', m, ny + 5);
-  doc.text('Mobile: _____________________________', m, ny + 10);
-  doc.text('Email: ______________________________', m, ny + 15);
+  buildParamountEstimatePDF(doc, quote);
 };
 
 const buildElockQuotePDF = (doc, quote) => {
@@ -717,12 +1199,357 @@ const buildElockQuotePDF = (doc, quote) => {
   doc.text('Authorized Signatory', m, curY);
 };
 
+// ─── Format Zoho: Dynamic Company & Custom Columns Quotation PDF (ZOHO Inspired) ───
+const buildZohoCompanyQuotePDF = (doc, quote) => {
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const m = 10;
+  const cw = pageWidth - 2 * m;
+
+  const comp = quote.companyId || {};
+  const temp = quote.templateId || {};
+  const zohoStyle = temp.zohoStyle || {};
+
+  const hexToRgb = (hex) => {
+    let clean = (hex || '#1e3a8a').replace('#', '');
+    if (clean.length === 3) clean = clean.split('').map(c => c + c).join('');
+    const num = parseInt(clean, 16);
+    return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+  };
+
+  const primaryRgb = hexToRgb(zohoStyle.themeColor || '#1e3a8a');
+
+  // Outer Border
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.4);
+  doc.rect(m, m, cw, pageHeight - 2 * m);
+
+  // Top Accent Banner
+  doc.setFillColor(...primaryRgb);
+  doc.rect(m, m, cw, 4, 'F');
+
+  let curY = 18;
+
+  const logoUrl = comp.logoUrl;
+  let logoOffset = 14;
+
+  if (logoUrl && (logoUrl.startsWith('data:image') || logoUrl.startsWith('http'))) {
+    try {
+      doc.addImage(logoUrl, 'PNG', 14, curY - 2, 28, 20);
+      logoOffset = 46;
+    } catch (e) {
+      console.warn('Could not render logo image in PDF:', e);
+    }
+  }
+
+  const compName = comp.name || 'EXIM LOGISTICS SOLUTION';
+  const compTagline = comp.tagline || '';
+  const compAddressStr = [
+    comp.address?.street,
+    comp.address?.city,
+    comp.address?.state,
+    comp.address?.pincode,
+    comp.address?.country
+  ].filter(Boolean).join(', ');
+  const compGstin = comp.gstin ? `GSTIN: ${comp.gstin}` : '';
+  const compContact = [comp.phone ? `Ph: ${comp.phone}` : '', comp.email ? `Email: ${comp.email}` : ''].filter(Boolean).join(' | ');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(...primaryRgb);
+  doc.text(compName, logoOffset, curY);
+
+  if (compTagline) {
+    curY += 4.5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text(compTagline, logoOffset, curY);
+  }
+
+  curY += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(51, 65, 85);
+  if (compAddressStr) {
+    doc.text(compAddressStr, logoOffset, curY, { maxWidth: 110 });
+    curY += 4.5;
+  }
+  if (compGstin || compContact) {
+    doc.text([compGstin, compContact].filter(Boolean).join(' • '), logoOffset, curY, { maxWidth: 110 });
+  }
+
+  // Right Top: QUOTATION Title & Meta Box
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(...primaryRgb);
+  doc.text('QUOTATION', pageWidth - m - 4, 22, { align: 'right' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text(`Quote #: ${quote.quoteNumber || 'QT-2026-00001'}`, pageWidth - m - 4, 29, { align: 'right' });
+
+  const qDate = quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-IN');
+  const validUntilStr = quote.terms?.validUntil ? new Date(quote.terms.validUntil).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '30 Days';
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Date: ${qDate}`, pageWidth - m - 4, 34, { align: 'right' });
+  doc.text(`Valid Until: ${validUntilStr}`, pageWidth - m - 4, 38.5, { align: 'right' });
+
+  // Divider Line
+  curY = 44;
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.4);
+  doc.line(m, curY, pageWidth - m, curY);
+
+  // Customer / Bill To Section
+  curY += 6;
+  doc.setFillColor(248, 250, 252);
+  doc.rect(m, curY, cw, 6, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(...primaryRgb);
+  doc.text('BILL TO / CLIENT DETAILS', 14, curY + 4.2);
+
+  curY += 9;
+  const accName = quote.accountId?.name || 'Valued Customer';
+  const contactName = quote.contactId ? `${quote.contactId.firstName || ''} ${quote.contactId.lastName || ''}`.trim() : '';
+  const billAddr = quote.billToAddress || 'As per records';
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(15, 23, 42);
+  doc.text(accName, 14, curY);
+
+  curY += 4.5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.2);
+  doc.setTextColor(51, 65, 85);
+  if (contactName) {
+    doc.text(`Attn: ${contactName}`, 14, curY);
+    curY += 4;
+  }
+  doc.text(billAddr, 14, curY, { maxWidth: 170 });
+  curY += 8;
+
+  // Dynamic Custom Columns & Items Table Setup
+  const customCols = quote.templateColumns || temp.customColumns || [];
+
+  const headCols = [
+    { content: '#', styles: { halign: 'center', width: 8 } },
+    { content: 'Product / Service Description', styles: { halign: 'left' } },
+    { content: 'HSN/SAC', styles: { halign: 'center' } }
+  ];
+
+  customCols.forEach(col => {
+    headCols.push({
+      content: col.label,
+      styles: { halign: col.align || 'center' }
+    });
+  });
+
+  headCols.push(
+    { content: 'Qty', styles: { halign: 'center' } },
+    { content: 'Rate (₹)', styles: { halign: 'right' } },
+    { content: 'Disc %', styles: { halign: 'center' } },
+    { content: 'Tax %', styles: { halign: 'center' } },
+    { content: 'Total (₹)', styles: { halign: 'right' } }
+  );
+
+  const rawItems = quote.lineItems || [];
+  let calcSubtotal = 0;
+  let calcTax = 0;
+  let calcDiscount = 0;
+
+  const tableBody = rawItems.map((it, idx) => {
+    const qty = Number(it.quantity || 1);
+    const price = Number(it.unitPrice || 0);
+    const disc = Number(it.discount || 0);
+    const tax = Number(it.tax || 0);
+
+    const lineSub = qty * price;
+    const lineDisc = lineSub * (disc / 100);
+    const lineTax = (lineSub - lineDisc) * (tax / 100);
+    const lineTotal = it.lineTotal || (lineSub - lineDisc + lineTax);
+
+    calcSubtotal += lineSub;
+    calcDiscount += lineDisc;
+    calcTax += lineTax;
+
+    const row = [
+      String(idx + 1),
+      it.productName || 'Service Item',
+      it.hsnSac || '9967'
+    ];
+
+    customCols.forEach(col => {
+      const val = (it.customFields && it.customFields[col.key] !== undefined)
+        ? String(it.customFields[col.key])
+        : (col.defaultValue || '—');
+      row.push(val);
+    });
+
+    row.push(
+      String(qty),
+      price.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+      disc ? `${disc}%` : '—',
+      tax ? `${tax}%` : '—',
+      Math.round(lineTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })
+    );
+
+    return row;
+  });
+
+  doc.autoTable({
+    startY: curY,
+    head: [headCols],
+    body: tableBody,
+    theme: 'grid',
+    headStyles: {
+      fillColor: primaryRgb,
+      textColor: [255, 255, 255],
+      fontSize: 8,
+      fontStyle: 'bold',
+      cellPadding: 3
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: [30, 41, 59],
+      cellPadding: 3
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    },
+    margin: { left: m, right: m }
+  });
+
+  curY = doc.lastAutoTable.finalY + 6;
+
+  const calcGrandTotal = quote.total || (calcSubtotal - calcDiscount + calcTax);
+
+  if (curY > pageHeight - 65) {
+    doc.addPage();
+    curY = 20;
+  }
+
+  const totX = pageWidth - m - 75;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(71, 85, 105);
+
+  doc.text('Subtotal:', totX, curY);
+  doc.text(`₹ ${Math.round(calcSubtotal).toLocaleString('en-IN')}`, pageWidth - m - 4, curY, { align: 'right' });
+  curY += 4.5;
+
+  if (calcDiscount > 0) {
+    doc.text('Discount:', totX, curY);
+    doc.text(`- ₹ ${Math.round(calcDiscount).toLocaleString('en-IN')}`, pageWidth - m - 4, curY, { align: 'right' });
+    curY += 4.5;
+  }
+
+  if (calcTax > 0) {
+    doc.text('Tax (GST):', totX, curY);
+    doc.text(`+ ₹ ${Math.round(calcTax).toLocaleString('en-IN')}`, pageWidth - m - 4, curY, { align: 'right' });
+    curY += 4.5;
+  }
+
+  doc.setDrawColor(226, 232, 240);
+  doc.line(totX, curY, pageWidth - m, curY);
+  curY += 4.5;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(...primaryRgb);
+  doc.text('Total Amount:', totX, curY);
+  doc.text(`₹ ${Math.round(calcGrandTotal).toLocaleString('en-IN')}`, pageWidth - m - 4, curY, { align: 'right' });
+  curY += 8;
+
+  doc.setFillColor(248, 250, 252);
+  doc.rect(m, curY - 24, totX - m - 10, 24, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('AMOUNT IN WORDS', m + 4, curY - 18);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text(numberToIndianWords(calcGrandTotal), m + 4, curY - 12, { maxWidth: totX - m - 18 });
+
+  if (comp.bankDetails?.bankName) {
+    if (curY > pageHeight - 55) { doc.addPage(); curY = 20; }
+    doc.setFillColor(240, 249, 255);
+    doc.setDrawColor(186, 230, 253);
+    doc.rect(m, curY, cw, 18, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...primaryRgb);
+    doc.text('BANK ACCOUNT DETAILS FOR REMITTANCE:', 14, curY + 4.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(30, 41, 59);
+    const bStr = `Bank: ${comp.bankDetails.bankName} | A/C Name: ${comp.bankDetails.accountName || compName} | A/C No: ${comp.bankDetails.accountNumber} | IFSC: ${comp.bankDetails.ifscCode} ${comp.bankDetails.branch ? `| Branch: ${comp.bankDetails.branch}` : ''}`;
+    doc.text(bStr, 14, curY + 11, { maxWidth: cw - 8 });
+
+    curY += 24;
+  }
+
+  const termsText = quote.terms?.notes || zohoStyle.termsAndConditions || 'Standard terms apply.';
+  if (termsText) {
+    if (curY > pageHeight - 45) { doc.addPage(); curY = 20; }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text('TERMS & CONDITIONS:', m, curY);
+
+    curY += 4.5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    const splitTerms = doc.splitTextToSize(termsText, cw);
+    doc.text(splitTerms, m, curY);
+    curY += (splitTerms.length * 4) + 6;
+  }
+
+  if (curY > pageHeight - 30) { doc.addPage(); curY = 20; }
+  const sigName = comp.authorizedSignatory?.name || 'Authorized Signatory';
+  const sigTitle = comp.authorizedSignatory?.designation || compName;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text(`For ${compName}`, pageWidth - m - 4, curY, { align: 'right' });
+  curY += 12;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.text(sigName, pageWidth - m - 4, curY, { align: 'right' });
+  curY += 4;
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(sigTitle, pageWidth - m - 4, curY, { align: 'right' });
+};
+
 export const buildQuotePDF = (doc, quote) => {
+  if (quote?.companyId || quote?.templateId || (quote?.templateColumns && quote.templateColumns.length > 0)) {
+    buildZohoCompanyQuotePDF(doc, quote);
+    return;
+  }
+
   const tradeType = quote?.tradeType || 'import';
+  const isParamount = tradeType === 'pfp' || 
+    quote?.businessVertical === 'Paramount' || 
+    quote?.companyTemplate === 'paramount' ||
+    String(quote?.title || '').toLowerCase().includes('paramount') ||
+    String(quote?.title || '').toLowerCase().includes('crate');
+
   if (tradeType === 'transport') {
     buildTransportQuotePDF(doc, quote);
-  } else if (tradeType === 'pfp') {
-    buildParamountQuotePDF(doc, quote);
+  } else if (isParamount) {
+    buildParamountEstimatePDF(doc, quote);
   } else if (tradeType === 'software_elock') {
     buildElockQuotePDF(doc, quote);
   } else {
@@ -730,6 +1557,13 @@ export const buildQuotePDF = (doc, quote) => {
   }
 };
 
+export { 
+  buildSurajQuotePDF, 
+  buildParamountEstimatePDF, 
+  buildTransportQuotePDF, 
+  buildElockQuotePDF, 
+  buildParamountQuotePDF 
+};
 
 export const generateQuotePDF = (quote) => {
   const doc = new jsPDF({

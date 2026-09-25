@@ -261,6 +261,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
       fetchApprovalRecords();
       fetchPaymentUtrRecords();
       fetchRecords();
+      window.dispatchEvent(new Event("fleet-insurance-updated"));
     } catch (err) {
       console.error("Error saving financial approval:", err);
       toast.error(err.response?.data?.message || "Failed to update financial approval");
@@ -314,6 +315,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
       fetchPaymentUtrRecords();
       fetchApprovalRecords();
       fetchRecords();
+      window.dispatchEvent(new Event("fleet-insurance-updated"));
     } catch (err) {
       console.error("Error saving payment UTR:", err);
       toast.error(err.response?.data?.message || "Failed to save payment UTR");
@@ -406,6 +408,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
       fetchRecords();
       fetchApprovalRecords();
       fetchPaymentUtrRecords();
+      window.dispatchEvent(new Event("fleet-insurance-updated"));
     } catch (err) {
       console.error("Error deleting record:", err);
       toast.error(err.response?.data?.message || "Failed to delete record");

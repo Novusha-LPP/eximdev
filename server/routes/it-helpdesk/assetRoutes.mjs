@@ -2,6 +2,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import Asset from "../../model/it-helpdesk/assetModel.mjs";
+import AssetSetting from "../../model/it-helpdesk/assetSettingModel.mjs";
 import UserModel from "../../model/userModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import logger from "../../logger.js";
@@ -518,13 +519,108 @@ export function formatUserFriendlyError(err) {
   return err.message || "An unexpected error occurred.";
 }
 
+export async function getFirstApproverConfig() {
+  try {
+    const setting = await AssetSetting.findOne({ key: "asset_approval_config" }).lean();
+    if (setting && setting.first_approver_username) {
+      return {
+        username: String(setting.first_approver_username).toLowerCase().trim(),
+        name: setting.first_approver_name || setting.first_approver_username,
+        updated_at: setting.updatedAt,
+        updated_by_username: setting.updated_by_username || "manu_pillai",
+        notes: setting.notes || "",
+      };
+    }
+  } catch (err) {
+    logger.error(`Error reading asset approval setting: ${err.message}`);
+  }
+  return {
+    username: "shalini_arun",
+    name: "Shalini Arun",
+    updated_at: null,
+    updated_by_username: "system",
+    notes: "",
+  };
+}
+
+router.get("/settings/approval", async (_req, res) => {
+  try {
+    const config = await getFirstApproverConfig();
+    res.json({ success: true, data: config });
+  } catch (err) {
+    logger.error(`Error fetching asset approval settings: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.put("/settings/approval", async (req, res) => {
+  try {
+    const currentUsername = String(req.user?.username || "").toLowerCase().trim();
+    if (currentUsername !== "manu_pillai" && currentUsername !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Permission denied: Only manu_pillai can configure first approval assignments.",
+      });
+    }
+
+    const { first_approver_username, first_approver_name, notes } = req.body;
+    if (!first_approver_username || !String(first_approver_username).trim()) {
+      return res.status(400).json({ success: false, message: "First approver username is required" });
+    }
+
+    const cleanUsername = String(first_approver_username).toLowerCase().trim();
+    let cleanName = first_approver_name ? String(first_approver_name).trim() : cleanUsername;
+
+    // Look up user details if available
+    const userDoc = await UserModel.findOne({ username: cleanUsername }).select("first_name last_name username").lean();
+    if (userDoc && (!first_approver_name || first_approver_name === cleanUsername)) {
+      cleanName = `${userDoc.first_name || ""} ${userDoc.last_name || ""}`.trim() || cleanUsername;
+    }
+
+    // Ensure the newly assigned user, shalini_arun, and manu_pillai have "IT Helpdesk" in their modules
+    await UserModel.updateMany(
+      { username: { $in: [cleanUsername, "shalini_arun", "manu_pillai"] } },
+      { $addToSet: { modules: "IT Helpdesk" } }
+    );
+
+    const updated = await AssetSetting.findOneAndUpdate(
+      { key: "asset_approval_config" },
+      {
+        first_approver_username: cleanUsername,
+        first_approver_name: cleanName,
+        first_approver_id: userDoc?._id,
+        updated_by: req.user?._id,
+        updated_by_username: req.user?.username || "manu_pillai",
+        notes: notes || "",
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    res.json({
+      success: true,
+      message: `First approver successfully configured to ${cleanName} (${cleanUsername})`,
+      data: {
+        username: updated.first_approver_username,
+        name: updated.first_approver_name,
+        updated_at: updated.updatedAt,
+        updated_by_username: updated.updated_by_username,
+        notes: updated.notes,
+      },
+    });
+  } catch (err) {
+    logger.error(`Error updating asset approval settings: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.post("/", validateAssetPayload, async (req, res) => {
   try {
     if (!req.body.asset_tag || !String(req.body.asset_tag).trim()) {
       req.body.asset_tag = await generateNextAssetTag();
     }
+    const firstApprover = await getFirstApproverConfig();
     req.body.approval_stage = "First Admin Approval";
-    req.body.approval_status = "Pending First Approval (shalini_arun)";
+    req.body.approval_status = `Pending First Approval (${firstApprover.username})`;
     req.body.rejection_remarks = "";
     
     const userRole = req.user?.role || "HR Admin";
@@ -533,7 +629,7 @@ router.post("/", validateAssetPayload, async (req, res) => {
     req.body.workflow_history = [
       {
         stage: "First Admin Approval",
-        action: "Submitted for First Admin Approval (shalini_arun)",
+        action: `Submitted for First Admin Approval (${firstApprover.username})`,
         performed_by: req.user?._id,
         performed_by_name: userName,
         performed_by_role: userRole,
@@ -568,20 +664,27 @@ router.put("/:id/workflow", validateId, async (req, res) => {
     let currentCycle = asset.approval_cycle || 1;
     if (!Array.isArray(asset.admin_verifications)) asset.admin_verifications = [];
 
-    const hasShaliniVerified = asset.admin_verifications.some(
-      (v) => String(v.username || "").toLowerCase() === "shalini_arun" && (v.approval_cycle === currentCycle || !v.approval_cycle)
+    const firstApprover = await getFirstApproverConfig();
+    const assignedFirstUsername = firstApprover.username; // dynamic: e.g. "shalini_arun" or delegate
+
+    const hasFirstVerified = asset.admin_verifications.some(
+      (v) => (
+        String(v.username || "").toLowerCase() === assignedFirstUsername ||
+        String(v.username || "").toLowerCase() === "shalini_arun" ||
+        String(v.action || "").toLowerCase().includes("first")
+      ) && (v.approval_cycle === currentCycle || !v.approval_cycle)
     );
     const hasManuVerified = asset.admin_verifications.some(
       (v) => String(v.username || "").toLowerCase() === "manu_pillai" && (v.approval_cycle === currentCycle || !v.approval_cycle)
     );
 
-    // Strictly enforce role-based access for workflow actions (Step 1: shalini_arun, Step 2: manu_pillai)
+    // Strictly enforce role-based access for workflow actions (Step 1: assigned first approver, Step 2: manu_pillai)
     if (action === "approve_admin" || action === "verify_admin" || action === "approve_first" || action === "approve_second") {
-      if (!hasShaliniVerified) {
-        if (currentUsername !== "shalini_arun" && currentUsername !== "admin") {
+      if (!hasFirstVerified) {
+        if (currentUsername !== assignedFirstUsername && currentUsername !== "admin") {
           return res.status(403).json({
             success: false,
-            message: "Permission denied: First approval must be completed by shalini_arun.",
+            message: `Permission denied: First approval must be completed by ${firstApprover.name || assignedFirstUsername}.`,
           });
         }
       } else if (!hasManuVerified) {
@@ -594,17 +697,17 @@ router.put("/:id/workflow", validateId, async (req, res) => {
       } else {
         return res.status(400).json({
           success: false,
-          message: "Both shalini_arun and manu_pillai have already approved this asset.",
+          message: `Both ${assignedFirstUsername} and manu_pillai have already approved this asset.`,
         });
       }
     }
 
     if (action === "reject_admin") {
-      if (!hasShaliniVerified) {
-        if (currentUsername !== "shalini_arun" && currentUsername !== "admin") {
+      if (!hasFirstVerified) {
+        if (currentUsername !== assignedFirstUsername && currentUsername !== "admin") {
           return res.status(403).json({
             success: false,
-            message: "Permission denied: Only shalini_arun can reject at the first approval stage.",
+            message: `Permission denied: Only ${firstApprover.name || assignedFirstUsername} can reject at the first approval stage.`,
           });
         }
       } else if (!hasManuVerified) {
@@ -618,7 +721,7 @@ router.put("/:id/workflow", validateId, async (req, res) => {
     }
 
     if (action === "resubmit_it") {
-      if (currentUsername === "shalini_arun" || currentUsername === "manu_pillai") {
+      if (currentUsername === assignedFirstUsername || currentUsername === "manu_pillai" || currentUsername === "shalini_arun") {
         return res.status(403).json({
           success: false,
           message: "Permission denied: Approvers cannot resubmit invoices. Only IT department users can resubmit.",
@@ -632,8 +735,8 @@ router.put("/:id/workflow", validateId, async (req, res) => {
     let actionDescription = "";
 
     if (action === "approve_admin" || action === "verify_admin" || action === "approve_first" || action === "approve_second") {
-      if (!hasShaliniVerified) {
-        // Level 1 approval: shalini_arun
+      if (!hasFirstVerified) {
+        // Level 1 approval: assigned first approver
         updatedStage = "Second Admin Approval";
         updatedStatus = "Pending Final Approval (manu_pillai)";
         rejectionRemarks = "";
@@ -642,15 +745,15 @@ router.put("/:id/workflow", validateId, async (req, res) => {
         asset.rejected_by_role = "";
         asset.rejected_at = null;
         actionDescription = remarks
-          ? `First Approval by shalini_arun (${userName}, Cycle ${currentCycle}): ${remarks}`
-          : `First Approval by shalini_arun (${userName}, Cycle ${currentCycle})`;
+          ? `First Approval by ${currentUsername} (${userName}, Cycle ${currentCycle}): ${remarks}`
+          : `First Approval by ${currentUsername} (${userName}, Cycle ${currentCycle})`;
 
         asset.admin_verifications.push({
           user: req.user._id,
-          username: req.user.username || "shalini_arun",
+          username: req.user.username || assignedFirstUsername,
           name: userName,
           role: userRole,
-          action: "First Admin Verified (shalini_arun)",
+          action: `First Admin Verified (${currentUsername})`,
           remarks: remarks || "",
           approval_cycle: currentCycle,
           timestamp: new Date(),
@@ -681,10 +784,24 @@ router.put("/:id/workflow", validateId, async (req, res) => {
         });
       }
     } else if (action === "reject_admin" || action === "reject_accounts" || action === "admin_return_to_it") {
-      updatedStage = "IT Correction";
-      updatedStatus = "Returned to IT";
-      rejectionRemarks = remarks || `Rejected by ${currentUsername === "manu_pillai" ? "manu_pillai" : "shalini_arun"}. Please correct and resubmit.`;
-      actionDescription = `Rejected by ${currentUsername} — Returned to IT (Cycle ${currentCycle}): ${rejectionRemarks}`;
+      const isSecondStage =
+        asset.approval_stage === "Second Admin Approval" ||
+        String(asset.approval_status || "").toLowerCase().includes("manu_pillai") ||
+        currentUsername === "manu_pillai";
+
+      if (action === "admin_return_to_it" || (!isSecondStage && action === "reject_admin")) {
+        // Returned directly to IT for correction
+        updatedStage = "IT Correction";
+        updatedStatus = "Returned to IT";
+        rejectionRemarks = remarks || `Returned to IT by ${currentUsername}. Please correct and resubmit.`;
+        actionDescription = `Returned to IT by ${currentUsername} (Cycle ${currentCycle}): ${rejectionRemarks}`;
+      } else {
+        // Second approver rejection (manu_pillai) -> Marked as Rejected so 1st approver can review and send to IT
+        updatedStage = "Rejected";
+        updatedStatus = `Rejected by ${currentUsername}`;
+        rejectionRemarks = remarks || `Rejected by ${currentUsername}.`;
+        actionDescription = `Rejected by ${currentUsername} (Cycle ${currentCycle}): ${rejectionRemarks}`;
+      }
       asset.rejected_by = req.user._id;
       asset.rejected_by_name = userName;
       asset.rejected_by_role = userRole;
@@ -693,7 +810,7 @@ router.put("/:id/workflow", validateId, async (req, res) => {
       currentCycle = (asset.approval_cycle || 1) + 1;
       asset.approval_cycle = currentCycle;
       updatedStage = "First Admin Approval";
-      updatedStatus = "Pending First Approval (shalini_arun)";
+      updatedStatus = `Pending First Approval (${assignedFirstUsername})`;
       rejectionRemarks = "";
       asset.rejected_by = null;
       asset.rejected_by_name = "";

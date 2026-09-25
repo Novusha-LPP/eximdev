@@ -12,6 +12,8 @@ export const itHelpdeskAPI = {
     create: (payload) => api.post("/it-helpdesk/assets", payload).then((r) => r.data),
     update: (id, payload) => api.put(`/it-helpdesk/assets/${id}`, payload).then((r) => r.data),
     updateWorkflow: (id, payload) => api.put(`/it-helpdesk/assets/${id}/workflow`, payload).then((r) => r.data),
+    getApprovalSettings: () => api.get("/it-helpdesk/assets/settings/approval").then((r) => r.data),
+    updateApprovalSettings: (payload) => api.put("/it-helpdesk/assets/settings/approval", payload).then((r) => r.data),
     remove: (id) => api.delete(`/it-helpdesk/assets/${id}`).then((r) => r.data),
   },
   tickets: {

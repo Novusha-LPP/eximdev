@@ -33,6 +33,17 @@ export function isHRAdminUser(user) {
     return true;
   }
 
+  // 3. Invoice Approver Users (manu_pillai, shalini_arun)
+  if (username === "manu_pillai" || username === "shalini_arun") {
+    return true;
+  }
+
+  // 4. Users assigned the IT Helpdesk module
+  const modules = Array.isArray(user.modules) ? user.modules.map((m) => String(m).toLowerCase()) : [];
+  if (modules.includes("it helpdesk") || modules.includes("it-helpdesk") || modules.includes("it")) {
+    return true;
+  }
+
   return false;
 }
 

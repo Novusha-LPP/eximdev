@@ -55,6 +55,7 @@ const assetSchema = new mongoose.Schema({
   image_url: { type: String, trim: true, default: "" },
   invoice_number: { type: String, trim: true, default: "" },
   invoice_date: { type: Date },
+  payment_mode: { type: String, trim: true, default: "UPI" },
   custom_fields: [{ fieldId: { type: mongoose.Schema.Types.ObjectId }, value: mongoose.Schema.Types.Mixed }],
   approval_stage: {
     type: String,
@@ -64,15 +65,6 @@ const assetSchema = new mongoose.Schema({
   },
   approval_status: {
     type: String,
-    enum: [
-      "Pending Admin Approval",
-      "Pending First Approval (shalini_arun)",
-      "Pending Final Approval (manu_pillai)",
-      "Pending Accounts Approval",
-      "Returned to IT",
-      "Completed",
-      "Rejected",
-    ],
     default: "Pending First Approval (shalini_arun)",
     index: true,
   },

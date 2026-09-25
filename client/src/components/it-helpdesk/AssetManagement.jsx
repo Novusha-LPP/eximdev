@@ -467,9 +467,6 @@ export default function AssetManagement() {
   const { user: currentUser } = useContext(UserContext);
 
   const userRole = String(currentUser?.role || currentUser?.userRole || "").trim();
-  const userDept = String(currentUser?.department?.name || currentUser?.department || "").trim();
-  const userDesig = String(currentUser?.designation || "").trim();
-  const userIsHod = Boolean(currentUser?.isHod);
 
   const isAdmin =
     userRole.toLowerCase() === "admin" ||
@@ -477,47 +474,13 @@ export default function AssetManagement() {
     userRole.toLowerCase().includes("admin") ||
     currentUser?.username === "admin" ||
     Boolean(currentUser?.is_operator);
-  const isAccountsHead =
-    userRole.toLowerCase().includes("sr. manager accounts") ||
-    userRole.toLowerCase().includes("sr manager accounts") ||
-    userRole.toLowerCase().includes("senior manager accounts") ||
-    userRole.toLowerCase().includes("head of accounts") ||
-    userRole.toLowerCase().includes("accounts head") ||
-    userRole.toLowerCase().includes("hod accounts") ||
-    userRole.toLowerCase().includes("accounts hod") ||
-    userRole.toLowerCase().includes("head of department - accounts") ||
-    userRole.toLowerCase().includes("accounts - head of department") ||
-    userRole.toLowerCase().includes("accounts -head of department") ||
-    userRole.toLowerCase().includes("head of department (accounts)") ||
-    userRole.toLowerCase().includes("accounts (head of department)") ||
-    userDesig.toLowerCase().includes("sr. manager accounts") ||
-    userDesig.toLowerCase().includes("sr manager accounts") ||
-    userDesig.toLowerCase().includes("head of accounts") ||
-    userDesig.toLowerCase().includes("head of department - accounts") ||
-    userDesig.toLowerCase().includes("accounts - head of department") ||
-    userDesig.toLowerCase().includes("accounts head") ||
-    ((userDept.toLowerCase().includes("account") || userRole.toLowerCase().includes("account") || userDesig.toLowerCase().includes("account")) &&
-      (userIsHod ||
-        userRole.toLowerCase().includes("head") ||
-        userRole.toLowerCase().includes("sr. manager") ||
-        userRole.toLowerCase().includes("senior manager") ||
-        userRole.toLowerCase().includes("hod") ||
-        userDesig.toLowerCase().includes("head") ||
-        userDesig.toLowerCase().includes("sr. manager") ||
-        userDesig.toLowerCase().includes("senior manager") ||
-        userDesig.toLowerCase().includes("hod")));
 
-  // Any Accounts person (Head of Accounts, Account Executive, Junior Accountant, etc.)
-  const isAccountsPerson =
-    isAccountsHead ||
-    userRole.toLowerCase().includes("account") ||
-    userDept.toLowerCase().includes("account") ||
-    userDesig.toLowerCase().includes("account");
+  // Support staff / IT department detection
+  const isPureITDept = !isAdmin;
 
-  // HR Admin / HARDWARE AND NETWORK ENGINEER role detection (TC-13)
-  // Support staff is someone who is neither Admin nor Accounts person
-  const isPureITDept = !isAdmin && !isAccountsPerson;
-  const isITUser = isAdmin || isPureITDept;
+  const currentUsername = String(currentUser?.username || "").toLowerCase().trim();
+  const isShalini = currentUsername === "shalini_arun" || currentUsername === "admin";
+  const isManu = currentUsername === "manu_pillai" || currentUsername === "admin";
 
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectAssetRecord, setRejectAssetRecord] = useState(null);
@@ -644,8 +607,8 @@ export default function AssetManagement() {
   const getWorkflowBadgeClass = (stage, status) => {
     const norm = String(status || stage || "").toLowerCase();
     if (norm.includes("completed")) return "badge-excellent";
-    if (norm.includes("accounts")) return "badge-good";
-    if (norm.includes("admin")) return "badge-warning";
+    if (norm.includes("manu")) return "badge-good";
+    if (norm.includes("shalini") || norm.includes("admin") || norm.includes("pending")) return "badge-warning";
     if (norm.includes("returned") || norm.includes("correction")) return "badge-warning";
     if (norm.includes("rejected")) return "badge-danger";
     return "badge-secondary";
@@ -656,7 +619,9 @@ export default function AssetManagement() {
     if (norm.includes("completed")) return "Completed";
     if (norm.includes("rejected")) return "Rejected";
     if (norm.includes("returned") || norm.includes("correction")) return "Returned to IT";
-    if (norm.includes("pending") || norm.includes("admin") || norm.includes("accounts") || norm.includes("hod")) {
+    if (norm.includes("manu")) return "Pending Final Approval (manu_pillai)";
+    if (norm.includes("shalini")) return "Pending First Approval (shalini_arun)";
+    if (norm.includes("pending") || norm.includes("admin") || norm.includes("hod")) {
       return "Pending Approval";
     }
     return status || stage || "Pending Approval";
@@ -1613,8 +1578,15 @@ export default function AssetManagement() {
                           {(() => {
                             const rawStage = a.approval_stage || "";
                             const rawStatus = a.approval_status || "";
-                            const normStage = String(rawStage).toLowerCase();
-                            const normStatus = String(rawStatus).toLowerCase();
+                            const normStage = rawStage.toLowerCase().trim();
+                            const normStatus = rawStatus.toLowerCase().trim();
+                            const currentCycle = a.approval_cycle || 1;
+                            const hasShaliniVerified = Array.isArray(a.admin_verifications) && a.admin_verifications.some(
+                              (v) => String(v.username || "").toLowerCase() === "shalini_arun" && (v.approval_cycle === currentCycle || !v.approval_cycle)
+                            );
+                            const hasManuVerified = Array.isArray(a.admin_verifications) && a.admin_verifications.some(
+                              (v) => String(v.username || "").toLowerCase() === "manu_pillai" && (v.approval_cycle === currentCycle || !v.approval_cycle)
+                            );
 
                             const isReturnedToIT =
                               normStage.includes("correction") ||
@@ -1627,17 +1599,13 @@ export default function AssetManagement() {
                               !isReturnedToIT;
 
                             const isCompleted =
-                              normStage.includes("completed") || normStatus.includes("completed");
-
-                            const isPendingAccounts =
-                              normStage.includes("accounts") || normStatus.includes("accounts");
+                              normStage.includes("completed") || normStatus.includes("completed") || (hasShaliniVerified && hasManuVerified);
 
                             // Primary status badge colours
                             let badgeColor = "#64748b";
                             let badgeBg = "#f1f5f9";
                             let badgeBorder = "#e2e8f0";
-                            let badgeLabel = rawStatus || rawStage || "Pending";
-                            let badgeIcon = null;
+                            let badgeLabel = "Pending Approval";
 
                             if (isReturnedToIT) {
                               badgeColor = "#c2410c";
@@ -1654,16 +1622,16 @@ export default function AssetManagement() {
                               badgeBg = "#f0fdf4";
                               badgeBorder = "#bbf7d0";
                               badgeLabel = "Completed";
-                            } else if (isPendingAccounts) {
+                            } else if (hasShaliniVerified && !hasManuVerified) {
                               badgeColor = "#1d4ed8";
                               badgeBg = "#eff6ff";
                               badgeBorder = "#bfdbfe";
-                              badgeLabel = "Pending Accounts";
-                            } else if (normStatus.includes("admin") || normStage.includes("admin")) {
+                              badgeLabel = "Pending manu_pillai";
+                            } else {
                               badgeColor = "#92400e";
                               badgeBg = "#fffbeb";
                               badgeBorder = "#fde68a";
-                              badgeLabel = "Pending Admin";
+                              badgeLabel = "Pending shalini_arun";
                             }
 
                             // Rejection by info (for tooltip / title)
@@ -1676,21 +1644,13 @@ export default function AssetManagement() {
                               rejectUser = lastReject?.performed_by_name || lastReject?.performed_by?.username || "";
                             }
 
-                            // Verifier chips (admin + accounts)
+                            // Verifier chips (admin)
                             const verifiers = [];
                             if (!isReturnedToIT && Array.isArray(a.admin_verifications)) {
                               a.admin_verifications.forEach((v) => {
                                 const u = v.username || v.name;
-                                if (u && !verifiers.some((x) => x.type === "admin" && x.username === u)) {
-                                  verifiers.push({ type: "admin", username: u });
-                                }
-                              });
-                            }
-                            if (Array.isArray(a.accounts_verifications)) {
-                              a.accounts_verifications.forEach((v) => {
-                                const u = v.username || v.name;
-                                if (u && !verifiers.some((x) => x.type === "accounts" && x.username === u)) {
-                                  verifiers.push({ type: "accounts", username: u });
+                                if (u && !verifiers.some((x) => x.username === u)) {
+                                  verifiers.push({ username: u, action: v.action });
                                 }
                               });
                             }
@@ -1731,31 +1691,28 @@ export default function AssetManagement() {
                                 {/* Verifier chips */}
                                 {verifiers.length > 0 && (
                                   <div style={{ display: "flex", flexWrap: "wrap", gap: "3px" }}>
-                                    {verifiers.map((item, idx) => {
-                                      const isAcc = item.type === "accounts";
-                                      return (
-                                        <div
-                                          key={`ver-${idx}`}
-                                          style={{
-                                            fontSize: "11px",
-                                            fontWeight: 600,
-                                            color: isAcc ? "#1e40af" : "#166534",
-                                            backgroundColor: isAcc ? "#eff6ff" : "#f0fdf4",
-                                            border: `1px solid ${isAcc ? "#bfdbfe" : "#bbf7d0"}`,
-                                            padding: "1px 6px",
-                                            borderRadius: "4px",
-                                            display: "inline-flex",
-                                            alignItems: "center",
-                                            gap: "3px",
-                                            width: "fit-content",
-                                          }}
-                                          title={`${isAcc ? "Accounts Approved" : "Admin Verified"} by ${item.username}`}
-                                        >
-                                          <ShieldCheck size={10} color={isAcc ? "#2563eb" : "#16a34a"} />
-                                          <span>{item.username}</span>
-                                        </div>
-                                      );
-                                    })}
+                                    {verifiers.map((item, idx) => (
+                                      <div
+                                        key={`ver-${idx}`}
+                                        style={{
+                                          fontSize: "11px",
+                                          fontWeight: 600,
+                                          color: "#166534",
+                                          backgroundColor: "#f0fdf4",
+                                          border: "1px solid #bbf7d0",
+                                          padding: "1px 6px",
+                                          borderRadius: "4px",
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: "3px",
+                                          width: "fit-content",
+                                        }}
+                                        title={`Verified by ${item.username}`}
+                                      >
+                                        <ShieldCheck size={10} color="#16a34a" />
+                                        <span>{item.username}</span>
+                                      </div>
+                                    ))}
                                   </div>
                                 )}
 
@@ -5191,156 +5148,223 @@ export default function AssetManagement() {
                             </Box>
                           )}
 
-                          {/* Verification History list / Badges if present - NEVER shown on active entry view when rejected */}
-                          {!isRejectedEntry &&
-                            (viewRecord.admin_verifications?.length > 0 ||
-                              (viewRecord.accounts_verifications || viewRecord.accounts_approvals)?.length > 0) && (
-                              <Box sx={{ display: "flex", gap: 0.8, flexWrap: "wrap", mb: 1.5 }}>
-                                {(viewRecord.admin_verifications || []).map((v, idx) => (
-                                  <Chip
-                                    key={`av-${idx}`}
-                                    size="small"
-                                    icon={<Check size={12} color="#16a34a" />}
-                                    label={`Admin Verified: ${v.username || "Admin"}`}
-                                    sx={{
-                                      height: 22,
-                                      fontSize: "0.68rem",
-                                      fontWeight: 600,
-                                      backgroundColor: "#f0fdf4",
-                                      color: "#166534",
-                                      border: "1px solid #bbf7d0",
-                                    }}
-                                  />
-                                ))}
-                                {((viewRecord.accounts_verifications || viewRecord.accounts_approvals) || []).map((acc, idx) => (
-                                  <Chip
-                                    key={`acc-${idx}`}
-                                    size="small"
-                                    icon={<ShieldCheck size={12} color="#2563eb" />}
-                                    label={`Accounts Approved: ${acc.username || "Accounts"}`}
-                                    sx={{
-                                      height: 22,
-                                      fontSize: "0.68rem",
-                                      fontWeight: 600,
-                                      backgroundColor: "#eff6ff",
-                                      color: "#1e40af",
-                                      border: "1px solid #bfdbfe",
-                                    }}
-                                  />
-                                ))}
-                              </Box>
-                            )}
+                          {/* Verification Badges for shalini_arun & manu_pillai - NEVER shown on active entry view when rejected */}
+                          {!isRejectedEntry && (
+                            <Box sx={{ display: "flex", gap: 0.8, flexWrap: "wrap", mb: 1.5 }}>
+                              {/* 1st Approver badge (shalini_arun) */}
+                              {((viewRecord.admin_verifications || []).some(
+                                (v) => String(v.username || "").toLowerCase() === "shalini_arun" || v.action === "approved_first"
+                              ) ||
+                                String(viewRecord.approval_stage || "") === "Second Admin Approval" ||
+                                String(viewRecord.approval_status || "").toLowerCase().includes("completed")) ? (
+                                <Chip
+                                  size="small"
+                                  icon={<Check size={12} color="#16a34a" />}
+                                  label="1st Approved: shalini_arun"
+                                  sx={{
+                                    height: 22,
+                                    fontSize: "0.68rem",
+                                    fontWeight: 600,
+                                    backgroundColor: "#f0fdf4",
+                                    color: "#166534",
+                                    border: "1px solid #bbf7d0",
+                                  }}
+                                />
+                              ) : (
+                                <Chip
+                                  size="small"
+                                  icon={<Clock size={12} color="#ca8a04" />}
+                                  label="Pending 1st Approval: shalini_arun"
+                                  sx={{
+                                    height: 22,
+                                    fontSize: "0.68rem",
+                                    fontWeight: 600,
+                                    backgroundColor: "#fefce8",
+                                    color: "#854d0e",
+                                    border: "1px solid #fef08a",
+                                  }}
+                                />
+                              )}
+
+                              {/* 2nd Approver badge (manu_pillai) */}
+                              {((viewRecord.admin_verifications || []).some(
+                                (v) => String(v.username || "").toLowerCase() === "manu_pillai" || v.action === "approved_final"
+                              ) ||
+                                String(viewRecord.approval_status || "").toLowerCase().includes("completed")) ? (
+                                <Chip
+                                  size="small"
+                                  icon={<Check size={12} color="#16a34a" />}
+                                  label="Final Approved: manu_pillai"
+                                  sx={{
+                                    height: 22,
+                                    fontSize: "0.68rem",
+                                    fontWeight: 600,
+                                    backgroundColor: "#f0fdf4",
+                                    color: "#166534",
+                                    border: "1px solid #bbf7d0",
+                                  }}
+                                />
+                              ) : (
+                                <Chip
+                                  size="small"
+                                  icon={<Clock size={12} color="#ca8a04" />}
+                                  label="Pending Final Approval: manu_pillai"
+                                  sx={{
+                                    height: 22,
+                                    fontSize: "0.68rem",
+                                    fontWeight: 600,
+                                    backgroundColor: "#fefce8",
+                                    color: "#854d0e",
+                                    border: "1px solid #fef08a",
+                                  }}
+                                />
+                              )}
+                            </Box>
+                          )}
 
                           {/* Role-based Workflow Action Buttons */}
                           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
-                            {/* Admin Approval Stage: Admin can Approve or Reject (only if not rejected) */}
-                            {!isRejectedEntry && (viewRecord.approval_stage === "Admin Approval" || viewRecord.approval_status === "Pending Admin Approval" || !viewRecord.approval_stage) && isAdmin && (
-                              <>
-                                <Button
-                                  variant="contained"
-                                  size="small"
-                                  startIcon={<Check size={14} />}
-                                  onClick={() => handleWorkflowAction(viewRecord._id, "approve_admin")}
-                                  disabled={submittingWorkflow}
-                                  sx={{
-                                    textTransform: "none",
-                                    fontSize: "0.78rem",
-                                    fontWeight: 600,
-                                    borderRadius: "8px",
-                                    backgroundColor: "#16a34a",
-                                    "&:hover": { backgroundColor: "#15803d" },
-                                    boxShadow: "none",
-                                  }}
-                                >
-                                  Approve
-                                </Button>
-                                <Button
-                                  variant="outlined"
-                                  color="error"
-                                  size="small"
-                                  startIcon={<X size={14} />}
-                                  onClick={() => {
-                                    setRejectAssetRecord(viewRecord);
-                                    setRejectActionType("reject_admin");
-                                    setShowRejectModal(true);
-                                  }}
-                                  disabled={submittingWorkflow}
-                                  sx={{
-                                    textTransform: "none",
-                                    fontSize: "0.78rem",
-                                    fontWeight: 600,
-                                    borderRadius: "8px",
-                                  }}
-                                >
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-
-                            {/* Accounts Approval Stage: Only Sr. Manager Accounts / Head of Department - Accounts can Final Approve or Reject (only if not rejected) */}
-                            {!isRejectedEntry && (viewRecord.approval_stage === "Accounts Approval" || viewRecord.approval_status === "Pending Accounts Approval") && (
-                              isAccountsHead ? (
-                                <>
-                                  <Button
-                                    variant="contained"
-                                    size="small"
-                                    startIcon={<Check size={14} />}
-                                    onClick={() => handleWorkflowAction(viewRecord._id, "approve_accounts")}
-                                    disabled={submittingWorkflow}
+                            {/* Step 1: First Admin Approval (shalini_arun) */}
+                            {!isRejectedEntry &&
+                              !String(viewRecord.approval_status || "").toLowerCase().includes("completed") &&
+                              !(
+                                viewRecord.approval_stage === "IT Correction" ||
+                                viewRecord.approval_status === "Returned to IT" ||
+                                viewRecord.approval_stage === "Second Admin Approval" ||
+                                viewRecord.approval_status === "Pending Final Approval (manu_pillai)"
+                              ) && (
+                                isShalini ? (
+                                  <>
+                                    <Button
+                                      variant="contained"
+                                      size="small"
+                                      startIcon={<Check size={14} />}
+                                      onClick={() => handleWorkflowAction(viewRecord._id, "approve_admin")}
+                                      disabled={submittingWorkflow}
+                                      sx={{
+                                        textTransform: "none",
+                                        fontSize: "0.78rem",
+                                        fontWeight: 600,
+                                        borderRadius: "8px",
+                                        backgroundColor: "#16a34a",
+                                        "&:hover": { backgroundColor: "#15803d" },
+                                        boxShadow: "none",
+                                      }}
+                                    >
+                                      Approve (1st Approval)
+                                    </Button>
+                                    <Button
+                                      variant="outlined"
+                                      color="error"
+                                      size="small"
+                                      startIcon={<X size={14} />}
+                                      onClick={() => {
+                                        setRejectAssetRecord(viewRecord);
+                                        setRejectActionType("reject_admin");
+                                        setShowRejectModal(true);
+                                      }}
+                                      disabled={submittingWorkflow}
+                                      sx={{
+                                        textTransform: "none",
+                                        fontSize: "0.78rem",
+                                        fontWeight: 600,
+                                        borderRadius: "8px",
+                                      }}
+                                    >
+                                      Reject
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Box
                                     sx={{
-                                      textTransform: "none",
-                                      fontSize: "0.78rem",
-                                      fontWeight: 600,
+                                      p: 0.8,
+                                      px: 1.2,
                                       borderRadius: "8px",
-                                      backgroundColor: "#16a34a",
-                                      "&:hover": { backgroundColor: "#15803d" },
-                                      boxShadow: "none",
+                                      backgroundColor: "#eff6ff",
+                                      border: "1px solid #bfdbfe",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 0.8,
                                     }}
                                   >
-                                    Verify & Approve (Accounts)
-                                  </Button>
-                                  <Button
-                                    variant="outlined"
-                                    color="error"
-                                    size="small"
-                                    startIcon={<X size={14} />}
-                                    onClick={() => {
-                                      setRejectAssetRecord(viewRecord);
-                                      setRejectActionType("reject_accounts");
-                                      setShowRejectModal(true);
-                                    }}
-                                    disabled={submittingWorkflow}
+                                    <Typography sx={{ fontSize: "0.74rem", color: "#1e40af", fontWeight: 600 }}>
+                                      ⏳ Awaiting 1st Approval from shalini_arun
+                                    </Typography>
+                                  </Box>
+                                )
+                              )}
+
+                            {/* Step 2: Second / Final Admin Approval (manu_pillai) */}
+                            {!isRejectedEntry &&
+                              !String(viewRecord.approval_status || "").toLowerCase().includes("completed") &&
+                              !(
+                                viewRecord.approval_stage === "IT Correction" ||
+                                viewRecord.approval_status === "Returned to IT"
+                              ) &&
+                              (viewRecord.approval_stage === "Second Admin Approval" ||
+                               viewRecord.approval_status === "Pending Final Approval (manu_pillai)") && (
+                                isManu ? (
+                                  <>
+                                    <Button
+                                      variant="contained"
+                                      size="small"
+                                      startIcon={<Check size={14} />}
+                                      onClick={() => handleWorkflowAction(viewRecord._id, "approve_admin")}
+                                      disabled={submittingWorkflow}
+                                      sx={{
+                                        textTransform: "none",
+                                        fontSize: "0.78rem",
+                                        fontWeight: 600,
+                                        borderRadius: "8px",
+                                        backgroundColor: "#16a34a",
+                                        "&:hover": { backgroundColor: "#15803d" },
+                                        boxShadow: "none",
+                                      }}
+                                    >
+                                      Approve (Final Approval)
+                                    </Button>
+                                    <Button
+                                      variant="outlined"
+                                      color="error"
+                                      size="small"
+                                      startIcon={<X size={14} />}
+                                      onClick={() => {
+                                        setRejectAssetRecord(viewRecord);
+                                        setRejectActionType("reject_admin");
+                                        setShowRejectModal(true);
+                                      }}
+                                      disabled={submittingWorkflow}
+                                      sx={{
+                                        textTransform: "none",
+                                        fontSize: "0.78rem",
+                                        fontWeight: 600,
+                                        borderRadius: "8px",
+                                      }}
+                                    >
+                                      Reject
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Box
                                     sx={{
-                                      textTransform: "none",
-                                      fontSize: "0.78rem",
-                                      fontWeight: 600,
+                                      p: 0.8,
+                                      px: 1.2,
                                       borderRadius: "8px",
+                                      backgroundColor: "#eff6ff",
+                                      border: "1px solid #bfdbfe",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 0.8,
                                     }}
                                   >
-                                    Reject to Admin
-                                  </Button>
-                                </>
-                              ) : (
-                                <Box
-                                  sx={{
-                                    p: 1,
-                                    px: 1.5,
-                                    borderRadius: "8px",
-                                    backgroundColor: "#f8fafc",
-                                    border: "1px dashed #cbd5e1",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 1,
-                                  }}
-                                >
-                                  <Typography sx={{ fontSize: "0.74rem", color: "#64748b", fontStyle: "italic" }}>
-                                    🔒 Pending Accounts Approval — Only Accounts - Head of Department or Sr. Manager Accounts can verify/approve at this stage.
-                                  </Typography>
-                                </Box>
-                              )
-                            )}
+                                    <Typography sx={{ fontSize: "0.74rem", color: "#1e40af", fontWeight: 600 }}>
+                                      ⏳ Awaiting Final Approval from manu_pillai
+                                    </Typography>
+                                  </Box>
+                                )
+                              )}
 
-                            {/* TC-09: Returned / IT Correction Stage — Resubmit button visible ONLY for IT users (never Admin or Accounts) */}
+                            {/* Returned / IT Correction Stage — Resubmit button visible ONLY for IT users */}
                             {(viewRecord.approval_stage === "IT Correction" ||
                               viewRecord.approval_status === "Returned to IT") &&
                               isPureITDept && (
@@ -5373,7 +5397,7 @@ export default function AssetManagement() {
                                 </Button>
                               )}
 
-                            {/* Informational banner for Admin or Accounts when an asset is in Returned to IT stage */}
+                            {/* Informational banner when an asset is in Returned to IT stage */}
                             {(viewRecord.approval_stage === "IT Correction" ||
                               viewRecord.approval_status === "Returned to IT") &&
                               !isPureITDept && (
@@ -5390,12 +5414,12 @@ export default function AssetManagement() {
                                   }}
                                 >
                                   <Typography sx={{ fontSize: "0.74rem", color: "#c2410c", fontStyle: "italic", fontWeight: 500 }}>
-                                    ⏳ Returned to IT — Awaiting HR Admin Department (Hardware and Network Engineer) to resubmit revised invoice.
+                                    ⏳ Returned to IT — Awaiting IT Department to make corrections and resubmit.
                                   </Typography>
                                 </Box>
                               )}
 
-                            {/* TC-11: Rejected by Accounts Stage — Admin sees Return to IT button (with remarks prompt) */}
+                            {/* Rejected Stage — Admin sees Return to IT button */}
                             {(viewRecord.approval_stage === "Rejected" ||
                               viewRecord.approval_status === "Rejected") &&
                               isAdmin && (
@@ -5423,58 +5447,6 @@ export default function AssetManagement() {
                                 >
                                   Return to IT
                                 </Button>
-                              )}
-
-                            {/* Multi-Admin Verification / Rejection (only if not rejected) */}
-                            {!isRejectedEntry && isAdmin &&
-                              (viewRecord.approval_stage === "Accounts Approval" ||
-                                viewRecord.approval_stage === "Completed" ||
-                                viewRecord.approval_status === "Pending Accounts Approval" ||
-                                viewRecord.approval_status === "Completed") &&
-                              !(
-                                Array.isArray(viewRecord.admin_verifications) &&
-                                viewRecord.admin_verifications.some((v) => String(v.user) === String(currentUser?._id) || v.username === currentUser?.username)
-                              ) && (
-                                <>
-                                  <Button
-                                    variant="contained"
-                                    size="small"
-                                    startIcon={<ShieldCheck size={14} />}
-                                    onClick={() => handleWorkflowAction(viewRecord._id, "verify_admin")}
-                                    disabled={submittingWorkflow}
-                                    sx={{
-                                      textTransform: "none",
-                                      fontSize: "0.78rem",
-                                      fontWeight: 600,
-                                      borderRadius: "8px",
-                                      backgroundColor: "#16a34a",
-                                      "&:hover": { backgroundColor: "#15803d" },
-                                      boxShadow: "none",
-                                    }}
-                                  >
-                                    + Verify (Admin)
-                                  </Button>
-                                  <Button
-                                    variant="outlined"
-                                    color="error"
-                                    size="small"
-                                    startIcon={<X size={14} />}
-                                    onClick={() => {
-                                      setRejectAssetRecord(viewRecord);
-                                      setRejectActionType("reject_admin");
-                                      setShowRejectModal(true);
-                                    }}
-                                    disabled={submittingWorkflow}
-                                    sx={{
-                                      textTransform: "none",
-                                      fontSize: "0.78rem",
-                                      fontWeight: 600,
-                                      borderRadius: "8px",
-                                    }}
-                                  >
-                                    Reject
-                                  </Button>
-                                </>
                               )}
                           </Box>
                         </Box>
@@ -5515,23 +5487,41 @@ export default function AssetManagement() {
                         {[
                           { label: "1. Created", done: true },
                           {
-                            label: "2. Admin Verification",
+                            label: "2. shalini_arun (1st Approval)",
                             done:
                               !(
                                 String(viewRecord.approval_stage || "").toLowerCase().includes("correction") ||
                                 String(viewRecord.approval_status || "").toLowerCase().includes("returned")
                               ) &&
-                              Array.isArray(viewRecord.admin_verifications) &&
-                              viewRecord.admin_verifications.length > 0,
+                              ((Array.isArray(viewRecord.admin_verifications) &&
+                                viewRecord.admin_verifications.some(
+                                  (v) => String(v.username || "").toLowerCase() === "shalini_arun" || v.action === "approved_first"
+                                )) ||
+                                String(viewRecord.approval_stage || "") === "Second Admin Approval" ||
+                                String(viewRecord.approval_status || "").toLowerCase().includes("completed")),
                             active:
-                              viewRecord.approval_stage === "Admin Approval" ||
-                              String(viewRecord.approval_stage || "").toLowerCase().includes("correction") ||
-                              String(viewRecord.approval_status || "").toLowerCase().includes("returned"),
+                              !String(viewRecord.approval_status || "").toLowerCase().includes("completed") &&
+                              !String(viewRecord.approval_status || "").toLowerCase().includes("reject") &&
+                              !(String(viewRecord.approval_stage || "") === "Second Admin Approval" ||
+                                viewRecord.approval_status === "Pending Final Approval (manu_pillai)"),
                           },
                           {
-                            label: "3. Accounts Approval",
-                            done: Array.isArray(viewRecord.accounts_verifications) && viewRecord.accounts_verifications.length > 0,
-                            active: viewRecord.approval_stage === "Accounts Approval",
+                            label: "3. manu_pillai (Final Approval)",
+                            done:
+                              !(
+                                String(viewRecord.approval_stage || "").toLowerCase().includes("correction") ||
+                                String(viewRecord.approval_status || "").toLowerCase().includes("returned")
+                              ) &&
+                              ((Array.isArray(viewRecord.admin_verifications) &&
+                                viewRecord.admin_verifications.some(
+                                  (v) => String(v.username || "").toLowerCase() === "manu_pillai" || v.action === "approved_final"
+                                )) ||
+                                String(viewRecord.approval_status || "").toLowerCase().includes("completed")),
+                            active:
+                              (String(viewRecord.approval_stage || "") === "Second Admin Approval" ||
+                               viewRecord.approval_status === "Pending Final Approval (manu_pillai)") &&
+                              !String(viewRecord.approval_status || "").toLowerCase().includes("completed") &&
+                              !String(viewRecord.approval_status || "").toLowerCase().includes("reject"),
                           },
                           {
                             label: "4. Completed",
@@ -5580,151 +5570,133 @@ export default function AssetManagement() {
                         ))}
                       </Box>
 
-                      {/* Verification Details */}
+                      {/* Verification Details - 2-tier approval cards */}
                       <Grid container spacing={2}>
-                        {/* Admin Verification */}
+                        {/* 1. First Admin Approval (shalini_arun) */}
                         <Grid item xs={12} sm={6}>
-                          <Box sx={{ p: 1.5, backgroundColor: "#f8fafc", borderRadius: "9px", border: "1px solid #f1f5f9" }}>
+                          <Box sx={{ p: 1.5, backgroundColor: "#f8fafc", borderRadius: "9px", border: "1px solid #f1f5f9", height: "100%" }}>
                             <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
                               <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
-                                Admin Verification
+                                1. First Admin Approval (shalini_arun)
                               </Typography>
-                              {isAdmin &&
+                              {isShalini &&
                                 !(
                                   Array.isArray(viewRecord.admin_verifications) &&
                                   viewRecord.admin_verifications.some(
-                                    (v) => String(v.user) === String(currentUser?._id) || v.username === currentUser?.username
+                                    (v) => String(v.username || "").toLowerCase() === "shalini_arun" || v.action === "approved_first"
                                   )
+                                ) &&
+                                !(
+                                  viewRecord.approval_stage === "Second Admin Approval" ||
+                                  String(viewRecord.approval_status || "").toLowerCase().includes("completed") ||
+                                  viewRecord.approval_stage === "IT Correction" ||
+                                  viewRecord.approval_status === "Returned to IT"
                                 ) && (
                                   <Button
                                     size="small"
                                     variant="outlined"
                                     color="success"
-                                    onClick={() => handleWorkflowAction(viewRecord._id, "verify_admin")}
+                                    onClick={() => handleWorkflowAction(viewRecord._id, "approve_admin")}
                                     disabled={submittingWorkflow}
                                     sx={{ fontSize: "0.7rem", textTransform: "none", py: 0.1, px: 1, fontWeight: 700, borderRadius: "6px" }}
                                   >
-                                    + Verify as Admin
+                                    + Approve (shalini_arun)
                                   </Button>
                                 )}
                             </Box>
-                            {Array.isArray(viewRecord.admin_verifications) && viewRecord.admin_verifications.length > 0 ? (
+                            {Array.isArray(viewRecord.admin_verifications) &&
+                            viewRecord.admin_verifications.some(
+                              (v) => String(v.username || "").toLowerCase() === "shalini_arun" || v.action === "approved_first"
+                            ) ? (
                               <Box sx={{ display: "flex", flexDirection: "column", gap: 0.6 }}>
-                                {viewRecord.admin_verifications.map((v, idx) => (
-                                  <Chip
-                                    key={idx}
-                                    icon={<ShieldCheck size={13} color="#16a34a" />}
-                                    label={`${v.username || v.name || "Admin"} (${v.role || "Admin"})`}
-                                    size="small"
-                                    sx={{
-                                      height: 24,
-                                      fontSize: "0.72rem",
-                                      fontWeight: 700,
-                                      backgroundColor: "#f0fdf4",
-                                      color: "#166534",
-                                      border: "1px solid #bbf7d0",
-                                      width: "fit-content",
-                                    }}
-                                  />
-                                ))}
+                                {viewRecord.admin_verifications
+                                  .filter((v) => String(v.username || "").toLowerCase() === "shalini_arun" || v.action === "approved_first")
+                                  .map((v, idx) => (
+                                    <Chip
+                                      key={idx}
+                                      icon={<ShieldCheck size={13} color="#16a34a" />}
+                                      label={`Approved by ${v.username || "shalini_arun"}${v.timestamp ? " on " + new Date(v.timestamp).toLocaleDateString() : ""}`}
+                                      size="small"
+                                      sx={{
+                                        height: 24,
+                                        fontSize: "0.72rem",
+                                        fontWeight: 700,
+                                        backgroundColor: "#f0fdf4",
+                                        color: "#166534",
+                                        border: "1px solid #bbf7d0",
+                                        width: "fit-content",
+                                      }}
+                                    />
+                                  ))}
                               </Box>
                             ) : (
                               <Typography sx={{ fontSize: "0.8rem", color: "#94a3b8", fontStyle: "italic" }}>
-                                Pending Admin Verification
+                                Pending 1st Approval from shalini_arun
                               </Typography>
                             )}
                           </Box>
                         </Grid>
 
-                        {/* Accounts Approval */}
+                        {/* 2. Final Admin Approval (manu_pillai) */}
                         <Grid item xs={12} sm={6}>
-                          <Box sx={{ p: 1.5, backgroundColor: "#f8fafc", borderRadius: "9px", border: "1px solid #f1f5f9" }}>
-                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1, flexWrap: "wrap", gap: 0.5 }}>
+                          <Box sx={{ p: 1.5, backgroundColor: "#f8fafc", borderRadius: "9px", border: "1px solid #f1f5f9", height: "100%" }}>
+                            <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
                               <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
-                                Accounts Approval
+                                2. Final Admin Approval (manu_pillai)
                               </Typography>
-                              {isAccountsHead &&
-                                (viewRecord.approval_stage === "Accounts Approval" ||
-                                  viewRecord.approval_status === "Pending Accounts Approval") &&
+                              {isManu &&
+                                (viewRecord.approval_stage === "Second Admin Approval" ||
+                                 viewRecord.approval_status === "Pending Final Approval (manu_pillai)") &&
                                 !(
-                                  Array.isArray(viewRecord.accounts_verifications) &&
-                                  viewRecord.accounts_verifications.some(
-                                    (v) => String(v.user) === String(currentUser?._id) || v.username === currentUser?.username
+                                  Array.isArray(viewRecord.admin_verifications) &&
+                                  viewRecord.admin_verifications.some(
+                                    (v) => String(v.username || "").toLowerCase() === "manu_pillai" || v.action === "approved_final"
                                   )
-                                ) && (
-                                  <Box sx={{ display: "flex", gap: 0.8 }}>
-                                    <Button
-                                      size="small"
-                                      variant="contained"
-                                      onClick={() => handleWorkflowAction(viewRecord._id, "approve_accounts")}
-                                      disabled={submittingWorkflow}
-                                      startIcon={<Check size={12} />}
-                                      sx={{
-                                        fontSize: "0.7rem",
-                                        textTransform: "none",
-                                        py: 0.2,
-                                        px: 1,
-                                        fontWeight: 700,
-                                        borderRadius: "6px",
-                                        backgroundColor: "#16a34a",
-                                        "&:hover": { backgroundColor: "#15803d" },
-                                        boxShadow: "none",
-                                      }}
-                                    >
-                                      Verify & Approve (Accounts)
-                                    </Button>
-                                    <Button
-                                      size="small"
-                                      variant="outlined"
-                                      color="error"
-                                      onClick={() => {
-                                        setRejectAssetRecord(viewRecord);
-                                        setRejectActionType("reject_accounts");
-                                        setShowRejectModal(true);
-                                      }}
-                                      disabled={submittingWorkflow}
-                                      startIcon={<X size={12} />}
-                                      sx={{ fontSize: "0.7rem", textTransform: "none", py: 0.2, px: 1, fontWeight: 700, borderRadius: "6px" }}
-                                    >
-                                      Reject
-                                    </Button>
-                                  </Box>
-                                )}
-                              {!isAccountsHead &&
-                                (viewRecord.approval_stage === "Accounts Approval" ||
-                                  viewRecord.approval_status === "Pending Accounts Approval") && (
-                                  <Tooltip title="Only Accounts - Head of Department or Sr. Manager Accounts can verify/approve this stage">
-                                    <Chip
-                                      size="small"
-                                      label="Restricted to Accounts Head"
-                                      sx={{ height: 20, fontSize: "0.65rem", color: "#64748b", backgroundColor: "#f1f5f9", fontWeight: 600 }}
-                                    />
-                                  </Tooltip>
+                                ) &&
+                                !String(viewRecord.approval_status || "").toLowerCase().includes("completed") && (
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="success"
+                                    onClick={() => handleWorkflowAction(viewRecord._id, "approve_admin")}
+                                    disabled={submittingWorkflow}
+                                    sx={{ fontSize: "0.7rem", textTransform: "none", py: 0.1, px: 1, fontWeight: 700, borderRadius: "6px" }}
+                                  >
+                                    + Approve (manu_pillai)
+                                  </Button>
                                 )}
                             </Box>
-                            {Array.isArray(viewRecord.accounts_verifications) && viewRecord.accounts_verifications.length > 0 ? (
+                            {Array.isArray(viewRecord.admin_verifications) &&
+                            viewRecord.admin_verifications.some(
+                              (v) => String(v.username || "").toLowerCase() === "manu_pillai" || v.action === "approved_final"
+                            ) ? (
                               <Box sx={{ display: "flex", flexDirection: "column", gap: 0.6 }}>
-                                {viewRecord.accounts_verifications.map((v, idx) => (
-                                  <Chip
-                                    key={idx}
-                                    icon={<ShieldCheck size={13} color="#2563eb" />}
-                                    label={`${v.username || v.name || "Accounts"} (${v.role || "Accounts"})`}
-                                    size="small"
-                                    sx={{
-                                      height: 24,
-                                      fontSize: "0.72rem",
-                                      fontWeight: 700,
-                                      backgroundColor: "#eff6ff",
-                                      color: "#1e40af",
-                                      border: "1px solid #bfdbfe",
-                                      width: "fit-content",
-                                    }}
-                                  />
-                                ))}
+                                {viewRecord.admin_verifications
+                                  .filter((v) => String(v.username || "").toLowerCase() === "manu_pillai" || v.action === "approved_final")
+                                  .map((v, idx) => (
+                                    <Chip
+                                      key={idx}
+                                      icon={<ShieldCheck size={13} color="#16a34a" />}
+                                      label={`Approved by ${v.username || "manu_pillai"}${v.timestamp ? " on " + new Date(v.timestamp).toLocaleDateString() : ""}`}
+                                      size="small"
+                                      sx={{
+                                        height: 24,
+                                        fontSize: "0.72rem",
+                                        fontWeight: 700,
+                                        backgroundColor: "#f0fdf4",
+                                        color: "#166534",
+                                        border: "1px solid #bbf7d0",
+                                        width: "fit-content",
+                                      }}
+                                    />
+                                  ))}
                               </Box>
                             ) : (
                               <Typography sx={{ fontSize: "0.8rem", color: "#94a3b8", fontStyle: "italic" }}>
-                                Pending Accounts Approval
+                                {viewRecord.approval_stage === "Second Admin Approval" ||
+                                 viewRecord.approval_status === "Pending Final Approval (manu_pillai)"
+                                  ? "Pending Final Approval from manu_pillai"
+                                  : "Awaiting 1st Approval (shalini_arun) first"}
                               </Typography>
                             )}
                           </Box>
@@ -6210,13 +6182,11 @@ export default function AssetManagement() {
         PaperProps={{ sx: { borderRadius: "14px", p: 1 } }}
       >
         <DialogTitle sx={{ fontWeight: 700, fontSize: "1.05rem", pb: 1 }}>
-          {rejectActionType === "reject_accounts" ? "Reject Asset (Return to Admin)" : "Reject Asset Request"}
+          Reject Asset Request
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            {rejectActionType === "reject_accounts"
-              ? "Please specify the rejection remarks. The asset request will be returned to Admin with these details."
-              : "Please specify the rejection remarks. The asset request will be returned to IT for correction."}
+            Please specify the rejection remarks. The asset request will be returned to IT for correction.
           </Typography>
           <TextField
             fullWidth

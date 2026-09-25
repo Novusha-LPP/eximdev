@@ -523,8 +523,8 @@ router.post("/", validateAssetPayload, async (req, res) => {
     if (!req.body.asset_tag || !String(req.body.asset_tag).trim()) {
       req.body.asset_tag = await generateNextAssetTag();
     }
-    req.body.approval_stage = "Admin Approval";
-    req.body.approval_status = "Pending Admin Approval";
+    req.body.approval_stage = "First Admin Approval";
+    req.body.approval_status = "Pending First Approval (shalini_arun)";
     req.body.rejection_remarks = "";
     
     const userRole = req.user?.role || "HR Admin";
@@ -532,8 +532,8 @@ router.post("/", validateAssetPayload, async (req, res) => {
 
     req.body.workflow_history = [
       {
-        stage: "Admin Approval",
-        action: "Submitted for Admin Approval",
+        stage: "First Admin Approval",
+        action: "Submitted for First Admin Approval (shalini_arun)",
         performed_by: req.user?._id,
         performed_by_name: userName,
         performed_by_role: userRole,
@@ -563,47 +563,65 @@ router.put("/:id/workflow", validateId, async (req, res) => {
 
     const userName = req.user?.first_name ? `${req.user.first_name} ${req.user.last_name || ""}`.trim() : (req.user?.username || "System User");
     const userRole = req.user?.role || "Admin";
+    const currentUsername = String(req.user?.username || "").toLowerCase().trim();
 
-    // Strictly enforce role-based access for workflow actions
-    if (action === "approve_accounts" || action === "reject_accounts") {
-      const authorized = await isAccountsHeadUser(req.user);
-      if (!authorized) {
-        return res.status(403).json({
+    let currentCycle = asset.approval_cycle || 1;
+    if (!Array.isArray(asset.admin_verifications)) asset.admin_verifications = [];
+
+    const hasShaliniVerified = asset.admin_verifications.some(
+      (v) => String(v.username || "").toLowerCase() === "shalini_arun" && (v.approval_cycle === currentCycle || !v.approval_cycle)
+    );
+    const hasManuVerified = asset.admin_verifications.some(
+      (v) => String(v.username || "").toLowerCase() === "manu_pillai" && (v.approval_cycle === currentCycle || !v.approval_cycle)
+    );
+
+    // Strictly enforce role-based access for workflow actions (Step 1: shalini_arun, Step 2: manu_pillai)
+    if (action === "approve_admin" || action === "verify_admin" || action === "approve_first" || action === "approve_second") {
+      if (!hasShaliniVerified) {
+        if (currentUsername !== "shalini_arun" && currentUsername !== "admin") {
+          return res.status(403).json({
+            success: false,
+            message: "Permission denied: First approval must be completed by shalini_arun.",
+          });
+        }
+      } else if (!hasManuVerified) {
+        if (currentUsername !== "manu_pillai" && currentUsername !== "admin") {
+          return res.status(403).json({
+            success: false,
+            message: "Permission denied: Second/Final approval must be completed by manu_pillai.",
+          });
+        }
+      } else {
+        return res.status(400).json({
           success: false,
-          message: "Permission denied: Only Accounts - Head of Department or Sr. Manager Accounts can verify or reject at the Accounts Approval stage.",
+          message: "Both shalini_arun and manu_pillai have already approved this asset.",
         });
       }
     }
 
-    if (action === "approve_admin" || action === "verify_admin" || action === "reject_admin" || action === "admin_return_to_it") {
-      const isAdminUser =
-        String(req.user?.role || "").toLowerCase() === "admin" ||
-        String(req.user?.role || "").toLowerCase() === "administrator" ||
-        req.user?.username === "admin" ||
-        Boolean(req.user?.is_operator);
-      if (!isAdminUser) {
-        return res.status(403).json({
-          success: false,
-          message: "Permission denied: Only Admin can verify or reject at the Admin Verification stage.",
-        });
+    if (action === "reject_admin") {
+      if (!hasShaliniVerified) {
+        if (currentUsername !== "shalini_arun" && currentUsername !== "admin") {
+          return res.status(403).json({
+            success: false,
+            message: "Permission denied: Only shalini_arun can reject at the first approval stage.",
+          });
+        }
+      } else if (!hasManuVerified) {
+        if (currentUsername !== "manu_pillai" && currentUsername !== "admin") {
+          return res.status(403).json({
+            success: false,
+            message: "Permission denied: Only manu_pillai can reject at the final approval stage.",
+          });
+        }
       }
     }
 
     if (action === "resubmit_it") {
-      const isAdminUser =
-        String(req.user?.role || "").toLowerCase() === "admin" ||
-        String(req.user?.role || "").toLowerCase() === "administrator" ||
-        String(req.user?.role || "").toLowerCase().includes("admin") ||
-        req.user?.username === "admin" ||
-        Boolean(req.user?.is_operator);
-      const isAccountsUser =
-        (await isAccountsHeadUser(req.user)) ||
-        String(req.user?.role || "").toLowerCase().includes("account") ||
-        String(req.user?.department || "").toLowerCase().includes("account");
-      if (isAdminUser || isAccountsUser) {
+      if (currentUsername === "shalini_arun" || currentUsername === "manu_pillai") {
         return res.status(403).json({
           success: false,
-          message: "Permission denied: Admin and Accounts users cannot resubmit invoices. Only HR Admin department (HARDWARE AND NETWORK ENGINEER) users can resubmit.",
+          message: "Permission denied: Approvers cannot resubmit invoices. Only IT department users can resubmit.",
         });
       }
     }
@@ -612,39 +630,61 @@ router.put("/:id/workflow", validateId, async (req, res) => {
     let updatedStatus = asset.approval_status;
     let rejectionRemarks = asset.rejection_remarks;
     let actionDescription = "";
-    let currentCycle = asset.approval_cycle || 1;
 
-    if (action === "approve_admin" || action === "verify_admin") {
-      if (asset.approval_stage === "Admin Approval" || asset.approval_status === "Pending Admin Approval" || !asset.approval_stage) {
-        updatedStage = "Accounts Approval";
-        updatedStatus = "Pending Accounts Approval";
+    if (action === "approve_admin" || action === "verify_admin" || action === "approve_first" || action === "approve_second") {
+      if (!hasShaliniVerified) {
+        // Level 1 approval: shalini_arun
+        updatedStage = "Second Admin Approval";
+        updatedStatus = "Pending Final Approval (manu_pillai)";
         rejectionRemarks = "";
-      }
-      actionDescription = `Admin Verified by ${userName} (Cycle ${currentCycle})`;
+        asset.rejected_by = null;
+        asset.rejected_by_name = "";
+        asset.rejected_by_role = "";
+        asset.rejected_at = null;
+        actionDescription = remarks
+          ? `First Approval by shalini_arun (${userName}, Cycle ${currentCycle}): ${remarks}`
+          : `First Approval by shalini_arun (${userName}, Cycle ${currentCycle})`;
 
-      // Add to admin_verifications array with duplicate check for current cycle
-      if (!Array.isArray(asset.admin_verifications)) asset.admin_verifications = [];
-      const existingVerification = asset.admin_verifications.find(
-        (v) => (String(v.user) === String(req.user._id) || v.username === req.user.username) && (v.approval_cycle === currentCycle || !v.approval_cycle)
-      );
-      if (!existingVerification) {
         asset.admin_verifications.push({
           user: req.user._id,
-          username: req.user.username,
+          username: req.user.username || "shalini_arun",
           name: userName,
           role: userRole,
-          action: "Admin Verified",
+          action: "First Admin Verified (shalini_arun)",
+          remarks: remarks || "",
+          approval_cycle: currentCycle,
+          timestamp: new Date(),
+        });
+      } else {
+        // Level 2 approval: manu_pillai -> Completed!
+        updatedStage = "Completed";
+        updatedStatus = "Completed";
+        rejectionRemarks = "";
+        asset.rejected_by = null;
+        asset.rejected_by_name = "";
+        asset.rejected_by_role = "";
+        asset.rejected_at = null;
+        asset.completed_at = new Date();
+        actionDescription = remarks
+          ? `Final Approval by manu_pillai (${userName}, Cycle ${currentCycle}): ${remarks}`
+          : `Final Approval by manu_pillai (${userName}, Cycle ${currentCycle})`;
+
+        asset.admin_verifications.push({
+          user: req.user._id,
+          username: req.user.username || "manu_pillai",
+          name: userName,
+          role: userRole,
+          action: "Final Admin Verified (manu_pillai)",
           remarks: remarks || "",
           approval_cycle: currentCycle,
           timestamp: new Date(),
         });
       }
-    } else if (action === "reject_admin") {
-      // Step 2: Admin rejects → asset returned directly to IT for correction
+    } else if (action === "reject_admin" || action === "reject_accounts" || action === "admin_return_to_it") {
       updatedStage = "IT Correction";
       updatedStatus = "Returned to IT";
-      rejectionRemarks = remarks || "Rejected by Admin. Please correct and resubmit.";
-      actionDescription = `Rejected by Admin — Returned to IT (Cycle ${currentCycle}): ${rejectionRemarks}`;
+      rejectionRemarks = remarks || `Rejected by ${currentUsername === "manu_pillai" ? "manu_pillai" : "shalini_arun"}. Please correct and resubmit.`;
+      actionDescription = `Rejected by ${currentUsername} — Returned to IT (Cycle ${currentCycle}): ${rejectionRemarks}`;
       asset.rejected_by = req.user._id;
       asset.rejected_by_name = userName;
       asset.rejected_by_role = userRole;
@@ -652,65 +692,17 @@ router.put("/:id/workflow", validateId, async (req, res) => {
     } else if (action === "resubmit_it") {
       currentCycle = (asset.approval_cycle || 1) + 1;
       asset.approval_cycle = currentCycle;
-      updatedStage = "Admin Approval";
-      updatedStatus = "Pending Admin Approval";
+      updatedStage = "First Admin Approval";
+      updatedStatus = "Pending First Approval (shalini_arun)";
       rejectionRemarks = "";
       asset.rejected_by = null;
       asset.rejected_by_name = "";
       asset.rejected_by_role = "";
       asset.rejected_at = null;
-      actionDescription = `Resubmitted by HR Admin Department (Initiated Cycle ${currentCycle})`;
-      // Support optional invoice updates on resubmit
+      actionDescription = `Resubmitted by IT Department (Initiated Cycle ${currentCycle})`;
       if (req.body.image_url) asset.image_url = req.body.image_url;
       if (req.body.invoice_number) asset.invoice_number = req.body.invoice_number;
       if (req.body.invoice_date) asset.invoice_date = req.body.invoice_date;
-    } else if (action === "approve_accounts") {
-      updatedStage = "Completed";
-      updatedStatus = "Completed";
-      rejectionRemarks = "";
-      asset.rejected_by = null;
-      asset.rejected_by_name = "";
-      asset.rejected_by_role = "";
-      asset.rejected_at = null;
-      asset.completed_at = new Date();
-      actionDescription = `Approved by Sr. Manager Accounts / Head of Accounts (Completed Cycle ${currentCycle})`;
-
-      // Add to accounts_verifications array
-      if (!Array.isArray(asset.accounts_verifications)) asset.accounts_verifications = [];
-      const existingAccountsVer = asset.accounts_verifications.find(
-        (v) => (String(v.user) === String(req.user._id) || v.username === req.user.username) && (v.approval_cycle === currentCycle || !v.approval_cycle)
-      );
-      if (!existingAccountsVer) {
-        asset.accounts_verifications.push({
-          user: req.user._id,
-          username: req.user.username,
-          name: userName,
-          role: userRole,
-          action: "Accounts Approved",
-          remarks: remarks || "",
-          approval_cycle: currentCycle,
-          timestamp: new Date(),
-        });
-      }
-    } else if (action === "reject_accounts") {
-      // Step 3: Accounts rejects → asset returned to Admin as Rejected with details
-      updatedStage = "Rejected";
-      updatedStatus = "Rejected";
-      rejectionRemarks = remarks || "Rejected by Accounts Department.";
-      actionDescription = `Rejected by Accounts (Returned to Admin, Cycle ${currentCycle}): ${rejectionRemarks}`;
-      asset.rejected_by = req.user._id;
-      asset.rejected_by_name = userName;
-      asset.rejected_by_role = userRole;
-      asset.rejected_at = new Date();
-    } else if (action === "admin_return_to_it") {
-      // Step 4: Admin manually returns to IT (used after Accounts rejection)
-      updatedStage = "IT Correction";
-      updatedStatus = "Returned to IT";
-      actionDescription = `Returned to IT by Admin (Cycle ${currentCycle}): ${remarks || "Please make necessary corrections."}`;
-      asset.rejected_by = req.user._id;
-      asset.rejected_by_name = userName;
-      asset.rejected_by_role = userRole;
-      asset.rejected_at = new Date();
     } else {
       return res.status(400).json({ success: false, message: "Invalid workflow action" });
     }

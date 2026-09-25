@@ -31,7 +31,12 @@ const FLEET_INSURANCE_TABS = [
   {
     key: "Vehicle Records",
     label: "Vehicle Records",
-    description: "Includes Policy History & Dashboard automatically",
+    description: "Access to Vehicle Records listing & entry",
+  },
+  {
+    key: "Policy History & Dashboard",
+    label: "Policy History & Dashboard",
+    description: "Access to Policy History & Dashboard tab",
   },
   {
     key: "Approval",
@@ -182,11 +187,11 @@ function AssignProcurementTabs({ selectedUser }) {
           <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a" }}>
             Fleet Insurance SOP Tab Permissions
           </Typography>
-          <Chip label="3 Options" size="small" sx={{ bgcolor: "#eff6ff", color: "#1d4ed8", fontWeight: 700, fontSize: "0.75rem" }} />
+          <Chip label="4 Options" size="small" sx={{ bgcolor: "#eff6ff", color: "#1d4ed8", fontWeight: 700, fontSize: "0.75rem" }} />
         </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
           Configure which Fleet Insurance tabs user <strong>{selectedUser}</strong> can access.
-          Selecting <em>Vehicle Records</em> automatically grants access to <em>Policy History & Dashboard</em>.
+          Selecting specific tabs restricts access (e.g. <em>Policy History & Dashboard</em> for history/admin access).
           Leave all unchecked to grant unrestricted access to all tabs.
         </Typography>
 
@@ -206,7 +211,7 @@ function AssignProcurementTabs({ selectedUser }) {
               {FLEET_INSURANCE_TABS.map((item) => {
                 const isChecked = fleetTabPermissions.includes(item.key);
                 return (
-                  <Grid item xs={12} sm={4} key={item.key}>
+                  <Grid item xs={12} sm={6} md={3} key={item.key}>
                     <Card
                       variant="outlined"
                       onClick={() => handleToggleFleetTab(item.key)}

@@ -5,6 +5,8 @@ import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
+const escapeRegex = (str) => (str ? String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : "");
+
 router.get("/get-bill-cover", authMiddleware, async (req, res) => {
     try {
         const { importer, date } = req.query;
@@ -16,7 +18,7 @@ router.get("/get-bill-cover", authMiddleware, async (req, res) => {
         // Find jobs for the importer where bill_date contains the specified date
         // bill_date can be "date1,date2"
         const jobs = await JobModel.find({
-            importer: { $regex: new RegExp(`^${importer}$`, "i") },
+            importer: { $regex: new RegExp(`^${escapeRegex(importer)}$`, "i") },
             bill_date: { $regex: date }
         }).select("job_no job_number bill_no bill_date importer description").lean();
 

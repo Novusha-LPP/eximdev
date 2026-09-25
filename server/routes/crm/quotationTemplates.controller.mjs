@@ -36,7 +36,7 @@ router.get('/:id', async (req, res) => {
 // CREATE quotation template
 router.post('/', async (req, res) => {
   try {
-    const { templateName, companyId, description, category, zohoStyle, customColumns = [], defaultLineItems = [], isDefault } = req.body;
+    const { templateName, companyId, description, category, templateStyle, customColumns = [], defaultLineItems = [], isDefault } = req.body;
 
     if (!templateName || !templateName.trim()) {
       return res.status(400).json({ message: 'Template name is required' });
@@ -56,13 +56,14 @@ router.post('/', async (req, res) => {
     }
 
     const userId = req.user?._id || req.user?.id || req.headers['user-id'];
+    const styleData = templateStyle || {};
 
     const newTemplate = new QuotationTemplate({
       templateName,
       companyId,
       description: description || '',
       category: category || 'general',
-      zohoStyle: zohoStyle || {},
+      templateStyle: styleData,
       customColumns: customColumns || [],
       defaultLineItems: defaultLineItems || [],
       isDefault: isDefault || false,
@@ -82,11 +83,13 @@ router.post('/', async (req, res) => {
 // UPDATE quotation template
 router.put('/:id', async (req, res) => {
   try {
-    const { templateName, companyId, description, category, zohoStyle, customColumns, defaultLineItems, isDefault } = req.body;
+    const { templateName, companyId, description, category, templateStyle, customColumns, defaultLineItems, isDefault } = req.body;
 
     if (isDefault) {
       await QuotationTemplate.updateMany({ _id: { $ne: req.params.id } }, { isDefault: false });
     }
+
+    const styleData = templateStyle;
 
     const updated = await QuotationTemplate.findByIdAndUpdate(
       req.params.id,
@@ -95,7 +98,7 @@ router.put('/:id', async (req, res) => {
         companyId,
         description,
         category,
-        zohoStyle,
+        ...(styleData ? { templateStyle: styleData } : {}),
         customColumns,
         defaultLineItems,
         isDefault

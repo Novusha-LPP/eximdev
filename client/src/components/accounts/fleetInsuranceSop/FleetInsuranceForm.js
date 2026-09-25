@@ -17,6 +17,7 @@ import Stage1PolicyProposal from "./Stage1PolicyProposal";
 import Stage2PRGeneration from "./Stage2PRGeneration";
 import Stage3FinanceApproval from "./Stage3FinanceApproval";
 import Stage4PaymentUtr from "./Stage4PaymentUtr";
+import Stage5PolicyDocument from "./Stage5PolicyDocument";
 
 function CustomTabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -259,8 +260,59 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
             fetchedData.financialApprovalStatus = "Pending";
             fetchedData.paymentUtr = "";
             fetchedData.paymentDate = todayStr;
-            fetchedData.renewalStatus = "Pending";
-            fetchedData.tat = "";
+          } else {
+            // When editing an existing record, if new* fields are empty, populate them from active policy details
+            // so Proposed Renewed Policy & Premium Breakdown (Section 3) is populated and editable!
+            const hasNewDetails = Boolean(
+              fetchedData.newInsuranceCompany ||
+              fetchedData.newPolicyNo ||
+              Number(fetchedData.newOdPremium) > 0 ||
+              Number(fetchedData.newTotalPolicyPremium) > 0
+            );
+
+            if (!hasNewDetails) {
+              if (fetchedData.insuranceCompany) fetchedData.newInsuranceCompany = fetchedData.insuranceCompany;
+              if (fetchedData.policyNo) fetchedData.newPolicyNo = fetchedData.policyNo;
+              if (fetchedData.policyFromDate) fetchedData.newPolicyFromDate = fetchedData.policyFromDate;
+              if (fetchedData.policyToDate) fetchedData.newPolicyToDate = fetchedData.policyToDate;
+              if (fetchedData.idv) fetchedData.newIdv = fetchedData.idv;
+              if (fetchedData.electricalAccessoriesIdv) fetchedData.newElectricalAccessoriesIdv = fetchedData.electricalAccessoriesIdv;
+              if (fetchedData.cngKitIdv) fetchedData.newCngKitIdv = fetchedData.cngKitIdv;
+              if (fetchedData.hydraulicJackCover || fetchedData.hydrolicJackCover) {
+                fetchedData.newHydraulicJackCover = fetchedData.hydraulicJackCover || fetchedData.hydrolicJackCover;
+                fetchedData.newHydrolicJackCover = fetchedData.newHydraulicJackCover;
+              }
+              if (fetchedData.moderationAmount || fetchedData.moderationAmountTipper) {
+                fetchedData.newModerationAmount = fetchedData.moderationAmount || fetchedData.moderationAmountTipper;
+                fetchedData.newModerationAmountTipper = fetchedData.newModerationAmount;
+              }
+              if (fetchedData.totalIdv) fetchedData.newTotalIdv = fetchedData.totalIdv;
+              if (fetchedData.premiumAmount) fetchedData.newPremiumAmount = fetchedData.premiumAmount;
+              if (fetchedData.ncbPercentage) fetchedData.newNcb = fetchedData.ncbPercentage;
+              if (fetchedData.premium) fetchedData.newPremium = fetchedData.premium;
+              if (fetchedData.remarks) fetchedData.newRemarks = fetchedData.remarks;
+
+              if (fetchedData.odPremium) fetchedData.newOdPremium = fetchedData.odPremium;
+              if (fetchedData.imt23) fetchedData.newImt23 = fetchedData.imt23;
+              if (fetchedData.imt24) fetchedData.newImt24 = fetchedData.imt24;
+              if (fetchedData.imt25) fetchedData.newImt25 = fetchedData.imt25;
+              if (fetchedData.totalOdPremium) fetchedData.newTotalOdPremium = fetchedData.totalOdPremium;
+              if (fetchedData.imt17) fetchedData.newImt17 = fetchedData.imt17;
+              if (fetchedData.imt252) fetchedData.newImt252 = fetchedData.imt252;
+              if (fetchedData.imt28) fetchedData.newImt28 = fetchedData.imt28;
+              if (fetchedData.imt29) fetchedData.newImt29 = fetchedData.imt29;
+              if (fetchedData.liabilityPremium) fetchedData.newLiabilityPremium = fetchedData.liabilityPremium;
+              if (fetchedData.totalGst) fetchedData.newTotalGst = fetchedData.totalGst;
+              if (fetchedData.totalPolicyPremium || fetchedData.premiumAmount) {
+                fetchedData.newTotalPolicyPremium = fetchedData.totalPolicyPremium || fetchedData.premiumAmount;
+              }
+              if (Array.isArray(fetchedData.section2BCustomFields) && fetchedData.section2BCustomFields.length > 0) {
+                fetchedData.section3BCustomFields = fetchedData.section2BCustomFields;
+              }
+              if (Array.isArray(fetchedData.section2CustomFields) && fetchedData.section2CustomFields.length > 0) {
+                fetchedData.section3CustomFields = fetchedData.section2CustomFields;
+              }
+            }
           }
           const merged = { ...emptyRecord };
           Object.keys(emptyRecord).forEach((key) => {
@@ -505,37 +557,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
         dataToSave.section2BCustomFields = dataToSave.section3BCustomFields;
       }
 
-      // Clear renewed fields after promotion so they are ready for future renewal
-      dataToSave.newInsuranceCompany = "";
-      dataToSave.newPolicyNo = "";
-      dataToSave.newPolicyFromDate = "";
-      dataToSave.newPolicyToDate = "";
-      dataToSave.newIdv = "";
-      dataToSave.newElectricalAccessoriesIdv = "";
-      dataToSave.newCngKitIdv = "";
-      dataToSave.newHydraulicJackCover = "";
-      dataToSave.newHydrolicJackCover = "";
-      dataToSave.newModerationAmount = "";
-      dataToSave.newModerationAmountTipper = "";
-      dataToSave.newTotalIdv = "";
-      dataToSave.newPremiumAmount = "";
-      dataToSave.newNcb = "";
-      dataToSave.newPremium = "";
-      dataToSave.newRemarks = "";
-      dataToSave.newOdPremium = "";
-      dataToSave.newImt23 = "";
-      dataToSave.newImt24 = "";
-      dataToSave.newImt25 = "";
-      dataToSave.newTotalOdPremium = "";
-      dataToSave.newImt17 = "";
-      dataToSave.newImt252 = "";
-      dataToSave.newImt28 = "";
-      dataToSave.newImt29 = "";
-      dataToSave.newLiabilityPremium = "";
-      dataToSave.newTotalGst = "";
-      dataToSave.newTotalPolicyPremium = "";
-      dataToSave.section3CustomFields = [];
-      dataToSave.section3BCustomFields = [];
+      // Keep new* fields populated so Section 3 & Section 3B retain their full data and remain editable
     }
 
     setSaving(true);
@@ -743,6 +765,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
     { label: "2. PR Generation", component: Stage2PRGeneration },
     { label: "3. Finance Approval", component: Stage3FinanceApproval },
     { label: "4. Payment & UTR", component: Stage4PaymentUtr },
+    { label: "5. Policy Document", component: Stage5PolicyDocument },
   ];
 
   if (loading) {
@@ -799,51 +822,63 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       </Box>
 
       {/* Vehicle Summary Context Header Card */}
-      {tabValue !== 0 && (
-        <Paper elevation={0} sx={{ p: 1.2, mb: 1.5, borderRadius: "6px",
-            border: "1px solid",
-            borderColor: "divider",
+      {formData.registrationNo && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 1.2,
+            mb: 1.5,
+            borderRadius: "6px",
+            border: "1px solid #cbd5e1",
             background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
           }}
         >
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+          <Grid container spacing={1.5} alignItems="center">
+            <Grid item xs={12} sm={4} md={2}>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase", fontSize: "10.5px" }}>
                 Registration No.
               </Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#2563eb" }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#2563eb", fontSize: "13.5px" }}>
                 {formData.registrationNo || "-"}
               </Typography>
             </Grid>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+            <Grid item xs={12} sm={4} md={2}>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase", fontSize: "10.5px" }}>
+                PR No. & Date
+              </Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: formData.prNumber ? "#0284c7" : "#64748b", fontSize: "13px" }}>
+                {formData.prNumber ? `${formData.prNumber} (${formData.prDate ? new Date(formData.prDate).toLocaleDateString("en-IN") : ""})` : "-"}
+              </Typography>
+            </Grid>
+            <Grid item xs={12} sm={4} md={2}>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase", fontSize: "10.5px" }}>
                 Insurance Company
               </Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#0f172a" }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#0f172a", fontSize: "12.5px" }} noWrap>
                 {formData.newInsuranceCompany || formData.insuranceCompany || "-"}
               </Typography>
             </Grid>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+            <Grid item xs={12} sm={4} md={2}>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase", fontSize: "10.5px" }}>
                 Renewal Total IDV
               </Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#0f172a" }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#0f172a", fontSize: "13px" }}>
                 ₹ {Number(formData.newTotalIdv || formData.totalIdv || 0).toLocaleString("en-IN")}
               </Typography>
             </Grid>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+            <Grid item xs={12} sm={4} md={2}>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase", fontSize: "10.5px" }}>
                 Expiry Date
               </Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#dc2626" }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#dc2626", fontSize: "13px" }}>
                 {formData.policyToDate ? new Date(formData.policyToDate).toLocaleDateString("en-IN") : "-"}
               </Typography>
             </Grid>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+            <Grid item xs={12} sm={4} md={2}>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase", fontSize: "10.5px" }}>
                 {(formData.renewalStatus === "Renewed" || formData.paymentUtr) ? "Renewed Premium" : "Policy Premium"}
               </Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: (formData.renewalStatus === "Renewed" || formData.paymentUtr) ? "#16a34a" : "#0f172a" }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: (formData.renewalStatus === "Renewed" || formData.paymentUtr) ? "#16a34a" : "#0f172a", fontSize: "13px" }}>
                 ₹ {Number(formData.newTotalPolicyPremium || formData.totalPolicyPremium || formData.premiumAmount || formData.premium || 0).toLocaleString("en-IN")}
               </Typography>
             </Grid>

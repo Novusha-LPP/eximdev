@@ -19,8 +19,8 @@ const getHeaders = () => {
   };
 };
 
-const ZOHO_THEMES = [
-  { name: 'Zoho Classic Navy', theme: '#1e3a8a', accent: '#3b82f6', bg: '#f8fafc' },
+const COLOR_THEMES = [
+  { name: 'Classic Navy', theme: '#1e3a8a', accent: '#3b82f6', bg: '#f8fafc' },
   { name: 'Sapphire Professional', theme: '#0f172a', accent: '#0284c7', bg: '#f0f9ff' },
   { name: 'Crimson Executive', theme: '#881337', accent: '#e11d48', bg: '#fff1f2' },
   { name: 'Emerald Commerce', theme: '#064e3b', accent: '#10b981', bg: '#ecfdf5' },
@@ -63,7 +63,7 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
     companyId: '',
     description: '',
     category: 'general',
-    zohoStyle: {
+    templateStyle: {
       themeColor: '#1e3a8a',
       accentColor: '#3b82f6',
       headerLayout: 'top_right',
@@ -246,17 +246,17 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
         companyId: temp.companyId?._id || temp.companyId || (companies[0]?._id || ''),
         description: temp.description || '',
         category: temp.category || 'general',
-        zohoStyle: {
-          themeColor: temp.zohoStyle?.themeColor || '#1e3a8a',
-          accentColor: temp.zohoStyle?.accentColor || '#3b82f6',
-          headerLayout: temp.zohoStyle?.headerLayout || 'top_right',
-          fontFamily: temp.zohoStyle?.fontFamily || 'helvetica',
-          showLogo: temp.zohoStyle?.showLogo !== false,
-          showBankDetails: temp.zohoStyle?.showBankDetails !== false,
-          showSignatory: temp.zohoStyle?.showSignatory !== false,
-          showHsnSac: temp.zohoStyle?.showHsnSac !== false,
-          termsAndConditions: temp.zohoStyle?.termsAndConditions || '1. Quotation valid for 30 days from issue date.',
-          footerNotes: temp.zohoStyle?.footerNotes || 'Thank you for considering our services.'
+        templateStyle: {
+          themeColor: temp.templateStyle?.themeColor || '#1e3a8a',
+          accentColor: temp.templateStyle?.accentColor || '#3b82f6',
+          headerLayout: temp.templateStyle?.headerLayout || 'top_right',
+          fontFamily: temp.templateStyle?.fontFamily || 'helvetica',
+          showLogo: temp.templateStyle?.showLogo !== false,
+          showBankDetails: temp.templateStyle?.showBankDetails !== false,
+          showSignatory: temp.templateStyle?.showSignatory !== false,
+          showHsnSac: temp.templateStyle?.showHsnSac !== false,
+          termsAndConditions: temp.templateStyle?.termsAndConditions || '1. Quotation valid for 30 days from issue date.',
+          footerNotes: temp.templateStyle?.footerNotes || 'Thank you for considering our services.'
         },
         customColumns: temp.customColumns || [],
         defaultLineItems: temp.defaultLineItems || [],
@@ -270,7 +270,7 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
         companyId: defaultCompId,
         description: '',
         category: 'general',
-        zohoStyle: {
+        templateStyle: {
           themeColor: '#1e3a8a',
           accentColor: '#3b82f6',
           headerLayout: 'top_right',
@@ -415,7 +415,7 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                   Quotation Branding & Templates Center
                 </h3>
                 <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8' }}>
-                  Manage company profiles, logos, Zoho-inspired styles & custom dynamic table columns
+                  Manage company profiles, logos, custom styles & custom dynamic table columns
                 </p>
               </div>
             </div>
@@ -497,7 +497,7 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                   <Layout size={48} style={{ color: '#94a3b8', marginBottom: '12px' }} />
                   <h4 style={{ margin: '0 0 6px 0', fontSize: '1.1rem', color: '#334155' }}>No Quotation Templates Created Yet</h4>
                   <p style={{ margin: '0 0 20px 0', fontSize: '0.88rem', color: '#64748b', maxWidth: '450px', marginLeft: 'auto', marginRight: 'auto' }}>
-                    Create custom quotation templates bound to your company profiles, complete with custom Zoho themes and dynamic quote line item columns!
+                    Create custom quotation templates bound to your company profiles, complete with custom color themes and dynamic quote line item columns!
                   </p>
                   <button
                     onClick={() => handleOpenTemplateModal()}
@@ -510,7 +510,7 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '20px' }}>
                   {templates.map(temp => {
                     const linkedCompany = temp.companyId || {};
-                    const themeColor = temp.zohoStyle?.themeColor || '#1e3a8a';
+                    const themeColor = temp.templateStyle?.themeColor || '#1e3a8a';
                     const customColsCount = temp.customColumns?.length || 0;
 
                     return (
@@ -575,7 +575,7 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                           {/* Action Footer */}
                           <div style={{ marginTop: 'auto', paddingTop: '14px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                              Theme: <strong style={{ color: themeColor }}>● {ZOHO_THEMES.find(t => t.theme === themeColor)?.name || 'Custom'}</strong>
+                              Theme: <strong style={{ color: themeColor }}>● {COLOR_THEMES.find(t => t.theme === themeColor)?.name || 'Custom'}</strong>
                             </span>
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button
@@ -963,7 +963,7 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* TEMPLATE EDIT/CREATE MODAL WITH ZOHO THEMES & DYNAMIC COLUMNS */}
+      {/* TEMPLATE EDIT/CREATE MODAL WITH DESIGN THEMES & DYNAMIC COLUMNS */}
       {/* ───────────────────────────────────────────────────────────── */}
       {isTemplateModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.55)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
@@ -972,7 +972,7 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
             {/* Header */}
             <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #1e3a8a 0%, #1e293b 100%)', color: '#fff' }}>
               <h3 style={{ margin: 0, fontWeight: 700, color: '#fff', fontSize: '1.15rem' }}>
-                {editingTemplate ? 'Edit Quotation Template' : 'Create Zoho-Inspired Quotation Template'}
+                {editingTemplate ? 'Edit Quotation Template' : 'Create Custom Quotation Template'}
               </h3>
               <button onClick={() => setIsTemplateModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={18} /></button>
             </div>
@@ -1011,7 +1011,7 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>TEMPLATE NAME *</label>
                   <input
-                    type="text" required placeholder="Ex. Zoho Modern Navy Export Proposal"
+                    type="text" required placeholder="Ex. Modern Navy Export Proposal"
                     value={templateForm.templateName}
                     onChange={e => setTemplateForm({ ...templateForm, templateName: e.target.value })}
                     style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem' }}
@@ -1034,20 +1034,20 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                 </div>
               </div>
 
-              {/* 2. Zoho Styling Customizer */}
+              {/* 2. Template Styling Customizer */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', background: '#fafafa' }}>
                 <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Palette size={16} style={{ color: '#2563eb' }} /> ZOHO BOOKS DESIGN & COLOR THEMES
+                  <Palette size={16} style={{ color: '#2563eb' }} /> DESIGN & COLOR THEMES
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-                  {ZOHO_THEMES.map(theme => {
-                    const isSelected = templateForm.zohoStyle?.themeColor === theme.theme;
+                  {COLOR_THEMES.map(theme => {
+                    const isSelected = templateForm.templateStyle?.themeColor === theme.theme;
                     return (
                       <div
                         key={theme.name}
                         onClick={() => setTemplateForm(prev => ({
                           ...prev,
-                          zohoStyle: { ...prev.zohoStyle, themeColor: theme.theme, accentColor: theme.accent }
+                          templateStyle: { ...prev.templateStyle, themeColor: theme.theme, accentColor: theme.accent }
                         }))}
                         style={{
                           padding: '10px', borderRadius: '8px', border: isSelected ? `2px solid ${theme.theme}` : '1px solid #cbd5e1',
@@ -1095,7 +1095,7 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                 <div style={{ overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#fff' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                     <thead>
-                      <tr style={{ background: templateForm.zohoStyle?.themeColor || '#1e3a8a', color: '#fff' }}>
+                      <tr style={{ background: templateForm.templateStyle?.themeColor || '#1e3a8a', color: '#fff' }}>
                         <th style={{ padding: '8px 10px', textAlign: 'left' }}>Product / Service *</th>
                         <th style={{ padding: '8px 10px', textAlign: 'center' }}>HSN/SAC</th>
                         <th style={{ padding: '8px 10px', textAlign: 'center' }}>Qty</th>
@@ -1152,8 +1152,8 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>DEFAULT TERMS & CONDITIONS PRESET</label>
                 <textarea
                   rows={3}
-                  value={templateForm.zohoStyle?.termsAndConditions}
-                  onChange={e => setTemplateForm({ ...templateForm, zohoStyle: { ...templateForm.zohoStyle, termsAndConditions: e.target.value } })}
+                  value={templateForm.templateStyle?.termsAndConditions}
+                  onChange={e => setTemplateForm({ ...templateForm, templateStyle: { ...templateForm.templateStyle, termsAndConditions: e.target.value } })}
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }}
                 />
               </div>
@@ -1162,8 +1162,8 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>FOOTER NOTES / THANK YOU MESSAGE</label>
                 <input
                   type="text"
-                  value={templateForm.zohoStyle?.footerNotes}
-                  onChange={e => setTemplateForm({ ...templateForm, zohoStyle: { ...templateForm.zohoStyle, footerNotes: e.target.value } })}
+                  value={templateForm.templateStyle?.footerNotes}
+                  onChange={e => setTemplateForm({ ...templateForm, templateStyle: { ...templateForm.templateStyle, footerNotes: e.target.value } })}
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }}
                 />
               </div>

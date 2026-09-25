@@ -298,7 +298,7 @@ export default function QuoteFormModal({
                 validUntil: nextMonth.toISOString().substring(0, 10),
                 paymentTerms: 'Net 30',
                 deliveryTerms: '',
-                notes: defaultTemp?.zohoStyle?.footerNotes || ''
+                notes: defaultTemp?.templateStyle?.footerNotes || ''
               },
               status: 'draft',
               createNewVersion: false
@@ -321,6 +321,7 @@ export default function QuoteFormModal({
 
     const compId = selectedTemp.companyId?._id || selectedTemp.companyId || formData.companyId;
     const customCols = selectedTemp.customColumns || [];
+    const styleObj = selectedTemp.templateStyle || {};
 
     setFormData(prev => ({
       ...prev,
@@ -329,7 +330,7 @@ export default function QuoteFormModal({
       templateColumns: customCols,
       terms: {
         ...prev.terms,
-        notes: selectedTemp.zohoStyle?.footerNotes || prev.terms.notes
+        notes: styleObj.footerNotes || prev.terms.notes
       },
       lineItems: selectedTemp.defaultLineItems && selectedTemp.defaultLineItems.length > 0
         ? selectedTemp.defaultLineItems.map(i => ({
@@ -665,7 +666,7 @@ export default function QuoteFormModal({
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#0369a1', marginBottom: '4px' }}>
-                  📄 QUOTATION TEMPLATE (ZOHO STYLED) *
+                  📄 QUOTATION TEMPLATE *
                 </label>
                 <select
                   value={formData.templateId}

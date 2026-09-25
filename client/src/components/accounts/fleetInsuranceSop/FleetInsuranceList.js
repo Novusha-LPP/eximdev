@@ -92,8 +92,9 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
     if (isAdmin || allowedUserTabs.length === 0) return true;
     switch (tabIndex) {
       case 0: // Vehicle Records
-      case 1: // Policy History & Dashboard (auto-included with Vehicle Records)
         return allowedUserTabs.includes("Vehicle Records");
+      case 1: // Policy History & Dashboard
+        return allowedUserTabs.includes("Policy History & Dashboard");
       case 2: // Approval
         return allowedUserTabs.includes("Approval");
       case 3: // Payment & UTR
@@ -1059,14 +1060,42 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                   ) : (
                     data.map((row) => {
                       const ctx = getContextualRowDetails(row, month, year);
+                      let isExpiringSoon = false;
+                      if (!ctx.isRenewed && ctx.displayExpiry) {
+                        const exp = new Date(ctx.displayExpiry);
+                        const now = new Date();
+                        exp.setHours(0, 0, 0, 0);
+                        now.setHours(0, 0, 0, 0);
+                        const diffDays = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                        if (diffDays <= 7) isExpiringSoon = true;
+                      }
+
                       return (
-                        <TableRow key={row._id} hover sx={{ "&:hover": { bgcolor: "#f8fafc" } }}>
+                        <TableRow
+                          key={row._id}
+                          hover
+                          sx={{
+                            bgcolor: isExpiringSoon ? "#fff1f2 !important" : undefined,
+                            borderLeft: isExpiringSoon ? "4px solid #dc2626 !important" : undefined,
+                            "&:hover": { bgcolor: isExpiringSoon ? "#ffe4e6 !important" : "#f8fafc" }
+                          }}
+                        >
                           <TableCell
                             sx={{ fontWeight: 700, color: "#2563eb", cursor: "pointer", fontSize: "11.5px", py: 0.4, px: 0.8, "&:hover": { textDecoration: "underline" } }}
                             onClick={() => onEdit(row)}
                             title="Click to Edit Current Details"
                           >
-                            {row.registrationNo}
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                              <span>{row.registrationNo}</span>
+                              {isExpiringSoon && (
+                                <Chip
+                                  label="EXPIRING"
+                                  size="small"
+                                  color="error"
+                                  sx={{ fontSize: "8.5px", height: 16, fontWeight: 800, px: 0.2 }}
+                                />
+                              )}
+                            </Box>
                           </TableCell>
                           <TableCell sx={{ color: "#334155", fontSize: "11.5px", py: 0.4, px: 0.8 }}>{row.owner || "-"}</TableCell>
                           <TableCell sx={{ color: "#334155", fontSize: "11.5px", py: 0.4, px: 0.8 }}>{row.size || "-"}</TableCell>
@@ -1151,18 +1180,20 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                                   <Autorenew sx={{ fontSize: 16 }} />
                                 </IconButton>
                               </Tooltip>
-                              <Tooltip title="History Dashboard">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => {
-                                    setSelectedHistoryRegNo(row.registrationNo);
-                                    setMainTab(1);
-                                  }}
-                                  sx={{ p: 0.3, color: "#0284c7" }}
-                                >
-                                  <History sx={{ fontSize: 16 }} />
-                                </IconButton>
-                              </Tooltip>
+                              {isTabVisible(1) && (
+                                <Tooltip title="History Dashboard">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      setSelectedHistoryRegNo(row.registrationNo);
+                                      setMainTab(1);
+                                    }}
+                                    sx={{ p: 0.3, color: "#0284c7" }}
+                                  >
+                                    <History sx={{ fontSize: 16 }} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
                               <Tooltip title="Export Record">
                                 <IconButton size="small" onClick={() => handleExport(row._id, row.registrationNo)} sx={{ p: 0.3, color: "#64748b" }}>
                                   <GetApp sx={{ fontSize: 16 }} />

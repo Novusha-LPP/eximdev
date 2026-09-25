@@ -6,10 +6,6 @@ function Stage2PRGeneration({ formData, handleChange, formatDateValue }) {
   // Check mandatory fields required before PR generation readiness can be set to Yes
   const missingFields = [];
   if (!formData.registrationNo?.trim()) missingFields.push("Registration No.");
-  const hasPolicyNo = (formData.newPolicyNo && formData.newPolicyNo.trim()) || (formData.policyNo && formData.policyNo.trim());
-  if (!hasPolicyNo) missingFields.push("Policy No.");
-  const hasValidTo = formData.newPolicyToDate || formData.policyToDate;
-  if (!hasValidTo) missingFields.push("Valid To Date (Expiry)");
   const hasPremium = (Number(formData.newOdPremium) > 0) || 
                      (Number(formData.newTotalPolicyPremium) > 0) || 
                      (Number(formData.odPremium) > 0) || 

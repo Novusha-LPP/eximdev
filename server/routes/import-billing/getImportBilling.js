@@ -10,6 +10,8 @@ import JobCounterModel from "../../model/jobCounterModel.mjs";
 
 const router = express.Router();
 
+const escapeRegex = (str) => (str ? String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : "");
+
 // Function to build the search query
 const buildSearchQuery = (search) => {
   const isSearchUnassigned = search.toLowerCase() === "unassigned";
@@ -257,13 +259,13 @@ router.get(
 
       if (decodedImporter && decodedImporter !== "Select Importer") {
         baseQuery.$and.push({
-          importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+          importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") },
         });
       }
 
       if (transactionType && transactionType !== "All") {
         baseQuery.$and.push({
-          "charges.payment_request_transaction_type": { $regex: new RegExp(`^${transactionType}$`, "i") },
+          "charges.payment_request_transaction_type": { $regex: new RegExp(`^${escapeRegex(transactionType)}$`, "i") },
         });
       }
 
@@ -440,7 +442,7 @@ router.get(
 
       if (decodedImporter && decodedImporter !== "Select Importer") {
         baseQuery.$and.push({
-          importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+          importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") },
         });
       }
 
@@ -576,7 +578,7 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
 
     if (decodedImporter && decodedImporter !== "Select Importer") {
       baseQuery.$and.push({
-        importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+        importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") },
       });
     }
 
@@ -691,7 +693,7 @@ router.get(
 
       if (decodedImporter && decodedImporter !== "Select Importer") {
         matchConditions.$and.push({
-          importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+          importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") },
         });
       }
 
@@ -719,7 +721,7 @@ router.get(
 
       if (transactionType && transactionType !== "All") {
         matchConditions.$and.push({
-          [`charges.${transTypeField}`]: { $regex: new RegExp(`^${transactionType}$`, "i") },
+          [`charges.${transTypeField}`]: { $regex: new RegExp(`^${escapeRegex(transactionType)}$`, "i") },
         });
       }
 
@@ -865,7 +867,7 @@ router.get(
 
       if (decodedImporter && decodedImporter !== "Select Importer") {
         unresolvedMatchConditions.$and.push({
-          importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+          importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") },
         });
       }
 
@@ -1046,7 +1048,7 @@ router.get(
 
       if (decodedImporter && decodedImporter !== "Select Importer") {
         matchConditions.$and.push({
-          importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+          importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") },
         });
       }
 
@@ -1239,7 +1241,7 @@ router.get(
 
       if (decodedImporter && decodedImporter !== "Select Importer") {
         matchConditions.$and.push({
-          importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+          importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") },
         });
       }
 
@@ -1251,7 +1253,7 @@ router.get(
 
       if (transactionType && transactionType !== "All") {
         matchConditions.$and.push({
-          [`charges.${transTypeField}`]: { $regex: new RegExp(`^${transactionType}$`, "i") },
+          [`charges.${transTypeField}`]: { $regex: new RegExp(`^${escapeRegex(transactionType)}$`, "i") },
         });
       }
 
@@ -2043,7 +2045,7 @@ router.get("/api/get-general-jobs", async (req, res) => {
     }
 
     if (importer && importer.trim() && importer !== "Select Importer") {
-      baseQuery.importer = { $regex: new RegExp(`^${importer.trim()}$`, "i") };
+      baseQuery.importer = { $regex: new RegExp(`^${escapeRegex(importer.trim())}$`, "i") };
     }
 
     if (search && search.trim()) {

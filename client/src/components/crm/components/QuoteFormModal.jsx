@@ -93,13 +93,16 @@ export default function QuoteFormModal({
     accountId: '',
     opportunityId: '',
     contactId: '',
+    companyId: '',
+    templateId: '',
+    templateColumns: [],
     tradeType: 'import',
     companyTemplate: 'standard',
     placeOfSupply: 'Gujarat (24)',
     billToAddress: '',
     shipToAddress: '',
     lineItems: [
-      { productName: '', hsnSac: '392310', quantity: 1, unitPrice: 0, discount: 0, tax: 0, lineTotal: 0 }
+      { productName: '', hsnSac: '392310', quantity: 1, unitPrice: 0, discount: 0, tax: 0, lineTotal: 0, customFields: {} }
     ],
     terms: {
       validFrom: '',
@@ -115,7 +118,13 @@ export default function QuoteFormModal({
   const [accounts, setAccounts] = useState([]);
   const [opportunities, setOpportunities] = useState([]);
   const [contacts, setContacts] = useState([]);
+  const [quotationCompanies, setQuotationCompanies] = useState([]);
+  const [quotationTemplates, setQuotationTemplates] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Inline custom column creation state
+  const [isAddColModalOpen, setIsAddColModalOpen] = useState(false);
+  const [newInlineCol, setNewInlineCol] = useState({ label: '', key: '', type: 'text', optionsStr: '', defaultValue: '' });
 
   // Autocomplete search states
   const [accountSearch, setAccountSearch] = useState('');
@@ -126,24 +135,32 @@ export default function QuoteFormModal({
   const [isOpportunityDropdownOpen, setIsOpportunityDropdownOpen] = useState(false);
   const [isContactDropdownOpen, setIsContactDropdownOpen] = useState(false);
 
-  // Fetch Accounts, Opportunities, Contacts for links
+  // Fetch Accounts, Opportunities, Contacts, Companies, Templates
   useEffect(() => {
     if (isOpen) {
       const fetchData = async () => {
         try {
-          const [accsRes, oppsRes, contsRes] = await Promise.all([
+          const [accsRes, oppsRes, contsRes, compsRes, tempsRes] = await Promise.all([
             axios.get(`${process.env.REACT_APP_API_STRING}/crm/accounts`, getHeaders()),
             axios.get(`${process.env.REACT_APP_API_STRING}/crm/opportunities`, getHeaders()),
-            axios.get(`${process.env.REACT_APP_API_STRING}/crm/contacts`, getHeaders())
+            axios.get(`${process.env.REACT_APP_API_STRING}/crm/contacts`, getHeaders()),
+            axios.get(`${process.env.REACT_APP_API_STRING}/crm/quotation-companies`, getHeaders()).catch(() => ({ data: [] })),
+            axios.get(`${process.env.REACT_APP_API_STRING}/crm/quotation-templates`, getHeaders()).catch(() => ({ data: [] }))
           ]);
           setAccounts(accsRes.data || []);
           setOpportunities(oppsRes.data || []);
           setContacts(contsRes.data || []);
+          const compList = compsRes.data || [];
+          const tempList = tempsRes.data || [];
+          setQuotationCompanies(compList);
+          setQuotationTemplates(tempList);
 
           if (quoteToEdit) {
             const accId = quoteToEdit.accountId?._id || quoteToEdit.accountId || '';
             const oppId = quoteToEdit.opportunityId?._id || quoteToEdit.opportunityId || '';
             const cntId = quoteToEdit.contactId?._id || quoteToEdit.contactId || '';
+            const compId = quoteToEdit.companyId?._id || quoteToEdit.companyId || (compList.find(c => c.isDefault)?._id || compList[0]?._id || '');
+            const tempId = quoteToEdit.templateId?._id || quoteToEdit.templateId || (tempList.find(t => t.isDefault)?._id || tempList[0]?._id || '');
 
             const selectedAcc = accsRes.data.find(a => a._id === accId);
             setAccountSearch(selectedAcc ? selectedAcc.name : '');
@@ -161,6 +178,9 @@ export default function QuoteFormModal({
               accountId: accId,
               opportunityId: oppId,
               contactId: cntId,
+              companyId: compId,
+              templateId: tempId,
+              templateColumns: quoteToEdit.templateColumns?.length > 0 ? quoteToEdit.templateColumns : (tempList.find(t => t._id === tempId)?.customColumns || []),
               tradeType: quoteToEdit.tradeType || 'import',
               companyTemplate: quoteToEdit.companyTemplate || 'standard',
               placeOfSupply: quoteToEdit.placeOfSupply || 'Gujarat (24)',
@@ -173,8 +193,9 @@ export default function QuoteFormModal({
                 unitPrice: item.unitPrice || 0,
                 discount: item.discount || 0,
                 tax: item.tax || 0,
-                lineTotal: item.lineTotal || 0
-              })) : [{ productName: '', hsnSac: '392310', quantity: 1, unitPrice: 0, discount: 0, tax: 0, lineTotal: 0 }],
+                lineTotal: item.lineTotal || 0,
+                customFields: item.customFields || {}
+              })) : [{ productName: '', hsnSac: '392310', quantity: 1, unitPrice: 0, discount: 0, tax: 0, lineTotal: 0, customFields: {} }],
               terms: {
                 validFrom: quoteToEdit.terms?.validFrom ? quoteToEdit.terms.validFrom.substring(0, 10) : '',
                 validUntil: quoteToEdit.terms?.validUntil ? quoteToEdit.terms.validUntil.substring(0, 10) : '',
@@ -190,6 +211,11 @@ export default function QuoteFormModal({
             const today = new Date();
             const nextMonth = new Date();
             nextMonth.setDate(today.getDate() + 30);
+
+            const defaultCompId = compList.find(c => c.isDefault)?._id || compList[0]?._id || '';
+            const defaultTemp = tempList.find(t => t.isDefault) || tempList[0];
+            const defaultTempId = defaultTemp?._id || '';
+            const defaultCols = defaultTemp?.customColumns || [];
 
             // Attempt auto-matching if initialAccountId is not set but initialCompany is
             let accId = initialAccountId || '';
@@ -256,18 +282,23 @@ export default function QuoteFormModal({
               accountId: accId,
               opportunityId: oppId,
               contactId: cntId,
+              companyId: defaultCompId,
+              templateId: defaultTempId,
+              templateColumns: defaultCols,
               tradeType: initialTradeType,
               companyTemplate: 'standard',
               placeOfSupply: 'Gujarat (24)',
               billToAddress: selectedAcc ? (selectedAcc.address || '') : '',
               shipToAddress: selectedAcc ? (selectedAcc.address || '') : '',
-              lineItems: getChargeTemplate(initialTradeType),
+              lineItems: defaultTemp?.defaultLineItems && defaultTemp.defaultLineItems.length > 0
+                ? defaultTemp.defaultLineItems.map(i => ({ productName: i.productName || '', hsnSac: i.hsnSac || '392310', quantity: i.quantity || 1, unitPrice: i.unitPrice || 0, discount: i.discount || 0, tax: i.tax || 18, lineTotal: (i.quantity || 1) * (i.unitPrice || 0), customFields: i.customFields || {} }))
+                : getChargeTemplate(initialTradeType).map(item => ({ ...item, customFields: {} })),
               terms: {
                 validFrom: today.toISOString().substring(0, 10),
                 validUntil: nextMonth.toISOString().substring(0, 10),
                 paymentTerms: 'Net 30',
                 deliveryTerms: '',
-                notes: ''
+                notes: defaultTemp?.zohoStyle?.footerNotes || ''
               },
               status: 'draft',
               createNewVersion: false
@@ -283,6 +314,81 @@ export default function QuoteFormModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, quoteToEdit, initialAccountId, initialOpportunityId, initialContactId, initialCompany, initialEmail, initialContactName, initialOpportunityName]);
+
+  const handleQuotationTemplateChange = (tempId) => {
+    const selectedTemp = quotationTemplates.find(t => t._id === tempId);
+    if (!selectedTemp) return;
+
+    const compId = selectedTemp.companyId?._id || selectedTemp.companyId || formData.companyId;
+    const customCols = selectedTemp.customColumns || [];
+
+    setFormData(prev => ({
+      ...prev,
+      templateId: tempId,
+      companyId: compId,
+      templateColumns: customCols,
+      terms: {
+        ...prev.terms,
+        notes: selectedTemp.zohoStyle?.footerNotes || prev.terms.notes
+      },
+      lineItems: selectedTemp.defaultLineItems && selectedTemp.defaultLineItems.length > 0
+        ? selectedTemp.defaultLineItems.map(i => ({
+            productName: i.productName || '',
+            hsnSac: i.hsnSac || '392310',
+            quantity: i.quantity || 1,
+            unitPrice: i.unitPrice || 0,
+            discount: i.discount || 0,
+            tax: i.tax || 18,
+            lineTotal: (i.quantity || 1) * (i.unitPrice || 0),
+            customFields: i.customFields || {}
+          }))
+        : prev.lineItems
+    }));
+    message.info(`Applied template '${selectedTemp.templateName}'`);
+  };
+
+  const handleCustomFieldChange = (itemIndex, key, value) => {
+    const newItems = [...formData.lineItems];
+    newItems[itemIndex] = {
+      ...newItems[itemIndex],
+      customFields: {
+        ...(newItems[itemIndex].customFields || {}),
+        [key]: value
+      }
+    };
+    setFormData({ ...formData, lineItems: newItems });
+  };
+
+  const handleAddInlineColumn = () => {
+    if (!newInlineCol.label.trim()) {
+      message.error('Column label is required');
+      return;
+    }
+    const key = newInlineCol.key.trim()
+      ? newInlineCol.key.trim()
+      : newInlineCol.label.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    const opts = newInlineCol.optionsStr ? newInlineCol.optionsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+    const colObj = {
+      key,
+      label: newInlineCol.label.trim(),
+      type: newInlineCol.type,
+      options: opts,
+      defaultValue: newInlineCol.defaultValue || '',
+      width: '120px',
+      align: 'left'
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      templateColumns: [...prev.templateColumns.filter(c => c.key !== key), colObj]
+    }));
+
+    setNewInlineCol({ label: '', key: '', type: 'text', optionsStr: '', defaultValue: '' });
+    setIsAddColModalOpen(false);
+    message.success(`Custom column '${colObj.label}' added!`);
+  };
 
   const handleTradeTypeChange = (nextType) => {
     setFormData(prev => {
@@ -311,7 +417,7 @@ export default function QuoteFormModal({
           notes: (!prev.terms?.notes || prev.terms?.notes === 'Looking forward for your business.') ? defaultNotes : prev.terms.notes
         },
         lineItems: shouldReplace 
-          ? getChargeTemplate(nextType).map(item => ({ ...item, lineTotal: (item.quantity || 1) * (item.unitPrice || 0) }))
+          ? getChargeTemplate(nextType).map(item => ({ ...item, lineTotal: (item.quantity || 1) * (item.unitPrice || 0), customFields: {} }))
           : prev.lineItems
       };
     });
@@ -536,6 +642,45 @@ export default function QuoteFormModal({
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
 
           <div className="scrollable-body" style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+            {/* Company & Quotation Template Selector Block */}
+            <div style={{ background: '#f0f9ff', padding: '14px 16px', borderRadius: '12px', border: '1px solid #bae6fd', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#0369a1', marginBottom: '4px' }}>
+                  🏢 ISSUING COMPANY ENTITY *
+                </label>
+                <select
+                  value={formData.companyId}
+                  onChange={e => setFormData({ ...formData, companyId: e.target.value })}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #7dd3fc', fontSize: '0.88rem', background: '#fff', outline: 'none', fontWeight: 600 }}
+                >
+                  <option value="">-- Select Company Profile --</option>
+                  {quotationCompanies.map(comp => (
+                    <option key={comp._id} value={comp._id}>
+                      {comp.name} {comp.gstin ? `(GST: ${comp.gstin})` : ''} {comp.isDefault ? '[DEFAULT]' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 800, color: '#0369a1', marginBottom: '4px' }}>
+                  📄 QUOTATION TEMPLATE (ZOHO STYLED) *
+                </label>
+                <select
+                  value={formData.templateId}
+                  onChange={e => handleQuotationTemplateChange(e.target.value)}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #7dd3fc', fontSize: '0.88rem', background: '#fff', outline: 'none', fontWeight: 600 }}
+                >
+                  <option value="">-- Select Quotation Template --</option>
+                  {quotationTemplates.map(temp => (
+                    <option key={temp._id} value={temp._id}>
+                      {temp.templateName} ({temp.customColumns?.length || 0} custom cols) {temp.isDefault ? '[DEFAULT]' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
             {/* Meta Section */}
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px' }}>
@@ -836,22 +981,55 @@ export default function QuoteFormModal({
               </div>
             </div>
 
-            {/* Line Items Table */}
+            {/* Line Items Table with Dynamic Columns */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>QUOTE LINE ITEMS</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, color: '#1e293b' }}>
+                  QUOTE LINE ITEMS {formData.templateColumns.length > 0 && `(${formData.templateColumns.length} Custom Columns active)`}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsAddColModalOpen(true)}
+                  style={{
+                    background: '#eff6ff', color: '#1d4ed8', border: '1px solid #93c5fd',
+                    padding: '5px 10px', borderRadius: '6px', fontSize: '0.78rem',
+                    fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px'
+                  }}
+                >
+                  <Plus size={14} /> Add Table Column
+                </button>
+              </div>
 
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflowX: 'auto', background: '#fff' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                   <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
-                      <th style={{ padding: '10px 12px', width: '30%' }}>Product / Service Name *</th>
-                      <th style={{ padding: '10px 12px', width: '12%' }}>HSN/SAC</th>
-                      <th style={{ padding: '10px 12px', width: '10%' }}>Qty</th>
-                      <th style={{ padding: '10px 12px', width: '15%' }}>Unit Price (₹)</th>
-                      <th style={{ padding: '10px 12px', width: '10%' }}>Disc %</th>
-                      <th style={{ padding: '10px 12px', width: '10%' }}>Tax %</th>
-                      <th style={{ padding: '10px 12px', width: '12%' }}>Total</th>
-                      <th style={{ padding: '10px 12px', width: '6%', textStyle: 'center' }}></th>
+                      <th style={{ padding: '10px 12px', minWidth: '220px' }}>Product / Service Name *</th>
+                      <th style={{ padding: '10px 12px', width: '100px' }}>HSN/SAC</th>
+                      <th style={{ padding: '10px 12px', width: '80px' }}>Qty</th>
+                      <th style={{ padding: '10px 12px', width: '120px' }}>Unit Price (₹)</th>
+
+                      {/* Dynamic Custom Columns Headers */}
+                      {(formData.templateColumns || []).map(col => (
+                        <th key={col.key} style={{ padding: '10px 12px', minWidth: col.width || '110px', background: '#eff6ff', color: '#1e40af', borderLeft: '1px solid #dbeafe' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span>✨ {col.label}</span>
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, templateColumns: prev.templateColumns.filter(c => c.key !== col.key) }))}
+                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', padding: '0 2px' }}
+                              title="Remove column"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        </th>
+                      ))}
+
+                      <th style={{ padding: '10px 12px', width: '80px' }}>Disc %</th>
+                      <th style={{ padding: '10px 12px', width: '80px' }}>Tax %</th>
+                      <th style={{ padding: '10px 12px', width: '110px' }}>Total</th>
+                      <th style={{ padding: '10px 12px', width: '40px', textAlign: 'center' }}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -891,6 +1069,54 @@ export default function QuoteFormModal({
                             style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none' }}
                           />
                         </td>
+
+                        {/* Dynamic Custom Column Input Cells */}
+                        {(formData.templateColumns || []).map(col => {
+                          const val = (item.customFields && item.customFields[col.key] !== undefined)
+                            ? item.customFields[col.key]
+                            : (col.defaultValue || '');
+
+                          return (
+                            <td key={col.key} style={{ padding: '8px 12px', background: '#f8fafc', borderLeft: '1px solid #f1f5f9' }}>
+                              {col.type === 'select' ? (
+                                <select
+                                  value={val}
+                                  onChange={e => handleCustomFieldChange(idx, col.key, e.target.value)}
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #93c5fd', outline: 'none', background: '#fff', fontSize: '0.85rem' }}
+                                >
+                                  <option value="">-- Select --</option>
+                                  {(col.options || []).map(opt => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
+                                </select>
+                              ) : col.type === 'number' ? (
+                                <input
+                                  type="number"
+                                  value={val}
+                                  onChange={e => handleCustomFieldChange(idx, col.key, e.target.value)}
+                                  placeholder={col.defaultValue || '0'}
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #93c5fd', outline: 'none', fontSize: '0.85rem' }}
+                                />
+                              ) : col.type === 'date' ? (
+                                <input
+                                  type="date"
+                                  value={val}
+                                  onChange={e => handleCustomFieldChange(idx, col.key, e.target.value)}
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #93c5fd', outline: 'none', fontSize: '0.85rem' }}
+                                />
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={val}
+                                  onChange={e => handleCustomFieldChange(idx, col.key, e.target.value)}
+                                  placeholder={col.label}
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #93c5fd', outline: 'none', fontSize: '0.85rem' }}
+                                />
+                              )}
+                            </td>
+                          );
+                        })}
+
                         <td style={{ padding: '8px 12px' }}>
                           <input
                             type="number" min="0" max="100"
@@ -1044,6 +1270,74 @@ export default function QuoteFormModal({
 
         </form>
       </div>
+
+      {/* Inline Add Column Modal */}
+      {isAddColModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 11000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#fff', width: '100%', maxWidth: '440px', borderRadius: '14px', padding: '20px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem', color: '#0f172a' }}>➕ Add Custom Column to Quote Table</h4>
+              <button onClick={() => setIsAddColModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={16} /></button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>COLUMN HEADER LABEL *</label>
+                <input
+                  type="text" required placeholder="Ex. Container Size, Volume (CBM), Port"
+                  value={newInlineCol.label}
+                  onChange={e => setNewInlineCol({ ...newInlineCol, label: e.target.value })}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>DATA TYPE</label>
+                <select
+                  value={newInlineCol.type}
+                  onChange={e => setNewInlineCol({ ...newInlineCol, type: e.target.value })}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
+                >
+                  <option value="text">Text</option>
+                  <option value="number">Number</option>
+                  <option value="select">Dropdown Select</option>
+                  <option value="date">Date</option>
+                </select>
+              </div>
+
+              {newInlineCol.type === 'select' && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>DROPDOWN OPTIONS (COMMA SEPARATED)</label>
+                  <input
+                    type="text" placeholder="20FT, 40FT, 40HC, LCL"
+                    value={newInlineCol.optionsStr}
+                    onChange={e => setNewInlineCol({ ...newInlineCol, optionsStr: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>DEFAULT VALUE (OPTIONAL)</label>
+                <input
+                  type="text" placeholder="Ex. 20FT or 0"
+                  value={newInlineCol.defaultValue}
+                  onChange={e => setNewInlineCol({ ...newInlineCol, defaultValue: e.target.value })}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                <button onClick={() => setIsAddColModalOpen(false)} style={{ background: '#e2e8f0', border: 'none', padding: '7px 14px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={handleAddInlineColumn} style={{ background: '#1d4ed8', color: '#fff', border: 'none', padding: '7px 16px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>
+                  Add Column
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

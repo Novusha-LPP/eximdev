@@ -193,6 +193,23 @@ export default function QuoteDetailPanel({ quote: initialQuote, onClose, onEdit,
       {/* Panel Scrollable Body */}
       <div className="scrollable-panel" style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
+        {/* Company & Template Info Banner */}
+        {quote.companyId && (
+          <div style={{ background: '#f0f9ff', padding: '12px 16px', borderRadius: '10px', border: '1px solid #bae6fd', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {quote.companyId.logoUrl ? (
+              <img src={quote.companyId.logoUrl} alt="Logo" style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '6px' }} />
+            ) : (
+              <div style={{ width: '36px', height: '36px', borderRadius: '6px', background: '#0284c7', color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {quote.companyId.name?.substring(0, 2).toUpperCase() || 'CO'}
+              </div>
+            )}
+            <div>
+              <div style={{ fontSize: '0.72rem', color: '#0369a1', fontWeight: 800, textTransform: 'uppercase' }}>Issuing Entity</div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a' }}>{quote.companyId.name} {quote.companyId.gstin ? `(GST: ${quote.companyId.gstin})` : ''}</div>
+            </div>
+          </div>
+        )}
+
         {/* Info Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
           <div>
@@ -300,7 +317,7 @@ export default function QuoteDetailPanel({ quote: initialQuote, onClose, onEdit,
         {/* Line Items Table */}
         <div>
           <h4 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>Items Breakdown</h4>
-          <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+          <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflowX: 'auto', background: '#fff' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#475569' }}>
@@ -308,6 +325,14 @@ export default function QuoteDetailPanel({ quote: initialQuote, onClose, onEdit,
                   <th style={{ padding: '8px 10px', textAlign: 'center' }}>HSN/SAC</th>
                   <th style={{ padding: '8px 10px', textAlign: 'center' }}>Qty</th>
                   <th style={{ padding: '8px 10px', textAlign: 'right' }}>Price (₹)</th>
+
+                  {/* Render Dynamic Custom Columns */}
+                  {(quote.templateColumns || []).map(col => (
+                    <th key={col.key} style={{ padding: '8px 10px', textAlign: col.align || 'center', background: '#eff6ff', color: '#1e40af' }}>
+                      {col.label}
+                    </th>
+                  ))}
+
                   <th style={{ padding: '8px 10px', textAlign: 'center' }}>Disc %</th>
                   <th style={{ padding: '8px 10px', textAlign: 'center' }}>Tax %</th>
                   <th style={{ padding: '8px 10px', textAlign: 'right' }}>Total</th>
@@ -320,6 +345,14 @@ export default function QuoteDetailPanel({ quote: initialQuote, onClose, onEdit,
                     <td style={{ padding: '8px 10px', textAlign: 'center' }}>{item.hsnSac || '392310'}</td>
                     <td style={{ padding: '8px 10px', textAlign: 'center' }}>{item.quantity}</td>
                     <td style={{ padding: '8px 10px', textAlign: 'right' }}>{Math.round(item.unitPrice).toLocaleString('en-IN')}</td>
+                    
+                    {/* Render Dynamic Custom Fields per row */}
+                    {(quote.templateColumns || []).map(col => (
+                      <td key={col.key} style={{ padding: '8px 10px', textAlign: col.align || 'center', background: '#f8fafc', fontWeight: 600, color: '#1e40af' }}>
+                        {item.customFields?.[col.key] || col.defaultValue || '—'}
+                      </td>
+                    ))}
+
                     <td style={{ padding: '8px 10px', textAlign: 'center' }}>{item.discount ? `${item.discount}%` : '0%'}</td>
                     <td style={{ padding: '8px 10px', textAlign: 'center' }}>{item.tax ? `${item.tax}%` : '0%'}</td>
                     <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600 }}>{Math.round(item.lineTotal).toLocaleString('en-IN')}</td>

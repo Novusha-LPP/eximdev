@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Search, FileText, CheckCircle2, AlertCircle, Eye, ArrowRight, DollarSign } from 'lucide-react';
+import { Plus, Search, FileText, CheckCircle2, AlertCircle, Eye, ArrowRight, DollarSign, Building2, Settings, Layout } from 'lucide-react';
 import { message } from 'antd';
 import QuoteFormModal from './QuoteFormModal';
 import QuoteDetailPanel from './QuoteDetailPanel';
+import QuotationTemplatesManager from './QuotationTemplatesManager';
 
 const getHeaders = () => {
   const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
@@ -22,6 +23,7 @@ export default function QuotesList() {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isTemplatesManagerOpen, setIsTemplatesManagerOpen] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [quoteToEdit, setQuoteToEdit] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -171,28 +173,49 @@ export default function QuotesList() {
             </select>
           </div>
 
-          <button
-            onClick={() => {
-              setQuoteToEdit(null);
-              setIsFormOpen(true);
-            }}
-            style={{
-              background: '#4f46e5',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '10px 16px',
-              fontWeight: 700,
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)'
-            }}
-          >
-            <Plus size={16} /> Create Quotation
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={() => setIsTemplatesManagerOpen(true)}
+              style={{
+                background: '#f1f5f9',
+                color: '#1e293b',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                padding: '10px 16px',
+                fontWeight: 700,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Building2 size={16} style={{ color: '#2563eb' }} /> Companies & Templates
+            </button>
+
+            <button
+              onClick={() => {
+                setQuoteToEdit(null);
+                setIsFormOpen(true);
+              }}
+              style={{
+                background: '#4f46e5',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 16px',
+                fontWeight: 700,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)'
+              }}
+            >
+              <Plus size={16} /> Create Quotation
+            </button>
+          </div>
         </div>
 
         {/* Listing Grid */}
@@ -284,6 +307,13 @@ export default function QuotesList() {
           onRefresh={fetchQuotes}
         />
       )}
+
+      {/* Quotation Templates & Companies Manager Modal */}
+      <QuotationTemplatesManager
+        isOpen={isTemplatesManagerOpen}
+        onClose={() => setIsTemplatesManagerOpen(false)}
+        onRefresh={fetchQuotes}
+      />
 
     </div>
   );

@@ -46,26 +46,60 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import MemberWeightConfigModal from './MemberWeightConfigModal';
 import '../../styles/mrm.scss';
 
-const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDeleteDialog, handleInsertItem, autoResizeTextarea, mrmUsers, isLocked, openBaselineDialog, handleStatusChange, hasTileAnomaly }) => {
+const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDeleteDialog, handleInsertItem, autoResizeTextarea, mrmUsers, isLocked, openBaselineDialog, handleStatusChange, hasTileAnomaly, canReorder = true }) => {
     const controls = useDragControls();
+    const rowRef = useRef(null);
+    const blurTimeoutRef = useRef(null);
+
+    const handleRowBlur = () => {
+        if (!item.isDirty) return;
+        if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+
+        blurTimeoutRef.current = setTimeout(() => {
+            const activeEl = document.activeElement;
+            // If focus is still within this row, don't trigger row save (user is moving between cells in the same row)
+            if (rowRef.current && rowRef.current.contains(activeEl)) {
+                return;
+            }
+            // If focus is inside an Autocomplete popup / menu / popover attached to document.body, don't trigger save yet
+            if (activeEl && (activeEl.closest('.MuiAutocomplete-popper') || activeEl.closest('.MuiMenu-root') || activeEl.closest('.MuiPopover-root'))) {
+                return;
+            }
+            // Focus has genuinely left the row: save the latest data
+            handleSaveItem(item._id, true);
+        }, 150);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+        };
+    }, []);
+
+    const safeTargetDate = (() => {
+        if (!item.targetDate) return '';
+        try {
+            const d = new Date(item.targetDate);
+            return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+        } catch {
+            return '';
+        }
+    })();
 
     if (item.isTitleRow) {
         return (
             <Reorder.Item
                 as="tr"
+                ref={rowRef}
                 key={item._id}
                 value={item}
-                dragListener={!isLocked}
+                dragListener={!isLocked && canReorder}
                 dragControls={controls}
                 className="title-row-container"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 style={{ backgroundColor: item.bgColor || '#f8fafc' }}
-                onBlur={(e) => {
-                    if (!e.currentTarget.contains(e.relatedTarget) && item.isDirty) {
-                        handleSaveItem(item, true);
-                    }
-                }}
+                onBlur={handleRowBlur}
             >
                 <td className="drag-handle-cell">
                     {!isLocked && (
@@ -107,13 +141,13 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                         </div>
                         {!isLocked && (
                             <div className="title-actions">
-                                <IconButton onClick={() => handleSaveItem(item)} size="small" color={item.isDirty ? "primary" : "default"}>
+                                <IconButton onClick={() => handleSaveItem(item._id)} size="small" color={item.isDirty ? "primary" : "default"}>
                                     <SaveIcon sx={{ fontSize: 18 }} />
                                 </IconButton>
                                 <IconButton onClick={() => openDeleteDialog(item)} size="small" color="error">
                                     <DeleteIcon sx={{ fontSize: 18 }} />
                                 </IconButton>
-                                <IconButton onClick={(e) => handleInsertItem(index, 'normal')} size="small">
+                                <IconButton onClick={(e) => handleInsertItem(item._id, 'normal')} size="small">
                                     <AddCircleOutlineIcon sx={{ fontSize: 18 }} />
                                 </IconButton>
                             </div>
@@ -127,6 +161,7 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
     return (
         <Reorder.Item
             as="tr"
+            ref={rowRef}
             key={item._id}
             value={item}
             dragListener={false}
@@ -136,17 +171,13 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            onBlur={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget) && item.isDirty) {
-                    handleSaveItem(item, true);
-                }
-            }}
+            onBlur={handleRowBlur}
         >
             <td className="drag-handle-cell">
                 {!isLocked && (
                     <div
                         className="drag-handle"
-                        onPointerDown={(e) => controls.start(e)}
+                        onPointerDown={(e) => canReorder && controls.start(e)}
                         style={{ cursor: 'grab', display: 'flex', justifyContent: 'center' }}
                     >
                         <DragIndicatorIcon sx={{ fontSize: 20, color: '#94a3b8' }} />
@@ -336,6 +367,11 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                         const username = newValue?.username || (typeof newValue === 'string' ? newValue : '');
                         handleFieldChange(item._id, 'responsibilityAction', username);
                     }}
+                    onInputChange={(e, newInputValue, reason) => {
+                        if (reason === 'input') {
+                            handleFieldChange(item._id, 'responsibilityAction', newInputValue);
+                        }
+                    }}
                     freeSolo
                     renderInput={(params) => (
                         <TextField
@@ -360,7 +396,7 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                 <input
                     type="date"
                     disabled={isLocked}
-                    value={item.targetDate ? new Date(item.targetDate).toISOString().split('T')[0] : ''}
+                    value={safeTargetDate}
                     onChange={e => handleFieldChange(item._id, 'targetDate', e.target.value)}
                 />
             </td>
@@ -399,7 +435,7 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                     <div className="action-buttons">
                         <IconButton
                             onClick={(e) => {
-                                handleInsertItem(index, 'menu', e.currentTarget);
+                                handleInsertItem(item._id, 'menu', e.currentTarget);
                             }}
                             size="small"
                             sx={{
@@ -430,7 +466,7 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                             <TrendingUpIcon sx={{ fontSize: 14 }} />
                         </IconButton>
                         <IconButton
-                            onClick={() => handleSaveItem(item)}
+                            onClick={() => handleSaveItem(item._id)}
                             size="small"
                             sx={{
                                 backgroundColor: item.isDirty ? '#217346' : '#e5e7eb',
@@ -477,6 +513,11 @@ const MRMHome = () => {
         searchParams.get('year') ? Number(searchParams.get('year')) : new Date().getFullYear()
     );
     const [items, setItems] = useState([]);
+    const itemsRef = useRef(items);
+    useEffect(() => {
+        itemsRef.current = items;
+    }, [items]);
+    const savingItemIdsRef = useRef(new Set());
     const [loading, setLoading] = useState(false);
 
     // Metadata State & Lifecycle Workflow
@@ -603,6 +644,7 @@ const MRMHome = () => {
     // Import Modal
     const [showImportModal, setShowImportModal] = useState(false);
     const [importMode, setImportMode] = useState('as-is');
+    const [importOverwrite, setImportOverwrite] = useState(true);
     const [importSourceMonth, setImportSourceMonth] = useState(selectedMonth === 1 ? 12 : selectedMonth - 1);
     const [importSourceYear, setImportSourceYear] = useState(selectedMonth === 1 ? selectedYear - 1 : selectedYear);
 
@@ -651,7 +693,8 @@ const MRMHome = () => {
                 fetchMRMMetadata(monthStr, selectedYear, targetUserId)
             ]);
 
-            setItems(itemsData.map(i => ({ ...i, isDirty: false })));
+            const uniqueItems = Array.from(new Map((itemsData || []).map(i => [String(i._id), i])).values());
+            setItems(uniqueItems.map(i => ({ ...i, isDirty: false })));
 
             const metaStatus = metaData?.status || (metaData?.meetingDone ? 'Approved' : 'Draft');
             const metaLocked = Boolean(metaData?.isLocked || metaData?.meetingDone || metaStatus === 'Approved');
@@ -866,7 +909,15 @@ const MRMHome = () => {
         }
     };
 
-    const handleInsertItem = async (index, type, anchor = null) => {
+    const handleInsertItem = async (indexOrId, type, anchor = null) => {
+        let index;
+        if (typeof indexOrId === 'number') {
+            index = indexOrId;
+        } else {
+            index = items.findIndex(it => it._id === indexOrId);
+        }
+        if (index === -1) index = items.length - 1;
+
         if (type === 'menu') {
             setAddRowIndex(index);
             setAddRowMenu(anchor);
@@ -882,7 +933,7 @@ const MRMHome = () => {
             parentTile = "New Title";
         } else {
             for (let i = index; i >= 0; i--) {
-                if (items[i].isTitleRow) {
+                if (items[i] && items[i].isTitleRow) {
                     parentTile = (items[i].tileName || items[i].processDescription || 'General').trim();
                     break;
                 }
@@ -895,7 +946,7 @@ const MRMHome = () => {
             processDescription: type === 'title' ? "New Title" : "New In-between Item",
             status: "Red",
             createdBy: targetUserId,
-            insertAfterSeq: currentItem.seq,
+            insertAfterSeq: currentItem ? currentItem.seq : undefined,
             isTitleRow: type === 'title',
             tileName: parentTile
         };
@@ -913,6 +964,10 @@ const MRMHome = () => {
     };
 
     const handleReorder = async (newOrder) => {
+        if (statusFilter !== 'all') {
+            showToast("Reordering is only permitted when viewing 'All' items", "warning");
+            return;
+        }
         setItems(newOrder);
         try {
             const itemsToUpdate = newOrder.map((item, index) => ({
@@ -966,25 +1021,7 @@ const MRMHome = () => {
     const handleFieldChange = (id, field, value, e) => {
         setItems(prevItems => prevItems.map(item => {
             if (item._id !== id) return item;
-
-            const updatedItem = { ...item, [field]: value, isDirty: true };
-
-            // Auto-RAG status evaluation if actual, plan, or target changes (skip if explicitly Not Required)
-            if ((field === 'actual' || field === 'plan' || field === 'target') && item.status !== 'Not Required') {
-                const currentActual = field === 'actual' ? value : item.actual;
-                const currentPlan = field === 'plan' ? value : (item.plan || (field === 'target' ? value : item.target));
-                const computedStatus = evaluateAutoRAG(
-                    currentActual,
-                    currentPlan,
-                    item.optimizationDirection || 'Higher',
-                    item.toleranceBand != null ? item.toleranceBand : 5
-                );
-                if (computedStatus) {
-                    updatedItem.status = computedStatus;
-                }
-            }
-
-            return updatedItem;
+            return { ...item, [field]: value, isDirty: true };
         }));
 
         // Auto-resize if it's a textarea
@@ -1086,23 +1123,51 @@ const MRMHome = () => {
     };
 
     // Performs the API call
-    const handleSaveItem = async (item, silent = false) => {
-        try {
-            // Remove isDirty before sending if API is strict, but usually extra fields are ignored
-            const { isDirty, ...dataToSend } = item;
-            const saved = await updateMRMItem(item._id, dataToSend);
+    const handleSaveItem = async (itemOrId, silent = false) => {
+        const id = typeof itemOrId === 'object' && itemOrId !== null ? itemOrId._id : itemOrId;
+        const currentItem = itemsRef.current.find(i => i._id === id) || (typeof itemOrId === 'object' ? itemOrId : null);
+        if (!currentItem) return;
 
-            // Reset dirty flag on success and merge returned item (includes openPointId)
-            setItems(prev => prev.map(i => i._id === item._id ? { ...(saved || i), isDirty: false } : i));
+        // Prevent parallel duplicate saves for the exact same item ID
+        if (savingItemIdsRef.current.has(id)) return;
+        savingItemIdsRef.current.add(id);
+
+        try {
+            // Remove isDirty before sending
+            const { isDirty, ...dataToSend } = currentItem;
+            const saved = await updateMRMItem(id, dataToSend);
+
+            // Safely merge without clobbering in-flight user keystrokes
+            setItems(prev => prev.map(i => {
+                if (i._id !== id) return i;
+
+                // Check if any field in i was modified while the network request was in-flight
+                const hasNewerEdits = Object.keys(dataToSend).some(key => dataToSend[key] !== i[key]);
+
+                return {
+                    ...i,
+                    openPointId: saved?.openPointId !== undefined ? saved.openPointId : i.openPointId,
+                    tileName: saved?.tileName || i.tileName,
+                    updatedAt: saved?.updatedAt || i.updatedAt,
+                    isDirty: hasNewerEdits
+                };
+            }));
+
             if (!silent) showToast("Row saved successfully", 'success');
         } catch (err) {
             console.error("Failed to save", err);
             if (!silent) showToast("Failed to save row", 'error');
+        } finally {
+            savingItemIdsRef.current.delete(id);
         }
     };
 
     // Auto-save status change to trigger immediate bidirectional sync
     const handleStatusChange = async (item, newStatus) => {
+        if (!item?._id) return;
+        if (savingItemIdsRef.current.has(item._id)) return;
+        savingItemIdsRef.current.add(item._id);
+
         let itemToSave;
         setItems(prev => prev.map(i => {
             if (i._id === item._id) {
@@ -1112,10 +1177,24 @@ const MRMHome = () => {
             return i;
         }));
         try {
-            const saved = await updateMRMItem(item._id, itemToSave || { ...item, status: newStatus });
-            setItems(prev => prev.map(i => i._id === item._id ? { ...(saved || i), status: newStatus, isDirty: false } : i));
+            const rawData = itemToSave || { ...item, status: newStatus };
+            const { isDirty, ...dataToSend } = rawData;
+            const saved = await updateMRMItem(item._id, dataToSend);
+            setItems(prev => prev.map(i => {
+                if (i._id !== item._id) return i;
+                return {
+                    ...i,
+                    status: newStatus,
+                    openPointId: saved?.openPointId !== undefined ? saved.openPointId : i.openPointId,
+                    tileName: saved?.tileName || i.tileName,
+                    updatedAt: saved?.updatedAt || i.updatedAt,
+                    isDirty: false
+                };
+            }));
         } catch (err) {
             console.error("Status auto-sync failed:", err);
+        } finally {
+            savingItemIdsRef.current.delete(item._id);
         }
     };
 
@@ -1155,6 +1234,7 @@ const MRMHome = () => {
                 sourceMonth: String(importSourceMonth).padStart(2, '0'),
                 sourceYear: importSourceYear,
                 mode: importMode,
+                overwrite: items.length > 0 ? importOverwrite : false,
                 userId: (canManagePresenters && selectedUserId) ? selectedUserId : user?._id
             });
             setShowImportModal(false);
@@ -1581,6 +1661,189 @@ const MRMHome = () => {
             'Not Required': { fillColor: [241, 245, 249], textColor: [100, 116, 139], fontStyle: 'bold', halign: 'center' },
         };
         return map[status] || map.Green;
+    };
+
+    const renderTeamMembersKpiBlock = () => {
+        if (!rollupFeatureEnabled || !segmentRollupData?.segments?.length) return null;
+
+        const allMembers = [];
+        const seen = new Set();
+        (segmentRollupData.segments || []).forEach(seg => {
+            (seg.contributing_members || []).forEach(m => {
+                const id = m.userId?.toString();
+                if (id && !seen.has(id)) {
+                    seen.add(id);
+                    allMembers.push({ ...m, sub_team: seg.sub_team });
+                }
+            });
+        });
+        if (allMembers.length === 0) return null;
+
+        const getScoreStyle = (score) => {
+            if (score >= 8) return { color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
+            if (score >= 5) return { color: '#b45309', bg: '#fffbeb', border: '#fde68a' };
+            return { color: '#b91c1c', bg: '#fef2f2', border: '#fecaca' };
+        };
+
+        return (
+            <Box sx={{ mt: 2, width: '100%', boxSizing: 'border-box' }}>
+                <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+                    <GroupsOutlinedIcon sx={{ fontSize: 18, color: '#2563eb' }} />
+                    <Typography variant="subtitle1" fontWeight={800} color="#0f172a" fontSize="15px">
+                        Team Members & KPI Parameters
+                    </Typography>
+                    <Chip
+                        label={`${allMembers.length} Members`}
+                        size="small"
+                        sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#eff6ff', color: '#1d4ed8', height: '22px', border: '1px solid #bfdbfe' }}
+                    />
+                </Box>
+
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {allMembers.map((m, idx) => {
+                        const rows = m.kpi_sheet_rows || [];
+                        const totalScore = m.kpi_total_score;
+                        const ragStatus = m.kpi_rag_status;
+                        const totalStyle = getScoreStyle(totalScore || 0);
+                        const karmaColor = (m.karma_points > 0) ? '#047857' : (m.karma_points < 0 ? '#b91c1c' : '#64748b');
+                        const hasTargets = rows.some(r => r.target !== null && r.target !== undefined);
+                        const totalWeights = rows.reduce((sum, r) => sum + (r.weight || 3), 0);
+
+                        return (
+                            <Paper
+                                key={m.userId}
+                                elevation={0}
+                                sx={{
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '10px',
+                                    overflow: 'hidden',
+                                    width: '100%',
+                                    boxSizing: 'border-box'
+                                }}
+                            >
+                                <Box sx={{
+                                    px: 2,
+                                    py: 1.2,
+                                    bgcolor: '#f8fafc',
+                                    borderBottom: '1px solid #e2e8f0',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    flexWrap: 'wrap',
+                                    gap: 1
+                                }}>
+                                    <Box display="flex" alignItems="center" gap={1}>
+                                        <Typography variant="body2" fontWeight={700} color="#64748b" fontSize="12px" sx={{ minWidth: '22px' }}>
+                                            {idx + 1}.
+                                        </Typography>
+                                        <Typography variant="subtitle2" fontWeight={800} color="#0f172a" fontSize="14px">
+                                            {m.name}
+                                        </Typography>
+                                        <Chip
+                                            label={m.sub_team === 'General' ? `${activeDepartment} Team` : m.sub_team}
+                                            size="small"
+                                            sx={{ fontWeight: 600, fontSize: '10px', bgcolor: '#f1f5f9', color: '#475569', height: '20px', border: '1px solid #e2e8f0' }}
+                                        />
+                                    </Box>
+                                    <Box display="flex" alignItems="center" gap={1.5}>
+                                        <Box display="flex" alignItems="center" gap={0.5}>
+                                            <Typography variant="caption" color="#64748b" fontSize="10.5px" fontWeight={600}>Attendance:</Typography>
+                                            <Typography variant="caption" fontWeight={800} color={(m.attendance_score >= 85) ? '#047857' : (m.attendance_score >= 70 ? '#b45309' : '#b91c1c')} fontSize="11.5px">
+                                                {m.attendance_score != null ? `${m.attendance_score}%` : '—'}
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{ width: '1px', height: '14px', bgcolor: '#cbd5e1' }} />
+                                        <Box display="flex" alignItems="center" gap={0.5}>
+                                            <Typography variant="caption" color="#64748b" fontSize="10.5px" fontWeight={600}>Karma:</Typography>
+                                            <Typography variant="caption" fontWeight={800} color={karmaColor} fontSize="11.5px">
+                                                {m.karma_points > 0 ? `+${m.karma_points}` : (m.karma_points || 0)} pts
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{ width: '1px', height: '14px', bgcolor: '#cbd5e1' }} />
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.3, borderRadius: '6px', bgcolor: totalStyle.bg, border: `1px solid ${totalStyle.border}` }}>
+                                            <Typography variant="caption" color={totalStyle.color} fontSize="10.5px" fontWeight={600}>KPI Total:</Typography>
+                                            <Typography variant="caption" fontWeight={800} color={totalStyle.color} fontSize="12px">
+                                                {totalScore != null ? `${totalScore}/10` : '—'}
+                                            </Typography>
+                                            {ragStatus && (
+                                                <Chip
+                                                    label={ragStatus}
+                                                    size="small"
+                                                    sx={{
+                                                        height: '16px',
+                                                        fontSize: '9px',
+                                                        fontWeight: 700,
+                                                        bgcolor: ragStatus === 'GREEN' ? '#dcfce7' : (ragStatus === 'AMBER' ? '#fef3c7' : '#fee2e2'),
+                                                        color: ragStatus === 'GREEN' ? '#166534' : (ragStatus === 'AMBER' ? '#92400e' : '#991b1b'),
+                                                        ml: 0.3
+                                                    }}
+                                                />
+                                            )}
+                                        </Box>
+                                    </Box>
+                                </Box>
+
+                                {rows.length > 0 ? (
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                        <thead>
+                                            <tr style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #f1f5f9' }}>
+                                                <th style={{ padding: '6px 16px', textAlign: 'left', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: hasTargets ? '30%' : '40%' }}>KPI PARAMETER</th>
+                                                {hasTargets && <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: '20%' }}>TARGET</th>}
+                                                <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: hasTargets ? '20%' : '30%' }}>{hasTargets ? 'ACTUAL' : 'TOTAL'}</th>
+                                                <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: '15%' }}>CONTRIBUTION /10</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {rows.map((row, ri) => {
+                                                const contribution = totalWeights > 0 ? ((row.weight || 3) / totalWeights) * 10 : 0;
+                                                const valStyle = hasTargets && row.target != null
+                                                    ? (row.actual >= row.target ? { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' } : { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' })
+                                                    : { bg: '#f8fafc', color: '#334155', border: '#e2e8f0' };
+                                                return (
+                                                    <tr key={ri} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                                        <td style={{ padding: '7px 16px', fontWeight: 600, color: '#334155', fontSize: '12px' }}>{row.label}</td>
+                                                        {hasTargets && (
+                                                            <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 600, color: '#64748b', fontSize: '11.5px' }}>
+                                                                {row.target != null ? row.target : '—'}
+                                                            </td>
+                                                        )}
+                                                        <td style={{ padding: '7px 16px', textAlign: 'center' }}>
+                                                            <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '4px', fontWeight: 700, fontSize: '11.5px', backgroundColor: valStyle.bg, color: valStyle.color, border: `1px solid ${valStyle.border}` }}>
+                                                                {hasTargets ? (row.actual != null ? row.actual : '—') : (row.total != null ? row.total : '—')}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 600, color: '#475569', fontSize: '11px' }}>
+                                                            {contribution.toFixed(1)}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr style={{ borderTop: '2px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+                                                <td colSpan={hasTargets ? 2 : 1} style={{ padding: '7px 16px', fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>TOTAL KPI SCORE</td>
+                                                <td style={{ padding: '7px 16px', textAlign: 'center' }}>
+                                                    <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '4px', fontWeight: 800, fontSize: '12px', backgroundColor: totalStyle.bg, color: totalStyle.color, border: `1px solid ${totalStyle.border}` }}>
+                                                        {totalScore != null ? `${totalScore}/10` : '—'}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>
+                                                    {totalScore != null ? totalScore.toFixed(1) : '—'}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                ) : (
+                                    <Box sx={{ p: 2, textAlign: 'center' }}>
+                                        <Typography variant="caption" color="#94a3b8" fontSize="11px">No KPI sheet data available</Typography>
+                                    </Box>
+                                )}
+                            </Paper>
+                        );
+                    })}
+                </Box>
+            </Box>
+        );
     };
 
     return (
@@ -2226,6 +2489,7 @@ const MRMHome = () => {
                                                         openBaselineDialog={openBaselineDialog}
                                                         handleStatusChange={handleStatusChange}
                                                         hasTileAnomaly={false}
+                                                        canReorder={false}
                                                     />
                                                 ))}
                                             </Reorder.Group>
@@ -2247,188 +2511,7 @@ const MRMHome = () => {
                             </Box>
 
                             {/* Team Members & KPI Parameters */}
-                            {segmentRollupData?.segments?.length > 0 && (() => {
-                                const allMembers = [];
-                                const seen = new Set();
-                                (segmentRollupData.segments || []).forEach(seg => {
-                                    (seg.contributing_members || []).forEach(m => {
-                                        const id = m.userId?.toString();
-                                        if (id && !seen.has(id)) {
-                                            seen.add(id);
-                                            allMembers.push({ ...m, sub_team: seg.sub_team });
-                                        }
-                                    });
-                                });
-                                if (allMembers.length === 0) return null;
-
-                                const getScoreStyle = (score) => {
-                                    if (score >= 8) return { color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
-                                    if (score >= 5) return { color: '#b45309', bg: '#fffbeb', border: '#fde68a' };
-                                    return { color: '#b91c1c', bg: '#fef2f2', border: '#fecaca' };
-                                };
-
-                                return (
-                                    <Box sx={{ width: '100%', boxSizing: 'border-box' }}>
-                                        <Box display="flex" alignItems="center" gap={1} mb={1.5}>
-                                            <GroupsOutlinedIcon sx={{ fontSize: 18, color: '#2563eb' }} />
-                                            <Typography variant="subtitle1" fontWeight={800} color="#0f172a" fontSize="15px">
-                                                Team Members & KPI Parameters
-                                            </Typography>
-                                            <Chip
-                                                label={`${allMembers.length} Members`}
-                                                size="small"
-                                                sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#eff6ff', color: '#1d4ed8', height: '22px', border: '1px solid #bfdbfe' }}
-                                            />
-                                        </Box>
-
-                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                            {allMembers.map((m, idx) => {
-                                                const rows = m.kpi_sheet_rows || [];
-                                                const totalScore = m.kpi_total_score;
-                                                const ragStatus = m.kpi_rag_status;
-                                                const totalStyle = getScoreStyle(totalScore || 0);
-                                                const karmaColor = (m.karma_points > 0) ? '#047857' : (m.karma_points < 0 ? '#b91c1c' : '#64748b');
-                                                const hasTargets = rows.some(r => r.target !== null && r.target !== undefined);
-                                                const totalWeights = rows.reduce((sum, r) => sum + (r.weight || 3), 0);
-
-                                                return (
-                                                    <Paper
-                                                        key={m.userId}
-                                                        elevation={0}
-                                                        sx={{
-                                                            border: '1px solid #e2e8f0',
-                                                            borderRadius: '10px',
-                                                            overflow: 'hidden',
-                                                            width: '100%',
-                                                            boxSizing: 'border-box'
-                                                        }}
-                                                    >
-                                                        {/* Member Name Header */}
-                                                        <Box sx={{
-                                                            px: 2,
-                                                            py: 1.2,
-                                                            bgcolor: '#f8fafc',
-                                                            borderBottom: '1px solid #e2e8f0',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            flexWrap: 'wrap',
-                                                            gap: 1
-                                                        }}>
-                                                            <Box display="flex" alignItems="center" gap={1}>
-                                                                <Typography variant="body2" fontWeight={700} color="#64748b" fontSize="12px" sx={{ minWidth: '22px' }}>
-                                                                    {idx + 1}.
-                                                                </Typography>
-                                                                <Typography variant="subtitle2" fontWeight={800} color="#0f172a" fontSize="14px">
-                                                                    {m.name}
-                                                                </Typography>
-                                                                <Chip
-                                                                    label={m.sub_team === 'General' ? `${activeDepartment} Team` : m.sub_team}
-                                                                    size="small"
-                                                                    sx={{ fontWeight: 600, fontSize: '10px', bgcolor: '#f1f5f9', color: '#475569', height: '20px', border: '1px solid #e2e8f0' }}
-                                                                />
-                                                            </Box>
-                                                            <Box display="flex" alignItems="center" gap={1.5}>
-                                                                <Box display="flex" alignItems="center" gap={0.5}>
-                                                                    <Typography variant="caption" color="#64748b" fontSize="10.5px" fontWeight={600}>Attendance:</Typography>
-                                                                    <Typography variant="caption" fontWeight={800} color={(m.attendance_score >= 85) ? '#047857' : (m.attendance_score >= 70 ? '#b45309' : '#b91c1c')} fontSize="11.5px">
-                                                                        {m.attendance_score != null ? `${m.attendance_score}%` : '—'}
-                                                                    </Typography>
-                                                                </Box>
-                                                                <Box sx={{ width: '1px', height: '14px', bgcolor: '#cbd5e1' }} />
-                                                                <Box display="flex" alignItems="center" gap={0.5}>
-                                                                    <Typography variant="caption" color="#64748b" fontSize="10.5px" fontWeight={600}>Karma:</Typography>
-                                                                    <Typography variant="caption" fontWeight={800} color={karmaColor} fontSize="11.5px">
-                                                                        {m.karma_points > 0 ? `+${m.karma_points}` : (m.karma_points || 0)} pts
-                                                                    </Typography>
-                                                                </Box>
-                                                                <Box sx={{ width: '1px', height: '14px', bgcolor: '#cbd5e1' }} />
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.3, borderRadius: '6px', bgcolor: totalStyle.bg, border: `1px solid ${totalStyle.border}` }}>
-                                                                    <Typography variant="caption" color={totalStyle.color} fontSize="10.5px" fontWeight={600}>KPI Total:</Typography>
-                                                                    <Typography variant="caption" fontWeight={800} color={totalStyle.color} fontSize="12px">
-                                                                        {totalScore != null ? `${totalScore}/10` : '—'}
-                                                                    </Typography>
-                                                                    {ragStatus && (
-                                                                        <Chip
-                                                                            label={ragStatus}
-                                                                            size="small"
-                                                                            sx={{
-                                                                                height: '16px',
-                                                                                fontSize: '9px',
-                                                                                fontWeight: 700,
-                                                                                bgcolor: ragStatus === 'GREEN' ? '#dcfce7' : (ragStatus === 'AMBER' ? '#fef3c7' : '#fee2e2'),
-                                                                                color: ragStatus === 'GREEN' ? '#166534' : (ragStatus === 'AMBER' ? '#92400e' : '#991b1b'),
-                                                                                ml: 0.3
-                                                                            }}
-                                                                        />
-                                                                    )}
-                                                                </Box>
-                                                            </Box>
-                                                        </Box>
-
-                                                        {/* KPI Parameters Table */}
-                                                        {rows.length > 0 ? (
-                                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                                                                <thead>
-                                                                    <tr style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #f1f5f9' }}>
-                                                                        <th style={{ padding: '6px 16px', textAlign: 'left', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: hasTargets ? '30%' : '40%' }}>KPI PARAMETER</th>
-                                                                        {hasTargets && <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: '20%' }}>TARGET</th>}
-                                                                        <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: hasTargets ? '20%' : '30%' }}>{hasTargets ? 'ACTUAL' : 'TOTAL'}</th>
-                                                                        <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: '15%' }}>CONTRIBUTION /10</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {rows.map((row, ri) => {
-                                                                        const contribution = totalWeights > 0 ? ((row.weight || 3) / totalWeights) * 10 : 0;
-                                                                        const valStyle = hasTargets && row.target != null
-                                                                            ? (row.actual >= row.target ? { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' } : { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' })
-                                                                            : { bg: '#f8fafc', color: '#334155', border: '#e2e8f0' };
-                                                                        return (
-                                                                            <tr key={ri} style={{ borderBottom: '1px solid #f8fafc' }}>
-                                                                                <td style={{ padding: '7px 16px', fontWeight: 600, color: '#334155', fontSize: '12px' }}>{row.label}</td>
-                                                                                {hasTargets && (
-                                                                                    <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 600, color: '#64748b', fontSize: '11.5px' }}>
-                                                                                        {row.target != null ? row.target : '—'}
-                                                                                    </td>
-                                                                                )}
-                                                                                <td style={{ padding: '7px 16px', textAlign: 'center' }}>
-                                                                                    <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '4px', fontWeight: 700, fontSize: '11.5px', backgroundColor: valStyle.bg, color: valStyle.color, border: `1px solid ${valStyle.border}` }}>
-                                                                                        {hasTargets ? (row.actual != null ? row.actual : '—') : (row.total != null ? row.total : '—')}
-                                                                                    </span>
-                                                                                </td>
-                                                                                <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 600, color: '#475569', fontSize: '11px' }}>
-                                                                                    {contribution.toFixed(1)}
-                                                                                </td>
-                                                                            </tr>
-                                                                        );
-                                                                    })}
-                                                                </tbody>
-                                                                <tfoot>
-                                                                    <tr style={{ borderTop: '2px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
-                                                                        <td colSpan={hasTargets ? 2 : 1} style={{ padding: '7px 16px', fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>TOTAL KPI SCORE</td>
-                                                                        <td style={{ padding: '7px 16px', textAlign: 'center' }}>
-                                                                            <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '4px', fontWeight: 800, fontSize: '12px', backgroundColor: totalStyle.bg, color: totalStyle.color, border: `1px solid ${totalStyle.border}` }}>
-                                                                                {totalScore != null ? `${totalScore}/10` : '—'}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>
-                                                                            {totalScore != null ? totalScore.toFixed(1) : '—'}
-                                                                        </td>
-                                                                    </tr>
-                                                                </tfoot>
-                                                            </table>
-                                                        ) : (
-                                                            <Box sx={{ p: 2, textAlign: 'center' }}>
-                                                                <Typography variant="caption" color="#94a3b8" fontSize="11px">No KPI sheet data available</Typography>
-                                                            </Box>
-                                                        )}
-                                                    </Paper>
-                                                );
-                                            })}
-                                        </Box>
-                                    </Box>
-                                );
-                            })()}
+                            {renderTeamMembersKpiBlock()}
                         </Box>
                     );
                 })()}
@@ -2450,6 +2533,7 @@ const MRMHome = () => {
                             isHodOrAdmin={canManagePresenters}
                             onApprovalComplete={loadData}
                         />
+                        {renderTeamMembersKpiBlock()}
                     </Box>
                 )}
 
@@ -2528,6 +2612,7 @@ const MRMHome = () => {
                                                     openBaselineDialog={openBaselineDialog}
                                                     handleStatusChange={handleStatusChange}
                                                     hasTileAnomaly={item.isTitleRow ? Boolean(tileAnomalyMap.get(item._id)) : false}
+                                                    canReorder={statusFilter === 'all'}
                                                 />
                                             ));
                                         })()}
@@ -2535,188 +2620,6 @@ const MRMHome = () => {
                                 </table>
                             )}
                         </div>
-
-                        {/* Team Members & KPI Parameters Below HOD MRM */}
-                        {rollupFeatureEnabled && segmentRollupData?.segments?.length > 0 && (() => {
-                            const allMembers = [];
-                            const seen = new Set();
-                            (segmentRollupData.segments || []).forEach(seg => {
-                                (seg.contributing_members || []).forEach(m => {
-                                    const id = m.userId?.toString();
-                                    if (id && !seen.has(id)) {
-                                        seen.add(id);
-                                        allMembers.push({ ...m, sub_team: seg.sub_team });
-                                    }
-                                });
-                            });
-                            if (allMembers.length === 0) return null;
-
-                            const getScoreStyle = (score) => {
-                                if (score >= 8) return { color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
-                                if (score >= 5) return { color: '#b45309', bg: '#fffbeb', border: '#fde68a' };
-                                return { color: '#b91c1c', bg: '#fef2f2', border: '#fecaca' };
-                            };
-
-                            return (
-                                <Box sx={{ mt: 2, width: '100%', boxSizing: 'border-box' }}>
-                                    <Box display="flex" alignItems="center" gap={1} mb={1.5}>
-                                        <GroupsOutlinedIcon sx={{ fontSize: 18, color: '#2563eb' }} />
-                                        <Typography variant="subtitle1" fontWeight={800} color="#0f172a" fontSize="15px">
-                                            Team Members & KPI Parameters
-                                        </Typography>
-                                        <Chip
-                                            label={`${allMembers.length} Members`}
-                                            size="small"
-                                            sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#eff6ff', color: '#1d4ed8', height: '22px', border: '1px solid #bfdbfe' }}
-                                        />
-                                    </Box>
-
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                        {allMembers.map((m, idx) => {
-                                            const rows = m.kpi_sheet_rows || [];
-                                            const totalScore = m.kpi_total_score;
-                                            const ragStatus = m.kpi_rag_status;
-                                            const totalStyle = getScoreStyle(totalScore || 0);
-                                            const karmaColor = (m.karma_points > 0) ? '#047857' : (m.karma_points < 0 ? '#b91c1c' : '#64748b');
-                                            const hasTargets = rows.some(r => r.target !== null && r.target !== undefined);
-                                            const totalWeights = rows.reduce((sum, r) => sum + (r.weight || 3), 0);
-
-                                            return (
-                                                <Paper
-                                                    key={m.userId}
-                                                    elevation={0}
-                                                    sx={{
-                                                        border: '1px solid #e2e8f0',
-                                                        borderRadius: '10px',
-                                                        overflow: 'hidden',
-                                                        width: '100%',
-                                                        boxSizing: 'border-box'
-                                                    }}
-                                                >
-                                                    <Box sx={{
-                                                        px: 2,
-                                                        py: 1.2,
-                                                        bgcolor: '#f8fafc',
-                                                        borderBottom: '1px solid #e2e8f0',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'space-between',
-                                                        flexWrap: 'wrap',
-                                                        gap: 1
-                                                    }}>
-                                                        <Box display="flex" alignItems="center" gap={1}>
-                                                            <Typography variant="body2" fontWeight={700} color="#64748b" fontSize="12px" sx={{ minWidth: '22px' }}>
-                                                                {idx + 1}.
-                                                            </Typography>
-                                                            <Typography variant="subtitle2" fontWeight={800} color="#0f172a" fontSize="14px">
-                                                                {m.name}
-                                                            </Typography>
-                                                            <Chip
-                                                                label={m.sub_team === 'General' ? `${activeDepartment} Team` : m.sub_team}
-                                                                size="small"
-                                                                sx={{ fontWeight: 600, fontSize: '10px', bgcolor: '#f1f5f9', color: '#475569', height: '20px', border: '1px solid #e2e8f0' }}
-                                                            />
-                                                        </Box>
-                                                        <Box display="flex" alignItems="center" gap={1.5}>
-                                                            <Box display="flex" alignItems="center" gap={0.5}>
-                                                                <Typography variant="caption" color="#64748b" fontSize="10.5px" fontWeight={600}>Attendance:</Typography>
-                                                                <Typography variant="caption" fontWeight={800} color={(m.attendance_score >= 85) ? '#047857' : (m.attendance_score >= 70 ? '#b45309' : '#b91c1c')} fontSize="11.5px">
-                                                                    {m.attendance_score != null ? `${m.attendance_score}%` : '—'}
-                                                                </Typography>
-                                                            </Box>
-                                                            <Box sx={{ width: '1px', height: '14px', bgcolor: '#cbd5e1' }} />
-                                                            <Box display="flex" alignItems="center" gap={0.5}>
-                                                                <Typography variant="caption" color="#64748b" fontSize="10.5px" fontWeight={600}>Karma:</Typography>
-                                                                <Typography variant="caption" fontWeight={800} color={karmaColor} fontSize="11.5px">
-                                                                    {m.karma_points > 0 ? `+${m.karma_points}` : (m.karma_points || 0)} pts
-                                                                </Typography>
-                                                            </Box>
-                                                            <Box sx={{ width: '1px', height: '14px', bgcolor: '#cbd5e1' }} />
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.3, borderRadius: '6px', bgcolor: totalStyle.bg, border: `1px solid ${totalStyle.border}` }}>
-                                                                <Typography variant="caption" color={totalStyle.color} fontSize="10.5px" fontWeight={600}>KPI Total:</Typography>
-                                                                <Typography variant="caption" fontWeight={800} color={totalStyle.color} fontSize="12px">
-                                                                    {totalScore != null ? `${totalScore}/10` : '—'}
-                                                                </Typography>
-                                                                {ragStatus && (
-                                                                    <Chip
-                                                                        label={ragStatus}
-                                                                        size="small"
-                                                                        sx={{
-                                                                            height: '16px',
-                                                                            fontSize: '9px',
-                                                                            fontWeight: 700,
-                                                                            bgcolor: ragStatus === 'GREEN' ? '#dcfce7' : (ragStatus === 'AMBER' ? '#fef3c7' : '#fee2e2'),
-                                                                            color: ragStatus === 'GREEN' ? '#166534' : (ragStatus === 'AMBER' ? '#92400e' : '#991b1b'),
-                                                                            ml: 0.3
-                                                                        }}
-                                                                    />
-                                                                )}
-                                                            </Box>
-                                                        </Box>
-                                                    </Box>
-
-                                                    {rows.length > 0 ? (
-                                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                                                            <thead>
-                                                                <tr style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #f1f5f9' }}>
-                                                                    <th style={{ padding: '6px 16px', textAlign: 'left', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: hasTargets ? '30%' : '40%' }}>KPI PARAMETER</th>
-                                                                    {hasTargets && <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: '20%' }}>TARGET</th>}
-                                                                    <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: hasTargets ? '20%' : '30%' }}>{hasTargets ? 'ACTUAL' : 'TOTAL'}</th>
-                                                                    <th style={{ padding: '6px 16px', textAlign: 'center', fontWeight: 700, fontSize: '10.5px', color: '#64748b', width: '15%' }}>CONTRIBUTION /10</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                {rows.map((row, ri) => {
-                                                                    const contribution = totalWeights > 0 ? ((row.weight || 3) / totalWeights) * 10 : 0;
-                                                                    const valStyle = hasTargets && row.target != null
-                                                                        ? (row.actual >= row.target ? { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' } : { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' })
-                                                                        : { bg: '#f8fafc', color: '#334155', border: '#e2e8f0' };
-                                                                    return (
-                                                                        <tr key={ri} style={{ borderBottom: '1px solid #f8fafc' }}>
-                                                                            <td style={{ padding: '7px 16px', fontWeight: 600, color: '#334155', fontSize: '12px' }}>{row.label}</td>
-                                                                            {hasTargets && (
-                                                                                <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 600, color: '#64748b', fontSize: '11.5px' }}>
-                                                                                    {row.target != null ? row.target : '—'}
-                                                                                </td>
-                                                                            )}
-                                                                            <td style={{ padding: '7px 16px', textAlign: 'center' }}>
-                                                                                <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '4px', fontWeight: 700, fontSize: '11.5px', backgroundColor: valStyle.bg, color: valStyle.color, border: `1px solid ${valStyle.border}` }}>
-                                                                                    {hasTargets ? (row.actual != null ? row.actual : '—') : (row.total != null ? row.total : '—')}
-                                                                                </span>
-                                                                            </td>
-                                                                            <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 600, color: '#475569', fontSize: '11px' }}>
-                                                                                {contribution.toFixed(1)}
-                                                                            </td>
-                                                                        </tr>
-                                                                    );
-                                                                })}
-                                                            </tbody>
-                                                            <tfoot>
-                                                                <tr style={{ borderTop: '2px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
-                                                                    <td colSpan={hasTargets ? 2 : 1} style={{ padding: '7px 16px', fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>TOTAL KPI SCORE</td>
-                                                                    <td style={{ padding: '7px 16px', textAlign: 'center' }}>
-                                                                        <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: '4px', fontWeight: 800, fontSize: '12px', backgroundColor: totalStyle.bg, color: totalStyle.color, border: `1px solid ${totalStyle.border}` }}>
-                                                                            {totalScore != null ? `${totalScore}/10` : '—'}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td style={{ padding: '7px 16px', textAlign: 'center', fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>
-                                                                        {totalScore != null ? totalScore.toFixed(1) : '—'}
-                                                                    </td>
-                                                                </tr>
-                                                            </tfoot>
-                                                        </table>
-                                                    ) : (
-                                                        <Box sx={{ p: 2, textAlign: 'center' }}>
-                                                            <Typography variant="caption" color="#94a3b8" fontSize="11px">No KPI sheet data available</Typography>
-                                                        </Box>
-                                                    )}
-                                                </Paper>
-                                            );
-                                        })}
-                                    </Box>
-                                </Box>
-                            );
-                        })()}
                     </Box>
                 )}
             </div>
@@ -2774,6 +2677,30 @@ const MRMHome = () => {
                             <option value="blank">Blank (Structure & Objectives Only, Clear Numbers)</option>
                         </select>
                     </div>
+
+                    {items.length > 0 && (
+                        <div style={{ marginBottom: '16px', background: '#fffbeb', border: '1px solid #fef3c7', padding: '10px 14px', borderRadius: '8px' }}>
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                        checked={importOverwrite}
+                                        onChange={e => setImportOverwrite(e.target.checked)}
+                                        sx={{ color: '#d97706', '&.Mui-checked': { color: '#d97706' } }}
+                                    />
+                                }
+                                label={
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#92400e' }}>
+                                        Replace existing {items.length} items (Prevents duplicate rows)
+                                    </Typography>
+                                }
+                            />
+                            <Typography variant="caption" sx={{ color: '#b45309', display: 'block', ml: 4 }}>
+                                {importOverwrite
+                                    ? "Will clear current sheet before importing. Recommended to avoid duplicates."
+                                    : "Will append new objectives that don't already exist in this month."}
+                            </Typography>
+                        </div>
+                    )}
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
                     <Button onClick={() => setShowImportModal(false)} variant="outlined">

@@ -548,6 +548,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       }
       const savedData = res.data?.data;
       alert(res.data?.message || "Record saved successfully!");
+      window.dispatchEvent(new Event("fleet-insurance-updated"));
 
       if (savedData && savedData._id) {
         setFormData((prev) => ({ ...prev, ...savedData }));

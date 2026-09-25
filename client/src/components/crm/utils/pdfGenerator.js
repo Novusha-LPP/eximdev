@@ -1199,7 +1199,346 @@ const buildElockQuotePDF = (doc, quote) => {
   doc.text('Authorized Signatory', m, curY);
 };
 
+// ─── Format Zoho: Dynamic Company & Custom Columns Quotation PDF (ZOHO Inspired) ───
+const buildZohoCompanyQuotePDF = (doc, quote) => {
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const m = 10;
+  const cw = pageWidth - 2 * m;
+
+  const comp = quote.companyId || {};
+  const temp = quote.templateId || {};
+  const zohoStyle = temp.zohoStyle || {};
+
+  const hexToRgb = (hex) => {
+    let clean = (hex || '#1e3a8a').replace('#', '');
+    if (clean.length === 3) clean = clean.split('').map(c => c + c).join('');
+    const num = parseInt(clean, 16);
+    return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+  };
+
+  const primaryRgb = hexToRgb(zohoStyle.themeColor || '#1e3a8a');
+
+  // Outer Border
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.4);
+  doc.rect(m, m, cw, pageHeight - 2 * m);
+
+  // Top Accent Banner
+  doc.setFillColor(...primaryRgb);
+  doc.rect(m, m, cw, 4, 'F');
+
+  let curY = 18;
+
+  const logoUrl = comp.logoUrl;
+  let logoOffset = 14;
+
+  if (logoUrl && (logoUrl.startsWith('data:image') || logoUrl.startsWith('http'))) {
+    try {
+      doc.addImage(logoUrl, 'PNG', 14, curY - 2, 28, 20);
+      logoOffset = 46;
+    } catch (e) {
+      console.warn('Could not render logo image in PDF:', e);
+    }
+  }
+
+  const compName = comp.name || 'EXIM LOGISTICS SOLUTION';
+  const compTagline = comp.tagline || '';
+  const compAddressStr = [
+    comp.address?.street,
+    comp.address?.city,
+    comp.address?.state,
+    comp.address?.pincode,
+    comp.address?.country
+  ].filter(Boolean).join(', ');
+  const compGstin = comp.gstin ? `GSTIN: ${comp.gstin}` : '';
+  const compContact = [comp.phone ? `Ph: ${comp.phone}` : '', comp.email ? `Email: ${comp.email}` : ''].filter(Boolean).join(' | ');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(...primaryRgb);
+  doc.text(compName, logoOffset, curY);
+
+  if (compTagline) {
+    curY += 4.5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text(compTagline, logoOffset, curY);
+  }
+
+  curY += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(51, 65, 85);
+  if (compAddressStr) {
+    doc.text(compAddressStr, logoOffset, curY, { maxWidth: 110 });
+    curY += 4.5;
+  }
+  if (compGstin || compContact) {
+    doc.text([compGstin, compContact].filter(Boolean).join(' • '), logoOffset, curY, { maxWidth: 110 });
+  }
+
+  // Right Top: QUOTATION Title & Meta Box
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(...primaryRgb);
+  doc.text('QUOTATION', pageWidth - m - 4, 22, { align: 'right' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text(`Quote #: ${quote.quoteNumber || 'QT-2026-00001'}`, pageWidth - m - 4, 29, { align: 'right' });
+
+  const qDate = quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-IN');
+  const validUntilStr = quote.terms?.validUntil ? new Date(quote.terms.validUntil).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '30 Days';
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Date: ${qDate}`, pageWidth - m - 4, 34, { align: 'right' });
+  doc.text(`Valid Until: ${validUntilStr}`, pageWidth - m - 4, 38.5, { align: 'right' });
+
+  // Divider Line
+  curY = 44;
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.4);
+  doc.line(m, curY, pageWidth - m, curY);
+
+  // Customer / Bill To Section
+  curY += 6;
+  doc.setFillColor(248, 250, 252);
+  doc.rect(m, curY, cw, 6, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(...primaryRgb);
+  doc.text('BILL TO / CLIENT DETAILS', 14, curY + 4.2);
+
+  curY += 9;
+  const accName = quote.accountId?.name || 'Valued Customer';
+  const contactName = quote.contactId ? `${quote.contactId.firstName || ''} ${quote.contactId.lastName || ''}`.trim() : '';
+  const billAddr = quote.billToAddress || 'As per records';
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(15, 23, 42);
+  doc.text(accName, 14, curY);
+
+  curY += 4.5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.2);
+  doc.setTextColor(51, 65, 85);
+  if (contactName) {
+    doc.text(`Attn: ${contactName}`, 14, curY);
+    curY += 4;
+  }
+  doc.text(billAddr, 14, curY, { maxWidth: 170 });
+  curY += 8;
+
+  // Dynamic Custom Columns & Items Table Setup
+  const customCols = quote.templateColumns || temp.customColumns || [];
+
+  const headCols = [
+    { content: '#', styles: { halign: 'center', width: 8 } },
+    { content: 'Product / Service Description', styles: { halign: 'left' } },
+    { content: 'HSN/SAC', styles: { halign: 'center' } }
+  ];
+
+  customCols.forEach(col => {
+    headCols.push({
+      content: col.label,
+      styles: { halign: col.align || 'center' }
+    });
+  });
+
+  headCols.push(
+    { content: 'Qty', styles: { halign: 'center' } },
+    { content: 'Rate (₹)', styles: { halign: 'right' } },
+    { content: 'Disc %', styles: { halign: 'center' } },
+    { content: 'Tax %', styles: { halign: 'center' } },
+    { content: 'Total (₹)', styles: { halign: 'right' } }
+  );
+
+  const rawItems = quote.lineItems || [];
+  let calcSubtotal = 0;
+  let calcTax = 0;
+  let calcDiscount = 0;
+
+  const tableBody = rawItems.map((it, idx) => {
+    const qty = Number(it.quantity || 1);
+    const price = Number(it.unitPrice || 0);
+    const disc = Number(it.discount || 0);
+    const tax = Number(it.tax || 0);
+
+    const lineSub = qty * price;
+    const lineDisc = lineSub * (disc / 100);
+    const lineTax = (lineSub - lineDisc) * (tax / 100);
+    const lineTotal = it.lineTotal || (lineSub - lineDisc + lineTax);
+
+    calcSubtotal += lineSub;
+    calcDiscount += lineDisc;
+    calcTax += lineTax;
+
+    const row = [
+      String(idx + 1),
+      it.productName || 'Service Item',
+      it.hsnSac || '9967'
+    ];
+
+    customCols.forEach(col => {
+      const val = (it.customFields && it.customFields[col.key] !== undefined)
+        ? String(it.customFields[col.key])
+        : (col.defaultValue || '—');
+      row.push(val);
+    });
+
+    row.push(
+      String(qty),
+      price.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+      disc ? `${disc}%` : '—',
+      tax ? `${tax}%` : '—',
+      Math.round(lineTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })
+    );
+
+    return row;
+  });
+
+  doc.autoTable({
+    startY: curY,
+    head: [headCols],
+    body: tableBody,
+    theme: 'grid',
+    headStyles: {
+      fillColor: primaryRgb,
+      textColor: [255, 255, 255],
+      fontSize: 8,
+      fontStyle: 'bold',
+      cellPadding: 3
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: [30, 41, 59],
+      cellPadding: 3
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    },
+    margin: { left: m, right: m }
+  });
+
+  curY = doc.lastAutoTable.finalY + 6;
+
+  const calcGrandTotal = quote.total || (calcSubtotal - calcDiscount + calcTax);
+
+  if (curY > pageHeight - 65) {
+    doc.addPage();
+    curY = 20;
+  }
+
+  const totX = pageWidth - m - 75;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(71, 85, 105);
+
+  doc.text('Subtotal:', totX, curY);
+  doc.text(`₹ ${Math.round(calcSubtotal).toLocaleString('en-IN')}`, pageWidth - m - 4, curY, { align: 'right' });
+  curY += 4.5;
+
+  if (calcDiscount > 0) {
+    doc.text('Discount:', totX, curY);
+    doc.text(`- ₹ ${Math.round(calcDiscount).toLocaleString('en-IN')}`, pageWidth - m - 4, curY, { align: 'right' });
+    curY += 4.5;
+  }
+
+  if (calcTax > 0) {
+    doc.text('Tax (GST):', totX, curY);
+    doc.text(`+ ₹ ${Math.round(calcTax).toLocaleString('en-IN')}`, pageWidth - m - 4, curY, { align: 'right' });
+    curY += 4.5;
+  }
+
+  doc.setDrawColor(226, 232, 240);
+  doc.line(totX, curY, pageWidth - m, curY);
+  curY += 4.5;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(...primaryRgb);
+  doc.text('Total Amount:', totX, curY);
+  doc.text(`₹ ${Math.round(calcGrandTotal).toLocaleString('en-IN')}`, pageWidth - m - 4, curY, { align: 'right' });
+  curY += 8;
+
+  doc.setFillColor(248, 250, 252);
+  doc.rect(m, curY - 24, totX - m - 10, 24, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('AMOUNT IN WORDS', m + 4, curY - 18);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text(numberToIndianWords(calcGrandTotal), m + 4, curY - 12, { maxWidth: totX - m - 18 });
+
+  if (comp.bankDetails?.bankName) {
+    if (curY > pageHeight - 55) { doc.addPage(); curY = 20; }
+    doc.setFillColor(240, 249, 255);
+    doc.setDrawColor(186, 230, 253);
+    doc.rect(m, curY, cw, 18, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...primaryRgb);
+    doc.text('BANK ACCOUNT DETAILS FOR REMITTANCE:', 14, curY + 4.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(30, 41, 59);
+    const bStr = `Bank: ${comp.bankDetails.bankName} | A/C Name: ${comp.bankDetails.accountName || compName} | A/C No: ${comp.bankDetails.accountNumber} | IFSC: ${comp.bankDetails.ifscCode} ${comp.bankDetails.branch ? `| Branch: ${comp.bankDetails.branch}` : ''}`;
+    doc.text(bStr, 14, curY + 11, { maxWidth: cw - 8 });
+
+    curY += 24;
+  }
+
+  const termsText = quote.terms?.notes || zohoStyle.termsAndConditions || 'Standard terms apply.';
+  if (termsText) {
+    if (curY > pageHeight - 45) { doc.addPage(); curY = 20; }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text('TERMS & CONDITIONS:', m, curY);
+
+    curY += 4.5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    const splitTerms = doc.splitTextToSize(termsText, cw);
+    doc.text(splitTerms, m, curY);
+    curY += (splitTerms.length * 4) + 6;
+  }
+
+  if (curY > pageHeight - 30) { doc.addPage(); curY = 20; }
+  const sigName = comp.authorizedSignatory?.name || 'Authorized Signatory';
+  const sigTitle = comp.authorizedSignatory?.designation || compName;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text(`For ${compName}`, pageWidth - m - 4, curY, { align: 'right' });
+  curY += 12;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.text(sigName, pageWidth - m - 4, curY, { align: 'right' });
+  curY += 4;
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(sigTitle, pageWidth - m - 4, curY, { align: 'right' });
+};
+
 export const buildQuotePDF = (doc, quote) => {
+  if (quote?.companyId || quote?.templateId || (quote?.templateColumns && quote.templateColumns.length > 0)) {
+    buildZohoCompanyQuotePDF(doc, quote);
+    return;
+  }
+
   const tradeType = quote?.tradeType || 'import';
   const isParamount = tradeType === 'pfp' || 
     quote?.businessVertical === 'Paramount' || 

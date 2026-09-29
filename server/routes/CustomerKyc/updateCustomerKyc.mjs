@@ -50,17 +50,29 @@ router.patch("/api/update-customer-kyc/:_id", async (req, res) => {
   }
 
   try {
+    let approvalUpdate = { approval: "Pending", remarks: "" };
+    if (updateData.keepStatus) {
+      approvalUpdate = {};
+    } else if (updateData.approval) {
+      approvalUpdate = {
+        approval: updateData.approval,
+        remarks: updateData.remarks !== undefined ? updateData.remarks : ""
+      };
+    }
+
+    const isRevision = updateData.approval === "Sent for revision";
+
     // Find the specific record by _id and update it
     const updatedKyc = await CustomerKycModel.findByIdAndUpdate(
       _id,
       {
         ...updateData,
-        ...(updateData.keepStatus ? {} : { approval: "Pending", remarks: "" }),
+        ...approvalUpdate,
         draft: "false" // Ensure it's not a draft
       },
       {
         new: true, // Return the updated document
-        runValidators: true // Run schema validation
+        runValidators: isRevision ? false : true // Do not block revision with strict schema validation
       }
     );
 

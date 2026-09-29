@@ -50,13 +50,17 @@ router.get("/api/report/billing-tat", async (req, res) => {
     const processedJobs = jobs.map(job => {
       // 1. Get Delivery Completed Date
       let deliveryDate = job.delivery_completed_date || null;
+      const isAir = String(job.mode || "").trim().toUpperCase() === "AIR";
       if (!deliveryDate && job.container_nos && job.container_nos.length > 0) {
         const isLCL = job.consignment_type === "LCL";
-        const key = isLCL ? "delivery_date" : "emptyContainerOffLoadDate";
+        const key = (isLCL || isAir) ? "delivery_date" : "emptyContainerOffLoadDate";
         const allHaveDate = job.container_nos.every(c => c[key]);
         if (allHaveDate) {
           deliveryDate = job.container_nos[job.container_nos.length - 1][key];
         }
+      }
+      if (!deliveryDate && isAir) {
+        deliveryDate = job.delivery_date || null;
       }
 
       // 2. Get DO Sent to Billing Date

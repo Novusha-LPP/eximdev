@@ -614,10 +614,10 @@ const jobSchema = new mongoose.Schema({
     trim: true,
   },
   do_validity: { type: String, trim: true },
-  // delivery_date: {
-  //   type: String,
-  //   trim: true,
-  // },
+  delivery_date: {
+    type: String,
+    trim: true,
+  },
   containers_arrived_on_same_date: Boolean,
   // *******
   remarks: { type: String, trim: true },

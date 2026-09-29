@@ -14,25 +14,28 @@ router.post("/api/customer-kyc-approval/:_id", async (req, res) => {
       return res.status(404).send("Not found");
     }
 
-    // Update the approval field
-    data.approval = approval;
+    const updateFields = { approval };
 
     // Update the approved_by field for approved KYCs
     if (approval === "Approved" || approval === "Approved by HOD") {
-      data.approved_by = approved_by;
+      updateFields.approved_by = approved_by;
       const approvalDate = new Date();
-      data.approved_by_date = approvalDate;
-      data.approvedAt = approvalDate;
-      data.remarks = ""; // Clear remarks for approved KYCs
+      updateFields.approved_by_date = approvalDate;
+      updateFields.approvedAt = approvalDate;
+      updateFields.remarks = ""; // Clear remarks for approved KYCs
     } else if (approval === "Sent for revision") {
-      data.remarks = remarks;
+      updateFields.remarks = remarks || "";
       // Don't update approved_by for revisions
     }
 
-    // Save the updated document
-    await data.save();
+    // Update the document without running strict schema validation
+    const updated = await CustomerKycApproval.findByIdAndUpdate(
+      _id,
+      { $set: updateFields },
+      { new: true, runValidators: false }
+    );
 
-    res.send({ message: "KYC status updated successfully" });
+    res.send({ message: "KYC status updated successfully", data: updated });
   } catch (error) {
     console.error(error);
     res

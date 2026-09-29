@@ -1145,7 +1145,20 @@ function JobDetails() {
 
   // Helper to get the correct date for "Delivery Completed"
   const getDeliveryCompletedDate = () => {
+    const isAir = isAirMode(data?.mode || formik.values?.mode);
     const containers = formik.values.container_nos || [];
+
+    if (isAir) {
+      if (!containers.length) {
+        return formik.values.delivery_date || data?.delivery_date || null;
+      }
+      const allHaveDate = containers.every((c) => c.delivery_date);
+      if (allHaveDate) {
+        return containers[containers.length - 1].delivery_date || null;
+      }
+      return formik.values.delivery_date || data?.delivery_date || null;
+    }
+
     if (!containers.length) return null;
 
     // LCL: use delivery_date, else use emptyContainerOffLoadDate
@@ -3027,18 +3040,20 @@ function JobDetails() {
                                 : "#212529",
                             }}
                           >
-                            {(formik.values.delivery_completed_date || deliveryCompletedDate)
-                              ? new Date(
-                                formik.values.delivery_completed_date || deliveryCompletedDate
-                              ).toLocaleString("en-US", {
+                            {(() => {
+                              const rawDate = formik.values.delivery_completed_date || deliveryCompletedDate;
+                              if (!rawDate) return "-";
+                              const parsed = new Date(rawDate);
+                              if (isNaN(parsed.getTime())) return "-";
+                              return parsed.toLocaleString("en-US", {
                                 timeZone: "Asia/Kolkata",
                                 month: "short",
                                 day: "2-digit",
                                 hour: "2-digit",
                                 minute: "2-digit",
                                 hour12: true,
-                              })
-                              : "-"}
+                              });
+                            })()}
                           </span>
                         </div>
                         {user?.role === "Admin" && (

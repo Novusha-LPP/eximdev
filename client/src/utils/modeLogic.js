@@ -1,4 +1,4 @@
-export const isAirMode = (mode) => mode === 'AIR';
+export const isAirMode = (mode) => String(mode || '').trim().toUpperCase() === 'AIR';
 
 export const getContainerOrPackageLabel = (mode) => isAirMode(mode) ? 'Package' : 'Container';
 export const getAwbOrBlLabel = (mode) => isAirMode(mode) ? 'AWB' : 'BL';

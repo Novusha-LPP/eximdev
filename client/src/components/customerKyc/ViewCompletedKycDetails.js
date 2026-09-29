@@ -4,6 +4,7 @@ import axios from "axios";
 import "./view-kyc.css"; // Import the new CSS
 import { useSnackbar } from "../../contexts/SnackbarContext";
 import { UserContext } from "../../contexts/UserContext";
+import CustomDialog from "./CustomDialog";
 
 function ViewCompletedKycDetails() {
   const { _id } = useParams();
@@ -11,6 +12,38 @@ function ViewCompletedKycDetails() {
   const [data, setData] = useState();
   const { showSuccess, showError } = useSnackbar();
   const { user } = useContext(UserContext);
+  const [revisionModalOpen, setRevisionModalOpen] = useState(false);
+  const [revisionRemark, setRevisionRemark] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSendForRevision = async () => {
+    if (!revisionRemark.trim()) {
+      showError("Please enter remarks for revision");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const approved_by = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
+      await axios.post(
+        `${process.env.REACT_APP_API_STRING}/customer-kyc-approval/${_id}`,
+        {
+          approval: "Sent for revision",
+          remarks: revisionRemark.trim(),
+          approved_by
+        }
+      );
+
+      showSuccess("KYC sent back for revision successfully with remark");
+      setRevisionModalOpen(false);
+      navigate("/customer-kyc?tab=4");
+    } catch (error) {
+      console.error("Error sending KYC for revision:", error);
+      showError(error.response?.data?.message || "Failed to send back for revision");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     async function getData() {
@@ -232,7 +265,34 @@ function ViewCompletedKycDetails() {
 
 
       <div className="page-wrap">
-        <div className="page-type-title">View Completed KYC Details</div>
+        <div className="page-type-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>View Completed KYC Details</span>
+          {user?.role === "Admin" && (
+            <button
+              type="button"
+              className="btn btn-warning"
+              style={{
+                fontSize: '13px',
+                padding: '6px 14px',
+                backgroundColor: '#f59e0b',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+              onClick={() => {
+                setRevisionRemark(data?.remarks || "");
+                setRevisionModalOpen(true);
+              }}
+            >
+              ↩️ Send Back for Revision
+            </button>
+          )}
+        </div>
 
         {/* IDENTITY STRIP */}
         <div className="identity-strip">
@@ -513,6 +573,56 @@ function ViewCompletedKycDetails() {
         </div>
 
       </div>
+
+      <CustomDialog
+        open={revisionModalOpen}
+        onClose={() => !isSubmitting && setRevisionModalOpen(false)}
+        title="Send Back for Revision"
+        severity="warning"
+        actions={
+          <>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setRevisionModalOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ background: '#d97706', borderColor: '#d97706', color: '#fff', fontWeight: 600 }}
+              onClick={handleSendForRevision}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Sending..." : "Confirm & Send for Revision"}
+            </button>
+          </>
+        }
+      >
+        <div style={{ marginBottom: "1rem" }}>
+          <p style={{ fontSize: "14px", marginBottom: "8px", color: "var(--slate-700)" }}>
+            Please enter remarks / revision notes explaining what needs to be revised:
+          </p>
+          <textarea
+            rows={4}
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: "6px",
+              border: "1px solid #cbd5e1",
+              fontSize: "14px",
+              fontFamily: "inherit",
+              boxSizing: "border-box"
+            }}
+            placeholder="Enter revision remarks here..."
+            value={revisionRemark}
+            onChange={(e) => setRevisionRemark(e.target.value)}
+            autoFocus
+          />
+        </div>
+      </CustomDialog>
     </>
   );
 }

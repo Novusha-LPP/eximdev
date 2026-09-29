@@ -253,37 +253,6 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
                   </div>
                 )}
               </div>
-
-              {row.original.mode === "AIR" && (
-                <div style={{ marginBottom: "2px" }}>
-                  <strong>Delivery: </strong>
-                  {formatDate(container.delivery_date)}
-                  <FcCalendar
-                    style={styles.icon}
-                    onClick={() => handleEditStart("delivery_date", id)}
-                  />
-                  {editable === `delivery_date_${id}` && (
-                    <div style={styles.editContainer}>
-                      <input
-                        type="datetime-local"
-                        value={tempDateValue}
-                        onChange={handleDateInputChange}
-                        style={dateError ? styles.errorInput : styles.dateInput}
-                      />
-                      <button
-                        style={styles.submitButton}
-                        onClick={() => handleDateSubmit("delivery_date", id)}
-                      >
-                        ✓
-                      </button>
-                      <button style={styles.cancelButton} onClick={() => setEditable(null)}>
-                        ✕
-                      </button>
-                      {dateError && <div style={styles.errorText}>{dateError}</div>}
-                    </div>
-                  )}
-                </div>
-              )}
             </React.Fragment>
           ))
         : "N/A"}
@@ -323,6 +292,46 @@ const EditableDateSummaryCell = ({ row, onRowDataUpdate }) => {
         field="out_of_charge"
         tooltip="Out of Charge Date"
       />
+
+      {String(row.original.mode || "").toUpperCase() === "AIR" && (
+        containers.length > 0 ? (
+          containers.map((container, id) => (
+            <div key={id} style={{ marginBottom: "2px" }}>
+              <strong>Delivery: </strong>
+              {formatDate(container.delivery_date)}
+              <FcCalendar
+                style={styles.icon}
+                onClick={() => handleEditStart("delivery_date", id)}
+              />
+              {editable === `delivery_date_${id}` && (
+                <div style={styles.editContainer}>
+                  <input
+                    type="datetime-local"
+                    value={tempDateValue}
+                    onChange={handleDateInputChange}
+                    style={dateError ? styles.errorInput : styles.dateInput}
+                  />
+                  <button
+                    style={styles.submitButton}
+                    onClick={() => handleDateSubmit("delivery_date", id)}
+                  >
+                    ✓
+                  </button>
+                  <button style={styles.cancelButton} onClick={() => setEditable(null)}>
+                    ✕
+                  </button>
+                  {dateError && <div style={styles.errorText}>{dateError}</div>}
+                </div>
+              )}
+            </div>
+          ))
+        ) : (
+          <div style={{ marginBottom: "2px" }}>
+            <strong>Delivery: </strong>
+            N/A
+          </div>
+        )
+      )}
     </div>
   );
 };

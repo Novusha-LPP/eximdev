@@ -32,6 +32,33 @@ import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 import QueriesComponent from "../../utils/QueriesComponent.js";
 import { isAirMode, getContainerOrPackageLabel } from "../../utils/modeLogic";
 
+const toInputDateTime = (value) => {
+  if (!value) return "";
+  const s = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return `${s}T00:00`;
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${y}-${m}-${day}T${hh}:${mm}`;
+};
+
+const toInputDate = (value) => {
+  if (!value) return "";
+  const s = String(value).trim();
+  if (s === "0" || s === "N/A") return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 
 function ViewOperationsJob() {
   const bl_no_ref = useRef();
@@ -536,7 +563,7 @@ function ViewOperationsJob() {
                             type="date"
                             id="examination_date"
                             name="examination_date"
-                            value={formik.values.examination_date}
+                            value={toInputDate(formik.values.examination_date)}
                             onChange={formik.handleChange}
                             inputProps={{
                               min: data.examination_planning_date,
@@ -565,7 +592,7 @@ function ViewOperationsJob() {
                             type="date"
                             id="pcv_date"
                             name="pcv_date"
-                            value={formik.values.pcv_date}
+                            value={toInputDate(formik.values.pcv_date)}
                             onChange={formik.handleChange}
                             error={
                               formik.touched.pcv_date &&
@@ -598,7 +625,7 @@ function ViewOperationsJob() {
                             type="date"
                             id="out_of_charge"
                             name="out_of_charge"
-                            value={formik.values.out_of_charge}
+                            value={toInputDate(formik.values.out_of_charge)}
                             onChange={formik.handleChange}
                             error={
                               formik.touched.out_of_charge &&
@@ -612,6 +639,54 @@ function ViewOperationsJob() {
                           />
                         </div>
                       </Col>
+
+                      {isAirMode(data?.mode) && (
+                        <Col xs={12} md={3}>
+                          <div
+                            className="job-detail-input-container"
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              width: "70%",
+                            }}
+                          >
+                            <strong style={{ marginBottom: "5px" }}>
+                              Delivery Date:
+                            </strong>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              margin="normal"
+                              variant="outlined"
+                              type="datetime-local"
+                              id="delivery_date"
+                              name="delivery_date"
+                              value={toInputDateTime(
+                                formik.values.container_nos?.[0]?.delivery_date ||
+                                formik.values.delivery_date ||
+                                ""
+                              )}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                formik.setFieldValue("delivery_date", val);
+                                const currentContainers = formik.values.container_nos || [];
+                                if (currentContainers.length === 0) {
+                                  formik.setFieldValue("container_nos", [{ container_number: "1", delivery_date: val }]);
+                                } else {
+                                  const updated = currentContainers.map((c, i) =>
+                                    i === 0 ? { ...c, delivery_date: val } : c
+                                  );
+                                  formik.setFieldValue("container_nos", updated);
+                                }
+                              }}
+                              InputLabelProps={{
+                                shrink: true,
+                              }}
+                              sx={{ marginTop: 0 }}
+                            />
+                          </div>
+                        </Col>
+                      )}
 
                       {data.branch_code === "GIM" && (
                         <Col xs={12} md={3}>
@@ -1224,7 +1299,7 @@ function ViewOperationsJob() {
                                   type="datetime-local"
                                   variant="outlined"
                                   name={`container_nos[${index}].arrival_date`}
-                                  value={container.arrival_date}
+                                  value={toInputDateTime(container.arrival_date)}
                                   onChange={formik.handleChange}
                                   InputLabelProps={{ shrink: true }}
                                 />
@@ -1240,8 +1315,13 @@ function ViewOperationsJob() {
                                     type="datetime-local"
                                     variant="outlined"
                                     name={`container_nos[${index}].delivery_date`}
-                                    value={container.delivery_date}
-                                    onChange={formik.handleChange}
+                                    value={toInputDateTime(container.delivery_date)}
+                                    onChange={(e) => {
+                                      formik.handleChange(e);
+                                      if (index === 0) {
+                                        formik.setFieldValue("delivery_date", e.target.value);
+                                      }
+                                    }}
                                     InputLabelProps={{ shrink: true }}
                                   />
                                 </div>

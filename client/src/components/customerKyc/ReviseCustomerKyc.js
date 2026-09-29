@@ -32,6 +32,44 @@ function ReviseCustomerKyc() {
   });
 
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [revisionModalOpen, setRevisionModalOpen] = useState(false);
+  const [revisionRemark, setRevisionRemark] = useState("");
+  const [isSubmittingRevision, setIsSubmittingRevision] = useState(false);
+
+  const handleConfirmSendForRevision = async () => {
+    if (!revisionRemark.trim()) {
+      showError("Please enter remarks for revision");
+      return;
+    }
+
+    try {
+      setIsSubmittingRevision(true);
+      const payload = {
+        ...formik.values,
+        approval: "Sent for revision",
+        remarks: revisionRemark.trim(),
+        draft: "false"
+      };
+      if (payload.date_of_incorporation === "") {
+        payload.date_of_incorporation = null;
+      }
+
+      const res = await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/update-customer-kyc/${_id}`,
+        payload
+      );
+
+      const revisionTabIndex = user?.role === "Admin" ? 4 : 3;
+      showSuccess(res.data.message || "KYC sent back for revision successfully with remark");
+      setRevisionModalOpen(false);
+      navigate(`/customer-kyc?tab=${revisionTabIndex}`);
+    } catch (error) {
+      console.error("Error sending KYC for revision:", error);
+      showError(error.response?.data?.message || "Failed to send back for revision");
+    } finally {
+      setIsSubmittingRevision(false);
+    }
+  };
 
   // Helpers for field validation (supports nested paths like banks[0].ifsc)
   const hasError = (path) => !!getIn(formik.touched, path) && !!getIn(formik.errors, path);
@@ -1754,19 +1792,14 @@ function ReviseCustomerKyc() {
                   </button>
                   <button
                     type="button"
-                    className="btn btn-success"
-                    onClick={async () => {
-                      const errors = await formik.validateForm();
-                      if (Object.keys(errors).length > 0) {
-                        formik.setTouched(setAllTouched(formik.values), true);
-                        showError("Please fill in all required fields");
-                      } else {
-                        keepStatusRef.current = false;
-                        formik.handleSubmit();
-                      }
+                    className="btn btn-warning"
+                    style={{ background: '#f59e0b', borderColor: '#f59e0b', color: '#fff', fontWeight: 600 }}
+                    onClick={() => {
+                      setRevisionRemark(formik.values.remarks || "");
+                      setRevisionModalOpen(true);
                     }}
                   >
-                    📤 Re-Submit for Verification
+                    ↩️ Send Back for Revision
                   </button>
                 </>
               ) : (
@@ -1802,6 +1835,56 @@ function ReviseCustomerKyc() {
         actions={dialogState.actions}
       >
         {dialogState.content}
+      </CustomDialog>
+
+      <CustomDialog
+        open={revisionModalOpen}
+        onClose={() => !isSubmittingRevision && setRevisionModalOpen(false)}
+        title="Send Back for Revision"
+        severity="warning"
+        actions={
+          <>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setRevisionModalOpen(false)}
+              disabled={isSubmittingRevision}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ background: '#d97706', borderColor: '#d97706', color: '#fff', fontWeight: 600 }}
+              onClick={handleConfirmSendForRevision}
+              disabled={isSubmittingRevision}
+            >
+              {isSubmittingRevision ? "Sending..." : "Confirm & Send for Revision"}
+            </button>
+          </>
+        }
+      >
+        <div style={{ marginBottom: "1rem" }}>
+          <p style={{ fontSize: "14px", marginBottom: "8px", color: "var(--slate-700)" }}>
+            Please enter remarks / revision notes explaining what needs to be revised:
+          </p>
+          <textarea
+            rows={4}
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: "6px",
+              border: "1px solid #cbd5e1",
+              fontSize: "14px",
+              fontFamily: "inherit",
+              boxSizing: "border-box"
+            }}
+            placeholder="Enter revision remarks here..."
+            value={revisionRemark}
+            onChange={(e) => setRevisionRemark(e.target.value)}
+            autoFocus
+          />
+        </div>
       </CustomDialog>
     </div>
   );

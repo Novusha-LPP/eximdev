@@ -66,6 +66,7 @@ function useFetchOperationTeamJob(params) {
   const formik = useFormik({
     initialValues: {
       container_nos: [],
+      delivery_date: "",
       examination_date: "",
       container_images: "",
       weighment_slip_images: [],
@@ -236,6 +237,7 @@ function useFetchOperationTeamJob(params) {
 
       formik.setValues({
         container_nos,
+        delivery_date: data.delivery_date || container_nos?.[0]?.delivery_date || "",
         examination_date: data.examination_date || "",
         pcv_date: data.pcv_date || "",
         concor_gate_pass_date: data.concor_gate_pass_date || "",

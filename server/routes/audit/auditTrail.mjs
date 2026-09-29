@@ -381,8 +381,53 @@ router.get("/api/audit-trail", authMiddleware, async (req, res) => {
       if (uFilter) filter.username = uFilter;
     }
 
+    const itHelpdeskTypes = [
+      "ITAsset",
+      "Asset",
+      "ItVendor",
+      "Vendor",
+      "HelpdeskTicket",
+      "Helpdesk",
+      "ITInventory",
+      "Inventory",
+      "ITContract",
+      "Contract",
+      "ITLicense",
+      "License",
+      "ITHelpdesk",
+      "ITAmcRenewal",
+      "EquipmentChecklist",
+      "General",
+    ];
+
+    const scope = req.query.scope;
     const docType = documentType || moduleParam;
-    if (docType && docType.trim()) {
+    const isITScope = scope === "it-helpdesk" || scope === "itHelpdesk" || docType === "it-helpdesk" || docType === "ITHelpdesk";
+
+    if (isITScope) {
+      if (docType && docType !== "it-helpdesk" && docType !== "ITHelpdesk" && docType !== "All Modules") {
+        const reverseMap = {
+          Asset: ["ITAsset", "Asset"],
+          ITAsset: ["ITAsset", "Asset"],
+          Vendor: ["ItVendor", "Vendor"],
+          ItVendor: ["ItVendor", "Vendor"],
+          Helpdesk: ["HelpdeskTicket", "Helpdesk"],
+          HelpdeskTicket: ["HelpdeskTicket", "Helpdesk"],
+          Inventory: ["ITInventory", "Inventory"],
+          ITInventory: ["ITInventory", "Inventory"],
+          Contract: ["ITContract", "Contract", "ITAmcRenewal"],
+          ITContract: ["ITContract", "Contract", "ITAmcRenewal"],
+          License: ["ITLicense", "License"],
+          ITLicense: ["ITLicense", "License"],
+          Administration: ["ITHelpdesk", "General"],
+          General: ["ITHelpdesk", "General"],
+        };
+        const types = reverseMap[docType] || [docType];
+        filter.documentType = types.length === 1 ? types[0] : { $in: types };
+      } else {
+        filter.documentType = { $in: itHelpdeskTypes };
+      }
+    } else if (docType && docType.trim()) {
       const trimmed = docType.trim();
       const reverseMap = {
         Job: "Job",
@@ -1225,9 +1270,32 @@ router.get("/api/audit-trail/activity-timeline", async (req, res) => {
 // Delete audit logs — optionally scoped to a module (any authenticated user)
 router.delete("/api/audit-trail", authMiddleware, async (req, res) => {
   try {
-    const { documentType } = req.query;
+    const { documentType, scope } = req.query;
     const filter = {};
-    if (documentType) filter.documentType = documentType;
+    const itHelpdeskTypes = [
+      "ITAsset",
+      "Asset",
+      "ItVendor",
+      "Vendor",
+      "HelpdeskTicket",
+      "Helpdesk",
+      "ITInventory",
+      "Inventory",
+      "ITContract",
+      "Contract",
+      "ITLicense",
+      "License",
+      "ITHelpdesk",
+      "ITAmcRenewal",
+      "EquipmentChecklist",
+      "General",
+    ];
+
+    if (documentType) {
+      filter.documentType = documentType;
+    } else if (scope === "it-helpdesk") {
+      filter.documentType = { $in: itHelpdeskTypes };
+    }
 
     const result = await AuditTrailModel.deleteMany(filter);
     res.json({
@@ -1235,6 +1303,8 @@ router.delete("/api/audit-trail", authMiddleware, async (req, res) => {
       deletedCount: result.deletedCount,
       message: documentType
         ? `Deleted ${result.deletedCount} logs for module "${documentType}".`
+        : scope === "it-helpdesk"
+        ? `Deleted all ${result.deletedCount} IT Helpdesk audit logs.`
         : `Deleted all ${result.deletedCount} audit logs.`
     });
   } catch (error) {
@@ -1252,15 +1322,46 @@ router.get("/api/audit-trail/export", authMiddleware, async (req, res) => {
 
     const documentTypeMap = {
       ITAsset: "Asset",
+      Asset: "Asset",
       ItVendor: "Vendor",
+      Vendor: "Vendor",
       HelpdeskTicket: "Helpdesk",
+      Helpdesk: "Helpdesk",
       ITInventory: "Inventory",
+      Inventory: "Inventory",
       ITContract: "Contract",
+      Contract: "Contract",
       ITLicense: "License",
+      License: "License",
+      ITHelpdesk: "Administration",
+      ITAmcRenewal: "Contract",
+      EquipmentChecklist: "Inventory",
       User: "User",
     };
 
+    const itHelpdeskTypes = [
+      "ITAsset",
+      "Asset",
+      "ItVendor",
+      "Vendor",
+      "HelpdeskTicket",
+      "Helpdesk",
+      "ITInventory",
+      "Inventory",
+      "ITContract",
+      "Contract",
+      "ITLicense",
+      "License",
+      "ITHelpdesk",
+      "ITAmcRenewal",
+      "EquipmentChecklist",
+      "General",
+    ];
+
     const filter = {};
+    if (req.query.scope === "it-helpdesk") {
+      filter.documentType = { $in: itHelpdeskTypes };
+    }
     const from = req.query.fromDate || req.query.startDate;
     const to = req.query.toDate || req.query.endDate;
     if (from || to) {

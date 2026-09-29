@@ -7,6 +7,7 @@ import FilterBar from './components/FilterBar';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
 import { message } from 'antd';
+import { RotateCcw } from 'lucide-react';
 import { LOST_REASONS } from './crmConstants';
 
 const PIPELINE_STAGES = [
@@ -76,25 +77,38 @@ export default function CRMKanbanBoard() {
   const isAdmin = (isSystemAdmin || isCrmAdmin) && !isHOD;
   const isRestricted = !isAdmin || isHOD;
 
+  const getSavedKanbanFilters = () => {
+    try {
+      const saved = localStorage.getItem('crm_kanban_filters');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Error loading kanban filters from storage:', e);
+    }
+    return {};
+  };
+
+  const initialFilters = React.useMemo(() => getSavedKanbanFilters(), []);
+
   const [teams, setTeams] = useState([]);
-  const [selectedTeam, setSelectedTeam] = useState('all');
+  const [selectedTeam, setSelectedTeam] = useState(() => initialFilters.selectedTeam || 'all');
   const [users, setUsers] = useState([]);
-  const [selectedOwner, setSelectedOwner] = useState('all');
-  const [seeAllData, setSeeAllData] = useState(false);
+  const [selectedOwner, setSelectedOwner] = useState(() => initialFilters.selectedOwner || 'all');
+  const [seeAllData, setSeeAllData] = useState(() => Boolean(initialFilters.seeAllData));
 
   // CR-010 & CR-008 Filter States
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStage, setSelectedStage] = useState(() => getInitialParam('stage', 'all'));
-  const [selectedSource, setSelectedSource] = useState(() => getInitialParam('source', ''));
-  const [selectedTimePeriod, setSelectedTimePeriod] = useState(() => getInitialParam('periodType', 'monthly'));
-  const [selectedDate, setSelectedDate] = useState(() => getInitialParam('date', new Date().toISOString().substring(0, 10)));
-  const [selectedWeek, setSelectedWeek] = useState(() => getInitialParam('week', new Date().toISOString().substring(0, 10)));
-  const [selectedMonth, setSelectedMonth] = useState(() => getInitialParam('month', new Date().toISOString().substring(0, 7)));
-  const [selectedLocation, setSelectedLocation] = useState(() => getInitialParam('location', ''));
-  const [selectedHsnCode, setSelectedHsnCode] = useState(() => getInitialParam('hsnCode', ''));
+  const [searchQuery, setSearchQuery] = useState(() => initialFilters.searchQuery || '');
+  const [selectedStage, setSelectedStage] = useState(() => getInitialParam('stage', initialFilters.selectedStage || 'all'));
+  const [selectedSource, setSelectedSource] = useState(() => getInitialParam('source', initialFilters.selectedSource || ''));
+  const [selectedTimePeriod, setSelectedTimePeriod] = useState(() => getInitialParam('periodType', initialFilters.selectedTimePeriod || 'monthly'));
+  const [selectedDate, setSelectedDate] = useState(() => getInitialParam('date', initialFilters.selectedDate || new Date().toISOString().substring(0, 10)));
+  const [selectedWeek, setSelectedWeek] = useState(() => getInitialParam('week', initialFilters.selectedWeek || new Date().toISOString().substring(0, 10)));
+  const [selectedMonth, setSelectedMonth] = useState(() => getInitialParam('month', initialFilters.selectedMonth || new Date().toISOString().substring(0, 7)));
+  const [selectedLocation, setSelectedLocation] = useState(() => getInitialParam('location', initialFilters.selectedLocation || ''));
+  const [selectedHsnCode, setSelectedHsnCode] = useState(() => getInitialParam('hsnCode', initialFilters.selectedHsnCode || ''));
   const [locationSuggestions, setLocationSuggestions] = useState([]);
   const [hsnSuggestions, setHsnSuggestions] = useState([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [resetTrigger, setResetTrigger] = useState(0);
 
   // Lost Reason Modal States
   const [isLostModalOpen, setIsLostModalOpen] = useState(false);
@@ -399,7 +413,12 @@ export default function CRMKanbanBoard() {
       }
       setTeams(fetchedTeams);
       if (!all && isRestricted && fetchedTeams.length > 0) {
-        setSelectedTeam(prev => prev === 'all' ? fetchedTeams[0]._id : prev);
+        setSelectedTeam(prev => {
+          if (prev && prev !== 'all' && fetchedTeams.some(t => (t._id || t.id) === prev)) {
+            return prev;
+          }
+          return fetchedTeams[0]._id;
+        });
       }
     } catch (err) {
       console.error('Failed to load user teams:', err);
@@ -475,6 +494,100 @@ export default function CRMKanbanBoard() {
   useEffect(() => {
     fetchBoard();
   }, [filters, selectedStage, selectedSource, selectedTimePeriod, selectedDate, selectedWeek, selectedMonth, selectedLocation, selectedHsnCode, selectedTeam, selectedOwner, seeAllData]);
+
+  // Persist all active filters to localStorage
+  useEffect(() => {
+    try {
+      const filtersToSave = {
+        searchQuery,
+        selectedLocation,
+        selectedHsnCode,
+        selectedStage,
+        selectedSource,
+        selectedTeam,
+        selectedOwner,
+        seeAllData,
+        selectedTimePeriod,
+        selectedDate,
+        selectedWeek,
+        selectedMonth
+      };
+      localStorage.setItem('crm_kanban_filters', JSON.stringify(filtersToSave));
+    } catch (e) {
+      console.error('Error saving kanban filters to storage:', e);
+    }
+  }, [searchQuery, selectedLocation, selectedHsnCode, selectedStage, selectedSource, selectedTeam, selectedOwner, seeAllData, selectedTimePeriod, selectedDate, selectedWeek, selectedMonth]);
+
+  // Count active non-default filters
+  const activeFiltersCount = React.useMemo(() => {
+    let count = 0;
+    if (searchQuery && searchQuery.trim()) count++;
+    if (selectedLocation && selectedLocation.trim()) count++;
+    if (selectedHsnCode && selectedHsnCode.trim()) count++;
+    if (selectedStage && selectedStage !== 'all') count++;
+    if (selectedSource && selectedSource.trim()) count++;
+    if (selectedTeam && selectedTeam !== 'all') count++;
+    if (selectedOwner && selectedOwner !== 'all') count++;
+    if (seeAllData) count++;
+    if (filters && filters.type && filters.type !== 'this_month') count++;
+    return count;
+  }, [searchQuery, selectedLocation, selectedHsnCode, selectedStage, selectedSource, selectedTeam, selectedOwner, seeAllData, filters]);
+
+  const hasActiveFilters = activeFiltersCount > 0;
+
+  // Clear All Filters Handler
+  const handleClearAllFilters = () => {
+    const now = new Date();
+    const todayStr = now.toISOString().substring(0, 10);
+    const currentMonthStr = now.toISOString().substring(0, 7);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().substring(0, 10);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().substring(0, 10);
+
+    const defaultTeamVal = isRestricted && teams.length > 0 ? teams[0]._id : 'all';
+
+    // 1. Reset text & dropdown filters
+    setSearchQuery('');
+    setSelectedLocation('');
+    setSelectedHsnCode('');
+    setSelectedStage('all');
+    setSelectedSource('');
+    setSelectedTeam(defaultTeamVal);
+    setSelectedOwner('all');
+    setSeeAllData(false);
+
+    // 2. Reset stage-specific date filters
+    setSelectedTimePeriod('monthly');
+    setSelectedDate(todayStr);
+    setSelectedWeek(todayStr);
+    setSelectedMonth(currentMonthStr);
+
+    // 3. Reset FilterBar date filter
+    const defaultDateFilter = {
+      type: 'this_month',
+      month: currentMonthStr,
+      startDate: startOfMonth,
+      endDate: endOfMonth
+    };
+    setFilters(defaultDateFilter);
+    setResetTrigger(prev => prev + 1);
+
+    // 4. Clear localStorage
+    try {
+      localStorage.removeItem('crm_kanban_filters');
+      localStorage.setItem('crm_filters_pipeline', JSON.stringify(defaultDateFilter));
+    } catch (e) {
+      console.error('Error clearing localStorage filters:', e);
+    }
+
+    // 5. Clear URL search params
+    try {
+      window.history.pushState(null, '', window.location.pathname);
+    } catch (e) {
+      console.error('Error clearing URL params:', e);
+    }
+
+    message.success('All filters have been cleared');
+  };
 
   const handleDragStart = (e, opportunity, fromStage) => {
     setDraggedOpportunity({ opportunity, fromStage });
@@ -1015,6 +1128,53 @@ export default function CRMKanbanBoard() {
             </label>
           </div>
           )}
+          {/* Clear All Filters Button */}
+          <button
+            onClick={handleClearAllFilters}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 14px',
+              background: hasActiveFilters ? '#fff1f2' : '#f8fafc',
+              color: hasActiveFilters ? '#e11d48' : '#64748b',
+              border: `1px solid ${hasActiveFilters ? '#fecaca' : '#e2e8f0'}`,
+              borderRadius: '10px',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              userSelect: 'none',
+              marginLeft: '4px'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = '#ffe4e6';
+              e.currentTarget.style.borderColor = '#fca5a5';
+              e.currentTarget.style.color = '#be123c';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = hasActiveFilters ? '#fff1f2' : '#f8fafc';
+              e.currentTarget.style.borderColor = hasActiveFilters ? '#fecaca' : '#e2e8f0';
+              e.currentTarget.style.color = hasActiveFilters ? '#e11d48' : '#64748b';
+            }}
+            title="Clear all search text, dropdown filters, and reset date range"
+          >
+            <RotateCcw size={14} />
+            <span>Clear All Filters</span>
+            {hasActiveFilters && (
+              <span style={{
+                background: '#e11d48',
+                color: '#ffffff',
+                fontSize: '0.7rem',
+                padding: '1px 6px',
+                borderRadius: '10px',
+                fontWeight: 800,
+                marginLeft: '2px'
+              }}>
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
         </div>
 
         {selectedStage !== 'all' ? (
@@ -1067,9 +1227,39 @@ export default function CRMKanbanBoard() {
                 />
               )}
             </div>
+
+            <button
+              onClick={handleClearAllFilters}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                background: '#fff1f2',
+                color: '#e11d48',
+                border: '1px solid #fecaca',
+                borderRadius: '10px',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                userSelect: 'none'
+              }}
+              title="Clear all filters and reset"
+            >
+              <RotateCcw size={14} />
+              Clear All Filters
+            </button>
           </div>
         ) : (
-          <FilterBar moduleName="pipeline" onChange={handleFilterChange} disabled={searchIsActive} />
+          <FilterBar
+            moduleName="pipeline"
+            onChange={handleFilterChange}
+            disabled={searchIsActive}
+            onClearAll={handleClearAllFilters}
+            resetTrigger={resetTrigger}
+            showClearAll={true}
+          />
         )}
       </div>
 

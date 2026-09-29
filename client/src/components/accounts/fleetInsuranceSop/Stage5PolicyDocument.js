@@ -1,32 +1,47 @@
-import React, { useRef } from "react";
-import { Box, Typography, Alert, Paper, Grid, Button, Stack, Chip } from "@mui/material";
+import React, { useRef, useState } from "react";
+import { Box, Typography, Alert, Paper, Grid, Button, Stack, Chip, CircularProgress } from "@mui/material";
 import { Assignment, CloudUpload, InsertDriveFile, Visibility, Delete } from "@mui/icons-material";
+import { uploadFileToS3 } from "../../../utils/awsFileUpload";
 
 function Stage5PolicyDocument({ formData, handleChange, formatDateValue, isView }) {
   const isPaymentDone = Boolean(formData.paymentUtr && String(formData.paymentUtr).trim().length > 0);
   const fileInputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
 
-  const handleFileUpload = (e) => {
+  const docUrl = formData.policyDocumentUrl || formData.policyDocument || "";
+
+  const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      alert("File size exceeds 10MB limit.");
+    if (file.size > 15 * 1024 * 1024) {
+      alert("File size exceeds 15MB limit.");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64Url = event.target.result;
-      handleChange("policyDocumentUrl", base64Url);
-      handleChange("policyDocumentName", file.name);
-    };
-    reader.readAsDataURL(file);
+    setUploading(true);
+    try {
+      const result = await uploadFileToS3(file, "fleet-insurance");
+      if (result && result.Location) {
+        handleChange("policyDocumentUrl", result.Location);
+        handleChange("policyDocumentName", file.name);
+        handleChange("policyDocument", result.Location);
+      } else {
+        alert("Failed to upload file. Please try again.");
+      }
+    } catch (err) {
+      console.error("Error uploading policy document:", err);
+      alert("Error uploading file: " + (err.message || "Upload failed"));
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const handleRemoveDocument = () => {
     handleChange("policyDocumentUrl", "");
     handleChange("policyDocumentName", "");
+    handleChange("policyDocument", "");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -178,10 +193,31 @@ function Stage5PolicyDocument({ formData, handleChange, formatDateValue, isView 
             accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
             style={{ display: "none" }}
             onChange={handleFileUpload}
-            disabled={isView}
+            disabled={isView || uploading}
           />
 
-          {!formData.policyDocumentUrl ? (
+          {uploading ? (
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2.5,
+                textAlign: "center",
+                border: "2px dashed #93c5fd",
+                bgcolor: "#eff6ff",
+                borderRadius: "8px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 1
+              }}
+            >
+              <CircularProgress size={32} sx={{ color: "#2563eb" }} />
+              <Typography sx={{ fontWeight: 700, fontSize: "13px", color: "#1e40af" }}>
+                Uploading Policy Document to AWS S3...
+              </Typography>
+            </Paper>
+          ) : !docUrl ? (
             <Paper
               variant="outlined"
               sx={{
@@ -200,7 +236,7 @@ function Stage5PolicyDocument({ formData, handleChange, formatDateValue, isView 
                 Click to Upload Issued Policy Copy
               </Typography>
               <Typography sx={{ fontSize: "11px", color: "#64748b" }}>
-                Supported formats: PDF, PNG, JPG, JPEG, DOCX (Max size: 10MB)
+                Supported formats: PDF, PNG, JPG, JPEG, DOCX (Max size: 15MB)
               </Typography>
             </Paper>
           ) : (
@@ -232,12 +268,7 @@ function Stage5PolicyDocument({ formData, handleChange, formatDateValue, isView 
                   variant="outlined"
                   color="primary"
                   startIcon={<Visibility sx={{ fontSize: 16 }} />}
-                  onClick={() => {
-                    const w = window.open();
-                    if (w) {
-                      w.document.write(`<iframe src="${formData.policyDocumentUrl}" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
-                    }
-                  }}
+                  onClick={() => window.open(docUrl, "_blank")}
                   sx={{ textTransform: "none", fontSize: "12px", fontWeight: 600 }}
                 >
                   View / Download

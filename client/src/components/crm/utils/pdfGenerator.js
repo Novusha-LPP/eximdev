@@ -51,6 +51,36 @@ function numberToIndianWords(num, prefix = 'Rupees') {
   return `${prefix} ${result.trim()} Only`;
 }
 
+// Helper: Fix spelling typos and replace unsupported currency symbols (e.g., ₹ or backticks) for jsPDF standard fonts
+function fixPdfLabel(text) {
+  if (text === null || text === undefined) return '';
+  let cleaned = String(text);
+
+  // Fix spelling typos: "quantity in peices" -> "Quantity in Pieces", "peices" -> "Pieces"
+  cleaned = cleaned.replace(/quantity\s+in\s+peices/gi, 'Quantity in Pieces');
+  cleaned = cleaned.replace(/peices/gi, 'Pieces');
+
+  // Fix currency symbol distortion: Replace ₹, \`, `, \ inside parentheses or standalone with Rs.
+  cleaned = cleaned.replace(/\(\s*₹\s*\)/g, '(Rs.)');
+  cleaned = cleaned.replace(/\(\s*\\`\s*\)/g, '(Rs.)');
+  cleaned = cleaned.replace(/\(\s*`\s*\)/g, '(Rs.)');
+  cleaned = cleaned.replace(/\(\s*\\\s*\)/g, '(Rs.)');
+  cleaned = cleaned.replace(/₹/g, 'Rs.');
+
+  return cleaned;
+}
+
+// Helper: Format numbers for PDF without non-breaking spaces (\u00A0, \u202F) that cause digit spacing/kerning glitches in jsPDF
+function formatCleanNumber(num, decimals = 2) {
+  const val = Number(num) || 0;
+  const str = val.toLocaleString('en-IN', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+  // Strip non-breaking spaces and non-ASCII whitespace characters that break jsPDF kerning
+  return str.replace(/[\u00A0\u202F\u2007\u200B]/g, '');
+}
+
 const getTradeChargeRows = (tradeType = 'import') => {
   if (tradeType === 'export') {
     return [
@@ -1244,13 +1274,19 @@ const buildCustomCompanyQuotePDF = (doc, quote) => {
 
   const compName = comp.name || 'EXIM LOGISTICS SOLUTION';
   const compTagline = comp.tagline || '';
-  const compAddressStr = [
-    comp.address?.street,
-    comp.address?.city,
-    comp.address?.state,
-    comp.address?.pincode,
-    comp.address?.country
-  ].filter(Boolean).join(', ');
+
+  // Build multi-line address array safely
+  const addressParts = [];
+  if (comp.address?.street) {
+    const streetLines = String(comp.address.street).split('\n').map(s => s.trim()).filter(Boolean);
+    addressParts.push(...streetLines);
+  }
+  const cityStatePin = [comp.address?.city, comp.address?.state, comp.address?.pincode].filter(Boolean).join(', ');
+  if (cityStatePin) addressParts.push(cityStatePin);
+  if (comp.address?.country && comp.address.country.toLowerCase() !== 'india') {
+    addressParts.push(comp.address.country);
+  }
+
   const compGstin = comp.gstin ? `GSTIN: ${comp.gstin}` : '';
   const compContact = [comp.phone ? `Ph: ${comp.phone}` : '', comp.email ? `Email: ${comp.email}` : ''].filter(Boolean).join(' | ');
 
@@ -1260,7 +1296,7 @@ const buildCustomCompanyQuotePDF = (doc, quote) => {
   doc.text(compName, logoOffset, curY);
 
   if (compTagline) {
-    curY += 4;
+    curY += 4.2;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
@@ -1272,17 +1308,22 @@ const buildCustomCompanyQuotePDF = (doc, quote) => {
   doc.setFontSize(7.8);
   doc.setTextColor(51, 65, 85);
 
-  if (compAddressStr) {
+  if (addressParts.length > 0) {
+    const compAddressStr = addressParts.join(', ');
     const addressLines = doc.splitTextToSize(compAddressStr, 105);
-    doc.text(addressLines, logoOffset, curY);
-    curY += addressLines.length * 3.6;
+    addressLines.forEach(line => {
+      doc.text(line, logoOffset, curY);
+      curY += 3.8;
+    });
   }
 
   if (compGstin || compContact) {
     const contactStr = [compGstin, compContact].filter(Boolean).join(' • ');
     const contactLines = doc.splitTextToSize(contactStr, 105);
-    doc.text(contactLines, logoOffset, curY);
-    curY += contactLines.length * 3.6;
+    contactLines.forEach(line => {
+      doc.text(line, logoOffset, curY);
+      curY += 3.8;
+    });
   }
 
   // Right Top: QUOTATION Title & Meta Box
@@ -1356,7 +1397,7 @@ const buildCustomCompanyQuotePDF = (doc, quote) => {
 
   customCols.forEach(col => {
     headCols.push({
-      content: col.label,
+      content: fixPdfLabel(col.label),
       styles: { halign: col.align || 'center' }
     });
   });
@@ -1404,15 +1445,15 @@ const buildCustomCompanyQuotePDF = (doc, quote) => {
       const val = (it.customFields && it.customFields[col.key] !== undefined)
         ? String(it.customFields[col.key])
         : (col.defaultValue || '—');
-      row.push(val);
+      row.push(fixPdfLabel(val));
     });
 
     row.push(
       String(qty),
-      price.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+      formatCleanNumber(price),
       disc ? `${disc}%` : '—',
       tax ? `${tax}%` : '—',
-      Math.round(lineTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })
+      formatCleanNumber(lineTotal)
     );
 
     return row;
@@ -1451,65 +1492,82 @@ const buildCustomCompanyQuotePDF = (doc, quote) => {
     tableWidth: cw
   });
 
-  curY = doc.lastAutoTable.finalY + 6;
+  const summaryStartY = doc.lastAutoTable.finalY + 6;
 
   const calcGrandTotal = quote.total || (calcSubtotal - calcDiscount + calcTax);
 
+  curY = summaryStartY;
   if (curY > pageHeight - 60) {
     doc.addPage();
     curY = 20;
   }
+  const sectionTopY = curY;
 
   const totBoxWidth = 85;
   const totX = pageWidth - m - totBoxWidth;
 
+  // 1. Right Side: Subtotal, Discount, Tax, Total Amount
+  let rightY = sectionTopY + 2;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(71, 85, 105);
 
-  doc.text('Subtotal:', totX, curY);
-  doc.text(`Rs. ${Math.round(calcSubtotal).toLocaleString('en-IN')}`, pageWidth - m - 2, curY, { align: 'right' });
-  curY += 4.5;
+  doc.text('Subtotal:', totX, rightY);
+  doc.text(`Rs. ${formatCleanNumber(calcSubtotal)}`, pageWidth - m - 2, rightY, { align: 'right' });
+  rightY += 5;
 
   if (calcDiscount > 0) {
-    doc.text('Discount:', totX, curY);
-    doc.text(`- Rs. ${Math.round(calcDiscount).toLocaleString('en-IN')}`, pageWidth - m - 2, curY, { align: 'right' });
-    curY += 4.5;
+    doc.text('Discount:', totX, rightY);
+    doc.text(`- Rs. ${formatCleanNumber(calcDiscount)}`, pageWidth - m - 2, rightY, { align: 'right' });
+    rightY += 5;
   }
 
   if (calcTax > 0) {
-    doc.text('Tax (GST):', totX, curY);
-    doc.text(`+ Rs. ${Math.round(calcTax).toLocaleString('en-IN')}`, pageWidth - m - 2, curY, { align: 'right' });
-    curY += 4.5;
+    doc.text('Tax (GST):', totX, rightY);
+    doc.text(`+ Rs. ${formatCleanNumber(calcTax)}`, pageWidth - m - 2, rightY, { align: 'right' });
+    rightY += 5;
   }
 
   doc.setDrawColor(226, 232, 240);
-  doc.line(totX, curY, pageWidth - m, curY);
-  curY += 5;
+  doc.line(totX, rightY, pageWidth - m, rightY);
+  rightY += 5.5;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(...primaryRgb);
-  doc.text('Total Amount:', totX, curY);
-  doc.text(`Rs. ${Math.round(calcGrandTotal).toLocaleString('en-IN')}`, pageWidth - m - 2, curY, { align: 'right' });
+  doc.text('Total Amount:', totX, rightY);
+  doc.text(`Rs. ${formatCleanNumber(calcGrandTotal)}`, pageWidth - m - 2, rightY, { align: 'right' });
+  const totalsBottomY = rightY + 3;
 
-  // Amount in Words Box (Left aligned opposite to Totals)
-  const wordsBoxWidth = totX - m - 6;
+  // 2. Left Side: Amount in Words Box (Starts at sectionTopY below the table)
+  const wordsBoxWidth = totX - m - 8;
+  const wordsBoxX = m;
+  const wordsBoxY = sectionTopY;
+
+  const wordStr = numberToIndianWords(calcGrandTotal);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.2);
+  const wordLines = doc.splitTextToSize(wordStr, wordsBoxWidth - 8);
+  const wordsBoxHeight = Math.max(22, 12 + wordLines.length * 4.5);
+
   doc.setFillColor(248, 250, 252);
-  doc.rect(m, curY - 20, wordsBoxWidth, 24, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(wordsBoxX, wordsBoxY, wordsBoxWidth, wordsBoxHeight, 2, 2, 'FD');
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('AMOUNT IN WORDS', m + 4, curY - 14);
+  doc.text('AMOUNT IN WORDS', wordsBoxX + 4, wordsBoxY + 5.5);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.2);
   doc.setTextColor(30, 41, 59);
-  const wordStr = numberToIndianWords(calcGrandTotal);
-  const wordLines = doc.splitTextToSize(wordStr, wordsBoxWidth - 8);
-  doc.text(wordLines, m + 4, curY - 8);
+  doc.text(wordLines, wordsBoxX + 4, wordsBoxY + 11.5);
 
-  curY += 12;
+  const wordsBottomY = wordsBoxY + wordsBoxHeight;
+
+  // Advance curY past both columns
+  curY = Math.max(totalsBottomY, wordsBottomY) + 8;
 
   // Bank Account Remittance Details
   if (comp.bankDetails?.bankName) {

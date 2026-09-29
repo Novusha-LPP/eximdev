@@ -117,6 +117,10 @@ const emptyRecord = {
   newTotalPolicyPremium: "",
   // PR Readiness
   readyForPr: "",
+  // Policy Document Attachment
+  policyDocumentUrl: "",
+  policyDocumentName: "",
+  policyDocument: "",
   // Dynamic Custom Fields
   section2CustomFields: [],
   section2BCustomFields: [],

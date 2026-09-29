@@ -397,9 +397,9 @@ const EditChargeModal = ({
     if (!partyName) return false;
     if (partyName.toLowerCase().includes('suraj forwarders')) return true;
     const pType = (partyType || '').toUpperCase();
-    if (pType === 'TERMINAL' || pType === 'CFS' || pType === 'EMPTY YARD' || pType === 'EMPTY_YARD') return true;
+    if (pType === 'TERMINAL' || pType === 'CFS' || pType === 'EMPTY YARD' || pType === 'EMPTY_YARD' || pType.includes('TERMINAL') || pType.includes('EMPTY YARD')) return true;
     const pDir = (partyDir || '').toUpperCase();
-    if (pDir === 'TERMINAL' || pDir === 'CFS' || pDir === 'EMPTY YARD' || pDir === 'EMPTY_YARD') return true;
+    if (pDir === 'TERMINAL' || pDir === 'CFS' || pDir === 'EMPTY YARD' || pDir === 'EMPTY_YARD' || pDir.includes('TERMINAL') || pDir.includes('EMPTY YARD')) return true;
     const norm = normalize(partyName);
     return (emptyYardList || []).some(t => normalize(t.name || t.organization) === norm) ||
            (cfsList || []).some(t => normalize(t.name || t.organization) === norm) ||
@@ -488,7 +488,7 @@ const EditChargeModal = ({
           else if (partyType === 'VENDOR') searchList = suppliers;
           else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
           else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
-          else if (partyType === 'CFS') searchList = cfsList;
+          else if (partyType === 'CFS' || partyType === 'TERMINAL' || partyType === 'EMPTY YARD' || partyType?.includes('TERMINAL') || partyType?.includes('EMPTY YARD')) searchList = [...cfsList, ...emptyYardList];
           else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
 
           let matchedSL = searchList.find(sl => sl.name?.trim().toUpperCase() === normName);
@@ -625,12 +625,12 @@ const EditChargeModal = ({
           else if (partyType === 'VENDOR') searchList = suppliers;
           else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
           else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
-          else if (partyType === 'CFS') searchList = cfsList;
+          else if (partyType === 'CFS' || partyType === 'TERMINAL' || partyType === 'EMPTY YARD' || partyType?.includes('TERMINAL') || partyType?.includes('EMPTY YARD')) searchList = [...cfsList, ...emptyYardList];
           else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
 
           let party = searchList.find(p => p.name?.trim().toUpperCase() === normName);
           if (!party) {
-            const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+            const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...emptyYardList, ...transporters, ...generalOrgs];
             party = allParties.find(p => p.name?.trim().toUpperCase() === normName);
           }
 
@@ -719,7 +719,7 @@ const EditChargeModal = ({
 
     // Trigger any auto-populate logic (TDS, etc.)
     if (section === 'cost') {
-      const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+      const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...emptyYardList, ...transporters, ...generalOrgs];
       const matchedSL = allParties.find(sl => sl.name?.toUpperCase() === item.name?.toUpperCase());
       if (matchedSL && matchedSL.tds_percent > 0) {
         sectionRef.isTds = true;
@@ -1522,8 +1522,8 @@ const EditChargeModal = ({
                                 </div>
                                 <div className="charges-ep-row">
                                   <span className="charges-ep-label">Payable Type</span>
-                                  <select className="charges-ep-select" disabled={effectiveReadOnly} value={row.cost?.partyType || 'Vendor'} onChange={e => handleFieldChange(i, 'partyType', e.target.value, 'cost')}>
-                                    <option>Vendor</option><option>Transporter</option><option>Importer</option><option>Custom Duty</option><option>Others</option><option>Agent</option><option value="CFS">Terminal</option><option>General Org</option>
+                                  <select className="charges-ep-select" disabled={effectiveReadOnly} value={['CFS', 'TERMINAL', 'EMPTY YARD', 'TERMINAL + EMPTY YARD'].includes((row.cost?.partyType || '').toUpperCase()) ? 'CFS' : (row.cost?.partyType || 'Vendor')} onChange={e => handleFieldChange(i, 'partyType', e.target.value, 'cost')}>
+                                    <option>Vendor</option><option>Transporter</option><option>Importer</option><option>Custom Duty</option><option>Others</option><option>Agent</option><option value="CFS">Terminal + Empty Yard</option><option>General Org</option>
                                   </select>
                                 </div>
                                 <div className="charges-ep-row">
@@ -1560,7 +1560,7 @@ const EditChargeModal = ({
                                           else if (pType === 'TRANSPORTER') searchList = transporters;
                                           else if (pType === 'IMPORTER') searchList = organizations;
                                           else if (pType === 'GENERAL ORG') searchList = generalOrgs;
-                                          else if (pType === 'CFS') searchList = [...cfsList, ...emptyYardList];
+                                          else if (pType === 'CFS' || pType === 'TERMINAL' || pType === 'EMPTY YARD' || pType.includes('TERMINAL') || pType.includes('EMPTY YARD')) searchList = [...cfsList, ...emptyYardList];
 
                                           const filtered = searchList.filter(item => !row.cost?.partyName || item.name.toLowerCase().includes(row.cost.partyName.toLowerCase())).slice(0, 20);
 
@@ -1615,14 +1615,14 @@ const EditChargeModal = ({
                                               handleFieldChange(i, 'virtualBalanceType', e.target.value, 'cost');
                                               handleFieldChange(i, 'virtualBalanceTerminal', '', 'cost');
                                             }}>
-                                              <option value="TERMINAL">Empty-Yards</option><option value="CFS">CFS-SFSA</option>
+                                              <option value="TERMINAL">Terminal + Empty Yard</option><option value="CFS">CFS-SFSA</option>
                                             </select>
                                           </div>
                                         )}
                                         <div className="charges-ep-row">
-                                          <span className="charges-ep-label" style={{ fontWeight: 'bold', color: '#0284c7' }}>{isCfsSource ? 'CFS-SFSA' : 'Empty-Yards'} Balance</span>
+                                          <span className="charges-ep-label" style={{ fontWeight: 'bold', color: '#0284c7' }}>{isCfsSource ? 'CFS-SFSA' : 'Terminal + Empty Yard'} Balance</span>
                                           <select className="charges-ep-select" value={row.cost?.virtualBalanceTerminal || ''} onChange={e => { handleFieldChange(i, 'virtualBalanceTerminal', e.target.value, 'cost'); triggerAutoSave(i, true); }} onBlur={() => triggerAutoSave(i, true)}>
-                                            <option value="">Select {isCfsSource ? 'CFS-SFSA' : 'Empty Yard'}</option>
+                                            <option value="">Select {isCfsSource ? 'CFS-SFSA' : 'Terminal + Empty Yard'}</option>
                                             {allAvailableNames.map((name, nameIndex) => <option key={nameIndex} value={name}>{name}</option>)}
                                           </select>
                                         </div>
@@ -1644,7 +1644,7 @@ const EditChargeModal = ({
 
                                   let party = searchList.find(p => p.name?.trim().toUpperCase() === normName);
                                   if (!party) {
-                                    const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+                                    const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...emptyYardList, ...transporters, ...generalOrgs];
                                     party = allParties.find(p => p.name?.trim().toUpperCase() === normName);
                                   }
 
@@ -1784,12 +1784,12 @@ const EditChargeModal = ({
                                           else if (partyType === 'VENDOR') searchList = suppliers;
                                           else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
                                           else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
-                                          else if (partyType === 'CFS') searchList = cfsList;
+                                          else if (partyType === 'CFS' || partyType === 'TERMINAL' || partyType === 'EMPTY YARD' || partyType?.includes('TERMINAL') || partyType?.includes('EMPTY YARD')) searchList = [...cfsList, ...emptyYardList];
                                           else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
 
                                           let partyDetails = searchList.find(p => p.name?.trim().toUpperCase() === normName);
                                           if (!partyDetails) {
-                                            const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+                                            const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...emptyYardList, ...transporters, ...generalOrgs];
                                             partyDetails = allParties.find(p => p.name?.trim().toUpperCase() === normName);
                                           }
 
@@ -1902,12 +1902,12 @@ const EditChargeModal = ({
                                           else if (partyType === 'VENDOR') searchList = suppliers;
                                           else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
                                           else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
-                                          else if (partyType === 'CFS') searchList = cfsList;
+                                          else if (partyType === 'CFS' || partyType === 'TERMINAL' || partyType === 'EMPTY YARD' || partyType?.includes('TERMINAL') || partyType?.includes('EMPTY YARD')) searchList = [...cfsList, ...emptyYardList];
                                           else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
 
                                           let partyDetails = searchList.find(p => p.name?.trim().toUpperCase() === normName);
                                           if (!partyDetails) {
-                                            const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+                                            const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...emptyYardList, ...transporters, ...generalOrgs];
                                             partyDetails = allParties.find(p => p.name?.trim().toUpperCase() === normName);
                                           }
 

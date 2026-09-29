@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Filter, RotateCcw } from 'lucide-react';
 
-export default function FilterBar({ moduleName, onChange, disabled = false }) {
+export default function FilterBar({ moduleName, onChange, disabled = false, onClearAll = null, resetTrigger = 0, showClearAll = true }) {
   const getInitialFilters = () => {
     try {
       const stored = localStorage.getItem(`crm_filters_${moduleName}`);
@@ -22,6 +22,21 @@ export default function FilterBar({ moduleName, onChange, disabled = false }) {
   };
 
   const [filters, setFilters] = useState(getInitialFilters);
+
+  // Sync when resetTrigger triggers
+  useEffect(() => {
+    if (resetTrigger > 0) {
+      const now = new Date();
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().substring(0, 10);
+      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().substring(0, 10);
+      setFilters({
+        type: 'this_month',
+        month: now.toISOString().substring(0, 7),
+        startDate,
+        endDate
+      });
+    }
+  }, [resetTrigger]);
 
   // Generate last 12 months for dropdown
   const getMonthsList = () => {
@@ -101,12 +116,17 @@ export default function FilterBar({ moduleName, onChange, disabled = false }) {
     const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().substring(0, 10);
     const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().substring(0, 10);
 
-    setFilters({
+    const defaultFilters = {
       type: 'this_month',
       month: now.toISOString().substring(0, 7),
       startDate,
       endDate
-    });
+    };
+
+    setFilters(defaultFilters);
+    if (onClearAll) {
+      onClearAll();
+    }
   };
 
   const activeBtnStyle = {
@@ -168,6 +188,44 @@ export default function FilterBar({ moduleName, onChange, disabled = false }) {
             </button>
           );
         })}
+
+        {showClearAll && onClearAll && (
+          <button
+            key="clear_all_btn"
+            onClick={onClearAll}
+            disabled={disabled}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '10px',
+              border: '1px solid #fecaca',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              cursor: disabled ? 'not-allowed' : 'pointer',
+              opacity: disabled ? 0.5 : 1,
+              transition: 'all 0.2s',
+              background: '#fff1f2',
+              color: '#e11d48',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onMouseEnter={e => {
+              if (!disabled) {
+                e.currentTarget.style.background = '#ffe4e6';
+                e.currentTarget.style.borderColor = '#fca5a5';
+              }
+            }}
+            onMouseLeave={e => {
+              if (!disabled) {
+                e.currentTarget.style.background = '#fff1f2';
+                e.currentTarget.style.borderColor = '#fecaca';
+              }
+            }}
+            title="Clear all filters and reset"
+          >
+            <RotateCcw size={14} /> Clear All Filters
+          </button>
+        )}
       </div>
 
       {/* Month & Date Pickers */}
@@ -238,7 +296,7 @@ export default function FilterBar({ moduleName, onChange, disabled = false }) {
           }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#ffffff'; }}
-          title="Reset filters"
+          title="Clear all filters and reset"
         >
           <RotateCcw size={16} />
         </button>

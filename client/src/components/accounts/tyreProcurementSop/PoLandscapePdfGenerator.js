@@ -178,21 +178,57 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
   rawItems.forEach((it) => {
     totalQtyFromItems += Number(it.qty || it.quantityRequested || it.quantity || 0);
   });
-  const quantity = totalQtyFromItems > 0 ? totalQtyFromItems : 1;
+  const prTotalQuantity = totalQtyFromItems > 0 ? totalQtyFromItems : 1;
+
   const vendorTotalOrderValue = Number(currentVendor.totalOrderValue) || 0;
   const vendorUnitPrice = Number(currentVendor.unitPriceNew || currentVendor.priceQuoted || 0);
+
+  // Vendor specific allocated item quantity logic:
+  // 1. Explicitly stored on vendor object (allocatedQty, orderQty, qty, quantity, qtyAvailable)
+  // 2. Calculated from totalOrderValue / unitPrice if available and vendor total order value > 0
+  // 3. Fallback to PR total quantity if there is only 1 awarded supplier or no split detected
+  const explicitVendorQty = Number(
+    currentVendor.allocatedQty ||
+    currentVendor.orderQty ||
+    currentVendor.qty ||
+    currentVendor.quantity ||
+    currentVendor.qtyAvailable ||
+    0
+  );
+
+  let vendorAllocatedTotalQty = explicitVendorQty;
+  if (!vendorAllocatedTotalQty && vendorTotalOrderValue > 0 && vendorUnitPrice > 0) {
+    const calcQty = vendorTotalOrderValue / vendorUnitPrice;
+    if (calcQty > 0 && Math.abs(calcQty - Math.round(calcQty)) < 0.01) {
+      vendorAllocatedTotalQty = Math.round(calcQty);
+    } else if (calcQty > 0) {
+      vendorAllocatedTotalQty = calcQty;
+    }
+  }
+
+  if (!vendorAllocatedTotalQty) {
+    vendorAllocatedTotalQty = prTotalQuantity;
+  }
 
   let calculatedSubTotal = 0;
   let calculatedTotalGst = 0;
 
   const itemsList = rawItems.length > 0 ? rawItems : [{}];
   const computedItems = itemsList.map((item) => {
-    const itemQty = Number(item.qty || item.quantityRequested || item.quantity || (rawItems.length === 0 ? quantity : 1));
+    let itemQty = 0;
+    if (rawItems.length <= 1) {
+      itemQty = vendorAllocatedTotalQty;
+    } else {
+      const rawItemQty = Number(item.qty || item.quantityRequested || item.quantity || 1);
+      const ratio = prTotalQuantity > 0 ? rawItemQty / prTotalQuantity : 1 / rawItems.length;
+      itemQty = Math.round(vendorAllocatedTotalQty * ratio) || rawItemQty;
+    }
+
     const itemRate = Number(
       vendorUnitPrice ||
       item.estUnitCost ||
       item.ratePerTyre ||
-      (quantity ? Math.round(vendorTotalOrderValue / quantity) : 0)
+      (vendorAllocatedTotalQty ? Math.round(vendorTotalOrderValue / vendorAllocatedTotalQty) : 0)
     );
     const itemBase = itemQty * itemRate;
 

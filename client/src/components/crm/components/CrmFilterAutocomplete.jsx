@@ -83,6 +83,7 @@ export default function CrmFilterAutocomplete({
         position: 'relative',
         display: 'inline-flex',
         alignItems: 'center',
+        flexShrink: 0,
         gap: label ? '6px' : '0'
       }}
     >

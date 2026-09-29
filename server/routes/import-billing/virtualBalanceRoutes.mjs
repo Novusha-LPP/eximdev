@@ -136,7 +136,16 @@ router.get(["/api/virtual-balance", "/api/cfs-virtual-balance"], async (req, res
     const purchaseBooks = await PurchaseBookEntryModel.find(pbQuery).lean();
 
     // 3. Fetch all CFS directory opening balances
-    const cfsList = type === "CFS" ? await CfsDirectoryModel.find().lean() : await EmptyYardDirectoryModel.find().lean();
+    let cfsList = [];
+    if (type === "CFS") {
+      cfsList = await CfsDirectoryModel.find().lean();
+    } else {
+      const [eyList, termList] = await Promise.all([
+        EmptyYardDirectoryModel.find().lean(),
+        CfsModel.find().lean(),
+      ]);
+      cfsList = [...eyList, ...termList];
+    }
     const cfsOpeningMap = {};
     cfsList.forEach((c) => {
       if (c.name) {

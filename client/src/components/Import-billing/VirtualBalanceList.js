@@ -80,8 +80,8 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
   const isCfsBalance = balanceType === "cfs";
   const balanceApi = isCfsBalance ? "cfs-virtual-balance" : "virtual-balance";
   const directoryApi = isCfsBalance ? "get-cfs-directory-list" : "get-empty-yard-directory-list";
-  const balanceLabel = isCfsBalance ? "CFS-SFSA Virtual Balance" : "Empty-Yards Virtual Balance";
-  const holderLabel = isCfsBalance ? "CFS-SFSA" : "Empty Yard";
+  const balanceLabel = isCfsBalance ? "CFS-SFSA Virtual Balance" : "Terminal + Empty-Yards Virtual Balance";
+  const holderLabel = isCfsBalance ? "CFS-SFSA" : "Terminal + Empty Yard";
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -281,16 +281,45 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
   useEffect(() => {
     const fetchCfs = async () => {
       try {
-        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/${directoryApi}`);
-        if (Array.isArray(res.data)) {
-          setCfsList(res.data);
+        if (isCfsBalance) {
+          const res = await axios.get(`${process.env.REACT_APP_API_STRING}/${directoryApi}`);
+          if (Array.isArray(res.data)) {
+            setCfsList(res.data.map((i) => ({ ...i, directorySource: "CFS" })));
+          }
+        } else {
+          // Fetch BOTH Terminal Directory (/get-cfs-list) AND Empty Yard Directory (/get-empty-yard-directory-list)
+          const [termRes, eyRes] = await Promise.all([
+            axios.get(`${process.env.REACT_APP_API_STRING}/get-cfs-list`).catch(() => ({ data: [] })),
+            axios.get(`${process.env.REACT_APP_API_STRING}/get-empty-yard-directory-list`).catch(() => ({ data: [] })),
+          ]);
+          const termData = Array.isArray(termRes.data)
+            ? termRes.data.map((i) => ({ ...i, directorySource: "Terminal" }))
+            : [];
+          const eyData = Array.isArray(eyRes.data)
+            ? eyRes.data.map((i) => ({ ...i, directorySource: "Empty Yard" }))
+            : [];
+
+          const mergedMap = new Map();
+          [...eyData, ...termData].forEach((item) => {
+            const key = (item.name || "").trim().toUpperCase();
+            if (key && !mergedMap.has(key)) {
+              mergedMap.set(key, item);
+            }
+          });
+          const mergedList = Array.from(mergedMap.values()).sort((a, b) =>
+            (a.name || "").localeCompare(b.name || "")
+          );
+          setCfsList(mergedList);
         }
+        // Directory loaded successfully
+
+
       } catch (err) {
         console.error("Error fetching CFS list:", err);
       }
     };
     fetchCfs();
-  }, [directoryApi]);
+  }, [isCfsBalance, directoryApi]);
 
   // Fetch Jobs list - server-side search as user types
   useEffect(() => {
@@ -862,10 +891,42 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
             <Grid item xs={12}>
               <Autocomplete
                 size="small"
-                options={cfsList.map((cfs) => cfs.name)}
-                value={formValues.cfsName || null}
+                options={cfsList}
+                getOptionLabel={(option) => (typeof option === "string" ? option : option.name || "")}
+                freeSolo
+                onInputChange={(event, newInputValue, reason) => {
+                  if (reason === "input") setFormValues((prev) => ({ ...prev, cfsName: newInputValue }));
+                }}
+                renderOption={(props, option) => {
+                  const { key, ...optionProps } = props;
+                  const name = typeof option === "string" ? option : option.name;
+                  const source = typeof option === "object" ? (option.directorySource || option.sourceLabel) : null;
+                  return (
+                    <li key={key || name} {...optionProps}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+                        <Typography variant="body2">{name}</Typography>
+                        {source && (
+                          <Chip
+                            label={source}
+                            size="small"
+                            sx={{
+                              height: 18,
+                              fontSize: "10px",
+                              fontWeight: 600,
+                              bgcolor: source === "Terminal" ? "#e0f2fe" : "#fef3c7",
+                              color: source === "Terminal" ? "#0369a1" : "#92400e",
+                              ml: 1,
+                            }}
+                          />
+                        )}
+                      </Box>
+                    </li>
+                  );
+                }}
+                value={cfsList.find((c) => (c.name || "").trim().toUpperCase() === (formValues.cfsName || "").trim().toUpperCase()) || formValues.cfsName || null}
                 onChange={(event, newValue) => {
-                  setFormValues((prev) => ({ ...prev, cfsName: newValue || "" }));
+                  const val = typeof newValue === "string" ? newValue : (newValue?.name || "");
+                  setFormValues((prev) => ({ ...prev, cfsName: val }));
                 }}
                 renderInput={(params) => <TextField {...params} label={`${holderLabel} *`} />}
                 ListboxProps={{ style: { maxHeight: "250px" } }}

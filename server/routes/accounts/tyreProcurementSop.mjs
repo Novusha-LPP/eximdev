@@ -29,12 +29,60 @@ const completedTyreStages = (doc) => {
 };
 
 const canOverrideSignOffLock = (user) => {
-  const role = String(user?.role || "").toLowerCase();
+  if (!user) return false;
+  const role = String(user?.role || "").toLowerCase().replace(/\s+/g, "");
   if (role === "admin" || role === "superadmin") return true;
   const identity = [user?.username, user?.first_name, user?.middle_name, user?.last_name]
     .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
   return identity.includes("ajay") || String(user?.username || "").toLowerCase().includes("ajay");
 };
+
+function normalizeForComparison(val) {
+  if (val === null || val === undefined || val === "") return "";
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? "" : val.toISOString();
+  }
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed) return "";
+    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      const d = new Date(trimmed);
+      if (!isNaN(d.getTime())) return d.toISOString();
+    }
+    return trimmed.toUpperCase();
+  }
+  if (typeof val === "number") return val;
+  if (typeof val === "boolean") return val;
+  if (Array.isArray(val)) {
+    return val.map(normalizeForComparison);
+  }
+  if (typeof val === "object") {
+    const res = {};
+    const keys = Object.keys(val).sort();
+    for (const key of keys) {
+      if (
+        key === "_id" ||
+        key === "__v" ||
+        key === "createdAt" ||
+        key === "updatedAt"
+      ) {
+        continue;
+      }
+      const norm = normalizeForComparison(val[key]);
+      if (norm !== "") {
+        res[key] = norm;
+      }
+    }
+    return res;
+  }
+  return val;
+}
+
+function areStagesEqual(existingStage, payloadStage) {
+  const normExisting = normalizeForComparison(existingStage?.toObject ? existingStage.toObject() : existingStage);
+  const normPayload = normalizeForComparison(payloadStage);
+  return isDeepStrictEqual(normExisting, normPayload);
+}
 
 function assertTyreSignOffLocks(existing, payload, user) {
   if (canOverrideSignOffLock(user)) return null;
@@ -43,11 +91,9 @@ function assertTyreSignOffLocks(existing, payload, user) {
     return "This Site GRN is completed and can only be edited by an admin or Ajay Kumavat.";
   }
   for (const stage of [1, 2, 3, 5]) {
-    const existingStage = existing[`stage${stage}`]?.toObject?.() || existing[`stage${stage}`];
-    // Requests are JSON while Mongoose holds Date instances. Compare the JSON
-    // representations so an unchanged signed-off stage does not false-positive.
-    const savedStage = JSON.parse(JSON.stringify(existingStage));
-    if (locked[`stage${stage}Done`] && !isDeepStrictEqual(savedStage, payload[`stage${stage}`])) {
+    const existingStage = existing[`stage${stage}`];
+    const payloadStage = payload[`stage${stage}`];
+    if (locked[`stage${stage}Done`] && !areStagesEqual(existingStage, payloadStage)) {
       return `Stage ${stage} has been signed off and can only be edited by an admin or Ajay Kumavat.`;
     }
   }

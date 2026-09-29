@@ -409,10 +409,18 @@ export default function LeadList() {
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '12px' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontWeight: 700 }}>Lead Management</h2>
 
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          style={{ background: '#4f46e5', color: 'white', padding: '9px 18px', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0, boxShadow: '0 2px 4px rgba(79, 70, 229, 0.2)' }}
+        >
+          + New Lead
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1.25rem', background: '#f8fafc', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2e8f0', width: '100%', boxSizing: 'border-box' }}>
           {/* View Scope Dropdown */}
           {isAdmin && (
             <select
@@ -522,14 +530,8 @@ export default function LeadList() {
             style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', width: '150px' }}
           />
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            style={{ background: '#4f46e5', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }}
-          >
-            + New Lead
-          </button>
-        </div>
       </div>
+
 
       {/* Persistent Filter Bar */}
       <FilterBar moduleName="leads" onChange={handleFilterChange} />

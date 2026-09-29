@@ -311,9 +311,9 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
           );
           setCfsList(mergedList);
         }
-        if (false) {
-          setCfsList(res.data);
-        }
+        // Directory loaded successfully
+
+
       } catch (err) {
         console.error("Error fetching CFS list:", err);
       }

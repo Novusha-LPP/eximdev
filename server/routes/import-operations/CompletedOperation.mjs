@@ -56,13 +56,15 @@ router.get(
         return res.status(404).send({ message: "User not found" });
       }
 
+const escapeRegex = (str) => (str ? String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : "");
+
       // ICD condition
       let icdCondition = {};
       if (req.userIcdFilter) {
         icdCondition = req.userIcdFilter;
       } else if (selectedICD && selectedICD !== "Select ICD") {
         icdCondition = {
-          custom_house: new RegExp(`^${selectedICD}$`, "i"),
+          custom_house: new RegExp(`^${escapeRegex(selectedICD)}$`, "i"),
         };
       }
 
@@ -70,7 +72,7 @@ router.get(
       let importerCondition = {};
       if (importer && importer !== "Select Importer") {
         importerCondition = {
-          importer: new RegExp(`^${importer}$`, "i"),
+          importer: new RegExp(`^${escapeRegex(importer)}$`, "i"),
         };
       }
 

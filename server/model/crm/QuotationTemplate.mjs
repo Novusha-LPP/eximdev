@@ -6,9 +6,9 @@ const quotationTemplateSchema = new mongoose.Schema({
   description: { type: String, default: '' },
   category: { type: String, default: 'general' }, // customs_import, customs_export, freight, transport, pfp, general
   
-  // Zoho-inspired style options
-  zohoStyle: {
-    themeColor: { type: String, default: '#1e3a8a' }, // Zoho Navy
+  // Template design & style options
+  templateStyle: {
+    themeColor: { type: String, default: '#1e3a8a' }, // Classic Navy
     accentColor: { type: String, default: '#2563eb' },
     headerLayout: { type: String, default: 'top_right' }, // top_right, left_stacked, compact
     fontFamily: { type: String, default: 'helvetica' },
@@ -19,8 +19,6 @@ const quotationTemplateSchema = new mongoose.Schema({
     termsAndConditions: { type: String, default: '' },
     footerNotes: { type: String, default: '' }
   },
-
-  // Dynamic Line Item Custom Columns definition
   customColumns: [{
     key: { type: String, required: true }, // e.g., 'containerSize', 'cbm', 'pol'
     label: { type: String, required: true }, // e.g., 'Container Size', 'Volume (CBM)', 'Port of Loading'

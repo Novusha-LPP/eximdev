@@ -6,6 +6,8 @@ import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
+const escapeRegex = (str) => (str ? String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : "");
+
 // Function to build the search query
 const buildSearchQuery = (search) => ({
   $or: [
@@ -124,7 +126,7 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
 
     // ✅ Apply Importer Filter if provided
     if (decodedImporter && decodedImporter !== "Select Importer") {
-      baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
+      baseQuery.$and.push({ importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") } });
     }
 
     const branchMatch = getBranchMatch(branchId, category);
@@ -136,7 +138,7 @@ router.get("/api/get-submission-jobs", applyUserIcdFilter, async (req, res) => {
       Object.assign(baseQuery, req.userIcdFilter);
     } else if (decodedICD && decodedICD !== "All ICDs") {
       // Fallback to URL parameter filtering (for backward compatibility)
-      baseQuery.$and.push({ icd_code: { $regex: new RegExp(`^${decodedICD}$`, "i") } });
+      baseQuery.$and.push({ icd_code: { $regex: new RegExp(`^${escapeRegex(decodedICD)}$`, "i") } });
     }
     // If req.userIcdFilter is null, user has full access (admin or "ALL" ICD code)
 
@@ -367,7 +369,7 @@ router.get("/api/get-submission-completed-jobs", applyUserIcdFilter, async (req,
 
     // ✅ Apply Importer Filter if provided
     if (decodedImporter && decodedImporter !== "Select Importer") {
-      baseQuery.$and.push({ importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") } });
+      baseQuery.$and.push({ importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") } });
     }
 
     const branchMatch = getBranchMatch(branchId, category);
@@ -379,7 +381,7 @@ router.get("/api/get-submission-completed-jobs", applyUserIcdFilter, async (req,
       Object.assign(baseQuery, req.userIcdFilter);
     } else if (decodedICD && decodedICD !== "All ICDs") {
       // Fallback to URL parameter filtering (for backward compatibility)
-      baseQuery.$and.push({ icd_code: { $regex: new RegExp(`^${decodedICD}$`, "i") } });
+      baseQuery.$and.push({ icd_code: { $regex: new RegExp(`^${escapeRegex(decodedICD)}$`, "i") } });
     }
     // If req.userIcdFilter is null, user has full access (admin or "ALL" ICD code)
 

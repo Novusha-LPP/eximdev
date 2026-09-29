@@ -4,7 +4,6 @@ export const ALLOWED_USERNAMES = new Set([
   'manu_pillai',
   'suraj_rajan',
   'rajan_aranamkatte',
-  'masood_raza',
   'dev_master'
 ]);
 

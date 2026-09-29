@@ -1199,8 +1199,8 @@ const buildElockQuotePDF = (doc, quote) => {
   doc.text('Authorized Signatory', m, curY);
 };
 
-// ─── Format Zoho: Dynamic Company & Custom Columns Quotation PDF (ZOHO Inspired) ───
-const buildZohoCompanyQuotePDF = (doc, quote) => {
+// ─── Format Custom: Dynamic Company & Custom Columns Quotation PDF ───
+const buildCustomCompanyQuotePDF = (doc, quote) => {
   const pageWidth = 210;
   const pageHeight = 297;
   const m = 10;
@@ -1208,7 +1208,7 @@ const buildZohoCompanyQuotePDF = (doc, quote) => {
 
   const comp = quote.companyId || {};
   const temp = quote.templateId || {};
-  const zohoStyle = temp.zohoStyle || {};
+  const templateStyle = temp.templateStyle || {};
 
   const hexToRgb = (hex) => {
     let clean = (hex || '#1e3a8a').replace('#', '');
@@ -1217,7 +1217,7 @@ const buildZohoCompanyQuotePDF = (doc, quote) => {
     return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
   };
 
-  const primaryRgb = hexToRgb(zohoStyle.themeColor || '#1e3a8a');
+  const primaryRgb = hexToRgb(templateStyle.themeColor || '#1e3a8a');
 
   // Outer Border
   doc.setDrawColor(226, 232, 240);
@@ -1235,8 +1235,8 @@ const buildZohoCompanyQuotePDF = (doc, quote) => {
 
   if (logoUrl && (logoUrl.startsWith('data:image') || logoUrl.startsWith('http'))) {
     try {
-      doc.addImage(logoUrl, 'PNG', 14, curY - 2, 28, 20);
-      logoOffset = 46;
+      doc.addImage(logoUrl, 'PNG', 14, curY - 2, 26, 18);
+      logoOffset = 44;
     } catch (e) {
       console.warn('Could not render logo image in PDF:', e);
     }
@@ -1255,40 +1255,46 @@ const buildZohoCompanyQuotePDF = (doc, quote) => {
   const compContact = [comp.phone ? `Ph: ${comp.phone}` : '', comp.email ? `Email: ${comp.email}` : ''].filter(Boolean).join(' | ');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
+  doc.setFontSize(13);
   doc.setTextColor(...primaryRgb);
   doc.text(compName, logoOffset, curY);
 
   if (compTagline) {
-    curY += 4.5;
+    curY += 4;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
     doc.text(compTagline, logoOffset, curY);
   }
 
-  curY += 5;
+  curY += 4.5;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(7.8);
   doc.setTextColor(51, 65, 85);
+
   if (compAddressStr) {
-    doc.text(compAddressStr, logoOffset, curY, { maxWidth: 110 });
-    curY += 4.5;
+    const addressLines = doc.splitTextToSize(compAddressStr, 105);
+    doc.text(addressLines, logoOffset, curY);
+    curY += addressLines.length * 3.6;
   }
+
   if (compGstin || compContact) {
-    doc.text([compGstin, compContact].filter(Boolean).join(' • '), logoOffset, curY, { maxWidth: 110 });
+    const contactStr = [compGstin, compContact].filter(Boolean).join(' • ');
+    const contactLines = doc.splitTextToSize(contactStr, 105);
+    doc.text(contactLines, logoOffset, curY);
+    curY += contactLines.length * 3.6;
   }
 
   // Right Top: QUOTATION Title & Meta Box
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
+  doc.setFontSize(20);
   doc.setTextColor(...primaryRgb);
   doc.text('QUOTATION', pageWidth - m - 4, 22, { align: 'right' });
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
-  doc.text(`Quote #: ${quote.quoteNumber || 'QT-2026-00001'}`, pageWidth - m - 4, 29, { align: 'right' });
+  doc.text(`Quote #: ${quote.quoteNumber || 'QT-2026-00001'}`, pageWidth - m - 4, 28, { align: 'right' });
 
   const qDate = quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-IN');
   const validUntilStr = quote.terms?.validUntil ? new Date(quote.terms.validUntil).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '30 Days';
@@ -1296,17 +1302,17 @@ const buildZohoCompanyQuotePDF = (doc, quote) => {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
-  doc.text(`Date: ${qDate}`, pageWidth - m - 4, 34, { align: 'right' });
-  doc.text(`Valid Until: ${validUntilStr}`, pageWidth - m - 4, 38.5, { align: 'right' });
+  doc.text(`Date: ${qDate}`, pageWidth - m - 4, 33, { align: 'right' });
+  doc.text(`Valid Until: ${validUntilStr}`, pageWidth - m - 4, 37.5, { align: 'right' });
 
   // Divider Line
-  curY = 44;
+  curY = Math.max(curY + 4, 44);
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.4);
   doc.line(m, curY, pageWidth - m, curY);
 
   // Customer / Bill To Section
-  curY += 6;
+  curY += 4;
   doc.setFillColor(248, 250, 252);
   doc.rect(m, curY, cw, 6, 'F');
   doc.setFont('helvetica', 'bold');
@@ -1320,26 +1326,30 @@ const buildZohoCompanyQuotePDF = (doc, quote) => {
   const billAddr = quote.billToAddress || 'As per records';
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(9.5);
   doc.setTextColor(15, 23, 42);
   doc.text(accName, 14, curY);
 
-  curY += 4.5;
+  curY += 4.2;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.2);
+  doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
   if (contactName) {
     doc.text(`Attn: ${contactName}`, 14, curY);
-    curY += 4;
+    curY += 3.8;
   }
-  doc.text(billAddr, 14, curY, { maxWidth: 170 });
-  curY += 8;
+  if (billAddr) {
+    const billLines = doc.splitTextToSize(billAddr, 170);
+    doc.text(billLines, 14, curY);
+    curY += billLines.length * 3.6;
+  }
+  curY += 4;
 
   // Dynamic Custom Columns & Items Table Setup
   const customCols = quote.templateColumns || temp.customColumns || [];
 
   const headCols = [
-    { content: '#', styles: { halign: 'center', width: 8 } },
+    { content: '#', styles: { halign: 'center' } },
     { content: 'Product / Service Description', styles: { halign: 'left' } },
     { content: 'HSN/SAC', styles: { halign: 'center' } }
   ];
@@ -1353,10 +1363,10 @@ const buildZohoCompanyQuotePDF = (doc, quote) => {
 
   headCols.push(
     { content: 'Qty', styles: { halign: 'center' } },
-    { content: 'Rate (₹)', styles: { halign: 'right' } },
+    { content: 'Rate (Rs.)', styles: { halign: 'right' } },
     { content: 'Disc %', styles: { halign: 'center' } },
     { content: 'Tax %', styles: { halign: 'center' } },
-    { content: 'Total (₹)', styles: { halign: 'right' } }
+    { content: 'Total (Rs.)', styles: { halign: 'right' } }
   );
 
   const rawItems = quote.lineItems || [];
@@ -1379,9 +1389,14 @@ const buildZohoCompanyQuotePDF = (doc, quote) => {
     calcDiscount += lineDisc;
     calcTax += lineTax;
 
+    let prodDesc = it.productName || 'Service Item';
+    if (it.description && it.description.trim() && it.description.trim() !== prodDesc.trim()) {
+      prodDesc += `\n${it.description.trim()}`;
+    }
+
     const row = [
       String(idx + 1),
-      it.productName || 'Service Item',
+      prodDesc,
       it.hsnSac || '9967'
     ];
 
@@ -1403,81 +1418,100 @@ const buildZohoCompanyQuotePDF = (doc, quote) => {
     return row;
   });
 
+  const totalColsCount = headCols.length;
+  const tableFontSize = totalColsCount > 9 ? 6.5 : (totalColsCount > 7 ? 7.2 : 8);
+  const tablePadding = totalColsCount > 9 ? 2 : 2.8;
+
   doc.autoTable({
     startY: curY,
     head: [headCols],
     body: tableBody,
     theme: 'grid',
+    styles: {
+      fontSize: tableFontSize,
+      cellPadding: tablePadding,
+      overflow: 'linebreak',
+      valign: 'middle'
+    },
     headStyles: {
       fillColor: primaryRgb,
       textColor: [255, 255, 255],
-      fontSize: 8,
+      fontSize: tableFontSize,
       fontStyle: 'bold',
-      cellPadding: 3
+      halign: 'center',
+      valign: 'middle'
     },
     bodyStyles: {
-      fontSize: 8,
-      textColor: [30, 41, 59],
-      cellPadding: 3
+      textColor: [30, 41, 59]
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252]
     },
-    margin: { left: m, right: m }
+    margin: { left: m, right: m },
+    tableWidth: cw
   });
 
   curY = doc.lastAutoTable.finalY + 6;
 
   const calcGrandTotal = quote.total || (calcSubtotal - calcDiscount + calcTax);
 
-  if (curY > pageHeight - 65) {
+  if (curY > pageHeight - 60) {
     doc.addPage();
     curY = 20;
   }
 
-  const totX = pageWidth - m - 75;
+  const totBoxWidth = 85;
+  const totX = pageWidth - m - totBoxWidth;
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(71, 85, 105);
 
   doc.text('Subtotal:', totX, curY);
-  doc.text(`₹ ${Math.round(calcSubtotal).toLocaleString('en-IN')}`, pageWidth - m - 4, curY, { align: 'right' });
+  doc.text(`Rs. ${Math.round(calcSubtotal).toLocaleString('en-IN')}`, pageWidth - m - 2, curY, { align: 'right' });
   curY += 4.5;
 
   if (calcDiscount > 0) {
     doc.text('Discount:', totX, curY);
-    doc.text(`- ₹ ${Math.round(calcDiscount).toLocaleString('en-IN')}`, pageWidth - m - 4, curY, { align: 'right' });
+    doc.text(`- Rs. ${Math.round(calcDiscount).toLocaleString('en-IN')}`, pageWidth - m - 2, curY, { align: 'right' });
     curY += 4.5;
   }
 
   if (calcTax > 0) {
     doc.text('Tax (GST):', totX, curY);
-    doc.text(`+ ₹ ${Math.round(calcTax).toLocaleString('en-IN')}`, pageWidth - m - 4, curY, { align: 'right' });
+    doc.text(`+ Rs. ${Math.round(calcTax).toLocaleString('en-IN')}`, pageWidth - m - 2, curY, { align: 'right' });
     curY += 4.5;
   }
 
   doc.setDrawColor(226, 232, 240);
   doc.line(totX, curY, pageWidth - m, curY);
-  curY += 4.5;
+  curY += 5;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(...primaryRgb);
   doc.text('Total Amount:', totX, curY);
-  doc.text(`₹ ${Math.round(calcGrandTotal).toLocaleString('en-IN')}`, pageWidth - m - 4, curY, { align: 'right' });
-  curY += 8;
+  doc.text(`Rs. ${Math.round(calcGrandTotal).toLocaleString('en-IN')}`, pageWidth - m - 2, curY, { align: 'right' });
 
+  // Amount in Words Box (Left aligned opposite to Totals)
+  const wordsBoxWidth = totX - m - 6;
   doc.setFillColor(248, 250, 252);
-  doc.rect(m, curY - 24, totX - m - 10, 24, 'F');
+  doc.rect(m, curY - 20, wordsBoxWidth, 24, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('AMOUNT IN WORDS', m + 4, curY - 18);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(30, 41, 59);
-  doc.text(numberToIndianWords(calcGrandTotal), m + 4, curY - 12, { maxWidth: totX - m - 18 });
+  doc.text('AMOUNT IN WORDS', m + 4, curY - 14);
 
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.2);
+  doc.setTextColor(30, 41, 59);
+  const wordStr = numberToIndianWords(calcGrandTotal);
+  const wordLines = doc.splitTextToSize(wordStr, wordsBoxWidth - 8);
+  doc.text(wordLines, m + 4, curY - 8);
+
+  curY += 12;
+
+  // Bank Account Remittance Details
   if (comp.bankDetails?.bankName) {
     if (curY > pageHeight - 55) { doc.addPage(); curY = 20; }
     doc.setFillColor(240, 249, 255);
@@ -1493,12 +1527,14 @@ const buildZohoCompanyQuotePDF = (doc, quote) => {
     doc.setFontSize(7.5);
     doc.setTextColor(30, 41, 59);
     const bStr = `Bank: ${comp.bankDetails.bankName} | A/C Name: ${comp.bankDetails.accountName || compName} | A/C No: ${comp.bankDetails.accountNumber} | IFSC: ${comp.bankDetails.ifscCode} ${comp.bankDetails.branch ? `| Branch: ${comp.bankDetails.branch}` : ''}`;
-    doc.text(bStr, 14, curY + 11, { maxWidth: cw - 8 });
+    const bLines = doc.splitTextToSize(bStr, cw - 8);
+    doc.text(bLines, 14, curY + 10);
 
     curY += 24;
   }
 
-  const termsText = quote.terms?.notes || zohoStyle.termsAndConditions || 'Standard terms apply.';
+  // Terms & Conditions
+  const termsText = quote.terms?.notes || templateStyle.termsAndConditions || 'Standard terms apply.';
   if (termsText) {
     if (curY > pageHeight - 45) { doc.addPage(); curY = 20; }
     doc.setFont('helvetica', 'bold');
@@ -1512,9 +1548,10 @@ const buildZohoCompanyQuotePDF = (doc, quote) => {
     doc.setTextColor(100, 116, 139);
     const splitTerms = doc.splitTextToSize(termsText, cw);
     doc.text(splitTerms, m, curY);
-    curY += (splitTerms.length * 4) + 6;
+    curY += (splitTerms.length * 3.8) + 6;
   }
 
+  // Authorized Signatory
   if (curY > pageHeight - 30) { doc.addPage(); curY = 20; }
   const sigName = comp.authorizedSignatory?.name || 'Authorized Signatory';
   const sigTitle = comp.authorizedSignatory?.designation || compName;
@@ -1535,7 +1572,7 @@ const buildZohoCompanyQuotePDF = (doc, quote) => {
 
 export const buildQuotePDF = (doc, quote) => {
   if (quote?.companyId || quote?.templateId || (quote?.templateColumns && quote.templateColumns.length > 0)) {
-    buildZohoCompanyQuotePDF(doc, quote);
+    buildCustomCompanyQuotePDF(doc, quote);
     return;
   }
 

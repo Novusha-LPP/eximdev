@@ -842,7 +842,12 @@ router.put('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async (r
             return res.status(403).json({ error: "This month is locked and approved. Contact Suraj Rajan to reopen." });
         }
 
-        const item = await MRMItem.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        const updateData = { ...req.body };
+        delete updateData._id;
+        delete updateData.__v;
+        delete updateData.createdAt;
+
+        const item = await MRMItem.findByIdAndUpdate(req.params.id, updateData, { new: true });
 
         // Dynamically resolve and persist parent tileName if blank on normal row
         if (item && !item.isTitleRow && !item.tileName) {
@@ -936,7 +941,7 @@ router.delete('/api/mrm-bulk/delete', authMiddleware, async (req, res) => {
 // Import Items
 router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), async (req, res) => {
     try {
-        const { targetMonth, targetYear, sourceMonth, sourceYear, mode, userId } = req.body;
+        const { targetMonth, targetYear, sourceMonth, sourceYear, mode, userId, overwrite } = req.body;
 
         if (!targetMonth || !targetYear || !sourceMonth || !sourceYear || !mode) {
             return res.status(400).json({ error: "Missing required fields for import" });
@@ -965,18 +970,56 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
             return new Date(a.createdAt) - new Date(b.createdAt);
         });
 
+        // Deduplicate source items by (processDescription, objective, isTitleRow) to prevent propagating duplicates
+        const seenSourceKeys = new Set();
+        const uniqueSourceItems = [];
+        for (const item of validSourceItems) {
+            const key = `${(item.processDescription || '').trim().toLowerCase()}|||${(item.objective || '').trim().toLowerCase()}|||${Boolean(item.isTitleRow)}`;
+            if (!seenSourceKeys.has(key)) {
+                seenSourceKeys.add(key);
+                uniqueSourceItems.push(item);
+            }
+        }
+
+        if (overwrite) {
+            await MRMItem.deleteMany({ month: targetMonth, year: targetYear, createdBy: targetUserId });
+        }
+
+        const existingTargetItems = await MRMItem.find({
+            month: targetMonth,
+            year: targetYear,
+            createdBy: targetUserId
+        });
+
+        const existingKeySet = new Set(
+            existingTargetItems.map(it => `${(it.processDescription || '').trim().toLowerCase()}|||${(it.objective || '').trim().toLowerCase()}|||${Boolean(it.isTitleRow)}`)
+        );
+
+        // Filter out items that already exist in target month to prevent duplicate rows
+        const filteredSourceItems = overwrite
+            ? uniqueSourceItems
+            : uniqueSourceItems.filter(it => {
+                const key = `${(it.processDescription || '').trim().toLowerCase()}|||${(it.objective || '').trim().toLowerCase()}|||${Boolean(it.isTitleRow)}`;
+                return !existingKeySet.has(key);
+            });
+
+        if (filteredSourceItems.length === 0) {
+            const currentItems = await MRMItem.find({ month: targetMonth, year: targetYear, createdBy: targetUserId }).sort({ seq: 1 });
+            return res.json(currentItems);
+        }
+
         const lastTargetItem = await MRMItem.findOne({
             month: targetMonth,
             year: targetYear,
             createdBy: targetUserId
         }).sort({ seq: -1 });
 
-        const startSeq = lastTargetItem && lastTargetItem.seq !== undefined ? lastTargetItem.seq + 1 : 1;
+        const startSeq = (overwrite || !lastTargetItem || lastTargetItem.seq === undefined) ? 1 : lastTargetItem.seq + 1;
 
         let newItems = [];
 
         if (mode === 'as-is') {
-            newItems = validSourceItems.map((item, index) => ({
+            newItems = filteredSourceItems.map((item, index) => ({
                 month: targetMonth,
                 year: targetYear,
                 processDescription: item.processDescription,
@@ -1002,7 +1045,7 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
                 lastYearBaseline: item.lastYearBaseline || null
             }));
         } else if (mode === 'blank') {
-            newItems = validSourceItems.map((item, index) => ({
+            newItems = filteredSourceItems.map((item, index) => ({
                 month: targetMonth,
                 year: targetYear,
                 processDescription: item.processDescription,

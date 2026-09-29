@@ -91,11 +91,27 @@ function ImportCompletedBilling({ workMode = 'Payment' }) {
   // Function to build the search query (not needed on client-side, handled by server)
   // Keeping it in case you want to extend client-side filtering
 
+  const [importersInJobs, setImportersInJobs] = useState([]);
+
+  useEffect(() => {
+    if (rows && rows.length > 0 && !selectedImporter) {
+      const uniqueFromRows = Array.from(
+        new Set(
+          rows
+            .map((job) => (job.importer ? job.importer.trim() : ""))
+            .filter(Boolean)
+        )
+      ).sort();
+      setImportersInJobs(uniqueFromRows);
+    }
+  }, [rows, selectedImporter]);
+
   const getUniqueImporterNames = (importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
     const uniqueImporters = new Set();
     return importerData
       .filter((importer) => {
+        if (!importer || !importer.importer) return false;
         if (uniqueImporters.has(importer.importer)) return false;
         uniqueImporters.add(importer.importer);
         return true;
@@ -106,7 +122,11 @@ function ImportCompletedBilling({ workMode = 'Payment' }) {
       }));
   };
 
-  const importerNames = [...getUniqueImporterNames(importers)];
+  const rawImporterList = importersInJobs.length > 0
+    ? importersInJobs.map((name) => ({ importer: name }))
+    : (Array.isArray(importers) ? importers : []);
+
+  const importerNames = [...getUniqueImporterNames(rawImporterList)];
 
   useEffect(() => {
     async function getYears() {

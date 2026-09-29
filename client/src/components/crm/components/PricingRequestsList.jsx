@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Search, Filter, MessageSquare, Clock, ArrowRight, DollarSign, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Search, Filter, MessageSquare, Clock, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { message } from 'antd';
 import PricingRequestFormModal from './PricingRequestFormModal';
 import PricingRequestDetailPanel from './PricingRequestDetailPanel';

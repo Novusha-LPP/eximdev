@@ -26,6 +26,7 @@ router.post('/', async (req, res) => {
       type: type || 'regional',
       assignedTerritories,
       memberIds: allMemberIds,
+      memberStageAssignments: req.body.memberStageAssignments || [],
       businessVertical: businessVertical || 'Paramount',
       quotas: quotas || { monthlyRevenue: 0, dealCount: 0 },
       stagnantDays: stagnantDays !== undefined ? stagnantDays : 2
@@ -43,6 +44,7 @@ router.post('/', async (req, res) => {
 
     await newTeam.populate('managerId', 'username email first_name last_name');
     await newTeam.populate('memberIds', 'username email first_name last_name');
+    await newTeam.populate('memberStageAssignments.userId', 'username email first_name last_name');
     res.status(201).json(newTeam);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -60,6 +62,7 @@ router.get('/', async (req, res) => {
     let teamsQuery = SalesTeam.find(query)
       .populate('managerId', 'username first_name last_name email')
       .populate('memberIds', 'username first_name last_name')
+      .populate('memberStageAssignments.userId', 'username first_name last_name email')
       .populate('assignedTerritories', 'name')
       .sort({ name: 1 });
 
@@ -109,6 +112,7 @@ router.get('/my-teams', async (req, res) => {
     const teams = await SalesTeam.find(query)
       .populate('managerId', 'username first_name last_name email')
       .populate('memberIds', 'username first_name last_name')
+      .populate('memberStageAssignments.userId', 'username first_name last_name email')
       .sort({ name: 1 })
       .lean();
 
@@ -122,8 +126,9 @@ router.get('/my-teams', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const team = await SalesTeam.findOne({ _id: req.params.id })
-      .populate('managerId', 'name email')
-      .populate('memberIds', 'name email')
+      .populate('managerId', 'name email username first_name last_name')
+      .populate('memberIds', 'name email username first_name last_name')
+      .populate('memberStageAssignments.userId', 'username first_name last_name email')
       .populate('parentTeamId', 'name')
       .populate('assignedTerritories', 'name');
 
@@ -141,12 +146,38 @@ router.put('/:id', async (req, res) => {
       { _id: req.params.id },
       req.body,
       { new: true }
-    ).populate('managerId memberIds parentTeamId assignedTerritories');
+    )
+      .populate('managerId', 'username first_name last_name email')
+      .populate('memberIds', 'username first_name last_name')
+      .populate('memberStageAssignments.userId', 'username first_name last_name email')
+      .populate('parentTeamId assignedTerritories');
 
     if (!updatedTeam) return res.status(404).json({ message: 'Team not found' });
     res.json(updatedTeam);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// PUT /api/crm/teams/:id/member-stages - Update individual member stage assignments
+router.put('/:id/member-stages', async (req, res) => {
+  try {
+    const { memberStageAssignments } = req.body;
+    const team = await SalesTeam.findById(req.params.id);
+    if (!team) return res.status(404).json({ success: false, message: 'Team not found' });
+
+    team.memberStageAssignments = Array.isArray(memberStageAssignments) ? memberStageAssignments : [];
+    await team.save();
+
+    const populatedTeam = await SalesTeam.findById(team._id)
+      .populate('managerId', 'username first_name last_name email')
+      .populate('memberIds', 'username first_name last_name')
+      .populate('memberStageAssignments.userId', 'username first_name last_name email')
+      .populate('assignedTerritories', 'name');
+
+    res.json({ success: true, message: 'Member stage assignments updated successfully', team: populatedTeam });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

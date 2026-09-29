@@ -5,10 +5,41 @@ import { SESClient, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import Quote from '../../model/crm/Quote.mjs';
 import Opportunity from '../../model/crm/Opportunity.mjs';
 import SalesTeam from '../../model/crm/SalesTeam.mjs';
+import SalesIncentive from '../../model/crm/SalesIncentive.mjs';
+
+// Helper to create a sales incentive when a deal is won
+async function createIncentiveOnWin(opportunity, tenantId) {
+  try {
+    if (!opportunity.ownerId) return;
+    const existing = await SalesIncentive.findOne({ opportunityId: opportunity._id });
+    if (existing) return;
+
+    const dealValue = opportunity.value || 0;
+    const percentage = 2; // Default 2%
+    const incentiveAmount = Math.round(dealValue * (percentage / 100));
+    const payoutPeriod = new Date().toISOString().substring(0, 7);
+
+    const incentive = new SalesIncentive({
+      tenantId: tenantId || opportunity.tenantId,
+      userId: opportunity.ownerId,
+      opportunityId: opportunity._id,
+      dealValue,
+      incentiveAmount,
+      calculatedPercentage: percentage,
+      status: 'pending',
+      payoutPeriod
+    });
+
+    await incentive.save();
+    console.log(`Generated incentive of INR ${incentiveAmount} for opportunity ${opportunity._id}`);
+  } catch (err) {
+    console.error(`Error generating incentive for opportunity ${opportunity._id}:`, err);
+  }
+}
 
 // Ownership filter — team owner sees all member quotes, others see own team / business vertical
 async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
-  if (req?.query?.all === 'true' || req?.query?.forSelect === 'true') {
+  if (req?.query?.all === 'true' || req?.query?.forSelect === 'true' || req?.query?.opportunityId) {
     return {};
   }
 
@@ -380,6 +411,57 @@ router.post('/', async (req, res) => {
     await newQuote.save();
     await newQuote.populate('createdById accountId contactId companyId templateId');
 
+    // Auto-sync linked opportunity stage and value
+    if (cleanOpportunityId) {
+      try {
+        const opp = await Opportunity.findById(cleanOpportunityId);
+        if (opp) {
+          const priorQuotesCount = await Quote.countDocuments({
+            opportunityId: cleanOpportunityId,
+            _id: { $ne: newQuote._id }
+          });
+
+          // Ensure opportunity value reflects quote total if missing or updated
+          if (newQuote.total > 0 && (!opp.value || opp.value <= 0)) {
+            opp.value = newQuote.total;
+          }
+
+          if (priorQuotesCount === 0) {
+            // First quote: move to proposal
+            if (['lead', 'qualified', 'opportunity', 'sales_visit'].includes(opp.stage)) {
+              const lastHist = opp.stageHistory[opp.stageHistory.length - 1];
+              if (lastHist && !lastHist.exitedAt) {
+                lastHist.exitedAt = new Date();
+              }
+              opp.stageHistory.push({ stage: 'proposal', enteredAt: new Date() });
+              opp.stage = 'proposal';
+              opp.probability = 75;
+              opp.lastActivityAt = new Date();
+              await opp.save();
+            }
+          } else {
+            // Quote created again with changes: move to negotiation
+            if (newQuote.total > 0) {
+              opp.value = newQuote.total;
+            }
+            if (['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal'].includes(opp.stage)) {
+              const lastHist = opp.stageHistory[opp.stageHistory.length - 1];
+              if (lastHist && !lastHist.exitedAt) {
+                lastHist.exitedAt = new Date();
+              }
+              opp.stageHistory.push({ stage: 'negotiation', enteredAt: new Date() });
+              opp.stage = 'negotiation';
+              opp.probability = 85;
+              opp.lastActivityAt = new Date();
+              await opp.save();
+            }
+          }
+        }
+      } catch (oppErr) {
+        console.error('Error auto-updating opportunity stage on quote creation:', oppErr);
+      }
+    }
+
     res.status(201).json(newQuote);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -505,6 +587,31 @@ router.put('/:id', async (req, res) => {
 
     await quote.save();
 
+    // If quotation has changes and is linked to an opportunity, move to negotiation
+    if (quote.opportunityId) {
+      try {
+        const opp = await Opportunity.findById(quote.opportunityId);
+        if (opp) {
+          if (quote.total > 0) {
+            opp.value = quote.total;
+          }
+          if (['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal'].includes(opp.stage)) {
+            const lastHist = opp.stageHistory[opp.stageHistory.length - 1];
+            if (lastHist && !lastHist.exitedAt) {
+              lastHist.exitedAt = new Date();
+            }
+            opp.stageHistory.push({ stage: 'negotiation', enteredAt: new Date() });
+            opp.stage = 'negotiation';
+            opp.probability = 85;
+            opp.lastActivityAt = new Date();
+            await opp.save();
+          }
+        }
+      } catch (oppErr) {
+        console.error('Error auto-updating opportunity on quote update:', oppErr);
+      }
+    }
+
     res.json(quote);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -526,12 +633,16 @@ router.delete('/:id', async (req, res) => {
 // Update quote status
 router.put('/:id/status', async (req, res) => {
   try {
-    const { status, rejectionReason } = req.body;
+    const { status, rejectionReason, closeNotes } = req.body;
+
+    if (status === 'rejected' && (!rejectionReason || !rejectionReason.trim())) {
+      return res.status(400).json({ success: false, message: 'Rejection reason is required when rejecting a quotation.' });
+    }
 
     const update = { status: status };
     if (status === 'rejected' && rejectionReason) {
       update['tracking.rejectedAt'] = new Date();
-      update['tracking.rejectedReason'] = rejectionReason;
+      update['tracking.rejectedReason'] = rejectionReason.trim();
     }
 
     const quote = await Quote.findOneAndUpdate(
@@ -541,6 +652,48 @@ router.put('/:id/status', async (req, res) => {
     );
 
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
+
+    // Sync linked opportunity stage
+    if (quote.opportunityId) {
+      try {
+        const opp = await Opportunity.findById(quote.opportunityId);
+        if (opp) {
+          if (status === 'accepted') {
+            if (quote.total > 0) {
+              opp.value = quote.total;
+            }
+            const lastHist = opp.stageHistory[opp.stageHistory.length - 1];
+            if (lastHist && !lastHist.exitedAt) {
+              lastHist.exitedAt = new Date();
+            }
+            opp.stageHistory.push({ stage: 'won', enteredAt: new Date() });
+            opp.stage = 'won';
+            opp.probability = 100;
+            opp.forecastCategory = 'closed';
+            opp.lastActivityAt = new Date();
+            await opp.save();
+            await createIncentiveOnWin(opp, req.tenantId);
+          } else if (status === 'rejected') {
+            opp.lostStageBeforeLoss = opp.stage;
+            const lastHist = opp.stageHistory[opp.stageHistory.length - 1];
+            if (lastHist && !lastHist.exitedAt) {
+              lastHist.exitedAt = new Date();
+            }
+            opp.stageHistory.push({ stage: 'lost', enteredAt: new Date() });
+            opp.stage = 'lost';
+            opp.probability = 0;
+            opp.forecastCategory = 'closed';
+            opp.closeReason = rejectionReason.trim();
+            opp.closeNotes = closeNotes || rejectionReason.trim();
+            opp.lastActivityAt = new Date();
+            await opp.save();
+          }
+        }
+      } catch (oppErr) {
+        console.error('Error syncing opportunity stage on quote status change:', oppErr);
+      }
+    }
+
     res.json(quote);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -617,6 +770,29 @@ router.post('/:id/send', async (req, res) => {
     });
 
     await quote.save();
+
+    // "when sent move it to proposal"
+    if (quote.opportunityId) {
+      try {
+        const opp = await Opportunity.findById(quote.opportunityId);
+        if (opp && ['lead', 'qualified', 'opportunity', 'sales_visit'].includes(opp.stage)) {
+          if ((!opp.value || opp.value <= 0) && quote.total > 0) {
+            opp.value = quote.total;
+          }
+          const lastHist = opp.stageHistory[opp.stageHistory.length - 1];
+          if (lastHist && !lastHist.exitedAt) {
+            lastHist.exitedAt = new Date();
+          }
+          opp.stageHistory.push({ stage: 'proposal', enteredAt: new Date() });
+          opp.stage = 'proposal';
+          opp.probability = 75;
+          opp.lastActivityAt = new Date();
+          await opp.save();
+        }
+      } catch (oppErr) {
+        console.error('Error auto-updating opportunity on quote send:', oppErr);
+      }
+    }
 
     // Return populated quote for frontend refresh
     const populated = await Quote.findOne({ _id: quote._id })

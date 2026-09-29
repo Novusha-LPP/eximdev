@@ -1,7 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { message, Modal } from 'antd';
-import { Users, Plus, Edit2, Trash2, UserCheck, X, Check } from 'lucide-react';
+import { Users, Plus, Edit2, Trash2, UserCheck, X, Check, Sliders, CheckSquare, Square } from 'lucide-react';
+
+const PIPELINE_STAGES = [
+  { id: 'lead', name: 'Lead', color: '#4f8ef7', bg: '#eff6ff', border: '#bfdbfe' },
+  { id: 'qualified', name: 'Qualified', color: '#7b8ef7', bg: '#f5f3ff', border: '#ddd6fe' },
+  { id: 'opportunity', name: 'Opportunity', color: '#a47af7', bg: '#faf5ff', border: '#e9d5ff' },
+  { id: 'sales_visit', name: 'Sales Visit', color: '#d45af7', bg: '#fdf2f8', border: '#fbcfe8' },
+  { id: 'proposal', name: 'Proposal', color: '#c47af7', bg: '#fbf5ff', border: '#f5d0fe' },
+  { id: 'negotiation', name: 'Negotiation', color: '#f77ac4', bg: '#fff1f2', border: '#fecdd3' },
+  { id: 'won', name: 'Won', color: '#00d4aa', bg: '#f0fdf4', border: '#bbf7d0' },
+  { id: 'lost', name: 'Lost', color: '#f75a5a', bg: '#fef2f2', border: '#fecaca' }
+];
 
 export default function SalesTeamManagement() {
   const [teams, setTeams] = useState([]);
@@ -27,6 +38,13 @@ export default function SalesTeamManagement() {
   const [selectedHodUser, setSelectedHodUser] = useState(null);
   const [hodManagedTeams, setHodManagedTeams] = useState([]);
   const [isSavingHod, setIsSavingHod] = useState(false);
+
+  // Pipeline Stage Assignment States
+  const [isStageModalOpen, setIsStageModalOpen] = useState(false);
+  const [selectedTeamForStages, setSelectedTeamForStages] = useState(null);
+  const [memberStageMap, setMemberStageMap] = useState({}); // { [userId]: string[] }
+  const [isSavingStages, setIsSavingStages] = useState(false);
+  const [stageMemberSearch, setStageMemberSearch] = useState('');
 
   const fetchHods = async () => {
     try {
@@ -61,6 +79,109 @@ export default function SalesTeamManagement() {
       message.error(err.response?.data?.message || 'Failed to update HOD assignments');
     } finally {
       setIsSavingHod(false);
+    }
+  };
+
+  // Pipeline Stage Assignment Handlers
+  const handleOpenStageModal = (team) => {
+    setSelectedTeamForStages(team);
+    setStageMemberSearch('');
+
+    const initialMap = {};
+    const existingAssignments = team.memberStageAssignments || [];
+    const allStageIds = PIPELINE_STAGES.map(s => s.id);
+
+    const memberUserIds = [];
+    if (team.managerId) {
+      const mgrId = typeof team.managerId === 'object' ? (team.managerId._id || team.managerId.id) : team.managerId;
+      if (mgrId && !memberUserIds.includes(mgrId.toString())) {
+        memberUserIds.push(mgrId.toString());
+      }
+    }
+    if (Array.isArray(team.memberIds)) {
+      team.memberIds.forEach(m => {
+        const id = typeof m === 'object' ? (m._id || m.id) : m;
+        if (id && !memberUserIds.includes(id.toString())) {
+          memberUserIds.push(id.toString());
+        }
+      });
+    }
+
+    memberUserIds.forEach(userId => {
+      const assignment = existingAssignments.find(a => {
+        const aUserId = typeof a.userId === 'object' ? (a.userId._id || a.userId.id) : a.userId;
+        return aUserId?.toString() === userId;
+      });
+      if (assignment && Array.isArray(assignment.stages) && assignment.stages.length > 0) {
+        initialMap[userId] = [...assignment.stages];
+      } else {
+        initialMap[userId] = [...allStageIds];
+      }
+    });
+
+    setMemberStageMap(initialMap);
+    setIsStageModalOpen(true);
+  };
+
+  const toggleMemberStage = (userId, stageId) => {
+    setMemberStageMap(prev => {
+      const current = prev[userId] || [];
+      const updated = current.includes(stageId)
+        ? current.filter(s => s !== stageId)
+        : [...current, stageId];
+      return { ...prev, [userId]: updated };
+    });
+  };
+
+  const setAllStagesForMember = (userId) => {
+    setMemberStageMap(prev => ({
+      ...prev,
+      [userId]: PIPELINE_STAGES.map(s => s.id)
+    }));
+  };
+
+  const clearStagesForMember = (userId) => {
+    setMemberStageMap(prev => ({
+      ...prev,
+      [userId]: []
+    }));
+  };
+
+  const setAllMembersToFullAccess = () => {
+    const allIds = PIPELINE_STAGES.map(s => s.id);
+    setMemberStageMap(prev => {
+      const updated = {};
+      Object.keys(prev).forEach(userId => {
+        updated[userId] = [...allIds];
+      });
+      return updated;
+    });
+  };
+
+  const handleSaveMemberStages = async () => {
+    if (!selectedTeamForStages) return;
+    setIsSavingStages(true);
+    try {
+      const payload = Object.entries(memberStageMap).map(([userId, stages]) => ({
+        userId,
+        stages: stages || []
+      }));
+
+      await axios.put(
+        `${process.env.REACT_APP_API_STRING}/crm/teams/${selectedTeamForStages._id}/member-stages`,
+        { memberStageAssignments: payload },
+        getHeaders()
+      );
+
+      message.success('Member pipeline stage assignments updated successfully');
+      setIsStageModalOpen(false);
+      setSelectedTeamForStages(null);
+      fetchTeams();
+    } catch (err) {
+      console.error('Failed to update stage assignments:', err);
+      message.error(err.response?.data?.message || 'Failed to update stage assignments');
+    } finally {
+      setIsSavingStages(false);
     }
   };
 
@@ -201,6 +322,58 @@ export default function SalesTeamManagement() {
     return String(managerId);
   };
 
+  // Compile members for the Pipeline Stage Assignment Modal
+  const stageModalMembers = React.useMemo(() => {
+    if (!selectedTeamForStages) return [];
+    const list = [];
+    const seen = new Set();
+
+    // Manager
+    if (selectedTeamForStages.managerId) {
+      const mgrObj = typeof selectedTeamForStages.managerId === 'object'
+        ? selectedTeamForStages.managerId
+        : allUsers.find(u => (u._id || u.id)?.toString() === selectedTeamForStages.managerId?.toString());
+      const mgrId = (mgrObj?._id || mgrObj?.id || selectedTeamForStages.managerId)?.toString();
+      if (mgrId) {
+        seen.add(mgrId);
+        list.push({
+          _id: mgrId,
+          user: mgrObj,
+          name: mgrObj?.first_name ? `${mgrObj.first_name} ${mgrObj.last_name || ''}`.trim() : mgrObj?.username || 'Team Manager',
+          email: mgrObj?.email || '',
+          role: mgrObj?.role || 'Manager',
+          isManager: true
+        });
+      }
+    }
+
+    // Members
+    if (Array.isArray(selectedTeamForStages.memberIds)) {
+      selectedTeamForStages.memberIds.forEach(m => {
+        const memObj = typeof m === 'object' ? m : allUsers.find(u => (u._id || u.id)?.toString() === m?.toString());
+        const memId = (memObj?._id || memObj?.id || m)?.toString();
+        if (memId && !seen.has(memId)) {
+          seen.add(memId);
+          list.push({
+            _id: memId,
+            user: memObj,
+            name: memObj?.first_name ? `${memObj.first_name} ${memObj.last_name || ''}`.trim() : memObj?.username || 'User',
+            email: memObj?.email || '',
+            role: memObj?.role || 'Member',
+            isManager: false
+          });
+        }
+      });
+    }
+
+    return list;
+  }, [selectedTeamForStages, allUsers]);
+
+  const filteredStageMembers = stageModalMembers.filter(m => {
+    const q = stageMemberSearch.toLowerCase();
+    return m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
+  });
+
   if (loading) return <div style={{ padding: '20px' }}>Loading sales teams...</div>;
 
   return (
@@ -209,14 +382,15 @@ export default function SalesTeamManagement() {
       {isFormOpen && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)',
+          backgroundColor: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(8px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 9999, padding: '20px'
+          zIndex: 9999, padding: '16px', overflowY: 'auto'
         }}>
           <div style={{
             background: '#fff', width: '100%', maxWidth: '560px',
-            borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-            overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column'
+            borderRadius: '18px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            overflow: 'hidden', maxHeight: 'min(92vh, 700px)', display: 'flex', flexDirection: 'column',
+            margin: 'auto'
           }}>
             {/* Modal Header */}
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', flexShrink: 0 }}>
@@ -397,6 +571,33 @@ export default function SalesTeamManagement() {
                 <p style={{ margin: '6px 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>
                   Selected members will only see their own leads within this team context.
                 </p>
+
+                {editingTeam && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleOpenStageModal(editingTeam);
+                    }}
+                    style={{
+                      marginTop: '8px',
+                      padding: '8px 12px',
+                      background: '#f5f3ff',
+                      color: '#4f46e5',
+                      border: '1px solid #c7d2fe',
+                      borderRadius: '8px',
+                      fontSize: '0.825rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      width: '100%',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <Sliders size={15} /> Configure Pipeline Stages for Team Members
+                  </button>
+                )}
               </div>
 
               {/* Quotas */}
@@ -436,14 +637,15 @@ export default function SalesTeamManagement() {
       {isHodModalOpen && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)',
+          backgroundColor: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(8px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 9999, padding: '20px'
+          zIndex: 9999, padding: '16px', overflowY: 'auto'
         }}>
           <div style={{
             background: '#fff', width: '100%', maxWidth: '680px',
-            borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-            overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column'
+            borderRadius: '18px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            overflow: 'hidden', maxHeight: 'min(92vh, 750px)', display: 'flex', flexDirection: 'column',
+            margin: 'auto'
           }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', flexShrink: 0 }}>
               <div>
@@ -605,6 +807,245 @@ export default function SalesTeamManagement() {
         </div>
       )}
 
+      {/* Assign Pipeline Stages Modal */}
+      {isStageModalOpen && selectedTeamForStages && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 10000, padding: '16px', overflowY: 'auto'
+        }}>
+          <div style={{
+            background: '#fff', width: '100%', maxWidth: '820px',
+            borderRadius: '18px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            overflow: 'hidden', maxHeight: 'min(92vh, 800px)', display: 'flex', flexDirection: 'column',
+            margin: 'auto'
+          }}>
+            {/* Modal Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', flexShrink: 0 }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 800, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Sliders size={22} style={{ color: '#4f46e5' }} />
+                  Assign Pipeline Stages to Members
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.825rem', color: '#64748b' }}>
+                  Team: <strong style={{ color: '#1e293b' }}>{selectedTeamForStages.name}</strong> • Vertical: <span style={{ color: '#6d28d9', fontWeight: 600 }}>{selectedTeamForStages.businessVertical || 'Paramount'}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => { setIsStageModalOpen(false); setSelectedTeamForStages(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px', borderRadius: '6px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Informational Guidance Box */}
+              <div style={{
+                background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '10px',
+                padding: '12px 16px', fontSize: '0.85rem', color: '#4c1d95', lineHeight: '1.5'
+              }}>
+                💡 <strong>Admin Stage Access Control:</strong> Configure individual pipeline stages for users in this team. For instance, assign only <em>Proposal</em> & <em>Won</em> to members who don't need the <em>Lead</em> stage.
+                Users with all stages selected have full pipeline access.
+              </div>
+
+              {/* Toolbar: Search & Global Actions */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <input
+                  type="text"
+                  placeholder="Search members in team..."
+                  value={stageMemberSearch}
+                  onChange={e => setStageMemberSearch(e.target.value)}
+                  style={{
+                    padding: '8px 14px', borderRadius: '8px', border: '1px solid #cbd5e1',
+                    fontSize: '0.875rem', width: '260px', outline: 'none'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={setAllMembersToFullAccess}
+                  style={{
+                    background: '#eef2ff', color: '#4f46e5', border: '1px solid #c7d2fe',
+                    borderRadius: '8px', padding: '7px 14px', fontSize: '0.825rem', fontWeight: 600,
+                    cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px'
+                  }}
+                >
+                  <CheckSquare size={15} /> Reset Everyone to All Stages (Full Access)
+                </button>
+              </div>
+
+              {/* Members List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {filteredStageMembers.length === 0 ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
+                    No members found in this team matching your search.
+                  </div>
+                ) : filteredStageMembers.map(member => {
+                  const assignedStages = memberStageMap[member._id] || [];
+                  const isFullAccess = assignedStages.length === PIPELINE_STAGES.length;
+                  const isNone = assignedStages.length === 0;
+
+                  return (
+                    <div
+                      key={member._id}
+                      style={{
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px',
+                        padding: '16px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                        transition: 'border-color 0.15s'
+                      }}
+                    >
+                      {/* Member Info Row */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{
+                            width: '36px', height: '36px', borderRadius: '50%',
+                            background: member.isManager ? 'linear-gradient(135deg, #4f46e5, #7c3aed)' : 'linear-gradient(135deg, #0284c7, #2563eb)',
+                            color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '0.875rem', fontWeight: 700
+                          }}>
+                            {member.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#1e293b' }}>
+                                {member.name}
+                              </span>
+                              {member.isManager && (
+                                <span style={{
+                                  background: '#dcfce7', color: '#166534', padding: '1px 8px',
+                                  borderRadius: '12px', fontSize: '0.7rem', fontWeight: 700
+                                }}>
+                                  Team Owner / Manager
+                                </span>
+                              )}
+                              <span style={{
+                                background: isFullAccess ? '#dcfce7' : isNone ? '#fee2e2' : '#eff6ff',
+                                color: isFullAccess ? '#166534' : isNone ? '#991b1b' : '#1d4ed8',
+                                border: `1px solid ${isFullAccess ? '#bbf7d0' : isNone ? '#fecaca' : '#bfdbfe'}`,
+                                padding: '1px 8px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700
+                              }}>
+                                {isFullAccess
+                                  ? 'Full Access (All 8 Stages)'
+                                  : isNone
+                                    ? 'No Stages Assigned'
+                                    : `${assignedStages.length} Stages: ${assignedStages.map(sId => PIPELINE_STAGES.find(st => st.id === sId)?.name || sId).join(', ')}`}
+                              </span>
+                            </div>
+                            {member.email && (
+                              <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{member.email}</div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Quick Member Actions */}
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => setAllStagesForMember(member._id)}
+                            style={{
+                              fontSize: '0.75rem', color: '#4f46e5', background: '#eef2ff',
+                              border: '1px solid #c7d2fe', borderRadius: '6px', padding: '3px 10px',
+                              cursor: 'pointer', fontWeight: 600
+                            }}
+                          >
+                            All Stages
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => clearStagesForMember(member._id)}
+                            style={{
+                              fontSize: '0.75rem', color: '#64748b', background: '#f8fafc',
+                              border: '1px solid #e2e8f0', borderRadius: '6px', padding: '3px 10px',
+                              cursor: 'pointer', fontWeight: 600
+                            }}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Interactive Stage Chips */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {PIPELINE_STAGES.map(stage => {
+                          const isSelected = assignedStages.includes(stage.id);
+                          return (
+                            <button
+                              key={stage.id}
+                              type="button"
+                              onClick={() => toggleMemberStage(member._id, stage.id)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 12px',
+                                borderRadius: '20px',
+                                fontSize: '0.8rem',
+                                fontWeight: isSelected ? 700 : 500,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                border: isSelected ? `1.5px solid ${stage.color}` : '1.5px solid #cbd5e1',
+                                background: isSelected ? stage.bg : '#f8fafc',
+                                color: isSelected ? '#0f172a' : '#64748b',
+                                boxShadow: isSelected ? `0 2px 4px ${stage.color}25` : 'none'
+                              }}
+                            >
+                              <span style={{
+                                width: '9px',
+                                height: '9px',
+                                borderRadius: '50%',
+                                background: isSelected ? stage.color : '#94a3b8'
+                              }} />
+                              {stage.name}
+                              {isSelected && (
+                                <Check size={13} color={stage.color} strokeWidth={3} />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '16px 24px', borderTop: '1px solid #f1f5f9', display: 'flex',
+              justifyContent: 'flex-end', gap: '10px', background: '#f8fafc', flexShrink: 0
+            }}>
+              <button
+                type="button"
+                onClick={() => { setIsStageModalOpen(false); setSelectedTeamForStages(null); }}
+                style={{
+                  padding: '9px 18px', border: '1px solid #cbd5e1', background: '#ffffff',
+                  borderRadius: '8px', fontSize: '0.875rem', fontWeight: 600, color: '#475569', cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSavingStages}
+                onClick={handleSaveMemberStages}
+                style={{
+                  padding: '9px 22px', background: '#4f46e5', color: '#ffffff', border: 'none',
+                  borderRadius: '8px', fontSize: '0.875rem', fontWeight: 700, cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(79, 70, 229, 0.3)', opacity: isSavingStages ? 0.7 : 1
+                }}
+              >
+                {isSavingStages ? 'Saving...' : 'Save Pipeline Stage Assignments'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
@@ -692,16 +1133,31 @@ export default function SalesTeamManagement() {
                           return (
                             <>
                               {displayMembers.map((m, idx) => {
+                                const memId = typeof m === 'object' ? (m._id || m.id) : m;
                                 const name = typeof m === 'object' 
                                   ? (m.first_name ? `${m.first_name} ${m.last_name || ''}`.trim() : m.username || 'User')
                                   : 'User';
+                                const assignment = (team.memberStageAssignments || []).find(a => {
+                                  const aId = typeof a.userId === 'object' ? (a.userId._id || a.userId.id) : a.userId;
+                                  return aId?.toString() === memId?.toString();
+                                });
+                                const hasRestrictedStages = assignment && Array.isArray(assignment.stages) && assignment.stages.length < PIPELINE_STAGES.length;
+
                                 return (
                                   <span key={idx} style={{ 
-                                    background: '#f8fafc', border: '1px solid #e2e8f0', 
+                                    background: hasRestrictedStages ? '#f5f3ff' : '#f8fafc', 
+                                    border: `1px solid ${hasRestrictedStages ? '#c7d2fe' : '#e2e8f0'}`, 
                                     padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem',
-                                    color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap'
+                                    color: hasRestrictedStages ? '#4338ca' : '#64748b',
+                                    fontWeight: hasRestrictedStages ? 600 : 500,
+                                    whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px'
                                   }}>
                                     {name}
+                                    {hasRestrictedStages && (
+                                      <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#3730a3', padding: '0 4px', borderRadius: '4px', fontWeight: 700 }} title={`Assigned stages: ${assignment.stages.join(', ')}`}>
+                                        {assignment.stages.length}st
+                                      </span>
+                                    )}
                                   </span>
                                 );
                               })}
@@ -721,6 +1177,25 @@ export default function SalesTeamManagement() {
                   </td>
                   <td style={{ padding: '16px 12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                      <button
+                        onClick={() => handleOpenStageModal(team)}
+                        title="Assign Pipeline Stages to Members"
+                        style={{
+                          background: '#6366f1',
+                          color: 'white',
+                          padding: '6px 10px',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          transition: 'background 0.15s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#4f46e5'}
+                        onMouseLeave={e => e.currentTarget.style.background = '#6366f1'}
+                      >
+                        <Sliders size={14} />
+                      </button>
                       <button onClick={() => handleEdit(team)} style={{ background: '#3b82f6', color: 'white', padding: '6px 10px', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>
                         <Edit2 size={14} />
                       </button>

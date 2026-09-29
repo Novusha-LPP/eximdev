@@ -204,7 +204,7 @@ export default function QuoteFormModal({
                 notes: quoteToEdit.terms?.notes || ''
               },
               status: quoteToEdit.status || 'draft',
-              createNewVersion: false
+              createNewVersion: Boolean(quoteToEdit.createNewVersion)
             });
           } else {
             // Default dates

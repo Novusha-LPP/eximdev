@@ -64,38 +64,44 @@ export default function AccountFormModal({ isOpen, onClose, onRefresh, account }
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.7)',
+      backgroundColor: 'rgba(15, 23, 42, 0.75)',
       backdropFilter: 'blur(8px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 9999,
-      padding: '20px'
+      padding: '16px',
+      overflowY: 'auto'
     }}>
       <div style={{
         background: '#fff',
         width: '100%',
-        maxWidth: '600px',
-        borderRadius: '16px',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+        maxWidth: '620px',
+        borderRadius: '18px',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         overflow: 'hidden',
-        animation: 'modalOpen 0.3s ease-out'
+        maxHeight: 'min(92vh, 680px)',
+        display: 'flex',
+        flexDirection: 'column',
+        margin: 'auto',
+        animation: 'modalOpen 0.25s ease-out'
       }}>
         <style>{`
           @keyframes modalOpen {
-            from { transform: scale(0.95); opacity: 0; }
+            from { transform: scale(0.96); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
           }
         `}</style>
 
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700 }}>{account ? 'Edit Account' : 'New Account'}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
-            <X size={20} />
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', flexShrink: 0 }}>
+          <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.15rem' }}>{account ? 'Edit Account' : 'New Account'}</h3>
+          <button onClick={onClose} style={{ background: '#fff', border: '1px solid #e2e8f0', cursor: 'pointer', color: '#64748b', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Company Name *</label>
@@ -168,20 +174,22 @@ export default function AccountFormModal({ isOpen, onClose, onRefresh, account }
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '20px', borderTop: '1px solid #f1f5f9' }}>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', padding: '14px 22px', borderTop: '1px solid #f1f5f9', background: '#f8fafc', flexShrink: 0 }}>
             <button
               type="button"
               onClick={onClose}
-              style={{ padding: '10px 20px', border: '1px solid #e2e8f0', background: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
+              style={{ padding: '8px 18px', border: '1px solid #cbd5e1', background: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, color: '#64748b', fontSize: '0.875rem' }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              style={{ padding: '10px 20px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, opacity: isSubmitting ? 0.6 : 1 }}
+              style={{ padding: '8px 22px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '8px', cursor: isSubmitting ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: isSubmitting ? 0.7 : 1, fontSize: '0.875rem' }}
             >
-              {isSubmitting ? 'Saving...' : account ? 'Update' : 'Create'}
+              {isSubmitting ? 'Saving...' : account ? 'Update Account' : 'Create Account'}
             </button>
           </div>
         </form>

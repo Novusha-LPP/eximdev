@@ -157,13 +157,16 @@ router.get('/', async (req, res) => {
     const ownerFilter = await buildOwnerFilter(req.user, teamId, req);
     const query = { ...ownerFilter };
     
-    if (searchQuery) {
+    const isSearching = Boolean(searchQuery && searchQuery.trim());
+
+    if (isSearching) {
+      const trimmedSearch = searchQuery.trim();
       const searchOr = [
-        { company: { $regex: searchQuery, $options: 'i' } },
-        { firstName: { $regex: searchQuery, $options: 'i' } },
-        { lastName: { $regex: searchQuery, $options: 'i' } },
-        { email: { $regex: searchQuery, $options: 'i' } },
-        { phone: { $regex: searchQuery, $options: 'i' } }
+        { company: { $regex: trimmedSearch, $options: 'i' } },
+        { firstName: { $regex: trimmedSearch, $options: 'i' } },
+        { lastName: { $regex: trimmedSearch, $options: 'i' } },
+        { email: { $regex: trimmedSearch, $options: 'i' } },
+        { phone: { $regex: trimmedSearch, $options: 'i' } }
       ];
       if (query.$or) {
         query.$and = [{ $or: query.$or }, { $or: searchOr }];
@@ -171,46 +174,46 @@ router.get('/', async (req, res) => {
       } else {
         query.$or = searchOr;
       }
-    }
-
-    if (hsnCode && hsnCode.trim()) {
-      query.hsnCode = { $regex: hsnCode.trim(), $options: 'i' };
-    }
-
-    if (location && location.trim()) {
-      const locRegex = { $regex: location.trim(), $options: 'i' };
-      const locOr = [
-        { location: locRegex },
-        { pol: locRegex },
-        { pod: locRegex }
-      ];
-      if (query.$or) {
-        query.$and = [{ $or: query.$or }, { $or: locOr }];
-        delete query.$or;
-      } else {
-        query.$or = locOr;
-      }
-    }
-
-    if (businessVertical && businessVertical !== 'all') {
-      query.businessVertical = businessVertical;
-    }
-    if (status) query.status = status;
-    if (source) query.source = source;
-    if (service) query.interestedServices = service;
-    if (referralSourceName) {
-      query.referralSourceName = { $regex: referralSourceName, $options: 'i' };
-    }
-
-    if (startDate && endDate) {
-      query.createdAt = {
-        $gte: new Date(`${startDate}T00:00:00.000Z`),
-        $lte: new Date(`${endDate}T23:59:59.999Z`)
-      };
-    } else if (period) {
-      query.period = period;
+      // When searching, bypass all other applied filters (date range, period, status, source, etc.)
     } else {
-      query.period = new Date().toISOString().substring(0, 7);
+      if (hsnCode && hsnCode.trim()) {
+        query.hsnCode = { $regex: hsnCode.trim(), $options: 'i' };
+      }
+
+      if (location && location.trim()) {
+        const locRegex = { $regex: location.trim(), $options: 'i' };
+        const locOr = [
+          { location: locRegex },
+          { pol: locRegex },
+          { pod: locRegex }
+        ];
+        if (query.$or) {
+          query.$and = [{ $or: query.$or }, { $or: locOr }];
+          delete query.$or;
+        } else {
+          query.$or = locOr;
+        }
+      }
+
+      if (businessVertical && businessVertical !== 'all') {
+        query.businessVertical = businessVertical;
+      }
+      if (status) query.status = status;
+      if (source) query.source = source;
+      if (service) query.interestedServices = service;
+      if (referralSourceName) {
+        query.referralSourceName = { $regex: referralSourceName, $options: 'i' };
+      }
+
+      if (startDate && endDate) {
+        query.createdAt = {
+          $gte: new Date(`${startDate}T00:00:00.000Z`),
+          $lte: new Date(`${endDate}T23:59:59.999Z`)
+        };
+      } else if (period && period !== 'all') {
+        query.period = period;
+      }
+      // Note: By default, no month filter is forced, allowing all leads unless explicitly filtered
     }
 
     const userId = req.user?._id || req.headers['user-id'];
@@ -276,6 +279,7 @@ router.put('/:id/refer', async (req, res) => {
     let receivingTeamId = targetTeamId;
     if (assignedTargetUser && mongoose.Types.ObjectId.isValid(assignedTargetUser)) {
       lead.ownerId = assignedTargetUser;
+      lead.referredToUserId = assignedTargetUser;
       if (!receivingTeamId) {
         const targetTeam = await SalesTeam.findOne({
           $or: [
@@ -311,7 +315,8 @@ router.put('/:id/refer', async (req, res) => {
       .populate('ownerId', 'username first_name last_name')
       .populate('referredFromTeamId', 'nameCode teamName name')
       .populate('referredToTeamId', 'nameCode teamName name')
-      .populate('referredByUserId', 'username first_name last_name');
+      .populate('referredByUserId', 'username first_name last_name')
+      .populate('referredToUserId', 'username first_name last_name');
 
     res.json({ success: true, message: 'Lead referred successfully. Lead is now visible to both referring and target teams.', lead: updatedLead });
   } catch (error) {
@@ -507,7 +512,7 @@ router.post('/:id/convert', async (req, res) => {
     const userId = req.user?._id || req.user?.id || req.headers['user-id'];
     const oppOwnerId = lead.ownerId || userId;
     let bv = lead.businessVertical;
-    if (!bv || bv === 'all' || (Array.isArray(lead.interestedServices) && lead.interestedServices.some(s => typeof s === 'string' && s.toLowerCase().includes('auto rack')))) {
+    if (!bv || bv === 'all' || (Array.isArray(lead.interestedServices) && lead.interestedServices.some(s => typeof s === 'string' && (s.toLowerCase().includes('autorack') || s.toLowerCase().includes('auto rack'))))) {
       if (!bv || bv === 'all') bv = 'Paramount';
     }
 

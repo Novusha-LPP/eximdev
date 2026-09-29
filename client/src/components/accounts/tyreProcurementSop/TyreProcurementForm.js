@@ -85,7 +85,9 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
   const userIdentity = [user?.username, user?.first_name, user?.middle_name, user?.last_name]
     .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
   const isAjay = (user?.username || "").toLowerCase().includes("ajay") || userIdentity.includes("ajay");
-  const isAdmin = userRole === "admin" || userRole === "superadmin" || isAjay;
+  const isGlobalAdmin = userRole === "admin" || userRole === "superadmin" || isAjay;
+  const [isProcurementAdmin, setIsProcurementAdmin] = useState(false);
+  const isAdmin = isGlobalAdmin || isProcurementAdmin;
   const canOverrideSignOffLock = isAdmin;
 
   const [activeStage, setActiveStage] = useState(1);
@@ -102,18 +104,22 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
 
   useEffect(() => {
     if (!user) return; // wait for user context before deciding tab visibility
-    if (isAdmin) {
+    if (isGlobalAdmin) {
+      setIsProcurementAdmin(false);
       setAllowedUserTabs([]);
       setTabsLoading(false);
       return;
     }
+    setIsProcurementAdmin(false);
+    setAllowedUserTabs([]);
     async function fetchUserTabs() {
       try {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
         );
-        if (res.data?.success && res.data.allowed_tabs?.length > 0) {
-          setAllowedUserTabs(res.data.allowed_tabs);
+        if (res.data?.success) {
+          setAllowedUserTabs(res.data.allowed_tabs || []);
+          setIsProcurementAdmin(Boolean(res.data.tyre_procurement_admin));
         }
       } catch (err) {
         console.error("Error fetching allowed tabs:", err);
@@ -126,7 +132,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
     } else {
       setTabsLoading(false);
     }
-  }, [user, isAdmin]);
+  }, [user, isGlobalAdmin]);
 
   const visibleStageTabs = useMemo(
     () =>
@@ -143,7 +149,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
     }
   }, [visibleStageTabs, activeStage]);
 
-  const getActiveTabForStatus = (status) => {
+  const getActiveTabForStatus = (status, doc) => {
     switch (status) {
       case "Draft":
         return 0; // Stage 1: Purchase Request
@@ -155,6 +161,9 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
       case "Quotation Updated":
         return 2; // Stage 3: Finance Approval
       case "Finance Approved":
+        if (doc?.creditInfo?.isCredit) {
+          return 5; // Bypass upfront Payment & UTR for Credit suppliers; move directly to Stage 6: Site GRN
+        }
         return 3; // Stage 4: Payment & UTR
       case "Payment Done":
         return 4; // Stage 5: Order & Dispatch
@@ -183,7 +192,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
           setFormData(loaded);
           setPersistedCompletedStages(getCompletedStages(loaded));
           setPersistedStatus(loaded.status);
-          setActiveStage(getActiveTabForStatus(loaded.status) + 1);
+          setActiveStage(getActiveTabForStatus(loaded.status, loaded) + 1);
         })
         .catch((err) => {
           console.error("Error fetching Tyre PR:", err);

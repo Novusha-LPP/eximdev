@@ -53,6 +53,7 @@ const FLEET_INSURANCE_TABS = [
 function AssignProcurementTabs({ selectedUser }) {
   // Tyre Procurement state
   const [tyreTabPermissions, setTyreTabPermissions] = useState([]);
+    const [tyreProcurementAdmin, setTyreProcurementAdmin] = useState(false);
   const [loadingTyre, setLoadingTyre] = useState(false);
   const [savingTyre, setSavingTyre] = useState(false);
   const [tyreMessage, setTyreMessage] = useState(null);
@@ -67,6 +68,7 @@ function AssignProcurementTabs({ selectedUser }) {
     async function fetchPermissions() {
       if (!selectedUser) {
         setTyreTabPermissions([]);
+        setTyreProcurementAdmin(false);
         setFleetTabPermissions([]);
         return;
       }
@@ -84,6 +86,7 @@ function AssignProcurementTabs({ selectedUser }) {
 
         if (tyreRes.data?.success) {
           setTyreTabPermissions(tyreRes.data.allowed_tabs || []);
+          setTyreProcurementAdmin(Boolean(tyreRes.data.tyre_procurement_admin));
         }
         if (fleetRes.data?.success) {
           setFleetTabPermissions(fleetRes.data.allowed_tabs || []);
@@ -115,6 +118,7 @@ function AssignProcurementTabs({ selectedUser }) {
         {
           username: selectedUser,
           allowed_tabs: tyreTabPermissions,
+          tyre_procurement_admin: tyreProcurementAdmin,
         }
       );
       if (res.data?.success) {
@@ -304,6 +308,29 @@ function AssignProcurementTabs({ selectedUser }) {
           </Box>
         ) : (
           <>
+            <Card variant="outlined" sx={{ mb: 1.5, p: 1.5, borderRadius: "8px", borderColor: tyreProcurementAdmin ? "#2563eb" : "#e2e8f0", bgcolor: tyreProcurementAdmin ? "#eff6ff" : "#fff" }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={tyreProcurementAdmin}
+                    onChange={(event) => setTyreProcurementAdmin(event.target.checked)}
+                    size="small"
+                    color="primary"
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: "#1e293b" }}>
+                      Tyre Procurement Module Admin
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "#64748b" }}>
+                      Grants admin controls and sign-off overrides only in this module.
+                    </Typography>
+                  </Box>
+                }
+                sx={{ m: 0 }}
+              />
+            </Card>
             <Grid container spacing={1.5}>
               {TYRE_PROC_TABS.map((tabName) => {
                 const isChecked = tyreTabPermissions.includes(tabName);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Search, FileText, CheckCircle2, AlertCircle, Eye, ArrowRight, DollarSign, Building2, Settings, Layout } from 'lucide-react';
+import { Plus, Search, FileText, CheckCircle2, AlertCircle, Eye, ArrowRight, Building2, Settings, Layout } from 'lucide-react';
 import { message } from 'antd';
 import QuoteFormModal from './QuoteFormModal';
 import QuoteDetailPanel from './QuoteDetailPanel';

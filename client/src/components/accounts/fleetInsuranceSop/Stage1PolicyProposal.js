@@ -516,15 +516,6 @@ function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, 
               style={{ fontWeight: 700, color: "#0f172a" }}
             />
           </Box>
-          <Box>
-            <label className="sop-label">NEW NCB (%)</label>
-            <input
-              type="number"
-              className="sop-input"
-              value={formData.newNcb ?? ""}
-              onChange={(e) => handleChange("newNcb", e.target.value)}
-            />
-          </Box>
         </Box>
 
         {/* Premium Breakdown Fields */}
@@ -568,6 +559,15 @@ function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, 
         </Box>
 
         <Box className="sop-grid-4" sx={{ mb: 1 }}>
+          <Box>
+            <label className="sop-label">NEW NCB AMOUNT (₹)</label>
+            <input
+              type="number"
+              className="sop-input"
+              value={formData.newNcbAmount ?? ""}
+              onChange={(e) => handleChange("newNcbAmount", e.target.value)}
+            />
+          </Box>
           <Box>
             <label className="sop-label">NEW TOTAL OD</label>
             <input

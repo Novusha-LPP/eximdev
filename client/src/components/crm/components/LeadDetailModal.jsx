@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { X, Edit2, User, FileText, DollarSign, Trash2, CheckSquare } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, Edit2, User, FileText, IndianRupee, Trash2, CheckSquare } from 'lucide-react';
 import ActivityTimeline from './ActivityTimeline';
 import QuoteFormModal from './QuoteFormModal';
 import PricingRequestFormModal from './PricingRequestFormModal';
 import TaskFormModal from './TaskFormModal';
+import { formatServiceName } from '../crmConstants';
 
 export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefresh, onDelete, canDelete }) {
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
@@ -12,84 +14,87 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
 
   if (!isOpen || !lead) return null;
 
-  return (
+  return createPortal(
     <div style={{
       position: 'fixed',
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.7)',
+      backgroundColor: 'rgba(15, 23, 42, 0.75)',
       backdropFilter: 'blur(8px)',
       display: 'flex',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'center',
-      zIndex: 1010,
-      padding: '20px'
+      zIndex: 99999,
+      padding: '20px 14px',
+      overflowY: 'auto'
     }}>
       <div style={{
         background: '#fff',
         width: '100%',
-        maxWidth: '700px',
-        borderRadius: '16px',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+        maxWidth: '720px',
+        borderRadius: '14px',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         overflow: 'hidden',
-        maxHeight: '80vh',
-        overflowY: 'auto'
+        maxHeight: 'calc(100vh - 40px)',
+        display: 'flex',
+        flexDirection: 'column',
+        margin: 'auto 0'
       }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ background: '#eef2ff', padding: '10px', borderRadius: '10px', color: '#4f46e5' }}>
-              <User size={24} />
+        <div style={{ padding: '10px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, background: '#f8fafc', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ background: '#eef2ff', padding: '6px', borderRadius: '8px', color: '#4f46e5' }}>
+              <User size={18} />
             </div>
             <div>
-              <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.2rem' }}>{lead.firstName} {lead.lastName}</h3>
-              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>{lead.company}</span>
+              <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.05rem' }}>{lead.firstName} {lead.lastName}</h3>
+              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{lead.company}</span>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
             <button
               onClick={() => setIsQuoteModalOpen(true)}
-              style={{ padding: '8px 12px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{ padding: '4px 10px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600 }}
             >
-              <FileText size={16} /> Create Quote
+              <FileText size={12} /> Create Quote
             </button>
             <button
               onClick={() => setIsPricingModalOpen(true)}
-              style={{ padding: '8px 12px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{ padding: '4px 10px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600 }}
             >
-              <DollarSign size={16} /> Request Pricing
+              <IndianRupee size={12} /> Request Pricing
             </button>
             <button
               onClick={() => setIsTaskModalOpen(true)}
-              style={{ padding: '8px 12px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+              style={{ padding: '4px 10px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600, fontSize: '0.75rem' }}
             >
-              <CheckSquare size={16} /> Assign Task
+              <CheckSquare size={12} /> Assign Task
             </button>
             <button
               onClick={() => {
                 onEdit(lead);
                 onClose();
               }}
-              style={{ padding: '8px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{ padding: '4px 10px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600 }}
             >
-              <Edit2 size={16} /> Edit
+              <Edit2 size={12} /> Edit
             </button>
             {canDelete && onDelete && (
               <button
                 onClick={() => onDelete(lead)}
-                style={{ padding: '8px 12px', background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+                style={{ padding: '4px 10px', background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600, fontSize: '0.75rem' }}
               >
-                <Trash2 size={16} /> Delete
+                <Trash2 size={12} /> Delete
               </button>
             )}
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
-              <X size={20} />
+            <button onClick={onClose} style={{ background: '#fff', border: '1px solid #e2e8f0', cursor: 'pointer', color: '#64748b', borderRadius: '6px', padding: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <X size={15} />
             </button>
           </div>
         </div>
 
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: '14px 18px', overflowY: 'auto', flex: 1 }}>
           {/* Internal Referral Notification */}
           {lead.isReferral && (
             <div style={{ marginBottom: '20px', background: '#fef2f2', padding: '12px 16px', borderRadius: '10px', borderLeft: '4px solid #ef4444', display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -99,8 +104,13 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
                   Referred Lead: {lead.referredFromTeamId?.teamName || lead.referredFromTeamId?.name || 'Origin Team'} ➔ {lead.referredToTeamId?.teamName || lead.referredToTeamId?.name || 'Target Team'}
                 </span>
               </div>
+              {lead.referredToUserId && (
+                <div style={{ fontSize: '0.8rem', color: '#b91c1c', marginLeft: '28px', fontWeight: 600 }}>
+                  👤 Assigned Member: {lead.referredToUserId?.first_name ? `${lead.referredToUserId.first_name} ${lead.referredToUserId.last_name || ''}`.trim() : (lead.referredToUserId?.username || lead.referredToUserId?.name || 'Assigned')}
+                </div>
+              )}
               {lead.referredAt && (
-                <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginLeft: '28px', fontWeight: 600 }}>
+                <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginLeft: '28px', fontWeight: 500 }}>
                   📅 Referred on: {new Date(lead.referredAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </div>
               )}
@@ -119,96 +129,96 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
           )}
 
           {/* Contact Info */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #4f46e5' }}>
-              <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '4px' }}>Email</div>
-              <div style={{ fontSize: '1rem', fontWeight: 600, color: '#1e293b' }}>{lead.email || 'N/A'}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+            <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', borderLeft: '3px solid #4f46e5' }}>
+              <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '2px' }}>Email</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1e293b' }}>{lead.email || 'N/A'}</div>
             </div>
-            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #10b981' }}>
-              <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '4px' }}>Phone</div>
-              <div style={{ fontSize: '1rem', fontWeight: 600, color: '#1e293b' }}>{lead.phone || 'N/A'}</div>
+            <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', borderLeft: '3px solid #10b981' }}>
+              <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '2px' }}>Phone</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1e293b' }}>{lead.phone || 'N/A'}</div>
             </div>
           </div>
 
-          <div style={{ marginBottom: '24px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px 20px' }}>
+          <div style={{ marginBottom: '12px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px 12px' }}>
             <div>
-              <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Status</span>
-              <p style={{ margin: '4px 0 0 0', color: '#1e293b', fontWeight: 600, textTransform: 'capitalize' }}>{lead.status || 'New'}</p>
+              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>Status</span>
+              <p style={{ margin: '2px 0 0 0', color: '#1e293b', fontWeight: 600, fontSize: '0.82rem', textTransform: 'capitalize' }}>{lead.status || 'New'}</p>
             </div>
             <div>
-              <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Source</span>
-              <p style={{ margin: '4px 0 0 0', color: '#1e293b', fontWeight: 600, textTransform: 'capitalize' }}>{lead.source || 'Unknown'}</p>
+              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>Source</span>
+              <p style={{ margin: '2px 0 0 0', color: '#1e293b', fontWeight: 600, fontSize: '0.82rem', textTransform: 'capitalize' }}>{lead.source || 'Unknown'}</p>
             </div>
             <div>
-              <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Shipper</span>
-              <p style={{ margin: '4px 0 0 0', color: '#1e293b', fontWeight: 600 }}>{lead.shipper || 'N/A'}</p>
+              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>Shipper</span>
+              <p style={{ margin: '2px 0 0 0', color: '#1e293b', fontWeight: 600, fontSize: '0.82rem' }}>{lead.shipper || 'N/A'}</p>
             </div>
 
             <div>
-              <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Business Vertical</span>
-              <p style={{ margin: '4px 0 0 0', color: '#4f46e5', fontWeight: 700 }}>{lead.businessVertical || 'Paramount'}</p>
+              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>Business Vertical</span>
+              <p style={{ margin: '2px 0 0 0', color: '#4f46e5', fontWeight: 700, fontSize: '0.82rem' }}>{lead.businessVertical || 'Paramount'}</p>
             </div>
             {lead.companyType && (
               <div>
-                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Company Type</span>
-                <p style={{ margin: '4px 0 0 0', color: '#0f172a', fontWeight: 700 }}>{lead.companyType}</p>
+                <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>Company Type</span>
+                <p style={{ margin: '2px 0 0 0', color: '#0f172a', fontWeight: 700, fontSize: '0.82rem' }}>{lead.companyType}</p>
               </div>
             )}
             <div>
-              <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Grade</span>
+              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>Grade</span>
               <span style={{
-                display: 'inline-block', margin: '4px 0 0 0', padding: '2px 8px',
+                display: 'inline-block', margin: '2px 0 0 0', padding: '1px 6px',
                 background: lead.grade === 'A' ? '#ecfdf5' : lead.grade === 'B' ? '#eff6ff' : lead.grade === 'C' ? '#fef3c7' : '#f1f5f9',
                 color: lead.grade === 'A' ? '#10b981' : lead.grade === 'B' ? '#3b82f6' : lead.grade === 'C' ? '#d97706' : '#64748b',
-                borderRadius: '4px', fontSize: '0.8rem', fontWeight: 700
+                borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700
               }}>
                 {lead.grade || 'D'}
               </span>
             </div>
             <div>
-              <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Lead Score</span>
-              <p style={{ margin: '4px 0 0 0', color: '#1e293b', fontWeight: 600 }}>⭐ {lead.score || 0}</p>
+              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>Lead Score</span>
+              <p style={{ margin: '2px 0 0 0', color: '#1e293b', fontWeight: 600, fontSize: '0.82rem' }}>⭐ {lead.score || 0}</p>
             </div>
 
             <div>
-              <span style={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: 700 }}>📍 Location / City</span>
-              <p style={{ margin: '4px 0 0 0', color: '#0369a1', fontWeight: 700 }}>{lead.location || 'N/A'}</p>
+              <span style={{ fontSize: '0.7rem', color: '#0284c7', fontWeight: 700 }}>📍 Location / City</span>
+              <p style={{ margin: '2px 0 0 0', color: '#0369a1', fontWeight: 700, fontSize: '0.82rem' }}>{lead.location || 'N/A'}</p>
             </div>
             <div>
-              <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>🏷️ HSN Code</span>
-              <p style={{ margin: '4px 0 0 0', color: '#1e293b', fontWeight: 600 }}>{lead.hsnCode || 'N/A'}</p>
+              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>🏷️ HSN Code</span>
+              <p style={{ margin: '2px 0 0 0', color: '#1e293b', fontWeight: 600, fontSize: '0.82rem' }}>{lead.hsnCode || 'N/A'}</p>
             </div>
 
             {lead.crateSize && !['transportation', 'freight forwarding', 'export', 'import'].includes((lead.businessVertical || '').toLowerCase()) && (
               <div>
-                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Crate Size</span>
-                <p style={{ margin: '4px 0 0 0', color: '#1e293b', fontWeight: 600 }}>{lead.crateSize}</p>
+                <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>Crate Size</span>
+                <p style={{ margin: '2px 0 0 0', color: '#1e293b', fontWeight: 600, fontSize: '0.82rem' }}>{lead.crateSize}</p>
               </div>
             )}
 
             {lead.source === 'Referral' && lead.referralSourceName && (
-              <div style={{ gridColumn: 'span 3', marginTop: '8px' }}>
-                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Referral By (Person/Company Name)</span>
-                <p style={{ margin: '4px 0 0 0', color: '#1e293b', fontWeight: 600 }}>{lead.referralSourceName}</p>
+              <div style={{ gridColumn: 'span 3', marginTop: '4px' }}>
+                <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>Referral By (Person/Company Name)</span>
+                <p style={{ margin: '2px 0 0 0', color: '#1e293b', fontWeight: 600, fontSize: '0.82rem' }}>{lead.referralSourceName}</p>
               </div>
             )}
 
             {lead.garudaTeamMemberName && (
-              <div style={{ gridColumn: 'span 3', marginTop: '8px' }}>
-                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Garuda Team Member Name</span>
-                <p style={{ margin: '4px 0 0 0', color: '#1e293b', fontWeight: 600 }}>👤 {lead.garudaTeamMemberName}</p>
+              <div style={{ gridColumn: 'span 3', marginTop: '4px' }}>
+                <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>Garuda Team Member Name</span>
+                <p style={{ margin: '2px 0 0 0', color: '#1e293b', fontWeight: 600, fontSize: '0.82rem' }}>👤 {lead.garudaTeamMemberName}</p>
               </div>
             )}
           </div>
 
           {/* Logistics & Freight Details */}
-          <div style={{ marginBottom: '24px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px 24px', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-            <div style={{ gridColumn: 'span 3', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px', marginBottom: '4px' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#4f46e5' }}>Logistics & Freight Details</span>
+          <div style={{ marginBottom: '14px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px 14px', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <div style={{ gridColumn: 'span 3', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginBottom: '2px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4f46e5' }}>Logistics & Freight Details</span>
             </div>
             <div>
-              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Stuffing</span>
-              <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{lead.stuffing || 'N/A'}</p>
+              <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Stuffing</span>
+              <p style={{ margin: '2px 0 0 0', color: '#334155', fontWeight: 600, fontSize: '0.82rem' }}>{lead.stuffing || 'N/A'}</p>
             </div>
             <div>
               <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Shipping Line</span>
@@ -279,7 +289,7 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
               <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'block', marginBottom: '8px' }}>Interested Services</span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {lead.interestedServices.map(service => (
-                  <span key={service} style={{ fontSize: '0.75rem', padding: '4px 10px', background: '#f1f5f9', color: '#475569', borderRadius: '20px', border: '1px solid #e2e8f0' }}>{service}</span>
+                  <span key={service} style={{ fontSize: '0.75rem', padding: '4px 10px', background: '#f1f5f9', color: '#475569', borderRadius: '20px', border: '1px solid #e2e8f0' }}>{formatServiceName(service)}</span>
                 ))}
               </div>
             </div>
@@ -326,6 +336,7 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
           }
         }}
       />
-    </div>
+    </div>,
+    document.body
   );
 }

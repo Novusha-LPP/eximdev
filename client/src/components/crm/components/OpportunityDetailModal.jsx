@@ -1,14 +1,18 @@
-import React, { useState, useEffect, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { X, Edit2, Trash2, FileText, DollarSign, MapPin, Hash, Calendar, Building2, Tag, AlertOctagon, User, Clock, TrendingUp, Percent, Briefcase, CheckCircle2, AlertTriangle, Layers } from 'lucide-react';
+import { X, Edit2, Trash2, FileText, IndianRupee, MapPin, Hash, Calendar, Building2, Tag, AlertOctagon, TrendingUp, Percent, Briefcase, CheckCircle2, AlertTriangle, Layers, Download, Mail, Eye, RefreshCw, XCircle } from 'lucide-react';
 import { message, Modal } from 'antd';
 import GarudaTeamMemberInput from './GarudaTeamMemberInput';
 import { UserContext } from '../../../contexts/UserContext';
 import ActivityTimeline from './ActivityTimeline';
 import QuoteFormModal from './QuoteFormModal';
+import QuoteDetailPanel from './QuoteDetailPanel';
+import EmailQuoteModal from './EmailQuoteModal';
+import { generateQuotePDF } from '../utils/pdfGenerator';
 import PricingRequestFormModal from './PricingRequestFormModal';
 import TaskFormModal from './TaskFormModal';
-import { LOST_REASONS, STANDARD_LOST_REASON_VALUES } from '../crmConstants';
+import { LOST_REASONS, STANDARD_LOST_REASON_VALUES, ALLOWED_SERVICES, formatServiceName } from '../crmConstants';
 
 const STAGES = ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'];
 
@@ -23,18 +27,7 @@ const STAGE_CONFIG = {
   lost: { label: 'Closed – Lost', bg: '#fff1f2', color: '#be123c', border: '#fecdd3', dot: '#f43f5e' }
 };
 
-const ALLOWED_SERVICES = [
-  'freight forwarding',
-  'dgft',
-  'e-lock',
-  'client',
-  'transportation',
-  'paramount',
-  'rabs',
-  'auto rack'
-];
-
-export default function OpportunityDetailModal({ isOpen, onClose, opportunity, onRefresh }) {
+export default function OpportunityDetailModal({ isOpen, onClose, opportunity, onRefresh, allowedStages }) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [formData, setFormData] = useState({});
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
@@ -53,6 +46,17 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedTaskForModal, setSelectedTaskForModal] = useState(null);
 
+  // Quotations state
+  const [quotes, setQuotes] = useState([]);
+  const [loadingQuotes, setLoadingQuotes] = useState(false);
+  const [selectedQuoteForPanel, setSelectedQuoteForPanel] = useState(null);
+  const [quoteToEdit, setQuoteToEdit] = useState(null);
+  const [rejectModalQuote, setRejectModalQuote] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectNotes, setRejectNotes] = useState('');
+  const [emailModalQuote, setEmailModalQuote] = useState(null);
+  const [isSubmittingQuoteStatus, setIsSubmittingQuoteStatus] = useState(false);
+
   const { user } = useContext(UserContext);
   const fullUserName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'Unknown User';
 
@@ -66,6 +70,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       setIsEditMode(false);
       setFormData(opportunity);
       setNewRemark('');
+      fetchQuotes();
       const standardSources = ['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign', 'Company Branding'];
       if (opportunity.source && !standardSources.includes(opportunity.source)) {
         setCustomSource(opportunity.source);
@@ -92,10 +97,12 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
 
   const toggleService = (service) => {
     const currentServices = formData.services || [];
-    if (currentServices.includes(service)) {
+    const isAutorack = service === 'autorack' || service === 'auto rack';
+    const isSelected = currentServices.some(s => isAutorack ? (s === 'autorack' || s === 'auto rack') : s === service);
+    if (isSelected) {
       setFormData({
         ...formData,
-        services: currentServices.filter(s => s !== service)
+        services: currentServices.filter(s => isAutorack ? (s !== 'autorack' && s !== 'auto rack') : s !== service)
       });
     } else {
       setFormData({
@@ -104,6 +111,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       });
     }
   };
+
 
   const [customService, setCustomService] = useState('');
   const handleAddCustomService = () => {
@@ -129,6 +137,145 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       },
       withCredentials: true
     };
+  };
+
+  const fetchQuotes = async () => {
+    if (!opportunity?._id) return;
+    setLoadingQuotes(true);
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/quotes?opportunityId=${opportunity._id}&limit=50`,
+        getHeaders()
+      );
+      setQuotes(res.data?.quotes || []);
+    } catch (err) {
+      console.error('Failed to fetch opportunity quotes:', err);
+    } finally {
+      setLoadingQuotes(false);
+    }
+  };
+
+  const refreshOpportunityAndQuotes = async () => {
+    await fetchQuotes();
+    if (onRefresh) onRefresh();
+    if (opportunity?._id) {
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`,
+          getHeaders()
+        );
+        if (res.data) {
+          setFormData(res.data);
+        }
+      } catch (e) {
+        console.error('Failed to reload opportunity:', e);
+      }
+    }
+  };
+
+  const handleAcceptQuote = (quote) => {
+    Modal.confirm({
+      title: 'Accept Quotation & Mark Deal Won',
+      content: (
+        <div>
+          <p>Are you sure you want to mark quotation <strong>{quote.quoteNumber}</strong> as Accepted?</p>
+          <p style={{ color: '#16a34a', fontWeight: 600, fontSize: '0.85rem', marginTop: '6px' }}>
+            ✓ This will automatically advance this opportunity to the <strong>WON</strong> stage.
+          </p>
+        </div>
+      ),
+      okText: 'Accept & Move to Won',
+      okButtonProps: { style: { background: '#16a34a', borderColor: '#16a34a' } },
+      async onOk() {
+        setIsSubmittingQuoteStatus(true);
+        try {
+          await axios.put(
+            `${process.env.REACT_APP_API_STRING}/crm/quotes/${quote._id}/status`,
+            { status: 'accepted' },
+            getHeaders()
+          );
+          message.success(`Quotation ${quote.quoteNumber} accepted! Deal moved to WON.`);
+          await refreshOpportunityAndQuotes();
+        } catch (err) {
+          console.error(err);
+          message.error(err.response?.data?.message || 'Failed to accept quotation');
+        } finally {
+          setIsSubmittingQuoteStatus(false);
+        }
+      }
+    });
+  };
+
+  const handleOpenRejectModal = (quote) => {
+    setRejectModalQuote(quote);
+    setRejectReason(LOST_REASONS[0]?.label || 'Price too high');
+    setRejectNotes('');
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectReason || !rejectReason.trim()) {
+      message.error('Please specify a Reason for Loss / Rejection.');
+      return;
+    }
+    setIsSubmittingQuoteStatus(true);
+    try {
+      await axios.put(
+        `${process.env.REACT_APP_API_STRING}/crm/quotes/${rejectModalQuote._id}/status`,
+        {
+          status: 'rejected',
+          rejectionReason: rejectReason.trim(),
+          closeNotes: rejectNotes.trim()
+        },
+        getHeaders()
+      );
+      message.success(`Quotation ${rejectModalQuote.quoteNumber} rejected. Deal moved to LOST.`);
+      setRejectModalQuote(null);
+      await refreshOpportunityAndQuotes();
+    } catch (err) {
+      console.error(err);
+      message.error(err.response?.data?.message || 'Failed to reject quotation');
+    } finally {
+      setIsSubmittingQuoteStatus(false);
+    }
+  };
+
+  const handleReviseQuote = (quote) => {
+    setQuoteToEdit({
+      ...quote,
+      createNewVersion: true
+    });
+    setIsQuoteModalOpen(true);
+  };
+
+  const getQuoteStatusBadge = (status) => {
+    const config = {
+      draft: { bg: '#f1f5f9', text: '#475569', border: '#cbd5e1', label: 'Draft' },
+      sent: { bg: '#dbeafe', text: '#1d4ed8', border: '#93c5fd', label: 'Sent (Proposal)' },
+      viewed: { bg: '#ede9fe', text: '#6d28d9', border: '#c4b5fd', label: 'Viewed' },
+      accepted: { bg: '#dcfce7', text: '#15803d', border: '#86efac', label: 'Accepted (Won)' },
+      rejected: { bg: '#fee2e2', text: '#b91c1c', border: '#fca5a5', label: 'Rejected (Lost)' },
+      converted: { bg: '#ecfdf5', text: '#047857', border: '#6ee7b7', label: 'Converted' },
+      invoice_requested: { bg: '#e0f2fe', text: '#0369a1', border: '#7dd3fc', label: 'Invoice Requested' }
+    };
+    const s = config[status] || config.draft;
+    return (
+      <span style={{
+        background: s.bg,
+        color: s.text,
+        border: `1px solid ${s.border}`,
+        padding: '2px 8px',
+        borderRadius: '12px',
+        fontSize: '0.72rem',
+        fontWeight: 700,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px'
+      }}>
+        {status === 'accepted' && <CheckCircle2 size={11} />}
+        {status === 'rejected' && <XCircle size={11} />}
+        {s.label}
+      </span>
+    );
   };
 
 
@@ -427,35 +574,37 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
 
   if (!isOpen || !opportunity) return null;
 
-  return (
+  return createPortal(
     <div style={{
       position: 'fixed',
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.7)',
+      backgroundColor: 'rgba(15, 23, 42, 0.75)',
       backdropFilter: 'blur(8px)',
       display: 'flex',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'center',
-      zIndex: 1010,
-      padding: '20px'
+      zIndex: 99999,
+      padding: '20px 14px',
+      overflowY: 'auto'
     }}>
       <div style={{
         background: '#fff',
         width: '100%',
-        maxWidth: '820px',
-        borderRadius: '16px',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        maxWidth: '740px',
+        borderRadius: '14px',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)',
         overflow: 'hidden',
-        maxHeight: '88vh',
+        maxHeight: 'calc(100vh - 40px)',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        margin: 'auto 0'
       }}>
         <style>{`
           .crm-modal-scroll::-webkit-scrollbar {
-            width: 6px;
+            width: 5px;
           }
           .crm-modal-scroll::-webkit-scrollbar-track {
             background: transparent;
@@ -469,25 +618,25 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
           }
         `}</style>
 
-        {/* Modal Header */}
+        {/* Modal Header - Compact */}
         <div style={{
-          padding: '20px 24px 16px',
+          padding: '10px 16px 8px',
           borderBottom: '1px solid #f1f5f9',
           background: '#ffffff',
           position: 'relative',
           flexShrink: 0
         }}>
           {/* Top row: Category Breadcrumb & Close button */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingRight: '36px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Briefcase size={12} color="#6366f1" /> Deal Overview
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', paddingRight: '28px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Briefcase size={10} color="#6366f1" /> Deal Overview
               </span>
               {formData.accountId?.name && (
                 <>
-                  <span style={{ color: '#cbd5e1', fontSize: '0.75rem' }}>•</span>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Building2 size={12} color="#94a3b8" /> {formData.accountId.name}
+                  <span style={{ color: '#cbd5e1', fontSize: '0.7rem' }}>•</span>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Building2 size={11} color="#94a3b8" /> {formData.accountId.name}
                   </span>
                 </>
               )}
@@ -498,15 +647,15 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
               onClick={handleClose}
               style={{
                 position: 'absolute',
-                top: '16px',
-                right: '16px',
+                top: '8px',
+                right: '10px',
                 background: '#f8fafc',
                 border: '1px solid #e2e8f0',
                 cursor: 'pointer',
                 color: '#64748b',
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
+                width: '26px',
+                height: '26px',
+                borderRadius: '6px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -515,14 +664,14 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
               onMouseOver={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#0f172a'; }}
               onMouseOut={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#64748b'; }}
             >
-              <X size={16} />
+              <X size={14} />
             </button>
           </div>
 
           {/* Title & Stage Pill Row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: !isEditMode ? '16px' : '0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', maxWidth: 'calc(100% - 40px)' }}>
-              <h3 style={{ margin: 0, color: '#0f172a', fontWeight: 800, fontSize: '1.4rem', lineHeight: '1.25', letterSpacing: '-0.02em' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px', marginBottom: !isEditMode ? '6px' : '0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', maxWidth: 'calc(100% - 32px)' }}>
+              <h3 style={{ margin: 0, color: '#0f172a', fontWeight: 800, fontSize: '1.05rem', lineHeight: '1.2', letterSpacing: '-0.02em' }}>
                 {formData.name || opportunity.name}
               </h3>
               {(() => {
@@ -532,18 +681,18 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                   <span style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '6px',
+                    gap: '4px',
                     background: config.bg,
                     color: config.color,
                     border: `1px solid ${config.border}`,
-                    padding: '3px 10px',
-                    borderRadius: '16px',
-                    fontSize: '0.75rem',
+                    padding: '1px 7px',
+                    borderRadius: '10px',
+                    fontSize: '0.68rem',
                     fontWeight: 700,
                     textTransform: 'uppercase',
                     letterSpacing: '0.04em'
                   }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: config.dot }}></span>
+                    <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: config.dot }}></span>
                     {config.label}
                   </span>
                 );
@@ -553,140 +702,140 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
 
           {/* Action Buttons Toolbar */}
           {!isEditMode && (
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', paddingTop: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '5px', paddingTop: '1px' }}>
               <button
                 onClick={() => setIsEditMode(true)}
                 style={{
-                  padding: '7px 14px',
+                  padding: '4px 10px',
                   background: '#4f46e5',
                   color: '#ffffff',
                   border: 'none',
-                  borderRadius: '8px',
+                  borderRadius: '5px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '4px',
                   fontWeight: 600,
-                  fontSize: '0.85rem',
-                  boxShadow: '0 1px 3px rgba(79, 70, 229, 0.3)',
+                  fontSize: '0.75rem',
+                  boxShadow: '0 1px 2px rgba(79, 70, 229, 0.25)',
                   transition: 'all 0.2s'
                 }}
                 onMouseOver={(e) => e.currentTarget.style.background = '#4338ca'}
                 onMouseOut={(e) => e.currentTarget.style.background = '#4f46e5'}
               >
-                <Edit2 size={14} /> Edit Deal
+                <Edit2 size={12} /> Edit Deal
               </button>
 
               <button
                 onClick={() => setIsQuoteModalOpen(true)}
                 style={{
-                  padding: '7px 14px',
+                  padding: '4px 10px',
                   background: '#f8fafc',
                   color: '#1e293b',
                   border: '1px solid #cbd5e1',
-                  borderRadius: '8px',
+                  borderRadius: '5px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '4px',
                   fontWeight: 600,
-                  fontSize: '0.85rem',
+                  fontSize: '0.75rem',
                   transition: 'all 0.2s'
                 }}
                 onMouseOver={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; }}
                 onMouseOut={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
               >
-                <FileText size={14} color="#6366f1" /> Create Quote
+                <FileText size={12} color="#6366f1" /> Create Quote
               </button>
 
               <button
                 onClick={() => setIsPricingModalOpen(true)}
                 style={{
-                  padding: '7px 14px',
+                  padding: '4px 10px',
                   background: '#f0fdf4',
                   color: '#15803d',
                   border: '1px solid #bbf7d0',
-                  borderRadius: '8px',
+                  borderRadius: '5px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '4px',
                   fontWeight: 600,
-                  fontSize: '0.85rem',
+                  fontSize: '0.75rem',
                   transition: 'all 0.2s'
                 }}
                 onMouseOver={(e) => { e.currentTarget.style.background = '#dcfce7'; }}
                 onMouseOut={(e) => { e.currentTarget.style.background = '#f0fdf4'; }}
               >
-                <DollarSign size={14} color="#16a34a" /> Request Pricing
+                <IndianRupee size={12} color="#16a34a" /> Request Pricing
               </button>
 
               <button
                 onClick={handleDelete}
                 style={{
                   marginLeft: 'auto',
-                  padding: '7px 12px',
+                  padding: '4px 9px',
                   background: '#ffffff',
                   color: '#e11d48',
                   border: '1px solid #fecdd3',
-                  borderRadius: '8px',
+                  borderRadius: '5px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '4px',
                   fontWeight: 600,
-                  fontSize: '0.82rem',
+                  fontSize: '0.75rem',
                   transition: 'all 0.2s'
                 }}
                 onMouseOver={(e) => { e.currentTarget.style.background = '#fff1f2'; }}
                 onMouseOut={(e) => { e.currentTarget.style.background = '#ffffff'; }}
               >
-                <Trash2 size={14} /> Delete
+                <Trash2 size={12} /> Delete
               </button>
             </div>
           )}
         </div>
 
-        {/* Modal Body - Scrollable */}
-        <div className="crm-modal-scroll" style={{ padding: '24px', overflowY: 'auto', flexGrow: 1 }}>
+        {/* Modal Body - Scrollable & Compact */}
+        <div className="crm-modal-scroll" style={{ padding: '10px 14px', overflowY: 'auto', flexGrow: 1 }}>
           {/* Referral Highlighting Banner */}
           {(formData.isReferral || formData.referredFromTeamId || formData.referredToTeamId) && (
             <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px',
-              padding: '10px 16px', background: '#fef2f2', borderRadius: '10px',
-              marginBottom: '20px', border: '1px solid #fecaca', color: '#991b1b'
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '5px',
+              padding: '6px 10px', background: '#fef2f2', borderRadius: '6px',
+              marginBottom: '8px', border: '1px solid #fecaca', color: '#991b1b'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 800 }}>⚡ Cross-Team Referral:</span>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 800 }}>⚡ Cross-Team Referral:</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>
                   Referred from {formData.referredFromTeamId?.teamName || formData.referredFromTeamId?.name || 'Team'} → {formData.referredToTeamId?.teamName || formData.referredToTeamId?.name || 'Team'}
                 </span>
               </div>
               {(formData.referredAt || formData.createdAt) && (
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#b91c1c' }}>
-                  📅 Referred on: {new Date(formData.referredAt || formData.createdAt).toLocaleDateString('en-IN')} {new Date(formData.referredAt || formData.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#b91c1c' }}>
+                  📅 {new Date(formData.referredAt || formData.createdAt).toLocaleDateString('en-IN')}
                 </span>
               )}
             </div>
           )}
 
-          {/* Quick Stats Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+          {/* Quick Stats Grid - Compact */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '8px' }}>
             {/* Value Card */}
             <div style={{
               background: '#ffffff',
-              padding: '14px 18px',
-              borderRadius: '12px',
+              padding: '8px 12px',
+              borderRadius: '8px',
               border: '1px solid #e2e8f0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deal Value</span>
-                <span style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <DollarSign size={14} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Deal Value</span>
+                <span style={{ width: '20px', height: '20px', borderRadius: '4px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <IndianRupee size={11} />
                 </span>
               </div>
-              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', fontFamily: 'monospace' }}>
+              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', fontFamily: 'monospace' }}>
                 ₹{parseFloat(formData.value || 0).toLocaleString('en-IN')}
               </div>
             </div>
@@ -694,21 +843,21 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
             {/* Probability Card */}
             <div style={{
               background: '#ffffff',
-              padding: '14px 18px',
-              borderRadius: '12px',
+              padding: '8px 12px',
+              borderRadius: '8px',
               border: '1px solid #e2e8f0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Win Probability</span>
-                <span style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Percent size={13} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Win Probability</span>
+                <span style={{ width: '20px', height: '20px', borderRadius: '4px', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Percent size={10} />
                 </span>
               </div>
-              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                 {formData.probability || 0}%
               </div>
-              <div style={{ width: '100%', height: '4px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden', marginTop: '6px' }}>
+              <div style={{ width: '100%', height: '3px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden', marginTop: '3px' }}>
                 <div style={{ width: `${Math.min(100, Math.max(0, formData.probability || 0))}%`, height: '100%', background: (formData.probability || 0) > 50 ? '#10b981' : '#f59e0b', borderRadius: '2px' }} />
               </div>
             </div>
@@ -716,18 +865,18 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
             {/* Weighted Value Card */}
             <div style={{
               background: '#ffffff',
-              padding: '14px 18px',
-              borderRadius: '12px',
+              padding: '8px 12px',
+              borderRadius: '8px',
               border: '1px solid #e2e8f0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Weighted Forecast</span>
-                <span style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <TrendingUp size={14} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Weighted Forecast</span>
+                <span style={{ width: '20px', height: '20px', borderRadius: '4px', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <TrendingUp size={11} />
                 </span>
               </div>
-              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#059669', fontFamily: 'monospace' }}>
+              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#059669', fontFamily: 'monospace' }}>
                 ₹{(parseFloat(formData.value || 0) * (parseFloat(formData.probability || 0) / 100)).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </div>
             </div>
@@ -748,11 +897,11 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 flexWrap: 'wrap',
-                gap: '8px',
-                padding: '9px 14px',
+                gap: '6px',
+                padding: '6px 12px',
                 background: '#f8fafc',
-                borderRadius: '10px',
-                marginBottom: '20px',
+                borderRadius: '8px',
+                marginBottom: '10px',
                 border: '1px solid #e2e8f0'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -893,7 +1042,9 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                     onChange={(e) => setFormData({ ...formData, stage: e.target.value })}
                     style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
                   >
-                    {STAGES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                    {STAGES.filter(s => !allowedStages || allowedStages.length === 0 || allowedStages.includes(s) || s === formData.stage).map(s => (
+                      <option key={s} value={s}>{s.replace('_', ' ').charAt(0).toUpperCase() + s.replace('_', ' ').slice(1)}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -1148,28 +1299,32 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '12px' }}>Interested Services</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
-                  {ALLOWED_SERVICES.map(service => (
-                    <button
-                      key={service}
-                      type="button"
-                      onClick={() => toggleService(service)}
-                      style={{
-                        padding: '6px 12px',
-                        borderRadius: '20px',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        border: '1px solid',
-                        borderColor: (formData.services || []).includes(service) ? '#4f46e5' : '#e2e8f0',
-                        background: (formData.services || []).includes(service) ? '#eef2ff' : '#fff',
-                        color: (formData.services || []).includes(service) ? '#4f46e5' : '#64748b',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      {service.charAt(0).toUpperCase() + service.slice(1)}
-                    </button>
-                  ))}
-                  {(formData.services || []).filter(s => !ALLOWED_SERVICES.includes(s)).map(service => (
+                  {ALLOWED_SERVICES.map(service => {
+                    const isAutorack = service === 'autorack' || service === 'auto rack';
+                    const isSelected = (formData.services || []).some(s => isAutorack ? (s === 'autorack' || s === 'auto rack') : s === service);
+                    return (
+                      <button
+                        key={service}
+                        type="button"
+                        onClick={() => toggleService(service)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '20px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          border: '1px solid',
+                          borderColor: isSelected ? '#4f46e5' : '#e2e8f0',
+                          background: isSelected ? '#eef2ff' : '#fff',
+                          color: isSelected ? '#4f46e5' : '#64748b',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {formatServiceName(service)}
+                      </button>
+                    );
+                  })}
+                  {(formData.services || []).filter(s => !ALLOWED_SERVICES.includes(s) && s !== 'auto rack').map(service => (
                     <button
                       key={service}
                       type="button"
@@ -1186,7 +1341,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                         transition: 'all 0.2s'
                       }}
                     >
-                      {service}
+                      {formatServiceName(service)}
                     </button>
                   ))}
                 </div>
@@ -1435,76 +1590,76 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '12px',
-                  marginBottom: '20px'
+                  gap: '8px',
+                  marginBottom: '10px'
                 }}>
                   {/* Expected Close */}
-                  <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
-                      <Calendar size={13} color="#94a3b8" /> Expected Close
+                  <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
+                      <Calendar size={11} color="#94a3b8" /> Expected Close
                     </div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: formData.expectedCloseDate ? '#0f172a' : '#94a3b8' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: formData.expectedCloseDate ? '#0f172a' : '#94a3b8' }}>
                       {formData.expectedCloseDate ? new Date(formData.expectedCloseDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                     </div>
                   </div>
 
                   {/* Forecast Category */}
-                  <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
-                      <TrendingUp size={13} color="#94a3b8" /> Forecast Category
+                  <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
+                      <TrendingUp size={11} color="#94a3b8" /> Forecast Category
                     </div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a', textTransform: 'capitalize' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0f172a', textTransform: 'capitalize' }}>
                       {formData.forecastCategory || 'Pipeline'}
                     </div>
                   </div>
 
                   {/* Location / Port */}
-                  <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
-                      <MapPin size={13} color="#0284c7" /> Location / Port
+                  <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
+                      <MapPin size={11} color="#0284c7" /> Location / Port
                     </div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: (formData.location || formData.pol || formData.pod) ? '#0369a1' : '#94a3b8' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: (formData.location || formData.pol || formData.pod) ? '#0369a1' : '#94a3b8' }}>
                       {formData.location || (formData.pol || formData.pod ? `${formData.pol || ''}${formData.pol && formData.pod ? ' → ' : ''}${formData.pod || ''}` : '—')}
                     </div>
                   </div>
 
                   {/* HSN Code */}
-                  <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
-                      <Hash size={13} color="#94a3b8" /> HSN Code
+                  <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
+                      <Hash size={11} color="#94a3b8" /> HSN Code
                     </div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: formData.hsnCode ? '#0f172a' : '#94a3b8', fontFamily: formData.hsnCode ? 'monospace' : 'inherit' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: formData.hsnCode ? '#0f172a' : '#94a3b8', fontFamily: formData.hsnCode ? 'monospace' : 'inherit' }}>
                       {formData.hsnCode || '—'}
                     </div>
                   </div>
 
                   {/* Lead Source */}
-                  <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
-                      <Tag size={13} color="#94a3b8" /> Lead Source
+                  <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
+                      <Tag size={11} color="#94a3b8" /> Lead Source
                     </div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: formData.source ? '#0f172a' : '#94a3b8' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: formData.source ? '#0f172a' : '#94a3b8' }}>
                       {formData.source || '—'}
                     </div>
                   </div>
 
                   {/* Company Type */}
-                  <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
-                      <Building2 size={13} color="#94a3b8" /> Company Type
+                  <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
+                      <Building2 size={11} color="#94a3b8" /> Company Type
                     </div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: formData.companyType ? '#0f172a' : '#94a3b8' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: formData.companyType ? '#0f172a' : '#94a3b8' }}>
                       {formData.companyType || '—'}
                     </div>
                   </div>
 
                   {/* Crate Size (if applicable) */}
                   {formData.crateSize && !['transportation', 'freight forwarding', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) && (
-                    <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
+                    <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
                         📦 Crate Size
                       </div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0f172a' }}>
                         {formData.crateSize}
                       </div>
                     </div>
@@ -1512,11 +1667,11 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
 
                   {/* Referral Source */}
                   {formData.source === 'Referral' && formData.referralSourceName && (
-                    <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9', gridColumn: 'span 2' }}>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
+                    <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9', gridColumn: 'span 2' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
                         Referred By
                       </div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0f172a' }}>
                         {formData.referralSourceName}
                       </div>
                     </div>
@@ -1524,12 +1679,38 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
 
                   {/* Garuda Team Member */}
                   {formData.garudaTeamMemberName && (
-                    <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #f1f5f9', gridColumn: 'span 2' }}>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
+                    <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9', gridColumn: 'span 2' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
                         Garuda Team Member
                       </div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0f172a' }}>
                         👤 {formData.garudaTeamMemberName}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Internal Team Referral Details */}
+                  {formData.isReferral && (formData.referredToTeamId || formData.referredFromTeamId || formData.referredToUserId) && (
+                    <div style={{ background: '#f5f3ff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd6fe', gridColumn: 'span 2' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
+                        ⚡ Internal Team Referral
+                      </div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#4c1d95', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span>
+                          {formData.referredFromTeamId?.teamName || formData.referredFromTeamId?.name || 'Referring Team'}
+                          {' → '}
+                          {formData.referredToTeamId?.teamName || formData.referredToTeamId?.name || 'Target Team'}
+                        </span>
+                        {formData.referredToUserId && (
+                          <span style={{ color: '#4338ca', fontWeight: 700, background: '#ede9fe', padding: '1px 6px', borderRadius: '4px', fontSize: '0.78rem' }}>
+                            👤 Assigned to: {formData.referredToUserId.first_name ? `${formData.referredToUserId.first_name} ${formData.referredToUserId.last_name || ''}`.trim() : formData.referredToUserId.username}
+                          </span>
+                        )}
+                        {formData.referredAt && (
+                          <span style={{ fontSize: '0.7rem', color: '#7c3aed' }}>
+                            • {new Date(formData.referredAt).toLocaleDateString('en-IN')}
+                          </span>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1537,28 +1718,249 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
 
                 {/* Interested Services */}
                 {(formData.services || []).length > 0 && (
-                  <div style={{ background: '#ffffff', padding: '14px 16px', borderRadius: '10px', border: '1px solid #f1f5f9', marginBottom: '20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-                      <Layers size={13} color="#6366f1" /> Interested Services
+                  <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f1f5f9', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                      <Layers size={11} color="#6366f1" /> Interested Services
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       {(formData.services || []).map(service => (
                         <span
                           key={service}
                           style={{
-                            padding: '4px 12px',
-                            borderRadius: '16px',
-                            fontSize: '0.78rem',
+                            padding: '2px 9px',
+                            borderRadius: '12px',
+                            fontSize: '0.72rem',
                             fontWeight: 600,
                             background: '#eff6ff',
                             color: '#2563eb',
                             border: '1px solid #bfdbfe'
                           }}
                         >
-                          {service.charAt(0).toUpperCase() + service.slice(1)}
+                          {formatServiceName(service)}
                         </span>
                       ))}
                     </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Quotations Section */}
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h4 style={{ color: '#475569', fontWeight: 700, margin: 0, fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Quotations ({quotes.length})
+                    </h4>
+                    {loadingQuotes && <RefreshCw size={14} className="spin" style={{ color: '#6366f1' }} />}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setQuoteToEdit(null);
+                      setIsQuoteModalOpen(true);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: '#4f46e5',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '4px 10px',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 4px rgba(79, 70, 229, 0.2)',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#4338ca'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#4f46e5'}
+                  >
+                    <span>➕ New Quotation</span>
+                  </button>
+                </div>
+
+                {quotes && quotes.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {quotes.map((quote) => {
+                      const isAccepted = quote.status === 'accepted';
+                      const isRejected = quote.status === 'rejected';
+
+                      return (
+                        <div
+                          key={quote._id}
+                          style={{
+                            background: '#fff',
+                            borderRadius: '10px',
+                            border: isAccepted ? '1.5px solid #86efac' : isRejected ? '1.5px solid #fca5a5' : '1px solid #e2e8f0',
+                            padding: '14px 16px',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          {/* Quote Header Row */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: 800, color: '#1e293b', fontSize: '0.95rem' }}>
+                                {quote.quoteNumber}
+                              </span>
+                              <span style={{ fontSize: '0.7rem', padding: '1px 6px', background: '#f1f5f9', color: '#475569', borderRadius: '4px', fontWeight: 600 }}>
+                                v{quote.version || 1}
+                              </span>
+                              {quote.tradeType && (
+                                <span style={{ fontSize: '0.7rem', padding: '1px 6px', background: '#eff6ff', color: '#2563eb', borderRadius: '4px', fontWeight: 600, textTransform: 'capitalize' }}>
+                                  {quote.tradeType.replace('_', ' ')}
+                                </span>
+                              )}
+                              <span style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>
+                                • {quote.title}
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                📅 {new Date(quote.createdAt).toLocaleDateString('en-IN')}
+                              </span>
+                              {getQuoteStatusBadge(quote.status)}
+                            </div>
+                          </div>
+
+                          {/* Line items summary and Total Row */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', background: '#f8fafc', padding: '8px 12px', borderRadius: '8px' }}>
+                            <div style={{ fontSize: '0.8rem', color: '#475569' }}>
+                              <span style={{ fontWeight: 600 }}>{quote.lineItems?.length || 0} line item(s): </span>
+                              <span style={{ color: '#64748b' }}>
+                                {(quote.lineItems || []).slice(0, 2).map(i => i.productName).join(', ')}
+                                {(quote.lineItems || []).length > 2 ? ' ...' : ''}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              {quote.totalDiscount > 0 && (
+                                <span style={{ fontSize: '0.75rem', color: '#16a34a' }}>
+                                  Disc: -₹{Math.round(quote.totalDiscount).toLocaleString('en-IN')}
+                                </span>
+                              )}
+                              <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' }}>
+                                Total: ₹{Math.round(quote.total || 0).toLocaleString('en-IN')}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Rejection / Loss Reason callout */}
+                          {isRejected && (
+                            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '8px 12px', fontSize: '0.78rem', color: '#991b1b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                              <div>
+                                <span style={{ fontWeight: 700 }}>Loss / Rejection Reason: </span>
+                                <span>{quote.tracking?.rejectedReason || 'Quotation rejected by client'}</span>
+                                {quote.tracking?.rejectedAt && (
+                                  <span style={{ color: '#b91c1c', marginLeft: '6px' }}>
+                                    (on {new Date(quote.tracking.rejectedAt).toLocaleDateString('en-IN')})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Quote Actions Bar */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', paddingTop: '4px', borderTop: '1px solid #f1f5f9' }}>
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedQuoteForPanel(quote)}
+                                style={{
+                                  padding: '4px 8px', borderRadius: '5px', border: '1px solid #cbd5e1',
+                                  background: '#fff', fontSize: '0.75rem', fontWeight: 600, color: '#334155',
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                                }}
+                              >
+                                <Eye size={12} /> View Details
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => generateQuotePDF(quote)}
+                                style={{
+                                  padding: '4px 8px', borderRadius: '5px', border: '1px solid #cbd5e1',
+                                  background: '#fff', fontSize: '0.75rem', fontWeight: 600, color: '#334155',
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                                }}
+                              >
+                                <Download size={12} /> Download PDF
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEmailModalQuote(quote)}
+                                style={{
+                                  padding: '4px 8px', borderRadius: '5px', border: '1px solid #cbd5e1',
+                                  background: '#fff', fontSize: '0.75rem', fontWeight: 600, color: '#334155',
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                                }}
+                              >
+                                <Mail size={12} /> Send Email
+                              </button>
+                            </div>
+
+                            {/* Status Resolution Actions */}
+                            {!isAccepted && !isRejected && (
+                              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleReviseQuote(quote)}
+                                  title="Revise this quote or create a new version (moves deal to Negotiation)"
+                                  style={{
+                                    padding: '4px 9px', borderRadius: '5px', border: '1px solid #fbcfe8',
+                                    background: '#fdf2f8', fontSize: '0.75rem', fontWeight: 600, color: '#be185d',
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                                  }}
+                                >
+                                  <Edit2 size={12} /> Revise (Negotiation)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAcceptQuote(quote)}
+                                  style={{
+                                    padding: '4px 9px', borderRadius: '5px', border: '1px solid #86efac',
+                                    background: '#ecfdf5', fontSize: '0.75rem', fontWeight: 700, color: '#047857',
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                                  }}
+                                >
+                                  <CheckCircle2 size={12} /> Accept (Won)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRejectModal(quote)}
+                                  style={{
+                                    padding: '4px 9px', borderRadius: '5px', border: '1px solid #fecdd3',
+                                    background: '#fff1f2', fontSize: '0.75rem', fontWeight: 700, color: '#be123c',
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                                  }}
+                                >
+                                  <XCircle size={12} /> Reject (Lost)
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                    <div style={{ fontSize: '0.85rem', fontStyle: 'italic', marginBottom: '8px' }}>
+                      No quotations created for this opportunity yet. Creating a quotation will automatically advance this deal to the Proposal stage.
+                    </div>
+                    <button
+                      onClick={() => {
+                        setQuoteToEdit(null);
+                        setIsQuoteModalOpen(true);
+                      }}
+                      style={{ background: '#4f46e5', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      ➕ Create First Quotation
+                    </button>
                   </div>
                 )}
               </div>
@@ -1857,15 +2259,19 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       </div>
       <QuoteFormModal
         isOpen={isQuoteModalOpen}
-        onClose={() => setIsQuoteModalOpen(false)}
-        initialTitle={`${opportunity.name} - Quote`}
+        onClose={() => {
+          setIsQuoteModalOpen(false);
+          setQuoteToEdit(null);
+        }}
+        quoteToEdit={quoteToEdit}
+        initialTitle={quoteToEdit ? quoteToEdit.title : `${opportunity.name} - Quote`}
         initialAccountId={typeof opportunity.accountId === 'object' ? opportunity.accountId?._id : opportunity.accountId}
         initialCompany={typeof opportunity.accountId === 'object' ? opportunity.accountId?.name : ''}
         initialContactId={typeof opportunity.primaryContactId === 'object' ? opportunity.primaryContactId?._id : opportunity.primaryContactId}
         initialContactName={typeof opportunity.primaryContactId === 'object' ? `${opportunity.primaryContactId?.firstName || ''} ${opportunity.primaryContactId?.lastName || ''}`.trim() : ''}
         initialOpportunityId={opportunity._id}
         initialOpportunityName={opportunity.name}
-        onRefresh={onRefresh}
+        onRefresh={refreshOpportunityAndQuotes}
       />
       <PricingRequestFormModal
         isOpen={isPricingModalOpen}
@@ -1892,6 +2298,113 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
         }}
         task={selectedTaskForModal}
       />
-    </div>
+
+      {/* Quote Detail Side Panel */}
+      {selectedQuoteForPanel && (
+        <QuoteDetailPanel
+          quote={selectedQuoteForPanel}
+          onClose={() => setSelectedQuoteForPanel(null)}
+          onEdit={() => {
+            const q = selectedQuoteForPanel;
+            setSelectedQuoteForPanel(null);
+            handleReviseQuote(q);
+          }}
+          onRefresh={refreshOpportunityAndQuotes}
+        />
+      )}
+
+      {/* Email Quote Modal */}
+      {emailModalQuote && (
+        <EmailQuoteModal
+          isOpen={Boolean(emailModalQuote)}
+          onClose={() => setEmailModalQuote(null)}
+          quote={emailModalQuote}
+          onRefresh={refreshOpportunityAndQuotes}
+        />
+      )}
+
+      {/* Reject Quotation & Move to Lost Reason Modal */}
+      {rejectModalQuote && (
+        <Modal
+          title={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b91c1c' }}>
+              <AlertTriangle size={18} />
+              <span>Reject Quotation & Move Deal to Lost</span>
+            </div>
+          }
+          open={Boolean(rejectModalQuote)}
+          onCancel={() => setRejectModalQuote(null)}
+          onOk={handleConfirmReject}
+          confirmLoading={isSubmittingQuoteStatus}
+          okText="Confirm Rejection & Move to Lost"
+          okButtonProps={{ danger: true }}
+        >
+          <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ background: '#fef2f2', padding: '10px 14px', borderRadius: '8px', border: '1px solid #fecaca', fontSize: '0.8rem', color: '#991b1b' }}>
+              Rejecting quotation <strong>{rejectModalQuote.quoteNumber}</strong> will automatically mark opportunity <strong>{formData.name || opportunity.name}</strong> as <strong>LOST</strong>.
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                Reason for Rejection / Loss <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <select
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.85rem',
+                  outline: 'none',
+                  background: '#fff'
+                }}
+              >
+                {LOST_REASONS.map(r => (
+                  <option key={r.value} value={r.label}>{r.label}</option>
+                ))}
+                <option value="Other">Other (Custom write-in)</option>
+              </select>
+            </div>
+
+            {rejectReason === 'Other' && (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                  Write-in Custom Reason <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Specify custom reason..."
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                />
+              </div>
+            )}
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                Additional Notes / Competitor Details (Optional)
+              </label>
+              <textarea
+                value={rejectNotes}
+                onChange={(e) => setRejectNotes(e.target.value)}
+                placeholder="Mention competitor rates, client feedback, or negotiation details..."
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.85rem',
+                  minHeight: '70px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>,
+    document.body
   );
 }

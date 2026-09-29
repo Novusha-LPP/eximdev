@@ -86,3 +86,24 @@ export const LOST_REASONS = [
 ];
 
 export const STANDARD_LOST_REASON_VALUES = LOST_REASONS.map(r => r.value);
+
+export const ALLOWED_SERVICES = [
+  'freight forwarding',
+  'dgft',
+  'e-lock',
+  'client',
+  'transportation',
+  'paramount',
+  'rabs',
+  'autorack'
+];
+
+export const formatServiceName = (s) => {
+  if (!s) return '';
+  const lower = s.toString().toLowerCase().trim();
+  if (lower === 'autorack' || lower === 'auto rack') return 'AUTORACK';
+  if (lower === 'dgft') return 'DGFT';
+  if (lower === 'rabs') return 'RABS';
+  if (lower === 'e-lock' || lower === 'elock') return 'E-Lock';
+  return s.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+};

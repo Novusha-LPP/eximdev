@@ -28,11 +28,8 @@ import {
   Avatar,
   Tooltip,
   InputAdornment,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Divider,
+  Drawer,
+  Snackbar,
 } from "@mui/material";
 import { toast } from "react-hot-toast";
 
@@ -52,7 +49,12 @@ import {
   Search,
   Clear,
   AttachFile,
-  RestartAlt
+  RestartAlt,
+  CalendarToday,
+  Close,
+  Cancel,
+  FlashOn,
+  Launch
 } from "@mui/icons-material";
 import FleetInsuranceHistory from "./FleetInsuranceHistory";
 import FleetInsuranceAttachmentsModal from "./FleetInsuranceAttachmentsModal";
@@ -73,6 +75,9 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
 
   const [approvalRecords, setApprovalRecords] = useState([]);
   const [approvalLoading, setApprovalLoading] = useState(false);
+  const [selectedApprovalRecord, setSelectedApprovalRecord] = useState(null);
+  const [isApproving, setIsApproving] = useState(false);
+  const [approvalSnackbar, setApprovalSnackbar] = useState({ open: false, message: "", severity: "success" });
 
   const [paymentUtrRecords, setPaymentUtrRecords] = useState([]);
   const [paymentUtrLoading, setPaymentUtrLoading] = useState(false);
@@ -260,6 +265,72 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
       console.error("Error fetching payment UTR records:", err);
     } finally {
       setPaymentUtrLoading(false);
+    }
+  };
+
+  const handleOneClickApprove = async (record) => {
+    if (!record || !record._id) return;
+    setIsApproving(true);
+    try {
+      const payload = {
+        financialApprovalStatus: "Approved",
+        financialApprovalDate: new Date(),
+        renewalStatus: "Pending"
+      };
+      await axios.put(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/${record._id}`, payload);
+      setApprovalSnackbar({
+        open: true,
+        message: `✓ Policy for ${record.registrationNo} approved successfully! Moved to Payment & UTR stage.`,
+        severity: "success"
+      });
+      toast.success(`Vehicle ${record.registrationNo} approved!`);
+      setSelectedApprovalRecord(null);
+      fetchApprovalRecords();
+      fetchPaymentUtrRecords();
+      fetchRecords();
+      window.dispatchEvent(new Event("fleet-insurance-updated"));
+    } catch (err) {
+      console.error("Error approving fleet insurance record:", err);
+      setApprovalSnackbar({
+        open: true,
+        message: err.response?.data?.message || "Failed to approve record",
+        severity: "error"
+      });
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleOneClickReject = async (record) => {
+    if (!record || !record._id) return;
+    const reason = window.prompt("Please specify a reason for rejecting this policy proposal:", "Premium quotation rejected by Finance Manager");
+    if (reason === null) return;
+    setIsApproving(true);
+    try {
+      const payload = {
+        financialApprovalStatus: "Rejected",
+        financialRejectionReason: reason || "Rejected by Finance Manager"
+      };
+      await axios.put(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/${record._id}`, payload);
+      setApprovalSnackbar({
+        open: true,
+        message: `✕ Proposal for ${record.registrationNo} marked as Rejected.`,
+        severity: "info"
+      });
+      toast.error(`Vehicle ${record.registrationNo} rejected.`);
+      setSelectedApprovalRecord(null);
+      fetchApprovalRecords();
+      fetchRecords();
+      window.dispatchEvent(new Event("fleet-insurance-updated"));
+    } catch (err) {
+      console.error("Error rejecting record:", err);
+      setApprovalSnackbar({
+        open: true,
+        message: err.response?.data?.message || "Failed to reject record",
+        severity: "error"
+      });
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -1068,6 +1139,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                   <TableRow>
                     <TableCell>Reg No</TableCell>
                     <TableCell>PR No</TableCell>
+                    <TableCell>PR Date</TableCell>
                     <TableCell>Owner</TableCell>
                     <TableCell>Size</TableCell>
                     <TableCell>Model</TableCell>
@@ -1085,7 +1157,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                 <TableBody>
                   {data.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={14} align="center" sx={{ py: 4, color: "#64748b", fontSize: "12px" }}>
+                      <TableCell colSpan={15} align="center" sx={{ py: 4, color: "#64748b", fontSize: "12px" }}>
                         No fleet insurance records found
                       </TableCell>
                     </TableRow>
@@ -1131,6 +1203,9 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                           </TableCell>
                           <TableCell sx={{ color: "#0284c7", fontWeight: 700, fontSize: "11.5px", py: 0.4, px: 0.8 }}>
                             {row.prNumber || "-"}
+                          </TableCell>
+                          <TableCell sx={{ color: "#334155", fontSize: "11.5px", py: 0.4, px: 0.8 }}>
+                            {row.prDate ? new Date(row.prDate).toLocaleDateString("en-IN") : "-"}
                           </TableCell>
                           <TableCell sx={{ color: "#334155", fontSize: "11.5px", py: 0.4, px: 0.8 }}>{row.owner || "-"}</TableCell>
                           <TableCell sx={{ color: "#334155", fontSize: "11.5px", py: 0.4, px: 0.8 }}>{row.size || "-"}</TableCell>
@@ -1398,7 +1473,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                     </TableRow>
                   ) : (
                     approvalRecords.map((row) => (
-                      <TableRow key={row._id} hover style={{ cursor: "pointer" }} onClick={() => onOpenApproval ? onOpenApproval(row) : onEdit(row)}>
+                      <TableRow key={row._id} hover style={{ cursor: "pointer" }} onClick={() => setSelectedApprovalRecord(row)}>
                         <TableCell sx={{ fontWeight: 700, color: "#2563eb", fontSize: "13px", py: 1, px: 1.2 }}>{row.registrationNo}</TableCell>
                         <TableCell sx={{ color: "#334155", fontSize: "12.5px", py: 1, px: 1.2 }}>{row.owner || "-"}</TableCell>
                         <TableCell sx={{ fontWeight: 600, fontSize: "12.5px", py: 1, px: 1.2 }}>{row.prNumber || "N/A"}</TableCell>
@@ -1423,7 +1498,10 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                             variant="contained"
                             size="small"
                             startIcon={<CheckCircle sx={{ fontSize: 16 }} />}
-                            onClick={() => onOpenApproval ? onOpenApproval(row) : onEdit(row)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedApprovalRecord(row);
+                            }}
                             sx={{
                               borderRadius: "6px",
                               textTransform: "none",
@@ -1566,6 +1644,488 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
           }}
         />
       )}
+
+      {/* ─── QUICK REVIEW & 1-CLICK APPROVAL DRAWER / SNACKBAR MODAL ─── */}
+      <Drawer
+        anchor="bottom"
+        open={Boolean(selectedApprovalRecord)}
+        onClose={() => setSelectedApprovalRecord(null)}
+        PaperProps={{
+          sx: {
+            borderTopLeftRadius: "16px",
+            borderTopRightRadius: "16px",
+            maxHeight: "90vh",
+            maxWidth: "1050px",
+            mx: "auto",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            boxShadow: "0 -8px 32px rgba(15, 23, 42, 0.25)",
+            border: "1px solid #cbd5e1",
+            bgcolor: "#fff"
+          }
+        }}
+      >
+        {selectedApprovalRecord && (() => {
+          const row = selectedApprovalRecord;
+          const expStr = row.policyToDate || row.newPolicyToDate || row.newExpiryDate;
+          const expDate = expStr ? new Date(expStr) : null;
+          const now = new Date();
+          const diffDays = expDate ? Math.ceil((expDate - now) / (1000 * 60 * 60 * 24)) : null;
+          const isExpired = diffDays !== null && diffDays < 0;
+          const isUrgent = diffDays !== null && diffDays >= 0 && diffDays <= 7;
+
+          const totalPremium = Number(
+            row.newTotalPolicyPremium ||
+            row.newPremiumAmount ||
+            row.newPremium ||
+            row.totalPolicyPremium ||
+            row.premiumQuote ||
+            row.premiumAmount ||
+            0
+          );
+
+          return (
+            <>
+              {/* Drawer Top Header */}
+              <Box sx={{
+                bgcolor: "#0f172a",
+                color: "#ffffff",
+                px: 3,
+                py: 2,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 1.5
+              }}>
+                <Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}>
+                    <Chip
+                      label="3. FINANCE APPROVAL • 1-CLICK REVIEW"
+                      size="small"
+                      sx={{ bgcolor: "#1e293b", color: "#60a5fa", fontWeight: 800, fontSize: "10.5px", height: 22 }}
+                    />
+                    <Typography sx={{ fontSize: "18px", fontWeight: 900, color: "#38bdf8", letterSpacing: "0.02em" }}>
+                      {row.registrationNo}
+                    </Typography>
+                  </Box>
+                  <Typography sx={{ fontSize: "12.5px", color: "#94a3b8" }}>
+                    Owner: <strong style={{ color: "#f8fafc" }}>{row.owner || "-"}</strong> • PR No: <strong style={{ color: "#f8fafc" }}>{row.prNumber || "N/A"}</strong> • PR Date: <strong style={{ color: "#f8fafc" }}>{row.prDate ? new Date(row.prDate).toLocaleDateString("en-IN") : "-"}</strong>
+                  </Typography>
+                </Box>
+
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    disabled={isApproving}
+                    startIcon={isApproving ? <CircularProgress size={16} color="inherit" /> : <FlashOn sx={{ fontSize: 18 }} />}
+                    onClick={() => handleOneClickApprove(row)}
+                    sx={{
+                      bgcolor: "#16a34a",
+                      "&:hover": { bgcolor: "#15803d" },
+                      fontWeight: 800,
+                      fontSize: "13px",
+                      textTransform: "none",
+                      px: 2.5,
+                      py: 0.8,
+                      borderRadius: "8px",
+                      boxShadow: "0 2px 8px rgba(22, 163, 74, 0.4)"
+                    }}
+                  >
+                    {isApproving ? "Approving..." : "1-Click Approve"}
+                  </Button>
+                  <IconButton onClick={() => setSelectedApprovalRecord(null)} sx={{ color: "#94a3b8", "&:hover": { color: "#fff", bgcolor: "#1e293b" } }}>
+                    <Close />
+                  </IconButton>
+                </Box>
+              </Box>
+
+              {/* Drawer Body - Scrollable */}
+              <Box sx={{ p: 3, overflowY: "auto", flex: 1, bgcolor: "#f8fafc" }}>
+                {/* ─── HIGHLIGHTED EXPIRY DATE BANNER ─── */}
+                <Box sx={{
+                  background: isExpired 
+                    ? "linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)" 
+                    : isUrgent 
+                      ? "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)" 
+                      : "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
+                  border: isExpired 
+                    ? "2.5px solid #dc2626" 
+                    : isUrgent 
+                      ? "2.5px solid #d97706" 
+                      : "2.5px solid #2563eb",
+                  borderRadius: "12px",
+                  p: "14px 20px",
+                  mb: 2.5,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: 2,
+                  boxShadow: isExpired 
+                    ? "0 4px 16px rgba(220, 38, 38, 0.22)" 
+                    : "0 4px 14px rgba(37, 99, 235, 0.15)"
+                }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <Box sx={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: "12px",
+                      bgcolor: isExpired ? "#dc2626" : isUrgent ? "#d97706" : "#2563eb",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.2)"
+                    }}>
+                      <CalendarToday sx={{ fontSize: 24 }} />
+                    </Box>
+                    <Box>
+                      <Typography sx={{
+                        fontSize: "11.5px",
+                        fontWeight: 900,
+                        color: isExpired ? "#991b1b" : isUrgent ? "#92400e" : "#1e40af",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.8
+                      }}>
+                        <span>⚠️</span> CURRENT POLICY EXPIRY DATE (HIGHLIGHTED)
+                      </Typography>
+                      <Typography sx={{
+                        fontSize: "22px",
+                        fontWeight: 900,
+                        color: isExpired ? "#b91c1c" : isUrgent ? "#b45309" : "#1d4ed8",
+                        letterSpacing: "-0.01em"
+                      }}>
+                        {expDate ? expDate.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }) : "Date Not Available"}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Chip
+                    label={
+                      isExpired 
+                        ? `⚠️ EXPIRED ${Math.abs(diffDays)} DAYS AGO` 
+                        : diffDays === 0 
+                          ? "🔥 EXPIRES TODAY!" 
+                          : `⏳ EXPIRES IN ${diffDays} DAYS`
+                    }
+                    sx={{
+                      fontWeight: 900,
+                      fontSize: "13px",
+                      height: 38,
+                      px: 2,
+                      bgcolor: isExpired ? "#dc2626" : isUrgent ? "#ea580c" : "#2563eb",
+                      color: "#fff",
+                      borderRadius: "8px",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.2)"
+                    }}
+                  />
+                </Box>
+
+                {/* ─── 3. PROPOSED RENEWED POLICY & PREMIUM BREAKDOWN IN TABLE FORM ─── */}
+                <Paper elevation={0} sx={{ borderRadius: "10px", border: "1px solid #cbd5e1", overflow: "hidden", mb: 2 }}>
+                  <Box sx={{
+                    bgcolor: "#f1f5f9",
+                    px: 2.5,
+                    py: 1.5,
+                    borderBottom: "1px solid #cbd5e1",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between"
+                  }}>
+                    <Typography sx={{ fontWeight: 800, color: "#1e40af", fontSize: "14px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      3. Proposed Renewed Policy & Premium Breakdown
+                    </Typography>
+                    <Typography sx={{ fontSize: "12px", color: "#64748b", fontWeight: 600 }}>
+                      Review breakdown before 1-click approval
+                    </Typography>
+                  </Box>
+
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead sx={{ bgcolor: "#0f172a" }}>
+                        <TableRow>
+                          <TableCell sx={{ color: "#ffffff !important", fontWeight: 700, fontSize: "12px", py: 1.2 }}>Component / Coverage Description</TableCell>
+                          <TableCell sx={{ color: "#ffffff !important", fontWeight: 700, fontSize: "12px", py: 1.2, textAlign: "right" }}>Proposed Value</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        <TableRow hover>
+                          <TableCell sx={{ fontWeight: 600, color: "#334155", fontSize: "12.5px" }}>New Insurance Company</TableCell>
+                          <TableCell sx={{ fontWeight: 800, color: "#1e40af", fontSize: "13px", textAlign: "right" }}>
+                            {row.newInsuranceCompany || row.insuranceCompany || "-"}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow hover sx={{ bgcolor: "#f8fafc" }}>
+                          <TableCell sx={{ fontWeight: 600, color: "#334155", fontSize: "12.5px" }}>Proposed Renewal Period</TableCell>
+                          <TableCell sx={{ fontWeight: 600, fontSize: "12.5px", textAlign: "right" }}>
+                            {row.newPolicyFromDate ? new Date(row.newPolicyFromDate).toLocaleDateString("en-IN") : "-"} to{" "}
+                            <span style={{ color: "#dc2626", fontWeight: 800, background: "#fee2e2", padding: "2px 8px", borderRadius: "4px" }}>
+                              {row.newPolicyToDate ? new Date(row.newPolicyToDate).toLocaleDateString("en-IN") : "-"}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                        <TableRow hover>
+                          <TableCell sx={{ fontWeight: 600, color: "#334155", fontSize: "12.5px" }}>New Basic IDV (₹)</TableCell>
+                          <TableCell sx={{ fontWeight: 600, fontSize: "12.5px", textAlign: "right" }}>
+                            ₹ {Number(row.newIdv || 0).toLocaleString("en-IN")}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow hover sx={{ bgcolor: "#f8fafc" }}>
+                          <TableCell sx={{ fontWeight: 700, color: "#0f172a", fontSize: "12.5px" }}>New Total IDV (₹)</TableCell>
+                          <TableCell sx={{ fontWeight: 800, color: "#0f172a", fontSize: "13px", textAlign: "right" }}>
+                            ₹ {Number(row.newTotalIdv || row.newIdv || 0).toLocaleString("en-IN")}
+                          </TableCell>
+                        </TableRow>
+                        {/* Section 3 OD Breakdown Group */}
+                        <TableRow sx={{ bgcolor: "#eff6ff" }}>
+                          <TableCell colSpan={2} sx={{ fontWeight: 800, color: "#1e40af", fontSize: "12px", py: 0.8, textTransform: "uppercase" }}>
+                            Own Damage (OD) Breakdown
+                          </TableCell>
+                        </TableRow>
+                        <TableRow hover>
+                          <TableCell sx={{ pl: 3.5, fontSize: "12.5px", color: "#475569" }}>• New OD Premium</TableCell>
+                          <TableCell sx={{ fontSize: "12.5px", textAlign: "right", fontWeight: 600 }}>
+                            ₹ {Number(row.newOdPremium || 0).toLocaleString("en-IN")}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow hover sx={{ bgcolor: "#f8fafc" }}>
+                          <TableCell sx={{ pl: 3.5, fontSize: "12.5px", color: "#475569" }}>• New IMT 23</TableCell>
+                          <TableCell sx={{ fontSize: "12.5px", textAlign: "right", fontWeight: 600 }}>
+                            ₹ {Number(row.newImt23 || 0).toLocaleString("en-IN")}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow hover>
+                          <TableCell sx={{ pl: 3.5, fontSize: "12.5px", color: "#475569" }}>• New IMT 24</TableCell>
+                          <TableCell sx={{ fontSize: "12.5px", textAlign: "right", fontWeight: 600 }}>
+                            ₹ {Number(row.newImt24 || 0).toLocaleString("en-IN")}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow hover sx={{ bgcolor: "#f8fafc" }}>
+                          <TableCell sx={{ pl: 3.5, fontSize: "12.5px", color: "#475569" }}>• New IMT 25</TableCell>
+                          <TableCell sx={{ fontSize: "12.5px", textAlign: "right", fontWeight: 600 }}>
+                            ₹ {Number(row.newImt25 || 0).toLocaleString("en-IN")}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow hover>
+                          <TableCell sx={{ pl: 3.5, fontSize: "12.5px", color: "#475569" }}>• New NCB Amount</TableCell>
+                          <TableCell sx={{ fontSize: "12.5px", textAlign: "right", fontWeight: 600, color: "#16a34a" }}>
+                            ₹ {Number(row.newNcbAmount || 0).toLocaleString("en-IN")}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow hover sx={{ bgcolor: "#f1f5f9" }}>
+                          <TableCell sx={{ pl: 3.5, fontWeight: 700, fontSize: "12.5px", color: "#0f172a" }}>= New Total OD Premium</TableCell>
+                          <TableCell sx={{ fontWeight: 800, fontSize: "13px", textAlign: "right", color: "#0f172a" }}>
+                            ₹ {Number(row.newTotalOdPremium || 0).toLocaleString("en-IN")}
+                          </TableCell>
+                        </TableRow>
+
+                        {/* Section 3 Additional Covers Group */}
+                        <TableRow sx={{ bgcolor: "#eff6ff" }}>
+                          <TableCell colSpan={2} sx={{ fontWeight: 800, color: "#1e40af", fontSize: "12px", py: 0.8, textTransform: "uppercase" }}>
+                            Additional Covers & Taxes
+                          </TableCell>
+                        </TableRow>
+                        <TableRow hover>
+                          <TableCell sx={{ pl: 3.5, fontSize: "12.5px", color: "#475569" }}>• New IMT 17</TableCell>
+                          <TableCell sx={{ fontSize: "12.5px", textAlign: "right", fontWeight: 600 }}>
+                            ₹ {Number(row.newImt17 || 0).toLocaleString("en-IN")}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow hover sx={{ bgcolor: "#f8fafc" }}>
+                          <TableCell sx={{ pl: 3.5, fontSize: "12.5px", color: "#475569" }}>• New IMT 252</TableCell>
+                          <TableCell sx={{ fontSize: "12.5px", textAlign: "right", fontWeight: 600 }}>
+                            ₹ {Number(row.newImt252 || 0).toLocaleString("en-IN")}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow hover>
+                          <TableCell sx={{ pl: 3.5, fontSize: "12.5px", color: "#475569" }}>• New IMT 28 / IMT 29</TableCell>
+                          <TableCell sx={{ fontSize: "12.5px", textAlign: "right", fontWeight: 600 }}>
+                            ₹ {Number(row.newImt28 || row.newImt29 || 0).toLocaleString("en-IN")}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow hover sx={{ bgcolor: "#f8fafc" }}>
+                          <TableCell sx={{ pl: 3.5, fontSize: "12.5px", color: "#475569" }}>• New Liability Premium</TableCell>
+                          <TableCell sx={{ fontSize: "12.5px", textAlign: "right", fontWeight: 600 }}>
+                            ₹ {Number(row.newLiabilityPremium || 0).toLocaleString("en-IN")}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow hover>
+                          <TableCell sx={{ pl: 3.5, fontSize: "12.5px", color: "#475569" }}>• New GST 18%</TableCell>
+                          <TableCell sx={{ fontSize: "12.5px", textAlign: "right", fontWeight: 600 }}>
+                            ₹ {Number(row.newTotalGst || 0).toLocaleString("en-IN")}
+                          </TableCell>
+                        </TableRow>
+
+                        {/* Custom Fields if any */}
+                        {(row.section3CustomFields || []).map((cf, idx) => (
+                          <TableRow key={`s3-${idx}`} hover>
+                            <TableCell sx={{ pl: 3.5, fontSize: "12.5px", color: "#475569" }}>• {cf.label || `Custom Field ${idx + 1}`}</TableCell>
+                            <TableCell sx={{ fontSize: "12.5px", textAlign: "right", fontWeight: 600 }}>{String(cf.value ?? "-")}</TableCell>
+                          </TableRow>
+                        ))}
+                        {(row.section3BCustomFields || []).map((cf, idx) => (
+                          <TableRow key={`s3b-${idx}`} hover>
+                            <TableCell sx={{ pl: 3.5, fontSize: "12.5px", color: "#475569" }}>• {cf.label || `Custom Field ${idx + 1}`}</TableCell>
+                            <TableCell sx={{ fontSize: "12.5px", textAlign: "right", fontWeight: 600 }}>
+                              {cf.value ? `₹ ${Number(cf.value).toLocaleString("en-IN")}` : "-"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+
+                        {/* Grand Total Row */}
+                        <TableRow sx={{ bgcolor: "#ecfdf5", borderTop: "2.5px solid #10b981" }}>
+                          <TableCell sx={{ fontWeight: 900, fontSize: "14px", color: "#065f46", py: 1.5 }}>
+                            RENEWED TOTAL POLICY PREMIUM
+                          </TableCell>
+                          <TableCell sx={{ textAlign: "right", fontWeight: 900, fontSize: "19px", color: "#047857", py: 1.5 }}>
+                            ₹ {totalPremium.toLocaleString("en-IN")}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Paper>
+              </Box>
+
+              {/* Drawer Footer Actions */}
+              <Box sx={{
+                bgcolor: "#ffffff",
+                borderTop: "1px solid #e2e8f0",
+                px: 3,
+                py: 2,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 1.5
+              }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Launch sx={{ fontSize: 16 }} />}
+                  onClick={() => {
+                    setSelectedApprovalRecord(null);
+                    if (onOpenApproval) onOpenApproval(row);
+                    else onEdit(row);
+                  }}
+                  sx={{ textTransform: "none", fontWeight: 600, fontSize: "12.5px", borderColor: "#cbd5e1", color: "#475569" }}
+                >
+                  Open Full SOP Form
+                </Button>
+
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                  <Button
+                    variant="outlined"
+                    color="inherit"
+                    size="small"
+                    onClick={() => setSelectedApprovalRecord(null)}
+                    sx={{ textTransform: "none", fontWeight: 600, fontSize: "12.5px", color: "#64748b" }}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    disabled={isApproving}
+                    startIcon={<Cancel sx={{ fontSize: 16 }} />}
+                    onClick={() => handleOneClickReject(row)}
+                    sx={{ textTransform: "none", fontWeight: 700, fontSize: "12.5px" }}
+                  >
+                    Reject Proposal
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    disabled={isApproving}
+                    startIcon={isApproving ? <CircularProgress size={16} color="inherit" /> : <CheckCircle sx={{ fontSize: 18 }} />}
+                    onClick={() => handleOneClickApprove(row)}
+                    sx={{
+                      bgcolor: "#16a34a",
+                      "&:hover": { bgcolor: "#15803d" },
+                      fontWeight: 800,
+                      fontSize: "13.5px",
+                      textTransform: "none",
+                      px: 3,
+                      py: 1,
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(22, 163, 74, 0.35)"
+                    }}
+                  >
+                    {isApproving ? "Approving..." : "✓ 1-Click Approve"}
+                  </Button>
+                </Box>
+              </Box>
+            </>
+          );
+        })()}
+      </Drawer>
+
+      {/* Floating Pending Approvals Quick-Action Snackbar Bar */}
+      {mainTab === 2 && approvalRecords.length > 0 && !selectedApprovalRecord && (
+        <Snackbar
+          open={true}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        >
+          <Alert
+            severity="info"
+            icon={<FlashOn sx={{ color: "#2563eb" }} />}
+            sx={{
+              bgcolor: "#0f172a",
+              color: "#ffffff",
+              borderRadius: "10px",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+              border: "1px solid #334155",
+              alignItems: "center",
+              "& .MuiAlert-icon": { color: "#60a5fa" }
+            }}
+            action={
+              <Button
+                color="primary"
+                size="small"
+                variant="contained"
+                onClick={() => setSelectedApprovalRecord(approvalRecords[0])}
+                sx={{
+                  bgcolor: "#2563eb",
+                  fontWeight: 700,
+                  fontSize: "12px",
+                  textTransform: "none",
+                  borderRadius: "6px",
+                  px: 1.5,
+                  py: 0.5
+                }}
+              >
+                Review First Record
+              </Button>
+            }
+          >
+            <strong>{approvalRecords.length}</strong> Pending Financial Approval{approvalRecords.length > 1 ? "s" : ""} • Click any record to review breakdown & approve in 1 click
+          </Alert>
+        </Snackbar>
+      )}
+
+      {/* Notification Toast / Feedback Snackbar */}
+      <Snackbar
+        open={approvalSnackbar.open}
+        autoHideDuration={5000}
+        onClose={() => setApprovalSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setApprovalSnackbar(prev => ({ ...prev, open: false }))}
+          severity={approvalSnackbar.severity}
+          variant="filled"
+          sx={{ width: "100%", fontWeight: 700, fontSize: "13px", boxShadow: "0 4px 16px rgba(0,0,0,0.2)" }}
+        >
+          {approvalSnackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

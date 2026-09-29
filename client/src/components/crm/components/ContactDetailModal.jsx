@@ -12,51 +12,54 @@ export default function ContactDetailModal({ isOpen, onClose, contact, onEdit, o
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.7)',
+      backgroundColor: 'rgba(15, 23, 42, 0.75)',
       backdropFilter: 'blur(8px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 1010,
-      padding: '20px'
+      padding: '16px',
+      overflowY: 'auto'
     }}>
       <div style={{
         background: '#fff',
         width: '100%',
         maxWidth: '700px',
-        borderRadius: '16px',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+        borderRadius: '18px',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         overflow: 'hidden',
-        maxHeight: '80vh',
-        overflowY: 'auto'
+        maxHeight: 'min(92vh, 800px)',
+        display: 'flex',
+        flexDirection: 'column',
+        margin: 'auto'
       }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ background: '#f59e0b', padding: '10px', borderRadius: '10px', color: 'white' }}>
-              <User size={24} />
+              <User size={22} />
             </div>
             <div>
-              <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.2rem' }}>{contact.firstName} {contact.lastName}</h3>
-              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>{contact.title || 'Contact'}</span>
+              <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.15rem' }}>{contact.firstName} {contact.lastName}</h3>
+              <span style={{ fontSize: '0.825rem', color: '#64748b' }}>{contact.title || 'Contact'}</span>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button
               onClick={() => {
                 onEdit(contact);
                 onClose();
               }}
-              style={{ padding: '8px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{ padding: '7px 14px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.825rem', fontWeight: 600 }}
             >
-              <Edit2 size={16} /> Edit
+              <Edit2 size={15} /> Edit
             </button>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
-              <X size={20} />
+            <button onClick={onClose} style={{ background: '#fff', border: '1px solid #e2e8f0', cursor: 'pointer', color: '#64748b', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <X size={18} />
             </button>
           </div>
         </div>
 
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: '22px', overflowY: 'auto', flex: 1 }}>
           {/* Contact Info */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
             <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #4f46e5' }}>

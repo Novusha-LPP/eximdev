@@ -8,6 +8,7 @@ const allowedServices = [
   'transportation',
   'paramount',
   'rabs',
+  'autorack',
   'auto rack'
 ];
 
@@ -56,6 +57,7 @@ const opportunitySchema = new mongoose.Schema({
   referredFromTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'SalesTeam' },
   referredToTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'SalesTeam' },
   referredByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  referredToUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   referredAt: { type: Date },
   isReferral: { type: Boolean, default: false },
   location: { type: String, trim: true },

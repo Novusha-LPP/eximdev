@@ -12,10 +12,10 @@ export default function FilterBar({ moduleName, onChange, disabled = false, onCl
       console.error('Error loading filters from storage:', e);
     }
     
-    // Default to 'This Month'
+    // Default to 'All'
     return {
-      type: 'this_month', // 'this_month' | 'last_month' | 'this_week' | 'last_7_days' | 'month_picker' | 'custom'
-      month: new Date().toISOString().substring(0, 7), // YYYY-MM
+      type: 'all',
+      month: '',
       startDate: '',
       endDate: ''
     };
@@ -26,14 +26,11 @@ export default function FilterBar({ moduleName, onChange, disabled = false, onCl
   // Sync when resetTrigger triggers
   useEffect(() => {
     if (resetTrigger > 0) {
-      const now = new Date();
-      const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().substring(0, 10);
-      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().substring(0, 10);
       setFilters({
-        type: 'this_month',
-        month: now.toISOString().substring(0, 7),
-        startDate,
-        endDate
+        type: 'all',
+        month: '',
+        startDate: '',
+        endDate: ''
       });
     }
   }, [resetTrigger]);
@@ -62,7 +59,15 @@ export default function FilterBar({ moduleName, onChange, disabled = false, onCl
     let endDate = '';
     const now = new Date();
 
-    if (type === 'this_month') {
+    if (type === 'all') {
+      setFilters({
+        type: 'all',
+        month: '',
+        startDate: '',
+        endDate: ''
+      });
+      return;
+    } else if (type === 'this_month') {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().substring(0, 10);
       endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().substring(0, 10);
     } else if (type === 'last_month') {
@@ -89,7 +94,15 @@ export default function FilterBar({ moduleName, onChange, disabled = false, onCl
 
   const handleMonthChange = (e) => {
     const month = e.target.value;
-    if (!month) return;
+    if (!month) {
+      setFilters({
+        type: 'all',
+        month: '',
+        startDate: '',
+        endDate: ''
+      });
+      return;
+    }
     const [year, m] = month.split('-');
     const startDate = new Date(year, parseInt(m) - 1, 1).toISOString().substring(0, 10);
     const endDate = new Date(year, parseInt(m), 0).toISOString().substring(0, 10);
@@ -112,15 +125,11 @@ export default function FilterBar({ moduleName, onChange, disabled = false, onCl
   };
 
   const handleReset = () => {
-    const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().substring(0, 10);
-    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().substring(0, 10);
-
     const defaultFilters = {
-      type: 'this_month',
-      month: now.toISOString().substring(0, 7),
-      startDate,
-      endDate
+      type: 'all',
+      month: '',
+      startDate: '',
+      endDate: ''
     };
 
     setFilters(defaultFilters);
@@ -161,6 +170,7 @@ export default function FilterBar({ moduleName, onChange, disabled = false, onCl
           <Filter size={16} /> Filters
         </div>
         {[
+          { id: 'all', label: 'All' },
           { id: 'this_month', label: 'This Month' },
           { id: 'last_month', label: 'Last Month' },
           { id: 'this_week', label: 'This Week' },
@@ -250,7 +260,7 @@ export default function FilterBar({ moduleName, onChange, disabled = false, onCl
               outline: 'none'
             }}
           >
-            <option value="">-- Choose Month --</option>
+            <option value="">All Months</option>
             {getMonthsList().map(m => (
               <option key={m.val} value={m.val}>{m.label}</option>
             ))}

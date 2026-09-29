@@ -99,6 +99,7 @@ const emptyRecord = {
   newModerationAmountTipper: "",
   newTotalIdv: "",
   newPremiumAmount: "",
+  newNcbAmount: "",
   newNcb: "",
   newPremium: "",
   newRemarks: "",
@@ -212,7 +213,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
             }
             if (fetchedData.newTotalIdv) fetchedData.totalIdv = fetchedData.newTotalIdv;
             if (fetchedData.newPremiumAmount) fetchedData.premiumAmount = fetchedData.newPremiumAmount;
-            if (fetchedData.newNcb) fetchedData.ncbPercentage = fetchedData.newNcb;
+            if (fetchedData.newNcbAmount !== undefined && fetchedData.newNcbAmount !== null) fetchedData.ncbAmount = fetchedData.newNcbAmount;
             if (fetchedData.newPremium) fetchedData.premium = fetchedData.newPremium;
             if (fetchedData.newRemarks) fetchedData.remarks = fetchedData.newRemarks;
             // Copy renewed premium breakdown into previous premium breakdown
@@ -242,6 +243,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
             fetchedData.newModerationAmountTipper = "";
             fetchedData.newTotalIdv = "";
             fetchedData.newPremiumAmount = "";
+            fetchedData.newNcbAmount = "";
             fetchedData.newNcb = "";
             fetchedData.newPremium = "";
             fetchedData.newRemarks = "";
@@ -292,7 +294,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
               }
               if (fetchedData.totalIdv) fetchedData.newTotalIdv = fetchedData.totalIdv;
               if (fetchedData.premiumAmount) fetchedData.newPremiumAmount = fetchedData.premiumAmount;
-              if (fetchedData.ncbPercentage) fetchedData.newNcb = fetchedData.ncbPercentage;
+              if (fetchedData.ncbAmount !== undefined && fetchedData.ncbAmount !== null) fetchedData.newNcbAmount = fetchedData.ncbAmount;
               if (fetchedData.premium) fetchedData.newPremium = fetchedData.premium;
               if (fetchedData.remarks) fetchedData.newRemarks = fetchedData.remarks;
 
@@ -538,7 +540,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       }
       if (dataToSave.newTotalIdv) dataToSave.totalIdv = dataToSave.newTotalIdv;
       if (dataToSave.newPremiumAmount) dataToSave.premiumAmount = dataToSave.newPremiumAmount;
-      if (dataToSave.newNcb) dataToSave.ncbPercentage = dataToSave.newNcb;
+      if (dataToSave.newNcbAmount !== undefined && dataToSave.newNcbAmount !== null) dataToSave.ncbAmount = dataToSave.newNcbAmount;
       if (dataToSave.newPremium) dataToSave.premium = dataToSave.newPremium;
       if (dataToSave.newRemarks) dataToSave.remarks = dataToSave.newRemarks;
       if (dataToSave.newOdPremium) dataToSave.odPremium = dataToSave.newOdPremium;
@@ -712,7 +714,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
     const imt23 = Number(formData.newImt23) || 0;
     const imt24 = Number(formData.newImt24) || 0;
     const imt25 = Number(formData.newImt25) || 0;
-    const ncb = Number(formData.newNcbAmount ?? formData.newNcb) || 0;
+    const ncb = Number(formData.newNcbAmount) || 0;
 
     const calcTotalOd = od + jack + mod + imt23 + imt24 + imt25 - ncb;
 
@@ -730,7 +732,6 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
     formData.newImt24,
     formData.newImt25,
     formData.newNcbAmount,
-    formData.newNcb,
     formData.newTotalOdPremium,
   ]);
 

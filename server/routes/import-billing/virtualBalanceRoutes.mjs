@@ -218,6 +218,9 @@ router.get(["/api/virtual-balance", "/api/cfs-virtual-balance"], async (req, res
           (e.jobNo && e.jobNo.toLowerCase().includes(term)) ||
           (e.cfsName && e.cfsName.toLowerCase().includes(term)) ||
           (e.partyName && e.partyName.toLowerCase().includes(term)) ||
+          (e.bankAccountNo && e.bankAccountNo.toLowerCase().includes(term)) ||
+          (e.bankName && e.bankName.toLowerCase().includes(term)) ||
+          (e.bankIfsc && e.bankIfsc.toLowerCase().includes(term)) ||
           (e.utr && e.utr.toLowerCase().includes(term)) ||
           (e.remarks && e.remarks.toLowerCase().includes(term))
         );
@@ -250,7 +253,7 @@ router.get(["/api/virtual-balance", "/api/cfs-virtual-balance"], async (req, res
 // POST /api/virtual-balance - Create a new virtual balance entry
 router.post(["/api/virtual-balance", "/api/cfs-virtual-balance"], async (req, res) => {
   try {
-    const { cfsName, jobNo, amountPaid, utr, fromBank, remarks, status = "unpaid", fileUrl } = req.body;
+    const { cfsName, jobNo, amountPaid, utr, fromBank, remarks, status = "unpaid", fileUrl, bankAccountNo, bankName, bankIfsc } = req.body;
     const type = getBalanceType(req);
 
     if (!cfsName || amountPaid === undefined) {
@@ -332,6 +335,9 @@ router.put(["/api/virtual-balance/:id", "/api/cfs-virtual-balance/:id"], async (
     if (fromBank !== undefined) entry.fromBank = fromBank;
     if (remarks !== undefined) entry.remarks = remarks;
     if (fileUrl !== undefined) entry.fileUrl = fileUrl;
+    if (req.body.bankAccountNo !== undefined) entry.bankAccountNo = req.body.bankAccountNo;
+    if (req.body.bankName !== undefined) entry.bankName = req.body.bankName;
+    if (req.body.bankIfsc !== undefined) entry.bankIfsc = req.body.bankIfsc;
 
     if (status && status.toLowerCase() !== entry.status) {
       const prevStatus = entry.status;

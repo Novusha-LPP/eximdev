@@ -47,6 +47,7 @@ import {
   CheckCircle,
   AccountBalance,
   AttachFile,
+  AssignmentTurnedIn,
 } from "@mui/icons-material";
 import { toast } from "react-hot-toast";
 
@@ -60,6 +61,95 @@ const stageTabsList = [
   { label: "6. Site GRN", value: "6" },
   { label: "7. Completed", value: "7" },
 ];
+
+const parseCreditDays = (terms) => {
+  if (!terms) return 0;
+  const str = String(terms).toUpperCase().trim();
+  if (str.includes("ADVANCE") || str.includes("ADV")) return 0;
+  const match = str.match(/(\d+)\s*(DAY|DAYS)?/);
+  return match && match[1] ? parseInt(match[1], 10) : 0;
+};
+
+const getPrCreditInfo = (doc) => {
+  if (!doc) return { isCredit: false, maxCreditDays: 0, diffDays: 999, isDueSoon: false, isOverdue: false, isPaid: false };
+  const s2 = doc.stage2 || {};
+  const s3 = doc.stage3 || {};
+  const s4 = doc.stage4 || {};
+  const s5 = doc.stage5 || {};
+  const s6 = doc.stage6 || {};
+
+  const selectedSuppliers = s2.selectedSuppliers || [];
+  const suppliers = s2.suppliers || [];
+  const supplierPayments = s4.supplierPayments || [];
+
+  let creditDaysList = [];
+  if (selectedSuppliers.length > 0) {
+    selectedSuppliers.forEach((sel) => {
+      const selName = (sel.selectedSupplier || "").toUpperCase().trim();
+      const matchSup = suppliers.find(
+        (s) => (s.supplierName || "").toUpperCase().trim() === selName || String(s._id) === String(sel.selectedSupplier)
+      );
+      const terms = matchSup?.paymentTerms || sel.paymentTerms;
+      creditDaysList.push(parseCreditDays(terms));
+    });
+  } else if (suppliers.length > 0) {
+    suppliers.forEach((s) => {
+      if (s.supplierName) {
+        creditDaysList.push(parseCreditDays(s.paymentTerms));
+      }
+    });
+  } else if (supplierPayments.length > 0) {
+    supplierPayments.forEach((sp) => {
+      creditDaysList.push(parseCreditDays(sp.paymentTerms));
+    });
+  }
+
+  const maxCreditDays = creditDaysList.length > 0 ? Math.max(...creditDaysList) : 0;
+  const isCredit = maxCreditDays > 0;
+
+  const isPaid =
+    supplierPayments.length > 0
+      ? supplierPayments.every((sp) => Boolean(sp.isPaid && sp.utrNumber?.trim()))
+      : Boolean(
+          (s4.paymentDetails?.paymentReferenceUtr?.trim() || s4.paymentDetails?.paymentDate) &&
+          doc.status !== "Finance Approved"
+        );
+
+  const invDateStr =
+    s6.referenceInfos?.[0]?.invoiceDate ||
+    s6.itemsReceived?.[0]?.invoiceDate ||
+    s5.supplierDispatches?.[0]?.dispatchDetails?.invoiceDate ||
+    s5.dispatchDetails?.invoiceDate;
+
+  const baseDate = invDateStr
+    ? new Date(invDateStr)
+    : s3.signOff?.dateOfApproval
+    ? new Date(s3.signOff.dateOfApproval)
+    : doc.createdAt
+    ? new Date(doc.createdAt)
+    : new Date();
+
+  const dueDate = new Date(baseDate.getTime() + maxCreditDays * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dueDateStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+  const diffDays = Math.round((dueDateStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24));
+
+  const isDueSoon = isCredit && !isPaid && diffDays <= 7 && diffDays > 0;
+  const isOverdue = isCredit && !isPaid && diffDays <= 0;
+
+  return {
+    isCredit,
+    maxCreditDays,
+    dueDate,
+    dueDateStr: dueDate.toLocaleDateString("en-GB"),
+    baseDateStr: baseDate.toLocaleDateString("en-GB"),
+    diffDays,
+    isDueSoon,
+    isOverdue,
+    isPaid,
+  };
+};
 
 const isCompletedSiteGrn = (row) => {
   const approvals = row.stage6?.approvals || [];
@@ -133,7 +223,9 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   const userIdentity = [user?.username, user?.first_name, user?.middle_name, user?.last_name]
     .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
   const isAjay = (user?.username || "").toLowerCase().includes("ajay") || userIdentity.includes("ajay");
-  const isAdmin = userRole === "admin" || userRole === "superadmin" || isAjay;
+  const isGlobalAdmin = userRole === "admin" || userRole === "superadmin" || isAjay;
+  const [isProcurementAdmin, setIsProcurementAdmin] = useState(false);
+  const isAdmin = isGlobalAdmin || isProcurementAdmin;
   const canOverrideSignOffLock = isAdmin;
 
   const [data, setData] = useState([]);
@@ -147,21 +239,23 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
 
   useEffect(() => {
     async function fetchUserTabs() {
-      if (user?.username && !isAdmin) {
-        try {
-          const res = await axios.get(
-            `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
-          );
-          if (res.data?.success && res.data.allowed_tabs?.length > 0) {
-            setAllowedUserTabs(res.data.allowed_tabs);
-          }
-        } catch (err) {
-          console.error("Error fetching allowed tabs:", err);
+      setIsProcurementAdmin(false);
+      setAllowedUserTabs([]);
+      if (!user?.username || isGlobalAdmin) return;
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
+        );
+        if (res.data?.success) {
+          setAllowedUserTabs(res.data.allowed_tabs || []);
+          setIsProcurementAdmin(Boolean(res.data.tyre_procurement_admin));
         }
+      } catch (err) {
+        console.error("Error fetching allowed tabs:", err);
       }
     }
     fetchUserTabs();
-  }, [user, isAdmin]);
+  }, [user, isGlobalAdmin]);
 
   const isTabVisible = (tabLabel, tabValue) => {
     if (isAdmin || allowedUserTabs.length === 0 || tabValue === "0") return true;
@@ -208,7 +302,11 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
       case "3":
         return list.filter((d) => d.status === "Quotation Received" || d.status === "Quotation Updated").length;
       case "4":
-        return list.filter((d) => d.status === "Finance Approved").length;
+        return list.filter((d) => {
+          if (d.status === "Finance Approved") return true;
+          const ci = d.creditInfo || getPrCreditInfo(d);
+          return ci.isCredit && !ci.isPaid && ci.diffDays <= 7;
+        }).length;
       case "5":
         return list.filter((d) => d.status === "Payment Done" || d.status === "Order Placed" || d.status === "Dispatched").length;
       case "6":
@@ -265,7 +363,17 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   };
 
   const canEnterPaymentUtr = (row) => {
-    return stageTab === "4";
+    if (stageTab === "4") return true;
+    const ci = row?.creditInfo || getPrCreditInfo(row);
+    if (ci.isCredit && !ci.isPaid && ci.diffDays <= 7) return true;
+    return row?.status === "Finance Approved";
+  };
+
+  const canUpdateSiteGrn = (row) => {
+    return (
+      stageTab === "6" &&
+      !isCompletedSiteGrn(row)
+    );
   };
 
   const handleOpenQuickApproval = (row) => {
@@ -433,9 +541,13 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
 
       const primaryPayment = updatedSupplierPayments.find((sp) => sp.utrNumber?.trim()) || updatedSupplierPayments[0];
 
+      const targetStatus = ["GRN Done", "GRN Completed", "Closed", "GRN Ready", "GRN Received", "Dispatched / Site GRN Ready"].includes(quickPaymentRow.status)
+        ? quickPaymentRow.status
+        : "Payment Done";
+
       const updatedPayload = {
         ...quickPaymentRow,
-        status: "Payment Done",
+        status: targetStatus,
         stage4: {
           ...(quickPaymentRow.stage4 || {}),
           supplierPayments: updatedSupplierPayments,
@@ -453,7 +565,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
         `${process.env.REACT_APP_API_STRING}/tyre-procurement/${quickPaymentRow._id}`,
         updatedPayload
       );
-      toast.success(`Payment & UTR saved successfully for PR #${quickPaymentRow.prNumber}! Forwarded to Order & Dispatch.`);
+      toast.success(`Payment & UTR saved successfully for PR #${quickPaymentRow.prNumber}!`);
       setQuickPaymentOpen(false);
       setQuickPaymentRow(null);
       fetchRecords();
@@ -528,14 +640,38 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   const paymentDoneCount = data.filter((d) => d.status === "Payment Done" || d.status === "Order Placed").length;
   const grnCompletedCount = data.filter((d) => d.status === "GRN Done" || d.status === "Closed").length;
 
-  const getStatusChipProps = (status) => {
+  const getStatusChipProps = (status, row) => {
+    const ci = row?.creditInfo || (row ? getPrCreditInfo(row) : null);
+    if (stageTab === "4" && ci?.isCredit && !ci?.isPaid) {
+      if (ci.diffDays <= 0) {
+        return {
+          label: ci.diffDays === 0 ? "OVERDUE (TODAY)" : `OVERDUE (${Math.abs(ci.diffDays)}D)`,
+          bg: "#fee2e2",
+          color: "#dc2626",
+        };
+      }
+      if (ci.diffDays <= 7) {
+        return {
+          label: `DUE IN ${ci.diffDays} DAYS`,
+          bg: "#fef3c7",
+          color: "#b45309",
+        };
+      }
+    }
+
     switch (status) {
       case "Closed":
       case "GRN Done":
+      case "GRN Completed":
         return { label: status || "GRN Done", bg: "#dcfce7", color: "#15803d" };
       case "Payment Done":
       case "Order Placed":
         return { label: status, bg: "#e0f2fe", color: "#0369a1" };
+      case "Dispatched / Site GRN Ready":
+        return { label: "GRN Ready (Credit)", bg: "#ecfdf5", color: "#047857" };
+      case "GRN Ready":
+      case "GRN Received":
+        return { label: status || "GRN Ready", bg: "#ecfdf5", color: "#047857" };
       case "Finance Approved":
         return { label: status, bg: "#e0e7ff", color: "#4338ca" };
       case "PR Raised":
@@ -877,7 +1013,8 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                   </TableRow>
                 ) : (
                   getDisplayRows(data).map((row) => {
-                    const chipStyle = getStatusChipProps(row.status);
+                    const rowCreditInfo = row.creditInfo || getPrCreditInfo(row);
+                    const chipStyle = getStatusChipProps(row.status, row);
                     const editLocked = isCompletedSiteGrn(row) && !canOverrideSignOffLock;
                     return (
                       <TableRow
@@ -946,6 +1083,47 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                               borderRadius: "6px",
                             }}
                           />
+                          {rowCreditInfo?.isCredit && (
+                            <Box sx={{ mt: 0.4, display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
+                              <Chip
+                                label={`${rowCreditInfo.maxCreditDays}d Credit`}
+                                size="small"
+                                sx={{
+                                  fontSize: "10px",
+                                  height: 18,
+                                  bgcolor: "#f1f5f9",
+                                  color: "#475569",
+                                  fontWeight: 600,
+                                }}
+                              />
+                              {rowCreditInfo.isOverdue && !rowCreditInfo.isPaid && (
+                                <Chip
+                                  label="OVERDUE"
+                                  size="small"
+                                  sx={{
+                                    fontSize: "9.5px",
+                                    height: 18,
+                                    bgcolor: "#fee2e2",
+                                    color: "#dc2626",
+                                    fontWeight: 800,
+                                  }}
+                                />
+                              )}
+                              {!rowCreditInfo.isOverdue && rowCreditInfo.isDueSoon && !rowCreditInfo.isPaid && (
+                                <Chip
+                                  label={`Due in ${rowCreditInfo.diffDays}d`}
+                                  size="small"
+                                  sx={{
+                                    fontSize: "9.5px",
+                                    height: 18,
+                                    bgcolor: "#fef3c7",
+                                    color: "#b45309",
+                                    fontWeight: 700,
+                                  }}
+                                />
+                              )}
+                            </Box>
+                          )}
                         </TableCell>
                         <TableCell sx={{ color: "#64748b", fontSize: "12.5px", py: 1, px: 1.5 }}>
                           {row.createdAt ? new Date(row.createdAt).toLocaleDateString("en-GB") : "-"}
@@ -1042,6 +1220,31 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                                   }}
                                 >
                                   Enter UTR
+                                </Button>
+                              </Tooltip>
+                            )}
+                            {canUpdateSiteGrn(row) && (
+                              <Tooltip title="Update Site GRN">
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  startIcon={<AssignmentTurnedIn sx={{ fontSize: 13 }} />}
+                                  onClick={() => onEdit(row)}
+                                  sx={{
+                                    bgcolor: "#059669",
+                                    color: "#ffffff",
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    height: 28,
+                                    px: 1.2,
+                                    textTransform: "none",
+                                    borderRadius: "6px",
+                                    boxShadow: "none",
+                                    whiteSpace: "nowrap",
+                                    "&:hover": { bgcolor: "#047857" },
+                                  }}
+                                >
+                                  Site GRN
                                 </Button>
                               </Tooltip>
                             )}
@@ -1381,6 +1584,23 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                         size="small"
                         sx={{ fontWeight: 600, fontSize: "11px", height: 22 }}
                       />
+                      {(() => {
+                        const cDays = parseCreditDays(sp.paymentTerms);
+                        if (cDays > 0) {
+                          const baseDateStr = quickPaymentRow.stage3?.signOff?.dateOfApproval || quickPaymentRow.createdAt;
+                          const baseDate = baseDateStr ? new Date(baseDateStr) : new Date();
+                          const dueDate = new Date(baseDate.getTime() + cDays * 24 * 60 * 60 * 1000);
+                          const today = new Date();
+                          const diff = Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                          const isOver = diff <= 0;
+                          return (
+                            <Typography sx={{ fontSize: "10.5px", fontWeight: 700, color: isOver ? "#dc2626" : "#d97706", mt: 0.3 }}>
+                              {isOver ? `⚠️ OVERDUE (${dueDate.toLocaleDateString("en-GB")})` : `Due in ${diff}d (${dueDate.toLocaleDateString("en-GB")})`}
+                            </Typography>
+                          );
+                        }
+                        return null;
+                      })()}
                       <Typography sx={{ fontWeight: 800, color: "#166534", fontSize: "14px", mt: 0.3 }}>
                         ₹ {Number(sp.amountPaid || 0).toLocaleString("en-IN")}
                       </Typography>

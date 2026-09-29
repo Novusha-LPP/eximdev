@@ -8,7 +8,7 @@ import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
 import { message } from 'antd';
 import { RotateCcw } from 'lucide-react';
-import { LOST_REASONS } from './crmConstants';
+import { LOST_REASONS, ALLOWED_SERVICES, formatServiceName } from './crmConstants';
 
 const PIPELINE_STAGES = [
   { id: 'lead', name: 'Lead', color: '#4f8ef7' },
@@ -19,17 +19,6 @@ const PIPELINE_STAGES = [
   { id: 'negotiation', name: 'Negotiation', color: '#f77ac4' },
   { id: 'won', name: 'Won', color: '#00d4aa' },
   { id: 'lost', name: 'Lost', color: '#f75a5a' }
-];
-
-const ALLOWED_SERVICES = [
-  'freight forwarding',
-  'dgft',
-  'e-lock',
-  'client',
-  'transportation',
-  'paramount',
-  'rabs',
-  'auto rack'
 ];
 
 export default function CRMKanbanBoard() {
@@ -134,6 +123,7 @@ export default function CRMKanbanBoard() {
   const [isReferModalOpen, setIsReferModalOpen] = useState(false);
   const [selectedOppForRefer, setSelectedOppForRefer] = useState(null);
   const [targetReferTeamId, setTargetReferTeamId] = useState('');
+  const [targetReferUserId, setTargetReferUserId] = useState('');
   const [isReferringOpp, setIsReferringOpp] = useState(false);
   const [allTeams, setAllTeams] = useState([]);
 
@@ -390,6 +380,109 @@ export default function CRMKanbanBoard() {
 
   const visibleMembers = activeMembersWithDeals;
   const searchIsActive = Boolean(searchQuery.trim());
+
+  const currentUserId = (user._id || user.id || '').toString();
+
+  // FR: Admin can assign individual stages to users in a team.
+  // A user assigned specific stages (e.g. only proposal and won) only sees those stages in the pipeline.
+  const effectivePipelineStages = React.useMemo(() => {
+    // If Admin viewing without narrowing to a specific team member, Admin sees all 8 stages
+    if (isAdmin && !isHOD && selectedOwner === 'all') {
+      return PIPELINE_STAGES;
+    }
+
+    // Determine target user to check stages for:
+    // If admin is filtering by an owner, check that owner's assigned stages
+    // Otherwise, check logged-in user's assigned stages
+    const targetUserId = (isAdmin && selectedOwner !== 'all') ? selectedOwner : currentUserId;
+
+    const sourceTeams = allTeams.length > 0 ? allTeams : teams;
+    let relevantTeams = [];
+
+    if (selectedTeam !== 'all') {
+      const found = sourceTeams.find(t => (t._id || t.id)?.toString() === selectedTeam?.toString());
+      if (found) relevantTeams = [found];
+    } else {
+      // Find all teams this user belongs to
+      relevantTeams = sourceTeams.filter(t => {
+        const mgrId = (t.managerId?._id || t.managerId)?.toString();
+        const isMem = (t.memberIds || []).some(m => (m?._id || m)?.toString() === targetUserId);
+        return mgrId === targetUserId || isMem;
+      });
+    }
+
+    if (relevantTeams.length === 0) {
+      return PIPELINE_STAGES;
+    }
+
+    let hasExplicitRestriction = false;
+    const allowedStageSet = new Set();
+
+    relevantTeams.forEach(team => {
+      const assignments = team.memberStageAssignments || [];
+      const assignment = assignments.find(a => {
+        const aUserId = (a.userId?._id || a.userId)?.toString();
+        return aUserId === targetUserId;
+      });
+
+      if (assignment && Array.isArray(assignment.stages)) {
+        hasExplicitRestriction = true;
+        assignment.stages.forEach(st => allowedStageSet.add(st));
+      }
+    });
+
+    if (hasExplicitRestriction) {
+      const filtered = PIPELINE_STAGES.filter(s => allowedStageSet.has(s.id));
+      return filtered.length > 0 ? filtered : PIPELINE_STAGES;
+    }
+
+    return PIPELINE_STAGES;
+  }, [isAdmin, isHOD, selectedOwner, selectedTeam, allTeams, teams, currentUserId]);
+
+  // If active selectedStage is not in effectivePipelineStages, reset to 'all'
+  useEffect(() => {
+    if (selectedStage !== 'all' && !effectivePipelineStages.some(s => s.id === selectedStage)) {
+      setSelectedStage('all');
+    }
+  }, [effectivePipelineStages, selectedStage]);
+
+  // Compile members for the Refer Deal modal when a target team is selected
+  const selectedTargetTeamMembers = React.useMemo(() => {
+    if (!targetReferTeamId) return [];
+    const team = (allTeams.length > 0 ? allTeams : teams).find(t => (t._id || t.id)?.toString() === targetReferTeamId?.toString());
+    if (!team) return [];
+    const memberList = [];
+    const seen = new Set();
+
+    if (team.managerId) {
+      const mgr = typeof team.managerId === 'object' ? team.managerId : users.find(u => (u._id || u.id)?.toString() === team.managerId?.toString());
+      if (mgr) {
+        const id = (mgr._id || mgr.id)?.toString();
+        seen.add(id);
+        memberList.push({
+          _id: id,
+          name: `${mgr.first_name ? `${mgr.first_name} ${mgr.last_name || ''}`.trim() : mgr.username} (Team Manager)`
+        });
+      }
+    }
+
+    if (Array.isArray(team.memberIds)) {
+      team.memberIds.forEach(m => {
+        const mem = typeof m === 'object' ? m : users.find(u => (u._id || u.id)?.toString() === m?.toString());
+        if (mem) {
+          const id = (mem._id || mem.id)?.toString();
+          if (!seen.has(id)) {
+            seen.add(id);
+            memberList.push({
+              _id: id,
+              name: mem.first_name ? `${mem.first_name} ${mem.last_name || ''}`.trim() : mem.username
+            });
+          }
+        }
+      });
+    }
+    return memberList;
+  }, [targetReferTeamId, allTeams, teams, users]);
 
   const fetchMyTeams = async (all = false) => {
     try {
@@ -815,13 +908,18 @@ export default function CRMKanbanBoard() {
     try {
       await axios.put(
         `${process.env.REACT_APP_API_STRING}/crm/opportunities/${selectedOppForRefer._id}/refer`,
-        { targetTeamId: targetReferTeamId },
+        {
+          targetTeamId: targetReferTeamId,
+          targetUserId: targetReferUserId || undefined,
+          targetOwnerId: targetReferUserId || undefined
+        },
         getHeaders()
       );
       message.success('Deal referred to internal team successfully!');
       setIsReferModalOpen(false);
       setSelectedOppForRefer(null);
       setTargetReferTeamId('');
+      setTargetReferUserId('');
       fetchBoard();
     } catch (err) {
       console.error('Referral failed:', err);
@@ -885,6 +983,7 @@ export default function CRMKanbanBoard() {
         }}
         opportunity={selectedOpportunity}
         onRefresh={fetchBoard}
+        allowedStages={effectivePipelineStages.map(s => s.id)}
       />
 
       {/* Error notification */}
@@ -910,35 +1009,35 @@ export default function CRMKanbanBoard() {
       <div style={{
         display: 'flex',
         flexWrap: 'wrap',
-        gap: '16px',
-        padding: '16px 20px',
+        gap: '8px',
+        padding: '8px 12px',
         background: '#ffffff',
-        borderRadius: '16px',
+        borderRadius: '10px',
         border: '1px solid #e2e8f0',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.03)',
         alignItems: 'center',
-        marginBottom: '24px',
+        marginBottom: '10px',
         justifyContent: 'space-between'
       }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
           {/* Live Search Box */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Search:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Search:</span>
             <input
               type="text"
-              placeholder="Search deals, company, owner..."
+              placeholder="Search deals, company..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               style={{
-                padding: '8px 14px',
+                padding: '5px 10px',
                 border: '1px solid #e2e8f0',
-                borderRadius: '10px',
-                fontSize: '0.85rem',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
                 color: '#334155',
                 background: '#ffffff',
                 fontWeight: 600,
                 outline: 'none',
-                width: '180px'
+                width: '160px'
               }}
             />
           </div>
@@ -953,7 +1052,7 @@ export default function CRMKanbanBoard() {
             onChange={setSelectedLocation}
             options={locationSuggestions}
             loading={suggestionsLoading}
-            width="180px"
+            width="160px"
           />
 
           {/* HSN Code Filter with Autocomplete */}
@@ -966,21 +1065,21 @@ export default function CRMKanbanBoard() {
             onChange={setSelectedHsnCode}
             options={hsnSuggestions}
             loading={suggestionsLoading}
-            width="150px"
+            width="130px"
           />
 
           {/* Stage Dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Stage:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Stage:</span>
             <select
               value={selectedStage}
               disabled={searchIsActive}
               onChange={e => setSelectedStage(e.target.value)}
               style={{
-                padding: '8px 14px',
+                padding: '5px 10px',
                 border: '1px solid #e2e8f0',
-                borderRadius: '10px',
-                fontSize: '0.85rem',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
                 color: '#334155',
                 background: '#ffffff',
                 fontWeight: 600,
@@ -989,25 +1088,29 @@ export default function CRMKanbanBoard() {
                 outline: 'none'
               }}
             >
-              <option value="all">All Stages (Kanban)</option>
-              {PIPELINE_STAGES.map(s => (
+              <option value="all">
+                {effectivePipelineStages.length < PIPELINE_STAGES.length 
+                  ? `Assigned Stages (${effectivePipelineStages.length})` 
+                  : 'All Stages (Kanban)'}
+              </option>
+              {effectivePipelineStages.map(s => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
           </div>
 
           {/* Lead Source Dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Source:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Source:</span>
             <select
               value={selectedSource}
               disabled={searchIsActive}
               onChange={e => setSelectedSource(e.target.value)}
               style={{
-                padding: '8px 14px',
+                padding: '5px 10px',
                 border: '1px solid #e2e8f0',
-                borderRadius: '10px',
-                fontSize: '0.85rem',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
                 color: '#334155',
                 background: '#ffffff',
                 fontWeight: 600,
@@ -1027,8 +1130,8 @@ export default function CRMKanbanBoard() {
 
           {/* Teams Dropdown */}
           {teams && teams.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Team:</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Team:</span>
               <select
                 value={selectedTeam}
                 disabled={searchIsActive}
@@ -1037,10 +1140,10 @@ export default function CRMKanbanBoard() {
                   setSelectedOwner('all'); // Reset owner on team change
                 }}
                 style={{
-                  padding: '8px 14px',
+                  padding: '5px 10px',
                   border: '1px solid #e2e8f0',
-                  borderRadius: '10px',
-                  fontSize: '0.85rem',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
                   color: '#334155',
                   background: '#ffffff',
                   fontWeight: 600,
@@ -1497,13 +1600,13 @@ export default function CRMKanbanBoard() {
           onMouseMove={handleMouseMove}
           className="no-scrollbar"
           style={{
-            display: 'flex', gap: '20px', overflowX: 'auto', padding: '24px',
+            display: 'flex', gap: '12px', overflowX: 'auto', padding: '12px 14px',
             background: '#f8fafc',
             cursor: isMouseDown ? 'grabbing' : 'grab',
             userSelect: isMouseDown ? 'none' : 'auto'
           }}
         >
-          {PIPELINE_STAGES.map(stage => {
+          {effectivePipelineStages.map(stage => {
             const rawOpps = board[stage.id] || [];
             const opps = rawOpps.filter(opp => {
               if (!searchQuery.trim()) return true;
@@ -1519,8 +1622,8 @@ export default function CRMKanbanBoard() {
             });
             return (
               <div key={stage.id} style={{
-                width: '320px', flexShrink: 0, background: '#ebf1f7', borderRadius: '12px',
-                padding: '16px', display: 'flex', flexDirection: 'column',
+                width: '270px', flexShrink: 0, background: '#ebf1f7', borderRadius: '10px',
+                padding: '10px', display: 'flex', flexDirection: 'column',
                 border: '2px dashed transparent', transition: 'border-color 0.2s'
               }}
                 onDragOver={handleDragOver}
@@ -1528,22 +1631,22 @@ export default function CRMKanbanBoard() {
                 onDragEnter={(e) => e.currentTarget.style.borderColor = '#4f46e5'}
                 onDragLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', fontWeight: 700, color: '#334155' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: stage.color }}></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', fontWeight: 700, color: '#334155', fontSize: '0.85rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: stage.color }}></div>
                     <span>{stage.name}</span>
                   </div>
                   <span style={{
-                    background: '#ffffff', color: '#64748b', padding: '2px 10px',
-                    borderRadius: '6px', fontSize: '0.75rem', border: '1px solid #e2e8f0'
+                    background: '#ffffff', color: '#64748b', padding: '1px 8px',
+                    borderRadius: '5px', fontSize: '0.72rem', border: '1px solid #e2e8f0'
                   }}>{opps.length}</span>
                 </div>
 
                 {/* CR-007 Stage Value Totals Header Summary */}
                 <div style={{
-                  background: '#ffffff', padding: '8px 12px', borderRadius: '8px',
-                  marginBottom: '16px', border: '1px solid #e2e8f0', display: 'flex',
-                  justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem',
+                  background: '#ffffff', padding: '5px 10px', borderRadius: '6px',
+                  marginBottom: '8px', border: '1px solid #e2e8f0', display: 'flex',
+                  justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem',
                   fontWeight: 600, color: '#475569'
                 }}>
                   <span style={{ color: '#10b981', fontWeight: 800 }}>
@@ -1554,7 +1657,7 @@ export default function CRMKanbanBoard() {
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '300px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minHeight: '200px' }}>
                   {opps.map(opp => {
                     const isVirtualSalesVisit = stage.id === 'sales_visit' && opp.stage !== 'sales_visit';
                     return (
@@ -1568,7 +1671,7 @@ export default function CRMKanbanBoard() {
                         }}
                         style={{
                           background: isVirtualSalesVisit ? '#fff7ed' : '#ffffff',
-                          padding: '16px', borderRadius: '10px',
+                          padding: '10px 12px', borderRadius: '8px',
                           border: isVirtualSalesVisit ? '1px solid #fdba74' : '1px solid #e2e8f0',
                           cursor: isVirtualSalesVisit ? 'default' : 'grab',
                           transition: 'all 0.2s',
@@ -1588,13 +1691,16 @@ export default function CRMKanbanBoard() {
                       >
                         <div style={{ position: 'absolute', top: 0, left: 0, width: '3px', height: '100%', background: stage.color }}></div>
                         {opp.isReferral && (
-                          <div style={{ marginBottom: '8px' }}>
+                          <div style={{ marginBottom: '5px' }}>
                             <span style={{
                               fontSize: '0.65rem', background: '#fef2f2', color: '#b91c1c',
                               padding: '2px 8px', borderRadius: '12px', fontWeight: 800, border: '1px solid #fecaca',
                               display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap'
                             }}>
-                              <span>⚡ Referred ({opp.referredFromTeamId?.teamName || opp.referredFromTeamId?.name || 'Team'} → {opp.referredToTeamId?.teamName || opp.referredToTeamId?.name || 'Team'})</span>
+                              <span>
+                                ⚡ Referred ({opp.referredFromTeamId?.teamName || opp.referredFromTeamId?.name || 'Team'} → {opp.referredToTeamId?.teamName || opp.referredToTeamId?.name || 'Team'}
+                                {opp.referredToUserId && ` • 👤 ${opp.referredToUserId.first_name ? `${opp.referredToUserId.first_name} ${opp.referredToUserId.last_name || ''}`.trim() : opp.referredToUserId.username}`})
+                              </span>
                               {(opp.referredAt || opp.createdAt) && (
                                 <span style={{ color: '#7f1d1d', fontWeight: 600 }}>
                                   • {new Date(opp.referredAt || opp.createdAt).toLocaleDateString('en-IN')}
@@ -1623,9 +1729,9 @@ export default function CRMKanbanBoard() {
                             )}
                           </div>
                         )}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', margin: '0 0 6px 0' }}>
-                          <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b', fontWeight: 600, paddingRight: '55px' }}>{opp.name}</h4>
-                          <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', gap: '4px', zIndex: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', margin: '0 0 4px 0' }}>
+                          <h4 style={{ margin: 0, fontSize: '0.82rem', color: '#1e293b', fontWeight: 600, paddingRight: '50px', lineHeight: 1.3 }}>{opp.name}</h4>
+                          <div style={{ position: 'absolute', top: '8px', right: '8px', display: 'flex', gap: '3px', zIndex: 10 }}>
                             <button
                               title="Refer Deal to Internal Team"
                               onClick={(e) => {
@@ -1686,12 +1792,12 @@ export default function CRMKanbanBoard() {
                             </button>
                           </div>
                         </div>
-                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '5px' }}>
                           {typeof opp.accountId === 'object' ? (opp.accountId?.name || 'No Account') : (opp.accountId || 'No Account')}
                         </div>
 
                         {isVirtualSalesVisit && opp.plannedVisits && (
-                          <div style={{ marginBottom: '12px' }}>
+                          <div style={{ marginBottom: '6px' }}>
                             {(opp.plannedVisits || []).filter(v => !v.isCompleted && !v.isCancelled).map((visit, idx) => (
                               <div key={idx} style={{
                                 fontSize: '0.7rem', color: '#9a3412', fontWeight: 600,
@@ -1705,14 +1811,14 @@ export default function CRMKanbanBoard() {
                         )}
 
                         {opp.services && opp.services.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginBottom: '6px' }}>
                             {opp.services.slice(0, 3).map((service, i) => (
                               <span key={i} style={{
                                 fontSize: '0.65rem', background: '#f1f5f9', color: '#475569',
                                 padding: '2px 6px', borderRadius: '4px', border: '1px solid #e2e8f0',
-                                whiteSpace: 'nowrap', textTransform: 'capitalize'
+                                whiteSpace: 'nowrap'
                               }}>
-                                {service}
+                                {formatServiceName(service)}
                               </span>
                             ))}
                             {opp.services.length > 3 && (
@@ -1723,7 +1829,7 @@ export default function CRMKanbanBoard() {
 
                         {/* Freight Forwarding Badge */}
                         {opp.freightEnquiryRef && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginBottom: '6px' }}>
                             <span style={{
                               fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af',
                               padding: '2px 8px', borderRadius: '12px', fontWeight: 700,
@@ -1745,7 +1851,7 @@ export default function CRMKanbanBoard() {
 
                         {opp.crateSize && (
                           <div style={{
-                            fontSize: '0.7rem', color: '#64748b', marginBottom: '12px',
+                            fontSize: '0.68rem', color: '#64748b', marginBottom: '6px',
                             display: 'flex', alignItems: 'center', gap: '4px',
                             background: '#f8fafc', padding: '4px 8px', borderRadius: '6px',
                             border: '1px solid #e2e8f0', width: 'fit-content'
@@ -1757,7 +1863,7 @@ export default function CRMKanbanBoard() {
                         )}
 
                         {/* CR-008 Source badge on deal card */}
-                        <div style={{ marginBottom: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+                        <div style={{ marginBottom: '5px', display: 'flex', flexWrap: 'wrap', gap: '3px', alignItems: 'center' }}>
                           {opp.source && (
                             <span style={{
                               fontSize: '0.65rem',
@@ -1865,7 +1971,7 @@ export default function CRMKanbanBoard() {
                           if (!activePR) return null;
                           if (activePR.status === 'pending' || activePR.status === 'in_progress') {
                             return (
-                              <div style={{ marginBottom: '8px' }}>
+                              <div style={{ marginBottom: '5px' }}>
                                 <span style={{
                                   fontSize: '0.65rem',
                                   background: '#fee2e2',
@@ -1887,7 +1993,7 @@ export default function CRMKanbanBoard() {
                         })()}
 
                         {!isVirtualSalesVisit && (
-                          <div style={{ marginBottom: '8px' }}>
+                          <div style={{ marginBottom: '5px' }}>
                             {opp.plannedVisits && (opp.plannedVisits || []).filter(v => !v.isCompleted && !v.isCancelled).length > 0 && (
                               <div style={{
                                 fontSize: '0.7rem', color: '#9a3412', fontWeight: 600,
@@ -1909,7 +2015,7 @@ export default function CRMKanbanBoard() {
                             <div
                               onClick={(e) => e.stopPropagation()}
                               style={{
-                                marginBottom: '10px',
+                                marginBottom: '6px',
                                 background: '#f8fafc',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '8px',
@@ -1954,7 +2060,7 @@ export default function CRMKanbanBoard() {
                             </div>
                           );
                         })() : (
-                          <div style={{ marginBottom: '8px' }}>
+                          <div style={{ marginBottom: '5px' }}>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1989,8 +2095,8 @@ export default function CRMKanbanBoard() {
                           if (!creator || typeof creator !== 'object') return null;
                           return (
                             <div style={{
-                              display: 'flex', alignItems: 'center', gap: '6px',
-                              marginBottom: '8px', fontSize: '0.7rem', color: '#64748b'
+                              display: 'flex', alignItems: 'center', gap: '5px',
+                              marginBottom: '5px', fontSize: '0.68rem', color: '#64748b'
                             }}>
                               <div style={{
                                 width: '18px', height: '18px', borderRadius: '50%',
@@ -2010,7 +2116,7 @@ export default function CRMKanbanBoard() {
 
                         <div style={{
                           marginTop: 'auto', display: 'flex', justifyContent: 'space-between',
-                          alignItems: 'baseline', borderTop: '1px solid #f1f5f9', paddingTop: '12px'
+                          alignItems: 'baseline', borderTop: '1px solid #f1f5f9', paddingTop: '8px'
                         }}>
                           <span style={{ fontWeight: 800, color: '#10b981', fontFamily: 'monospace' }}>
                             ₹{opp.value ? (opp.value / 100000).toFixed(1) + 'L' : '0'}
@@ -2026,7 +2132,7 @@ export default function CRMKanbanBoard() {
                     );
                   })}
                   {opps.length === 0 && (
-                    <div style={{ padding: '32px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem', border: '1px dashed #cbd5e1', borderRadius: '10px' }}>
+                    <div style={{ padding: '20px 12px', textAlign: 'center', color: '#94a3b8', fontSize: '0.75rem', border: '1px dashed #cbd5e1', borderRadius: '8px' }}>
                       No deals
                     </div>
                   )}
@@ -2047,31 +2153,34 @@ export default function CRMKanbanBoard() {
           backgroundColor: 'rgba(15, 23, 42, 0.75)',
           backdropFilter: 'blur(10px)',
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'center',
-          zIndex: 10000,
-          padding: '20px'
+          zIndex: 99999,
+          padding: '20px 14px',
+          overflowY: 'auto'
         }}>
           <div style={{
             background: '#ffffff',
             width: '100%',
-            maxWidth: '500px',
-            borderRadius: '16px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-            overflow: 'hidden',
-            padding: '24px',
+            maxWidth: '480px',
+            maxHeight: 'calc(100vh - 40px)',
+            margin: 'auto 0',
+            borderRadius: '14px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            overflowY: 'auto',
+            padding: '16px 20px',
             border: '1px solid #e2e8f0',
             animation: 'modalSlideIn 0.3s ease-out'
           }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.25rem', color: '#1e293b', fontWeight: 700 }}>
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '1.05rem', color: '#1e293b', fontWeight: 700 }}>
               Mark Deal as Lost
             </h3>
-            <p style={{ margin: '0 0 20px 0', fontSize: '0.875rem', color: '#64748b' }}>
-              Please provide a reason for losing this opportunity. This data helps us improve our sales performance.
+            <p style={{ margin: '0 0 14px 0', fontSize: '0.8rem', color: '#64748b' }}>
+              Please provide a reason for losing this opportunity.
             </p>
 
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#475569', fontWeight: 600, fontSize: '0.875rem' }}>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', color: '#475569', fontWeight: 600, fontSize: '0.78rem' }}>
                 Reason for Loss <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <select
@@ -2079,10 +2188,10 @@ export default function CRMKanbanBoard() {
                 onChange={(e) => setLostReason(e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '10px 12px',
+                  padding: '7px 11px',
                   border: '1.5px solid #cbd5e1',
                   borderRadius: '8px',
-                  fontSize: '0.9rem',
+                  fontSize: '0.825rem',
                   outline: 'none',
                   transition: 'border-color 0.2s',
                   color: '#1e293b',
@@ -2099,8 +2208,8 @@ export default function CRMKanbanBoard() {
               </select>
             </div>
             {lostReason === 'Other (Manual)' && (
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#475569', fontWeight: 600, fontSize: '0.875rem' }}>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', color: '#475569', fontWeight: 600, fontSize: '0.78rem' }}>
                   Specify Reason <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <input
@@ -2110,10 +2219,10 @@ export default function CRMKanbanBoard() {
                   placeholder="Describe the reason for losing this deal..."
                   style={{
                     width: '100%',
-                    padding: '10px 12px',
+                    padding: '7px 11px',
                     border: '1.5px solid #cbd5e1',
                     borderRadius: '8px',
-                    fontSize: '0.9rem',
+                    fontSize: '0.825rem',
                     outline: 'none',
                     color: '#1e293b',
                     boxSizing: 'border-box'
@@ -2122,22 +2231,22 @@ export default function CRMKanbanBoard() {
               </div>
             )}
 
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#475569', fontWeight: 600, fontSize: '0.875rem' }}>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', color: '#475569', fontWeight: 600, fontSize: '0.78rem' }}>
                 Additional Notes
               </label>
               <textarea
                 value={lostNotes}
                 onChange={(e) => setLostNotes(e.target.value)}
-                placeholder="Enter any additional details or context here..."
+                placeholder="Enter any additional details..."
                 style={{
                   width: '100%',
-                  padding: '10px 12px',
+                  padding: '7px 11px',
                   border: '1.5px solid #cbd5e1',
                   borderRadius: '8px',
-                  fontSize: '0.9rem',
+                  fontSize: '0.825rem',
                   outline: 'none',
-                  minHeight: '100px',
+                  minHeight: '70px',
                   resize: 'vertical',
                   transition: 'border-color 0.2s',
                   color: '#1e293b'
@@ -2156,14 +2265,14 @@ export default function CRMKanbanBoard() {
                   setLostNotes('');
                 }}
                 style={{
-                  padding: '10px 18px',
+                  padding: '6px 14px',
                   border: '1px solid #cbd5e1',
                   background: '#ffffff',
                   color: '#475569',
                   borderRadius: '8px',
                   cursor: 'pointer',
                   fontWeight: 600,
-                  fontSize: '0.875rem',
+                  fontSize: '0.8rem',
                   transition: 'all 0.2s'
                 }}
               >
@@ -2173,14 +2282,14 @@ export default function CRMKanbanBoard() {
                 onClick={handleConfirmLost}
                 disabled={!lostReason || (lostReason === 'Other (Manual)' && !lostCustomReason.trim())}
                 style={{
-                  padding: '10px 18px',
+                  padding: '6px 14px',
                   background: (lostReason && !(lostReason === 'Other (Manual)' && !lostCustomReason.trim())) ? '#ef4444' : '#fca5a5',
                   color: '#ffffff',
                   border: 'none',
                   borderRadius: '8px',
                   cursor: (lostReason && !(lostReason === 'Other (Manual)' && !lostCustomReason.trim())) ? 'pointer' : 'not-allowed',
                   fontWeight: 600,
-                  fontSize: '0.875rem',
+                  fontSize: '0.8rem',
                   transition: 'all 0.2s'
                 }}
               >
@@ -2198,71 +2307,72 @@ export default function CRMKanbanBoard() {
           top: 0, left: 0, right: 0, bottom: 0,
           backgroundColor: 'rgba(15, 23, 42, 0.75)',
           backdropFilter: 'blur(10px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 10000, padding: '20px'
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+          zIndex: 99999, padding: '20px 14px', overflowY: 'auto'
         }}>
           <div style={{
-            background: '#ffffff', width: '100%', maxWidth: '450px',
-            borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            background: '#ffffff', width: '100%', maxWidth: '460px',
+            maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', margin: 'auto 0',
+            borderRadius: '14px', padding: '16px 20px', border: '1px solid #e2e8f0',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
             animation: 'modalSlideIn 0.3s ease-out'
           }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.2rem', color: '#1e293b', fontWeight: 700 }}>
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '1.05rem', color: '#1e293b', fontWeight: 700 }}>
               Duplicate Deal
             </h3>
-            <p style={{ margin: '0 0 16px 0', fontSize: '0.85rem', color: '#64748b' }}>
-              Create a new deal for the same customer/account under a different product or service.
+            <p style={{ margin: '0 0 12px 0', fontSize: '0.78rem', color: '#64748b' }}>
+              Create a new deal for the same customer under a different service.
             </p>
 
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ display: 'block', marginBottom: '4px', color: '#475569', fontWeight: 600, fontSize: '0.78rem' }}>
                 Deal Name
               </label>
               <input
                 type="text"
                 value={duplicateName}
                 onChange={e => setDuplicateName(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
+                style={{ width: '100%', padding: '7px 11px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.825rem', outline: 'none' }}
               />
             </div>
 
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ display: 'block', marginBottom: '4px', color: '#475569', fontWeight: 600, fontSize: '0.78rem' }}>
                 Select Service *
               </label>
               <select
                 value={duplicateService}
                 onChange={e => setDuplicateService(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none', background: '#fff' }}
+                style={{ width: '100%', padding: '7px 11px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.825rem', outline: 'none', background: '#fff' }}
               >
                 <option value="">-- Select Service --</option>
                 {ALLOWED_SERVICES.map(s => (
-                  <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                  <option key={s} value={s}>{formatServiceName(s)}</option>
                 ))}
               </select>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>
+                <label style={{ display: 'block', marginBottom: '4px', color: '#475569', fontWeight: 600, fontSize: '0.78rem' }}>
                   Deal Value (₹)
                 </label>
                 <input
                   type="number"
                   value={duplicateValue}
                   onChange={e => setDuplicateValue(e.target.value)}
-                  style={{ width: '100%', padding: '8px 12px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
+                  style={{ width: '100%', padding: '7px 11px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.825rem', outline: 'none' }}
                 />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>
+                <label style={{ display: 'block', marginBottom: '4px', color: '#475569', fontWeight: 600, fontSize: '0.78rem' }}>
                   Expected Close
                 </label>
                 <input
                   type="date"
                   value={duplicateCloseDate}
                   onChange={e => setDuplicateCloseDate(e.target.value)}
-                  style={{ width: '100%', padding: '8px 12px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
+                  style={{ width: '100%', padding: '7px 11px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.825rem', outline: 'none' }}
                 />
               </div>
             </div>
@@ -2273,7 +2383,7 @@ export default function CRMKanbanBoard() {
                   setIsDuplicateModalOpen(false);
                   setDuplicatingOpp(null);
                 }}
-                style={{ padding: '8px 16px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#475569', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+                style={{ padding: '6px 14px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#475569', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
               >
                 Cancel
               </button>
@@ -2281,11 +2391,11 @@ export default function CRMKanbanBoard() {
                 onClick={handleConfirmDuplicate}
                 disabled={!duplicateService}
                 style={{
-                  padding: '8px 16px',
+                  padding: '6px 14px',
                   background: duplicateService ? '#4f46e5' : '#a5b4fc',
                   color: '#ffffff', border: 'none', borderRadius: '8px',
                   cursor: duplicateService ? 'pointer' : 'not-allowed',
-                  fontWeight: 600, fontSize: '0.85rem'
+                  fontWeight: 600, fontSize: '0.8rem'
                 }}
               >
                 Duplicate Deal
@@ -2299,41 +2409,77 @@ export default function CRMKanbanBoard() {
       {isReferModalOpen && selectedOppForRefer && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+          background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 99999,
+          padding: '20px 14px', overflowY: 'auto'
         }}>
-          <div style={{ background: '#fff', padding: '24px', borderRadius: '16px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: '1.1rem', color: '#1e293b', fontWeight: 700 }}>
+          <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '14px', width: '100%', maxWidth: '460px', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', margin: 'auto 0', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: '1.05rem', color: '#1e293b', fontWeight: 700 }}>
               Refer Deal to Internal Team
             </h3>
-            <p style={{ margin: '0 0 16px', fontSize: '0.85rem', color: '#64748b' }}>
-              Refer <strong>{selectedOppForRefer.name}</strong> to another team (e.g. Team Paramount → Team eLock). Both teams will retain visibility.
+            <p style={{ margin: '0 0 12px', fontSize: '0.78rem', color: '#64748b' }}>
+              Refer <strong>{selectedOppForRefer.name}</strong> to another team. Both teams will retain visibility.
             </p>
             <form onSubmit={handleReferOppSubmit}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>Target Internal Team *</label>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>Target Internal Team *</label>
               <select
                 required
                 value={targetReferTeamId}
-                onChange={e => setTargetReferTeamId(e.target.value)}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '20px', fontSize: '0.9rem', background: '#fff' }}
+                onChange={e => {
+                  setTargetReferTeamId(e.target.value);
+                  setTargetReferUserId('');
+                }}
+                style={{ width: '100%', padding: '7px 11px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '10px', fontSize: '0.825rem', background: '#fff' }}
               >
                 <option value="">-- Select Target Team --</option>
                 {(allTeams.length > 0 ? allTeams : teams).map(team => (
                   <option key={team._id} value={team._id}>{team.name || team.teamName}</option>
                 ))}
               </select>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                Team Member (Optional)
+              </label>
+              <select
+                value={targetReferUserId}
+                disabled={!targetReferTeamId}
+                onChange={e => setTargetReferUserId(e.target.value)}
+                style={{
+                  width: '100%', padding: '7px 11px', borderRadius: '8px', border: '1px solid #cbd5e1',
+                  marginBottom: '14px', fontSize: '0.825rem',
+                  background: !targetReferTeamId ? '#f8fafc' : '#fff',
+                  color: !targetReferTeamId ? '#94a3b8' : '#1e293b'
+                }}
+              >
+                <option value="">
+                  {!targetReferTeamId
+                    ? '-- First select a target team --'
+                    : selectedTargetTeamMembers.length === 0
+                      ? '-- No members in team (Assigns to Team) --'
+                      : '-- All Team / Default (Team Manager) --'}
+                </option>
+                {selectedTargetTeamMembers.map(m => (
+                  <option key={m._id} value={m._id}>{m.name}</option>
+                ))}
+              </select>
+
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                 <button
                   type="button"
-                  onClick={() => { setIsReferModalOpen(false); setSelectedOppForRefer(null); }}
-                  style={{ background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+                  onClick={() => {
+                    setIsReferModalOpen(false);
+                    setSelectedOppForRefer(null);
+                    setTargetReferTeamId('');
+                    setTargetReferUserId('');
+                  }}
+                  style={{ background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', padding: '6px 14px', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isReferringOpp}
-                  style={{ background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}
+                  style={{ background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '8px', padding: '6px 14px', fontWeight: 700, cursor: 'pointer', fontSize: '0.8rem' }}
                 >
                   {isReferringOpp ? 'Referring...' : 'Confirm Referral'}
                 </button>

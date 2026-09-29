@@ -340,6 +340,7 @@ router.get('/', async (req, res) => {
           .populate('referredFromTeamId', 'nameCode teamName name')
           .populate('referredToTeamId', 'nameCode teamName name')
           .populate('referredByUserId', 'username first_name last_name')
+          .populate('referredToUserId', 'username first_name last_name')
           .sort({ createdAt: -1 })
           .lean();
 
@@ -359,6 +360,7 @@ router.get('/', async (req, res) => {
           .populate('referredFromTeamId', 'nameCode teamName name')
           .populate('referredToTeamId', 'nameCode teamName name')
           .populate('referredByUserId', 'username first_name last_name')
+          .populate('referredToUserId', 'username first_name last_name')
           .sort({ createdAt: -1 })
           .lean();
 
@@ -382,6 +384,7 @@ router.get('/', async (req, res) => {
           .populate('referredFromTeamId', 'nameCode teamName name')
           .populate('referredToTeamId', 'nameCode teamName name')
           .populate('referredByUserId', 'username first_name last_name')
+          .populate('referredToUserId', 'username first_name last_name')
           .sort({ createdAt: -1 })
           .lean();
       }
@@ -397,6 +400,7 @@ router.get('/', async (req, res) => {
         .populate('referredFromTeamId', 'nameCode teamName name')
         .populate('referredToTeamId', 'nameCode teamName name')
         .populate('referredByUserId', 'username first_name last_name')
+        .populate('referredToUserId', 'username first_name last_name')
         .sort({ createdAt: -1 })
         .lean();
     } else {
@@ -410,6 +414,7 @@ router.get('/', async (req, res) => {
           .populate('referredFromTeamId', 'nameCode teamName name')
           .populate('referredToTeamId', 'nameCode teamName name')
           .populate('referredByUserId', 'username first_name last_name')
+          .populate('referredToUserId', 'username first_name last_name')
           .sort({ createdAt: -1 })
           .lean();
 
@@ -425,6 +430,7 @@ router.get('/', async (req, res) => {
           .populate('referredFromTeamId', 'nameCode teamName name')
           .populate('referredToTeamId', 'nameCode teamName name')
           .populate('referredByUserId', 'username first_name last_name')
+          .populate('referredToUserId', 'username first_name last_name')
           .sort({ createdAt: -1 })
           .lean();
 
@@ -443,6 +449,7 @@ router.get('/', async (req, res) => {
           .populate('referredFromTeamId', 'nameCode teamName name')
           .populate('referredToTeamId', 'nameCode teamName name')
           .populate('referredByUserId', 'username first_name last_name')
+          .populate('referredToUserId', 'username first_name last_name')
           .sort({ createdAt: -1 })
           .lean();
 
@@ -465,6 +472,7 @@ router.get('/', async (req, res) => {
           .populate('referredFromTeamId', 'nameCode teamName name')
           .populate('referredToTeamId', 'nameCode teamName name')
           .populate('referredByUserId', 'username first_name last_name')
+          .populate('referredToUserId', 'username first_name last_name')
           .sort({ createdAt: -1 })
           .lean();
       }
@@ -928,6 +936,7 @@ router.put('/:id/refer', async (req, res) => {
     let receivingTeamId = targetTeamId;
     if (assignedTargetUser && mongoose.Types.ObjectId.isValid(assignedTargetUser)) {
       opp.ownerId = assignedTargetUser;
+      opp.referredToUserId = assignedTargetUser;
       if (!receivingTeamId) {
         const targetTeam = await SalesTeam.findOne({
           $or: [
@@ -965,7 +974,8 @@ router.put('/:id/refer', async (req, res) => {
       .populate('createdBy', 'username first_name last_name')
       .populate('referredFromTeamId', 'nameCode teamName name')
       .populate('referredToTeamId', 'nameCode teamName name')
-      .populate('referredByUserId', 'username first_name last_name');
+      .populate('referredByUserId', 'username first_name last_name')
+      .populate('referredToUserId', 'username first_name last_name');
 
     res.json({ success: true, message: 'Opportunity referred successfully. Deal is now visible to both referring and target teams.', opportunity: updatedOpp });
   } catch (error) {
@@ -1015,7 +1025,7 @@ router.post('/', async (req, res) => {
       ownerId: req.body.ownerId || userId,
       lastActivityAt: new Date()
     };
-    if (Array.isArray(oppData.services) && oppData.services.some(s => typeof s === 'string' && s.toLowerCase().includes('auto rack'))) {
+    if (Array.isArray(oppData.services) && oppData.services.some(s => typeof s === 'string' && (s.toLowerCase().includes('autorack') || s.toLowerCase().includes('auto rack')))) {
       if (!oppData.businessVertical || oppData.businessVertical === 'all') {
         oppData.businessVertical = 'Paramount';
       }

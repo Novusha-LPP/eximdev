@@ -71,61 +71,29 @@ export default function ProcurementInsuranceSopsContainer() {
     async function fetchNotificationCounts() {
       try {
         let tyreUserTabs = [];
-        let fleetUserTabs = [];
         if (user?.username && !isAdmin) {
           try {
-            const [tyreTabsRes, fleetTabsRes] = await Promise.allSettled([
-              axios.get(
-                `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
-              ),
-              axios.get(
-                `${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/user-tabs/${user.username}`
-              ),
-            ]);
-            if (tyreTabsRes.status === "fulfilled" && tyreTabsRes.value.data?.success && tyreTabsRes.value.data.allowed_tabs?.length > 0) {
-              tyreUserTabs = tyreTabsRes.value.data.allowed_tabs;
-            }
-            if (fleetTabsRes.status === "fulfilled" && fleetTabsRes.value.data?.success && fleetTabsRes.value.data.allowed_tabs?.length > 0) {
-              fleetUserTabs = fleetTabsRes.value.data.allowed_tabs;
+            const tyreTabsRes = await axios.get(
+              `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
+            );
+            if (tyreTabsRes.data?.success && tyreTabsRes.data.allowed_tabs?.length > 0) {
+              tyreUserTabs = tyreTabsRes.data.allowed_tabs;
             }
           } catch (e) {
             console.error("Error fetching user tabs for container count:", e);
           }
         }
 
-        const [fleetPendingRes, fleetAppRes, fleetPayRes, rmRes, tyreRes] = await Promise.allSettled([
+        const [fleetPendingRes, rmRes, tyreRes] = await Promise.allSettled([
           axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/pending-count`),
-          axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/approvals/list`),
-          axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/payment-utr/list`),
           axios.get(`${process.env.REACT_APP_API_STRING}/rm-procurement`),
           axios.get(`${process.env.REACT_APP_API_STRING}/tyre-procurement`),
         ]);
 
-        let fleetCount = 0;
-        if (fleetPendingRes.status === "fulfilled" && typeof fleetPendingRes.value.data?.count === "number") {
-          fleetCount = fleetPendingRes.value.data.count;
-        } else {
-          const appRecords = fleetAppRes.status === "fulfilled"
-            ? (Array.isArray(fleetAppRes.value.data) ? fleetAppRes.value.data : fleetAppRes.value.data?.data || [])
-            : [];
-          const payRecords = fleetPayRes.status === "fulfilled"
-            ? (Array.isArray(fleetPayRes.value.data) ? fleetPayRes.value.data : fleetPayRes.value.data?.data || [])
-            : [];
-
-          const pendingApprovalCount = appRecords.length;
-          const pendingPaymentUtrCount = payRecords.filter((r) => !r.paymentUtr).length;
-
-          if (!isAdmin && fleetUserTabs.length > 0) {
-            if (fleetUserTabs.includes("Approval")) {
-              fleetCount += pendingApprovalCount;
-            }
-            if (fleetUserTabs.includes("Payment & UTR")) {
-              fleetCount += pendingPaymentUtrCount;
-            }
-          } else {
-            fleetCount = pendingApprovalCount + pendingPaymentUtrCount;
-          }
-        }
+        const fleetCount = fleetPendingRes.status === "fulfilled" &&
+          typeof fleetPendingRes.value.data?.expiringCount === "number"
+          ? fleetPendingRes.value.data.expiringCount
+          : 0;
 
         let rmCount = 0;
         if (rmRes.status === "fulfilled" && rmRes.value.data?.data) {

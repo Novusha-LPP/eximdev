@@ -25,21 +25,31 @@ export default function QuoteDetailPanel({ quote: initialQuote, onClose, onEdit,
   const [rejectionReason, setRejectionReason] = useState('');
   const [showEmailModal, setShowEmailModal] = useState(false);
 
-  const handleUpdateStatus = async (status, rejectReason = '') => {
+  const handleUpdateStatus = async (status, rejectReason = '', notes = '') => {
+    if (status === 'rejected' && (!rejectReason || !rejectReason.trim())) {
+      message.error('Please specify a rejection reason');
+      return;
+    }
     setIsUpdatingStatus(true);
     try {
       const res = await axios.put(
         `${process.env.REACT_APP_API_STRING}/crm/quotes/${quote._id}/status`,
-        { status, rejectionReason: rejectReason },
+        { status, rejectionReason: rejectReason, closeNotes: notes },
         getHeaders()
       );
       setQuote(res.data);
-      message.success(`Quote marked as ${status}`);
+      if (status === 'accepted') {
+        message.success('Quote accepted! Linked deal moved to Won.');
+      } else if (status === 'rejected') {
+        message.success('Quote rejected. Linked deal moved to Lost.');
+      } else {
+        message.success(`Quote marked as ${status}`);
+      }
       setShowRejectReason(false);
       onRefresh();
     } catch (err) {
       console.error('Failed to update quote status:', err);
-      message.error('Failed to update quote status');
+      message.error(err.response?.data?.message || 'Failed to update quote status');
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -273,6 +283,12 @@ export default function QuoteDetailPanel({ quote: initialQuote, onClose, onEdit,
                 <XCircle size={14} /> Reject Proposal
               </button>
             </div>
+
+            {quote.opportunityId && (
+              <div style={{ fontSize: '0.72rem', color: '#64748b', fontStyle: 'italic' }}>
+                💡 Accepting marks linked opportunity as WON. Rejecting marks it as LOST with rejection reason.
+              </div>
+            )}
 
             {showRejectReason && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginTop: '4px' }}>

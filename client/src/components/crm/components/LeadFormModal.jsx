@@ -3,6 +3,7 @@ import axios from 'axios';
 import { X } from 'lucide-react';
 import { message } from 'antd';
 import GarudaTeamMemberInput from './GarudaTeamMemberInput';
+import { ALLOWED_SERVICES, formatServiceName } from '../crmConstants';
 
 const TASK_PRESETS = [
   { label: '📞 First Intro Call', title: 'First follow-up call with lead', type: 'call' },
@@ -16,17 +17,6 @@ const getDefaultDueDate = () => {
   d.setDate(d.getDate() + 1);
   return d.toISOString().split('T')[0];
 };
-
-const ALLOWED_SERVICES = [
-  'freight forwarding',
-  'dgft',
-  'e-lock',
-  'client',
-  'transportation',
-  'paramount',
-  'rabs',
-  'auto rack'
-];
 
 const SOURCES = [
   'Web / Own Generated Lead',
@@ -345,12 +335,17 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
   };
 
   const toggleService = (service) => {
-    setFormData(prev => ({
-      ...prev,
-      interestedServices: prev.interestedServices.includes(service)
-        ? prev.interestedServices.filter(s => s !== service)
-        : [...prev.interestedServices, service]
-    }));
+    setFormData(prev => {
+      const isSelected = (prev.interestedServices || []).some(
+        s => s.toLowerCase() === service.toLowerCase() || (s.toLowerCase() === 'auto rack' && service === 'autorack')
+      );
+      return {
+        ...prev,
+        interestedServices: isSelected
+          ? (prev.interestedServices || []).filter(s => s.toLowerCase() !== service.toLowerCase() && !(s.toLowerCase() === 'auto rack' && service === 'autorack'))
+          : [...(prev.interestedServices || []), service]
+      };
+    });
   };
 
   return (
@@ -912,27 +907,32 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
             <div style={{ gridColumn: 'span 2' }}>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '12px' }}>Interested Services</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {ALLOWED_SERVICES.map(service => (
-                  <button
-                    key={service}
-                    type="button"
-                    onClick={() => toggleService(service)}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '20px',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      border: '1px solid',
-                      borderColor: formData.interestedServices.includes(service) ? '#4f46e5' : '#e2e8f0',
-                      background: formData.interestedServices.includes(service) ? '#eef2ff' : '#fff',
-                      color: formData.interestedServices.includes(service) ? '#4f46e5' : '#64748b',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    {service.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                  </button>
-                ))}
+                {ALLOWED_SERVICES.map(service => {
+                  const isSelected = (formData.interestedServices || []).some(
+                    s => s.toLowerCase() === service.toLowerCase() || (s.toLowerCase() === 'auto rack' && service === 'autorack')
+                  );
+                  return (
+                    <button
+                      key={service}
+                      type="button"
+                      onClick={() => toggleService(service)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        border: '1px solid',
+                        borderColor: isSelected ? '#4f46e5' : '#e2e8f0',
+                        background: isSelected ? '#eef2ff' : '#fff',
+                        color: isSelected ? '#4f46e5' : '#64748b',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {formatServiceName(service)}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             {/* Quick Task Assignment Section */}

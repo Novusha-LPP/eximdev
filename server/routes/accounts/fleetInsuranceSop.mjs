@@ -448,6 +448,9 @@ router.get("/fleet-insurance-sop/pending-count", authMiddleware, async (req, res
         { newExpiryDate: { $lte: sevenDaysFromNow } }
       ]
     });
+    const visibleExpiringCount = !isAdmin && allowedTabs.length > 0 && !allowedTabs.includes("Vehicle Records")
+      ? 0
+      : expiringCount;
 
     // Pending Approvals: PR generated, pending financial approval
     const pendingApprovalCount = await FleetInsuranceSopModel.countDocuments({
@@ -482,7 +485,7 @@ router.get("/fleet-insurance-sop/pending-count", authMiddleware, async (req, res
     res.status(200).json({
       success: true,
       count: totalCount,
-      expiringCount,
+      expiringCount: visibleExpiringCount,
       approvalCount: pendingApprovalCount,
       paymentUtrCount: pendingPaymentUtrCount
     });

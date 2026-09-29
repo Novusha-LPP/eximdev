@@ -4,6 +4,19 @@ import { X } from 'lucide-react';
 import { message } from 'antd';
 import GarudaTeamMemberInput from './GarudaTeamMemberInput';
 
+const TASK_PRESETS = [
+  { label: '📞 First Intro Call', title: 'First follow-up call with lead', type: 'call' },
+  { label: '📄 Send Rate & Brochure', title: 'Send company brochure and rate indications', type: 'email' },
+  { label: '🤝 Discovery Meeting', title: 'Introductory client discovery meeting', type: 'meeting' },
+  { label: '🔍 Requirement Gathering', title: 'Gather shipment, container & port requirements', type: 'research' }
+];
+
+const getDefaultDueDate = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split('T')[0];
+};
+
 const ALLOWED_SERVICES = [
   'freight forwarding',
   'dgft',
@@ -53,8 +66,14 @@ const ALL_STANDARD_SOURCES = [
 ];
 
 export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplicate, leadToEdit }) {
-  const currentUser = JSON.parse(localStorage.getItem('exim_user') || '{}');
-  const currentUserId = currentUser._id || currentUser.id || '';
+  const currentUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('exim_user') || '{}');
+    } catch (e) {
+      return {};
+    }
+  }, []);
+  const currentUserId = (currentUser._id || currentUser.id || '')?.toString();
 
   const getHeaders = () => {
     const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
@@ -106,9 +125,43 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
   const [isOtherCompanyType, setIsOtherCompanyType] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [users, setUsers] = useState([]);
+  const [assignTask, setAssignTask] = useState(false);
+  const [taskData, setTaskData] = useState({
+    title: '',
+    type: 'call',
+    priority: 'medium',
+    dueDate: getDefaultDueDate(),
+    assignedTo: currentUserId || '',
+    description: ''
+  });
 
   useEffect(() => {
     if (isOpen) {
+      const fetchUsers = async () => {
+        try {
+          const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`, getHeaders());
+          let fetched = res.data || [];
+          if (currentUserId && !fetched.some(u => (u._id || u.id)?.toString() === currentUserId)) {
+            fetched = [currentUser, ...fetched];
+          }
+          setUsers(fetched);
+        } catch (err) {
+          console.error('Error fetching users:', err);
+        }
+      };
+      fetchUsers();
+
+      setAssignTask(false);
+      setTaskData({
+        title: '',
+        type: 'call',
+        priority: 'medium',
+        dueDate: getDefaultDueDate(),
+        assignedTo: currentUserId || '',
+        description: ''
+      });
+
       const activeLead = leadToEdit || leadToDuplicate;
       if (activeLead) {
         setFormData({
@@ -200,13 +253,36 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
         setIsOtherCompanyType(false);
       }
     }
-  }, [isOpen, leadToDuplicate, leadToEdit, currentUserId]);
+  }, [isOpen, leadToDuplicate, leadToEdit, currentUserId, currentUser]);
 
+  const getDisplayName = (u) => {
+    if (!u) return '';
+    return u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : (u.username || 'User');
+  };
+
+  const sortedUsers = useMemo(() => {
+    return [...users].sort((a, b) => {
+      const aId = (a._id || a.id)?.toString();
+      const bId = (b._id || b.id)?.toString();
+      if (aId === currentUserId) return -1;
+      if (bId === currentUserId) return 1;
+      const aName = getDisplayName(a).toLowerCase();
+      const bName = getDisplayName(b).toLowerCase();
+      return aName.localeCompare(bName);
+    });
+  }, [users, currentUserId]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (assignTask && !taskData.title.trim()) {
+      return message.error('Please enter a task title, or uncheck "Assign Follow-up Task"');
+    }
+    if (assignTask && !taskData.assignedTo) {
+      return message.error('Please select a teammate to assign the task to');
+    }
+
     setIsSubmitting(true);
     try {
       const finalCompanyType = isOtherCompanyType ? (customCompanyType.trim() || 'Other') : (formData.companyType || '');
@@ -214,13 +290,51 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
         ...formData,
         companyType: finalCompanyType
       };
+
+      let leadId = null;
+      let leadDisplayName = `${formData.company || ''} (${formData.firstName || ''} ${formData.lastName || ''})`.trim();
+
       if (leadToEdit) {
-        await axios.put(`${process.env.REACT_APP_API_STRING}/crm/leads/${leadToEdit._id}`, payload, getHeaders());
-        message.success("Lead updated successfully!");
+        const res = await axios.put(`${process.env.REACT_APP_API_STRING}/crm/leads/${leadToEdit._id}`, payload, getHeaders());
+        leadId = res.data?._id || leadToEdit._id;
+        if (res.data?.company || res.data?.firstName) {
+          leadDisplayName = `${res.data?.company || ''} (${res.data?.firstName || ''} ${res.data?.lastName || ''})`.trim();
+        }
       } else {
-        await axios.post(`${process.env.REACT_APP_API_STRING}/crm/leads`, payload, getHeaders());
-        message.success("Lead created successfully!");
+        const res = await axios.post(`${process.env.REACT_APP_API_STRING}/crm/leads`, payload, getHeaders());
+        leadId = res.data?._id;
+        if (res.data?.company || res.data?.firstName) {
+          leadDisplayName = `${res.data?.company || ''} (${res.data?.firstName || ''} ${res.data?.lastName || ''})`.trim();
+        }
       }
+
+      // If user enabled task creation
+      if (assignTask && leadId && taskData.title.trim()) {
+        try {
+          const taskPayload = {
+            title: taskData.title.trim(),
+            description: taskData.description || '',
+            type: taskData.type || 'call',
+            status: 'open',
+            priority: taskData.priority || 'medium',
+            dueDate: taskData.dueDate || null,
+            assignedTo: taskData.assignedTo || currentUserId,
+            relatedTo: {
+              model: 'Lead',
+              id: leadId,
+              name: leadDisplayName || 'New Lead'
+            }
+          };
+          await axios.post(`${process.env.REACT_APP_API_STRING}/crm/tasks`, taskPayload, getHeaders());
+          message.success(leadToEdit ? "Lead updated & task assigned successfully!" : "Lead created & task assigned successfully!");
+        } catch (taskErr) {
+          console.error("Task assignment error:", taskErr);
+          message.warning((leadToEdit ? "Lead updated, " : "Lead created, ") + "but task assignment failed: " + (taskErr.response?.data?.message || taskErr.message));
+        }
+      } else {
+        message.success(leadToEdit ? "Lead updated successfully!" : "Lead created successfully!");
+      }
+
       onRefresh();
       onClose();
     } catch (error) {
@@ -821,6 +935,205 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
                 ))}
               </div>
             </div>
+            {/* Quick Task Assignment Section */}
+            <div style={{
+              gridColumn: 'span 2',
+              marginTop: '10px',
+              background: assignTask ? '#f8fafc' : '#fcfcfd',
+              border: assignTask ? '1.5px solid #6366f1' : '1px dashed #cbd5e1',
+              borderRadius: '12px',
+              padding: '16px',
+              transition: 'all 0.2s ease',
+              boxShadow: assignTask ? '0 4px 12px rgba(99, 102, 241, 0.08)' : 'none'
+            }}>
+              <div
+                onClick={() => setAssignTask(!assignTask)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  userSelect: 'none'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <input
+                    type="checkbox"
+                    checked={assignTask}
+                    onChange={(e) => setAssignTask(e.target.checked)}
+                    onClick={(e) => e.stopPropagation()}
+                    id="assignTaskCheckbox"
+                    style={{ width: '18px', height: '18px', accentColor: '#4f46e5', cursor: 'pointer' }}
+                  />
+                  <label
+                    htmlFor="assignTaskCheckbox"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setAssignTask(!assignTask);
+                    }}
+                    style={{
+                      margin: 0,
+                      fontWeight: 700,
+                      fontSize: '0.95rem',
+                      color: assignTask ? '#4338ca' : '#1e293b',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <span>📋 Assign Follow-up / Initial Task</span>
+                    <span style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      color: '#4f46e5',
+                      background: '#e0e7ff',
+                      padding: '2px 8px',
+                      borderRadius: '12px'
+                    }}>
+                      ⚡ Instant Task
+                    </span>
+                  </label>
+                </div>
+                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>
+                  {assignTask ? '▲ Close Task Setup' : '▼ Click to assign task immediately'}
+                </span>
+              </div>
+
+              {assignTask && (
+                <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '14px', borderTop: '1px solid #e2e8f0' }}>
+                  {/* Quick Preset Buttons */}
+                  <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '8px', letterSpacing: '0.02em' }}>
+                      QUICK TASK PRESETS:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {TASK_PRESETS.map((preset, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setTaskData(prev => ({ ...prev, title: preset.title, type: preset.type }))}
+                          style={{
+                            background: taskData.title === preset.title ? '#e0e7ff' : '#fff',
+                            color: taskData.title === preset.title ? '#4338ca' : '#475569',
+                            border: `1px solid ${taskData.title === preset.title ? '#6366f1' : '#cbd5e1'}`,
+                            padding: '5px 12px',
+                            borderRadius: '16px',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Task Title & Type */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                        Task Title <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required={assignTask}
+                        placeholder="e.g. Follow-up call with customer for container quote..."
+                        value={taskData.title}
+                        onChange={(e) => setTaskData({ ...taskData, title: e.target.value })}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none', background: '#fff' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                        Task Type
+                      </label>
+                      <select
+                        value={taskData.type}
+                        onChange={(e) => setTaskData({ ...taskData, type: e.target.value })}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none', background: '#fff' }}
+                      >
+                        <option value="call">📞 Phone Call</option>
+                        <option value="email">✉️ Email</option>
+                        <option value="meeting">🤝 Meeting</option>
+                        <option value="research">🔍 Research / KYC</option>
+                        <option value="other">📌 Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Assigned To, Due Date, Priority */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                        Assign To <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <select
+                        required={assignTask}
+                        value={taskData.assignedTo}
+                        onChange={(e) => setTaskData({ ...taskData, assignedTo: e.target.value })}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none', background: '#fff' }}
+                      >
+                        <option value="">-- Select Teammate --</option>
+                        {sortedUsers.map(u => {
+                          const uid = (u._id || u.id)?.toString();
+                          const isMe = uid === currentUserId;
+                          return (
+                            <option key={uid} value={uid}>
+                              {getDisplayName(u)} {isMe ? '(You)' : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                        Due Date
+                      </label>
+                      <input
+                        type="date"
+                        value={taskData.dueDate}
+                        onChange={(e) => setTaskData({ ...taskData, dueDate: e.target.value })}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none', background: '#fff' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                        Priority
+                      </label>
+                      <select
+                        value={taskData.priority}
+                        onChange={(e) => setTaskData({ ...taskData, priority: e.target.value })}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none', background: '#fff' }}
+                      >
+                        <option value="low">🟢 Low</option>
+                        <option value="medium">🟡 Medium</option>
+                        <option value="high">🟠 High</option>
+                        <option value="urgent">🔴 Urgent</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Task Instructions / Notes */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                      Instructions / Notes (Optional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Add specific instructions for the assignee..."
+                      value={taskData.description}
+                      onChange={(e) => setTaskData({ ...taskData, description: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none', resize: 'vertical', background: '#fff' }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Footer */}
@@ -846,14 +1159,26 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
                 padding: '12px',
                 borderRadius: '10px',
                 border: 'none',
-                background: '#4f46e5',
+                background: assignTask ? '#4338ca' : '#4f46e5',
                 color: '#fff',
                 fontWeight: 600,
                 cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)'
+                boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
               }}
             >
-              {isSubmitting ? (leadToEdit ? 'Updating...' : 'Creating...') : (leadToEdit ? 'Update Lead' : 'Create Lead')}
+              {isSubmitting ? (
+                <span>⏳ {assignTask ? 'Saving Lead & Task...' : (leadToEdit ? 'Updating...' : 'Creating...')}</span>
+              ) : (
+                <span>
+                  {assignTask
+                    ? (leadToEdit ? '💾 Update Lead & Assign Task' : '🚀 Create Lead & Assign Task')
+                    : (leadToEdit ? 'Update Lead' : 'Create Lead')}
+                </span>
+              )}
             </button>
           </div>
         </form>

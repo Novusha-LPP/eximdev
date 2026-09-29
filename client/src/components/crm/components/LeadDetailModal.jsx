@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { X, Edit2, User, FileText, DollarSign, Trash2 } from 'lucide-react';
+import { X, Edit2, User, FileText, DollarSign, Trash2, CheckSquare } from 'lucide-react';
 import ActivityTimeline from './ActivityTimeline';
 import QuoteFormModal from './QuoteFormModal';
 import PricingRequestFormModal from './PricingRequestFormModal';
+import TaskFormModal from './TaskFormModal';
 
 export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefresh, onDelete, canDelete }) {
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
   if (!isOpen || !lead) return null;
 
@@ -57,6 +59,12 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
               style={{ padding: '8px 12px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
               <DollarSign size={16} /> Request Pricing
+            </button>
+            <button
+              onClick={() => setIsTaskModalOpen(true)}
+              style={{ padding: '8px 12px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+            >
+              <CheckSquare size={16} /> Assign Task
             </button>
             <button
               onClick={() => {
@@ -303,6 +311,20 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
         initialSubject={`Pricing rate request for Lead: ${lead.company || `${lead.firstName} ${lead.lastName}`}`}
         initialTargetPrice={lead.monthlyRevenue || lead.monthlyVolume || ''}
         onRefresh={onRefresh}
+      />
+      <TaskFormModal
+        isOpen={isTaskModalOpen}
+        onClose={() => setIsTaskModalOpen(false)}
+        onRefresh={() => {
+          if (onRefresh) onRefresh();
+        }}
+        task={{
+          relatedTo: {
+            model: 'Lead',
+            id: lead._id,
+            name: `${lead.company || ''} (${lead.firstName || ''} ${lead.lastName || ''})`.trim()
+          }
+        }}
       />
     </div>
   );

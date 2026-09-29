@@ -4148,6 +4148,28 @@ export default function AssetManagement() {
             })
             : "";
 
+          const recordFirstUsername = String(
+            viewRecord.first_approver_username ||
+            viewRecord.assigned_first_approver?.username ||
+            activeFirstApprover ||
+            "shalini_arun"
+          ).toLowerCase().trim();
+
+          const recordFirstName =
+            viewRecord.first_approver_name ||
+            (viewRecord.assigned_first_approver?.first_name ? `${viewRecord.assigned_first_approver.first_name} ${viewRecord.assigned_first_approver.last_name || ""}`.trim() : "") ||
+            (recordFirstUsername === activeFirstApprover ? activeFirstApproverName : null) ||
+            (recordFirstUsername === "shalini_arun" ? "Shalini Arun" : recordFirstUsername);
+
+          const isRecordFirstApprover =
+            currentUsername === recordFirstUsername ||
+            String(currentUser?._id || "") === String(viewRecord.assigned_first_approver?._id || viewRecord.assigned_first_approver || "") ||
+            isAdmin;
+
+          const isReturnedFromManuToFirst =
+            String(viewRecord.approval_status || "").toLowerCase().includes("rejected by manu_pillai") ||
+            (Boolean(viewRecord.rejection_remarks) && String(viewRecord.rejected_by_name || "").toLowerCase().includes("manu_pillai") && !String(viewRecord.approval_status || "").toLowerCase().includes("returned to it"));
+
           const normStatus = String(viewRecord.approval_status || "").toLowerCase();
           const normStage = String(viewRecord.approval_stage || "").toLowerCase();
           const isRejectedEntry =
@@ -4156,6 +4178,32 @@ export default function AssetManagement() {
             normStage.includes("reject") ||
             normStatus.includes("returned") ||
             normStage.includes("correction");
+
+          // Deduplicate workflow history entries for consecutive rejection logs (e.g., initial reject + return-to-IT in same cycle by same user)
+          const deduplicatedWorkflowHistory = (Array.isArray(viewRecord.workflow_history) ? viewRecord.workflow_history : []).filter(
+            (h, idx, arr) => {
+              if (idx === 0) return true;
+              const prev = arr[idx - 1];
+              const actLower = (h.action || "").toLowerCase();
+              const stgLower = (h.stage || "").toLowerCase();
+              const isCurrentRej = actLower.includes("reject") || stgLower.includes("reject") || actLower.includes("returned") || stgLower.includes("correction");
+
+              const prevActLower = (prev.action || "").toLowerCase();
+              const prevStgLower = (prev.stage || "").toLowerCase();
+              const isPrevRej = prevActLower.includes("reject") || prevStgLower.includes("reject") || prevActLower.includes("returned") || prevStgLower.includes("correction");
+
+              if (
+                isCurrentRej &&
+                isPrevRej &&
+                Number(h.approval_cycle) === Number(prev.approval_cycle) &&
+                (String(h.performed_by?._id || h.performed_by || "") === String(prev.performed_by?._id || prev.performed_by || "") ||
+                 String(h.performed_by_name || "") === String(prev.performed_by_name || ""))
+              ) {
+                return false;
+              }
+              return true;
+            }
+          );
 
           return (
             <>
@@ -4342,8 +4390,8 @@ export default function AssetManagement() {
                       label: "Approval & Audit",
                       icon: <ShieldCheck size={14} />,
                       badge:
-                        Array.isArray(viewRecord.workflow_history) && viewRecord.workflow_history.length > 0
-                          ? `${viewRecord.workflow_history.length}`
+                        deduplicatedWorkflowHistory.length > 0
+                          ? `${deduplicatedWorkflowHistory.length}`
                           : null,
                     },
                   ].map((tab) => {
@@ -5477,7 +5525,7 @@ export default function AssetManagement() {
 
                           {/* Role-based Workflow Action Buttons */}
                           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
-                            {/* Step 1: First Admin Approval */}
+                            {/* Step 1: Initial First Admin Approval */}
                             {!isRejectedEntry &&
                               !String(viewRecord.approval_status || "").toLowerCase().includes("completed") &&
                               !(
@@ -5486,7 +5534,7 @@ export default function AssetManagement() {
                                 viewRecord.approval_stage === "Second Admin Approval" ||
                                 viewRecord.approval_status === "Pending Final Approval (manu_pillai)"
                               ) && (
-                                isFirstApprover ? (
+                                isRecordFirstApprover ? (
                                   <>
                                     <Button
                                       variant="contained"
@@ -5504,7 +5552,7 @@ export default function AssetManagement() {
                                         boxShadow: "none",
                                         opacity: Boolean(viewRecord.image_url) && !invoiceInspectionConfirmed ? 0.6 : 1,
                                       }}
-                                      title={Boolean(viewRecord.image_url) && !invoiceInspectionConfirmed ? "Please inspect invoice and check the verification box first" : "Approve (1st Approval)"}
+                                      title={Boolean(viewRecord.image_url) && !invoiceInspectionConfirmed ? "Please inspect invoice and check the verification box first" : `Approve (1st Approval)`}
                                     >
                                       Approve (1st Approval)
                                     </Button>
@@ -5526,7 +5574,7 @@ export default function AssetManagement() {
                                         borderRadius: "8px",
                                       }}
                                     >
-                                      Reject
+                                      Reject (Return to IT)
                                     </Button>
                                   </>
                                 ) : (
@@ -5543,7 +5591,7 @@ export default function AssetManagement() {
                                     }}
                                   >
                                     <Typography sx={{ fontSize: "0.74rem", color: "#1e40af", fontWeight: 600 }}>
-                                      ⏳ Awaiting 1st Approval from {activeFirstApproverName || activeFirstApprover}
+                                      ⏳ Awaiting 1st Approval from {recordFirstName}
                                     </Typography>
                                   </Box>
                                 )
@@ -5598,7 +5646,7 @@ export default function AssetManagement() {
                                         borderRadius: "8px",
                                       }}
                                     >
-                                      Reject
+                                      Reject (Return to {recordFirstName})
                                     </Button>
                                   </>
                                 ) : (
@@ -5621,10 +5669,74 @@ export default function AssetManagement() {
                                 )
                               )}
 
+                            {/* Step 3: First Approver Receives Manu's Rejection -> Can either "Send to IT Person" OR "Approve & Send to Manu Pillai" */}
+                            {isReturnedFromManuToFirst && !(viewRecord.approval_stage === "IT Correction" || viewRecord.approval_status === "Returned to IT") && (
+                              isRecordFirstApprover ? (
+                                <>
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    startIcon={<RotateCcw size={14} />}
+                                    onClick={() => {
+                                      setReturnToITAssetRecord(viewRecord);
+                                      setReturnToITRemarks(viewRecord.rejection_remarks || "");
+                                      setShowReturnToITModal(true);
+                                    }}
+                                    disabled={submittingWorkflow}
+                                    sx={{
+                                      textTransform: "none",
+                                      fontSize: "0.78rem",
+                                      fontWeight: 600,
+                                      borderRadius: "8px",
+                                      backgroundColor: "#f97316",
+                                      color: "#ffffff",
+                                      "&:hover": { backgroundColor: "#ea580c" },
+                                      boxShadow: "none",
+                                    }}
+                                  >
+                                    Send to IT Person
+                                  </Button>
+                                  <Button
+                                    variant="outlined"
+                                    color="success"
+                                    size="small"
+                                    startIcon={<Check size={14} />}
+                                    onClick={() => handleWorkflowAction(viewRecord._id, "approve_admin")}
+                                    disabled={submittingWorkflow || (Boolean(viewRecord.image_url) && !invoiceInspectionConfirmed)}
+                                    sx={{
+                                      textTransform: "none",
+                                      fontSize: "0.78rem",
+                                      fontWeight: 600,
+                                      borderRadius: "8px",
+                                    }}
+                                  >
+                                    Approve & Send to Manu Pillai
+                                  </Button>
+                                </>
+                              ) : (
+                                <Box
+                                  sx={{
+                                    p: 0.8,
+                                    px: 1.2,
+                                    borderRadius: "8px",
+                                    backgroundColor: "#fff7ed",
+                                    border: "1px solid #fdba74",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 0.8,
+                                  }}
+                                >
+                                  <Typography sx={{ fontSize: "0.74rem", color: "#c2410c", fontWeight: 600 }}>
+                                    ⏳ Rejected by manu_pillai — Awaiting {recordFirstName} to review and take action.
+                                  </Typography>
+                                </Box>
+                              )
+                            )}
+
                             {/* Returned / IT Correction Stage — Resubmit button visible ONLY for IT users */}
                             {(viewRecord.approval_stage === "IT Correction" ||
-                              viewRecord.approval_status === "Returned to IT") &&
-                              isPureITDept && (
+                              viewRecord.approval_status === "Returned to IT") && (
+                              isPureITDept ? (
                                 <Button
                                   variant="contained"
                                   size="small"
@@ -5652,43 +5764,7 @@ export default function AssetManagement() {
                                 >
                                   Resubmit for Approval
                                 </Button>
-                              )}
-
-                            {/* State 1: When rejected by 2nd approver and NOT YET returned to IT -> 1st Approver sees "Send to IT Person" button */}
-                            {(viewRecord.approval_stage === "Rejected" ||
-                              viewRecord.approval_status === "Rejected" ||
-                              String(viewRecord.approval_status || "").toLowerCase().includes("rejected")) &&
-                              !(viewRecord.approval_stage === "IT Correction" || viewRecord.approval_status === "Returned to IT") &&
-                              (isFirstApprover || isManu || isAdmin) && (
-                                <Button
-                                  variant="contained"
-                                  size="small"
-                                  startIcon={<RotateCcw size={14} />}
-                                  onClick={() => {
-                                    setReturnToITAssetRecord(viewRecord);
-                                    setReturnToITRemarks(viewRecord.rejection_remarks || "");
-                                    setShowReturnToITModal(true);
-                                  }}
-                                  disabled={submittingWorkflow}
-                                  sx={{
-                                    textTransform: "none",
-                                    fontSize: "0.78rem",
-                                    fontWeight: 600,
-                                    borderRadius: "8px",
-                                    backgroundColor: "#f97316",
-                                    color: "#ffffff",
-                                    "&:hover": { backgroundColor: "#ea580c" },
-                                    boxShadow: "none",
-                                  }}
-                                >
-                                  Send to IT Person
-                                </Button>
-                              )}
-
-                            {/* State 2: Once 1st Approver has clicked "Send to IT Person" (status is now "Returned to IT") -> Button does NOT persist! */}
-                            {(viewRecord.approval_stage === "IT Correction" ||
-                              viewRecord.approval_status === "Returned to IT") &&
-                              !isPureITDept && (
+                              ) : (
                                 <Box
                                   sx={{
                                     p: 1,
@@ -5705,7 +5781,8 @@ export default function AssetManagement() {
                                     ⏳ Sent to IT — Awaiting IT Department to make corrections and resubmit.
                                   </Typography>
                                 </Box>
-                              )}
+                              )
+                            )}
                           </Box>
                         </Box>
                       </Box>
@@ -5745,8 +5822,9 @@ export default function AssetManagement() {
                         {[
                           { label: "1. Created", done: true },
                           {
-                            label: `2. ${activeFirstApproverName || activeFirstApprover} (1st Approval)`,
+                            label: `2. ${recordFirstName} (1st Approval)`,
                             done:
+                              !isReturnedFromManuToFirst &&
                               !(
                                 String(viewRecord.approval_stage || "").toLowerCase().includes("correction") ||
                                 String(viewRecord.approval_status || "").toLowerCase().includes("returned")
@@ -5754,21 +5832,23 @@ export default function AssetManagement() {
                               ((Array.isArray(viewRecord.admin_verifications) &&
                                 viewRecord.admin_verifications.some(
                                   (v) =>
-                                    String(v.username || "").toLowerCase() === activeFirstApprover ||
+                                    String(v.username || "").toLowerCase() === recordFirstUsername ||
                                     String(v.username || "").toLowerCase() === "shalini_arun" ||
                                     String(v.action || "").toLowerCase().includes("first")
                                 )) ||
                                 String(viewRecord.approval_stage || "") === "Second Admin Approval" ||
                                 String(viewRecord.approval_status || "").toLowerCase().includes("completed")),
                             active:
-                              !String(viewRecord.approval_status || "").toLowerCase().includes("completed") &&
-                              !String(viewRecord.approval_status || "").toLowerCase().includes("reject") &&
-                              !(String(viewRecord.approval_stage || "") === "Second Admin Approval" ||
-                                viewRecord.approval_status === "Pending Final Approval (manu_pillai)"),
+                              isReturnedFromManuToFirst ||
+                              (!String(viewRecord.approval_status || "").toLowerCase().includes("completed") &&
+                               !String(viewRecord.approval_status || "").toLowerCase().includes("reject") &&
+                               !(String(viewRecord.approval_stage || "") === "Second Admin Approval" ||
+                                 viewRecord.approval_status === "Pending Final Approval (manu_pillai)")),
                           },
                           {
                             label: "3. manu_pillai (Final Approval)",
                             done:
+                              !isReturnedFromManuToFirst &&
                               !(
                                 String(viewRecord.approval_stage || "").toLowerCase().includes("correction") ||
                                 String(viewRecord.approval_status || "").toLowerCase().includes("returned")
@@ -5779,6 +5859,7 @@ export default function AssetManagement() {
                                 )) ||
                                 String(viewRecord.approval_status || "").toLowerCase().includes("completed")),
                             active:
+                              !isReturnedFromManuToFirst &&
                               (String(viewRecord.approval_stage || "") === "Second Admin Approval" ||
                                viewRecord.approval_status === "Pending Final Approval (manu_pillai)") &&
                               !String(viewRecord.approval_status || "").toLowerCase().includes("completed") &&
@@ -5838,14 +5919,14 @@ export default function AssetManagement() {
                           <Box sx={{ p: 1.5, backgroundColor: "#f8fafc", borderRadius: "9px", border: "1px solid #f1f5f9", height: "100%" }}>
                             <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
                               <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
-                                1. First Admin Approval ({activeFirstApproverName || activeFirstApprover})
+                                1. First Admin Approval ({recordFirstName})
                               </Typography>
-                              {isFirstApprover &&
+                              {isRecordFirstApprover &&
                                 !(
                                   Array.isArray(viewRecord.admin_verifications) &&
                                   viewRecord.admin_verifications.some(
                                     (v) =>
-                                      String(v.username || "").toLowerCase() === activeFirstApprover ||
+                                      String(v.username || "").toLowerCase() === recordFirstUsername ||
                                       String(v.username || "").toLowerCase() === "shalini_arun" ||
                                       String(v.action || "").toLowerCase().includes("first")
                                   )
@@ -5871,16 +5952,16 @@ export default function AssetManagement() {
                                       borderRadius: "6px",
                                       opacity: Boolean(viewRecord.image_url) && !invoiceInspectionConfirmed ? 0.6 : 1,
                                     }}
-                                    title={Boolean(viewRecord.image_url) && !invoiceInspectionConfirmed ? "Please inspect invoice in 'Procurement & Invoice' tab and confirm verification first" : `Approve (${activeFirstApprover})`}
+                                    title={Boolean(viewRecord.image_url) && !invoiceInspectionConfirmed ? "Please inspect invoice in 'Procurement & Invoice' tab and confirm verification first" : `Approve (${recordFirstName})`}
                                   >
-                                    + Approve ({activeFirstApprover})
+                                    + Approve ({recordFirstName})
                                   </Button>
                                 )}
                             </Box>
                             {Array.isArray(viewRecord.admin_verifications) &&
                             viewRecord.admin_verifications.some(
                               (v) =>
-                                String(v.username || "").toLowerCase() === activeFirstApprover ||
+                                String(v.username || "").toLowerCase() === recordFirstUsername ||
                                 String(v.username || "").toLowerCase() === "shalini_arun" ||
                                 String(v.action || "").toLowerCase().includes("first")
                             ) ? (
@@ -5888,7 +5969,7 @@ export default function AssetManagement() {
                                 {viewRecord.admin_verifications
                                   .filter(
                                     (v) =>
-                                      String(v.username || "").toLowerCase() === activeFirstApprover ||
+                                      String(v.username || "").toLowerCase() === recordFirstUsername ||
                                       String(v.username || "").toLowerCase() === "shalini_arun" ||
                                       String(v.action || "").toLowerCase().includes("first")
                                   )
@@ -5896,7 +5977,7 @@ export default function AssetManagement() {
                                     <Chip
                                       key={idx}
                                       icon={<ShieldCheck size={13} color="#16a34a" />}
-                                      label={`Approved by ${v.username || activeFirstApprover}${v.timestamp ? " on " + new Date(v.timestamp).toLocaleDateString() : ""}`}
+                                      label={`Approved by ${v.name || v.username || recordFirstName}${v.timestamp ? " on " + new Date(v.timestamp).toLocaleDateString() : ""}`}
                                       size="small"
                                       sx={{
                                         height: 24,
@@ -5912,7 +5993,9 @@ export default function AssetManagement() {
                               </Box>
                             ) : (
                               <Typography sx={{ fontSize: "0.8rem", color: "#94a3b8", fontStyle: "italic" }}>
-                                Pending 1st Approval from {activeFirstApproverName || activeFirstApprover}
+                                {isReturnedFromManuToFirst
+                                  ? `Returned from Manu Pillai — Awaiting review from ${recordFirstName}`
+                                  : `Pending 1st Approval from ${recordFirstName}`}
                               </Typography>
                             )}
                           </Box>
@@ -5967,7 +6050,7 @@ export default function AssetManagement() {
                                     <Chip
                                       key={idx}
                                       icon={<ShieldCheck size={13} color="#16a34a" />}
-                                      label={`Approved by ${v.username || "manu_pillai"}${v.timestamp ? " on " + new Date(v.timestamp).toLocaleDateString() : ""}`}
+                                      label={`Approved by ${v.name || v.username || "manu_pillai"}${v.timestamp ? " on " + new Date(v.timestamp).toLocaleDateString() : ""}`}
                                       size="small"
                                       sx={{
                                         height: 24,
@@ -5986,7 +6069,7 @@ export default function AssetManagement() {
                                 {viewRecord.approval_stage === "Second Admin Approval" ||
                                  viewRecord.approval_status === "Pending Final Approval (manu_pillai)"
                                   ? "Pending Final Approval from manu_pillai"
-                                  : `Awaiting 1st Approval (${activeFirstApproverName || activeFirstApprover}) first`}
+                                  : `Awaiting 1st Approval (${recordFirstName}) first`}
                               </Typography>
                             )}
                           </Box>
@@ -6085,9 +6168,9 @@ export default function AssetManagement() {
                       <Typography sx={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase", mb: 1.5 }}>
                         Workflow Stage History & Audit Trail
                       </Typography>
-                      {Array.isArray(viewRecord.workflow_history) && viewRecord.workflow_history.length > 0 ? (
+                      {deduplicatedWorkflowHistory.length > 0 ? (
                         <Box sx={{ border: "1px solid #e2e8f0", borderRadius: "8px", overflow: "hidden" }}>
-                          {viewRecord.workflow_history.map((h, i) => {
+                          {deduplicatedWorkflowHistory.map((h, i) => {
                             const actLower = (h.action || "").toLowerCase();
                             const stgLower = (h.stage || "").toLowerCase();
                             const isHistoryRejected =
@@ -6108,7 +6191,7 @@ export default function AssetManagement() {
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "space-between",
-                                  borderBottom: i < viewRecord.workflow_history.length - 1 ? "1px solid #f1f5f9" : "none",
+                                  borderBottom: i < deduplicatedWorkflowHistory.length - 1 ? "1px solid #f1f5f9" : "none",
                                   borderLeft: isHistoryRejected
                                     ? "4px solid #ef4444"
                                     : isHistoryVerified
@@ -6476,7 +6559,17 @@ export default function AssetManagement() {
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            Please specify the rejection remarks. The asset request will be returned to IT for correction.
+            {isManu &&
+            (rejectAssetRecord?.approval_stage === "Second Admin Approval" ||
+              rejectAssetRecord?.approval_status === "Pending Final Approval (manu_pillai)")
+              ? `Please specify the rejection remarks. The invoice will be returned directly to ${
+                  rejectAssetRecord?.first_approver_name ||
+                  (rejectAssetRecord?.assigned_first_approver && typeof rejectAssetRecord.assigned_first_approver === "object"
+                    ? (rejectAssetRecord.assigned_first_approver.first_name ? `${rejectAssetRecord.assigned_first_approver.first_name} ${rejectAssetRecord.assigned_first_approver.last_name || ""}`.trim() : rejectAssetRecord.assigned_first_approver.name || rejectAssetRecord.assigned_first_approver.username)
+                    : rejectAssetRecord?.first_approver_username) ||
+                  "the original First Approver"
+                } for review before going to IT.`
+              : "Please specify the rejection remarks. The asset request will be returned to IT for correction."}
           </Typography>
           <TextField
             fullWidth
@@ -6660,14 +6753,20 @@ export default function AssetManagement() {
                 <Typography sx={{ fontSize: "0.78rem", color: "#15803d", fontWeight: 600, flex: 1 }}>
                   Invoice document attached
                 </Typography>
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() => setResubmitInvoiceUrl("")}
-                  sx={{ fontSize: "0.72rem", color: "#dc2626", textTransform: "none", p: 0.3 }}
-                >
-                  Remove
-                </Button>
+                <Tooltip title="Remove Invoice">
+                  <IconButton
+                    size="small"
+                    onClick={() => setResubmitInvoiceUrl("")}
+                    sx={{
+                      color: "#dc2626",
+                      p: 0.5,
+                      borderRadius: "6px",
+                      "&:hover": { backgroundColor: "#fee2e2", color: "#b91c1c" },
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </IconButton>
+                </Tooltip>
               </Box>
             ) : (
               <label

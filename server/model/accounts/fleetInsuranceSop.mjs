@@ -12,6 +12,18 @@ const quotationSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const attachmentSchema = new mongoose.Schema(
+  {
+    year: { type: String, trim: true },
+    docType: { type: String, default: "Policy Copy" },
+    name: { type: String, trim: true },
+    url: { type: String, trim: true },
+    uploadedAt: { type: Date, default: Date.now },
+    uploadedBy: { type: String, default: "" },
+  },
+  { _id: true }
+);
+
 const fleetInsuranceSopSchema = new mongoose.Schema(
   {
     srNo: { type: Number },
@@ -128,6 +140,14 @@ const fleetInsuranceSopSchema = new mongoose.Schema(
 
     // ─── PR Generation Readiness ───
     readyForPr: { type: String, enum: ["Yes", "No", ""], default: "" },
+
+    // ─── Policy Attachments & Year-wise Documents ───
+    policyDocumentUrl: { type: String },
+    policyDocumentName: { type: String },
+    policyDocument: { type: String },
+    previousPolicyDocumentUrl: { type: String },
+    previousPolicyDocumentName: { type: String },
+    attachments: { type: [attachmentSchema], default: [] },
   },
   { timestamps: true, strict: false }
 );

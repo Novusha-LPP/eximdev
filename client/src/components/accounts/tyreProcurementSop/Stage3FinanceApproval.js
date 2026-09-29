@@ -169,6 +169,7 @@ function Stage3FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
                 <th style={{ width: 40, textAlign: "center" }}>#</th>
                 <th>Selected Supplier</th>
                 <th style={{ width: 140 }}>PO Number</th>
+                <th style={{ textAlign: "center", width: 70 }}>Qty</th>
                 <th style={{ textAlign: "right", width: 140 }}>Price Quoted (₹)</th>
                 <th style={{ textAlign: "right", width: 160 }}>Total Order Value (₹)</th>
                 <th>Reason for Selection</th>
@@ -176,31 +177,41 @@ function Stage3FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
               </tr>
             </thead>
             <tbody>
-              {selectedSuppliers.map((sup, idx) => (
-                <tr key={idx}>
-                  <td style={{ textAlign: "center", fontWeight: 600 }}>{idx + 1}</td>
-                  <td style={{ fontWeight: 600, color: "#1d4ed8" }}>
-                    {sup.selectedSupplier || "Not Specified"}
-                  </td>
-                  <td style={{ fontWeight: 600, color: "#047857" }}>
-                    {sup.poNumber || globalData?.poNumber || "-"}
-                  </td>
-                  <td style={{ textAlign: "right" }}>₹{(Number(sup.priceQuoted) || 0).toLocaleString("en-IN")}</td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: "#0f172a" }}>
-                    ₹{(Number(sup.totalOrderValue) || 0).toLocaleString("en-IN")}
-                  </td>
-                  <td>{sup.reasonForSelection || "N/A"}</td>
-                  <td style={{ textAlign: "center" }}>
-                    <PoLandscapePdfGenerator
-                      globalData={globalData}
-                      stage3Data={data}
-                      targetSupplier={sup}
-                      buttonLabel="PO PDF"
-                      size="small"
-                    />
-                  </td>
-                </tr>
-              ))}
+              {selectedSuppliers.map((sup, idx) => {
+                const vendorQty = Number(
+                  sup.allocatedQty ||
+                  sup.qty ||
+                  sup.orderQty ||
+                  sup.quantity ||
+                  (Number(sup.priceQuoted) > 0 ? Math.round(Number(sup.totalOrderValue) / Number(sup.priceQuoted)) : 0)
+                );
+                return (
+                  <tr key={idx}>
+                    <td style={{ textAlign: "center", fontWeight: 600 }}>{idx + 1}</td>
+                    <td style={{ fontWeight: 600, color: "#1d4ed8" }}>
+                      {sup.selectedSupplier || "Not Specified"}
+                    </td>
+                    <td style={{ fontWeight: 600, color: "#047857" }}>
+                      {sup.poNumber || globalData?.poNumber || "-"}
+                    </td>
+                    <td style={{ textAlign: "center", fontWeight: 600 }}>{vendorQty || "-"}</td>
+                    <td style={{ textAlign: "right" }}>₹{(Number(sup.priceQuoted) || 0).toLocaleString("en-IN")}</td>
+                    <td style={{ textAlign: "right", fontWeight: 700, color: "#0f172a" }}>
+                      ₹{(Number(sup.totalOrderValue) || 0).toLocaleString("en-IN")}
+                    </td>
+                    <td>{sup.reasonForSelection || "N/A"}</td>
+                    <td style={{ textAlign: "center" }}>
+                      <PoLandscapePdfGenerator
+                        globalData={globalData}
+                        stage3Data={data}
+                        targetSupplier={sup}
+                        buttonLabel="PO PDF"
+                        size="small"
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </Box>

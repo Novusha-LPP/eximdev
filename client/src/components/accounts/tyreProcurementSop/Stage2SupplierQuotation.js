@@ -371,6 +371,8 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
           : Math.round((price * qty * gstRateVal) / 100);
         const total = price * qty + gstAmt + freight - discount;
         current[idx].priceQuoted = price;
+        current[idx].allocatedQty = qty;
+        current[idx].qty = qty;
         current[idx].totalOrderValue = total;
         current[idx].contactPerson = s.contactPerson || "";
         current[idx].supplierAddress = s.supplierAddress || s.address || "";
@@ -865,6 +867,20 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
                   onChange={(e) => updateSelectedSupplier(idx, "poNumber", e.target.value.toUpperCase())}
                   placeholder="PO/SEP-01/26-27"
                   style={{ fontWeight: 600, color: "#1d4ed8" }}
+                />
+              </div>
+              <div className="sop-field-group">
+                <label className="sop-field-label">Allocated Qty</label>
+                <input
+                  type="number"
+                  className="sop-input"
+                  value={item.allocatedQty ?? item.qty ?? (Number(item.priceQuoted) > 0 ? Math.round(Number(item.totalOrderValue) / Number(item.priceQuoted)) : 0)}
+                  onChange={(e) => {
+                    const newQty = Number(e.target.value) || 0;
+                    updateSelectedSupplier(idx, "allocatedQty", newQty);
+                    updateSelectedSupplier(idx, "qty", newQty);
+                  }}
+                  style={{ textAlign: "right", fontWeight: 600 }}
                 />
               </div>
               <div className="sop-field-group">

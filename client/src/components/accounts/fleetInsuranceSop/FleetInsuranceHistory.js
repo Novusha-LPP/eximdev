@@ -36,10 +36,13 @@ import TableChartIcon from "@mui/icons-material/TableChart";
 import PolicyIcon from "@mui/icons-material/Policy";
 import PaymentIcon from "@mui/icons-material/Payment";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import { useParams, useNavigate } from "react-router-dom";
 import { UserContext } from "../../../contexts/UserContext";
+import { uploadFileToS3 } from "../../../utils/awsFileUpload";
 
 function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack }) {
   const { registrationNo: urlRegNo } = useParams();
@@ -51,8 +54,55 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
   const [allVehicles, setAllVehicles] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [uploadingId, setUploadingId] = useState(null);
   const [selectedYear, setSelectedYear] = useState("ALL");
   const [viewTab, setViewTab] = useState(0); // 0 = Timeline Cards, 1 = Comparison Table
+
+  const handleHistoryFileUpload = useCallback(async (e, record) => {
+    const file = e.target.files?.[0];
+    if (!file || !record?._id) return;
+
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("File size exceeds 15MB limit.");
+      return;
+    }
+
+    setUploadingId(record._id);
+    try {
+      const res = await uploadFileToS3(file, "fleet-insurance");
+      const fileUrl = res?.Location;
+      if (fileUrl) {
+        await axios.put(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/${record._id}`, {
+          policyDocumentUrl: fileUrl,
+          policyDocumentName: file.name,
+          policyDocument: fileUrl,
+        });
+
+        setHistory((prev) =>
+          prev.map((item) =>
+            item._id === record._id
+              ? {
+                  ...item,
+                  policyDocumentUrl: fileUrl,
+                  policyDocumentName: file.name,
+                  policyDocument: fileUrl,
+                }
+              : item
+          )
+        );
+
+        toast.success(`Policy document uploaded successfully for ${record.registrationNo}`);
+      } else {
+        toast.error("Failed to upload document");
+      }
+    } catch (err) {
+      console.error("Error uploading history policy document:", err);
+      toast.error(err.response?.data?.message || "Failed to upload document");
+    } finally {
+      setUploadingId(null);
+      e.target.value = "";
+    }
+  }, []);
 
   useEffect(() => {
     if (registrationNo) {
@@ -387,6 +437,7 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
                 const renewedTotalPremium = (rec.newTotalPolicyPremium || rec.newPremium) || (nextRecord ? (nextRecord.totalPolicyPremium || nextRecord.premiumAmount) : 0);
 
                 const hasRenewedDetails = Boolean(renewedInsurer || renewedPolicyNo || renewedToDate);
+                const hasDoc = Boolean(rec.policyDocumentUrl || rec.policyDocument);
 
                 return (
                   <Paper
@@ -411,7 +462,34 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
                         {getExpiryBadge(rec.policyToDate || rec.newPolicyToDate)}
                       </Box>
 
-                      <Box sx={{ display: "flex", gap: 1 }}>
+                      <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+                        {hasDoc && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="success"
+                            startIcon={<VisibilityIcon />}
+                            onClick={() => window.open(rec.policyDocumentUrl || rec.policyDocument, "_blank")}
+                          >
+                            View Doc
+                          </Button>
+                        )}
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          component="label"
+                          color="info"
+                          startIcon={uploadingId === rec._id ? <CircularProgress size={16} /> : <CloudUploadIcon />}
+                          disabled={uploadingId === rec._id}
+                        >
+                          {uploadingId === rec._id ? "Uploading..." : hasDoc ? "Re-upload Doc" : "Upload Doc"}
+                          <input
+                            type="file"
+                            hidden
+                            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                            onChange={(e) => handleHistoryFileUpload(e, rec)}
+                          />
+                        </Button>
                         {onView && (
                           <Button
                             size="small"
@@ -552,12 +630,22 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
 
                       {/* Section 3: Workflow Status */}
                       <Grid item xs={12}>
-                        <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap", pt: 1 }}>
+                        <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap", pt: 1, alignItems: "center" }}>
                           <Typography variant="caption"><strong>PR Number:</strong> {rec.prNumber || "N/A"}</Typography>
                           <Typography variant="caption"><strong>PR Date:</strong> {rec.prDate ? new Date(rec.prDate).toLocaleDateString("en-IN") : "N/A"}</Typography>
                           <Typography variant="caption"><strong>Financial Approval:</strong> {rec.financialApprovalStatus || "Draft"}</Typography>
                           <Typography variant="caption"><strong>Payment UTR:</strong> {rec.paymentUtr || "N/A"}</Typography>
                           <Typography variant="caption"><strong>Ready for PR:</strong> {rec.readyForPr || "No"}</Typography>
+                          {hasDoc && (
+                            <Chip
+                              icon={<InsertDriveFileIcon sx={{ fontSize: 14 }} />}
+                              label="Policy Document Attached"
+                              size="small"
+                              color="success"
+                              onClick={() => window.open(rec.policyDocumentUrl || rec.policyDocument, "_blank")}
+                              sx={{ fontWeight: 700, fontSize: "10px", cursor: "pointer" }}
+                            />
+                          )}
                         </Box>
                       </Grid>
                     </Grid>
@@ -591,6 +679,7 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
                     const nxt = idx > 0 ? filteredHistory[idx - 1] : null;
                     const rIns = row.newInsuranceCompany || (nxt ? nxt.insuranceCompany : "-");
                     const rPrem = row.newTotalPolicyPremium || (nxt ? (nxt.totalPolicyPremium || nxt.premiumAmount) : null);
+                    const rowHasDoc = Boolean(row.policyDocumentUrl || row.policyDocument);
                     return (
                       <TableRow key={row._id} hover>
                         <TableCell sx={{ fontWeight: "bold" }}>
@@ -613,7 +702,29 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
                         <TableCell>{row.prNumber || "-"}</TableCell>
                         <TableCell>{getExpiryBadge(row.policyToDate || row.newPolicyToDate)}</TableCell>
                       <TableCell align="center">
-                        <Stack direction="row" spacing={0.5} justifyContent="center">
+                        <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center">
+                          {rowHasDoc && (
+                            <Tooltip title="View Policy Document">
+                              <IconButton
+                                size="small"
+                                color="info"
+                                onClick={() => window.open(row.policyDocumentUrl || row.policyDocument, "_blank")}
+                              >
+                                <InsertDriveFileIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <Tooltip title="Upload Policy Document">
+                            <IconButton size="small" component="label" color="secondary" disabled={uploadingId === row._id}>
+                              {uploadingId === row._id ? <CircularProgress size={16} /> : <CloudUploadIcon fontSize="small" />}
+                              <input
+                                type="file"
+                                hidden
+                                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                                onChange={(e) => handleHistoryFileUpload(e, row)}
+                              />
+                            </IconButton>
+                          </Tooltip>
                           {onView && (
                             <Tooltip title="View Details">
                               <IconButton size="small" onClick={() => onView(row)}>

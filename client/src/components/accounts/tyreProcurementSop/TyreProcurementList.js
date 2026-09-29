@@ -73,6 +73,59 @@ const isCompletedSiteGrn = (row) => {
 const getGrnInvoiceAttachments = (row) =>
   (row.stage6?.referenceInfos || []).filter((info) => info && info.invoiceAttachment);
 
+// Helper to aggregate multiple POs / suppliers into a single display entry per PR
+const getDisplayRows = (dataList) => {
+  if (!Array.isArray(dataList)) return [];
+  const displayRows = [];
+
+  dataList.forEach((row) => {
+    const selectedSuppliers = row.stage2?.selectedSuppliers || [];
+    const validSelected = selectedSuppliers.filter(
+      (s) => (s && s.selectedSupplier && s.selectedSupplier.trim()) || (s && s.poNumber && s.poNumber.trim())
+    );
+
+    if (validSelected.length > 0) {
+      const poNumbers = [...new Set(validSelected.map((s) => s.poNumber).filter((p) => p && p.trim()))];
+      if (poNumbers.length === 0 && row.poNumber) {
+        poNumbers.push(row.poNumber);
+      }
+
+      const suppliers = [...new Set(validSelected.map((s) => s.selectedSupplier).filter((s) => s && s.trim()))];
+      if (suppliers.length === 0 && row.stage2?.selectedSupplierL1) {
+        suppliers.push(row.stage2.selectedSupplierL1);
+      }
+
+      const calcTotal = validSelected.reduce(
+        (sum, s) => sum + (Number(s.totalOrderValue || s.priceQuoted) || 0),
+        0
+      );
+      const displayTotalValue = calcTotal > 0 ? calcTotal : (row.stage2?.totalOrderValue || 0);
+
+      displayRows.push({
+        ...row,
+        _displayKey: row._id,
+        displayPoNumbers: poNumbers,
+        displayPoNumber: poNumbers.join(", ") || "-",
+        displaySuppliers: suppliers,
+        displaySupplier: suppliers.join(", ") || "-",
+        displayTotalValue,
+      });
+    } else {
+      displayRows.push({
+        ...row,
+        _displayKey: row._id,
+        displayPoNumbers: row.poNumber ? [row.poNumber] : [],
+        displayPoNumber: row.poNumber || "-",
+        displaySuppliers: row.stage2?.selectedSupplierL1 ? [row.stage2.selectedSupplierL1] : [],
+        displaySupplier: row.stage2?.selectedSupplierL1 || "-",
+        displayTotalValue: row.stage2?.totalOrderValue || 0,
+      });
+    }
+  });
+
+  return displayRows;
+};
+
 function TyreProcurementList({ onEdit, onView, onCreate }) {
   const { user } = useContext(UserContext);
   const userRole = (user?.role || "").toLowerCase();
@@ -814,7 +867,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {data.length === 0 ? (
+                {getDisplayRows(data).length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={stageTab === "7" ? 9 : 8} align="center" sx={{ py: 4, color: "#64748b" }}>
                       <Typography sx={{ fontWeight: 500, fontSize: "13px" }}>
@@ -823,12 +876,12 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  data.map((row) => {
+                  getDisplayRows(data).map((row) => {
                     const chipStyle = getStatusChipProps(row.status);
                     const editLocked = isCompletedSiteGrn(row) && !canOverrideSignOffLock;
                     return (
                       <TableRow
-                        key={row._id}
+                        key={row._displayKey}
                         hover
                         sx={{
                           transition: "background-color 0.15s ease",
@@ -848,26 +901,36 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                             {row.prNumber}
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ color: "#334155", fontWeight: 600, fontSize: "12.5px", py: 1, px: 1.5 }}>
-                          {(() => {
-                            const supPos = Array.from(
-                              new Set(
-                                (row.stage2?.selectedSuppliers || [])
-                                  .map((s) => s.poNumber)
-                                  .filter(Boolean)
-                              )
-                            );
-                            if (supPos.length > 0) {
-                              return supPos.join(", ");
-                            }
-                            return row.poNumber || "-";
-                          })()}
+                        <TableCell sx={{ color: "#047857", fontWeight: 700, fontSize: "12.5px", py: 1, px: 1.5 }}>
+                          {Array.isArray(row.displayPoNumbers) && row.displayPoNumbers.length > 1 ? (
+                            <Stack spacing={0.3}>
+                              {row.displayPoNumbers.map((po, idx) => (
+                                <Box key={idx} component="span" sx={{ display: "block", whiteSpace: "nowrap" }}>
+                                  {po}
+                                </Box>
+                              ))}
+                            </Stack>
+                          ) : (
+                            row.displayPoNumber || "-"
+                          )}
                         </TableCell>
                         <TableCell sx={{ color: "#334155", fontSize: "12.5px", py: 1, px: 1.5 }}>{row.stage1?.preparedBy || "-"}</TableCell>
-                        <TableCell sx={{ color: "#334155", fontWeight: 500, fontSize: "12.5px", py: 1, px: 1.5 }}>{row.stage2?.selectedSupplierL1 || "-"}</TableCell>
+                        <TableCell sx={{ color: "#1d4ed8", fontWeight: 600, fontSize: "12.5px", py: 1, px: 1.5 }}>
+                          {Array.isArray(row.displaySuppliers) && row.displaySuppliers.length > 1 ? (
+                            <Stack spacing={0.3}>
+                              {row.displaySuppliers.map((sup, idx) => (
+                                <Box key={idx} component="span" sx={{ display: "block", whiteSpace: "nowrap" }}>
+                                  {sup}
+                                </Box>
+                              ))}
+                            </Stack>
+                          ) : (
+                            row.displaySupplier || "-"
+                          )}
+                        </TableCell>
                         <TableCell sx={{ color: "#0f172a", fontWeight: 700, fontSize: "13px", py: 1, px: 1.5 }}>
-                          {row.stage2?.totalOrderValue
-                            ? Number(row.stage2.totalOrderValue).toLocaleString("en-IN", { style: "currency", currency: "INR" })
+                          {row.displayTotalValue !== undefined && row.displayTotalValue !== null && row.displayTotalValue !== ""
+                            ? Number(row.displayTotalValue).toLocaleString("en-IN", { style: "currency", currency: "INR" })
                             : "-"}
                         </TableCell>
                         <TableCell sx={{ py: 1, px: 1.5 }}>

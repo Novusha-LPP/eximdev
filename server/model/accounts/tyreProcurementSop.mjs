@@ -125,6 +125,8 @@ const selectedSupplierSchema = new mongoose.Schema(
     deliveryContact: String,
     priceQuoted: { type: Number, default: 0 },
     totalOrderValue: { type: Number, default: 0 },
+    allocatedQty: { type: Number, default: 0 },
+    qty: { type: Number, default: 0 },
     gstRate: { type: String, default: "" },
     gstAmount: { type: Number, default: 0 },
     reasonForSelection: String,

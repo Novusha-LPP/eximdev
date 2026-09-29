@@ -91,12 +91,30 @@ function ImportBillingTab() {
     <TabContext.Provider value={contextValue}>
       <Box sx={{ width: "100%" }}>
         {/* Tabs Navigation */}
-        <Box sx={{ borderBottom: 1, borderColor: "divider", display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider", display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', minWidth: 0, gap: 1 }}>
           <Tabs
               value={value}
               onChange={handleChange}
               aria-label="import Billing Tabs"
-              sx={{ flexGrow: 1 }}
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
+              sx={{
+                flexGrow: 1,
+                minWidth: 0,
+                '& .MuiTabs-scroller': { overflowX: 'auto !important' },
+                '& .MuiTab-root': {
+                  minWidth: 'auto',
+                  px: { xs: 1, lg: 1.5 },
+                  py: 1,
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                },
+                '& .MuiTabs-scrollButtons.Mui-disabled': {
+                  opacity: 0.3,
+                },
+              }}
             >
               <Tab label="Import Billing" {...a11yProps(0)} />
               <Tab label="Clearance Completed" {...a11yProps(1)} />
@@ -105,10 +123,10 @@ function ImportBillingTab() {
               <Tab label={workMode === "Payment" ? "Payment" : "Purchase Book"} {...a11yProps(4)} />
               <Tab label={workMode === "Payment" ? "Payment Completed" : "Purchase Book Completed"} {...a11yProps(5)} />
               <Tab label="Import Completed Billing" {...a11yProps(6)} />
-              <Tab label="Empty-Yards Virtual Balance" {...a11yProps(7)} />
+              <Tab label="Terminal + Empty-Yards Virtual Balance" {...a11yProps(7)} />
               <Tab label="CFS-SFSA Virtual Balance" {...a11yProps(8)} />
             </Tabs>
-          <Box sx={{ display: 'flex', alignItems: 'center', px: 2, gap: 1 }}>
+          <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center', px: 1.5, gap: 1 }}>
             <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', textTransform: 'uppercase' }}>Work Mode:</Typography>
             <ToggleButtonGroup
               value={workMode}

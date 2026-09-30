@@ -453,6 +453,7 @@ $status-red-text: #991b1b;
                             &.green { background: #10b981; }
                             &.yellow { background: #f59e0b; }
                             &.red { background: #ef4444; }
+                            &.action-required { background: #ea580c; }
                             &.not-required { background: #94a3b8; }
                         }
 
@@ -470,6 +471,7 @@ $status-red-text: #991b1b;
                             &.green { color: #047857; }
                             &.yellow { color: #b45309; }
                             &.red { color: #b91c1c; }
+                            &.action-required { color: #c2410c; }
                             &.not-required { color: #475569; }
                         }
                     }

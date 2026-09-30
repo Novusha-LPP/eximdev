@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, { useState, useEffect, useContext, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
 import {
@@ -331,27 +331,6 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                     disabled={isLocked}
                     rows={1}
                 />
-                {item.openPointId && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
-                        <span
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px',
-                                fontSize: '0.65rem',
-                                padding: '1px 5px',
-                                borderRadius: '4px',
-                                background: '#ecfdf5',
-                                color: '#047857',
-                                border: '1px solid #a7f3d0',
-                                fontWeight: '600'
-                            }}
-                            title="Action item is synchronized to Open Points module"
-                        >
-                            ✓ Open Point Synced
-                        </span>
-                    </div>
-                )}
             </td>
             <td onClick={() => { }} style={{ cursor: isLocked ? 'default' : 'pointer' }}>
                 <Autocomplete
@@ -1272,18 +1251,69 @@ const MRMHome = () => {
     const prevMonthName = getMonthName(prevMonthIdx);
     const prevYearVal = selectedMonth === 1 ? selectedYear - 1 : selectedYear;
 
-    // Filter items by status
-    const filteredItems = statusFilter === 'all'
-        ? items
-        : items.filter(item => item.status === statusFilter);
+    // Helper to test if an individual item matches a status filter
+    const isItemStatusMatch = (item, filter) => {
+        if (item.isTitleRow) return false;
+        if (filter === 'all') return true;
+        if (filter === 'Action Required') {
+            return item.status === 'Red' || item.status === 'Yellow' || item.status === 'Amber';
+        }
+        if (filter === 'Green') {
+            return (item.status === 'Green' || !item.status || item.status === 'Gray') && item.status !== 'Not Required';
+        }
+        if (filter === 'Yellow') {
+            return item.status === 'Yellow' || item.status === 'Amber';
+        }
+        if (filter === 'Red') {
+            return item.status === 'Red';
+        }
+        if (filter === 'Not Required') {
+            return item.status === 'Not Required';
+        }
+        return item.status === filter;
+    };
 
-    // Status counts for filter badges
+    // Filter items by status, preserving cluster headers for sections that contain matching items
+    const filteredItems = useMemo(() => {
+        if (statusFilter === 'all') return items;
+
+        const result = [];
+        let currentTitleRow = null;
+        let currentMatchingItems = [];
+
+        const flushGroup = () => {
+            if (currentMatchingItems.length > 0) {
+                if (currentTitleRow) {
+                    result.push(currentTitleRow);
+                }
+                result.push(...currentMatchingItems);
+            }
+            currentTitleRow = null;
+            currentMatchingItems = [];
+        };
+
+        for (const item of items) {
+            if (item.isTitleRow) {
+                flushGroup();
+                currentTitleRow = item;
+            } else if (isItemStatusMatch(item, statusFilter)) {
+                currentMatchingItems.push(item);
+            }
+        }
+        flushGroup();
+
+        return result;
+    }, [items, statusFilter]);
+
+    // Status counts for filter badges (excluding title rows so counts reflect real actionable objectives)
+    const nonTitleItems = items.filter(i => !i.isTitleRow);
     const statusCounts = {
-        all: items.length,
-        Green: items.filter(i => (i.status === 'Green' || !i.status) && i.status !== 'Not Required').length,
-        Yellow: items.filter(i => i.status === 'Yellow').length,
-        Red: items.filter(i => i.status === 'Red').length,
-        NotRequired: items.filter(i => i.status === 'Not Required').length
+        all: nonTitleItems.length,
+        actionRequired: nonTitleItems.filter(i => isItemStatusMatch(i, 'Action Required')).length,
+        Green: nonTitleItems.filter(i => isItemStatusMatch(i, 'Green')).length,
+        Yellow: nonTitleItems.filter(i => isItemStatusMatch(i, 'Yellow')).length,
+        Red: nonTitleItems.filter(i => isItemStatusMatch(i, 'Red')).length,
+        NotRequired: nonTitleItems.filter(i => isItemStatusMatch(i, 'Not Required')).length
     };
 
     // Help Modal State
@@ -2068,6 +2098,12 @@ const MRMHome = () => {
                                     All ({statusCounts.all})
                                 </button>
                                 <button
+                                    className={`filter-btn action-required ${statusFilter === 'Action Required' ? 'active' : ''}`}
+                                    onClick={() => setStatusFilter('Action Required')}
+                                >
+                                    <span className="status-dot action-required" /> Action Required ({statusCounts.actionRequired})
+                                </button>
+                                <button
                                     className={`filter-btn green ${statusFilter === 'Green' ? 'active' : ''}`}
                                     onClick={() => setStatusFilter('Green')}
                                 >
@@ -2267,6 +2303,42 @@ const MRMHome = () => {
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Statistical Anomaly Detection Calculation */}
+                        <div style={{ marginTop: '20px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '10px', padding: '14px 18px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#9a3412', marginBottom: '8px', fontSize: '0.92rem' }}>
+                                <span>⚡ Statistical Anomaly Detection (How it is calculated)</span>
+                            </div>
+                            <DialogContentText sx={{ color: '#7c2d12', fontSize: '0.82rem', lineHeight: 1.5, mb: 1.5 }}>
+                                The system runs an automated statistical anomaly detection algorithm across monthly numerical actuals to alert leadership of sudden, unexpected performance shifts.
+                            </DialogContentText>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', fontSize: '0.8rem' }}>
+                                <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #fed7aa' }}>
+                                    <strong style={{ color: '#c2410c' }}>1. Baseline Prerequisite</strong>
+                                    <div style={{ color: '#475569', marginTop: '4px' }}>
+                                        Requires at least 2 historical approved months of numeric data for that objective.
+                                    </div>
+                                </div>
+                                <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #fed7aa' }}>
+                                    <strong style={{ color: '#c2410c' }}>2. Trailing Mean Formula</strong>
+                                    <div style={{ color: '#475569', marginTop: '4px', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                                        Mean = (Sum of prior approved actuals) / (Count of prior months)
+                                    </div>
+                                </div>
+                                <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #fed7aa' }}>
+                                    <strong style={{ color: '#c2410c' }}>3. Deviation %</strong>
+                                    <div style={{ color: '#475569', marginTop: '4px', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                                        Deviation % = ((Current Actual - Mean) / Mean) × 100
+                                    </div>
+                                </div>
+                                <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #fed7aa' }}>
+                                    <strong style={{ color: '#c2410c' }}>4. Flag Threshold (≥ 30%)</strong>
+                                    <div style={{ color: '#475569', marginTop: '4px' }}>
+                                        If |Deviation| ≥ 30%, flags <strong>⚡ Anomaly +X%</strong> (surge) or <strong>⚡ Anomaly -X%</strong> (drop). Tile headers display <strong>⚡ Anomaly in Tile</strong>.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </DialogContent>
                     <DialogActions sx={{ p: 2 }}>
                         <Button onClick={() => setShowHelpModal(false)} variant="contained" sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' } }}>
@@ -2404,8 +2476,44 @@ const MRMHome = () => {
 
                 {/* ═══ VIEW 1: EXECUTIVE MEETING FOCUS ═══ */}
                 {rollupFeatureEnabled && mrmViewMode === 'EXECUTIVE_MEETING' && (() => {
-                    const redSegments = (segmentRollupData?.segments || []).filter(s => s.final_rag === 'Red' || s.final_rag === 'Amber');
-                    const redObjectives = items.filter(it => !it.isTitleRow && (it.status === 'Red' || it.status === 'Yellow' || it.status === 'Amber'));
+                    const allSegments = segmentRollupData?.segments || [];
+                    const displayedSegments = allSegments.filter(s => {
+                        if (statusFilter === 'all' || statusFilter === 'Action Required') {
+                            return s.final_rag === 'Red' || s.final_rag === 'Amber';
+                        }
+                        if (statusFilter === 'Red') return s.final_rag === 'Red';
+                        if (statusFilter === 'Yellow') return s.final_rag === 'Amber';
+                        if (statusFilter === 'Green') return s.final_rag === 'Green';
+                        if (statusFilter === 'Not Required') return false;
+                        return true;
+                    });
+
+                    const displayedObjectives = items.filter(it => !it.isTitleRow && isItemStatusMatch(it, statusFilter));
+
+                    const getSegmentTitle = () => {
+                        if (statusFilter === 'Green') return `Sub-Team KPI Performance — On-Track (${displayedSegments.length})`;
+                        if (statusFilter === 'Yellow') return `Sub-Team KPI Exceptions — Attention (${displayedSegments.length})`;
+                        if (statusFilter === 'Red') return `Sub-Team KPI Exceptions — Critical (${displayedSegments.length})`;
+                        return `Sub-Team KPI Exceptions (${displayedSegments.length})`;
+                    };
+
+                    const getObjectivesTitle = () => {
+                        switch (statusFilter) {
+                            case 'Green':
+                                return `Strategic Focus Areas — On-Track (${displayedObjectives.length})`;
+                            case 'Yellow':
+                                return `Strategic Focus Areas — Attention Needed (${displayedObjectives.length})`;
+                            case 'Red':
+                                return `Strategic Focus Areas — Critical / Action Required (${displayedObjectives.length})`;
+                            case 'Action Required':
+                                return `Strategic Focus Areas Requiring Action (${displayedObjectives.length})`;
+                            case 'Not Required':
+                                return `Strategic Focus Areas — Not Required (${displayedObjectives.length})`;
+                            case 'all':
+                            default:
+                                return `Strategic Focus Areas (${displayedObjectives.length})`;
+                        }
+                    };
 
                     return (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, width: '100%', boxSizing: 'border-box' }}>
@@ -2417,12 +2525,24 @@ const MRMHome = () => {
                                 onReminderSent={(m) => showToast(`Reminder ping sent to ${m.name}`)}
                             />
 
-                            {/* Sub-Team Red & Amber Segments (Consolidated Single Header) */}
-                            {redSegments.length > 0 ? (
+                            {/* Sub-Team KPI Segments */}
+                            {displayedSegments.length > 0 ? (
                                 <SegmentRollupView
-                                    title={`Sub-Team KPI Exceptions (${redSegments.length})`}
-                                    weightChip={<Chip label="Weight: 70%" size="small" sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#fee2e2', color: '#991b1b', height: '22px' }} />}
-                                    segments={redSegments}
+                                    title={getSegmentTitle()}
+                                    weightChip={
+                                        <Chip
+                                            label="Weight: 70%"
+                                            size="small"
+                                            sx={{
+                                                fontWeight: 700,
+                                                fontSize: '10.5px',
+                                                bgcolor: statusFilter === 'Green' ? '#dcfce7' : statusFilter === 'Yellow' ? '#fef3c7' : '#fee2e2',
+                                                color: statusFilter === 'Green' ? '#166534' : statusFilter === 'Yellow' ? '#92400e' : '#991b1b',
+                                                height: '22px'
+                                            }}
+                                        />
+                                    }
+                                    segments={displayedSegments}
                                     department={activeDepartment}
                                     month={String(selectedMonth).padStart(2, '0')}
                                     year={selectedYear}
@@ -2430,29 +2550,49 @@ const MRMHome = () => {
                                     onApprovalComplete={loadData}
                                 />
                             ) : (
-                                <Paper sx={{ p: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', boxSizing: 'border-box' }}>
-                                    <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 22 }} />
+                                <Paper sx={{ p: 2, bgcolor: (statusFilter === 'all' || statusFilter === 'Action Required' || statusFilter === 'Red') ? '#f0fdf4' : '#f8fafc', border: `1px solid ${(statusFilter === 'all' || statusFilter === 'Action Required' || statusFilter === 'Red') ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', boxSizing: 'border-box' }}>
+                                    <CheckCircleIcon sx={{ color: (statusFilter === 'all' || statusFilter === 'Action Required' || statusFilter === 'Red') ? '#16a34a' : '#94a3b8', fontSize: 22 }} />
                                     <Box>
-                                        <Typography variant="body2" fontWeight={700} color="#166534">
-                                            All {segmentRollupData?.segments?.length || 0} Sub-Teams are On-Track & Clean (Green)!
+                                        <Typography variant="body2" fontWeight={700} color={(statusFilter === 'all' || statusFilter === 'Action Required' || statusFilter === 'Red') ? '#166534' : '#475569'}>
+                                            {statusFilter === 'Green'
+                                                ? `No On-Track (Green) Sub-Teams for ${currentMonthName} ${selectedYear}.`
+                                                : statusFilter === 'Yellow'
+                                                ? `Zero Attention (Amber) Sub-Team Exceptions for ${currentMonthName} ${selectedYear}!`
+                                                : statusFilter === 'Red'
+                                                ? `Zero Critical (Red) Sub-Team Exceptions for ${currentMonthName} ${selectedYear}!`
+                                                : statusFilter === 'Not Required'
+                                                ? 'No Sub-Teams marked as Not Required.'
+                                                : `All ${allSegments.length || 0} Sub-Teams are On-Track & Clean (Green)!`}
                                         </Typography>
-                                        <Typography variant="caption" color="#15803d">
-                                            Zero blockers, rupee loss, or trend drops across team KPI sheets for {currentMonthName} {selectedYear}.
+                                        <Typography variant="caption" color={(statusFilter === 'all' || statusFilter === 'Action Required' || statusFilter === 'Red') ? '#15803d' : '#64748b'}>
+                                            {statusFilter === 'all' || statusFilter === 'Action Required' || statusFilter === 'Red'
+                                                ? `Zero blockers, rupee loss, or trend drops across team KPI sheets for ${currentMonthName} ${selectedYear}.`
+                                                : `Filtered by ${statusFilter}.`}
                                         </Typography>
                                     </Box>
                                 </Paper>
                             )}
 
-                            {/* Strategic Focus Areas Off-Target */}
+                            {/* Strategic Focus Areas */}
                             <Box sx={{ width: '100%', boxSizing: 'border-box' }}>
                                 <Box display="flex" alignItems="center" gap={1} mb={1.5}>
                                     <Typography variant="subtitle1" fontWeight={800} color="#0f172a" fontSize="15px">
-                                        Strategic Focus Areas Requiring Action ({redObjectives.length})
+                                        {getObjectivesTitle()}
                                     </Typography>
-                                    <Chip label="Weight: 30%" size="small" sx={{ fontWeight: 700, fontSize: '10.5px', bgcolor: '#ede9fe', color: '#6d28d9', height: '22px' }} />
+                                    <Chip
+                                        label="Weight: 30%"
+                                        size="small"
+                                        sx={{
+                                            fontWeight: 700,
+                                            fontSize: '10.5px',
+                                            bgcolor: statusFilter === 'Green' ? '#dcfce7' : statusFilter === 'Yellow' ? '#fef3c7' : statusFilter === 'Red' || statusFilter === 'Action Required' ? '#fee2e2' : '#ede9fe',
+                                            color: statusFilter === 'Green' ? '#166534' : statusFilter === 'Yellow' ? '#92400e' : statusFilter === 'Red' || statusFilter === 'Action Required' ? '#991b1b' : '#6d28d9',
+                                            height: '22px'
+                                        }}
+                                    />
                                 </Box>
 
-                                {redObjectives.length > 0 ? (
+                                {displayedObjectives.length > 0 ? (
                                     <div className="data-grid-container">
                                         <table>
                                             <thead>
@@ -2473,8 +2613,8 @@ const MRMHome = () => {
                                                     <th style={{ width: '120px', minWidth: '115px', textAlign: 'center' }}>Actions</th>
                                                 </tr>
                                             </thead>
-                                            <Reorder.Group as="tbody" axis="y" values={redObjectives} onReorder={() => { }}>
-                                                {redObjectives.map((item, index) => (
+                                            <Reorder.Group as="tbody" axis="y" values={displayedObjectives} onReorder={() => { }}>
+                                                {displayedObjectives.map((item, index) => (
                                                     <ReorderRow
                                                         key={item._id}
                                                         item={item}
@@ -2496,14 +2636,24 @@ const MRMHome = () => {
                                         </table>
                                     </div>
                                 ) : (
-                                    <Paper sx={{ p: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', boxSizing: 'border-box' }}>
-                                        <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 22 }} />
+                                    <Paper sx={{ p: 2, bgcolor: (statusFilter === 'Red' || statusFilter === 'Action Required') ? '#f0fdf4' : '#f8fafc', border: `1px solid ${(statusFilter === 'Red' || statusFilter === 'Action Required') ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', boxSizing: 'border-box' }}>
+                                        <CheckCircleIcon sx={{ color: (statusFilter === 'Red' || statusFilter === 'Action Required') ? '#16a34a' : '#94a3b8', fontSize: 22 }} />
                                         <Box>
-                                            <Typography variant="body2" fontWeight={700} color="#166534">
-                                                All HOD Strategic Objectives are On-Target (Green) for this month!
+                                            <Typography variant="body2" fontWeight={700} color={(statusFilter === 'Red' || statusFilter === 'Action Required') ? '#166534' : '#475569'}>
+                                                {statusFilter === 'Red' || statusFilter === 'Action Required'
+                                                    ? 'All HOD Strategic Objectives are On-Target (Green) for this month!'
+                                                    : statusFilter === 'Green'
+                                                    ? 'No On-Track objectives found for this month.'
+                                                    : statusFilter === 'Yellow'
+                                                    ? 'No objectives requiring Attention found for this month.'
+                                                    : statusFilter === 'Not Required'
+                                                    ? 'No objectives marked as Not Required.'
+                                                    : 'No strategic objectives recorded for this month.'}
                                             </Typography>
-                                            <Typography variant="caption" color="#15803d">
-                                                No plan vs. actual shortfalls or off-target RAG statuses detected.
+                                            <Typography variant="caption" color={(statusFilter === 'Red' || statusFilter === 'Action Required') ? '#15803d' : '#64748b'}>
+                                                {statusFilter === 'Red' || statusFilter === 'Action Required'
+                                                    ? 'No plan vs. actual shortfalls or off-target RAG statuses detected.'
+                                                    : `No items matching the "${statusFilter}" filter.`}
                                             </Typography>
                                         </Box>
                                     </Paper>

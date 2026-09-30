@@ -127,8 +127,8 @@ export const syncActionPlanToOpenPoint = async (mrmItem, reqUser = null) => {
         const hasActionPlan = Boolean(mrmItem.actionPlan && mrmItem.actionPlan.trim());
         const hasRemarks = Boolean(mrmItem.remarks && mrmItem.remarks.trim());
 
-        // If no action plan text exists, no remarks exist, and no existing point, nothing to create
-        if (!hasActionPlan && !hasRemarks && !mrmItem.openPointId) {
+        // If no action plan text exists, no remarks exist, no existing point, and not marked Green, nothing to create
+        if (!hasActionPlan && !hasRemarks && !mrmItem.openPointId && mrmItem.status !== 'Green') {
             return null;
         }
 
@@ -214,16 +214,53 @@ export const syncActionPlanToOpenPoint = async (mrmItem, reqUser = null) => {
 
         // 2. If not found, deduplicate by matching originating context across recurring months
         const targetObjective = (mrmItem.objective || mrmItem.processDescription || '').trim();
-        if (!existingPoint && mrmItem.createdBy && targetObjective) {
-            const safeObjRegex = new RegExp(`^${targetObjective.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
-            existingPoint = await OpenPoint.findOne({
+        const procDesc = (mrmItem.processDescription || '').trim();
+
+        if (!existingPoint && mrmItem.createdBy && (targetObjective || procDesc)) {
+            const orConditions = [];
+            // If both processDescription and objective exist, look for exact combined match first
+            if (procDesc && mrmItem.objective && mrmItem.objective.trim()) {
+                const safeProcRegex = new RegExp(`^${procDesc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+                const safeObjRegex = new RegExp(`^${mrmItem.objective.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+                orConditions.push({
+                    $and: [
+                        { $or: [{ 'originContext.processDescription': procDesc }, { 'originContext.processDescription': safeProcRegex }] },
+                        { $or: [{ 'originContext.objective': mrmItem.objective.trim() }, { 'originContext.objective': safeObjRegex }] }
+                    ]
+                });
+            }
+            if (targetObjective) {
+                const safeObjRegex = new RegExp(`^${targetObjective.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+                orConditions.push({ 'originContext.objective': targetObjective });
+                orConditions.push({ 'originContext.objective': safeObjRegex });
+            }
+
+            const candidateQuery = {
                 originModule: 'MRM',
                 'originContext.personId': mrmItem.createdBy,
-                $or: [
-                    { 'originContext.objective': targetObjective },
-                    { 'originContext.objective': safeObjRegex }
-                ]
-            });
+                $or: orConditions
+            };
+
+            if (tileName && tileName !== 'General') {
+                candidateQuery['originContext.tile'] = tileName;
+            }
+
+            const candidates = await OpenPoint.find(candidateQuery).sort({ updatedAt: -1 });
+
+            // CRITICAL: Ensure we do NOT link to an OpenPoint already claimed by a DIFFERENT MRMItem in the same month!
+            for (const candidate of candidates) {
+                const isAlreadyClaimed = await MRMItem.exists({
+                    _id: { $ne: mrmItem._id },
+                    month: mrmItem.month,
+                    year: mrmItem.year,
+                    createdBy: mrmItem.createdBy,
+                    openPointId: candidate._id
+                });
+                if (!isAlreadyClaimed) {
+                    existingPoint = candidate;
+                    break;
+                }
+            }
         }
 
         const pointStatus = mapMRMStatusToOpenPoint(mrmItem.status);
@@ -255,6 +292,7 @@ export const syncActionPlanToOpenPoint = async (mrmItem, reqUser = null) => {
                 existingPoint.originContext.year = mrmItem.year;
                 existingPoint.originContext.mrmItemId = mrmItem._id;
                 if (tileName) existingPoint.originContext.tile = tileName;
+                if (procDesc) existingPoint.originContext.processDescription = procDesc;
             }
 
             await existingPoint.save();
@@ -295,6 +333,7 @@ export const syncActionPlanToOpenPoint = async (mrmItem, reqUser = null) => {
                 personId: mrmItem.createdBy,
                 personName: reqUser?.first_name ? `${reqUser.first_name} ${reqUser.last_name || ''}`.trim() : '',
                 tile: tileName,
+                processDescription: procDesc,
                 objective: targetObjective,
                 month: mrmItem.month,
                 year: mrmItem.year

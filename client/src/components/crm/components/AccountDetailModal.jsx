@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
   X, Edit2, Globe, MapPin, Users,
   Briefcase, Phone, Mail, TrendingUp, Calendar,
-  DollarSign, Activity, Building, Copy, Check, FileText
+  IndianRupee, Activity, Building, Copy, Check, FileText
 } from 'lucide-react';
 import ActivityTimeline from './ActivityTimeline';
 import QuoteFormModal from './QuoteFormModal';
@@ -139,7 +139,8 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 9999,
-      padding: isMobile ? '0' : '20px',
+      padding: isMobile ? '0' : '16px',
+      overflowY: 'auto',
       transition: 'all 0.3s ease'
     }}>
       <style>{`
@@ -176,13 +177,15 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
         background: '#ffffff',
         width: '100%',
         maxWidth: isMobile ? '100%' : '900px',
-        height: isMobile ? '100%' : '580px',
+        height: isMobile ? '100%' : 'auto',
+        maxHeight: isMobile ? '100%' : 'min(92vh, 640px)',
         borderRadius: isMobile ? '0' : '24px',
         boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
         overflow: 'hidden',
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
         border: isMobile ? 'none' : '1px solid #e2e8f0',
+        margin: 'auto',
         animation: 'modalAppear 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
       }}>
         {/* Left column / Sidebar */}
@@ -297,7 +300,7 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Annual Revenue</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: 700, fontSize: '0.95rem' }}>
-                <DollarSign size={14} style={{ color: '#0d9488' }} />
+                <IndianRupee size={14} style={{ color: '#0d9488' }} />
                 <span>₹{account.annualRevenue ? parseFloat(account.annualRevenue).toLocaleString('en-IN') : '0'}</span>
               </div>
             </div>
@@ -435,7 +438,7 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
                   transition: 'all 0.2s ease'
                 }}
               >
-                <DollarSign size={14} /> Request Pricing
+                <IndianRupee size={14} /> Request Pricing
               </button>
               <button
                 onClick={() => {

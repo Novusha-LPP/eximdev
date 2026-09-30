@@ -1,4 +1,5 @@
 import express from "express";
+import { isDeepStrictEqual } from "node:util";
 import XLSX from "xlsx";
 import TyreProcurementSop from "../../model/accounts/tyreProcurementSop.mjs";
 import UserModel from "../../model/userModel.mjs";
@@ -10,6 +11,106 @@ import ProcurementProductModel from "../../model/accounts/procurementProductMode
 
 const router = express.Router();
 
+// A completed workflow step is a sign-off, not a draft state. Keep this
+// enforcement on the API as well as in the form so it cannot be bypassed.
+const isDone = (item) =>
+  Boolean(item && (item.checked || item.status === "Done" || item.status === "DONE" || item.date));
+
+const completedTyreStages = (doc) => {
+  const approvals = doc?.stage6?.approvals || [];
+  return {
+    stage1Done: isDone(doc?.stage1?.routingChecklist?.[0]),
+    stage2Done: isDone(doc?.stage2?.routingChecklist?.[0]),
+    stage3Done: doc?.stage3?.decision?.decision === "APPROVED" || Boolean(doc?.stage3?.signOff?.dateOfApproval),
+    stage5Done: Boolean(doc?.stage5?.dispatchDone || doc?.stage5?.isDispatchDone) ||
+      (doc?.stage5?.supplierDispatches || []).some((item) => item?.dispatchDone || item?.isDispatchDone),
+    stage6Done: approvals.length >= 3 && approvals.every(isDone),
+  };
+};
+
+const canOverrideSignOffLock = (user) => {
+  if (!user) return false;
+  if (user.tyre_procurement_admin) return true;
+  const role = String(user?.role || "").toLowerCase().replace(/\s+/g, "");
+  if (role === "admin" || role === "superadmin") return true;
+  const identity = [user?.username, user?.first_name, user?.middle_name, user?.last_name]
+    .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
+  return identity.includes("ajay") || String(user?.username || "").toLowerCase().includes("ajay");
+};
+
+const canManageTyreProcurementPermissions = (user) => {
+  const role = String(user?.role || "").toLowerCase();
+  const identity = [user?.username, user?.first_name, user?.middle_name, user?.last_name]
+    .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
+  return role === "admin" || role === "superadmin" || identity.includes("ajay") ||
+    String(user?.username || "").toLowerCase().includes("ajay");
+};
+
+function normalizeForComparison(val) {
+  if (val === null || val === undefined || val === "") return "";
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? "" : val.toISOString();
+  }
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed) return "";
+    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      const d = new Date(trimmed);
+      if (!isNaN(d.getTime())) return d.toISOString();
+    }
+    return trimmed.toUpperCase();
+  }
+  if (typeof val === "number") return val;
+  if (typeof val === "boolean") return val;
+  if (Array.isArray(val)) {
+    return val.map(normalizeForComparison);
+  }
+  if (typeof val === "object") {
+    const res = {};
+    const keys = Object.keys(val).sort();
+    for (const key of keys) {
+      if (
+        key === "_id" ||
+        key === "__v" ||
+        key === "createdAt" ||
+        key === "updatedAt"
+      ) {
+        continue;
+      }
+      const norm = normalizeForComparison(val[key]);
+      if (norm !== "") {
+        res[key] = norm;
+      }
+    }
+    return res;
+  }
+  return val;
+}
+
+function areStagesEqual(existingStage, payloadStage) {
+  const normExisting = normalizeForComparison(existingStage?.toObject ? existingStage.toObject() : existingStage);
+  const normPayload = normalizeForComparison(payloadStage);
+  return isDeepStrictEqual(normExisting, normPayload);
+}
+
+function assertTyreSignOffLocks(existing, payload, user) {
+  if (canOverrideSignOffLock(user)) return null;
+  const locked = completedTyreStages(existing);
+  if (locked.stage6Done || ["GRN Done", "GRN Completed", "Closed"].includes(existing.status)) {
+    return "This Site GRN is completed and can only be edited by an admin or Ajay Kumavat.";
+  }
+  for (const stage of [1, 2, 3, 5]) {
+    const existingStage = existing[`stage${stage}`];
+    const payloadStage = payload[`stage${stage}`];
+    if (locked[`stage${stage}Done`] && !areStagesEqual(existingStage, payloadStage)) {
+      payload[`stage${stage}`] = existingStage?.toObject
+        ? existingStage.toObject()
+        : existingStage;
+    }
+  }
+  return null;
+}
+
 // ─── Helpers ───
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("en-GB") : "");
 
@@ -20,7 +121,7 @@ function uppercaseDeep(obj) {
   if (typeof obj === "object" && !(obj instanceof Date)) {
     const res = {};
     for (const key of Object.keys(obj)) {
-      if (key === "_id" || key === "createdAt" || key === "updatedAt" || key === "__v" || key.endsWith("Date") || key.endsWith("Time") || key.endsWith("Dt") || key === "date") {
+      if (key === "_id" || key === "createdAt" || key === "updatedAt" || key === "__v" || key.endsWith("Date") || key.endsWith("Time") || key.endsWith("Dt") || key === "date" || key.toLowerCase().includes("attachment")) {
         res[key] = obj[key];
       } else {
         res[key] = uppercaseDeep(obj[key]);
@@ -199,6 +300,85 @@ function parseCreditDays(terms) {
   return 0;
 }
 
+function getPrCreditInfo(doc) {
+  if (!doc) return { isCredit: false, maxCreditDays: 0, diffDays: 999, isDueSoon: false, isOverdue: false, isPaid: false };
+  const s2 = doc.stage2 || {};
+  const s3 = doc.stage3 || {};
+  const s4 = doc.stage4 || {};
+  const s5 = doc.stage5 || {};
+  const s6 = doc.stage6 || {};
+
+  const selectedSuppliers = s2.selectedSuppliers || [];
+  const suppliers = s2.suppliers || [];
+  const supplierPayments = s4.supplierPayments || [];
+
+  let creditDaysList = [];
+  if (selectedSuppliers.length > 0) {
+    selectedSuppliers.forEach((sel) => {
+      const selName = (sel.selectedSupplier || "").toUpperCase().trim();
+      const matchSup = suppliers.find((s) => (s.supplierName || "").toUpperCase().trim() === selName || String(s._id) === String(sel.selectedSupplier));
+      const terms = matchSup?.paymentTerms || sel.paymentTerms;
+      creditDaysList.push(parseCreditDays(terms));
+    });
+  } else if (suppliers.length > 0) {
+    suppliers.forEach((s) => {
+      if (s.supplierName) {
+        creditDaysList.push(parseCreditDays(s.paymentTerms));
+      }
+    });
+  } else if (supplierPayments.length > 0) {
+    supplierPayments.forEach((sp) => {
+      creditDaysList.push(parseCreditDays(sp.paymentTerms));
+    });
+  }
+
+  const maxCreditDays = creditDaysList.length > 0 ? Math.max(...creditDaysList) : 0;
+  const isCredit = maxCreditDays > 0;
+
+  const isPaid =
+    supplierPayments.length > 0
+      ? supplierPayments.every((sp) => Boolean(sp.isPaid && sp.utrNumber?.trim()))
+      : Boolean(
+          (s4.paymentDetails?.paymentReferenceUtr?.trim() || s4.paymentDetails?.paymentDate) &&
+          doc.status !== "Finance Approved"
+        );
+
+  const invDateStr =
+    s6.referenceInfos?.[0]?.invoiceDate ||
+    s6.itemsReceived?.[0]?.invoiceDate ||
+    s5.supplierDispatches?.[0]?.dispatchDetails?.invoiceDate ||
+    s5.dispatchDetails?.invoiceDate;
+
+  const baseDate = invDateStr
+    ? new Date(invDateStr)
+    : s3.signOff?.dateOfApproval
+    ? new Date(s3.signOff.dateOfApproval)
+    : doc.createdAt
+    ? new Date(doc.createdAt)
+    : new Date();
+
+  const dueDate = new Date(baseDate.getTime() + maxCreditDays * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dueDateStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+  const diffDays = Math.round((dueDateStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24));
+
+  const isDueSoon = isCredit && !isPaid && diffDays <= 7 && diffDays > 0;
+  const isOverdue = isCredit && !isPaid && diffDays <= 0;
+
+  return {
+    isCredit,
+    maxCreditDays,
+    dueDate,
+    dueDateStr: dueDate.toLocaleDateString("en-GB"),
+    baseDateStr: baseDate.toLocaleDateString("en-GB"),
+    diffDays,
+    isDueSoon,
+    isOverdue,
+    isPaid,
+  };
+}
+
 function deriveStatus(doc) {
   if (!doc) return "Draft";
   const s6 = doc.stage6 || {};
@@ -244,6 +424,10 @@ function deriveStatus(doc) {
   // Check Stage 3 Finance Approval
   const isFinanceApproved = s3.decision?.decision === "APPROVED" || Boolean(s3.signOff?.dateOfApproval);
   if (isFinanceApproved || doc.status === "Finance Approved") {
+    const creditInfo = getPrCreditInfo(doc);
+    if (creditInfo.isCredit) {
+      return "Dispatched / Site GRN Ready";
+    }
     return "Finance Approved";
   }
 
@@ -279,6 +463,9 @@ function computeDoc(doc) {
       clone.stage1.hodValidation.validatedBy = "MOHIT SINGH";
     }
   }
+
+  // Attach computed credit information
+  clone.creditInfo = getPrCreditInfo(clone);
 
   if (clone.stage3) {
     if (!clone.stage3.signOff) clone.stage3.signOff = {};
@@ -548,7 +735,8 @@ router.get("/tyre-procurement/pending-count", authMiddleware, async (req, res) =
       user.role === "Admin" ||
       user.role === "admin" ||
       user.role === "SuperAdmin" ||
-      user.role === "superadmin";
+      user.role === "superadmin" ||
+      Boolean(user.tyre_procurement_admin);
 
     const userTabs = user.tyre_procurement_tabs || [];
 
@@ -653,7 +841,18 @@ router.get("/tyre-procurement", authMiddleware, async (req, res) => {
           query.status = { $in: ["Quotation Received", "Quotation Updated"] };
           break;
         case "4":
-          query.status = "Finance Approved";
+          query.status = {
+            $in: [
+              "Finance Approved",
+              "Dispatched / Site GRN Ready",
+              "GRN Ready",
+              "GRN Received",
+              "Order Placed",
+              "Dispatched",
+              "GRN Done",
+              "GRN Completed",
+            ],
+          };
           break;
         case "5":
           query.status = { $in: ["Payment Done", "Order Placed", "Dispatched"] };
@@ -682,6 +881,20 @@ router.get("/tyre-procurement", authMiddleware, async (req, res) => {
     }
 
     const skip = (Number(page) - 1) * Number(limit);
+
+    if (stageTab === "4") {
+      const allCandidates = await TyreProcurementSop.find(query).sort({ createdAt: -1 }).lean();
+      const filtered = allCandidates.filter((d) => {
+        if (d.status === "Finance Approved") return true;
+        const ci = getPrCreditInfo(d);
+        return ci.isCredit && !ci.isPaid && ci.diffDays <= 7;
+      });
+      const total = filtered.length;
+      const paginated = filtered.slice(skip, skip + Number(limit));
+      const data = paginated.map(computeDoc);
+      return res.json({ success: true, data, total, page: Number(page), limit: Number(limit) });
+    }
+
     const [items, total] = await Promise.all([
       TyreProcurementSop.find(query)
         .sort({ createdAt: -1 })
@@ -772,12 +985,22 @@ router.post("/tyre-procurement", authMiddleware, async (req, res) => {
 
 // Update Tyre PR
 router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
+      const permissionUser = await UserModel.findById(req.user?._id).select("tyre_procurement_admin").lean();
+      const lockMessage = assertTyreSignOffLocks(
+        existing,
+        payload,
+        { ...req.user, tyre_procurement_admin: Boolean(permissionUser?.tyre_procurement_admin) }
+      );
   try {
     let payload = normalizeTyreEnums(uppercaseDeep(req.body));
     const { prNumber } = payload;
     const existing = await TyreProcurementSop.findById(req.params.id);
     if (!existing) {
       return res.status(404).json({ success: false, message: "Tyre PR not found" });
+    }
+    const lockMessage = assertTyreSignOffLocks(existing, payload, req.user);
+    if (lockMessage) {
+      return res.status(403).json({ success: false, message: lockMessage });
     }
     if (prNumber && prNumber.trim() !== existing.prNumber) {
       const duplicate = await TyreProcurementSop.findOne({ prNumber: prNumber.trim() });
@@ -804,7 +1027,11 @@ router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
 router.delete("/tyre-procurement/:id", authMiddleware, async (req, res) => {
   try {
     const role = (req.user?.role || "").toLowerCase();
-    if (role !== "admin" && role !== "superadmin") {
+    const permissionUser = await UserModel.findById(req.user?._id).select("tyre_procurement_admin").lean();
+    const identity = [req.user?.username, req.user?.first_name, req.user?.middle_name, req.user?.last_name]
+      .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
+    const isAjay = identity.includes("ajay") || String(req.user?.username || "").toLowerCase().includes("ajay");
+    if (role !== "admin" && role !== "superadmin" && !isAjay && !permissionUser?.tyre_procurement_admin) {
       return res.status(403).json({ success: false, message: "Only admin users can delete PRs" });
     }
     const doc = await TyreProcurementSop.findByIdAndDelete(req.params.id);
@@ -1192,6 +1419,7 @@ router.get("/tyre-procurement/user-tabs/:username", authMiddleware, async (req, 
     res.status(200).json({
       success: true,
       allowed_tabs: user.tyre_procurement_tabs || [],
+      tyre_procurement_admin: Boolean(user.tyre_procurement_admin),
     });
   } catch (error) {
     logger.error("Error fetching user procurement tabs:", error);
@@ -1201,17 +1429,24 @@ router.get("/tyre-procurement/user-tabs/:username", authMiddleware, async (req, 
 
 router.post("/tyre-procurement/assign-user-tabs", authMiddleware, async (req, res) => {
   try {
-    const { username, allowed_tabs } = req.body;
+    if (!canManageTyreProcurementPermissions(req.user)) {
+      return res.status(403).json({ success: false, error: "Only an admin can assign Tyre Procurement permissions" });
+    }
+    const { username, allowed_tabs, tyre_procurement_admin } = req.body;
     const user = await UserModel.findOne({ username });
     if (!user) {
       return res.status(404).json({ success: false, error: "User not found" });
     }
     user.tyre_procurement_tabs = allowed_tabs || [];
+    if (typeof tyre_procurement_admin === "boolean") {
+      user.tyre_procurement_admin = tyre_procurement_admin;
+    }
     await user.save();
     res.status(200).json({
       success: true,
       message: "Procurement tab permissions updated successfully",
       allowed_tabs: user.tyre_procurement_tabs,
+      tyre_procurement_admin: Boolean(user.tyre_procurement_admin),
     });
   } catch (error) {
     logger.error("Error assigning procurement tabs:", error);

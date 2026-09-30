@@ -70,39 +70,35 @@ export default function ProcurementInsuranceSopsContainer() {
   useEffect(() => {
     async function fetchNotificationCounts() {
       try {
-        let userTabs = [];
+        let tyreUserTabs = [];
         if (user?.username && !isAdmin) {
           try {
-            const tabsRes = await axios.get(
+            const tyreTabsRes = await axios.get(
               `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
             );
-            if (tabsRes.data?.success && tabsRes.data.allowed_tabs?.length > 0) {
-              userTabs = tabsRes.data.allowed_tabs;
+            if (tyreTabsRes.data?.success && tyreTabsRes.data.allowed_tabs?.length > 0) {
+              tyreUserTabs = tyreTabsRes.data.allowed_tabs;
             }
           } catch (e) {
             console.error("Error fetching user tabs for container count:", e);
           }
         }
 
-        const [fleetAppRes, fleetPayRes, rmRes, tyreRes] = await Promise.allSettled([
-          axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/approvals/list`),
-          axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/payment-utr/list`),
+        const [fleetPendingRes, rmRes, tyreRes] = await Promise.allSettled([
+          axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/pending-count`),
           axios.get(`${process.env.REACT_APP_API_STRING}/rm-procurement`),
           axios.get(`${process.env.REACT_APP_API_STRING}/tyre-procurement`),
         ]);
 
-        let fleetCount = 0;
-        if (fleetAppRes.status === "fulfilled" && Array.isArray(fleetAppRes.value.data)) {
-          fleetCount += fleetAppRes.value.data.length;
-        }
-        if (fleetPayRes.status === "fulfilled" && Array.isArray(fleetPayRes.value.data)) {
-          fleetCount += fleetPayRes.value.data.filter((r) => !r.paymentUtr).length;
-        }
+        const fleetCount = fleetPendingRes.status === "fulfilled" &&
+          typeof fleetPendingRes.value.data?.expiringCount === "number"
+          ? fleetPendingRes.value.data.expiringCount
+          : 0;
 
         let rmCount = 0;
         if (rmRes.status === "fulfilled" && rmRes.value.data?.data) {
-          if (!isAdmin && userTabs.length > 0) {
-            const allowedStatuses = userTabs.flatMap((t) => tabStatusMap[t] || []);
+          if (!isAdmin && tyreUserTabs.length > 0) {
+            const allowedStatuses = tyreUserTabs.flatMap((t) => tabStatusMap[t] || []);
             rmCount = rmRes.value.data.data.filter((d) => allowedStatuses.includes(d.status)).length;
           } else {
             rmCount = rmRes.value.data.data.filter((d) => d.status && d.status !== "Closed" && d.status !== "GRN Done").length;
@@ -111,8 +107,8 @@ export default function ProcurementInsuranceSopsContainer() {
 
         let tyreCount = 0;
         if (tyreRes.status === "fulfilled" && tyreRes.value.data?.data) {
-          if (!isAdmin && userTabs.length > 0) {
-            const allowedStatuses = userTabs.flatMap((t) => tabStatusMap[t] || []);
+          if (!isAdmin && tyreUserTabs.length > 0) {
+            const allowedStatuses = tyreUserTabs.flatMap((t) => tabStatusMap[t] || []);
             tyreCount = tyreRes.value.data.data.filter((d) => allowedStatuses.includes(d.status)).length;
           } else {
             tyreCount = tyreRes.value.data.data.filter((d) => d.status && d.status !== "Closed" && d.status !== "GRN Done").length;
@@ -127,7 +123,13 @@ export default function ProcurementInsuranceSopsContainer() {
 
     fetchNotificationCounts();
     const interval = setInterval(fetchNotificationCounts, 30000);
-    return () => clearInterval(interval);
+    window.addEventListener("fleet-insurance-updated", fetchNotificationCounts);
+    window.addEventListener("procurement-updated", fetchNotificationCounts);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("fleet-insurance-updated", fetchNotificationCounts);
+      window.removeEventListener("procurement-updated", fetchNotificationCounts);
+    };
   }, [user, isAdmin]);
 
   useEffect(() => {

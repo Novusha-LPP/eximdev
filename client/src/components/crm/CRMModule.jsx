@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import CRMKanbanBoard from './CRMKanbanBoard';
 import LeadList from './LeadList';
 import AccountsList from './components/AccountsList';
@@ -11,6 +12,7 @@ import ActivityCalendar from './components/ActivityCalendar';
 import SalesIncentiveDashboard from './components/SalesIncentiveDashboard';
 import PricingRequestsList from './components/PricingRequestsList';
 import QuotesList from './components/QuotesList';
+import CompanyBrochuresTab from './components/CompanyBrochuresTab';
 
 const TABS = [
   { key: 'dashboard', label: 'Dashboard', description: 'View key metrics & pipeline health' },
@@ -18,6 +20,7 @@ const TABS = [
   { key: 'leads', label: 'Leads', description: 'Manage and convert leads' },
   { key: 'accounts', label: 'Accounts', description: 'Company information' },
   { key: 'contacts', label: 'Contacts', description: 'People at organizations' },
+  { key: 'brochures', label: 'Brochure & Videos', description: 'Company-wise brochures, video links & design requests' },
   { key: 'teams', label: 'Teams', description: 'Sales team structure' },
   { key: 'tasks', label: 'Tasks', description: 'Action items & follow-ups' },
   { key: 'calendar', label: 'Calendar', description: 'Schedule and manage activities' },
@@ -45,9 +48,33 @@ const CRM_WORKFLOW = {
   ]
 };
 
-export default function CRMModule() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+export default function CRMModule({ initialTab }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+
+  const getInitialTab = () => {
+    const fromParam = searchParams.get('tab');
+    if (fromParam && TABS.some(t => t.key === fromParam)) return fromParam;
+    if (initialTab && TABS.some(t => t.key === initialTab)) return initialTab;
+    if (location.state?.tab && TABS.some(t => t.key === location.state.tab)) return location.state.tab;
+    if (location.pathname?.includes('/brochures') || location.pathname?.includes('/collaterals')) return 'brochures';
+    return 'dashboard';
+  };
+
+  const [activeTab, setActiveTab] = useState(getInitialTab);
   const [showWorkflowGuide, setShowWorkflowGuide] = useState(false);
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && tabParam !== activeTab && TABS.some(t => t.key === tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (key) => {
+    setActiveTab(key);
+    setSearchParams({ tab: key });
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -56,6 +83,7 @@ export default function CRMModule() {
       case 'leads': return <LeadList />;
       case 'accounts': return <AccountsList />;
       case 'contacts': return <ContactsList />;
+      case 'brochures': return <CompanyBrochuresTab />;
       case 'teams': return <SalesTeamManagement />;
       case 'tasks': return <TasksList />;
       case 'calendar': return <ActivityCalendar />;
@@ -146,7 +174,7 @@ export default function CRMModule() {
         {TABS.map(tab => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => handleTabChange(tab.key)}
             title={tab.description}
             style={{
               padding: '10px 14px',

@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import axios from "axios";
 import {
   Box,
   Typography,
@@ -7,7 +8,34 @@ import {
 
 const yesNoOptions = ["Yes", "No"];
 const acceptedOptions = ["Accepted", "Rejected"];
-const typeOptions = ["New", "Remould"];
+const typeOptions = ["New", "Refurbished", "Used", "Spare", "Consumable"];
+
+const normalizeYesNo = (val) => {
+  if (!val) return "";
+  const s = String(val).trim().toUpperCase();
+  if (s === "YES") return "Yes";
+  if (s === "NO") return "No";
+  return val;
+};
+
+const normalizeAccepted = (val) => {
+  if (!val) return "";
+  const s = String(val).trim().toUpperCase();
+  if (s === "ACCEPTED") return "Accepted";
+  if (s === "REJECTED") return "Rejected";
+  return val;
+};
+
+const normalizeType = (val) => {
+  if (!val) return "New";
+  const s = String(val).trim().toUpperCase();
+  if (s === "NEW") return "New";
+  if (s === "REMOULD" || s === "REFURBISHED") return "Refurbished";
+  if (s === "USED") return "Used";
+  if (s === "SPARE") return "Spare";
+  if (s === "CONSUMABLE") return "Consumable";
+  return val;
+};
 
 function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => {
@@ -15,7 +43,8 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
   };
 
   const updateNested = (group, field, value) => {
-    onChange({ [group]: { ...data[group], [field]: typeof value === "string" ? value.toUpperCase() : value } });
+    const val = group === "qualityConformanceCheck" ? normalizeYesNo(value) : (typeof value === "string" ? value.toUpperCase() : value);
+    onChange({ [group]: { ...data[group], [field]: val } });
   };
 
   // Selected suppliers from Stage 2
@@ -34,9 +63,11 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
   // Per-supplier reference information list
   const referenceInfos = data.referenceInfos || [];
 
-  const updateSupplierRefInfo = (idx, field, value) => {
+  // Attachment file names/URLs are case-sensitive (S3) — never uppercase them
+  const PRESERVE_CASE_FIELDS = new Set(["invoiceAttachment", "invoiceAttachmentName"]);
+
+  const patchSupplierRefInfo = (idx, patch) => {
     const updated = [...referenceInfos];
-    const val = typeof value === "string" ? value.toUpperCase() : value;
 
     while (updated.length <= idx) {
       const sup = awardedSuppliers[updated.length] || {};
@@ -49,12 +80,50 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
         lrNumber: dd.lrNumber || "",
         vehicleNumber: dd.vehicleNumber || "",
         deliveryLocation: sup.deliveryLocation || dd.deliveryLocationSite || "",
+        invoiceNumber: dd.invoiceNumber || "",
         invoiceDate: dd.invoiceDate || "",
+        invoiceAmount: dd.invoiceAmount ?? "",
+        invoiceAttachment: "",
+        invoiceAttachmentName: "",
       });
     }
 
-    updated[idx] = { ...updated[idx], [field]: val };
+    const normalized = {};
+    Object.entries(patch).forEach(([field, value]) => {
+      normalized[field] =
+        PRESERVE_CASE_FIELDS.has(field) || typeof value !== "string" ? value : value.toUpperCase();
+    });
+
+    updated[idx] = { ...updated[idx], ...normalized };
     onChange({ referenceInfos: updated });
+  };
+
+  const updateSupplierRefInfo = (idx, field, value) =>
+    patchSupplierRefInfo(idx, { [field]: value });
+
+  // Invoice attachment upload (S3 via shared /upload endpoint)
+  const [attachmentUploading, setAttachmentUploading] = useState({});
+
+  const handleInvoiceAttachment = async (idx, file) => {
+    if (!file) return;
+    setAttachmentUploading((prev) => ({ ...prev, [idx]: true }));
+    try {
+      const formData = new FormData();
+      formData.append("files", file);
+      formData.append("bucketPath", "tyre-procurement/grn-invoices");
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/upload`,
+        formData,
+        { withCredentials: true }
+      );
+      const url = res.data?.urls?.[0];
+      if (!url) throw new Error("Upload returned no URL");
+      patchSupplierRefInfo(idx, { invoiceAttachment: url, invoiceAttachmentName: file.name });
+    } catch (err) {
+      alert("Invoice attachment upload failed: " + (err.response?.data?.error || err.message));
+    } finally {
+      setAttachmentUploading((prev) => ({ ...prev, [idx]: false }));
+    }
   };
 
   // Dynamic Items Received List
@@ -64,7 +133,14 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
       : Array.from({ length: 4 }).map((_, i) => ({ sNo: i + 1, type: "New" }));
 
   const updateItem = (idx, field, value) => {
-    const val = typeof value === "string" ? value.toUpperCase() : value;
+    let val = value;
+    if (field === "type") {
+      val = normalizeType(value);
+    } else if (field === "acceptedRejected") {
+      val = normalizeAccepted(value);
+    } else if (typeof value === "string") {
+      val = value.toUpperCase();
+    }
     const updated = itemsReceived.map((item, i) => (i === idx ? { ...item, [field]: val } : item));
     onChange({ itemsReceived: updated });
   };
@@ -294,6 +370,121 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
                   );
                 })}
               </tr>
+              <tr>
+                <td style={{ fontWeight: 600 }}>Invoice No.</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const info = referenceInfos[idx] || {};
+                  const sd = globalData?.stage5?.supplierDispatches?.[idx] || {};
+                  const val = info.invoiceNumber ?? (sd.dispatchDetails?.invoiceNumber || globalData?.stage5?.dispatchDetails?.invoiceNumber || "");
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="text"
+                        className="sop-input"
+                        value={val}
+                        onChange={(e) => updateSupplierRefInfo(idx, "invoiceNumber", e.target.value)}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <td style={{ fontWeight: 600 }}>Invoice Date</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const info = referenceInfos[idx] || {};
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="date"
+                        className="sop-input"
+                        value={info.invoiceDate ? String(info.invoiceDate).split("T")[0] : ""}
+                        onChange={(e) => updateSupplierRefInfo(idx, "invoiceDate", e.target.value)}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <td style={{ fontWeight: 600 }}>Invoice Amount (₹)</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const info = referenceInfos[idx] || {};
+                  const sd = globalData?.stage5?.supplierDispatches?.[idx] || {};
+                  const val =
+                    info.invoiceAmount ??
+                    sd.dispatchDetails?.invoiceAmount ??
+                    globalData?.stage5?.dispatchDetails?.invoiceAmount ??
+                    "";
+                  return (
+                    <td key={idx}>
+                      <input
+                        type="number"
+                        className="sop-input"
+                        value={val}
+                        min="0"
+                        onChange={(e) =>
+                          updateSupplierRefInfo(idx, "invoiceAmount", e.target.value === "" ? null : Number(e.target.value))
+                        }
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <td style={{ fontWeight: 600 }}>Invoice Attachment</td>
+                {awardedSuppliers.map((supObj, idx) => {
+                  const info = referenceInfos[idx] || {};
+                  const uploading = attachmentUploading[idx];
+                  return (
+                    <td key={idx}>
+                      {info.invoiceAttachment ? (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          <a
+                            href={info.invoiceAttachment}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ fontSize: 11, color: "#2563eb", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}
+                          >
+                            {info.invoiceAttachmentName || "VIEW INVOICE"}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => patchSupplierRefInfo(idx, { invoiceAttachment: "", invoiceAttachmentName: "" })}
+                            style={{ border: "none", background: "transparent", color: "#dc2626", cursor: "pointer", fontWeight: "bold", fontSize: 11 }}
+                            title="Remove attachment"
+                          >
+                            ✕
+                          </button>
+                        </Box>
+                      ) : (
+                        <label
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: uploading ? "#94a3b8" : "#2563eb",
+                            cursor: uploading ? "wait" : "pointer",
+                            border: "1px dashed #93c5fd",
+                            borderRadius: 4,
+                            padding: "2px 8px",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {uploading ? "UPLOADING…" : "+ UPLOAD"}
+                          <input
+                            type="file"
+                            accept=".pdf,image/jpeg,image/png,image/webp"
+                            disabled={uploading}
+                            onChange={(e) => {
+                              handleInvoiceAttachment(idx, e.target.files?.[0]);
+                              e.target.value = "";
+                            }}
+                            style={{ display: "none" }}
+                          />
+                        </label>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
             </tbody>
           </table>
         </Box>
@@ -359,7 +550,7 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
                   <td>
                     <select
                       className="sop-select"
-                      value={item.type || "New"}
+                      value={normalizeType(item.type)}
                       onChange={(e) => updateItem(idx, "type", e.target.value)}
                     >
                       {typeOptions.map((o) => (
@@ -370,7 +561,7 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
                   <td>
                     <select
                       className="sop-select"
-                      value={item.acceptedRejected || ""}
+                      value={normalizeAccepted(item.acceptedRejected)}
                       onChange={(e) => updateItem(idx, "acceptedRejected", e.target.value)}
                     >
                       <option value="">Select</option>
@@ -421,7 +612,7 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
                 <select
                   className="sop-select"
                   style={{ width: 80 }}
-                  value={data.qualityConformanceCheck?.[field] || ""}
+                  value={normalizeYesNo(data.qualityConformanceCheck?.[field])}
                   onChange={(e) => updateNested("qualityConformanceCheck", field, e.target.value)}
                 >
                   <option value="">Select</option>

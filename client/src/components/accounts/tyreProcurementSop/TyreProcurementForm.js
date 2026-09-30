@@ -67,15 +67,35 @@ const STAGE_TABS = [
   { label: "6. Site GRN", stage: 6, component: Stage6Grn },
 ];
 
+const getCompletedStages = (data) => {
+  const isDone = (item) => Boolean(item && (item.checked || item.status === "Done" || item.status === "DONE" || item.date));
+  const approvals = data.stage6?.approvals || [];
+  return {
+    1: isDone(data.stage1?.routingChecklist?.[0]),
+    2: isDone(data.stage2?.routingChecklist?.[0]),
+    3: data.stage3?.decision?.decision === "APPROVED" || Boolean(data.stage3?.signOff?.dateOfApproval),
+    5: Boolean(data.stage5?.dispatchDone || data.stage5?.isDispatchDone) || (data.stage5?.supplierDispatches || []).some((item) => item?.dispatchDone || item?.isDispatchDone),
+    6: approvals.length >= 3 && approvals.every(isDone),
+  };
+};
+
 function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
   const { user } = useContext(UserContext);
   const userRole = (user?.role || "").toLowerCase();
-  const isAdmin = userRole === "admin" || userRole === "superadmin";
+  const userIdentity = [user?.username, user?.first_name, user?.middle_name, user?.last_name]
+    .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
+  const isAjay = (user?.username || "").toLowerCase().includes("ajay") || userIdentity.includes("ajay");
+  const isGlobalAdmin = userRole === "admin" || userRole === "superadmin" || isAjay;
+  const [isProcurementAdmin, setIsProcurementAdmin] = useState(false);
+  const isAdmin = isGlobalAdmin || isProcurementAdmin;
+  const canOverrideSignOffLock = isAdmin;
 
   const [activeStage, setActiveStage] = useState(1);
   const [allowedUserTabs, setAllowedUserTabs] = useState([]);
   const [tabsLoading, setTabsLoading] = useState(true);
   const [formData, setFormData] = useState(emptyPr);
+  const [persistedCompletedStages, setPersistedCompletedStages] = useState(() => getCompletedStages(emptyPr));
+  const [persistedStatus, setPersistedStatus] = useState(emptyPr.status);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const { a11yProps, CustomTabPanel } = useTabs();
@@ -84,18 +104,22 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
 
   useEffect(() => {
     if (!user) return; // wait for user context before deciding tab visibility
-    if (isAdmin) {
+    if (isGlobalAdmin) {
+      setIsProcurementAdmin(false);
       setAllowedUserTabs([]);
       setTabsLoading(false);
       return;
     }
+    setIsProcurementAdmin(false);
+    setAllowedUserTabs([]);
     async function fetchUserTabs() {
       try {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
         );
-        if (res.data?.success && res.data.allowed_tabs?.length > 0) {
-          setAllowedUserTabs(res.data.allowed_tabs);
+        if (res.data?.success) {
+          setAllowedUserTabs(res.data.allowed_tabs || []);
+          setIsProcurementAdmin(Boolean(res.data.tyre_procurement_admin));
         }
       } catch (err) {
         console.error("Error fetching allowed tabs:", err);
@@ -108,7 +132,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
     } else {
       setTabsLoading(false);
     }
-  }, [user, isAdmin]);
+  }, [user, isGlobalAdmin]);
 
   const visibleStageTabs = useMemo(
     () =>
@@ -125,7 +149,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
     }
   }, [visibleStageTabs, activeStage]);
 
-  const getActiveTabForStatus = (status) => {
+  const getActiveTabForStatus = (status, doc) => {
     switch (status) {
       case "Draft":
         return 0; // Stage 1: Purchase Request
@@ -137,6 +161,9 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
       case "Quotation Updated":
         return 2; // Stage 3: Finance Approval
       case "Finance Approved":
+        if (doc?.creditInfo?.isCredit) {
+          return 5; // Bypass upfront Payment & UTR for Credit suppliers; move directly to Stage 6: Site GRN
+        }
         return 3; // Stage 4: Payment & UTR
       case "Payment Done":
         return 4; // Stage 5: Order & Dispatch
@@ -163,7 +190,9 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
         .then((res) => {
           const loaded = mergeWithEmpty(res.data.data || emptyPr);
           setFormData(loaded);
-          setActiveStage(getActiveTabForStatus(loaded.status) + 1);
+          setPersistedCompletedStages(getCompletedStages(loaded));
+          setPersistedStatus(loaded.status);
+          setActiveStage(getActiveTabForStatus(loaded.status, loaded) + 1);
         })
         .catch((err) => {
           console.error("Error fetching Tyre PR:", err);
@@ -172,6 +201,8 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
         .finally(() => setLoading(false));
     } else {
       setFormData(emptyPr);
+      setPersistedCompletedStages(getCompletedStages(emptyPr));
+      setPersistedStatus(emptyPr.status);
       setActiveStage(1);
     }
   }, [prId]);
@@ -211,6 +242,11 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
     setFormData((prev) => ({ ...prev, [stageKey]: { ...prev[stageKey], ...stageData } }));
   }, []);
 
+  const completedStages = useMemo(() => getCompletedStages(formData), [formData]);
+
+  const isSiteGrnLocked = persistedCompletedStages[6] || ["GRN Done", "GRN Completed", "Closed"].includes(persistedStatus);
+  const isStageLocked = (stage) => !canOverrideSignOffLock && (isSiteGrnLocked || persistedCompletedStages[stage]);
+
   const handleSave = async () => {
     if (!formData.prNumber || !formData.prNumber.trim()) {
       alert("PR Number is required");
@@ -229,8 +265,10 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
 
       if (savedData && savedData._id) {
         setFormData(mergeWithEmpty(savedData));
+        setPersistedCompletedStages(getCompletedStages(savedData));
+        setPersistedStatus(savedData.status);
         if (onSaved) {
-          onSaved(savedData);
+          onSaved(savedData, { close: Boolean(completedStages[activeStage]) });
         }
       }
     } catch (err) {
@@ -354,7 +392,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
             const Component = tab.component;
             return (
               <CustomTabPanel key={tab.stage} value={activeStage} index={tab.stage}>
-                <fieldset disabled={isView} style={{ border: "none", padding: 0, margin: 0 }}>
+                <fieldset disabled={isView || isStageLocked(tab.stage)} style={{ border: "none", padding: 0, margin: 0 }}>
                   <Component
                     data={formData[`stage${tab.stage}`] || {}}
                     globalData={formData}
@@ -394,7 +432,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
         >
           CLOSE
         </button>
-        {!isView && (
+        {!isView && !isStageLocked(activeStage) && (
           <button
             type="button"
             className="sop-btn pill-save"

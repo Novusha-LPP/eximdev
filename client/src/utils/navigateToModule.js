@@ -76,6 +76,9 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/dgft");
     case "CRM":
       return navigate("/crm");
+    case "Company Brochures":
+    case "Brochure & Videos":
+      return navigate("/crm?tab=brochures");
     case "Open Points":
       return navigate("/open-points");
     case "Supplier Scorecard":
@@ -111,6 +114,9 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/audit-5s");
     case "First Aid":
       return navigate("/first-aid");
+    case "Transport Invoicing":
+    case "Transport":
+      return navigate("/invoice/transport");
     default:
       return navigate("/home");
   }

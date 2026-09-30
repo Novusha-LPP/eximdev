@@ -16,6 +16,10 @@ import automationRulesRouter from './automationRules.controller.mjs';
 import forecastingRouter from './forecasting.controller.mjs';
 import incentivesRouter from './incentives.controller.mjs';
 import pricingRequestsRouter from './pricingRequests.controller.mjs';
+import collateralsRouter from './collaterals.controller.mjs';
+
+import quotationCompaniesRouter from './quotationCompanies.controller.mjs';
+import quotationTemplatesRouter from './quotationTemplates.controller.mjs';
 
 const router = express.Router();
 
@@ -31,12 +35,16 @@ router.use('/tasks', tasksRouter);
 router.use('/reports', reportsRouter);
 router.use('/incentives', incentivesRouter);
 router.use('/pricing-requests', pricingRequestsRouter);
+router.use('/collaterals', collateralsRouter);
+router.use('/brochures', collateralsRouter);
 
 // Phase 1: Advanced Features
 router.use('/lead-scoring', leadScoringRouter);
 router.use('/territories', territoriesRouter);
 router.use('/teams', salesTeamsRouter);
 router.use('/quotes', quotesRouter);
+router.use('/quotation-companies', quotationCompaniesRouter);
+router.use('/quotation-templates', quotationTemplatesRouter);
 router.use('/automation-rules', automationRulesRouter);
 router.use('/forecasts', forecastingRouter);
 

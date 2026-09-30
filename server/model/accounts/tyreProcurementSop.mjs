@@ -125,6 +125,8 @@ const selectedSupplierSchema = new mongoose.Schema(
     deliveryContact: String,
     priceQuoted: { type: Number, default: 0 },
     totalOrderValue: { type: Number, default: 0 },
+    allocatedQty: { type: Number, default: 0 },
+    qty: { type: Number, default: 0 },
     gstRate: { type: String, default: "" },
     gstAmount: { type: Number, default: 0 },
     reasonForSelection: String,
@@ -319,6 +321,26 @@ const approvalSchema = new mongoose.Schema(
     name: String,
     date: Date,
     signature: String,
+    checked: { type: Boolean, default: false },
+    status: { type: String, enum: ["Pending", "Done", "PENDING", "DONE", ""], default: "Pending" },
+  },
+  { _id: true }
+);
+
+const grnReferenceInfoSchema = new mongoose.Schema(
+  {
+    supplierName: String,
+    supplierContactNo: String,
+    deliveryNoteDcNo: String,
+    lrNumber: String,
+    vehicleNumber: String,
+    deliveryLocation: String,
+    invoiceNumber: String,
+    invoiceDate: Date,
+    invoiceAmount: { type: Number, default: 0 },
+    // S3 URL of the uploaded supplier invoice — case-sensitive, never uppercased
+    invoiceAttachment: String,
+    invoiceAttachmentName: String,
   },
   { _id: true }
 );
@@ -335,6 +357,7 @@ const stage6Schema = new mongoose.Schema(
     lrNumber: String,
     vehicleNumber: String,
     deliveryLocation: String,
+    referenceInfos: { type: [grnReferenceInfoSchema], default: [] },
     itemsReceived: { type: [grnTyreItemSchema], default: [] },
     qualityConformanceCheck: {
       tyresVerified: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },

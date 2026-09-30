@@ -79,13 +79,17 @@ function TyreProcurementSop() {
     }
   }, [navigate, location.pathname]);
 
-  const handleSaved = useCallback((savedData) => {
+  const handleSaved = useCallback((savedData, options = {}) => {
     if (savedData && savedData._id) {
+      if (options.close) {
+        handleCancel();
+        return;
+      }
       setSelectedPr(savedData);
       const isSopsRoute = location.pathname.includes("/procurement-insurance-sops");
       navigate(isSopsRoute ? `/procurement-insurance-sops/tyre/edit/${savedData._id}` : `/tyre-procurement/edit/${savedData._id}`, { replace: true });
     }
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, handleCancel]);
 
   return (
     <Box sx={{ p: 1 }}>

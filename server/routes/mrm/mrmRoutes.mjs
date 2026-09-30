@@ -787,7 +787,7 @@ router.post('/api/mrm', authMiddleware, async (req, res) => {
         }
 
         // Trigger safe Save-time OpenPoint sync
-        if (item.actionPlan || item.remarks || item.responsibility) {
+        if (item.actionPlan || item.remarks || item.responsibility || item.status === 'Green' || item.openPointId) {
             const point = await syncActionPlanToOpenPoint(item, req.user);
             if (point) {
                 item.openPointId = point._id;
@@ -842,7 +842,12 @@ router.put('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async (r
             return res.status(403).json({ error: "This month is locked and approved. Contact Suraj Rajan to reopen." });
         }
 
-        const item = await MRMItem.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        const updateData = { ...req.body };
+        delete updateData._id;
+        delete updateData.__v;
+        delete updateData.createdAt;
+
+        const item = await MRMItem.findByIdAndUpdate(req.params.id, updateData, { new: true });
 
         // Dynamically resolve and persist parent tileName if blank on normal row
         if (item && !item.isTitleRow && !item.tileName) {
@@ -863,7 +868,7 @@ router.put('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async (r
         }
 
         // Trigger safe Save-time OpenPoint sync
-        if (item && (item.actionPlan || item.remarks || item.responsibility || item.openPointId)) {
+        if (item && (item.actionPlan || item.remarks || item.responsibility || item.status === 'Green' || item.openPointId)) {
             const point = await syncActionPlanToOpenPoint(item, req.user);
             if (point) {
                 item.openPointId = point._id;
@@ -936,7 +941,7 @@ router.delete('/api/mrm-bulk/delete', authMiddleware, async (req, res) => {
 // Import Items
 router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), async (req, res) => {
     try {
-        const { targetMonth, targetYear, sourceMonth, sourceYear, mode, userId } = req.body;
+        const { targetMonth, targetYear, sourceMonth, sourceYear, mode, userId, overwrite } = req.body;
 
         if (!targetMonth || !targetYear || !sourceMonth || !sourceYear || !mode) {
             return res.status(400).json({ error: "Missing required fields for import" });
@@ -965,18 +970,62 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
             return new Date(a.createdAt) - new Date(b.createdAt);
         });
 
+        // Deduplicate source items by title row or distinct item properties to prevent dropping valid items
+        const seenSourceKeys = new Set();
+        const uniqueSourceItems = [];
+        for (const item of validSourceItems) {
+            const key = item.isTitleRow
+                ? `title|||${(item.processDescription || '').trim().toLowerCase()}`
+                : `${(item.processDescription || '').trim().toLowerCase()}|||${(item.objective || '').trim().toLowerCase()}|||${(item.actionPlan || '').trim().toLowerCase()}|||${item._id}`;
+            if (!seenSourceKeys.has(key)) {
+                seenSourceKeys.add(key);
+                uniqueSourceItems.push(item);
+            }
+        }
+
+        if (overwrite) {
+            await MRMItem.deleteMany({ month: targetMonth, year: targetYear, createdBy: targetUserId });
+        }
+
+        const existingTargetItems = await MRMItem.find({
+            month: targetMonth,
+            year: targetYear,
+            createdBy: targetUserId
+        });
+
+        const existingKeySet = new Set(
+            existingTargetItems.map(it => it.isTitleRow
+                ? `title|||${(it.processDescription || '').trim().toLowerCase()}`
+                : `${(it.processDescription || '').trim().toLowerCase()}|||${(it.objective || '').trim().toLowerCase()}|||${(it.actionPlan || '').trim().toLowerCase()}`)
+        );
+
+        // Filter out items that already exist in target month to prevent duplicate rows
+        const filteredSourceItems = overwrite
+            ? uniqueSourceItems
+            : uniqueSourceItems.filter(it => {
+                const key = it.isTitleRow
+                    ? `title|||${(it.processDescription || '').trim().toLowerCase()}`
+                    : `${(it.processDescription || '').trim().toLowerCase()}|||${(it.objective || '').trim().toLowerCase()}|||${(it.actionPlan || '').trim().toLowerCase()}`;
+                return !existingKeySet.has(key);
+            });
+
+        if (filteredSourceItems.length === 0) {
+            const currentItems = await MRMItem.find({ month: targetMonth, year: targetYear, createdBy: targetUserId }).sort({ seq: 1 });
+            return res.json(currentItems);
+        }
+
         const lastTargetItem = await MRMItem.findOne({
             month: targetMonth,
             year: targetYear,
             createdBy: targetUserId
         }).sort({ seq: -1 });
 
-        const startSeq = lastTargetItem && lastTargetItem.seq !== undefined ? lastTargetItem.seq + 1 : 1;
+        const startSeq = (overwrite || !lastTargetItem || lastTargetItem.seq === undefined) ? 1 : lastTargetItem.seq + 1;
 
         let newItems = [];
 
         if (mode === 'as-is') {
-            newItems = validSourceItems.map((item, index) => ({
+            newItems = filteredSourceItems.map((item, index) => ({
                 month: targetMonth,
                 year: targetYear,
                 processDescription: item.processDescription,
@@ -989,20 +1038,21 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
                 actionPlan: item.actionPlan,
                 responsibilityAction: item.responsibilityAction,
                 targetDate: item.targetDate,
-                status: item.status,
+                status: item.isTitleRow ? '' : (item.status || 'Green'),
                 remarks: item.remarks,
                 createdBy: targetUserId,
                 seq: startSeq + index,
                 isTitleRow: item.isTitleRow || false,
                 bgColor: item.bgColor || '#ffffff',
                 tileName: item.tileName || '',
+                openPointId: item.openPointId || null, // Preserve linked Open Point from previous month!
                 aggregationType: item.aggregationType || 'Sum',
                 optimizationDirection: item.optimizationDirection || 'Higher',
                 toleranceBand: item.toleranceBand || 5,
                 lastYearBaseline: item.lastYearBaseline || null
             }));
         } else if (mode === 'blank') {
-            newItems = validSourceItems.map((item, index) => ({
+            newItems = filteredSourceItems.map((item, index) => ({
                 month: targetMonth,
                 year: targetYear,
                 processDescription: item.processDescription,
@@ -1015,13 +1065,14 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
                 actionPlan: "",
                 responsibilityAction: "",
                 targetDate: null,
-                status: "Gray",
+                status: item.isTitleRow ? '' : "Green",
                 remarks: "",
                 createdBy: targetUserId,
                 seq: startSeq + index,
                 isTitleRow: item.isTitleRow || false,
                 bgColor: item.bgColor || '#ffffff',
                 tileName: item.tileName || '',
+                openPointId: null,
                 aggregationType: item.aggregationType || 'Sum',
                 optimizationDirection: item.optimizationDirection || 'Higher',
                 toleranceBand: item.toleranceBand || 5,
@@ -1031,14 +1082,15 @@ router.post('/api/mrm/import', authMiddleware, auditMiddleware("MRM_Item"), asyn
 
         const insertedItems = await MRMItem.insertMany(newItems);
 
-        // If mode === 'as-is', safely trigger OpenPoints sync on all inserted items with an actionPlan or remarks
+        // If mode === 'as-is', safely trigger OpenPoints sync on all inserted items (including Green items)
         if (mode === 'as-is' && Array.isArray(insertedItems)) {
             for (const item of insertedItems) {
-                if ((item.actionPlan && item.actionPlan.trim()) || (item.remarks && item.remarks.trim())) {
+                if ((item.actionPlan && item.actionPlan.trim()) || (item.remarks && item.remarks.trim()) || item.openPointId || item.status === 'Green') {
                     try {
                         const point = await syncActionPlanToOpenPoint(item, req.user);
-                        if (point) {
+                        if (point && (!item.openPointId || String(item.openPointId) !== String(point._id))) {
                             item.openPointId = point._id;
+                            await MRMItem.findByIdAndUpdate(item._id, { openPointId: point._id });
                         }
                     } catch (syncErr) {
                         console.error(`Safe warning: Failed to sync imported MRM item ${item._id} to OpenPoint:`, syncErr.message);

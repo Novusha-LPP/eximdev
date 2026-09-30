@@ -239,6 +239,7 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
       query.$or = [
         { registrationNo: regRegex || textRegex },
         { owner: textRegex },
+        { prNumber: textRegex },
         { insuranceCompany: textRegex },
         { policyNo: textRegex },
         { makeModel: textRegex },
@@ -417,9 +418,227 @@ router.get("/fleet-insurance-sop/filters/options", authMiddleware, async (req, r
   }
 });
 
+// ─── GET PENDING COUNT FOR NOTIFICATIONS ───
+router.get("/fleet-insurance-sop/pending-count", authMiddleware, async (req, res) => {
+  try {
+    const user = await UserModel.findById(req.user._id).lean();
+    if (!user) {
+      return res.status(200).json({ success: true, count: 0, expiringCount: 0, approvalCount: 0, paymentUtrCount: 0 });
+    }
+
+    const isAdmin =
+      user.role === "Admin" ||
+      user.role === "admin" ||
+      user.role === "SuperAdmin" ||
+      user.role === "superadmin";
+
+    const allowedTabs = user.fleet_insurance_tabs || [];
+
+    const now = new Date();
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(now.getDate() + 7);
+
+    // Active expiring policies (policy expires within 7 days or past due, and not yet renewed)
+    const expiringCount = await FleetInsuranceSopModel.countDocuments({
+      renewed: { $ne: "YES" },
+      renewalStatus: { $ne: "Renewed" },
+      $or: [
+        { policyToDate: { $lte: sevenDaysFromNow } },
+        { newPolicyToDate: { $lte: sevenDaysFromNow } },
+        { newExpiryDate: { $lte: sevenDaysFromNow } }
+      ]
+    });
+    const visibleExpiringCount = !isAdmin && allowedTabs.length > 0 && !allowedTabs.includes("Vehicle Records")
+      ? 0
+      : expiringCount;
+
+    // Pending Approvals: PR generated, pending financial approval
+    const pendingApprovalCount = await FleetInsuranceSopModel.countDocuments({
+      prNumber: { $exists: true, $ne: "" },
+      financialApprovalStatus: { $nin: ["Approved", "Rejected"] }
+    });
+
+    // Pending Payment & UTR: Approved by Finance with active PR awaiting UTR
+    const pendingPaymentUtrCount = await FleetInsuranceSopModel.countDocuments({
+      prNumber: { $exists: true, $ne: "" },
+      financialApprovalStatus: "Approved",
+      renewed: { $ne: "YES" },
+      renewalStatus: { $ne: "Renewed" },
+      $or: [{ paymentUtr: { $exists: false } }, { paymentUtr: null }, { paymentUtr: "" }]
+    });
+
+    let totalCount = 0;
+    if (!isAdmin && allowedTabs.length > 0) {
+      if (allowedTabs.includes("Vehicle Records")) {
+        totalCount += expiringCount;
+      }
+      if (allowedTabs.includes("Approval")) {
+        totalCount += pendingApprovalCount;
+      }
+      if (allowedTabs.includes("Payment & UTR")) {
+        totalCount += pendingPaymentUtrCount;
+      }
+    } else {
+      totalCount = expiringCount + pendingApprovalCount + pendingPaymentUtrCount;
+    }
+
+    res.status(200).json({
+      success: true,
+      count: totalCount,
+      expiringCount: visibleExpiringCount,
+      approvalCount: pendingApprovalCount,
+      paymentUtrCount: pendingPaymentUtrCount
+    });
+  } catch (error) {
+    console.error("Error fetching fleet insurance pending count:", error);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+});
+
+// BULK EXPORT to Excel (both sheets)
+router.get("/fleet-insurance-sop/export/bulk", authMiddleware, async (req, res) => {
+  try {
+    const { search = "", month = "", year = "" } = req.query;
+    const query = {};
+
+    if (search) {
+      query.$or = [
+        { registrationNo: { $regex: search, $options: "i" } },
+        { owner: { $regex: search, $options: "i" } },
+        { insuranceCompany: { $regex: search, $options: "i" } },
+        { policyNo: { $regex: search, $options: "i" } }
+      ];
+    }
+
+    const buildDateQuery = (startDate, endDate) => {
+      return {
+        $or: [
+          { newPolicyToDate: { $gte: startDate, $lte: endDate } },
+          { policyToDate: { $gte: startDate, $lte: endDate } },
+          { renewalDate: { $gte: startDate, $lte: endDate } },
+          { paymentDate: { $gte: startDate, $lte: endDate } },
+          { renewedDate: { $gte: startDate, $lte: endDate } }
+        ]
+      };
+    };
+
+    if (year && month) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      Object.assign(query, buildDateQuery(startDate, endDate));
+    } else if (year) {
+      const startDate = new Date(parseInt(year), 0, 1);
+      const endDate = new Date(parseInt(year), 12, 0, 23, 59, 59, 999);
+      Object.assign(query, buildDateQuery(startDate, endDate));
+    } else if (month) {
+      const currentYear = new Date().getFullYear();
+      const startDate = new Date(currentYear, parseInt(month) - 1, 1);
+      const endDate = new Date(currentYear, parseInt(month), 0, 23, 59, 59, 999);
+      Object.assign(query, buildDateQuery(startDate, endDate));
+    }
+
+    const docs = await FleetInsuranceSopModel.find(query).sort({ createdAt: -1 }).lean();
+
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Policy Portal
+    const aoaPP = [policyPortalHeaders];
+    docs.forEach(doc => aoaPP.push(policyPortalRow(doc)));
+    const ws1 = XLSX.utils.aoa_to_sheet(aoaPP);
+    XLSX.utils.book_append_sheet(wb, ws1, "Policy Portal");
+
+    // Sheet 2: F Data-NEW
+    const aoaFD = [fDataNewHeaders];
+    docs.forEach(doc => aoaFD.push(fDataNewRow(doc)));
+    const ws2 = XLSX.utils.aoa_to_sheet(aoaFD);
+    XLSX.utils.book_append_sheet(wb, ws2, "F Data-NEW");
+
+    const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    
+    let filename = "Fleet_Insurance_Export.xlsx";
+    if (month && year) {
+      filename = `Fleet_Insurance_${month}_${year}.xlsx`;
+    } else if (year) {
+      filename = `Fleet_Insurance_${year}.xlsx`;
+    } else if (month) {
+      filename = `Fleet_Insurance_Month_${month}.xlsx`;
+    }
+
+    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.send(excelBuffer);
+  } catch (error) {
+    console.error("Error bulk exporting to excel:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// EXPORT template (both sheets)
+router.get("/fleet-insurance-sop/template/download", authMiddleware, async (req, res) => {
+  try {
+    const wb = XLSX.utils.book_new();
+
+    const ws1 = XLSX.utils.aoa_to_sheet([policyPortalHeaders]);
+    XLSX.utils.book_append_sheet(wb, ws1, "Policy Portal");
+
+    const ws2 = XLSX.utils.aoa_to_sheet([fDataNewHeaders]);
+    XLSX.utils.book_append_sheet(wb, ws2, "F Data-NEW");
+
+    const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+    res.setHeader("Content-Disposition", `attachment; filename=Fleet_Insurance_SOP_Template.xlsx`);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.send(excelBuffer);
+  } catch (error) {
+    console.error("Error exporting template:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// ─── GET & ASSIGN FLEET INSURANCE TAB PERMISSIONS ───
+router.get("/fleet-insurance-sop/user-tabs/:username", authMiddleware, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const user = await UserModel.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+    res.status(200).json({
+      success: true,
+      allowed_tabs: user.fleet_insurance_tabs || [],
+    });
+  } catch (error) {
+    console.error("Error fetching user fleet insurance tabs:", error);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+});
+
+router.post("/fleet-insurance-sop/assign-user-tabs", authMiddleware, async (req, res) => {
+  try {
+    const { username, allowed_tabs } = req.body;
+    const user = await UserModel.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+    user.fleet_insurance_tabs = allowed_tabs || [];
+    await user.save();
+    res.status(200).json({
+      success: true,
+      message: "Fleet insurance tab permissions updated successfully",
+      allowed_tabs: user.fleet_insurance_tabs,
+    });
+  } catch (error) {
+    console.error("Error assigning fleet insurance tabs:", error);
+    res.status(500).json({ success: false, error: "Failed to assign tab permissions" });
+  }
+});
+
 // GET single record by ID
 router.get("/fleet-insurance-sop/:id", authMiddleware, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid record ID" });
+    }
     const record = await FleetInsuranceSopModel.findById(req.params.id);
     if (!record) {
       return res.status(404).json({ message: "Record not found" });
@@ -477,6 +696,199 @@ router.get("/fleet-insurance-sop/history/:registrationNo", authMiddleware, async
   } catch (error) {
     console.error("Error fetching vehicle history:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Helper to determine readable policy year label
+const getPolicyYearLabel = (fromDate, toDate, fallbackYear) => {
+  if (fromDate && toDate) {
+    const y1 = new Date(fromDate).getFullYear();
+    const y2 = new Date(toDate).getFullYear();
+    if (!isNaN(y1) && !isNaN(y2)) {
+      return y1 === y2 ? `${y1}` : `${y1}-${y2}`;
+    }
+  }
+  if (toDate) {
+    const y2 = new Date(toDate).getFullYear();
+    if (!isNaN(y2)) return `${y2 - 1}-${y2}`;
+  }
+  if (fromDate) {
+    const y1 = new Date(fromDate).getFullYear();
+    if (!isNaN(y1)) return `${y1}-${y1 + 1}`;
+  }
+  return fallbackYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
+};
+
+// GET vehicle attachments organized year-wise across current and historical records
+router.get("/fleet-insurance-sop/vehicle-attachments/:registrationNo", authMiddleware, async (req, res) => {
+  try {
+    const { registrationNo } = req.params;
+    if (!registrationNo) {
+      return res.status(400).json({ message: "Registration number required" });
+    }
+
+    const regRegex = buildVehicleSearchRegex(registrationNo);
+    const records = await FleetInsuranceSopModel.find({
+      registrationNo: regRegex || new RegExp(`^${registrationNo}$`, "i")
+    }).sort({ policyToDate: -1, policyFromDate: -1, createdAt: -1 }).lean();
+
+    if (!records || records.length === 0) {
+      return res.status(200).json({ registrationNo, attachments: [] });
+    }
+
+    const allAttachments = [];
+    const seenUrls = new Set();
+
+    records.forEach((rec) => {
+      const yearLabel = getPolicyYearLabel(rec.policyFromDate || rec.newPolicyFromDate, rec.policyToDate || rec.newPolicyToDate);
+
+      // Check record.attachments array
+      if (Array.isArray(rec.attachments) && rec.attachments.length > 0) {
+        rec.attachments.forEach((att) => {
+          if (att.url && !seenUrls.has(att.url)) {
+            seenUrls.add(att.url);
+            allAttachments.push({
+              _id: att._id,
+              recordId: rec._id,
+              year: att.year || yearLabel,
+              docType: att.docType || "Policy Copy",
+              name: att.name || `${rec.registrationNo}_Policy.pdf`,
+              url: att.url,
+              policyNo: rec.newPolicyNo || rec.policyNo || "-",
+              insuranceCompany: rec.newInsuranceCompany || rec.insuranceCompany || "-",
+              uploadedAt: att.uploadedAt || rec.updatedAt || rec.createdAt,
+              uploadedBy: att.uploadedBy || ""
+            });
+          }
+        });
+      }
+
+      // Check current policy document
+      const currentDoc = rec.policyDocumentUrl || rec.policyDocument;
+      if (currentDoc && !seenUrls.has(currentDoc)) {
+        seenUrls.add(currentDoc);
+        allAttachments.push({
+          _id: `${rec._id}_policy`,
+          recordId: rec._id,
+          year: yearLabel,
+          docType: "Policy Copy",
+          name: rec.policyDocumentName || `${rec.registrationNo}_Policy_${yearLabel}.pdf`,
+          url: currentDoc,
+          policyNo: rec.newPolicyNo || rec.policyNo || "-",
+          insuranceCompany: rec.newInsuranceCompany || rec.insuranceCompany || "-",
+          uploadedAt: rec.updatedAt || rec.createdAt,
+          uploadedBy: ""
+        });
+      }
+
+      // Check previous year policy document
+      if (rec.previousPolicyDocumentUrl && !seenUrls.has(rec.previousPolicyDocumentUrl)) {
+        seenUrls.add(rec.previousPolicyDocumentUrl);
+        const prevYear = rec.policyFromDate ? `${new Date(rec.policyFromDate).getFullYear() - 1}-${new Date(rec.policyFromDate).getFullYear()}` : "Previous Year";
+        allAttachments.push({
+          _id: `${rec._id}_prev_policy`,
+          recordId: rec._id,
+          year: prevYear,
+          docType: "Previous Year Policy",
+          name: rec.previousPolicyDocumentName || `${rec.registrationNo}_Previous_Policy.pdf`,
+          url: rec.previousPolicyDocumentUrl,
+          policyNo: rec.policyNo || "-",
+          insuranceCompany: rec.insuranceCompany || "-",
+          uploadedAt: rec.createdAt,
+          uploadedBy: ""
+        });
+      }
+    });
+
+    // Sort attachments by year descending
+    allAttachments.sort((a, b) => {
+      const yA = parseInt(String(a.year || "").replace(/\D/g, "").slice(0, 4), 10) || 0;
+      const yB = parseInt(String(b.year || "").replace(/\D/g, "").slice(0, 4), 10) || 0;
+      return yB - yA;
+    });
+
+    res.status(200).json({ registrationNo, attachments: allAttachments, vehicle: records[0] });
+  } catch (error) {
+    console.error("Error fetching vehicle attachments:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+});
+
+// POST add attachment to a fleet insurance record
+router.post("/fleet-insurance-sop/:id/attachments", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { year, docType, name, url } = req.body;
+    if (!url) return res.status(400).json({ message: "File URL is required" });
+
+    let updatedRecord;
+    let newAtt;
+    await context.run({ user: req.user, req }, async () => {
+      const record = await FleetInsuranceSopModel.findById(id);
+      if (!record) throw new Error("Record not found");
+
+      if (!Array.isArray(record.attachments)) {
+        record.attachments = [];
+      }
+      newAtt = {
+        year: year || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+        docType: docType || "Policy Copy",
+        name: name || "Policy Document",
+        url,
+        uploadedAt: new Date(),
+        uploadedBy: req.user?.username || req.user?.name || ""
+      };
+      record.attachments.push(newAtt);
+
+      if (docType === "Previous Year Policy" || String(year).includes("Previous")) {
+        record.previousPolicyDocumentUrl = url;
+        record.previousPolicyDocumentName = name;
+      } else if (!record.policyDocumentUrl) {
+        record.policyDocumentUrl = url;
+        record.policyDocumentName = name;
+        record.policyDocument = url;
+      }
+
+      updatedRecord = await record.save();
+    });
+
+    res.status(200).json({ message: "Attachment added successfully", attachment: newAtt, record: updatedRecord });
+  } catch (err) {
+    console.error("Error adding attachment:", err);
+    if (err.message === "Record not found") return res.status(404).json({ message: err.message });
+    res.status(500).json({ message: "Failed to add attachment", error: err.message });
+  }
+});
+
+// DELETE attachment from a fleet insurance record
+router.delete("/fleet-insurance-sop/:id/attachments/:attachmentId", authMiddleware, async (req, res) => {
+  try {
+    const { id, attachmentId } = req.params;
+    let updatedRecord;
+    await context.run({ user: req.user, req }, async () => {
+      const record = await FleetInsuranceSopModel.findById(id);
+      if (!record) throw new Error("Record not found");
+
+      if (Array.isArray(record.attachments)) {
+        record.attachments = record.attachments.filter((a) => String(a._id) !== String(attachmentId));
+      }
+      if (record.policyDocumentUrl && (String(record.policyDocumentUrl).includes(attachmentId) || String(record._id) === attachmentId.replace("_policy", ""))) {
+        record.policyDocumentUrl = "";
+        record.policyDocumentName = "";
+        record.policyDocument = "";
+      }
+      if (record.previousPolicyDocumentUrl && (String(record.previousPolicyDocumentUrl).includes(attachmentId) || String(record._id) === attachmentId.replace("_prev_policy", ""))) {
+        record.previousPolicyDocumentUrl = "";
+        record.previousPolicyDocumentName = "";
+      }
+      updatedRecord = await record.save();
+    });
+
+    res.status(200).json({ message: "Attachment deleted successfully", record: updatedRecord });
+  } catch (err) {
+    console.error("Error deleting attachment:", err);
+    if (err.message === "Record not found") return res.status(404).json({ message: err.message });
+    res.status(500).json({ message: "Failed to delete attachment", error: err.message });
   }
 });
 
@@ -706,158 +1118,6 @@ router.get("/fleet-insurance-sop/:id/export", authMiddleware, async (req, res) =
   }
 });
 
-// BULK EXPORT to Excel (both sheets)
-router.get("/fleet-insurance-sop/export/bulk", authMiddleware, async (req, res) => {
-  try {
-    const { search = "", month = "", year = "" } = req.query;
-    const query = {};
-
-    if (search) {
-      query.$or = [
-        { registrationNo: { $regex: search, $options: "i" } },
-        { owner: { $regex: search, $options: "i" } },
-        { insuranceCompany: { $regex: search, $options: "i" } },
-        { policyNo: { $regex: search, $options: "i" } }
-      ];
-    }
-
-    const buildDateQuery = (startDate, endDate) => {
-      return {
-        $or: [
-          { newPolicyToDate: { $gte: startDate, $lte: endDate } },
-          { policyToDate: { $gte: startDate, $lte: endDate } },
-          { renewalDate: { $gte: startDate, $lte: endDate } },
-          { paymentDate: { $gte: startDate, $lte: endDate } },
-          { renewedDate: { $gte: startDate, $lte: endDate } }
-        ]
-      };
-    };
-
-    if (year && month) {
-      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
-      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
-      Object.assign(query, buildDateQuery(startDate, endDate));
-    } else if (year) {
-      const startDate = new Date(parseInt(year), 0, 1);
-      const endDate = new Date(parseInt(year), 12, 0, 23, 59, 59, 999);
-      Object.assign(query, buildDateQuery(startDate, endDate));
-    } else if (month) {
-      const currentYear = new Date().getFullYear();
-      const startDate = new Date(currentYear, parseInt(month) - 1, 1);
-      const endDate = new Date(currentYear, parseInt(month), 0, 23, 59, 59, 999);
-      Object.assign(query, buildDateQuery(startDate, endDate));
-    }
-
-    const docs = await FleetInsuranceSopModel.find(query).sort({ createdAt: -1 }).lean();
-
-    const wb = XLSX.utils.book_new();
-
-    // Sheet 1: Policy Portal
-    const aoaPP = [policyPortalHeaders];
-    docs.forEach(doc => aoaPP.push(policyPortalRow(doc)));
-    const ws1 = XLSX.utils.aoa_to_sheet(aoaPP);
-    XLSX.utils.book_append_sheet(wb, ws1, "Policy Portal");
-
-    // Sheet 2: F Data-NEW
-    const aoaFD = [fDataNewHeaders];
-    docs.forEach(doc => aoaFD.push(fDataNewRow(doc)));
-    const ws2 = XLSX.utils.aoa_to_sheet(aoaFD);
-    XLSX.utils.book_append_sheet(wb, ws2, "F Data-NEW");
-
-    const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-    
-    let filename = "Fleet_Insurance_Export.xlsx";
-    if (month && year) {
-      filename = `Fleet_Insurance_${month}_${year}.xlsx`;
-    } else if (year) {
-      filename = `Fleet_Insurance_${year}.xlsx`;
-    } else if (month) {
-      filename = `Fleet_Insurance_Month_${month}.xlsx`;
-    }
-
-    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.send(excelBuffer);
-  } catch (error) {
-    console.error("Error bulk exporting to excel:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-// EXPORT template (both sheets)
-router.get("/fleet-insurance-sop/template/download", authMiddleware, async (req, res) => {
-  try {
-    const wb = XLSX.utils.book_new();
-
-    const ws1 = XLSX.utils.aoa_to_sheet([policyPortalHeaders]);
-    XLSX.utils.book_append_sheet(wb, ws1, "Policy Portal");
-
-    const ws2 = XLSX.utils.aoa_to_sheet([fDataNewHeaders]);
-    XLSX.utils.book_append_sheet(wb, ws2, "F Data-NEW");
-
-    const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-
-    res.setHeader("Content-Disposition", `attachment; filename=Fleet_Insurance_SOP_Template.xlsx`);
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.send(excelBuffer);
-  } catch (error) {
-    console.error("Error exporting template:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-// DELETE record by ID
-router.delete("/fleet-insurance-sop/:id", authMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const deletedRecord = await FleetInsuranceSopModel.findByIdAndDelete(id);
-    if (!deletedRecord) {
-      return res.status(404).json({ message: "Record not found" });
-    }
-    res.status(200).json({ message: "Record deleted successfully", data: deletedRecord });
-  } catch (error) {
-    console.error("Error deleting Fleet Insurance record:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-// ─── GET & ASSIGN FLEET INSURANCE TAB PERMISSIONS ───
-router.get("/fleet-insurance-sop/user-tabs/:username", authMiddleware, async (req, res) => {
-  try {
-    const { username } = req.params;
-    const user = await UserModel.findOne({ username });
-    if (!user) {
-      return res.status(404).json({ success: false, error: "User not found" });
-    }
-    res.status(200).json({
-      success: true,
-      allowed_tabs: user.fleet_insurance_tabs || [],
-    });
-  } catch (error) {
-    console.error("Error fetching user fleet insurance tabs:", error);
-    res.status(500).json({ success: false, error: "Server error" });
-  }
-});
-
-router.post("/fleet-insurance-sop/assign-user-tabs", authMiddleware, async (req, res) => {
-  try {
-    const { username, allowed_tabs } = req.body;
-    const user = await UserModel.findOne({ username });
-    if (!user) {
-      return res.status(404).json({ success: false, error: "User not found" });
-    }
-    user.fleet_insurance_tabs = allowed_tabs || [];
-    await user.save();
-    res.status(200).json({
-      success: true,
-      message: "Fleet insurance tab permissions updated successfully",
-      allowed_tabs: user.fleet_insurance_tabs,
-    });
-  } catch (error) {
-    console.error("Error assigning fleet insurance tabs:", error);
-    res.status(500).json({ success: false, error: "Failed to assign tab permissions" });
-  }
-});
 
 export default router;
 

@@ -9,6 +9,7 @@ import { navigateToModule } from "../../utils/navigateToModule.js";
 import { moduleCategories } from "../../utils/moduleCategories.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { fetchMyPendingCount, searchOpenPointByUniqueId, fetchOpenPointSuggestions } from "../../services/openPointsService.js";
+import { isHRAdminUser } from "../../utils/hrAdminRoleHelper.js";
 
 
 
@@ -103,6 +104,16 @@ const getModuleStyle = (module) => {
       bg: "#fdf2f8",
       icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
     },
+    "Brochure & Videos": {
+      color: "#c026d3",
+      bg: "#fdf4ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><polygon points="10 8 15 11 10 14 10 8"></polygon></svg>
+    },
+    "Company Brochures": {
+      color: "#c026d3",
+      bg: "#fdf4ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><polygon points="10 8 15 11 10 14 10 8"></polygon></svg>
+    },
     "Supplier Scorecard": {
       color: "#d97706",
       bg: "#fffbeb",
@@ -132,6 +143,16 @@ const getModuleStyle = (module) => {
       color: "#b91c1c",
       bg: "#fef2f2",
       icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+    },
+    "Transport Invoicing": {
+      color: "#4f46e5",
+      bg: "#eef2ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+    },
+    "Transport": {
+      color: "#4f46e5",
+      bg: "#eef2ff",
+      icon: (color) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
     },
     "IT Helpdesk": {
       color: "#0284c7",
@@ -192,10 +213,10 @@ function Home() {
     finalModulesList.push("First Aid");
   }
 
-  // Auto-include IT Helpdesk so all users have access to Helpdesk & Tickets
-  // if (!finalModulesList.includes("IT Helpdesk")) {
-  //   finalModulesList.push("IT Helpdesk");
-  // }
+  // Auto-include IT Helpdesk for Admin, IT team, and invoice approver users (e.g. manu_pillai, shalini_arun, or delegated approver)
+  if (isHRAdminUser(user) && !finalModulesList.includes("IT Helpdesk")) {
+    finalModulesList.push("IT Helpdesk");
+  }
 
   // Group modules into their respective dashboard categories
   const categorizedModules = finalModulesList.reduce((acc, module) => {
@@ -237,6 +258,18 @@ function Home() {
       return acc;
     }
 
+    // 4b. Brochure & Videos is a tab inside CRM, not a separate module tile
+    if (module === "Brochure & Videos" || module === "Company Brochures") {
+      return acc;
+    }
+
+    if (module === "CRM") {
+      const category = "CRM";
+      if (!acc[category]) acc[category] = [];
+      if (!acc[category].includes("CRM")) acc[category].push("CRM");
+      return acc;
+    }
+
     // 5. Default mapping: categorize module according to predefined moduleCategories map
     const category = moduleCategories[module] || "Uncategorized";
     if (!acc[category]) acc[category] = [];
@@ -256,6 +289,8 @@ function Home() {
   const [openPointsCount, setOpenPointsCount] = useState(0);
   const [billingConfirmCount, setBillingConfirmCount] = useState(0);
   const [procurementPendingCount, setProcurementPendingCount] = useState(0);
+  const [fleetPendingCount, setFleetPendingCount] = useState(0);
+  const [tyrePendingCount, setTyrePendingCount] = useState(0);
 
   useEffect(() => {
     sessionStorage.removeItem("it_helpdesk_expiry_modal_shown");
@@ -300,12 +335,24 @@ function Home() {
 
     async function fetchProcurementPendingCount() {
       try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/tyre-procurement/pending-count`
-        );
-        if (res.data?.success && typeof res.data.count === "number") {
-          setProcurementPendingCount(res.data.count);
+        const [tyreRes, fleetRes] = await Promise.allSettled([
+          axios.get(`${process.env.REACT_APP_API_STRING}/tyre-procurement/pending-count`),
+          axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/pending-count`),
+        ]);
+
+        let tyreCount = 0;
+        let fleetCount = 0;
+
+        if (tyreRes.status === "fulfilled" && tyreRes.value.data?.success && typeof tyreRes.value.data.count === "number") {
+          tyreCount = tyreRes.value.data.count;
         }
+        if (fleetRes.status === "fulfilled" && fleetRes.value.data?.success && typeof fleetRes.value.data.count === "number") {
+          fleetCount = fleetRes.value.data.count;
+        }
+
+        setTyrePendingCount(tyreCount);
+        setFleetPendingCount(fleetCount);
+        setProcurementPendingCount(tyreCount + fleetCount);
       } catch (err) {
         console.error("Error fetching procurement pending count:", err);
       }
@@ -786,7 +833,7 @@ function Home() {
                           {billingConfirmCount}
                         </span>
                       )}
-                      {["Procurement & Insurance SOPs", "Tyre Procurement SOP", "Procurement SOP"].includes(module) && procurementPendingCount > 0 && (
+                      {["Procurement & Insurance SOPs", "Procurement SOP"].includes(module) && procurementPendingCount > 0 && (
                         <span
                           style={{
                             position: "absolute",
@@ -808,6 +855,54 @@ function Home() {
                           }}
                         >
                           {procurementPendingCount}
+                        </span>
+                      )}
+                      {["Fleet Insurance SOP", "Fleet Insurance"].includes(module) && (fleetPendingCount || procurementPendingCount) > 0 && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "-10px",
+                            right: "-10px",
+                            backgroundColor: "#ef4444",
+                            color: "white",
+                            borderRadius: "50%",
+                            width: "22px",
+                            height: "22px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                            border: "2px solid white",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                            zIndex: 10,
+                          }}
+                        >
+                          {fleetPendingCount || procurementPendingCount}
+                        </span>
+                      )}
+                      {["Tyre Procurement SOP", "RM Procurement SOP"].includes(module) && tyrePendingCount > 0 && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "-10px",
+                            right: "-10px",
+                            backgroundColor: "#ef4444",
+                            color: "white",
+                            borderRadius: "50%",
+                            width: "22px",
+                            height: "22px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                            border: "2px solid white",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                            zIndex: 10,
+                          }}
+                        >
+                          {tyrePendingCount}
                         </span>
                       )}
                     </div>

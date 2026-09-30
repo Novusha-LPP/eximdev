@@ -250,7 +250,9 @@ const MultiPurchaseBookModal = ({ isOpen, onClose, chargesData, jobNumber, jobDi
                 "Charge Head Category": firstCharge.chargeHeadCategory || '',
                 "TDS Category": '94C_1',
                 "chargeRef": chargesData.map(c => c.chargeId).filter(Boolean).join(','),
-                "jobRef": firstCharge.jobId || ''
+                "jobRef": firstCharge.jobId || '',
+                "Virtual Balance Terminal": firstCharge.virtualBalanceTerminal || '',
+                "Virtual Balance Type": firstCharge.virtualBalanceType || ''
             }));
         };
 

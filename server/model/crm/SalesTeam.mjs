@@ -51,9 +51,15 @@ const salesTeamSchema = new mongoose.Schema({
   // Stagnation
   stagnantDays: { type: Number, default: 2 },
   
+  // Stage assignments per member (e.g. [{ userId, stages: ['proposal', 'won'] }])
+  memberStageAssignments: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    stages: [{ type: String }]
+  }],
+
   businessVertical: {
     type: String,
-    enum: ['Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],
+    enum: ['Novusha', 'Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],
     default: 'Paramount'
   },
   isActive: { type: Boolean, default: true },

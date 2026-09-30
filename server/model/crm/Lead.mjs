@@ -1,34 +1,36 @@
 import mongoose from 'mongoose';
 
 const allowedServices = [
-  'freight forwarding', 
-  'dgft', 
-  'e-lock', 
-  'client', 
-  'transportation', 
-  'paramount', 
-  'rabs', 
+  'freight forwarding',
+  'dgft',
+  'e-lock',
+  'client',
+  'transportation',
+  'paramount',
+  'rabs',
+  'autorack',
   'auto rack'
 ];
 
 const leadSchema = new mongoose.Schema({
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   company: { type: String, required: true },
   firstName: { type: String, required: true },
   lastName: { type: String },
   email: { type: String },
   phone: { type: String },
-  status: { 
-    type: String, 
-    enum: ['new', 'contacted', 'qualified', 'unqualified', 'converted', 'lost', 'rejected', 'duplicate', 'cancelled'], 
-    default: 'new' 
+  status: {
+    type: String,
+    enum: ['new', 'contacted', 'qualified', 'unqualified', 'converted', 'lost', 'rejected', 'duplicate', 'cancelled'],
+    default: 'new'
   },
-  interestedServices: [{ 
-    type: String, 
-    enum: allowedServices 
+  interestedServices: [{
+    type: String,
+    enum: allowedServices
   }],
-  source: { 
-    type: String, 
+  source: {
+    type: String,
     default: 'Web / Own Generated Lead'
   },
   score: { type: Number, default: 0 },
@@ -56,6 +58,7 @@ const leadSchema = new mongoose.Schema({
   referredFromTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'SalesTeam' },
   referredToTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'SalesTeam' },
   referredByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  referredToUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   referredAt: { type: Date },
   isReferral: { type: Boolean, default: false },
   location: { type: String, trim: true },
@@ -67,6 +70,7 @@ const leadSchema = new mongoose.Schema({
   monthlyVolume: { type: String },
   monthlyRevenue: { type: String },
   companyType: { type: String, trim: true },
+  garudaTeamMemberName: { type: String, trim: true },
   period: { type: String, default: () => new Date().toISOString().substring(0, 7) },
   convertedAt: { type: Date },
   // Cross-reference to Export Freight Forwarding enquiry_no

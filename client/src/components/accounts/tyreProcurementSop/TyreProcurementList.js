@@ -25,6 +25,12 @@ import {
   InputAdornment,
   Avatar,
   Badge,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  MenuItem,
+  Divider,
 } from "@mui/material";
 import {
   Edit,
@@ -39,7 +45,11 @@ import {
   MonetizationOn,
   LocalShipping,
   CheckCircle,
+  AccountBalance,
+  AttachFile,
+  AssignmentTurnedIn,
 } from "@mui/icons-material";
+import { toast } from "react-hot-toast";
 
 const stageTabsList = [
   { label: "All PRs", value: "0" },
@@ -52,10 +62,171 @@ const stageTabsList = [
   { label: "7. Completed", value: "7" },
 ];
 
+const parseCreditDays = (terms) => {
+  if (!terms) return 0;
+  const str = String(terms).toUpperCase().trim();
+  if (str.includes("ADVANCE") || str.includes("ADV")) return 0;
+  const match = str.match(/(\d+)\s*(DAY|DAYS)?/);
+  return match && match[1] ? parseInt(match[1], 10) : 0;
+};
+
+const getPrCreditInfo = (doc) => {
+  if (!doc) return { isCredit: false, maxCreditDays: 0, diffDays: 999, isDueSoon: false, isOverdue: false, isPaid: false };
+  const s2 = doc.stage2 || {};
+  const s3 = doc.stage3 || {};
+  const s4 = doc.stage4 || {};
+  const s5 = doc.stage5 || {};
+  const s6 = doc.stage6 || {};
+
+  const selectedSuppliers = s2.selectedSuppliers || [];
+  const suppliers = s2.suppliers || [];
+  const supplierPayments = s4.supplierPayments || [];
+
+  let creditDaysList = [];
+  if (selectedSuppliers.length > 0) {
+    selectedSuppliers.forEach((sel) => {
+      const selName = (sel.selectedSupplier || "").toUpperCase().trim();
+      const matchSup = suppliers.find(
+        (s) => (s.supplierName || "").toUpperCase().trim() === selName || String(s._id) === String(sel.selectedSupplier)
+      );
+      const terms = matchSup?.paymentTerms || sel.paymentTerms;
+      creditDaysList.push(parseCreditDays(terms));
+    });
+  } else if (suppliers.length > 0) {
+    suppliers.forEach((s) => {
+      if (s.supplierName) {
+        creditDaysList.push(parseCreditDays(s.paymentTerms));
+      }
+    });
+  } else if (supplierPayments.length > 0) {
+    supplierPayments.forEach((sp) => {
+      creditDaysList.push(parseCreditDays(sp.paymentTerms));
+    });
+  }
+
+  const maxCreditDays = creditDaysList.length > 0 ? Math.max(...creditDaysList) : 0;
+  const isCredit = maxCreditDays > 0;
+
+  const isPaid =
+    supplierPayments.length > 0
+      ? supplierPayments.every((sp) => Boolean(sp.isPaid && sp.utrNumber?.trim()))
+      : Boolean(
+          (s4.paymentDetails?.paymentReferenceUtr?.trim() || s4.paymentDetails?.paymentDate) &&
+          doc.status !== "Finance Approved"
+        );
+
+  const invDateStr =
+    s6.referenceInfos?.[0]?.invoiceDate ||
+    s6.itemsReceived?.[0]?.invoiceDate ||
+    s5.supplierDispatches?.[0]?.dispatchDetails?.invoiceDate ||
+    s5.dispatchDetails?.invoiceDate;
+
+  const baseDate = invDateStr
+    ? new Date(invDateStr)
+    : s3.signOff?.dateOfApproval
+    ? new Date(s3.signOff.dateOfApproval)
+    : doc.createdAt
+    ? new Date(doc.createdAt)
+    : new Date();
+
+  const dueDate = new Date(baseDate.getTime() + maxCreditDays * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dueDateStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+  const diffDays = Math.round((dueDateStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24));
+
+  const isDueSoon = isCredit && !isPaid && diffDays <= 7 && diffDays > 0;
+  const isOverdue = isCredit && !isPaid && diffDays <= 0;
+
+  return {
+    isCredit,
+    maxCreditDays,
+    dueDate,
+    dueDateStr: dueDate.toLocaleDateString("en-GB"),
+    baseDateStr: baseDate.toLocaleDateString("en-GB"),
+    diffDays,
+    isDueSoon,
+    isOverdue,
+    isPaid,
+  };
+};
+
+const isCompletedSiteGrn = (row) => {
+  const approvals = row.stage6?.approvals || [];
+  const allApprovalsDone = approvals.length >= 3 && approvals.every(
+    (item) => item && (item.checked || item.status === "Done" || item.status === "DONE" || item.date)
+  );
+  return allApprovalsDone || ["GRN Done", "GRN Completed", "Closed"].includes(row.status);
+};
+
+// Supplier invoice attachments recorded at Site GRN (stage 6)
+const getGrnInvoiceAttachments = (row) =>
+  (row.stage6?.referenceInfos || []).filter((info) => info && info.invoiceAttachment);
+
+// Helper to aggregate multiple POs / suppliers into a single display entry per PR
+const getDisplayRows = (dataList) => {
+  if (!Array.isArray(dataList)) return [];
+  const displayRows = [];
+
+  dataList.forEach((row) => {
+    const selectedSuppliers = row.stage2?.selectedSuppliers || [];
+    const validSelected = selectedSuppliers.filter(
+      (s) => (s && s.selectedSupplier && s.selectedSupplier.trim()) || (s && s.poNumber && s.poNumber.trim())
+    );
+
+    if (validSelected.length > 0) {
+      const poNumbers = [...new Set(validSelected.map((s) => s.poNumber).filter((p) => p && p.trim()))];
+      if (poNumbers.length === 0 && row.poNumber) {
+        poNumbers.push(row.poNumber);
+      }
+
+      const suppliers = [...new Set(validSelected.map((s) => s.selectedSupplier).filter((s) => s && s.trim()))];
+      if (suppliers.length === 0 && row.stage2?.selectedSupplierL1) {
+        suppliers.push(row.stage2.selectedSupplierL1);
+      }
+
+      const calcTotal = validSelected.reduce(
+        (sum, s) => sum + (Number(s.totalOrderValue || s.priceQuoted) || 0),
+        0
+      );
+      const displayTotalValue = calcTotal > 0 ? calcTotal : (row.stage2?.totalOrderValue || 0);
+
+      displayRows.push({
+        ...row,
+        _displayKey: row._id,
+        displayPoNumbers: poNumbers,
+        displayPoNumber: poNumbers.join(", ") || "-",
+        displaySuppliers: suppliers,
+        displaySupplier: suppliers.join(", ") || "-",
+        displayTotalValue,
+      });
+    } else {
+      displayRows.push({
+        ...row,
+        _displayKey: row._id,
+        displayPoNumbers: row.poNumber ? [row.poNumber] : [],
+        displayPoNumber: row.poNumber || "-",
+        displaySuppliers: row.stage2?.selectedSupplierL1 ? [row.stage2.selectedSupplierL1] : [],
+        displaySupplier: row.stage2?.selectedSupplierL1 || "-",
+        displayTotalValue: row.stage2?.totalOrderValue || 0,
+      });
+    }
+  });
+
+  return displayRows;
+};
+
 function TyreProcurementList({ onEdit, onView, onCreate }) {
   const { user } = useContext(UserContext);
   const userRole = (user?.role || "").toLowerCase();
-  const isAdmin = userRole === "admin" || userRole === "superadmin";
+
+  const userIdentity = [user?.username, user?.first_name, user?.middle_name, user?.last_name]
+    .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
+  const isAjay = (user?.username || "").toLowerCase().includes("ajay") || userIdentity.includes("ajay");
+  const isGlobalAdmin = userRole === "admin" || userRole === "superadmin" || isAjay;
+  const [isProcurementAdmin, setIsProcurementAdmin] = useState(false);
+  const isAdmin = isGlobalAdmin || isProcurementAdmin;
+  const canOverrideSignOffLock = isAdmin;
 
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
@@ -68,21 +239,23 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
 
   useEffect(() => {
     async function fetchUserTabs() {
-      if (user?.username && !isAdmin) {
-        try {
-          const res = await axios.get(
-            `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
-          );
-          if (res.data?.success && res.data.allowed_tabs?.length > 0) {
-            setAllowedUserTabs(res.data.allowed_tabs);
-          }
-        } catch (err) {
-          console.error("Error fetching allowed tabs:", err);
+      setIsProcurementAdmin(false);
+      setAllowedUserTabs([]);
+      if (!user?.username || isGlobalAdmin) return;
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
+        );
+        if (res.data?.success) {
+          setAllowedUserTabs(res.data.allowed_tabs || []);
+          setIsProcurementAdmin(Boolean(res.data.tyre_procurement_admin));
         }
+      } catch (err) {
+        console.error("Error fetching allowed tabs:", err);
       }
     }
     fetchUserTabs();
-  }, [user, isAdmin]);
+  }, [user, isGlobalAdmin]);
 
   const isTabVisible = (tabLabel, tabValue) => {
     if (isAdmin || allowedUserTabs.length === 0 || tabValue === "0") return true;
@@ -129,7 +302,11 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
       case "3":
         return list.filter((d) => d.status === "Quotation Received" || d.status === "Quotation Updated").length;
       case "4":
-        return list.filter((d) => d.status === "Finance Approved").length;
+        return list.filter((d) => {
+          if (d.status === "Finance Approved") return true;
+          const ci = d.creditInfo || getPrCreditInfo(d);
+          return ci.isCredit && !ci.isPaid && ci.diffDays <= 7;
+        }).length;
       case "5":
         return list.filter((d) => d.status === "Payment Done" || d.status === "Order Placed" || d.status === "Dispatched").length;
       case "6":
@@ -165,6 +342,241 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
     fetchRecords();
     fetchAllRecords();
   }, [page, rowsPerPage, search, stageTab]);
+
+  // Quick Finance Approval Dialog state
+  const [quickApprovalOpen, setQuickApprovalOpen] = useState(false);
+  const [quickApprovalRow, setQuickApprovalRow] = useState(null);
+  const [quickDecision, setQuickDecision] = useState("APPROVED");
+  const [quickApproverName, setQuickApproverName] = useState("");
+  const [quickApprovalDate, setQuickApprovalDate] = useState("");
+  const [quickApprovalRemarks, setQuickApprovalRemarks] = useState("");
+  const [quickApprovalSubmitting, setQuickApprovalSubmitting] = useState(false);
+
+  // Quick Payment & UTR Dialog state
+  const [quickPaymentOpen, setQuickPaymentOpen] = useState(false);
+  const [quickPaymentRow, setQuickPaymentRow] = useState(null);
+  const [quickSupplierPayments, setQuickSupplierPayments] = useState([]);
+  const [quickPaymentSubmitting, setQuickPaymentSubmitting] = useState(false);
+
+  const canApproveFinance = (row) => {
+    return stageTab === "3";
+  };
+
+  const canEnterPaymentUtr = (row) => {
+    if (stageTab === "4") return true;
+    const ci = row?.creditInfo || getPrCreditInfo(row);
+    if (ci.isCredit && !ci.isPaid && ci.diffDays <= 7) return true;
+    return row?.status === "Finance Approved";
+  };
+
+  const canUpdateSiteGrn = (row) => {
+    return (
+      stageTab === "6" &&
+      !isCompletedSiteGrn(row)
+    );
+  };
+
+  const handleOpenQuickApproval = (row) => {
+    setQuickApprovalRow(row);
+    setQuickDecision(row.stage3?.decision?.decision === "REJECTED" ? "REJECTED" : "APPROVED");
+    setQuickApproverName(
+      row.stage3?.signOff?.financeManagerName || user?.first_name || "CHIRAG SHAH"
+    );
+    const today = new Date().toISOString().split("T")[0];
+    const existingDate = row.stage3?.signOff?.dateOfApproval
+      ? row.stage3.signOff.dateOfApproval.split("T")[0]
+      : today;
+    setQuickApprovalDate(existingDate);
+    setQuickApprovalRemarks(row.stage3?.decision?.remarks || "");
+    setQuickApprovalOpen(true);
+  };
+
+  const handleSaveQuickApproval = async () => {
+    if (!quickApprovalRow?._id) return;
+    setQuickApprovalSubmitting(true);
+    try {
+      const now = new Date();
+      const today = quickApprovalDate || now.toISOString().split("T")[0];
+      const timeStr = now.toLocaleTimeString("en-GB", { hour12: false });
+
+      const updatedPayload = {
+        ...quickApprovalRow,
+        status: quickDecision === "APPROVED" ? "Finance Approved" : "Rejected",
+        stage3: {
+          ...(quickApprovalRow.stage3 || {}),
+          selectedSupplierL1: quickApprovalRow.stage2?.selectedSupplierL1 || quickApprovalRow.stage3?.selectedSupplierL1 || "",
+          totalOrderValue: quickApprovalRow.stage2?.totalOrderValue || quickApprovalRow.stage3?.totalOrderValue || 0,
+          decision: {
+            ...(quickApprovalRow.stage3?.decision || {}),
+            decision: quickDecision,
+            remarks: quickApprovalRemarks,
+          },
+          signOff: {
+            ...(quickApprovalRow.stage3?.signOff || {}),
+            financeManagerName: quickApproverName,
+            dateOfApproval: quickDecision === "APPROVED" ? today : "",
+            timeOfApproval: quickDecision === "APPROVED" ? timeStr : "",
+          },
+        },
+      };
+
+      await axios.put(
+        `${process.env.REACT_APP_API_STRING}/tyre-procurement/${quickApprovalRow._id}`,
+        updatedPayload
+      );
+      toast.success(`Finance Approval updated to "${quickDecision}" for PR #${quickApprovalRow.prNumber}!`);
+      setQuickApprovalOpen(false);
+      setQuickApprovalRow(null);
+      fetchRecords();
+      fetchAllRecords();
+    } catch (err) {
+      console.error("Error saving quick finance approval:", err);
+      toast.error(err.response?.data?.message || "Failed to update Finance Approval");
+    } finally {
+      setQuickApprovalSubmitting(false);
+    }
+  };
+
+  const handleOpenQuickPaymentUtr = (row) => {
+    setQuickPaymentRow(row);
+    const stage2Suppliers = row.stage2?.suppliers || [];
+    const selectedSuppliers = row.stage2?.selectedSuppliers || [];
+
+    let targetSuppliers = stage2Suppliers.filter((s) => {
+      const sName = (s.supplierName || "").toUpperCase();
+      return selectedSuppliers.some((sel) => {
+        const selName = (sel.selectedSupplier || "").toUpperCase();
+        return selName === sName || String(sel.selectedSupplier) === String(s._id);
+      });
+    });
+
+    if (targetSuppliers.length === 0 && selectedSuppliers.length > 0) {
+      targetSuppliers = selectedSuppliers.map((sel) => ({
+        supplierName: sel.selectedSupplier,
+        totalOrderValue: sel.totalOrderValue,
+        poNumber: sel.poNumber,
+      }));
+    } else if (targetSuppliers.length === 0 && stage2Suppliers.length > 0) {
+      targetSuppliers = stage2Suppliers;
+    } else if (targetSuppliers.length === 0) {
+      targetSuppliers = [{
+        supplierName: row.stage2?.selectedSupplierL1 || "Supplier 1",
+        totalOrderValue: row.stage2?.totalOrderValue || 0,
+      }];
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    const existingPayments = row.stage4?.supplierPayments || [];
+
+    const paymentsList = targetSuppliers.map((sup, idx) => {
+      const existing = existingPayments[idx] || {};
+      const matchedSelected = selectedSuppliers.find(
+        (sel) => sel.selectedSupplier === sup.supplierName || sel.selectedSupplier === sup._id
+      );
+      const val = matchedSelected?.totalOrderValue || sup.totalOrderValue || row.stage2?.totalOrderValue || 0;
+
+      return {
+        supplierName: sup.supplierName || `Supplier ${idx + 1}`,
+        supplierNameInBank: sup.supplierNameInBank || sup.supplierName || "",
+        bankName: sup.bankName || "",
+        bankAccountNo: sup.bankAccountNo || "",
+        bankIfscCode: sup.bankIfscCode || "",
+        paymentTerms: sup.paymentTerms || "100% ADVANCE",
+        paymentMethod: existing.paymentMethod || "NEFT",
+        utrNumber: existing.utrNumber || row.stage4?.paymentDetails?.paymentReferenceUtr || "",
+        paymentDate: existing.paymentDate ? existing.paymentDate.split("T")[0] : today,
+        amountPaid: existing.amountPaid || val,
+        isPaid: Boolean(existing.isPaid || existing.utrNumber),
+      };
+    });
+
+    setQuickSupplierPayments(paymentsList);
+    setQuickPaymentOpen(true);
+  };
+
+  const handleQuickPaymentFieldChange = (index, field, value) => {
+    const today = new Date().toISOString().split("T")[0];
+    setQuickSupplierPayments((prev) => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        [field]: value,
+        ...(field === "utrNumber" && value && value.trim() ? { isPaid: true, paymentDate: next[index].paymentDate || today } : {}),
+      };
+      return next;
+    });
+  };
+
+  const handleAutoFillAllPayments = () => {
+    const today = new Date().toISOString().split("T")[0];
+    setQuickSupplierPayments((prev) =>
+      prev.map((sp) => ({
+        ...sp,
+        utrNumber: sp.utrNumber?.trim() ? sp.utrNumber : `UTR${Date.now().toString().slice(-8)}`,
+        paymentDate: sp.paymentDate || today,
+        isPaid: true,
+      }))
+    );
+  };
+
+  const handleSaveQuickPaymentUtr = async () => {
+    if (!quickPaymentRow?._id) return;
+    const hasAnyUtr = quickSupplierPayments.some((sp) => Boolean(sp.utrNumber?.trim()));
+    if (!hasAnyUtr) {
+      toast.error("Please enter at least one Payment UTR Number.");
+      return;
+    }
+    setQuickPaymentSubmitting(true);
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const updatedSupplierPayments = quickSupplierPayments.map((sp) => ({
+        supplierName: sp.supplierName,
+        paymentTerms: sp.paymentTerms,
+        paymentMethod: sp.paymentMethod || "NEFT",
+        utrNumber: (sp.utrNumber || "").trim().toUpperCase(),
+        paymentDate: sp.paymentDate || today,
+        isPaid: Boolean(sp.isPaid || sp.utrNumber?.trim()),
+        amountPaid: sp.amountPaid,
+      }));
+
+      const primaryPayment = updatedSupplierPayments.find((sp) => sp.utrNumber?.trim()) || updatedSupplierPayments[0];
+
+      const targetStatus = ["GRN Done", "GRN Completed", "Closed", "GRN Ready", "GRN Received", "Dispatched / Site GRN Ready"].includes(quickPaymentRow.status)
+        ? quickPaymentRow.status
+        : "Payment Done";
+
+      const updatedPayload = {
+        ...quickPaymentRow,
+        status: targetStatus,
+        stage4: {
+          ...(quickPaymentRow.stage4 || {}),
+          supplierPayments: updatedSupplierPayments,
+          paymentDetails: {
+            ...(quickPaymentRow.stage4?.paymentDetails || {}),
+            paymentReferenceUtr: primaryPayment?.utrNumber || "",
+            paymentDate: primaryPayment?.paymentDate || today,
+            paymentMethod: primaryPayment?.paymentMethod || "NEFT",
+            amountPaid: updatedSupplierPayments.reduce((acc, curr) => acc + (Number(curr.amountPaid) || 0), 0) || quickPaymentRow.stage2?.totalOrderValue,
+          },
+        },
+      };
+
+      await axios.put(
+        `${process.env.REACT_APP_API_STRING}/tyre-procurement/${quickPaymentRow._id}`,
+        updatedPayload
+      );
+      toast.success(`Payment & UTR saved successfully for PR #${quickPaymentRow.prNumber}!`);
+      setQuickPaymentOpen(false);
+      setQuickPaymentRow(null);
+      fetchRecords();
+      fetchAllRecords();
+    } catch (err) {
+      console.error("Error saving quick payment UTR:", err);
+      toast.error(err.response?.data?.message || "Failed to save Payment UTR");
+    } finally {
+      setQuickPaymentSubmitting(false);
+    }
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this PR?")) return;
@@ -228,14 +640,38 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   const paymentDoneCount = data.filter((d) => d.status === "Payment Done" || d.status === "Order Placed").length;
   const grnCompletedCount = data.filter((d) => d.status === "GRN Done" || d.status === "Closed").length;
 
-  const getStatusChipProps = (status) => {
+  const getStatusChipProps = (status, row) => {
+    const ci = row?.creditInfo || (row ? getPrCreditInfo(row) : null);
+    if (stageTab === "4" && ci?.isCredit && !ci?.isPaid) {
+      if (ci.diffDays <= 0) {
+        return {
+          label: ci.diffDays === 0 ? "OVERDUE (TODAY)" : `OVERDUE (${Math.abs(ci.diffDays)}D)`,
+          bg: "#fee2e2",
+          color: "#dc2626",
+        };
+      }
+      if (ci.diffDays <= 7) {
+        return {
+          label: `DUE IN ${ci.diffDays} DAYS`,
+          bg: "#fef3c7",
+          color: "#b45309",
+        };
+      }
+    }
+
     switch (status) {
       case "Closed":
       case "GRN Done":
+      case "GRN Completed":
         return { label: status || "GRN Done", bg: "#dcfce7", color: "#15803d" };
       case "Payment Done":
       case "Order Placed":
         return { label: status, bg: "#e0f2fe", color: "#0369a1" };
+      case "Dispatched / Site GRN Ready":
+        return { label: "GRN Ready (Credit)", bg: "#ecfdf5", color: "#047857" };
+      case "GRN Ready":
+      case "GRN Received":
+        return { label: status || "GRN Ready", bg: "#ecfdf5", color: "#047857" };
       case "Finance Approved":
         return { label: status, bg: "#e0e7ff", color: "#4338ca" };
       case "PR Raised":
@@ -562,24 +998,27 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                   <TableCell>Total Value (₹)</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Created At</TableCell>
+                  {stageTab === "7" && <TableCell>Invoice</TableCell>}
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {data.length === 0 ? (
+                {getDisplayRows(data).length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 4, color: "#64748b" }}>
+                    <TableCell colSpan={stageTab === "7" ? 9 : 8} align="center" sx={{ py: 4, color: "#64748b" }}>
                       <Typography sx={{ fontWeight: 500, fontSize: "13px" }}>
                         No procurement records found for this view.
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  data.map((row) => {
-                    const chipStyle = getStatusChipProps(row.status);
+                  getDisplayRows(data).map((row) => {
+                    const rowCreditInfo = row.creditInfo || getPrCreditInfo(row);
+                    const chipStyle = getStatusChipProps(row.status, row);
+                    const editLocked = isCompletedSiteGrn(row) && !canOverrideSignOffLock;
                     return (
                       <TableRow
-                        key={row._id}
+                        key={row._displayKey}
                         hover
                         sx={{
                           transition: "background-color 0.15s ease",
@@ -589,36 +1028,46 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                         <TableCell sx={{ fontWeight: 700, fontSize: "13px", py: 1, px: 1.5 }}>
                           <Box
                             component="span"
-                            onClick={() => onEdit(row)}
+                            onClick={() => !editLocked && onEdit(row)}
                             sx={{
-                              cursor: "pointer",
-                              color: "#2563eb",
-                              "&:hover": { color: "#1d4ed8", textDecoration: "underline" },
+                              cursor: editLocked ? "default" : "pointer",
+                              color: editLocked ? "#64748b" : "#2563eb",
+                              "&:hover": editLocked ? {} : { color: "#1d4ed8", textDecoration: "underline" },
                             }}
                           >
                             {row.prNumber}
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ color: "#334155", fontWeight: 600, fontSize: "12.5px", py: 1, px: 1.5 }}>
-                          {(() => {
-                            const supPos = Array.from(
-                              new Set(
-                                (row.stage2?.selectedSuppliers || [])
-                                  .map((s) => s.poNumber)
-                                  .filter(Boolean)
-                              )
-                            );
-                            if (supPos.length > 0) {
-                              return supPos.join(", ");
-                            }
-                            return row.poNumber || "-";
-                          })()}
+                        <TableCell sx={{ color: "#047857", fontWeight: 700, fontSize: "12.5px", py: 1, px: 1.5 }}>
+                          {Array.isArray(row.displayPoNumbers) && row.displayPoNumbers.length > 1 ? (
+                            <Stack spacing={0.3}>
+                              {row.displayPoNumbers.map((po, idx) => (
+                                <Box key={idx} component="span" sx={{ display: "block", whiteSpace: "nowrap" }}>
+                                  {po}
+                                </Box>
+                              ))}
+                            </Stack>
+                          ) : (
+                            row.displayPoNumber || "-"
+                          )}
                         </TableCell>
                         <TableCell sx={{ color: "#334155", fontSize: "12.5px", py: 1, px: 1.5 }}>{row.stage1?.preparedBy || "-"}</TableCell>
-                        <TableCell sx={{ color: "#334155", fontWeight: 500, fontSize: "12.5px", py: 1, px: 1.5 }}>{row.stage2?.selectedSupplierL1 || "-"}</TableCell>
+                        <TableCell sx={{ color: "#1d4ed8", fontWeight: 600, fontSize: "12.5px", py: 1, px: 1.5 }}>
+                          {Array.isArray(row.displaySuppliers) && row.displaySuppliers.length > 1 ? (
+                            <Stack spacing={0.3}>
+                              {row.displaySuppliers.map((sup, idx) => (
+                                <Box key={idx} component="span" sx={{ display: "block", whiteSpace: "nowrap" }}>
+                                  {sup}
+                                </Box>
+                              ))}
+                            </Stack>
+                          ) : (
+                            row.displaySupplier || "-"
+                          )}
+                        </TableCell>
                         <TableCell sx={{ color: "#0f172a", fontWeight: 700, fontSize: "13px", py: 1, px: 1.5 }}>
-                          {row.stage2?.totalOrderValue
-                            ? Number(row.stage2.totalOrderValue).toLocaleString("en-IN", { style: "currency", currency: "INR" })
+                          {row.displayTotalValue !== undefined && row.displayTotalValue !== null && row.displayTotalValue !== ""
+                            ? Number(row.displayTotalValue).toLocaleString("en-IN", { style: "currency", currency: "INR" })
                             : "-"}
                         </TableCell>
                         <TableCell sx={{ py: 1, px: 1.5 }}>
@@ -634,12 +1083,171 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                               borderRadius: "6px",
                             }}
                           />
+                          {rowCreditInfo?.isCredit && (
+                            <Box sx={{ mt: 0.4, display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
+                              <Chip
+                                label={`${rowCreditInfo.maxCreditDays}d Credit`}
+                                size="small"
+                                sx={{
+                                  fontSize: "10px",
+                                  height: 18,
+                                  bgcolor: "#f1f5f9",
+                                  color: "#475569",
+                                  fontWeight: 600,
+                                }}
+                              />
+                              {rowCreditInfo.isOverdue && !rowCreditInfo.isPaid && (
+                                <Chip
+                                  label="OVERDUE"
+                                  size="small"
+                                  sx={{
+                                    fontSize: "9.5px",
+                                    height: 18,
+                                    bgcolor: "#fee2e2",
+                                    color: "#dc2626",
+                                    fontWeight: 800,
+                                  }}
+                                />
+                              )}
+                              {!rowCreditInfo.isOverdue && rowCreditInfo.isDueSoon && !rowCreditInfo.isPaid && (
+                                <Chip
+                                  label={`Due in ${rowCreditInfo.diffDays}d`}
+                                  size="small"
+                                  sx={{
+                                    fontSize: "9.5px",
+                                    height: 18,
+                                    bgcolor: "#fef3c7",
+                                    color: "#b45309",
+                                    fontWeight: 700,
+                                  }}
+                                />
+                              )}
+                            </Box>
+                          )}
                         </TableCell>
                         <TableCell sx={{ color: "#64748b", fontSize: "12.5px", py: 1, px: 1.5 }}>
                           {row.createdAt ? new Date(row.createdAt).toLocaleDateString("en-GB") : "-"}
                         </TableCell>
+                        {stageTab === "7" && (
+                          <TableCell sx={{ py: 1, px: 1.5 }}>
+                            {(() => {
+                              const invoices = getGrnInvoiceAttachments(row);
+                              if (invoices.length === 0) {
+                                return <Typography sx={{ color: "#94a3b8", fontSize: "12px" }}>—</Typography>;
+                              }
+                              return (
+                                <Stack spacing={0.2}>
+                                  {invoices.map((info) => (
+                                    <Tooltip
+                                      key={info._id || info.invoiceAttachment}
+                                      title={[
+                                        info.supplierName,
+                                        info.invoiceAttachmentName || "Invoice",
+                                        info.invoiceAmount ? `₹${Number(info.invoiceAmount).toLocaleString("en-IN")}` : null,
+                                      ].filter(Boolean).join(" — ")}
+                                    >
+                                      <a
+                                        href={info.invoiceAttachment}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        style={{
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: 3,
+                                          fontSize: "11.5px",
+                                          fontWeight: 600,
+                                          color: "#2563eb",
+                                          textDecoration: "none",
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        <AttachFile sx={{ fontSize: 13 }} />
+                                        {info.invoiceNumber || info.invoiceAttachmentName || "View Invoice"}
+                                      </a>
+                                    </Tooltip>
+                                  ))}
+                                </Stack>
+                              );
+                            })()}
+                          </TableCell>
+                        )}
                         <TableCell align="center" sx={{ py: 1, px: 1.5 }}>
-                          <Stack direction="row" spacing={0.8} justifyContent="center">
+                          <Stack direction="row" spacing={0.8} justifyContent="center" alignItems="center">
+                            {canApproveFinance(row) && (
+                              <Tooltip title="Review & Financial Approval">
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  startIcon={<CheckCircle sx={{ fontSize: 13 }} />}
+                                  onClick={() => handleOpenQuickApproval(row)}
+                                  sx={{
+                                    bgcolor: "#2563eb",
+                                    color: "#ffffff",
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    height: 28,
+                                    px: 1.2,
+                                    textTransform: "none",
+                                    borderRadius: "6px",
+                                    boxShadow: "none",
+                                    whiteSpace: "nowrap",
+                                    "&:hover": { bgcolor: "#1d4ed8" },
+                                  }}
+                                >
+                                  Approve
+                                </Button>
+                              </Tooltip>
+                            )}
+                            {canEnterPaymentUtr(row) && (
+                              <Tooltip title="Enter Payment & UTR">
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  startIcon={<AccountBalance sx={{ fontSize: 13 }} />}
+                                  onClick={() => handleOpenQuickPaymentUtr(row)}
+                                  sx={{
+                                    bgcolor: "#16a34a",
+                                    color: "#ffffff",
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    height: 28,
+                                    px: 1.2,
+                                    textTransform: "none",
+                                    borderRadius: "6px",
+                                    boxShadow: "none",
+                                    whiteSpace: "nowrap",
+                                    "&:hover": { bgcolor: "#15803d" },
+                                  }}
+                                >
+                                  Enter UTR
+                                </Button>
+                              </Tooltip>
+                            )}
+                            {canUpdateSiteGrn(row) && (
+                              <Tooltip title="Update Site GRN">
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  startIcon={<AssignmentTurnedIn sx={{ fontSize: 13 }} />}
+                                  onClick={() => onEdit(row)}
+                                  sx={{
+                                    bgcolor: "#059669",
+                                    color: "#ffffff",
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    height: 28,
+                                    px: 1.2,
+                                    textTransform: "none",
+                                    borderRadius: "6px",
+                                    boxShadow: "none",
+                                    whiteSpace: "nowrap",
+                                    "&:hover": { bgcolor: "#047857" },
+                                  }}
+                                >
+                                  Site GRN
+                                </Button>
+                              </Tooltip>
+                            )}
                             <Tooltip title="View PR">
                               <IconButton
                                 size="small"
@@ -653,10 +1261,11 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                                 <Visibility sx={{ fontSize: 16 }} />
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title="Edit PR">
+                            <Tooltip title={editLocked ? "Completed Site GRN — view only" : "Edit PR"}>
                               <IconButton
                                 size="small"
                                 onClick={() => onEdit(row)}
+                                disabled={editLocked}
                                 sx={{
                                   color: "#2563eb",
                                   bgcolor: "#eff6ff",
@@ -715,6 +1324,379 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           sx={{ borderTop: "1px solid", borderColor: "divider" }}
         />
       </Paper>
+      {/* ─── QUICK FINANCE APPROVAL DIALOG ─── */}
+      <Dialog
+        open={quickApprovalOpen}
+        onClose={() => !quickApprovalSubmitting && setQuickApprovalOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: "10px", overflow: "hidden" } }}
+      >
+        <DialogTitle sx={{ bgcolor: "#0f172a", color: "#ffffff", py: 1.5, px: 2.5 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Box>
+              <Typography sx={{ fontWeight: 700, fontSize: "16px" }}>
+                Finance Approval & Sign-Off
+              </Typography>
+              <Typography sx={{ color: "#94a3b8", fontSize: "12px" }}>
+                PR #{quickApprovalRow?.prNumber} &bull; PO #{quickApprovalRow?.poNumber || quickApprovalRow?.stage2?.selectedSuppliers?.[0]?.poNumber || "N/A"}
+              </Typography>
+            </Box>
+            <Chip
+              label={quickDecision === "APPROVED" ? "APPROVED" : "REJECTED"}
+              color={quickDecision === "APPROVED" ? "success" : "error"}
+              size="small"
+              sx={{ fontWeight: 700 }}
+            />
+          </Box>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
+          {quickApprovalRow && (
+            <>
+              {/* Reference & Awarded Supplier summary */}
+              <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: "6px", border: "1px solid #e2e8f0", bgcolor: "#ffffff" }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
+                    <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                      PR NUMBER
+                    </Typography>
+                    <Typography sx={{ fontWeight: 700, color: "#2563eb", fontSize: "14px" }}>
+                      {quickApprovalRow.prNumber}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                      PREPARED BY
+                    </Typography>
+                    <Typography sx={{ fontWeight: 600, color: "#0f172a", fontSize: "13px" }}>
+                      {quickApprovalRow.stage1?.preparedBy || "-"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                      OVERALL TOTAL ORDER VALUE
+                    </Typography>
+                    <Typography sx={{ fontWeight: 800, color: "#166534", fontSize: "15px" }}>
+                      ₹ {Number(quickApprovalRow.stage2?.totalOrderValue || quickApprovalRow.stage3?.totalOrderValue || 0).toLocaleString("en-IN")}
+                    </Typography>
+                  </Grid>
+                </Grid>
+
+                {/* Selected suppliers table */}
+                {(() => {
+                  const sups = quickApprovalRow.stage2?.selectedSuppliers?.length > 0
+                    ? quickApprovalRow.stage2.selectedSuppliers
+                    : [{
+                        selectedSupplier: quickApprovalRow.stage2?.selectedSupplierL1 || "-",
+                        priceQuoted: quickApprovalRow.stage2?.l1PriceQuoted || 0,
+                        totalOrderValue: quickApprovalRow.stage2?.totalOrderValue || 0,
+                        poNumber: quickApprovalRow.poNumber || "-",
+                      }];
+                  return (
+                    <Box sx={{ mt: 1.5, borderTop: "1px solid #f1f5f9", pt: 1.5 }}>
+                      <Typography sx={{ fontSize: "12px", fontWeight: 700, color: "#334155", mb: 1 }}>
+                        Awarded Supplier(s) Summary:
+                      </Typography>
+                      <Table size="small">
+                        <TableHead sx={{ bgcolor: "#f1f5f9" }}>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 700, fontSize: "11px", py: 0.5 }}>Supplier</TableCell>
+                            <TableCell sx={{ fontWeight: 700, fontSize: "11px", py: 0.5 }}>PO No</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, fontSize: "11px", py: 0.5 }}>Price Quoted (₹)</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, fontSize: "11px", py: 0.5 }}>Total Value (₹)</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {sups.map((s, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell sx={{ fontWeight: 600, color: "#1d4ed8", fontSize: "12px", py: 0.5 }}>{s.selectedSupplier}</TableCell>
+                              <TableCell sx={{ fontSize: "12px", py: 0.5 }}>{s.poNumber || quickApprovalRow.poNumber || "-"}</TableCell>
+                              <TableCell align="right" sx={{ fontSize: "12px", py: 0.5 }}>₹ {Number(s.priceQuoted || 0).toLocaleString("en-IN")}</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 700, color: "#0f172a", fontSize: "12px", py: 0.5 }}>₹ {Number(s.totalOrderValue || 0).toLocaleString("en-IN")}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </Box>
+                  );
+                })()}
+              </Paper>
+
+              {/* Decision and Signoff Inputs */}
+              <Paper elevation={0} sx={{ p: 2, borderRadius: "6px", border: "1px solid #e2e8f0", bgcolor: "#ffffff" }}>
+                <Typography sx={{ fontWeight: 700, fontSize: "13px", color: "#0f172a", mb: 1.5 }}>
+                  Approval Decision & Sign-Off
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
+                    <Typography sx={{ fontWeight: 600, fontSize: "11.5px", color: "#334155", mb: 0.5 }}>
+                      FINANCE DECISION *
+                    </Typography>
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      value={quickDecision}
+                      onChange={(e) => setQuickDecision(e.target.value)}
+                    >
+                      <MenuItem value="APPROVED" sx={{ color: "#166534", fontWeight: 700 }}>
+                        ✓ APPROVED
+                      </MenuItem>
+                      <MenuItem value="REJECTED" sx={{ color: "#dc2626", fontWeight: 700 }}>
+                        ✕ REJECTED
+                      </MenuItem>
+                    </TextField>
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <Typography sx={{ fontWeight: 600, fontSize: "11.5px", color: "#334155", mb: 0.5 }}>
+                      FINANCE MANAGER NAME *
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={quickApproverName}
+                      onChange={(e) => setQuickApproverName(e.target.value)}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <Typography sx={{ fontWeight: 600, fontSize: "11.5px", color: "#334155", mb: 0.5 }}>
+                      APPROVAL DATE
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      type="date"
+                      size="small"
+                      value={quickApprovalDate}
+                      onChange={(e) => setQuickApprovalDate(e.target.value)}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <Typography sx={{ fontWeight: 600, fontSize: "11.5px", color: "#334155", mb: 0.5 }}>
+                      APPROVAL REMARKS (OPTIONAL)
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={2}
+                      size="small"
+                      placeholder="Add any finance review remarks or notes..."
+                      value={quickApprovalRemarks}
+                      onChange={(e) => setQuickApprovalRemarks(e.target.value)}
+                    />
+                  </Grid>
+                </Grid>
+              </Paper>
+            </>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2, bgcolor: "#f1f5f9", borderTop: "1px solid #e2e8f0" }}>
+          <Button
+            onClick={() => setQuickApprovalOpen(false)}
+            disabled={quickApprovalSubmitting}
+            sx={{ textTransform: "none", color: "#64748b", fontWeight: 600 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveQuickApproval}
+            disabled={quickApprovalSubmitting}
+            sx={{
+              textTransform: "none",
+              fontWeight: 700,
+              px: 3,
+              background: quickDecision === "APPROVED" ? "linear-gradient(135deg, #16a34a 0%, #15803d 100%)" : "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)",
+            }}
+          >
+            {quickApprovalSubmitting ? "Submitting..." : `Confirm Approval (${quickDecision})`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ─── QUICK PAYMENT & UTR DIALOG ─── */}
+      <Dialog
+        open={quickPaymentOpen}
+        onClose={() => !quickPaymentSubmitting && setQuickPaymentOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: "10px", overflow: "hidden" } }}
+      >
+        <DialogTitle sx={{ bgcolor: "#0f172a", color: "#ffffff", py: 1.5, px: 2.5 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Box>
+              <Typography sx={{ fontWeight: 700, fontSize: "16px" }}>
+                Enter Payment & UTR Details
+              </Typography>
+              <Typography sx={{ color: "#94a3b8", fontSize: "12px" }}>
+                PR #{quickPaymentRow?.prNumber} &bull; PO #{quickPaymentRow?.poNumber || "N/A"}
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleAutoFillAllPayments}
+              sx={{
+                bgcolor: "#16a34a",
+                textTransform: "none",
+                fontWeight: 700,
+                fontSize: "11px",
+                height: 28,
+                "&:hover": { bgcolor: "#15803d" },
+              }}
+            >
+              ✓ Auto-fill / Mark All Paid
+            </Button>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
+          {quickPaymentRow && (
+            <>
+              {quickSupplierPayments.map((sp, idx) => (
+                <Paper
+                  key={idx}
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    mb: 2,
+                    borderRadius: "6px",
+                    border: "1px solid #e2e8f0",
+                    bgcolor: "#ffffff",
+                  }}
+                >
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5, borderBottom: "1px solid #f1f5f9", pb: 1 }}>
+                    <Box>
+                      <Typography sx={{ fontWeight: 700, fontSize: "14px", color: "#1d4ed8" }}>
+                        {idx + 1}. {sp.supplierName}
+                      </Typography>
+                      <Typography sx={{ fontSize: "11.5px", color: "#64748b" }}>
+                        Bank: <strong>{sp.bankName || "N/A"}</strong> &bull; A/C: <strong>{sp.bankAccountNo || "N/A"}</strong> &bull; IFSC: <strong>{sp.bankIfscCode || "N/A"}</strong>
+                      </Typography>
+                    </Box>
+                    <Box sx={{ textAlign: "right" }}>
+                      <Chip
+                        label={sp.paymentTerms || "100% ADVANCE"}
+                        size="small"
+                        sx={{ fontWeight: 600, fontSize: "11px", height: 22 }}
+                      />
+                      {(() => {
+                        const cDays = parseCreditDays(sp.paymentTerms);
+                        if (cDays > 0) {
+                          const baseDateStr = quickPaymentRow.stage3?.signOff?.dateOfApproval || quickPaymentRow.createdAt;
+                          const baseDate = baseDateStr ? new Date(baseDateStr) : new Date();
+                          const dueDate = new Date(baseDate.getTime() + cDays * 24 * 60 * 60 * 1000);
+                          const today = new Date();
+                          const diff = Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                          const isOver = diff <= 0;
+                          return (
+                            <Typography sx={{ fontSize: "10.5px", fontWeight: 700, color: isOver ? "#dc2626" : "#d97706", mt: 0.3 }}>
+                              {isOver ? `⚠️ OVERDUE (${dueDate.toLocaleDateString("en-GB")})` : `Due in ${diff}d (${dueDate.toLocaleDateString("en-GB")})`}
+                            </Typography>
+                          );
+                        }
+                        return null;
+                      })()}
+                      <Typography sx={{ fontWeight: 800, color: "#166534", fontSize: "14px", mt: 0.3 }}>
+                        ₹ {Number(sp.amountPaid || 0).toLocaleString("en-IN")}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={3}>
+                      <Typography sx={{ fontWeight: 600, fontSize: "11.5px", color: "#334155", mb: 0.5 }}>
+                        PAYMENT METHOD
+                      </Typography>
+                      <TextField
+                        select
+                        fullWidth
+                        size="small"
+                        value={sp.paymentMethod || "NEFT"}
+                        onChange={(e) => handleQuickPaymentFieldChange(idx, "paymentMethod", e.target.value)}
+                      >
+                        {["NEFT", "RTGS", "IMPS", "Cheque", "UPI"].map((m) => (
+                          <MenuItem key={m} value={m}>{m}</MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+
+                    <Grid item xs={12} sm={4}>
+                      <Typography sx={{ fontWeight: 600, fontSize: "11.5px", color: "#334155", mb: 0.5 }}>
+                        UTR / REF NUMBER *
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        placeholder="e.g. UTR12345678"
+                        value={sp.utrNumber || ""}
+                        onChange={(e) => handleQuickPaymentFieldChange(idx, "utrNumber", e.target.value.toUpperCase())}
+                        sx={{
+                          "& input": { fontWeight: 700, color: "#1e40af" }
+                        }}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} sm={3}>
+                      <Typography sx={{ fontWeight: 600, fontSize: "11.5px", color: "#334155", mb: 0.5 }}>
+                        PAYMENT DATE
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        type="date"
+                        size="small"
+                        value={sp.paymentDate || ""}
+                        onChange={(e) => handleQuickPaymentFieldChange(idx, "paymentDate", e.target.value)}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} sm={2} sx={{ display: "flex", alignItems: "center", pt: "24px !important" }}>
+                      <Button
+                        variant={sp.isPaid ? "contained" : "outlined"}
+                        color={sp.isPaid ? "success" : "primary"}
+                        size="small"
+                        fullWidth
+                        onClick={() => handleQuickPaymentFieldChange(idx, "isPaid", !sp.isPaid)}
+                        sx={{ height: 36, textTransform: "none", fontWeight: 700, fontSize: "11.5px" }}
+                      >
+                        {sp.isPaid ? "✓ Paid" : "Mark Paid"}
+                      </Button>
+                    </Grid>
+                  </Grid>
+                </Paper>
+              ))}
+            </>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2, bgcolor: "#f1f5f9", borderTop: "1px solid #e2e8f0" }}>
+          <Button
+            onClick={() => setQuickPaymentOpen(false)}
+            disabled={quickPaymentSubmitting}
+            sx={{ textTransform: "none", color: "#64748b", fontWeight: 600 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleSaveQuickPaymentUtr}
+            disabled={quickPaymentSubmitting}
+            sx={{
+              textTransform: "none",
+              fontWeight: 700,
+              px: 3,
+              background: "linear-gradient(135deg, #16a34a 0%, #15803d 100%)",
+            }}
+          >
+            {quickPaymentSubmitting ? "Saving..." : "Save Payment & Forward to Stage 5"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

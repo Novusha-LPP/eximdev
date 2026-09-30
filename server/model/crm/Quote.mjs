@@ -18,6 +18,20 @@ const quoteSchema = new mongoose.Schema({
   // Quote Details
   title: { type: String, required: true },
   description: { type: String },
+
+  // Company and Template references
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'QuotationCompany' },
+  templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'QuotationTemplate' },
+  templateColumns: [{
+    key: String,
+    label: String,
+    type: { type: String, default: 'text' },
+    options: [String],
+    defaultValue: String,
+    width: String,
+    align: String,
+    required: Boolean
+  }],
   
   // Line items
   lineItems: [{
@@ -30,7 +44,8 @@ const quoteSchema = new mongoose.Schema({
     discount: { type: Number, default: 0, min: 0, max: 100 }, // percentage
     tax: { type: Number, default: 0, min: 0 }, // percentage
     lineTotal: { type: Number, default: 0 },
-    description: String
+    description: String,
+    customFields: { type: mongoose.Schema.Types.Mixed, default: {} }
   }],
   
   // Pricing

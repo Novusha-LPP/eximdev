@@ -90,6 +90,7 @@ import getBillCover from "./routes/accounts/getBillCover.mjs";
 import rmProcurementSopRoutes from "./routes/accounts/rmProcurementSop.mjs";
 import tyreProcurementSopRoutes from "./routes/accounts/tyreProcurementSop.mjs";
 import fleetInsuranceSopRoutes from "./routes/accounts/fleetInsuranceSop.mjs";
+import transportInvoicingRoutes from "./routes/invoicing/transportInvoicingRoutes.mjs";
 
 // Documentation
 import updateDocumentationJob from "./routes/documentation/updateDocumentationJob.mjs";
@@ -393,10 +394,13 @@ import currencyRoutes from "./routes/master-directory/currencyRoutes.mjs";
 import portRoutes from "./routes/master-directory/portRoutes.mjs";
 import indianPortRoutes from "./routes/master-directory/indianPortRoutes.mjs";
 import customHouseRoutes from "./routes/master-directory/customHouseRoutes.mjs";
-import cfsRoutes from "./routes/master-directory/cfsRoutes.mjs";
+  import cfsRoutes from "./routes/master-directory/cfsRoutes.mjs";
+  import cfsDirectoryRoutes from "./routes/master-directory/cfsDirectoryRoutes.mjs";
+  import emptyYardDirectoryRoutes from "./routes/master-directory/emptyYardDirectoryRoutes.mjs";
 import transporterRoutes from "./routes/master-directory/transporterRoutes.mjs";
 import emptyOffLocationRoutes from "./routes/master-directory/emptyOffLocationRoutes.mjs";
 import masterDirectoryNotificationRoutes from "./routes/master-directory/notificationRoutes.mjs";
+import globalDirectorySearchRoutes from "./routes/master-directory/globalDirectorySearch.mjs";
 
 // Tally API
 import tallyRoutes from "./tallyapi/tallyRoutes.mjs";
@@ -576,6 +580,7 @@ app.use("/api", rmProcurementSopRoutes);
 app.use("/api", tyreProcurementSopRoutes);
 app.use("/api", fleetInsuranceSopRoutes);
 app.use("/api/billing", invoiceGenerator);
+app.use("/api/transport-invoicing", transportInvoicingRoutes);
 
 // Documentation
 app.use(updateDocumentationJob);
@@ -810,11 +815,15 @@ app.use("/api", currencyRoutes);
 app.use("/api", portRoutes);
 app.use("/api", indianPortRoutes);
 app.use("/api", customHouseRoutes);
-app.use("/api", cfsRoutes);
+  app.use("/api", cfsRoutes);
+  app.use("/api", cfsDirectoryRoutes);
+  app.use("/api", emptyYardDirectoryRoutes);
+  app.use(emptyYardDirectoryRoutes);
 app.use("/api", transporterRoutes);
 app.use("/api", generalOrgRoutes);
 app.use("/api", emptyOffLocationRoutes);
 app.use(masterDirectoryNotificationRoutes);
+app.use("/api/master-directory", globalDirectorySearchRoutes);
 
 
 // Tally API
@@ -949,7 +958,7 @@ if (!disableCluster && cluster.isPrimary) {
         // useNewUrlParser: true,
         // useUnifiedTopology: true,
         minPoolSize: 2,
-        maxPoolSize: 20, // Increased to prevent connection starvation during parallel requests (2 workers × 20 = 40 max connections)
+        maxPoolSize: 30, // Increased to prevent connection starvation during parallel requests (2 workers × 30 = 60 max connections)
         maxIdleTimeMS: 30000,
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,

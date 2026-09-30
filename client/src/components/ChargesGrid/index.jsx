@@ -110,11 +110,12 @@ const ChargesGrid = ({
     let partyDetails = null;
     const targetPartyName = selectedCharges[0].cost.partyName;
     try {
-      const [slRes, supRes, orgRes, cfsRes, transRes] = await Promise.all([
+      const [slRes, supRes, orgRes, cfsRes, eyRes, transRes] = await Promise.all([
         axios.get(`${process.env.REACT_APP_API_STRING}/get-shipping-lines`),
         axios.get(`${process.env.REACT_APP_API_STRING}/get-suppliers`),
         axios.get(`${process.env.REACT_APP_API_STRING}/organization`),
         axios.get(`${process.env.REACT_APP_API_STRING}/get-cfs-list`),
+        axios.get(`${process.env.REACT_APP_API_STRING}/get-empty-yard-directory-list`).catch(() => ({ data: [] })),
         axios.get(`${process.env.REACT_APP_API_STRING}/get-transporters`)
       ]);
       const allParties = [
@@ -122,6 +123,7 @@ const ChargesGrid = ({
         ...(supRes.data || []),
         ...(orgRes.data?.organizations || []),
         ...(cfsRes.data || []),
+        ...(eyRes.data || []),
         ...(transRes.data || [])
       ];
       const allMatches = allParties.filter(p => normalize(p.name || p.organization) === firstPartyNorm);

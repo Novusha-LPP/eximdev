@@ -52,9 +52,18 @@ function formatDateToDDMMMYYYY(dateInput) {
     return `${day}-${month}-${year}`;
 }
 
+function resolveAmount(...candidates) {
+    for (const val of candidates) {
+        if (val !== undefined && val !== null && val !== "" && !isNaN(Number(val))) {
+            return Number(val);
+        }
+    }
+    return 0;
+}
+
 router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchFilter, async (req, res) => {
     try {
-        const { type, year, branchId, mode, detailedStatus, dateFilterType, startDate, endDate, completionStartDate, completionEndDate, format } = req.query;
+        const { type, year, branchId, mode, detailedStatus, dateFilterType, startDate, endDate, completionStartDate, completionEndDate, format, job_no, search } = req.query;
 
         if (type === 'gpj') {
             const matchQuery = {
@@ -193,9 +202,23 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
             }
         }
 
-        if (detailedStatus && detailedStatus !== 'all') {
+        const searchJob = (job_no || search || "").trim();
+        if (searchJob) {
+            jobMatchStage.$or = [
+                { job_no: { $regex: searchJob, $options: "i" } },
+                { job_number: { $regex: searchJob, $options: "i" } }
+            ];
+            // If the user searches a specific job number and detailedStatus was left on default 'billing_pending',
+            // bypass detailed_status restriction so jobs of any status (like 'Billed') matching this job number can be found!
+            if (detailedStatus === 'billing_pending') {
+                delete jobMatchStage.detailed_status;
+            }
+        }
+
+        if (detailedStatus && detailedStatus !== 'all' && (!searchJob || detailedStatus !== 'billing_pending')) {
             const statusMapping = {
                 billing_pending: "Billing Pending",
+                billed: "Billed",
                 eta_date_pending: "ETA Date Pending",
                 estimated_time_of_arrival: "Estimated Time of Arrival",
                 gateway_igm_filed: "Gateway IGM Filed",
@@ -216,7 +239,9 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
         // Charge match stage based on report type and optional date filters
         const conditions = [];
 
-        if (type === 'all') {
+        if (type === 'all_charges') {
+            // Include ALL charges! No filter requiring payment_request_no or purchase_book_no
+        } else if (type === 'all') {
             conditions.push({
                 $or: [
                     { "charges.payment_request_no": { $exists: true, $ne: null, $ne: "" } },
@@ -271,26 +296,53 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
             });
         }
 
-        const chargeMatchStage = { $and: conditions };
-
         const pipeline = [
             { $match: jobMatchStage },
-            { $unwind: "$charges" },
-            { $match: chargeMatchStage },
+            { $unwind: "$charges" }
+        ];
+
+        if (conditions.length > 0) {
+            pipeline.push({ $match: { $and: conditions } });
+        }
+
+        pipeline.push(
             {
                 $project: {
                     job_no: 1,
                     job_number: 1,
+                    job_date: 1,
                     importer: 1,
+                    party_name: 1,
                     custom_house: 1,
                     be_no: 1,
                     be_date: 1,
+                    awb_bl_no: 1,
+                    awb_bl_date: 1,
+                    bl_no: 1,
+                    bl_date: 1,
                     mode: 1,
                     branch_code: 1,
+                    detailed_status: 1,
+                    status: 1,
                     chargeHead: "$charges.chargeHead",
                     category: "$charges.category",
                     isPurchaseBookMandatory: "$charges.isPurchaseBookMandatory",
                     partyName: "$charges.cost.partyName",
+                    cost_partyName: "$charges.cost.partyName",
+                    cost_partyType: "$charges.cost.partyType",
+                    cost_amount: "$charges.cost.amount",
+                    cost_amountINR: "$charges.cost.amountINR",
+                    cost_rate: "$charges.cost.rate",
+                    cost_basicAmount: "$charges.cost.basicAmount",
+                    cost_gstAmount: "$charges.cost.gstAmount",
+                    cost_tdsAmount: "$charges.cost.tdsAmount",
+                    cost_netPayable: "$charges.cost.netPayable",
+                    revenue_partyName: "$charges.revenue.partyName",
+                    revenue_amount: "$charges.revenue.amount",
+                    revenue_amountINR: "$charges.revenue.amountINR",
+                    revenue_rate: "$charges.revenue.rate",
+                    revenue_basicAmount: "$charges.revenue.basicAmount",
+                    revenue_gstAmount: "$charges.revenue.gstAmount",
                     purchase_book_no: "$charges.purchase_book_no",
                     purchase_book_status: "$charges.purchase_book_status",
                     payment_request_no: "$charges.payment_request_no",
@@ -311,7 +363,7 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                 }
             },
             { $sort: { job_number: 1, importer: 1 } }
-        ];
+        );
 
         const results = await JobModel.aggregate(pipeline);
 
@@ -340,6 +392,8 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                 errorMessage = `No Payment Requests found that are pending a Purchase Book for status ${statusLabel}.`;
             } else if (type === 'all') {
                 errorMessage = `No PB or PR records found for status ${statusLabel}.`;
+            } else if (type === 'all_charges') {
+                errorMessage = `No charges found for status ${statusLabel}.`;
             } else {
                 errorMessage = `No ${type === 'pr' ? 'payment request' : 'purchase book'} records found.`;
                 if (totalJobsWithStatus === 0) {
@@ -381,6 +435,59 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                 totalVal = totalAmt;
             } else {
                 totalVal = basicAmount + gstAmount;
+            }
+
+            // ── All Charges Report — all charges in each job with complete cost, revenue & job info ──
+            if (type === 'all_charges') {
+                const invNo = (row.invoice_number && String(row.invoice_number).trim())
+                    ? String(row.invoice_number).trim()
+                    : (row.awb_bl_no || row.bl_no || "");
+
+                const invDate = row.invoice_date
+                    ? formatDateToDDMMMYYYY(row.invoice_date)
+                    : (row.charge_created_at ? formatDateToDDMMMYYYY(row.charge_created_at) : "");
+
+                const costAmt = resolveAmount(row.cost_amountINR, row.cost_amount, row.cost_rate, row.netPayable);
+                const revAmt = resolveAmount(row.revenue_amountINR, row.revenue_amount, row.revenue_rate);
+                const costNet = resolveAmount(row.cost_netPayable, row.netPayable, costAmt);
+                const costBasic = resolveAmount(row.cost_basicAmount, row.basicAmount);
+                const costGst = resolveAmount(row.cost_gstAmount, row.gstAmount);
+                const costTds = resolveAmount(row.cost_tdsAmount, row.tdsAmount);
+
+                const hasPB = Boolean(row.purchase_book_no && String(row.purchase_book_no).trim());
+
+                return {
+                    "S.No": index + 1,
+                    "Job No": row.job_number || row.job_no || "",
+                    "Job Date": formatDateToDDMMMYYYY(row.job_date),
+                    "Importer": row.importer || "",
+                    "Party Name": row.cost_partyName || (row.cost_partyType && row.cost_partyType !== "Others" && row.cost_partyType !== "Vendor" ? row.cost_partyType : "") || row.chargeHead || "",
+                    "Receivable Party": row.revenue_partyName || row.importer || "",
+                    "BL Number": row.awb_bl_no || row.bl_no || "",
+                    "BL Date": formatDateToDDMMMYYYY(row.awb_bl_date || row.bl_date),
+                    "B/E No": row.be_no || "",
+                    "B/E Date": formatDateToDDMMMYYYY(row.be_date),
+                    "Charge Name": row.chargeHead || "",
+                    "Charge Category": row.category || "",
+                    "Invoice Number": invNo,
+                    "Date": invDate,
+                    "Cost Amount": costAmt,
+                    "Revenue Amount": revAmt,
+                    "Cost Net Payable": costNet,
+                    "Cost Basic Amount": costBasic,
+                    "Cost GST Amount": costGst,
+                    "Cost TDS Amount": costTds,
+                    "Book Purchase Enter": hasPB ? "Yes" : "No",
+                    "Book Purchase No": row.purchase_book_no || "-",
+                    "Book Purchase Status": row.purchase_book_status || (hasPB ? "Entered" : "-"),
+                    "Payment Request No": row.payment_request_no || "-",
+                    "Payment Request Status": row.payment_request_status || "-",
+                    "Mode": row.mode || "",
+                    "Branch": row.branch_code || "",
+                    "Custom House": row.custom_house || "",
+                    "Status": row.detailed_status || row.status || "",
+                    "Remarks": row.remark || ""
+                };
             }
 
             // ── Purchase Book Report — column names matching Export project ──
@@ -522,6 +629,7 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
         else if (type === 'pb') sheetName = "Purchase Book Report";
         else if (type === 'tds') sheetName = "TDS Payable Register";
         else if (type === 'pr_no_pb') sheetName = "PR Pending Purchase Book";
+        else if (type === 'all_charges') sheetName = "All Charges";
 
         xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
 
@@ -531,6 +639,7 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
         if (type === 'pr') filename = "Payment_Request_Report.xlsx";
         else if (type === 'pb') filename = "Purchase_Book_Report.xlsx";
         else if (type === 'tds') filename = "TDS_Payable_Register.xlsx";
+        else if (type === 'all_charges') filename = "All_Charges_Report.xlsx";
         res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
         res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         res.send(buffer);

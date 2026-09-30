@@ -75,13 +75,13 @@ const s = {
 const TABS = [
   { label: "DGFT Register", key: "auth-reg" },
   { label: "License Register", key: "reg-format" },
-  { label: "ROADTEP details", key: "rodtep" },
+  { label: "RoDTEP details", key: "rodtep" },
 ];
 
 function DgftTabs() {
   const { tab } = useParams();
   const navigate = useNavigate();
-  
+
   // Default to first tab if none specified in URL
   const activeTabKey = tab || TABS[0].key;
   const activeIdx = TABS.findIndex(t => t.key === activeTabKey);

@@ -61,6 +61,10 @@ const userSchema = new Schema({
     type: [String],
     default: [],
   },
+  tyre_procurement_admin: {
+    type: Boolean,
+    default: false,
+  },
   fleet_insurance_tabs: {
     type: [String],
     default: [],

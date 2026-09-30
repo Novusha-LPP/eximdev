@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { BarChart2, Download, Table, TrendingUp, AlertTriangle, ChevronDown, ChevronRight, PieChart, Phone, Mail, Calendar, FileText, CheckCircle2, MinusCircle, XCircle, Trophy, ShieldAlert } from 'lucide-react';
 import FilterBar from './components/FilterBar';
+import { LOST_REASONS } from './crmConstants';
 
 export default function CRMReportsDashboard() {
   const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
@@ -11,7 +12,6 @@ export default function CRMReportsDashboard() {
   const isCrmAdmin = crmRole === 'Admin' || (typeof crmRole === 'string' && crmRole.toLowerCase() === 'admin');
   const isSystemAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
   const isAdmin = (isSystemAdmin || isCrmAdmin) && !isHOD;
-  const isRestricted = !isAdmin || isHOD;
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState(null);
@@ -24,7 +24,7 @@ export default function CRMReportsDashboard() {
 
   const uniqueVerticals = [...new Set(teams.map(t => t.businessVertical).filter(Boolean))];
 
-  // Derive filtered list of users based on selected team, selected vertical, and permissions
+  // Derive filtered list of users based on selected team and selected vertical
   const filteredUsers = React.useMemo(() => {
     const getUserId = (u) => {
       if (!u) return null;
@@ -97,31 +97,9 @@ export default function CRMReportsDashboard() {
       }
     }
 
-    // 3. If restricted user (HOD / non-admin): only show members of their accessible teams
-    if (isRestricted && teams.length > 0) {
-      const teamUserMap = new Map();
-      teams.forEach(t => {
-        if (t.managerId) {
-          const mgr = resolveUser(t.managerId);
-          if (mgr) teamUserMap.set(getUserId(mgr), mgr);
-        }
-        if (Array.isArray(t.memberIds)) {
-          t.memberIds.forEach(m => {
-            const member = resolveUser(m);
-            if (member) teamUserMap.set(getUserId(member), member);
-          });
-        }
-      });
-      return Array.from(teamUserMap.values()).sort((a, b) => {
-        const nameA = `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.username || '';
-        const nameB = `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.username || '';
-        return nameA.localeCompare(nameB);
-      });
-    }
-
-    // 4. Admin with "All Teams" and "All Verticals": all users
+    // 3. All Teams and All Verticals: all users
     return users;
-  }, [selectedTeam, selectedVertical, teams, users, isRestricted]);
+  }, [selectedTeam, selectedVertical, teams, users]);
 
   // Auto-reset selected owner to 'all' if no longer in filtered users
   useEffect(() => {
@@ -177,6 +155,7 @@ export default function CRMReportsDashboard() {
       }
       if (selectedTeam && selectedTeam !== 'all') params.teamId = selectedTeam;
       if (selectedVertical && selectedVertical !== 'all') params.businessVertical = selectedVertical;
+      if (selectedOwner && selectedOwner !== 'all') params.ownerId = selectedOwner;
       if (lostReasonFilter && lostReasonFilter !== 'all') params.reason = lostReasonFilter;
 
       const res = await axios.get(
@@ -346,19 +325,11 @@ export default function CRMReportsDashboard() {
     const fetchMyTeams = async () => {
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/crm/teams/my-teams`,
+          `${process.env.REACT_APP_API_STRING}/crm/teams/my-teams?seeAll=true`,
           { withCredentials: true }
         );
         const fetchedTeams = res.data || [];
         setTeams(fetchedTeams);
-        if (isRestricted && fetchedTeams.length > 0) {
-          const verticals = [...new Set(fetchedTeams.map(t => t.businessVertical).filter(Boolean))];
-          setSelectedTeam(fetchedTeams[0]._id);
-          setRepsSelectedTeam(fetchedTeams[0].name);
-          if (verticals.length > 0) {
-            setSelectedVertical(verticals[0]);
-          }
-        }
       } catch (err) {
         console.error('Failed to load user teams:', err);
       }
@@ -379,43 +350,22 @@ export default function CRMReportsDashboard() {
   }, []);
 
   useEffect(() => {
-    if (isRestricted && teams.length > 0 && selectedTeam === 'all') {
-      return;
-    }
-    const verticals = [...new Set(teams.map(t => t.businessVertical).filter(Boolean))];
-    if (isRestricted && verticals.length > 0 && selectedVertical === 'all') {
-      return;
-    }
     if (filters) {
       fetchReport(filters, selectedOwner);
     }
-  }, [filters, selectedTeam, selectedVertical, selectedOwner, teams]);
+  }, [filters, selectedTeam, selectedVertical, selectedOwner]);
 
   useEffect(() => {
-    if (isRestricted && teams.length > 0 && selectedTeam === 'all') {
-      return;
-    }
-    const verticals = [...new Set(teams.map(t => t.businessVertical).filter(Boolean))];
-    if (isRestricted && verticals.length > 0 && selectedVertical === 'all') {
-      return;
-    }
     if (filters && activeTab === 'stage_analysis') {
       fetchAnalysisReport(filters, selectedOwner);
     }
-  }, [filters, activeTab, analysisStage, selectedTeam, selectedVertical, selectedOwner, teams]);
+  }, [filters, activeTab, analysisStage, selectedTeam, selectedVertical, selectedOwner]);
 
   useEffect(() => {
-    if (isRestricted && teams.length > 0 && selectedTeam === 'all') {
-      return;
-    }
-    const verticals = [...new Set(teams.map(t => t.businessVertical).filter(Boolean))];
-    if (isRestricted && verticals.length > 0 && selectedVertical === 'all') {
-      return;
-    }
     if (filters && activeTab === 'activity') {
       fetchActivityReport(filters, selectedOwner);
     }
-  }, [filters, activeTab, activityFilterType, selectedTeam, selectedVertical, selectedOwner, teams]);
+  }, [filters, activeTab, activityFilterType, selectedTeam, selectedVertical, selectedOwner]);
 
   useEffect(() => {
     if (activeTab === 'stagnation') {
@@ -427,7 +377,7 @@ export default function CRMReportsDashboard() {
     if (activeTab === 'lost_report') {
       fetchLostReport(filters);
     }
-  }, [activeTab, filters, selectedTeam, selectedVertical, lostReasonFilter]);
+  }, [activeTab, filters, selectedTeam, selectedVertical, selectedOwner, lostReasonFilter]);
 
   useEffect(() => {
     if (activeTab === 'leaderboard') {
@@ -437,13 +387,9 @@ export default function CRMReportsDashboard() {
 
   useEffect(() => {
     if (activeTab === 'reps_overview') {
-      if (isAdmin) {
-        fetchRepsOverview();
-      } else {
-        setActiveTab('month');
-      }
+      fetchRepsOverview();
     }
-  }, [activeTab, isAdmin]);
+  }, [activeTab]);
 
   const handleExportCSV = () => {
     if (!reportData) return;
@@ -545,35 +491,7 @@ export default function CRMReportsDashboard() {
     return mgrId?.toString() === currentUserId?.toString();
   });
 
-  const getVisibleUsers = () => {
-    if (isAdmin) {
-      return users;
-    }
-    if (isManager) {
-      const membersMap = new Map();
-      teams.forEach(team => {
-        const mgrId = team.managerId?._id || team.managerId;
-        const currentUserId = user._id || user.id;
-        if (mgrId?.toString() === currentUserId?.toString()) {
-          if (team.memberIds && Array.isArray(team.memberIds)) {
-            team.memberIds.forEach(member => {
-              if (member) {
-                const id = member._id?.toString() || member.toString();
-                membersMap.set(id, member);
-              }
-            });
-          }
-          if (team.managerId && typeof team.managerId === 'object') {
-            membersMap.set(team.managerId._id?.toString(), team.managerId);
-          }
-        }
-      });
-      return Array.from(membersMap.values());
-    }
-    return [];
-  };
-
-  const visibleUsers = getVisibleUsers();
+  const visibleUsers = users;
 
   const summary = reportData?.summary || { totalValue: 0, totalDeals: 0, weightedPipelineValue: 0 };
   const performanceData = reportData?.performanceData || [];
@@ -634,7 +552,7 @@ export default function CRMReportsDashboard() {
           </select>
         </div>
 
-        {(!isRestricted || teams.length > 1) && teams && teams.length > 0 && (
+        {teams && teams.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>Select Sales Team:</span>
             <select
@@ -655,7 +573,7 @@ export default function CRMReportsDashboard() {
                 outline: 'none'
               }}
             >
-              {!isRestricted && <option value="all">All Teams</option>}
+              <option value="all">All Teams</option>
               {teams
                 .filter(t => selectedVertical === 'all' || t.businessVertical === selectedVertical)
                 .map(t => (
@@ -665,47 +583,39 @@ export default function CRMReportsDashboard() {
           </div>
         )}
 
-        {(!isRestricted || uniqueVerticals.length > 1) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>Select Vertical:</span>
-            <select
-              value={selectedVertical}
-              onChange={(e) => {
-                const newVertical = e.target.value;
-                setSelectedVertical(newVertical);
-                if (newVertical !== 'all') {
-                  const currentTeam = teams.find(t => (t._id || t.id)?.toString() === selectedTeam.toString());
-                  if (currentTeam && currentTeam.businessVertical !== newVertical) {
-                    setSelectedTeam('all');
-                  }
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>Select Vertical:</span>
+          <select
+            value={selectedVertical}
+            onChange={(e) => {
+              const newVertical = e.target.value;
+              setSelectedVertical(newVertical);
+              if (newVertical !== 'all') {
+                const currentTeam = teams.find(t => (t._id || t.id)?.toString() === selectedTeam.toString());
+                if (currentTeam && currentTeam.businessVertical !== newVertical) {
+                  setSelectedTeam('all');
                 }
-                setSelectedOwner('all');
-              }}
-              style={{
-                padding: '8px 14px',
-                border: '1px solid #e2e8f0',
-                borderRadius: '10px',
-                fontSize: '0.85rem',
-                color: '#334155',
-                background: '#ffffff',
-                fontWeight: 600,
-                cursor: 'pointer',
-                outline: 'none'
-              }}
-            >
-              {!isRestricted && <option value="all">All Verticals</option>}
-              {isRestricted ? (
-                uniqueVerticals.map(v => (
-                  <option key={v} value={v}>{v}</option>
-                ))
-              ) : (
-                ['Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'].map(v => (
-                  <option key={v} value={v}>{v}</option>
-                ))
-              )}
-            </select>
-          </div>
-        )}
+              }
+              setSelectedOwner('all');
+            }}
+            style={{
+              padding: '8px 14px',
+              border: '1px solid #e2e8f0',
+              borderRadius: '10px',
+              fontSize: '0.85rem',
+              color: '#334155',
+              background: '#ffffff',
+              fontWeight: 600,
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+          >
+            <option value="all">All Verticals</option>
+            {['Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import', ...uniqueVerticals.filter(v => !['Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'].includes(v))].map(v => (
+              <option key={v} value={v}>{v}</option>
+            ))}
+          </select>
+        </div>
 
       </div>
 
@@ -911,19 +821,17 @@ export default function CRMReportsDashboard() {
                 >
                   <Trophy size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom', color: '#f59e0b' }} /> Leaderboard
                 </button>
-                {isAdmin && (
-                  <button
-                    onClick={() => setActiveTab('reps_overview')}
-                    style={{
-                      padding: '8px 16px', borderRadius: '8px', border: 'none', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
-                      background: activeTab === 'reps_overview' ? '#ffffff' : 'transparent',
-                      color: activeTab === 'reps_overview' ? '#1e293b' : '#64748b',
-                      boxShadow: activeTab === 'reps_overview' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-                    }}
-                  >
-                    <BarChart2 size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} /> Representatives Overview
-                  </button>
-                )}
+                <button
+                  onClick={() => setActiveTab('reps_overview')}
+                  style={{
+                    padding: '8px 16px', borderRadius: '8px', border: 'none', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                    background: activeTab === 'reps_overview' ? '#ffffff' : 'transparent',
+                    color: activeTab === 'reps_overview' ? '#1e293b' : '#64748b',
+                    boxShadow: activeTab === 'reps_overview' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  <BarChart2 size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} /> Representatives Overview
+                </button>
               </div>
 
               {activeTab === 'stage_analysis' ? (
@@ -1026,22 +934,42 @@ export default function CRMReportsDashboard() {
 
                     {/* Lost Deals Breakdown */}
                     <div style={{ background: '#fef2f2', padding: '20px', borderRadius: '16px', border: '1px solid #fee2e2' }}>
-                      <h4 style={{ margin: '0 0 12px', color: '#991b1b', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <AlertTriangle size={18} /> Lost Reasons breakdown
-                      </h4>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.85rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#7f1d1d' }}>
-                          <span>Price Lost:</span>
-                          <strong>{lostSummary.price} deals</strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#7f1d1d' }}>
-                          <span>Product Lost:</span>
-                          <strong>{lostSummary.product} deals</strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#7f1d1d' }}>
-                          <span>No Response:</span>
-                          <strong>{lostSummary.noReply} deals</strong>
-                        </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <h4 style={{ margin: 0, color: '#991b1b', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <AlertTriangle size={18} /> Lost Reasons breakdown
+                        </h4>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#991b1b', background: '#fee2e2', padding: '2px 8px', borderRadius: '12px' }}>
+                          Total: {lostSummary.total || 0}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.85rem', maxHeight: '240px', overflowY: 'auto' }}>
+                        {lostSummary.byReason && Object.keys(lostSummary.byReason).length > 0 ? (
+                          Object.entries(lostSummary.byReason)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([reason, count]) => (
+                              <div key={reason} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#7f1d1d' }}>
+                                <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '180px' }} title={reason}>
+                                  {reason}:
+                                </span>
+                                <strong>{count} {count === 1 ? 'deal' : 'deals'}</strong>
+                              </div>
+                            ))
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#7f1d1d' }}>
+                              <span>Price Lost:</span>
+                              <strong>{lostSummary.price || 0} deals</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#7f1d1d' }}>
+                              <span>Product Lost:</span>
+                              <strong>{lostSummary.product || 0} deals</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#7f1d1d' }}>
+                              <span>No Response:</span>
+                              <strong>{lostSummary.noReply || 0} deals</strong>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1438,6 +1366,8 @@ export default function CRMReportsDashboard() {
                             else if (typeLabel === 'email') { typeIcon = <Mail size={14} />; typeColor = '#3b82f6'; }
                             else if (typeLabel === 'meeting') { typeIcon = <Calendar size={14} />; typeColor = '#8b5cf6'; }
                             else if (typeLabel === 'demo') { typeIcon = <TrendingUp size={14} />; typeColor = '#f59e0b'; }
+                            else if (typeLabel === 'pre_sale' || typeLabel === 'pre sale') { typeIcon = <FileText size={14} />; typeColor = '#0ea5e9'; }
+                            else if (typeLabel === 'post_sale' || typeLabel === 'post sale') { typeIcon = <FileText size={14} />; typeColor = '#8b5cf6'; }
 
                             // Outcome badge
                             let outcomeBadge = (
@@ -1514,7 +1444,7 @@ export default function CRMReportsDashboard() {
                       />
                     </div>
 
-                    {(!isRestricted || teams.length > 1) && teams && teams.length > 0 && (
+                    {teams && teams.length > 0 && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '200px' }}>
                         <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#475569' }}>Team:</span>
                         <select
@@ -1531,7 +1461,7 @@ export default function CRMReportsDashboard() {
                             cursor: 'pointer'
                           }}
                         >
-                          {!isRestricted && <option value="all">All Teams</option>}
+                          <option value="all">All Teams</option>
                           {teams.map(t => (
                             <option key={t._id} value={t.name}>{t.name}</option>
                           ))}
@@ -1762,11 +1692,20 @@ export default function CRMReportsDashboard() {
                         style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
                       >
                         <option value="all">All Lost Reasons</option>
-                        <option value="Price Lost">Price Lost</option>
-                        <option value="Product Lost">Product Lost</option>
-                        <option value="No Reply / No Response">No Reply / No Response</option>
-                        <option value="Lost due to Location">Lost due to Location</option>
-                        <option value="__other__">Other / Custom Reasons</option>
+                        <optgroup label="Standard Lost Reasons">
+                          {LOST_REASONS.map(lr => (
+                            <option key={lr.code} value={lr.value}>
+                              {lr.code}: {lr.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Legacy & Other">
+                          <option value="Price Lost">Price Lost (Legacy)</option>
+                          <option value="Product Lost">Product Lost (Legacy)</option>
+                          <option value="No Reply / No Response">No Reply / No Response (Legacy)</option>
+                          <option value="Lost due to Location">Lost due to Location (Legacy)</option>
+                          <option value="__other__">Other / Custom Reasons</option>
+                        </optgroup>
                       </select>
 
                       <button

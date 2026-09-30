@@ -27,6 +27,8 @@ router.get("/api/get-operations-planning-list/:username", applyUserIcdFilter, as
       return res.status(404).send({ message: "User not found" });
     }
 
+    const escapeRegex = (str) => (str ? String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : "");
+
     // ✅ Use middleware-based ICD filtering instead of hardcoded conditions
     let customHouseCondition = {};
     if (req.userIcdFilter) {
@@ -35,7 +37,7 @@ router.get("/api/get-operations-planning-list/:username", applyUserIcdFilter, as
     } else if (selectedICD && selectedICD !== "Select ICD") {
       // Fallback to URL parameter filtering (for backward compatibility)
       customHouseCondition = {
-        custom_house: new RegExp(`^${selectedICD}$`, "i"),
+        custom_house: new RegExp(`^${escapeRegex(selectedICD)}$`, "i"),
       };
     }
     // If req.userIcdFilter is null, user has full access (admin or "ALL" ICD code)
@@ -43,7 +45,7 @@ router.get("/api/get-operations-planning-list/:username", applyUserIcdFilter, as
     // ✅ Apply Importer Filter if provided
     let importerCondition = {};
     if (importer && importer !== "Select Importer") {
-      importerCondition = { importer: new RegExp(`^${importer}$`, "i") };
+      importerCondition = { importer: new RegExp(`^${escapeRegex(importer)}$`, "i") };
     }
 
     // ✅ Apply Year Filter if provided

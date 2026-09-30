@@ -421,15 +421,43 @@ const handleReportExport = async (req, res) => {
 
       const documentTypeMap = {
         ITAsset: "Asset",
+        Asset: "Asset",
         ItVendor: "Vendor",
+        Vendor: "Vendor",
         HelpdeskTicket: "Helpdesk",
+        Helpdesk: "Helpdesk",
         ITInventory: "Inventory",
+        Inventory: "Inventory",
         ITContract: "Contract",
+        Contract: "Contract",
         ITLicense: "License",
-        User: "User",
+        License: "License",
+        ITHelpdesk: "General",
+        ITAmcRenewal: "Contract",
+        EquipmentChecklist: "Inventory",
       };
 
-      const auditLogs = await AuditTrailModel.find({})
+      const itHelpdeskTypes = [
+        "ITAsset",
+        "Asset",
+        "ItVendor",
+        "Vendor",
+        "HelpdeskTicket",
+        "Helpdesk",
+        "ITInventory",
+        "Inventory",
+        "ITContract",
+        "Contract",
+        "ITLicense",
+        "License",
+        "ITHelpdesk",
+        "ITAmcRenewal",
+        "EquipmentChecklist",
+      ];
+
+      const auditLogs = await AuditTrailModel.find({
+        documentType: { $in: itHelpdeskTypes },
+      })
         .sort({ timestamp: -1 })
         .limit(50000)
         .lean();

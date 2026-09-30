@@ -57,7 +57,8 @@ const MODULES = [
   "Attendance",
   "Karma Points",
   "5S Audit",
-  "First Aid"
+  "First Aid",
+  "Transport Invoicing"
 ];
 
 function ModuleUserList() {

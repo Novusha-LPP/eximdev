@@ -52,7 +52,8 @@ const allModules = [
   "Karma Points",
   "Tally Transactions",
   "5S Audit",
-  "First Aid"
+  "First Aid",
+  "Transport Invoicing"
 ];
 
 // allowedModules: if provided, only these modules can be assigned (for HOD restriction)

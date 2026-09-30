@@ -157,13 +157,16 @@ router.get('/', async (req, res) => {
     const ownerFilter = await buildOwnerFilter(req.user, teamId, req);
     const query = { ...ownerFilter };
     
-    if (searchQuery) {
+    const isSearching = Boolean(searchQuery && searchQuery.trim());
+
+    if (isSearching) {
+      const trimmedSearch = searchQuery.trim();
       const searchOr = [
-        { company: { $regex: searchQuery, $options: 'i' } },
-        { firstName: { $regex: searchQuery, $options: 'i' } },
-        { lastName: { $regex: searchQuery, $options: 'i' } },
-        { email: { $regex: searchQuery, $options: 'i' } },
-        { phone: { $regex: searchQuery, $options: 'i' } }
+        { company: { $regex: trimmedSearch, $options: 'i' } },
+        { firstName: { $regex: trimmedSearch, $options: 'i' } },
+        { lastName: { $regex: trimmedSearch, $options: 'i' } },
+        { email: { $regex: trimmedSearch, $options: 'i' } },
+        { phone: { $regex: trimmedSearch, $options: 'i' } }
       ];
       if (query.$or) {
         query.$and = [{ $or: query.$or }, { $or: searchOr }];
@@ -171,46 +174,46 @@ router.get('/', async (req, res) => {
       } else {
         query.$or = searchOr;
       }
-    }
-
-    if (hsnCode && hsnCode.trim()) {
-      query.hsnCode = { $regex: hsnCode.trim(), $options: 'i' };
-    }
-
-    if (location && location.trim()) {
-      const locRegex = { $regex: location.trim(), $options: 'i' };
-      const locOr = [
-        { location: locRegex },
-        { pol: locRegex },
-        { pod: locRegex }
-      ];
-      if (query.$or) {
-        query.$and = [{ $or: query.$or }, { $or: locOr }];
-        delete query.$or;
-      } else {
-        query.$or = locOr;
-      }
-    }
-
-    if (businessVertical && businessVertical !== 'all') {
-      query.businessVertical = businessVertical;
-    }
-    if (status) query.status = status;
-    if (source) query.source = source;
-    if (service) query.interestedServices = service;
-    if (referralSourceName) {
-      query.referralSourceName = { $regex: referralSourceName, $options: 'i' };
-    }
-
-    if (startDate && endDate) {
-      query.createdAt = {
-        $gte: new Date(`${startDate}T00:00:00.000Z`),
-        $lte: new Date(`${endDate}T23:59:59.999Z`)
-      };
-    } else if (period) {
-      query.period = period;
+      // When searching, bypass all other applied filters (date range, period, status, source, etc.)
     } else {
-      query.period = new Date().toISOString().substring(0, 7);
+      if (hsnCode && hsnCode.trim()) {
+        query.hsnCode = { $regex: hsnCode.trim(), $options: 'i' };
+      }
+
+      if (location && location.trim()) {
+        const locRegex = { $regex: location.trim(), $options: 'i' };
+        const locOr = [
+          { location: locRegex },
+          { pol: locRegex },
+          { pod: locRegex }
+        ];
+        if (query.$or) {
+          query.$and = [{ $or: query.$or }, { $or: locOr }];
+          delete query.$or;
+        } else {
+          query.$or = locOr;
+        }
+      }
+
+      if (businessVertical && businessVertical !== 'all') {
+        query.businessVertical = businessVertical;
+      }
+      if (status) query.status = status;
+      if (source) query.source = source;
+      if (service) query.interestedServices = service;
+      if (referralSourceName) {
+        query.referralSourceName = { $regex: referralSourceName, $options: 'i' };
+      }
+
+      if (startDate && endDate) {
+        query.createdAt = {
+          $gte: new Date(`${startDate}T00:00:00.000Z`),
+          $lte: new Date(`${endDate}T23:59:59.999Z`)
+        };
+      } else if (period && period !== 'all') {
+        query.period = period;
+      }
+      // Note: By default, no month filter is forced, allowing all leads unless explicitly filtered
     }
 
     const userId = req.user?._id || req.headers['user-id'];
@@ -218,6 +221,7 @@ router.get('/', async (req, res) => {
 
     const leads = await Lead.find(query)
       .populate('ownerId', 'username first_name last_name')
+      .populate('createdBy', 'username first_name last_name')
       .populate('referredFromTeamId', 'nameCode teamName')
       .populate('referredToTeamId', 'nameCode teamName')
       .populate('referredByUserId', 'username first_name last_name')
@@ -235,6 +239,7 @@ router.get('/:id', async (req, res) => {
   try {
     const lead = await Lead.findById(req.params.id)
       .populate('ownerId', 'username first_name last_name')
+      .populate('createdBy', 'username first_name last_name')
       .populate('referredFromTeamId', 'nameCode teamName')
       .populate('referredToTeamId', 'nameCode teamName')
       .populate('referredByUserId', 'username first_name last_name');
@@ -274,6 +279,7 @@ router.put('/:id/refer', async (req, res) => {
     let receivingTeamId = targetTeamId;
     if (assignedTargetUser && mongoose.Types.ObjectId.isValid(assignedTargetUser)) {
       lead.ownerId = assignedTargetUser;
+      lead.referredToUserId = assignedTargetUser;
       if (!receivingTeamId) {
         const targetTeam = await SalesTeam.findOne({
           $or: [
@@ -309,7 +315,8 @@ router.put('/:id/refer', async (req, res) => {
       .populate('ownerId', 'username first_name last_name')
       .populate('referredFromTeamId', 'nameCode teamName name')
       .populate('referredToTeamId', 'nameCode teamName name')
-      .populate('referredByUserId', 'username first_name last_name');
+      .populate('referredByUserId', 'username first_name last_name')
+      .populate('referredToUserId', 'username first_name last_name');
 
     res.json({ success: true, message: 'Lead referred successfully. Lead is now visible to both referring and target teams.', lead: updatedLead });
   } catch (error) {
@@ -357,6 +364,7 @@ router.post('/', async (req, res) => {
     const leadData = {
       ...req.body,
       ownerId: req.body.ownerId || userId,
+      createdBy: userId,
       lastActivityAt: new Date()
     };
 
@@ -403,6 +411,12 @@ router.put('/:id', async (req, res) => {
       { new: true }
     );
     if (!updatedLead) return res.status(404).json({ message: 'Lead not found' });
+    if (req.body.companyType !== undefined && updatedLead.convertedTo?.opportunityId) {
+      await Opportunity.findByIdAndUpdate(updatedLead.convertedTo.opportunityId, { companyType: req.body.companyType });
+    }
+    if (req.body.garudaTeamMemberName !== undefined && updatedLead.convertedTo?.opportunityId) {
+      await Opportunity.findByIdAndUpdate(updatedLead.convertedTo.opportunityId, { garudaTeamMemberName: req.body.garudaTeamMemberName });
+    }
     res.json(updatedLead);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -412,8 +426,34 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/crm/leads/:id
 router.delete('/:id', async (req, res) => {
   try {
-    const lead = await Lead.findByIdAndDelete(req.params.id);
-    if (!lead) return res.status(404).json({ message: 'Lead not found' });
+    const lead = await Lead.findById(req.params.id);
+    if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
+
+    let userRole = req.user?.role || req.headers['user-role'];
+    let crmRole = req.user?.crmRole || req.headers['crm-role'];
+    const userId = req.user?._id || req.user?.id || req.headers['user-id'];
+
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      const dbUser = await UserModel.findById(userId).select('role crmRole isHod').lean();
+      if (dbUser) {
+        if (dbUser.role) userRole = dbUser.role;
+        if (dbUser.crmRole) crmRole = dbUser.crmRole;
+      }
+    }
+
+    const isHOD = userRole === 'HOD' || userRole === 'Head_of_Department' || (typeof userRole === 'string' && (userRole.toLowerCase() === 'hod' || userRole.toLowerCase() === 'head_of_department'));
+    const isCrmAdmin = crmRole === 'Admin' || (typeof crmRole === 'string' && crmRole.toLowerCase() === 'admin');
+    const isSystemAdmin = userRole === 'Admin' || (typeof userRole === 'string' && userRole.toLowerCase() === 'admin');
+    const isAdmin = (isCrmAdmin || isSystemAdmin) && !isHOD;
+
+    const creatorId = lead.createdBy?.toString() || lead.referredByUserId?.toString() || lead.ownerId?.toString();
+    const isCreator = userId && creatorId && (userId.toString() === creatorId);
+
+    if (!isAdmin && !isCreator) {
+      return res.status(403).json({ success: false, message: 'You are only allowed to delete leads that you created yourself.' });
+    }
+
+    await Lead.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: 'Lead deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -472,7 +512,7 @@ router.post('/:id/convert', async (req, res) => {
     const userId = req.user?._id || req.user?.id || req.headers['user-id'];
     const oppOwnerId = lead.ownerId || userId;
     let bv = lead.businessVertical;
-    if (!bv || bv === 'all' || (Array.isArray(lead.interestedServices) && lead.interestedServices.some(s => typeof s === 'string' && s.toLowerCase().includes('auto rack')))) {
+    if (!bv || bv === 'all' || (Array.isArray(lead.interestedServices) && lead.interestedServices.some(s => typeof s === 'string' && (s.toLowerCase().includes('autorack') || s.toLowerCase().includes('auto rack'))))) {
       if (!bv || bv === 'all') bv = 'Paramount';
     }
 
@@ -532,6 +572,8 @@ router.post('/:id/convert', async (req, res) => {
       referralSourceName: lead.referralSourceName,
       monthlyVolume: lead.monthlyVolume,
       monthlyRevenue: lead.monthlyRevenue,
+      companyType: lead.companyType,
+      garudaTeamMemberName: lead.garudaTeamMemberName,
       businessVertical: bv
     });
     await opportunity.save();

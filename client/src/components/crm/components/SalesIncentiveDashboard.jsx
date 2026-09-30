@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { TrendingUp, Award, Clock, CheckCircle2, DollarSign, Users, ChevronDown, ChevronUp, RefreshCw, Edit2, Save, X } from 'lucide-react';
+import { TrendingUp, Award, Clock, CheckCircle2, IndianRupee, Users, ChevronDown, ChevronUp, RefreshCw, Edit2, Save, X } from 'lucide-react';
 
 const getHeaders = () => {
   const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
@@ -87,7 +87,7 @@ function EmployeeView({ data, loading }) {
         <StatCard icon={TrendingUp} iconColor="#4f46e5" iconBg="#ede9fe" label="Total Earned" value={formatINR(summary.total)} subLabel="All time" />
         <StatCard icon={Clock} iconColor="#d97706" iconBg="#fef3c7" label="Pending Approval" value={formatINR(summary.pending)} subLabel="Awaiting manager" />
         <StatCard icon={CheckCircle2} iconColor="#16a34a" iconBg="#dcfce7" label="Approved" value={formatINR(summary.approved)} subLabel="Cleared for payout" />
-        <StatCard icon={DollarSign} iconColor="#0284c7" iconBg="#e0f2fe" label="Paid Out" value={formatINR(summary.paid)} subLabel="Received" />
+        <StatCard icon={IndianRupee} iconColor="#0284c7" iconBg="#e0f2fe" label="Paid Out" value={formatINR(summary.paid)} subLabel="Received" />
       </div>
 
       {/* Bar Chart Summary */}
@@ -185,7 +185,7 @@ function ManagerView({ data, loading, onStatusUpdate }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
         <StatCard icon={Clock} iconColor="#d97706" iconBg="#fef3c7" label="Pending Payout" value={formatINR(stats.totalPending)} subLabel={`${incentives.filter(i => i.status === 'pending').length} cases`} />
         <StatCard icon={CheckCircle2} iconColor="#16a34a" iconBg="#dcfce7" label="Approved" value={formatINR(stats.totalApproved)} subLabel="Approved, not paid" />
-        <StatCard icon={DollarSign} iconColor="#0284c7" iconBg="#e0f2fe" label="Total Paid" value={formatINR(stats.totalPaid)} subLabel="Disbursed" />
+        <StatCard icon={IndianRupee} iconColor="#0284c7" iconBg="#e0f2fe" label="Total Paid" value={formatINR(stats.totalPaid)} subLabel="Disbursed" />
         <StatCard icon={TrendingUp} iconColor="#7c3aed" iconBg="#ede9fe" label="Total Liability" value={formatINR(stats.totalLiability)} subLabel="All incentives" />
       </div>
 

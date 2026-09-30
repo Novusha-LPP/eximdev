@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Filter, RotateCcw } from 'lucide-react';
 
-export default function FilterBar({ moduleName, onChange, disabled = false }) {
+export default function FilterBar({ moduleName, onChange, disabled = false, onClearAll = null, resetTrigger = 0, showClearAll = true }) {
   const getInitialFilters = () => {
     try {
       const stored = localStorage.getItem(`crm_filters_${moduleName}`);
@@ -12,16 +12,28 @@ export default function FilterBar({ moduleName, onChange, disabled = false }) {
       console.error('Error loading filters from storage:', e);
     }
     
-    // Default to 'This Month'
+    // Default to 'All'
     return {
-      type: 'this_month', // 'this_month' | 'last_month' | 'this_week' | 'last_7_days' | 'month_picker' | 'custom'
-      month: new Date().toISOString().substring(0, 7), // YYYY-MM
+      type: 'all',
+      month: '',
       startDate: '',
       endDate: ''
     };
   };
 
   const [filters, setFilters] = useState(getInitialFilters);
+
+  // Sync when resetTrigger triggers
+  useEffect(() => {
+    if (resetTrigger > 0) {
+      setFilters({
+        type: 'all',
+        month: '',
+        startDate: '',
+        endDate: ''
+      });
+    }
+  }, [resetTrigger]);
 
   // Generate last 12 months for dropdown
   const getMonthsList = () => {
@@ -47,7 +59,15 @@ export default function FilterBar({ moduleName, onChange, disabled = false }) {
     let endDate = '';
     const now = new Date();
 
-    if (type === 'this_month') {
+    if (type === 'all') {
+      setFilters({
+        type: 'all',
+        month: '',
+        startDate: '',
+        endDate: ''
+      });
+      return;
+    } else if (type === 'this_month') {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().substring(0, 10);
       endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().substring(0, 10);
     } else if (type === 'last_month') {
@@ -74,7 +94,15 @@ export default function FilterBar({ moduleName, onChange, disabled = false }) {
 
   const handleMonthChange = (e) => {
     const month = e.target.value;
-    if (!month) return;
+    if (!month) {
+      setFilters({
+        type: 'all',
+        month: '',
+        startDate: '',
+        endDate: ''
+      });
+      return;
+    }
     const [year, m] = month.split('-');
     const startDate = new Date(year, parseInt(m) - 1, 1).toISOString().substring(0, 10);
     const endDate = new Date(year, parseInt(m), 0).toISOString().substring(0, 10);
@@ -97,16 +125,17 @@ export default function FilterBar({ moduleName, onChange, disabled = false }) {
   };
 
   const handleReset = () => {
-    const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().substring(0, 10);
-    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().substring(0, 10);
+    const defaultFilters = {
+      type: 'all',
+      month: '',
+      startDate: '',
+      endDate: ''
+    };
 
-    setFilters({
-      type: 'this_month',
-      month: now.toISOString().substring(0, 7),
-      startDate,
-      endDate
-    });
+    setFilters(defaultFilters);
+    if (onClearAll) {
+      onClearAll();
+    }
   };
 
   const activeBtnStyle = {
@@ -141,6 +170,7 @@ export default function FilterBar({ moduleName, onChange, disabled = false }) {
           <Filter size={16} /> Filters
         </div>
         {[
+          { id: 'all', label: 'All' },
           { id: 'this_month', label: 'This Month' },
           { id: 'last_month', label: 'Last Month' },
           { id: 'this_week', label: 'This Week' },
@@ -168,6 +198,44 @@ export default function FilterBar({ moduleName, onChange, disabled = false }) {
             </button>
           );
         })}
+
+        {showClearAll && onClearAll && (
+          <button
+            key="clear_all_btn"
+            onClick={onClearAll}
+            disabled={disabled}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '10px',
+              border: '1px solid #fecaca',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              cursor: disabled ? 'not-allowed' : 'pointer',
+              opacity: disabled ? 0.5 : 1,
+              transition: 'all 0.2s',
+              background: '#fff1f2',
+              color: '#e11d48',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onMouseEnter={e => {
+              if (!disabled) {
+                e.currentTarget.style.background = '#ffe4e6';
+                e.currentTarget.style.borderColor = '#fca5a5';
+              }
+            }}
+            onMouseLeave={e => {
+              if (!disabled) {
+                e.currentTarget.style.background = '#fff1f2';
+                e.currentTarget.style.borderColor = '#fecaca';
+              }
+            }}
+            title="Clear all filters and reset"
+          >
+            <RotateCcw size={14} /> Clear All Filters
+          </button>
+        )}
       </div>
 
       {/* Month & Date Pickers */}
@@ -192,7 +260,7 @@ export default function FilterBar({ moduleName, onChange, disabled = false }) {
               outline: 'none'
             }}
           >
-            <option value="">-- Choose Month --</option>
+            <option value="">All Months</option>
             {getMonthsList().map(m => (
               <option key={m.val} value={m.val}>{m.label}</option>
             ))}
@@ -238,7 +306,7 @@ export default function FilterBar({ moduleName, onChange, disabled = false }) {
           }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#ffffff'; }}
-          title="Reset filters"
+          title="Clear all filters and reset"
         >
           <RotateCcw size={16} />
         </button>

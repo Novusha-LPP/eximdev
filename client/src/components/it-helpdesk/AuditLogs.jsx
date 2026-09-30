@@ -102,8 +102,6 @@ const MODULES = {
   CONTRACT: 'Contract',
   INVENTORY: 'Inventory',
   LICENSE: 'License',
-  CONTRACT: 'Contract',
-  VENDOR: 'Vendor',
   ADMINISTRATION: 'Administration',
   GENERAL: 'General'
 };

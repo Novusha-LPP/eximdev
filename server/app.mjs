@@ -515,6 +515,8 @@ app.use(
       "userId",
       "username",
       "user-role",
+      "user-email",
+      "user-firstname",
       "x-username",
       "x-tenant-id",
       "x-tenant-slug",

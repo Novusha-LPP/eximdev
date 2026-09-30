@@ -60,7 +60,8 @@ export default function NewDesignRequestModal({ isOpen, onClose, onSuccess, init
   if (!isOpen) return null;
 
   const handleFileUpload = async (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files || []);
+    e.target.value = ''; // Reset input so re-selecting same files triggers change
     if (!files || files.length === 0) return;
 
     setUploading(true);
@@ -74,7 +75,6 @@ export default function NewDesignRequestModal({ isOpen, onClose, onSuccess, init
           formData,
           {
             headers: {
-              'Content-Type': 'multipart/form-data',
               'user-id': currentUser._id || currentUser.id || '',
               'username': currentUser.username || '',
               'user-role': currentUser.role || '',
@@ -96,7 +96,7 @@ export default function NewDesignRequestModal({ isOpen, onClose, onSuccess, init
       message.success('Reference files attached successfully');
     } catch (err) {
       console.error('File upload failed:', err);
-      message.error('Failed to upload file');
+      message.error(err.response?.data?.error || 'Failed to upload file');
     } finally {
       setUploading(false);
     }

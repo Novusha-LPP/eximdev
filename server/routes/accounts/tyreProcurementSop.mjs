@@ -985,12 +985,6 @@ router.post("/tyre-procurement", authMiddleware, async (req, res) => {
 
 // Update Tyre PR
 router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
-      const permissionUser = await UserModel.findById(req.user?._id).select("tyre_procurement_admin").lean();
-      const lockMessage = assertTyreSignOffLocks(
-        existing,
-        payload,
-        { ...req.user, tyre_procurement_admin: Boolean(permissionUser?.tyre_procurement_admin) }
-      );
   try {
     let payload = normalizeTyreEnums(uppercaseDeep(req.body));
     const { prNumber } = payload;
@@ -998,7 +992,12 @@ router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
     if (!existing) {
       return res.status(404).json({ success: false, message: "Tyre PR not found" });
     }
-    const lockMessage = assertTyreSignOffLocks(existing, payload, req.user);
+    const permissionUser = await UserModel.findById(req.user?._id).select("tyre_procurement_admin").lean();
+    const lockMessage = assertTyreSignOffLocks(
+      existing,
+      payload,
+      { ...req.user, tyre_procurement_admin: Boolean(permissionUser?.tyre_procurement_admin) }
+    );
     if (lockMessage) {
       return res.status(403).json({ success: false, message: lockMessage });
     }

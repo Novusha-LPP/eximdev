@@ -49,7 +49,17 @@ export default function CompanyBrochuresTab() {
   const isKinjalOrAdmin = useMemo(() => {
     const uname = (currentUser.username || '').toLowerCase();
     const role = (currentUser.role || '').toLowerCase();
-    return uname === 'kinjal_khatri' || uname.includes('kinjal') || role === 'admin';
+    const firstName = (currentUser.first_name || '').toLowerCase();
+    const lastName = (currentUser.last_name || '').toLowerCase();
+    const email = (currentUser.email || '').toLowerCase();
+    return (
+      uname === 'kinjal_khatri' ||
+      uname.includes('kinjal') ||
+      firstName.includes('kinjal') ||
+      lastName.includes('kinjal') ||
+      email.includes('kinjal') ||
+      role === 'admin'
+    );
   }, [currentUser]);
 
   // Main Active Sub-tab: 'brochures' or 'requests'

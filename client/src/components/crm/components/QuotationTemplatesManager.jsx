@@ -28,6 +28,50 @@ const COLOR_THEMES = [
   { name: 'Warm Amber Corporate', theme: '#78350f', accent: '#d97706', bg: '#fffbeb' }
 ];
 
+// ──────────────────────────────────────────────
+// Validation Helpers (Phone, Pincode, PAN, GSTIN, Email, Website, IFSC)
+// ──────────────────────────────────────────────
+const isValidPhone = (val) => {
+  if (!val || typeof val !== 'string' || !val.trim()) return true;
+  const str = val.trim();
+  const digits = str.replace(/\D/g, '');
+  if (digits.length < 7 || digits.length > 15) return false;
+  const normalized = digits.replace(/^91(?=\d{10})|^0(?=\d{10})/, '');
+  if (normalized.length === 10 && /^[6-9]\d{9}$/.test(normalized)) return true;
+  if (digits.length >= 10 && digits.length <= 11 && digits.startsWith('0')) return true;
+  return /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{6,15}$/.test(str);
+};
+
+const isValidPincode = (val) => {
+  if (!val || typeof val !== 'string' || !val.trim()) return true;
+  return /^[1-9][0-9]{5}$/.test(val.trim());
+};
+
+const isValidPAN = (val) => {
+  if (!val || typeof val !== 'string' || !val.trim()) return true;
+  return /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(val.trim().toUpperCase());
+};
+
+const isValidGSTIN = (val) => {
+  if (!val || typeof val !== 'string' || !val.trim()) return true;
+  return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(val.trim().toUpperCase());
+};
+
+const isValidEmail = (val) => {
+  if (!val || typeof val !== 'string' || !val.trim()) return true;
+  return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(val.trim());
+};
+
+const isValidWebsite = (val) => {
+  if (!val || typeof val !== 'string' || !val.trim()) return true;
+  return /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{2,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)$/i.test(val.trim());
+};
+
+const isValidIFSC = (val) => {
+  if (!val || typeof val !== 'string' || !val.trim()) return true;
+  return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(val.trim().toUpperCase());
+};
+
 export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }) {
   const [activeTab, setActiveTab] = useState('templates'); // 'templates' | 'companies'
 
@@ -39,6 +83,7 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
   // Edit / Form states for Company
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState(null);
+  const [companyErrors, setCompanyErrors] = useState({});
   const [companyForm, setCompanyForm] = useState({
     name: '',
     tagline: '',
@@ -120,6 +165,7 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
 
   // ---------------- Company Handlers ----------------
   const handleOpenCompanyModal = (comp = null) => {
+    setCompanyErrors({});
     if (comp) {
       setEditingCompany(comp);
       setCompanyForm({
@@ -188,32 +234,131 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
     reader.readAsDataURL(file);
   };
 
+  const validateCompanyForm = () => {
+    const errors = {};
+
+    // 1. Company Name (Required)
+    if (!companyForm.name || !companyForm.name.trim()) {
+      errors.name = 'Company Name is required';
+    }
+
+    // 2. Phone
+    if (companyForm.phone && !isValidPhone(companyForm.phone)) {
+      errors.phone = 'Invalid phone number (10-digit mobile or standard landline)';
+    }
+
+    // 3. Pincode
+    if (companyForm.address?.pincode && !isValidPincode(companyForm.address.pincode)) {
+      errors.pincode = 'Pincode must be exactly 6 digits and cannot start with 0';
+    }
+
+    // 4. PAN
+    const pan = companyForm.pan ? companyForm.pan.trim().toUpperCase() : '';
+    if (pan && !isValidPAN(pan)) {
+      errors.pan = 'Invalid PAN format (e.g. AAHCP4599D - 5 letters, 4 digits, 1 letter)';
+    }
+
+    // 5. GSTIN
+    const gstin = companyForm.gstin ? companyForm.gstin.trim().toUpperCase() : '';
+    if (gstin) {
+      if (!isValidGSTIN(gstin)) {
+        errors.gstin = 'Invalid GSTIN format (e.g. 24AAHCP4599D1Z8 - 15 characters)';
+      } else if (pan && isValidPAN(pan)) {
+        const panInGst = gstin.substring(2, 12);
+        if (panInGst !== pan) {
+          errors.gstin = `GSTIN PAN segment (${panInGst}) does not match entered PAN (${pan})`;
+        }
+      }
+    }
+
+    // 6. Email
+    if (companyForm.email && !isValidEmail(companyForm.email)) {
+      errors.email = 'Invalid email address format (e.g. sales@company.com)';
+    }
+
+    // 7. Website
+    if (companyForm.website && !isValidWebsite(companyForm.website)) {
+      errors.website = 'Invalid website format (e.g. www.company.com or https://company.com)';
+    }
+
+    // 8. IFSC
+    const ifsc = companyForm.bankDetails?.ifscCode ? companyForm.bankDetails.ifscCode.trim().toUpperCase() : '';
+    if (ifsc && !isValidIFSC(ifsc)) {
+      errors.ifsc = "Invalid IFSC Code (e.g. HDFC0001234 - 11 chars with '0' as 5th char)";
+    }
+
+    return errors;
+  };
+
   const handleSaveCompany = async () => {
-    if (!companyForm.name.trim()) {
-      message.error('Company Name is required');
+    const errors = validateCompanyForm();
+    if (Object.keys(errors).length > 0) {
+      setCompanyErrors(errors);
+      const firstError = Object.values(errors)[0];
+      message.error(firstError);
       return;
     }
+    setCompanyErrors({});
+
+    const payload = {
+      ...companyForm,
+      name: companyForm.name.trim(),
+      tagline: (companyForm.tagline || '').trim(),
+      gstin: (companyForm.gstin || '').trim().toUpperCase(),
+      pan: (companyForm.pan || '').trim().toUpperCase(),
+      cin: (companyForm.cin || '').trim().toUpperCase(),
+      email: (companyForm.email || '').trim().toLowerCase(),
+      phone: (companyForm.phone || '').trim(),
+      website: (companyForm.website || '').trim(),
+      address: {
+        ...companyForm.address,
+        street: (companyForm.address?.street || '').trim(),
+        city: (companyForm.address?.city || '').trim(),
+        state: (companyForm.address?.state || '').trim(),
+        pincode: (companyForm.address?.pincode || '').trim(),
+        country: (companyForm.address?.country || 'India').trim()
+      },
+      bankDetails: {
+        ...companyForm.bankDetails,
+        bankName: (companyForm.bankDetails?.bankName || '').trim(),
+        accountName: (companyForm.bankDetails?.accountName || '').trim(),
+        accountNumber: (companyForm.bankDetails?.accountNumber || '').trim(),
+        ifscCode: (companyForm.bankDetails?.ifscCode || '').trim().toUpperCase(),
+        swiftCode: (companyForm.bankDetails?.swiftCode || '').trim().toUpperCase(),
+        branch: (companyForm.bankDetails?.branch || '').trim()
+      },
+      authorizedSignatory: {
+        name: (companyForm.authorizedSignatory?.name || '').trim(),
+        designation: (companyForm.authorizedSignatory?.designation || '').trim(),
+        signatureUrl: companyForm.authorizedSignatory?.signatureUrl || ''
+      }
+    };
+
     try {
       if (editingCompany) {
         await axios.put(
           `${process.env.REACT_APP_API_STRING}/crm/quotation-companies/${editingCompany._id}`,
-          companyForm,
+          payload,
           getHeaders()
         );
         message.success('Company profile updated successfully');
       } else {
         await axios.post(
           `${process.env.REACT_APP_API_STRING}/crm/quotation-companies`,
-          companyForm,
+          payload,
           getHeaders()
         );
         message.success('Company profile created successfully');
       }
       setIsCompanyModalOpen(false);
+      setCompanyErrors({});
       fetchData();
       if (onRefresh) onRefresh();
     } catch (err) {
       console.error('Failed to save company:', err);
+      if (err.response?.data?.errors) {
+        setCompanyErrors(err.response.data.errors);
+      }
       message.error(err.response?.data?.message || 'Failed to save company profile');
     }
   };
@@ -722,9 +867,15 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                   <input
                     type="text" required placeholder="Ex. Paramount Propack Pvt Ltd"
                     value={companyForm.name}
-                    onChange={e => setCompanyForm({ ...companyForm, name: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.88rem' }}
+                    onChange={e => {
+                      setCompanyForm({ ...companyForm, name: e.target.value });
+                      if (companyErrors.name) setCompanyErrors(prev => ({ ...prev, name: '' }));
+                    }}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: `1px solid ${companyErrors.name ? '#ef4444' : '#cbd5e1'}`, outline: 'none', fontSize: '0.88rem' }}
                   />
+                  {companyErrors.name && (
+                    <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '3px', display: 'block' }}>{companyErrors.name}</span>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>TAGLINE / SUBTITLE</label>
@@ -742,20 +893,34 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>GSTIN / TAX NO</label>
                   <input
-                    type="text" placeholder="24AAHCP4599D1Z8"
+                    type="text" placeholder="24AAHCP4599D1Z8" maxLength={15}
                     value={companyForm.gstin}
-                    onChange={e => setCompanyForm({ ...companyForm, gstin: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.88rem' }}
+                    onChange={e => {
+                      const val = e.target.value.toUpperCase().slice(0, 15);
+                      setCompanyForm({ ...companyForm, gstin: val });
+                      if (companyErrors.gstin) setCompanyErrors(prev => ({ ...prev, gstin: '' }));
+                    }}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: `1px solid ${companyErrors.gstin ? '#ef4444' : '#cbd5e1'}`, outline: 'none', fontSize: '0.88rem' }}
                   />
+                  {companyErrors.gstin && (
+                    <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '3px', display: 'block' }}>{companyErrors.gstin}</span>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>PAN NO</label>
                   <input
-                    type="text" placeholder="AAHCP4599D"
+                    type="text" placeholder="AAHCP4599D" maxLength={10}
                     value={companyForm.pan}
-                    onChange={e => setCompanyForm({ ...companyForm, pan: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.88rem' }}
+                    onChange={e => {
+                      const val = e.target.value.toUpperCase().slice(0, 10);
+                      setCompanyForm({ ...companyForm, pan: val });
+                      if (companyErrors.pan) setCompanyErrors(prev => ({ ...prev, pan: '' }));
+                    }}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: `1px solid ${companyErrors.pan ? '#ef4444' : '#cbd5e1'}`, outline: 'none', fontSize: '0.88rem' }}
                   />
+                  {companyErrors.pan && (
+                    <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '3px', display: 'block' }}>{companyErrors.pan}</span>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>CIN (Optional)</label>
@@ -801,11 +966,18 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>PINCODE</label>
                   <input
-                    type="text" placeholder="380006"
+                    type="text" placeholder="380006" maxLength={6}
                     value={companyForm.address.pincode}
-                    onChange={e => setCompanyForm({ ...companyForm, address: { ...companyForm.address, pincode: e.target.value } })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.88rem' }}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setCompanyForm({ ...companyForm, address: { ...companyForm.address, pincode: val } });
+                      if (companyErrors.pincode) setCompanyErrors(prev => ({ ...prev, pincode: '' }));
+                    }}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: `1px solid ${companyErrors.pincode ? '#ef4444' : '#cbd5e1'}`, outline: 'none', fontSize: '0.88rem' }}
                   />
+                  {companyErrors.pincode && (
+                    <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '3px', display: 'block' }}>{companyErrors.pincode}</span>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>COUNTRY</label>
@@ -825,27 +997,45 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                   <input
                     type="text" placeholder="+91 9924304363"
                     value={companyForm.phone}
-                    onChange={e => setCompanyForm({ ...companyForm, phone: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.88rem' }}
+                    onChange={e => {
+                      setCompanyForm({ ...companyForm, phone: e.target.value });
+                      if (companyErrors.phone) setCompanyErrors(prev => ({ ...prev, phone: '' }));
+                    }}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: `1px solid ${companyErrors.phone ? '#ef4444' : '#cbd5e1'}`, outline: 'none', fontSize: '0.88rem' }}
                   />
+                  {companyErrors.phone && (
+                    <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '3px', display: 'block' }}>{companyErrors.phone}</span>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>EMAIL</label>
                   <input
                     type="email" placeholder="sales@company.com"
                     value={companyForm.email}
-                    onChange={e => setCompanyForm({ ...companyForm, email: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.88rem' }}
+                    onChange={e => {
+                      setCompanyForm({ ...companyForm, email: e.target.value });
+                      if (companyErrors.email) setCompanyErrors(prev => ({ ...prev, email: '' }));
+                    }}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: `1px solid ${companyErrors.email ? '#ef4444' : '#cbd5e1'}`, outline: 'none', fontSize: '0.88rem' }}
                   />
+                  {companyErrors.email && (
+                    <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '3px', display: 'block' }}>{companyErrors.email}</span>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>WEBSITE</label>
                   <input
                     type="text" placeholder="www.company.com"
                     value={companyForm.website}
-                    onChange={e => setCompanyForm({ ...companyForm, website: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.88rem' }}
+                    onChange={e => {
+                      setCompanyForm({ ...companyForm, website: e.target.value });
+                      if (companyErrors.website) setCompanyErrors(prev => ({ ...prev, website: '' }));
+                    }}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: `1px solid ${companyErrors.website ? '#ef4444' : '#cbd5e1'}`, outline: 'none', fontSize: '0.88rem' }}
                   />
+                  {companyErrors.website && (
+                    <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '3px', display: 'block' }}>{companyErrors.website}</span>
+                  )}
                 </div>
               </div>
 
@@ -887,11 +1077,18 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '3px' }}>IFSC CODE</label>
                     <input
-                      type="text" placeholder="HDFC0001234"
+                      type="text" placeholder="HDFC0001234" maxLength={11}
                       value={companyForm.bankDetails.ifscCode}
-                      onChange={e => setCompanyForm({ ...companyForm, bankDetails: { ...companyForm.bankDetails, ifscCode: e.target.value } })}
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                      onChange={e => {
+                        const val = e.target.value.toUpperCase().slice(0, 11);
+                        setCompanyForm({ ...companyForm, bankDetails: { ...companyForm.bankDetails, ifscCode: val } });
+                        if (companyErrors.ifsc) setCompanyErrors(prev => ({ ...prev, ifsc: '' }));
+                      }}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: `1px solid ${companyErrors.ifsc ? '#ef4444' : '#cbd5e1'}`, fontSize: '0.85rem' }}
                     />
+                    {companyErrors.ifsc && (
+                      <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '3px', display: 'block' }}>{companyErrors.ifsc}</span>
+                    )}
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '3px' }}>SWIFT CODE (Optional)</label>

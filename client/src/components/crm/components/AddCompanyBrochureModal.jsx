@@ -63,7 +63,8 @@ export default function AddCompanyBrochureModal({ isOpen, onClose, onSuccess, in
 
   // Handle brochure file upload
   const handleFileUpload = async (e, index) => {
-    const file = e.target.files[0];
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // Reset input so re-selecting same file triggers change
     if (!file) return;
 
     setUploadingIndex(index);
@@ -78,7 +79,6 @@ export default function AddCompanyBrochureModal({ isOpen, onClose, onSuccess, in
         formData,
         {
           headers: {
-            'Content-Type': 'multipart/form-data',
             'user-id': user._id || user.id || '',
             'username': user.username || '',
             'user-role': user.role || '',
@@ -89,8 +89,8 @@ export default function AddCompanyBrochureModal({ isOpen, onClose, onSuccess, in
 
       const updated = [...brochures];
       updated[index] = {
-        ...updated[index],
-        title: updated[index].title || file.name.replace(/\.[^/.]+$/, ''),
+        ...(updated[index] || {}),
+        title: (updated[index] && updated[index].title) || file.name.replace(/\.[^/.]+$/, ''),
         fileUrl: res.data.url,
         fileKey: res.data.fileKey,
         fileSize: res.data.fileSize,
@@ -100,7 +100,7 @@ export default function AddCompanyBrochureModal({ isOpen, onClose, onSuccess, in
       message.success(`Uploaded ${file.name}`);
     } catch (err) {
       console.error('File upload failed:', err);
-      message.error('Failed to upload file. Please try again.');
+      message.error(err.response?.data?.error || 'Failed to upload file. Please try again.');
     } finally {
       setUploadingIndex(null);
     }

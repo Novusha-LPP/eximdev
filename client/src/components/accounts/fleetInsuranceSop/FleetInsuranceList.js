@@ -1913,9 +1913,9 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                           </TableCell>
                         </TableRow>
                         <TableRow hover>
-                          <TableCell sx={{ pl: 3.5, fontSize: "12.5px", color: "#475569" }}>• New NCB Amount</TableCell>
+                          <TableCell sx={{ pl: 3.5, fontSize: "12.5px", color: "#475569" }}>• New NCB Amount (₹)</TableCell>
                           <TableCell sx={{ fontSize: "12.5px", textAlign: "right", fontWeight: 600, color: "#16a34a" }}>
-                            ₹ {Number(row.newNcbAmount || 0).toLocaleString("en-IN")}
+                            - ₹ {Number(row.newNcbAmount || row.newNcb || 0).toLocaleString("en-IN")}
                           </TableCell>
                         </TableRow>
                         <TableRow hover sx={{ bgcolor: "#f1f5f9" }}>

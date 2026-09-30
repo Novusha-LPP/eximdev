@@ -235,6 +235,75 @@ This test suite covers functional testing across all 4 sub-modules of Customer R
      - Fix typo `"quantity in peices"` to `"Qty (Pieces)"` or `"Quantity (Pcs)"`.
      - Reset `doc.setCharSpace(0)` and ensure standard `toLocaleString('en-IN')` string output for all totals.
 
+#### CRM-BUG-006: Missing Client-Side and Server-Side Input Validation in Company Entity Profile Form (Phone, Pincode, PAN, GSTIN, Email, Website, IFSC)
+- **Issue Key:** CRM-BUG-006
+- **Issue Type:** Bug / Defect
+- **Component / Sub-Module:** CRM / Quotation & Proposal Tracking / Company Entity Profile (`QuotationTemplatesManager.jsx`, `QuotationCompany.mjs`, `quotationCompanies.controller.mjs`)
+- **Severity:** High (Data Integrity Degradation & Corrupted Business Records)
+- **Priority:** High
+- **Status:** Open
+- **Reported Date:** 2026-09-30
+- **Environment:** Staging / Development / Production (`client` SPA + `server` Express / Mongoose)
+- **API Endpoint:** `POST /api/crm/quotation-companies` & `PUT /api/crm/quotation-companies/:id`
+- **Summary:** The "Add New Company Entity" / "Edit Company Profile" modal in Quotation Template Settings does not perform validation on critical input fields (Phone No., Pincode, PAN Number, GSTIN, Email, Website, IFSC Code), allowing invalid and arbitrary data to be saved to the database.
+- **Description:**
+  When adding or editing a company profile entity for quotations via the "Add New Company Entity" modal in CRM Quotation Template Manager, only `companyForm.name` is validated prior to submission. All other mandatory business identification and contact fields lack format, character type, and length validations:
+
+  1. **Phone Number (`companyForm.phone`):**
+     - Accepts arbitrary string lengths and letters (e.g., `"abcdef"`, `"123"`). No 10-digit or valid international dialing format check.
+  2. **Pincode (`companyForm.address.pincode`):**
+     - Accepts non-numeric characters and arbitrary lengths (e.g., `"abc"`, `"123456789"`). Does not enforce standard 6-digit Indian Postal PIN code format (`^[1-9][0-9]{5}$`).
+  3. **PAN Number (`companyForm.pan`):**
+     - Accepts arbitrary strings without checking standard 10-character alphanumeric PAN structure (`[A-Z]{5}[0-9]{4}[A-Z]{1}`) and does not auto-uppercase input.
+  4. **GSTIN / Tax No (`companyForm.gstin`):**
+     - Accepts random text of any length without validating standard 15-character GSTIN structure (`^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$`).
+  5. **Email (`companyForm.email`):**
+     - Uses standard `<input type="email">` within a `<div>` modal with a manual `onClick` handler instead of an HTML `<form>`. Consequently, browser email format verification never executes, allowing invalid emails (e.g., `"user@"`, `"notanemail"`) to be saved.
+  6. **Website (`companyForm.website`):**
+     - Accepts invalid URL structures without regex/domain verification.
+  7. **Bank IFSC Code (`companyForm.bankDetails.ifscCode`):**
+     - Accepts non-standard values without enforcing the 11-character Indian Financial System Code format (`^[A-Z]{4}0[A-Z0-9]{6}$`).
+
+- **Steps to Reproduce:**
+  1. Navigate to **CRM** -> **Settings / Quotation Templates** (`/crm/quotations/settings` or Template Manager).
+  2. Switch to the **Company Profiles & Entities** tab.
+  3. Click **+ Add Company Entity**.
+  4. Enter a valid Company Name (e.g., `"Test Logistics Ltd"`).
+  5. In **PAN NO**, enter `"invalid123"`.
+  6. In **PINCODE**, enter `"abc"`.
+  7. In **PHONE**, enter `"123"`.
+  8. In **EMAIL**, enter `"not-an-email"`.
+  9. In **WEBSITE**, enter `"invalidwebsite"`.
+  10. In **IFSC CODE**, enter `"badifsc"`.
+  11. Click **Save Company Profile**.
+- **Expected Result:**
+  - Form should display inline field errors or alert notifications blocking submission when inputs fail valid format criteria:
+    - PAN must follow `^[A-Z]{5}[0-9]{4}[A-Z]{1}$`.
+    - Pincode must be a 6-digit numeric string.
+    - Phone must be a valid 10-digit number / international format.
+    - Email must follow valid RFC email pattern.
+    - Website must be a valid URL/domain format.
+    - IFSC must follow `^[A-Z]{4}0[A-Z0-9]{6}$`.
+  - Backend controller (`quotationCompanies.controller.mjs`) and Mongoose model (`QuotationCompany.mjs`) should also validate field formats before persisting to DB.
+- **Actual Result:**
+  - Save succeeds immediately with `message.success('Company profile created successfully')`.
+  - Database stores corrupted and invalid identification, tax, and banking details.
+- **Impact:**
+  - High. Corrupted company tax and contact information directly impacts official PDF quotation documents sent to clients, leading to non-compliant tax invoices, failed payments, and damaged professional credibility.
+- **Root Cause Analysis:**
+  1. In `QuotationTemplatesManager.jsx`, `handleSaveCompany` only checks `!companyForm.name.trim()`.
+  2. The modal is implemented with regular `div` buttons rather than a form with controlled field validators or Yup / Formik validation schema.
+  3. Backend Mongoose schema `QuotationCompany.mjs` defines all fields as generic unvalidated `String` types with no regex matchers or pre-save sanitizers.
+- **Suggested Resolution / Fix:**
+  1. Add frontend regex validators and sanitizers in `QuotationTemplatesManager.jsx`:
+     - PAN: Auto-uppercase on change + regex `^[A-Z]{5}[0-9]{4}[A-Z]{1}$`.
+     - Pincode: Digits only, max 6 characters (`/^\d{6}$/`).
+     - Phone: Digits and standard phone formatting (`/^[0-9+\s\-()]{10,15}$/`).
+     - Email: Regex check (`/^[^\s@]+@[^\s@]+\.[^\s@]+$/`).
+     - Website: URL / domain regex check.
+     - IFSC: Auto-uppercase + regex `^[A-Z]{4}0[A-Z0-9]{6}$`.
+  2. Add backend validation in `QuotationCompany.mjs` Mongoose schema and `quotationCompanies.controller.mjs`.
+
 ---
 
 ### 4. CRM Pipeline & Conversion Analytics
@@ -247,9 +316,11 @@ This test suite covers functional testing across all 4 sub-modules of Customer R
 ## Reported Bugs Summary
 
 | Bug ID | Sub-Module | Description | Severity | Priority | Status | Reported Date |
-| --- | --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- | --- |
 | **CRM-BUG-001** | Lead & Inquiry / Filters | Duplicate & unstandardized location filter values (Mundra, Nhava Sheva) | High | High | Resolved | 2026-09-23 |
 | **CRM-BUG-002** | Lead Conversion | HTTP 500 on converting "Novusha" lead due to missing enum in Account/Contact schema | Critical | High | Resolved | 2026-09-23 |
 | **CRM-BUG-003** | Lead Management Grid | Converted leads with lost deals show empty (`—`) in Reason for Loss column | Medium | High | Resolved | 2026-09-23 |
 | **CRM-BUG-004** | Activity Calendar | Tasks, activities & visits duplicate across consecutive days (today & tomorrow) | High | High | Resolved | 2026-09-23 |
 | **CRM-BUG-005** | Quotation & Proposal Tracking | Overlapping header text, corrupted currency glyphs (`\``) & digit spacing glitches in PDF | High | High | Open | 2026-09-25 |
+| **CRM-BUG-006** | Quotation / Company Entities | Missing client and server validation for Phone, Pincode, PAN, GSTIN, Email, Website, IFSC | High | High | Open | 2026-09-30 |
+

@@ -1026,11 +1026,14 @@ router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
 router.delete("/tyre-procurement/:id", authMiddleware, async (req, res) => {
   try {
     const role = (req.user?.role || "").toLowerCase();
-    const permissionUser = await UserModel.findById(req.user?._id).select("tyre_procurement_admin").lean();
+    const permissionUser = await UserModel.findById(req.user?._id).select("tyre_procurement_admin tyre_procurement_tabs").lean();
     const identity = [req.user?.username, req.user?.first_name, req.user?.middle_name, req.user?.last_name]
       .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
     const isAjay = identity.includes("ajay") || String(req.user?.username || "").toLowerCase().includes("ajay");
-    if (role !== "admin" && role !== "superadmin" && !isAjay && !permissionUser?.tyre_procurement_admin) {
+    const allowedTabs = permissionUser?.tyre_procurement_tabs || [];
+    const isUnrestricted = allowedTabs.length === 0;
+
+    if (role !== "admin" && role !== "superadmin" && !isAjay && !permissionUser?.tyre_procurement_admin && !isUnrestricted) {
       return res.status(403).json({ success: false, message: "Only admin users can delete PRs" });
     }
     const doc = await TyreProcurementSop.findByIdAndDelete(req.params.id);

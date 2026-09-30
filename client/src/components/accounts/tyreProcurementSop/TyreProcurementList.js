@@ -50,6 +50,7 @@ import {
   AssignmentTurnedIn,
 } from "@mui/icons-material";
 import { toast } from "react-hot-toast";
+import PoLandscapePdfGenerator from "./PoLandscapePdfGenerator";
 
 const stageTabsList = [
   { label: "All PRs", value: "0" },
@@ -175,21 +176,37 @@ const getDisplayRows = (dataList) => {
     );
 
     if (validSelected.length > 0) {
-      const poNumbers = [...new Set(validSelected.map((s) => s.poNumber).filter((p) => p && p.trim()))];
+      const poNumbers = [];
+      const suppliers = [];
+      const poAmounts = [];
+
+      validSelected.forEach((s) => {
+        const po = (s.poNumber && s.poNumber.trim()) || row.poNumber || "-";
+        const sup = (s.selectedSupplier && s.selectedSupplier.trim()) || row.stage2?.selectedSupplierL1 || "-";
+        const amt = Number(s.totalOrderValue) || (Number(s.priceQuoted) * Number(s.allocatedQty || s.qty || 1)) || Number(s.priceQuoted) || 0;
+
+        const existingIdx = poNumbers.indexOf(po);
+        if (existingIdx !== -1 && po !== "-") {
+          poAmounts[existingIdx] += amt;
+          if (sup !== "-" && !suppliers[existingIdx].includes(sup)) {
+            suppliers[existingIdx] += `, ${sup}`;
+          }
+        } else {
+          poNumbers.push(po);
+          suppliers.push(sup);
+          poAmounts.push(amt);
+        }
+      });
+
       if (poNumbers.length === 0 && row.poNumber) {
         poNumbers.push(row.poNumber);
       }
-
-      const suppliers = [...new Set(validSelected.map((s) => s.selectedSupplier).filter((s) => s && s.trim()))];
       if (suppliers.length === 0 && row.stage2?.selectedSupplierL1) {
         suppliers.push(row.stage2.selectedSupplierL1);
       }
 
-      const calcTotal = validSelected.reduce(
-        (sum, s) => sum + (Number(s.totalOrderValue || s.priceQuoted) || 0),
-        0
-      );
-      const displayTotalValue = calcTotal > 0 ? calcTotal : (row.stage2?.totalOrderValue || 0);
+      const calcTotal = poAmounts.reduce((sum, a) => sum + a, 0);
+      const displayTotalValue = calcTotal > 0 ? calcTotal : (Number(row.stage2?.totalOrderValue) || 0);
 
       displayRows.push({
         ...row,
@@ -198,6 +215,7 @@ const getDisplayRows = (dataList) => {
         displayPoNumber: poNumbers.join(", ") || "-",
         displaySuppliers: suppliers,
         displaySupplier: suppliers.join(", ") || "-",
+        displayPoAmounts: poAmounts,
         displayTotalValue,
       });
     } else {
@@ -208,7 +226,8 @@ const getDisplayRows = (dataList) => {
         displayPoNumber: row.poNumber || "-",
         displaySuppliers: row.stage2?.selectedSupplierL1 ? [row.stage2.selectedSupplierL1] : [],
         displaySupplier: row.stage2?.selectedSupplierL1 || "-",
-        displayTotalValue: row.stage2?.totalOrderValue || 0,
+        displayPoAmounts: [Number(row.stage2?.totalOrderValue) || 0],
+        displayTotalValue: Number(row.stage2?.totalOrderValue) || 0,
       });
     }
   });
@@ -225,8 +244,11 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   const isAjay = (user?.username || "").toLowerCase().includes("ajay") || userIdentity.includes("ajay");
   const isGlobalAdmin = userRole === "admin" || userRole === "superadmin" || isAjay;
   const [isProcurementAdmin, setIsProcurementAdmin] = useState(false);
-  const isAdmin = isGlobalAdmin || isProcurementAdmin;
-  const canOverrideSignOffLock = isAdmin;
+  const [allowedUserTabs, setAllowedUserTabs] = useState([]);
+  const [tabsLoaded, setTabsLoaded] = useState(false);
+  const hasModuleAdmin = isGlobalAdmin || isProcurementAdmin || (tabsLoaded && allowedUserTabs.length === 0);
+  const isAdmin = hasModuleAdmin;
+  const canOverrideSignOffLock = isGlobalAdmin || isProcurementAdmin;
 
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
@@ -235,13 +257,15 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   const [search, setSearch] = useState("");
   const [stageTab, setStageTab] = useState("0");
   const [loading, setLoading] = useState(false);
-  const [allowedUserTabs, setAllowedUserTabs] = useState([]);
 
   useEffect(() => {
     async function fetchUserTabs() {
       setIsProcurementAdmin(false);
       setAllowedUserTabs([]);
-      if (!user?.username || isGlobalAdmin) return;
+      if (!user?.username || isGlobalAdmin) {
+        setTabsLoaded(true);
+        return;
+      }
       try {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/tyre-procurement/user-tabs/${user.username}`
@@ -252,6 +276,8 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
         }
       } catch (err) {
         console.error("Error fetching allowed tabs:", err);
+      } finally {
+        setTabsLoaded(true);
       }
     }
     fetchUserTabs();
@@ -1065,10 +1091,35 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                             row.displaySupplier || "-"
                           )}
                         </TableCell>
-                        <TableCell sx={{ color: "#0f172a", fontWeight: 700, fontSize: "13px", py: 1, px: 1.5 }}>
-                          {row.displayTotalValue !== undefined && row.displayTotalValue !== null && row.displayTotalValue !== ""
-                            ? Number(row.displayTotalValue).toLocaleString("en-IN", { style: "currency", currency: "INR" })
-                            : "-"}
+                        <TableCell sx={{ color: "#0f172a", fontWeight: 700, fontSize: "12.5px", py: 1, px: 1.5 }}>
+                          {Array.isArray(row.displayPoAmounts) && row.displayPoAmounts.length > 1 ? (
+                            <Stack spacing={0.3}>
+                              {row.displayPoAmounts.map((amt, idx) => (
+                                <Box key={idx} component="span" sx={{ display: "block", whiteSpace: "nowrap" }}>
+                                  {Number(amt).toLocaleString("en-IN", { style: "currency", currency: "INR" })}
+                                </Box>
+                              ))}
+                              <Box
+                                component="span"
+                                sx={{
+                                  display: "block",
+                                  whiteSpace: "nowrap",
+                                  fontSize: "11px",
+                                  color: "#64748b",
+                                  fontWeight: 600,
+                                  borderTop: "1px dashed #cbd5e1",
+                                  pt: 0.2,
+                                  mt: 0.2,
+                                }}
+                              >
+                                Total: {Number(row.displayTotalValue).toLocaleString("en-IN", { style: "currency", currency: "INR" })}
+                              </Box>
+                            </Stack>
+                          ) : (
+                            row.displayTotalValue !== undefined && row.displayTotalValue !== null && row.displayTotalValue !== ""
+                              ? Number(row.displayTotalValue).toLocaleString("en-IN", { style: "currency", currency: "INR" })
+                              : "-"
+                          )}
                         </TableCell>
                         <TableCell sx={{ py: 1, px: 1.5 }}>
                           <Chip
@@ -1288,6 +1339,12 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                                 <GetApp sx={{ fontSize: 16 }} />
                               </IconButton>
                             </Tooltip>
+                            {Boolean(row.poNumber || (row.stage2?.selectedSuppliers && row.stage2.selectedSuppliers.length > 0)) && (
+                              <PoLandscapePdfGenerator
+                                globalData={row}
+                                iconOnly={true}
+                              />
+                            )}
                             {isAdmin && (
                               <Tooltip title="Delete PR">
                                 <IconButton

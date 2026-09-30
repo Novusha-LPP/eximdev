@@ -83,29 +83,45 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
   const [paymentUtrLoading, setPaymentUtrLoading] = useState(false);
 
   const { user } = useContext(UserContext);
-  const isAdmin = user?.role === "Admin" || user?.role === "admin";
+  const userRole = (user?.role || "").toLowerCase();
+  const userIdentity = [user?.username, user?.first_name, user?.middle_name, user?.last_name]
+    .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
+  const isAjay = (user?.username || "").toLowerCase().includes("ajay") || userIdentity.includes("ajay");
+  const isGlobalAdmin = userRole === "admin" || userRole === "superadmin" || isAjay;
+
   const [allowedUserTabs, setAllowedUserTabs] = useState([]);
+  const [tabsLoaded, setTabsLoaded] = useState(false);
 
   useEffect(() => {
     async function fetchUserTabs() {
-      if (user?.username && !isAdmin) {
-        try {
-          const res = await axios.get(
-            `${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/user-tabs/${user.username}`
-          );
-          if (res.data?.success && Array.isArray(res.data.allowed_tabs)) {
-            setAllowedUserTabs(res.data.allowed_tabs);
-          }
-        } catch (err) {
-          console.error("Error fetching fleet insurance user tabs:", err);
+      if (!user?.username) return;
+      if (isGlobalAdmin) {
+        setTabsLoaded(true);
+        return;
+      }
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/user-tabs/${user.username}`
+        );
+        if (res.data?.success && Array.isArray(res.data.allowed_tabs)) {
+          setAllowedUserTabs(res.data.allowed_tabs);
         }
+      } catch (err) {
+        console.error("Error fetching fleet insurance user tabs:", err);
+      } finally {
+        setTabsLoaded(true);
       }
     }
     fetchUserTabs();
-  }, [user, isAdmin]);
+  }, [user, isGlobalAdmin]);
+
+  // If user has no restricted tabs assigned (allowedUserTabs.length === 0), they get unrestricted admin rights for this module by default
+  const hasModuleAdmin = isGlobalAdmin || (tabsLoaded && allowedUserTabs.length === 0) || allowedUserTabs.includes("Policy History & Dashboard");
+  const isAdmin = hasModuleAdmin;
+  const canDelete = hasModuleAdmin;
 
   const isTabVisible = React.useCallback((tabIndex) => {
-    if (isAdmin || allowedUserTabs.length === 0) return true;
+    if (isGlobalAdmin || allowedUserTabs.length === 0) return true;
     switch (tabIndex) {
       case 0: // Vehicle Records
         return allowedUserTabs.includes("Vehicle Records");
@@ -118,16 +134,16 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
       default:
         return true;
     }
-  }, [isAdmin, allowedUserTabs]);
+  }, [isGlobalAdmin, allowedUserTabs]);
 
   useEffect(() => {
-    if (!isAdmin && allowedUserTabs.length > 0 && !isTabVisible(mainTab)) {
+    if (!isGlobalAdmin && allowedUserTabs.length > 0 && !isTabVisible(mainTab)) {
       const firstAllowed = [0, 1, 2, 3].find((idx) => isTabVisible(idx));
       if (firstAllowed !== undefined) {
         setMainTab(firstAllowed);
       }
     }
-  }, [allowedUserTabs, mainTab, isAdmin, isTabVisible]);
+  }, [allowedUserTabs, mainTab, isGlobalAdmin, isTabVisible]);
 
   const getSavedFleetFilters = () => {
     try {
@@ -1380,7 +1396,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                                   <GetApp sx={{ fontSize: 16 }} />
                                 </IconButton>
                               </Tooltip>
-                              {isAdmin && (
+                              {canDelete && (
                                 <Tooltip title="Delete Record">
                                   <IconButton size="small" onClick={() => handleDelete(row._id)} sx={{ p: 0.3, color: "#dc2626" }}>
                                     <Delete sx={{ fontSize: 16 }} />
@@ -1417,6 +1433,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
           onEdit={onEdit}
           onRenew={onRenew}
           onView={onView}
+          canDelete={canDelete}
         />
       )}
 

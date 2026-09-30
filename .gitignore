@@ -93,3 +93,8 @@ pids/
 server/tally_test_collection_v2.json
 server/nodemon.json
 server/ecosystem.config.json
+
+K_Work_Summary_Staging.xlsx
+K_Work_Summary.xlsx
+Work_Summary.xlsx
+

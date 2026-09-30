@@ -96,15 +96,14 @@ api.interceptors.response.use(
 const AuditLogContext = createContext();
 
 const MODULES = {
-  USER: 'User',
   TICKET: 'Helpdesk',
   ASSET: 'Asset',
   VENDOR: 'Vendor',
   CONTRACT: 'Contract',
   INVENTORY: 'Inventory',
   LICENSE: 'License',
-  AUTHENTICATION: 'Authentication',
-  ROLE_MANAGEMENT: 'Role Management',
+  CONTRACT: 'Contract',
+  VENDOR: 'Vendor',
   ADMINISTRATION: 'Administration',
   GENERAL: 'General'
 };
@@ -142,12 +141,21 @@ const handleApiError = (error, module = null) => {
 
 const documentTypeMap = {
   'ITAsset': 'Asset',
+  'Asset': 'Asset',
   'ItVendor': 'Vendor',
+  'Vendor': 'Vendor',
   'HelpdeskTicket': 'Helpdesk',
+  'Helpdesk': 'Helpdesk',
   'ITInventory': 'Inventory',
+  'Inventory': 'Inventory',
   'ITContract': 'Contract',
+  'Contract': 'Contract',
   'ITLicense': 'License',
-  'User': 'User'
+  'License': 'License',
+  'ITHelpdesk': 'Administration',
+  'ITAmcRenewal': 'Contract',
+  'EquipmentChecklist': 'Inventory',
+  'General': 'General'
 };
 
 const reverseDocumentTypeMap = {
@@ -157,7 +165,8 @@ const reverseDocumentTypeMap = {
   'Inventory': 'ITInventory',
   'Contract': 'ITContract',
   'License': 'ITLicense',
-  'User': 'User'
+  'Administration': 'ITHelpdesk',
+  'General': 'General'
 };
 
 const sanitizeUser = (raw) => {
@@ -297,23 +306,26 @@ export const AuditLogProvider = ({ children }) => {
       setLoading(true);
       setIsRefreshing(isRefresh);
 
-      const params = { limit: 50, timestamp: new Date().getTime() };
+      const params = { limit: 50, scope: 'it-helpdesk', timestamp: new Date().getTime() };
       if (module) params.documentType = reverseDocumentTypeMap[module] || module;
 
       const response = await api.get('/audit-trail', { params });
       const backendLogs = response.data.auditTrail || [];
+      const nonITTypes = new Set(['user', 'job', 'feedback', 'feedbackreply', 'scorecard', 'visitor', 'rolemaster']);
 
-      const newLogs = backendLogs.map(log => ({
-        id: log._id,
-        user: sanitizeUser(log.username || log.user),
-        action: log.action || 'UNKNOWN',
-        module: documentTypeMap[log.documentType] || log.documentType || 'General',
-        severity: log.action === 'DELETE' ? 'warning' : (log.severity || 'info'),
-        timestamp: log.timestamp || new Date().toISOString(),
-        ip_address: log.ip_address || '',
-        user_agent: log.userAgent || '',
-        details: log.heading || log.details || ''
-      }));
+      const newLogs = backendLogs
+        .filter(log => !nonITTypes.has(String(log.documentType || '').toLowerCase()))
+        .map(log => ({
+          id: log._id,
+          user: sanitizeUser(log.username || log.user),
+          action: log.action || 'UNKNOWN',
+          module: documentTypeMap[log.documentType] || log.documentType || 'General',
+          severity: log.action === 'DELETE' ? 'warning' : (log.severity || 'info'),
+          timestamp: log.timestamp || new Date().toISOString(),
+          ip_address: log.ip_address || '',
+          user_agent: log.userAgent || '',
+          details: log.heading || log.details || ''
+        }));
 
       if (isRefresh) {
         setAuditLogs(prevLogs => {
@@ -350,21 +362,24 @@ export const AuditLogProvider = ({ children }) => {
     try {
       setLoading(true);
       const response = await api.get('/audit-trail', {
-        params: { documentType: reverseDocumentTypeMap[module] || module, limit: 1000, timestamp: new Date().getTime(), allDates: 'true' }
+        params: { documentType: reverseDocumentTypeMap[module] || module, scope: 'it-helpdesk', limit: 1000, timestamp: new Date().getTime(), allDates: 'true' }
       });
 
       const backendLogs = response.data.auditTrail || [];
-      const moduleLogs = backendLogs.map(log => ({
-        id: log._id,
-        user: sanitizeUser(log.username || log.user),
-        action: log.action || 'UNKNOWN',
-        module: documentTypeMap[log.documentType] || log.documentType || 'General',
-        severity: log.action === 'DELETE' ? 'warning' : (log.severity || 'info'),
-        timestamp: log.timestamp || new Date().toISOString(),
-        ip_address: log.ip_address || '',
-        user_agent: log.userAgent || '',
-        details: log.heading || log.details || ''
-      }));
+      const nonITTypes = new Set(['user', 'job', 'feedback', 'feedbackreply', 'scorecard', 'visitor', 'rolemaster']);
+      const moduleLogs = backendLogs
+        .filter(log => !nonITTypes.has(String(log.documentType || '').toLowerCase()))
+        .map(log => ({
+          id: log._id,
+          user: sanitizeUser(log.username || log.user),
+          action: log.action || 'UNKNOWN',
+          module: documentTypeMap[log.documentType] || log.documentType || 'General',
+          severity: log.action === 'DELETE' ? 'warning' : (log.severity || 'info'),
+          timestamp: log.timestamp || new Date().toISOString(),
+          ip_address: log.ip_address || '',
+          user_agent: log.userAgent || '',
+          details: log.heading || log.details || ''
+        }));
 
       setAuditLogs(moduleLogs);
       setLastUpdated(new Date());
@@ -611,6 +626,7 @@ const AuditLogsComponent = () => {
         const params = {
           page,
           limit,
+          scope: "it-helpdesk",
           allDates: !startDate && !endDate ? "true" : undefined,
         };
         if (searchTerm) params.search = searchTerm;
@@ -625,18 +641,21 @@ const AuditLogsComponent = () => {
 
         const response = await api.get("/audit-trail", { params });
         const backendLogs = response.data.auditTrail || response.data.data || [];
+        const nonITTypes = new Set(["user", "job", "feedback", "feedbackreply", "scorecard", "visitor", "rolemaster"]);
 
-        const formattedLogs = backendLogs.map((log) => ({
-          id: log._id || log.id,
-          user: sanitizeUser(log.username || log.user),
-          action: log.action || "UNKNOWN",
-          module: documentTypeMap[log.documentType] || log.documentType || "General",
-          severity: log.action === "DELETE" ? "warning" : log.severity || "info",
-          timestamp: log.timestamp || new Date().toISOString(),
-          ip_address: log.ip_address || log.ip || "",
-          user_agent: log.userAgent || log.user_agent || "",
-          details: log.heading || log.details || "",
-        }));
+        const formattedLogs = backendLogs
+          .filter((log) => !nonITTypes.has(String(log.documentType || "").toLowerCase()))
+          .map((log) => ({
+            id: log._id || log.id,
+            user: sanitizeUser(log.username || log.user),
+            action: log.action || "UNKNOWN",
+            module: documentTypeMap[log.documentType] || log.documentType || "General",
+            severity: log.action === "DELETE" ? "warning" : log.severity || "info",
+            timestamp: log.timestamp || new Date().toISOString(),
+            ip_address: log.ip_address || log.ip || "",
+            user_agent: log.userAgent || log.user_agent || "",
+            details: log.heading || log.details || "",
+          }));
 
         setAuditLogs(formattedLogs);
 
@@ -740,9 +759,11 @@ const AuditLogsComponent = () => {
   const handleDeleteLogs = useCallback(async () => {
     setDeleteLoading(true);
     try {
-      const params = filterModule ? { documentType: reverseDocumentTypeMap[filterModule] || filterModule } : {};
+      const params = filterModule
+        ? { documentType: reverseDocumentTypeMap[filterModule] || filterModule, scope: "it-helpdesk" }
+        : { scope: "it-helpdesk" };
       await api.delete("/audit-trail", { params });
-      toast.success(filterModule ? `Logs for "${filterModule}" deleted.` : "All audit logs deleted.");
+      toast.success(filterModule ? `Logs for "${filterModule}" deleted.` : "All IT Helpdesk audit logs deleted.");
       setShowDeleteConfirm(false);
       fetchAuditLogs(false);
     } catch (err) {
@@ -826,9 +847,6 @@ const AuditLogsComponent = () => {
 
   const getModuleColor = useCallback((module) => {
     const moduleColors = {
-      [MODULES.AUTHENTICATION]: "primary",
-      [MODULES.USER]: "success",
-      [MODULES.ROLE_MANAGEMENT]: "secondary",
       [MODULES.TICKET]: "error",
       [MODULES.ASSET]: "warning",
       [MODULES.ADMINISTRATION]: "info",
@@ -952,8 +970,8 @@ const AuditLogsComponent = () => {
     if (mod.includes("vendor")) {
       return { bg: "#faf5ff", color: "#6d28d9", border: "#e9d5ff" };
     }
-    if (mod.includes("user") || mod.includes("role") || mod.includes("auth")) {
-      return { bg: "#fff1f2", color: "#be123c", border: "#fecdd3" };
+    if (mod.includes("admin") || mod.includes("system")) {
+      return { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" };
     }
     if (mod.includes("contract")) {
       return { bg: "#f5f3ff", color: "#5b21b6", border: "#ddd6fe" };

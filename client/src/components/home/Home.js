@@ -9,6 +9,7 @@ import { navigateToModule } from "../../utils/navigateToModule.js";
 import { moduleCategories } from "../../utils/moduleCategories.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { fetchMyPendingCount, searchOpenPointByUniqueId, fetchOpenPointSuggestions } from "../../services/openPointsService.js";
+import { isHRAdminUser } from "../../utils/hrAdminRoleHelper.js";
 
 
 
@@ -212,10 +213,10 @@ function Home() {
     finalModulesList.push("First Aid");
   }
 
-  // Auto-include IT Helpdesk so all users have access to Helpdesk & Tickets
-  // if (!finalModulesList.includes("IT Helpdesk")) {
-  //   finalModulesList.push("IT Helpdesk");
-  // }
+  // Auto-include IT Helpdesk for Admin, IT team, and invoice approver users (e.g. manu_pillai, shalini_arun, or delegated approver)
+  if (isHRAdminUser(user) && !finalModulesList.includes("IT Helpdesk")) {
+    finalModulesList.push("IT Helpdesk");
+  }
 
   // Group modules into their respective dashboard categories
   const categorizedModules = finalModulesList.reduce((acc, module) => {

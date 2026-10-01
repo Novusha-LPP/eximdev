@@ -98,7 +98,7 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
   const { importApi, exportApi } = React.useMemo(() => {
     const raw = typeof process !== "undefined" && (process.env?.REACT_APP_API_STRING || process.env?.VITE_API_STRING)
       ? (process.env.REACT_APP_API_STRING || process.env.VITE_API_STRING)
-      : "http://localhost:9006/api";
+      : null;
     return getTradeApis(raw, true);
   }, []);
   const [loading, setLoading] = useState(false);

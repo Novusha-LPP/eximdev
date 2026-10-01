@@ -89,10 +89,6 @@ export default function CashflowTracker({ mode = "import" }) {
       ? (process.env.VITE_API_STRING || process.env.REACT_APP_API_STRING)
       : null;
 
-  const defaultApiBase = isExport
-    ? (envApi || "http://localhost:9002/api")
-    : (envApi || "http://localhost:9006/api");
-
   // Trade Scope: "import" | "export" | "both"
   const [tradeScope, setTradeScope] = useState(
     () => sessionStorage.getItem("cashflow_trade_scope") || mode || "import"
@@ -103,8 +99,8 @@ export default function CashflowTracker({ mode = "import" }) {
   }, [tradeScope]);
 
   const { importApi, exportApi } = useMemo(() => {
-    return getTradeApis(defaultApiBase, !isExport);
-  }, [defaultApiBase, isExport]);
+    return getTradeApis(envApi, !isExport);
+  }, [envApi, isExport]);
 
   const apiBase = tradeScope === "export" ? exportApi : importApi;
 

@@ -1508,6 +1508,8 @@ export const approveRequest = async (req, res) => {
                 }
             }
 
+            const isApprovedOrResolved = status === 'approved' || status === 'resolved';
+
             if (status === 'resolved') {
                 request.status = 'approved';
                 request.is_resolved = true;
@@ -1518,94 +1520,108 @@ export const approveRequest = async (req, res) => {
                 await request.save();
             } else {
                 request.status = status;
-                request.is_resolved = true;
+                request.is_resolved = status === 'approved';
                 request.resolved_at = new Date();
                 request.resolved_by = actor._id;
                 request.resolution_source = 'request_approval';
                 if (comments) request.remarks = comments;
                 await request.save();
+            }
 
-                // If approved, update attendance record with recalculated work hours
-                if (status === 'approved') {
-                    const empId = request.employee_id?._id || request.employee_id;
-                    const employee = await User.findById(empId);
-                    const company = await Company.findById(request.company_id);
-                    const shift = await PolicyResolver.resolveShift(employee, request.attendance_date);
-                    const dateStr = request.attendance_date;
-                    const companyId = request.company_id?._id || request.company_id;
-                    const attDate = moment.utc(dateStr, 'YYYY-MM-DD').startOf('day').toDate();
+            // If approved or resolved, update attendance record with recalculated work hours
+            if (isApprovedOrResolved) {
+                const empId = request.employee_id?._id || request.employee_id;
+                const employee = await User.findById(empId);
+                const company = await Company.findById(request.company_id);
+                const shift = await PolicyResolver.resolveShift(employee, request.attendance_date);
+                const dateStr = request.attendance_date;
+                const companyId = request.company_id?._id || request.company_id;
+                const attDate = moment.utc(dateStr, 'YYYY-MM-DD').startOf('day').toDate();
 
-                    // Fetch all punches for that date
-                    const punches = await AttendancePunch.find({
-                        employee_id: empId,
-                        punch_date: moment.utc(request.attendance_date).format('YYYY-MM-DD')
-                    }).sort({ punch_time: 1 });
+                // Fetch all punches for that date (supporting both String and Date formats)
+                const punches = await AttendancePunch.find({
+                    employee_id: empId,
+                    $or: [
+                        { punch_date_str: dateStr },
+                        { punch_date: attDate }
+                    ]
+                }).sort({ punch_time: 1 });
 
-                    // Recalculate work hours with corrected times from regularization
-                    const workData = WorkHoursCalculator.recalculateWithRegularization(
-                        punches,
-                        request,
-                        shift
-                    );
+                // Recalculate work hours with corrected times from regularization
+                const workData = WorkHoursCalculator.recalculateWithRegularization(
+                    punches,
+                    request,
+                    shift
+                );
 
-                    // Resolve status based on work hours
-                    const overrides = await fetchDayOverrides(empId, request.attendance_date, companyId);
-                    const statusResult = AttendanceStatusResolver.resolveStatus(workData, shift, overrides);
+                // When a regularization is approved/resolved, it MUST be present (or half_day)
+                let finalStatus = request.regularization_type === 'half_day' ? 'half_day' : 'present';
+                const defaultHours = finalStatus === 'half_day' ? (shift?.half_day_hours || 4) : (shift?.full_day_hours || 8.3);
+                if (!workData.total_work_hours || workData.total_work_hours <= 0) {
+                    workData.total_work_hours = defaultHours;
+                }
 
-                    let record = await AttendanceRecord.findOne({
+                let record = await AttendanceRecord.findOne({
+                    employee_id: empId,
+                    $or: [
+                        { attendance_date_str: dateStr },
+                        { attendance_date: attDate }
+                    ]
+                });
+
+                if (!record) {
+                    record = new AttendanceRecord({
                         employee_id: empId,
                         company_id: companyId,
-                        attendance_date: attDate
+                        attendance_date: attDate,
+                        attendance_date_str: dateStr,
+                        year_month: moment.utc(dateStr, 'YYYY-MM-DD').format('YYYY-MM')
                     });
-
-                    if (!record) {
-                        record = new AttendanceRecord({
-                            employee_id: empId,
-                            company_id: companyId,
-                            attendance_date: attDate,
-                            attendance_date_str: dateStr,
-                            year_month: moment.utc(dateStr, 'YYYY-MM-DD').format('YYYY-MM')
-                        });
-                    }
-
-                    // Update record with recalculated data
-                    record.status = statusResult.status;
-                    record.total_work_hours = workData.total_work_hours;
-                    record.total_work_sessions = workData.total_sessions;
-                    record.work_sessions = workData.sessions;
-                    record.has_incomplete_session = workData.has_incomplete;
-                    record.is_late = workData.is_late;
-                    record.late_by_minutes = workData.late_by_minutes;
-                    record.is_early_exit = workData.is_early_exit;
-                    record.early_exit_minutes = workData.early_exit_minutes;
-                    record.regularization_applied = request._id;
-                    record.is_regularized = true;
-                    if (comments) record.remarks = comments;
-
-                    // Update first_in / last_out from recalculated data so hours display correctly
-                    if (workData.primary_in_time) {
-                        record.first_in = workData.primary_in_time;
-                    }
-                    if (workData.primary_out_time) {
-                        record.last_out = workData.primary_out_time;
-                    }
-
-                    // Clear missed-punch flags since the correction has been approved
-                    record.missed_punch = false;
-                    record.missed_punch_reason = null;
-                    record.missed_punch_source = null;
-                    record.missed_punch_marked_at = null;
-                    record.processed_by = 'regularization';
-                    record.processed_at = new Date();
-
-                    await record.save();
-
-                    // Save corrected times to the request object
-                    request.corrected_punch_in_time = request.corrected_punch_in_time || request.requested_in_time;
-                    request.corrected_punch_out_time = request.corrected_punch_out_time || request.requested_out_time;
-                    request.corrected_total_hours = workData.total_work_hours;
-                    await request.save();
                 }
+
+                // Update record with recalculated data
+                record.status = finalStatus;
+                record.total_work_hours = workData.total_work_hours;
+                record.net_work_hours = workData.total_work_hours;
+                record.regular_hours = Math.min(workData.total_work_hours, shift?.full_day_hours || 8.3);
+                record.total_work_sessions = workData.total_sessions;
+                record.work_sessions = workData.sessions;
+                record.has_incomplete_session = workData.has_incomplete;
+                record.is_late = workData.is_late;
+                record.late_by_minutes = workData.late_by_minutes;
+                record.is_early_exit = workData.is_early_exit;
+                record.early_exit_minutes = workData.early_exit_minutes;
+                record.regularization_id = request._id;
+                record.regularization_applied = request._id;
+                record.regularization_approved_by = actor._id;
+                record.regularization_approved_at = new Date();
+                record.is_regularized = true;
+                if (comments) record.remarks = comments;
+
+                // Update first_in / last_out from recalculated data so hours display correctly
+                if (workData.primary_in_time) {
+                    record.first_in = workData.primary_in_time;
+                }
+                if (workData.primary_out_time) {
+                    record.last_out = workData.primary_out_time;
+                }
+
+                // Clear missed-punch flags since the correction has been approved
+                record.missed_punch = false;
+                record.missed_punch_reason = null;
+                record.missed_punch_source = null;
+                record.missed_punch_marked_at = null;
+                record.processed_by = 'regularization';
+                record.processed_at = new Date();
+
+                await record.save();
+
+                // Save corrected times to the request object and link existing_attendance_id
+                request.existing_attendance_id = record._id;
+                request.corrected_punch_in_time = workData.primary_in_time || request.corrected_punch_in_time || request.requested_in_time;
+                request.corrected_punch_out_time = workData.primary_out_time || request.corrected_punch_out_time || request.requested_out_time;
+                request.corrected_total_hours = workData.total_work_hours;
+                await request.save();
             }
 
             await logApprovalActivity(

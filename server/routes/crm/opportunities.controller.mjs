@@ -590,17 +590,17 @@ router.get('/board', async (req, res) => {
     // Parse date range for won/lost filtering
     let wonLostStart = null;
     let wonLostEnd = null;
-    if (startDate && endDate) {
-      wonLostStart = new Date(`${startDate}T00:00:00.000Z`);
-      wonLostEnd = new Date(`${endDate}T23:59:59.999Z`);
-    } else if (period) {
-      const [year, month] = period.split('-');
-      wonLostStart = new Date(year, parseInt(month) - 1, 1);
-      wonLostEnd = new Date(year, parseInt(month), 0, 23, 59, 59, 999);
-    } else {
-      const now = new Date();
-      wonLostStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      wonLostEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const isAllMonths = period === 'all' || (!startDate && !endDate && (!period || period === 'all'));
+
+    if (!isAllMonths) {
+      if (startDate && endDate) {
+        wonLostStart = new Date(`${startDate}T00:00:00.000Z`);
+        wonLostEnd = new Date(`${endDate}T23:59:59.999Z`);
+      } else if (period && period !== 'all') {
+        const [year, month] = period.split('-');
+        wonLostStart = new Date(year, parseInt(month) - 1, 1);
+        wonLostEnd = new Date(year, parseInt(month), 0, 23, 59, 59, 999);
+      }
     }
 
     // Fetch all active pipeline deals (non-won/lost) — no date filter
@@ -616,63 +616,78 @@ router.get('/board', async (req, res) => {
       .populate('referredByUserId', 'username first_name last_name')
       .lean();
 
-    // Fetch won/lost deals using stageHistory.enteredAt
+    // Fetch won/lost deals
     const wonLostQuery = { ...query, stage: { $in: ['won', 'lost'] } };
     if (source) wonLostQuery.source = source;
 
-    const wonLostOpps = await Opportunity.find({
-      ...wonLostQuery,
-      'stageHistory.stage': { $in: ['won', 'lost'] },
-      'stageHistory.enteredAt': { $gte: wonLostStart, $lte: wonLostEnd }
-    })
-      .populate('accountId', 'name')
-      .populate('ownerId', 'username first_name last_name')
-      .populate('createdBy', 'username first_name last_name')
-      .populate('referredFromTeamId', 'nameCode teamName name')
-      .populate('referredToTeamId', 'nameCode teamName name')
-      .populate('referredByUserId', 'username first_name last_name')
-      .lean();
+    let filteredWonLost = [];
+    if (wonLostStart && wonLostEnd) {
+      const wonLostOpps = await Opportunity.find({
+        ...wonLostQuery,
+        'stageHistory.stage': { $in: ['won', 'lost'] },
+        'stageHistory.enteredAt': { $gte: wonLostStart, $lte: wonLostEnd }
+      })
+        .populate('accountId', 'name')
+        .populate('ownerId', 'username first_name last_name')
+        .populate('createdBy', 'username first_name last_name')
+        .populate('referredFromTeamId', 'nameCode teamName name')
+        .populate('referredToTeamId', 'nameCode teamName name')
+        .populate('referredByUserId', 'username first_name last_name')
+        .lean();
 
-    // Legacy won/lost data fallback (no stageHistory)
-    const legacyWonLostFilter = {
-      ...wonLostQuery,
-      updatedAt: { $gte: wonLostStart, $lte: wonLostEnd }
-    };
-    const legacyStageCheck = { $or: [{ stageHistory: { $exists: false } }, { stageHistory: { $size: 0 } }] };
-    if (wonLostQuery.$or) {
-      legacyWonLostFilter.$and = [{ $or: wonLostQuery.$or }, legacyStageCheck];
-      delete legacyWonLostFilter.$or;
-    } else {
-      Object.assign(legacyWonLostFilter, legacyStageCheck);
-    }
-    const wonLostLegacy = await Opportunity.find(legacyWonLostFilter)
-      .populate('accountId', 'name')
-      .populate('ownerId', 'username first_name last_name')
-      .populate('createdBy', 'username first_name last_name')
-      .populate('referredFromTeamId', 'nameCode teamName name')
-      .populate('referredToTeamId', 'nameCode teamName name')
-      .populate('referredByUserId', 'username first_name last_name')
-      .lean();
-
-    // Helper: get the date when an opportunity entered its current won/lost stage
-    const getWonLostEntryDate = (opp) => {
-      if (opp.stageHistory && opp.stageHistory.length > 0) {
-        const entry = [...opp.stageHistory].reverse().find(h => h.stage === opp.stage);
-        if (entry && entry.enteredAt) return new Date(entry.enteredAt);
+      // Legacy won/lost data fallback (no stageHistory)
+      const legacyWonLostFilter = {
+        ...wonLostQuery,
+        updatedAt: { $gte: wonLostStart, $lte: wonLostEnd }
+      };
+      const legacyStageCheck = { $or: [{ stageHistory: { $exists: false } }, { stageHistory: { $size: 0 } }] };
+      if (wonLostQuery.$or) {
+        legacyWonLostFilter.$and = [{ $or: wonLostQuery.$or }, legacyStageCheck];
+        delete legacyWonLostFilter.$or;
+      } else {
+        Object.assign(legacyWonLostFilter, legacyStageCheck);
       }
-      return opp.updatedAt ? new Date(opp.updatedAt) : new Date(opp.createdAt);
-    };
+      const wonLostLegacy = await Opportunity.find(legacyWonLostFilter)
+        .populate('accountId', 'name')
+        .populate('ownerId', 'username first_name last_name')
+        .populate('createdBy', 'username first_name last_name')
+        .populate('referredFromTeamId', 'nameCode teamName name')
+        .populate('referredToTeamId', 'nameCode teamName name')
+        .populate('referredByUserId', 'username first_name last_name')
+        .lean();
 
-    // Filter won/lost precisely by the last relevant stageHistory entry
-    const filteredWonLost = wonLostOpps.filter(opp => {
-      const entryDate = getWonLostEntryDate(opp);
-      return entryDate >= wonLostStart && entryDate <= wonLostEnd;
-    });
+      // Helper: get the date when an opportunity entered its current won/lost stage
+      const getWonLostEntryDate = (opp) => {
+        if (opp.stageHistory && opp.stageHistory.length > 0) {
+          const entry = [...opp.stageHistory].reverse().find(h => h.stage === opp.stage);
+          if (entry && entry.enteredAt) return new Date(entry.enteredAt);
+        }
+        return opp.updatedAt ? new Date(opp.updatedAt) : new Date(opp.createdAt);
+      };
+
+      // Filter won/lost precisely by the last relevant stageHistory entry
+      const preciselyFiltered = wonLostOpps.filter(opp => {
+        const entryDate = getWonLostEntryDate(opp);
+        return entryDate >= wonLostStart && entryDate <= wonLostEnd;
+      });
+
+      filteredWonLost = [...preciselyFiltered, ...wonLostLegacy];
+    } else {
+      // All months requested: fetch all won/lost deals without date filtering
+      filteredWonLost = await Opportunity.find(wonLostQuery)
+        .populate('accountId', 'name')
+        .populate('ownerId', 'username first_name last_name')
+        .populate('createdBy', 'username first_name last_name')
+        .populate('referredFromTeamId', 'nameCode teamName name')
+        .populate('referredToTeamId', 'nameCode teamName name')
+        .populate('referredByUserId', 'username first_name last_name')
+        .lean();
+    }
 
     // Combine and deduplicate
     const seenIds = new Set();
     const opportunities = [];
-    [...pipelineOpps, ...filteredWonLost, ...wonLostLegacy].forEach(opp => {
+    [...pipelineOpps, ...filteredWonLost].forEach(opp => {
       const id = opp._id.toString();
       if (!seenIds.has(id)) {
         seenIds.add(id);
@@ -689,7 +704,7 @@ router.get('/board', async (req, res) => {
     }
 
     const processedOpps = opportunities.map(opp => {
-      if (opp.period && opp.period !== targetPeriod && !['won', 'lost'].includes(opp.stage)) {
+      if (!isAllMonths && opp.period && opp.period !== targetPeriod && !['won', 'lost'].includes(opp.stage)) {
         return {
           ...opp,
           carry_forward: true,
@@ -755,7 +770,7 @@ router.get('/board', async (req, res) => {
         aggregates[opp.stage].count += 1;
       }
       const hasIncompleteVisit = (opp.plannedVisits || []).some(v => !v.isCompleted && !v.isCancelled);
-      if (hasIncompleteVisit && opp.stage !== 'sales_visit') {
+      if (hasIncompleteVisit && !['won', 'lost', 'sales_visit'].includes(opp.stage)) {
         board['sales_visit'].push(opp);
         aggregates['sales_visit'].totalValue += opp.value || 0;
         aggregates['sales_visit'].count += 1;

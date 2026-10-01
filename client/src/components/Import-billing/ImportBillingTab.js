@@ -10,6 +10,7 @@ import PaymentCompleted from "./PaymentCompleted";
 import ImportCompletedBilling from './ImportCompletedBilling.js'
 import GeneralJobs from './GeneralJobs.js';
 import VirtualBalanceList from './VirtualBalanceList.js';
+import CashflowTracker from './CashflowTracker.jsx';
 
 // Create a context to share tab state between components
 export const TabContext = React.createContext({
@@ -123,8 +124,9 @@ function ImportBillingTab() {
               <Tab label={workMode === "Payment" ? "Payment" : "Purchase Book"} {...a11yProps(4)} />
               <Tab label={workMode === "Payment" ? "Payment Completed" : "Purchase Book Completed"} {...a11yProps(5)} />
               <Tab label="Import Completed Billing" {...a11yProps(6)} />
-              <Tab label="Terminal + Empty-Yards Virtual Balance" {...a11yProps(7)} />
-              <Tab label="CFS-SFSA Virtual Balance" {...a11yProps(8)} />
+              <Tab label="Cash Flow" {...a11yProps(7)} />
+              <Tab label="Terminal + Empty-Yards Virtual Balance" {...a11yProps(8)} />
+              <Tab label="CFS-SFSA Virtual Balance" {...a11yProps(9)} />
             </Tabs>
           <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center', px: 1.5, gap: 1 }}>
             <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', textTransform: 'uppercase' }}>Work Mode:</Typography>
@@ -166,9 +168,12 @@ function ImportBillingTab() {
               <ImportCompletedBilling workMode={workMode} />
             </CustomTabPanel>
             <CustomTabPanel value={value} index={7}>
-              <VirtualBalanceList balanceType="terminal" />
+              <CashflowTracker mode="import" />
             </CustomTabPanel>
             <CustomTabPanel value={value} index={8}>
+              <VirtualBalanceList balanceType="terminal" />
+            </CustomTabPanel>
+            <CustomTabPanel value={value} index={9}>
               <VirtualBalanceList balanceType="cfs" />
             </CustomTabPanel>
         </>

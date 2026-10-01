@@ -216,6 +216,7 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
         if (req.body.cost.url_final !== undefined) updatedCost.url_final = req.body.cost.url_final;
         if (req.body.cost.virtualBalanceTerminal !== undefined) updatedCost.virtualBalanceTerminal = req.body.cost.virtualBalanceTerminal;
         if (req.body.cost.virtualBalanceType !== undefined) updatedCost.virtualBalanceType = req.body.cost.virtualBalanceType;
+        if (req.body.cost.expenseMadeBy !== undefined) updatedCost.expenseMadeBy = req.body.cost.expenseMadeBy;
         charge.cost = updatedCost;
       } else {
         charge.cost = { ...(charge.cost ? charge.cost.toObject() : {}), ...req.body.cost };

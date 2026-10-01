@@ -233,8 +233,10 @@ export default function CRMKanbanBoard() {
         if (activeFilters.startDate && activeFilters.endDate) {
           params.startDate = activeFilters.startDate;
           params.endDate = activeFilters.endDate;
-        } else if (activeFilters.month) {
+        } else if (activeFilters.month && activeFilters.month !== 'all') {
           params.period = activeFilters.month;
+        } else {
+          params.period = 'all';
         }
       }
 
@@ -622,7 +624,7 @@ export default function CRMKanbanBoard() {
     if (selectedTeam && selectedTeam !== 'all') count++;
     if (selectedOwner && selectedOwner !== 'all') count++;
     if (seeAllData) count++;
-    if (filters && filters.type && filters.type !== 'this_month') count++;
+    if (filters && filters.type && filters.type !== 'all') count++;
     return count;
   }, [searchQuery, selectedLocation, selectedHsnCode, selectedStage, selectedSource, selectedTeam, selectedOwner, seeAllData, filters]);
 
@@ -656,10 +658,10 @@ export default function CRMKanbanBoard() {
 
     // 3. Reset FilterBar date filter
     const defaultDateFilter = {
-      type: 'this_month',
-      month: currentMonthStr,
-      startDate: startOfMonth,
-      endDate: endOfMonth
+      type: 'all',
+      month: '',
+      startDate: '',
+      endDate: ''
     };
     setFilters(defaultDateFilter);
     setResetTrigger(prev => prev + 1);

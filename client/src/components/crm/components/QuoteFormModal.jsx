@@ -600,7 +600,7 @@ export default function QuoteFormModal({
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 9999, padding: '20px'
+      zIndex: 100002, padding: '20px'
     }}>
       <div style={{
         background: '#fff', width: '100%', maxWidth: '850px', maxHeight: '90vh',
@@ -1274,7 +1274,7 @@ export default function QuoteFormModal({
 
       {/* Inline Add Column Modal */}
       {isAddColModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 11000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100010, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: '#fff', width: '100%', maxWidth: '440px', borderRadius: '14px', padding: '20px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem', color: '#0f172a' }}>➕ Add Custom Column to Quote Table</h4>

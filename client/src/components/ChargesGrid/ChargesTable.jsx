@@ -107,6 +107,7 @@ const ChargesTable = ({
       <th style={{ width: '95px' }}>Total Amount</th>
       <th style={{ width: '95px' }}>Total Amt (INR)</th>
       <th style={{ width: '95px' }}>Net Payable</th>
+      <th style={{ width: '110px' }}>Expense Made By</th>
       <th style={{ width: '120px' }}>Payment Status</th>
       <th style={{ width: '180px' }}>Attach</th>
     </>
@@ -302,6 +303,7 @@ const ChargesTable = ({
                     <td className="charges-number" style={{ fontWeight: 'bold' }}>{formatNumber(ch.cost?.amount)}</td>
                     <td className="charges-number" style={{ fontWeight: 'bold', color: '#6c4a30' }}>{formatNumber(ch.cost?.amountINR)}</td>
                     <td className="charges-number" style={{ fontWeight: 'bold', color: '#d32f2f' }}>{formatNumber(ch.cost?.netPayable)}</td>
+                    <td style={{ textAlign: 'center', fontWeight: '500', color: '#2e7d32' }}>{ch.cost?.expenseMadeBy || '-'}</td>
                     <td style={{ textAlign: 'center' }}>
                       {ch.payment_request_no ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>

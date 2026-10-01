@@ -279,7 +279,8 @@ const ChargeLineSchema = new mongoose.Schema({
   tdsCategory: { type: String, default: '94C' },
   netPayable: { type: Number, default: 0 },
   virtualBalanceTerminal: { type: String, default: '' },
-  virtualBalanceType: { type: String, enum: ['TERMINAL', 'CFS', ''], default: '' }
+  virtualBalanceType: { type: String, enum: ['TERMINAL', 'CFS', ''], default: '' },
+  expenseMadeBy: { type: String, trim: true, default: '' }
 }, { _id: false });
 
 const ChargeSchema = new mongoose.Schema({

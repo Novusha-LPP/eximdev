@@ -178,6 +178,33 @@ const EditChargeModal = ({
   const [chargeHeads, setChargeHeads] = useState([]);
   const [createdVirtualTerminals, setCreatedVirtualTerminals] = useState([]);
   const [createdVirtualCfs, setCreatedVirtualCfs] = useState([]);
+  const [cashflowTeamMembers, setCashflowTeamMembers] = useState(['ANURAG', 'DURGESH', 'KAPIL', 'BALVIR', 'KIRIT', 'PARAS']);
+
+  const handleAddCashflowTeamMember = async () => {
+    const name = window.prompt("Enter new Team Member Name for Expense Made By:");
+    if (!name || !name.trim()) return;
+    try {
+      const res = await axios.post(`${process.env.REACT_APP_API_STRING}/api/cashflow/team-members`, { name: name.trim().toUpperCase() }, { withCredentials: true });
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setCashflowTeamMembers(res.data.data);
+      }
+    } catch (err) {
+      console.error("Error adding team member:", err);
+    }
+  };
+
+  const handleRemoveCashflowTeamMember = async (nameToRemove) => {
+    if (!nameToRemove) return;
+    if (!window.confirm(`Are you sure you want to remove "${nameToRemove}" from the team members list?`)) return;
+    try {
+      const res = await axios.delete(`${process.env.REACT_APP_API_STRING}/api/cashflow/team-members/${encodeURIComponent(nameToRemove)}`, { withCredentials: true });
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setCashflowTeamMembers(res.data.data);
+      }
+    } catch (err) {
+      console.error("Error removing team member:", err);
+    }
+  };
 
   const [showLogs, setShowLogs] = useState({ open: false, chargeId: null, chargeName: '' });
   const [chargeLogs, setChargeLogs] = useState([]);
@@ -256,6 +283,12 @@ const EditChargeModal = ({
         if (cfsVbRes?.data?.success && Array.isArray(cfsVbRes.data.data)) {
           setCreatedVirtualCfs(cfsVbRes.data.data.map(t => (t || '').trim().toUpperCase()));
         }
+        try {
+          const tmRes = await axios.get(`${process.env.REACT_APP_API_STRING}/api/cashflow/team-members`);
+          if (tmRes.data?.success && Array.isArray(tmRes.data.data)) {
+            setCashflowTeamMembers(tmRes.data.data);
+          }
+        } catch (_) {}
       } catch (error) {
         console.error("Error fetching master data:", error);
       }
@@ -1292,6 +1325,70 @@ const EditChargeModal = ({
                                   </div>
                                   {row.revenue?.branchCode && <span className="charges-ep-link" style={{ marginLeft: '6px', whiteSpace: 'nowrap' }}>{row.revenue.branchCode}</span>}
                                 </div>
+                                {((row.cost?.partyName || '').trim().toUpperCase().includes('CASH')) && (
+                                  <div className="charges-ep-row" style={{ backgroundColor: '#fffde7', padding: '6px 8px', borderRadius: '4px', border: '1px dashed #ffd600', marginTop: '4px', marginBottom: '4px' }}>
+                                    <span className="charges-ep-label" style={{ fontWeight: 'bold', color: '#b78103' }}>Expense Made By</span>
+                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flex: 1 }}>
+                                      <select
+                                        className="charges-ep-select"
+                                        style={{ flex: 1, height: '28px', fontSize: '12px' }}
+                                        disabled={effectiveReadOnly}
+                                        value={row.cost?.expenseMadeBy || ''}
+                                        onChange={e => {
+                                          handleFieldChange(i, 'expenseMadeBy', e.target.value, 'cost');
+                                          triggerAutoSave(i, true);
+                                        }}
+                                      >
+                                        <option value="">-- Select Team Member --</option>
+                                        {(cashflowTeamMembers || []).map((tm) => (
+                                          <option key={tm} value={tm}>{tm}</option>
+                                        ))}
+                                      </select>
+                                      {!effectiveReadOnly && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            title="Add New Team Member"
+                                            onClick={handleAddCashflowTeamMember}
+                                            style={{
+                                              padding: '2px 8px',
+                                              fontSize: '13px',
+                                              backgroundColor: '#1976d2',
+                                              color: '#fff',
+                                              border: 'none',
+                                              borderRadius: '4px',
+                                              cursor: 'pointer',
+                                              fontWeight: 'bold',
+                                              height: '28px'
+                                            }}
+                                          >
+                                            +
+                                          </button>
+                                          {row.cost?.expenseMadeBy && (
+                                            <button
+                                              type="button"
+                                              title="Remove Team Member from List"
+                                              onClick={() => handleRemoveCashflowTeamMember(row.cost?.expenseMadeBy)}
+                                              style={{
+                                                padding: '2px 8px',
+                                                fontSize: '12px',
+                                                backgroundColor: '#d32f2f',
+                                                color: '#fff',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                                fontWeight: 'bold',
+                                                height: '28px'
+                                              }}
+                                            >
+                                              ✕
+                                            </button>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                                 <div className="charges-ep-row">
                                   <span className="charges-ep-label">Total Amount</span>
                                   <div className="charges-ep-inline">

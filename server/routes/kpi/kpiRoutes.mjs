@@ -1119,6 +1119,43 @@ router.put("/api/kpi/sheet/entry", verifyToken, auditMiddleware("KPI_Sheet"), as
     }
 });
 
+// Bulk auto-fill working days with random values
+router.put("/api/kpi/sheet/auto-fill", verifyToken, auditMiddleware("KPI_Sheet"), async (req, res) => {
+    try {
+        const { sheetId, rows } = req.body;
+        const sheet = await KPISheet.findById(sheetId);
+        if (!sheet) return res.status(404).json({ message: "Sheet not found" });
+
+        const isRauf =
+            req.user.username?.toLowerCase() === 'rauf_dayma' ||
+            req.user._id?.toString() === '69804d6fdb43a20e654eb45c' ||
+            (req.user.first_name?.toUpperCase() === 'RAUF' && req.user.last_name?.toUpperCase() === 'DAYMA') ||
+            req.user.email?.toLowerCase() === 'daymarauf@gmail.com';
+
+        if (!isRauf) {
+            return res.status(403).json({ message: "Auto-fill is strictly restricted to Rauf Dayma only" });
+        }
+
+        if (sheet.user.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Unauthorized: You can only auto-fill your own sheet" });
+        }
+
+        if (sheet.status !== "DRAFT" && sheet.status !== "REJECTED") {
+            return res.status(400).json({ message: "Sheet is locked due to status" });
+        }
+
+        if (Array.isArray(rows)) {
+            sheet.rows = rows;
+            await sheet.save();
+        }
+
+        res.json({ success: true, sheet });
+    } catch (err) {
+        console.error("PUT /api/kpi/sheet/auto-fill ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
 // Toggle Holiday/Leave/Festival/HalfDay
 router.post("/api/kpi/sheet/holiday", verifyToken, auditMiddleware("KPI_Sheet"), async (req, res) => {
     try {

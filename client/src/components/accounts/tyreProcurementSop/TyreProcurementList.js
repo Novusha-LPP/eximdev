@@ -48,6 +48,10 @@ import {
   AccountBalance,
   AttachFile,
   AssignmentTurnedIn,
+  ReceiptLong,
+  PictureAsPdf,
+  OpenInNew,
+  Description,
 } from "@mui/icons-material";
 import { toast } from "react-hot-toast";
 import PoLandscapePdfGenerator from "./PoLandscapePdfGenerator";
@@ -160,9 +164,123 @@ const isCompletedSiteGrn = (row) => {
   return allApprovalsDone || ["GRN Done", "GRN Completed", "Closed"].includes(row.status);
 };
 
-// Supplier invoice attachments recorded at Site GRN (stage 6)
-const getGrnInvoiceAttachments = (row) =>
-  (row.stage6?.referenceInfos || []).filter((info) => info && info.invoiceAttachment);
+// Supplier invoice attachments recorded across workflow stages (Stage 6 Site GRN, Stage 5 Order Dispatch)
+const getInvoiceDocuments = (row) => {
+  if (!row) return [];
+  const list = [];
+  const seenUrls = new Set();
+
+  const addDoc = (doc) => {
+    if (!doc || !doc.url || seenUrls.has(doc.url)) return;
+    seenUrls.add(doc.url);
+    list.push(doc);
+  };
+
+  // 1. Stage 6 Reference Infos (Primary location for GRN Invoices)
+  if (Array.isArray(row.stage6?.referenceInfos)) {
+    row.stage6.referenceInfos.forEach((info, idx) => {
+      const url = info?.invoiceAttachment || info?.invoiceCopy || info?.attachment;
+      if (url) {
+        addDoc({
+          id: info._id || `s6-ref-${idx}`,
+          supplierName:
+            info.supplierName ||
+            row.stage2?.selectedSuppliers?.[idx]?.selectedSupplier ||
+            row.stage2?.selectedSupplierL1 ||
+            "Supplier",
+          invoiceNumber:
+            info.invoiceNumber ||
+            row.stage5?.supplierDispatches?.[idx]?.dispatchDetails?.invoiceNumber ||
+            row.stage5?.dispatchDetails?.invoiceNumber ||
+            "",
+          invoiceDate:
+            info.invoiceDate ||
+            row.stage5?.supplierDispatches?.[idx]?.dispatchDetails?.invoiceDate ||
+            row.stage5?.dispatchDetails?.invoiceDate ||
+            "",
+          invoiceAmount:
+            info.invoiceAmount ??
+            row.stage5?.supplierDispatches?.[idx]?.dispatchDetails?.invoiceAmount ??
+            row.stage5?.dispatchDetails?.invoiceAmount ??
+            "",
+          url,
+          invoiceAttachment: url, // Compatibility
+          fileName: info.invoiceAttachmentName || "Invoice_Document.pdf",
+          invoiceAttachmentName: info.invoiceAttachmentName || "Invoice_Document.pdf",
+          source: "Stage 6 Site GRN",
+        });
+      }
+    });
+  }
+
+  // 2. Stage 6 top-level invoiceAttachment
+  const s6TopUrl = row.stage6?.invoiceAttachment || row.stage6?.invoiceCopy;
+  if (s6TopUrl) {
+    addDoc({
+      id: "s6-top",
+      supplierName: row.stage2?.selectedSupplierL1 || "Supplier",
+      invoiceNumber: row.stage6.invoiceNumber || "",
+      invoiceDate: row.stage6.invoiceDate || "",
+      invoiceAmount: row.stage6.invoiceAmount || "",
+      url: s6TopUrl,
+      invoiceAttachment: s6TopUrl,
+      fileName: row.stage6.invoiceAttachmentName || "Invoice_Document.pdf",
+      invoiceAttachmentName: row.stage6.invoiceAttachmentName || "Invoice_Document.pdf",
+      source: "Stage 6 Site GRN",
+    });
+  }
+
+  // 3. Stage 5 Supplier Dispatches
+  if (Array.isArray(row.stage5?.supplierDispatches)) {
+    row.stage5.supplierDispatches.forEach((sd, idx) => {
+      const dd = sd?.dispatchDetails || {};
+      const url = sd?.invoiceAttachment || sd?.invoiceCopy || dd?.invoiceAttachment || dd?.invoiceCopy;
+      if (url) {
+        addDoc({
+          id: sd._id || `s5-disp-${idx}`,
+          supplierName:
+            sd.supplierName ||
+            row.stage2?.selectedSuppliers?.[idx]?.selectedSupplier ||
+            "Supplier",
+          invoiceNumber: dd.invoiceNumber || sd.invoiceNumber || "",
+          invoiceDate: dd.invoiceDate || sd.invoiceDate || "",
+          invoiceAmount: dd.invoiceAmount ?? sd.invoiceAmount ?? "",
+          url,
+          invoiceAttachment: url,
+          fileName: sd.invoiceAttachmentName || dd.invoiceAttachmentName || "Invoice_Document.pdf",
+          invoiceAttachmentName: sd.invoiceAttachmentName || dd.invoiceAttachmentName || "Invoice_Document.pdf",
+          source: "Stage 5 Order Dispatch",
+        });
+      }
+    });
+  }
+
+  // 4. Stage 5 top-level invoice attachment
+  const s5TopUrl =
+    row.stage5?.invoiceAttachment ||
+    row.stage5?.invoiceCopy ||
+    row.stage5?.dispatchDetails?.invoiceAttachment ||
+    row.stage5?.dispatchDetails?.invoiceCopy;
+  if (s5TopUrl) {
+    addDoc({
+      id: "s5-top",
+      supplierName: row.stage2?.selectedSupplierL1 || "Supplier",
+      invoiceNumber: row.stage5?.invoiceNumber || row.stage5?.dispatchDetails?.invoiceNumber || "",
+      invoiceDate: row.stage5?.invoiceDate || row.stage5?.dispatchDetails?.invoiceDate || "",
+      invoiceAmount: row.stage5?.invoiceAmount ?? row.stage5?.dispatchDetails?.invoiceAmount ?? "",
+      url: s5TopUrl,
+      invoiceAttachment: s5TopUrl,
+      fileName: row.stage5?.invoiceAttachmentName || row.stage5?.dispatchDetails?.invoiceAttachmentName || "Invoice_Document.pdf",
+      invoiceAttachmentName: row.stage5?.invoiceAttachmentName || row.stage5?.dispatchDetails?.invoiceAttachmentName || "Invoice_Document.pdf",
+      source: "Stage 5 Order Dispatch",
+    });
+  }
+
+  return list;
+};
+
+// Backward-compatible alias for existing call sites
+const getGrnInvoiceAttachments = getInvoiceDocuments;
 
 // Helper to aggregate multiple POs / suppliers into a single display entry per PR
 const getDisplayRows = (dataList) => {
@@ -257,6 +375,26 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   const [search, setSearch] = useState("");
   const [stageTab, setStageTab] = useState("0");
   const [loading, setLoading] = useState(false);
+
+  // Invoice Documents Modal State
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [invoiceModalRow, setInvoiceModalRow] = useState(null);
+  const [invoiceModalDocs, setInvoiceModalDocs] = useState([]);
+
+  const handleInvoiceDocClick = (row) => {
+    const docs = getInvoiceDocuments(row);
+    if (!docs || docs.length === 0) {
+      toast.error(`No invoice document uploaded for PR #${row.prNumber} yet.`);
+      return;
+    }
+    if (docs.length === 1) {
+      window.open(docs[0].url, "_blank");
+    } else {
+      setInvoiceModalRow(row);
+      setInvoiceModalDocs(docs);
+      setInvoiceModalOpen(true);
+    }
+  };
 
   useEffect(() => {
     async function fetchUserTabs() {
@@ -1066,15 +1204,49 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                         </TableCell>
                         <TableCell sx={{ color: "#047857", fontWeight: 700, fontSize: "12.5px", py: 1, px: 1.5 }}>
                           {Array.isArray(row.displayPoNumbers) && row.displayPoNumbers.length > 1 ? (
-                            <Stack spacing={0.3}>
-                              {row.displayPoNumbers.map((po, idx) => (
-                                <Box key={idx} component="span" sx={{ display: "block", whiteSpace: "nowrap" }}>
-                                  {po}
-                                </Box>
-                              ))}
+                            <Stack spacing={0.4}>
+                              {row.displayPoNumbers.map((po, idx) => {
+                                const targetSup =
+                                  (row.stage2?.selectedSuppliers || [])[idx] ||
+                                  row.stage2?.selectedSuppliers?.find((s) => s.poNumber === po);
+                                return (
+                                  <Box
+                                    key={idx}
+                                    sx={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 0.6,
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    <span>{po}</span>
+                                    <PoLandscapePdfGenerator
+                                      globalData={row}
+                                      targetSupplier={targetSup}
+                                      iconOnly={true}
+                                      tooltipTitle={`Download PO PDF for ${po}`}
+                                      customColor="#047857"
+                                      customBgColor="#ecfdf5"
+                                      customHoverBg="#d1fae5"
+                                    />
+                                  </Box>
+                                );
+                              })}
                             </Stack>
+                          ) : row.displayPoNumber && row.displayPoNumber !== "-" ? (
+                            <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.6, whiteSpace: "nowrap" }}>
+                              <span>{row.displayPoNumber}</span>
+                              <PoLandscapePdfGenerator
+                                globalData={row}
+                                iconOnly={true}
+                                tooltipTitle={`Download PO PDF for ${row.displayPoNumber}`}
+                                customColor="#047857"
+                                customBgColor="#ecfdf5"
+                                customHoverBg="#d1fae5"
+                              />
+                            </Box>
                           ) : (
-                            row.displayPoNumber || "-"
+                            <span style={{ color: "#94a3b8" }}>-</span>
                           )}
                         </TableCell>
                         <TableCell sx={{ color: "#334155", fontSize: "12.5px", py: 1, px: 1.5 }}>{row.stage1?.preparedBy || "-"}</TableCell>
@@ -1339,12 +1511,63 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                                 <GetApp sx={{ fontSize: 16 }} />
                               </IconButton>
                             </Tooltip>
-                            {Boolean(row.poNumber || (row.stage2?.selectedSuppliers && row.stage2.selectedSuppliers.length > 0)) && (
+                            {/* PO Download Button */}
+                            {Boolean(row.poNumber || (row.stage2?.selectedSuppliers && row.stage2.selectedSuppliers.length > 0)) ? (
                               <PoLandscapePdfGenerator
                                 globalData={row}
                                 iconOnly={true}
+                                tooltipTitle={`Download PO PDF (${row.displayPoNumbers?.join(", ") || row.poNumber || "Purchase Order"})`}
+                                customColor="#dc2626"
+                                customBgColor="#fef2f2"
+                                customHoverBg="#fee2e2"
                               />
+                            ) : (
+                              <Tooltip title="PO not generated yet (Available after Stage 2/3)">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled
+                                    sx={{
+                                      color: "#94a3b8",
+                                      bgcolor: "#f8fafc",
+                                      cursor: "not-allowed",
+                                    }}
+                                  >
+                                    <PictureAsPdf sx={{ fontSize: 16 }} />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
                             )}
+
+                            {/* Invoice Doc Button */}
+                            {(() => {
+                              const invoiceDocs = getInvoiceDocuments(row);
+                              const hasInvoices = invoiceDocs.length > 0;
+                              const invTooltip = hasInvoices
+                                ? (invoiceDocs.length === 1
+                                    ? `View / Download Invoice (${invoiceDocs[0].invoiceNumber ? "Inv #" + invoiceDocs[0].invoiceNumber : invoiceDocs[0].fileName || "Document"})`
+                                    : `View Invoice Documents (${invoiceDocs.length} Available)`)
+                                : "No Invoice Document uploaded yet (Stage 6 Site GRN)";
+
+                              return (
+                                <Tooltip title={invTooltip}>
+                                  <span>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleInvoiceDocClick(row)}
+                                      disabled={!hasInvoices}
+                                      sx={{
+                                        color: hasInvoices ? "#7c3aed" : "#94a3b8",
+                                        bgcolor: hasInvoices ? "#f5f3ff" : "#f8fafc",
+                                        "&:hover": { bgcolor: hasInvoices ? "#ede9fe" : "#f8fafc" },
+                                      }}
+                                    >
+                                      <ReceiptLong sx={{ fontSize: 16 }} />
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
+                              );
+                            })()}
                             {isAdmin && (
                               <Tooltip title="Delete PR">
                                 <IconButton
@@ -1751,6 +1974,121 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
             }}
           >
             {quickPaymentSubmitting ? "Saving..." : "Save Payment & Forward to Stage 5"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ─── INVOICE DOCUMENTS MODAL ─── */}
+      <Dialog
+        open={invoiceModalOpen}
+        onClose={() => setInvoiceModalOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: "10px", overflow: "hidden" } }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            bgcolor: "#0f172a",
+            color: "#ffffff",
+            py: 1.5,
+            px: 2.5,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <ReceiptLong sx={{ color: "#c084fc", fontSize: 22 }} />
+            <Box>
+              <Typography sx={{ fontWeight: 700, fontSize: "16px", color: "#ffffff" }}>
+                Invoice Documents
+              </Typography>
+              <Typography sx={{ color: "#94a3b8", fontSize: "12px" }}>
+                PR #{invoiceModalRow?.prNumber} &bull; PO #{invoiceModalRow?.displayPoNumber || invoiceModalRow?.poNumber || "N/A"}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            size="small"
+            onClick={() => setInvoiceModalOpen(false)}
+            sx={{ color: "#94a3b8", "&:hover": { color: "#ffffff" } }}
+          >
+            <Clear sx={{ fontSize: 18 }} />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
+          <Typography sx={{ fontSize: "13px", color: "#64748b", mb: 2 }}>
+            The following invoice documents are uploaded for this procurement request:
+          </Typography>
+
+          <TableContainer component={Paper} elevation={0} sx={{ border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+            <Table size="small">
+              <TableHead sx={{ bgcolor: "#f1f5f9" }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, fontSize: "12px", color: "#334155" }}>Supplier</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: "12px", color: "#334155" }}>Invoice No.</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: "12px", color: "#334155" }}>Invoice Date</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: "12px", color: "#334155" }}>Invoice Amount</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: "12px", color: "#334155" }}>Document File</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: "12px", color: "#334155" }}>Action</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {invoiceModalDocs.map((doc, idx) => (
+                  <TableRow key={doc.id || idx} hover sx={{ "&:hover": { bgcolor: "#f1f5f9" } }}>
+                    <TableCell sx={{ fontSize: "12.5px", fontWeight: 600, color: "#1e293b" }}>
+                      {doc.supplierName || "-"}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: "12.5px", fontWeight: 600, color: "#2563eb" }}>
+                      {doc.invoiceNumber || "-"}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: "12px", color: "#64748b" }}>
+                      {doc.invoiceDate ? new Date(doc.invoiceDate).toLocaleDateString("en-GB") : "-"}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: "12.5px", fontWeight: 700, color: "#0f172a" }}>
+                      {doc.invoiceAmount
+                        ? Number(doc.invoiceAmount).toLocaleString("en-IN", { style: "currency", currency: "INR" })
+                        : "-"}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: "12px", color: "#475569" }}>
+                      {doc.fileName || "Invoice_Document.pdf"}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<OpenInNew sx={{ fontSize: 14 }} />}
+                        onClick={() => window.open(doc.url, "_blank")}
+                        sx={{
+                          bgcolor: "#7c3aed",
+                          color: "#ffffff",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          textTransform: "none",
+                          borderRadius: "6px",
+                          px: 1.5,
+                          py: 0.4,
+                          boxShadow: "none",
+                          "&:hover": { bgcolor: "#6d28d9" },
+                        }}
+                      >
+                        Open Doc
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2, bgcolor: "#f1f5f9", borderTop: "1px solid #e2e8f0" }}>
+          <Button
+            onClick={() => setInvoiceModalOpen(false)}
+            sx={{ textTransform: "none", color: "#64748b", fontWeight: 600 }}
+          >
+            Close
           </Button>
         </DialogActions>
       </Dialog>

@@ -42,11 +42,9 @@ const numberToWords = (num) => {
 };
 
 const cleanDeliveryAddress = (str) => {
-  if (!str) return "SRCC MAINTENANCE CENTER, NEW SANJHA CHULLA GARDEN RESTAURANT, NEXT TO ADANI SHANTIGRAM, NR. KHODIYAR PETROL PUMP, KHORAJ. ICD KHODIYAR, GANDHINAGAR, Gujarat-382501";
+  if (!str) return "-";
   return str
-    .replace(/RESTAURANT\s*[-–—,\s]*2\s*([,.-]?)\s*/gi, "RESTAURANT, ")
     .replace(/,\s*,+/g, ", ")
-    .replace(/NEXT'IO/gi, "NEXT TO")
     .replace(/\s+/g, " ")
     .trim();
 };
@@ -58,6 +56,11 @@ function PoLandscapePdfGenerator({
   buttonLabel,
   size = "small",
   iconOnly = false,
+  tooltipTitle,
+  customColor,
+  customBgColor,
+  customHoverBg,
+  icon,
 }) {
   const [downloading, setDownloading] = useState(false);
   const [activeVendorIndex, setActiveVendorIndex] = useState(0);
@@ -65,21 +68,21 @@ function PoLandscapePdfGenerator({
 
   // Common Identifiers
   const prNumber = globalData?.prNumber || globalData?.stage1?.prNumber || "-";
-  const rawPoNumber = globalData?.poNumber || globalData?.stage3?.poNumber || globalData?.stage2?.poNumber || "SRCC/ADMIN/01/2627";
+  const rawPoNumber = globalData?.poNumber || globalData?.stage3?.poNumber || globalData?.stage2?.poNumber || "-";
   const prDate = fmtPoDate(globalData?.createdAt || globalData?.stage1?.prDate || globalData?.stage1?.routingChecklist?.[0]?.date);
   const poDate = fmtPoDate(globalData?.stage3?.poDate || globalData?.stage2?.poDate || globalData?.stage3?.signOff?.dateOfApproval || new Date());
-  const prRaisedBy = globalData?.stage1?.preparedBy || globalData?.stage1?.requesterName || globalData?.stage2?.purchaseOfficerName || "Mr Ajay Kumawat";
-  const checkedByName = globalData?.stage1?.hodValidation?.validatedBy || "Ms Shalini / Mr Deepak";
-  const approvedByName = globalData?.stage3?.signOff?.financeManagerName || "Mr Chirag Shah";
+  const prRaisedBy = globalData?.stage1?.preparedBy || globalData?.stage1?.requesterName || globalData?.stage2?.purchaseOfficerName || "-";
+  const checkedByName = globalData?.stage1?.hodValidation?.validatedBy || "-";
+  const approvedByName = globalData?.stage3?.signOff?.financeManagerName || globalData?.stage3?.decision?.approvedBy || "-";
 
-  // Company / Buyer Details (Fixed per specification)
-  const buyerName = "S R CONTAINER CARRIERS";
-  const buyerAddress1 = "A/206, WALL STREET II,";
-  const buyerAddress2 = "OPP. ORIENT CLUB, ELLISBRIDGE,";
-  const buyerCityState = "AHMEDABAD - 380006, Gujarat";
-  const buyerGstin = "24ANGPR7652E1ZV";
-  const buyerStateCode = "State: Gujarat, Code: 24";
-  const buyerEmail = "purchase@surajgroupofcompanies.com";
+  // Company / Buyer Details
+  const buyerName = globalData?.companyName || globalData?.buyerName || "S R CONTAINER CARRIERS";
+  const buyerAddress1 = globalData?.companyAddress || globalData?.buyerAddress || "A/206, WALL STREET II,";
+  const buyerAddress2 = globalData?.buyerAddress2 || "OPP. ORIENT CLUB, ELLISBRIDGE,";
+  const buyerCityState = globalData?.buyerCityState || "AHMEDABAD - 380006, Gujarat";
+  const buyerGstin = globalData?.companyGstin || globalData?.gstin || "24ANGPR7652E1ZV";
+  const buyerStateCode = globalData?.buyerStateCode || "State: Gujarat, Code: 24";
+  const buyerEmail = globalData?.companyEmail || "purchase@surajgroupofcompanies.com";
 
   // Items / Products List
   const rawItems = globalData?.stage1?.itemsRequired || globalData?.stage1?.items || [];
@@ -99,7 +102,7 @@ function PoLandscapePdfGenerator({
         (sName && s.supplierName && s.supplierName.trim().toUpperCase() === sName.trim().toUpperCase())
     ) || {};
     awardedSuppliers = [{
-      supplierName: sName || full.supplierName || "FUTURE FIRE SAFETY",
+      supplierName: sName || full.supplierName || full.supplierNameInBank || "-",
       totalOrderValue: Number(targetSupplier.totalOrderValue) || full.totalOrderValue || 0,
       priceQuoted: Number(targetSupplier.priceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
       reasonForSelection: targetSupplier.reasonForSelection || full.reasonForSelection || "",
@@ -118,7 +121,7 @@ function PoLandscapePdfGenerator({
           (sName && s.supplierName && s.supplierName.trim().toUpperCase() === sName.trim().toUpperCase())
       ) || {};
       return {
-        supplierName: sName || full.supplierName || full.supplierNameInBank || "FUTURE FIRE SAFETY",
+        supplierName: sName || full.supplierName || full.supplierNameInBank || "-",
         totalOrderValue: Number(sel.totalOrderValue) || full.totalOrderValue || 0,
         priceQuoted: Number(sel.priceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
         reasonForSelection: sel.reasonForSelection || "",
@@ -127,44 +130,49 @@ function PoLandscapePdfGenerator({
         ...sel,
       };
     });
+  } else if (stage2Suppliers.length > 0) {
+    awardedSuppliers = stage2Suppliers;
+  } else if (globalData?.stage2?.selectedSupplierL1) {
+    awardedSuppliers = [{
+      supplierName: globalData.stage2.selectedSupplierL1,
+      totalOrderValue: Number(globalData.stage2.totalOrderValue) || 0,
+      poNumber: globalData.poNumber || rawPoNumber,
+    }];
   } else {
-    awardedSuppliers = stage2Suppliers.length > 0 ? stage2Suppliers : [
-      {
-        supplierName: "FUTURE FIRE SAFETY",
-        address: "PARASHAR PARK-2, VORA SOC., NEAR HATIM VILAA FUTURE FIRE AND SAFETY, PLOT NO 32, KRISHN NAGAR-2, JAMNAGAR ROAD, RAJKOT, Gujarat - 360006",
-        gstNumber: "24HEXPP7343B1Z2",
-        emailWhatsApp: "futurefiresafety360@gmail.com",
-        bankName: "Kotak Mahindra Bank Limited",
-        bankAccountNo: "5949223268",
-        bankIfscCode: "KKBK0000831",
-        bankBranchCode: "Rajkot",
-        paymentTerms: "100% Advance",
-        deliveryTimeline: "Delivery and Installation within 7 Days of Full Payment",
-      },
-    ];
+    awardedSuppliers = [{
+      supplierName: "-",
+      totalOrderValue: 0,
+      poNumber: rawPoNumber,
+    }];
   }
 
   const currentVendor = awardedSuppliers[activeVendorIndex] || awardedSuppliers[0] || {};
-  const vendorName = currentVendor.supplierName || currentVendor.supplierNameInBank || "FUTURE FIRE SAFETY";
-  const vendorAddress = currentVendor.supplierAddress || currentVendor.address || "PARASHAR PARK-2, VORA SOC., NEAR HATIM VILAA FUTURE FIRE AND SAFETY, PLOT NO 32, KRISHN NAGAR-2, JAMNAGAR ROAD, RAJKOT, Gujarat - 360006";
-  const vendorGst = currentVendor.gstNumber || currentVendor.gstin || "24HEXPP7343B1Z2";
-  const vendorEmail = currentVendor.emailWhatsApp && currentVendor.emailWhatsApp.includes("@") ? currentVendor.emailWhatsApp : (currentVendor.email || "futurefiresafety360@gmail.com");
-  const vendorBank = currentVendor.bankName || "Kotak Mahindra Bank Limited";
-  const vendorAccNo = currentVendor.bankAccountNo || currentVendor.accountNumber || "5949223268";
-  const vendorIfsc = currentVendor.bankIfscCode || currentVendor.ifscCode || "KKBK0000831";
-  const vendorBranch = currentVendor.bankBranchCode || currentVendor.branch || "Rajkot";
-  const vendorPaymentTerms = currentVendor.paymentTerms || "100% Advance";
-  const vendorDeliveryTerms = currentVendor.deliveryTimeline || "Delivery and Installation within 7 Days of Full Payment";
-  const poNumberToDisplay = currentVendor.poNumber || rawPoNumber || "SRCC/ADMIN/01/2627";
-  const refQuotationNo = currentVendor.quotationNo || currentVendor.refQuotationNo || prNumber || "PI/03";
-  const quotationDateFormatted = fmtPoDate(currentVendor.quotationDate || globalData?.createdAt || new Date());
+  const vendorName = currentVendor.supplierName || currentVendor.supplierNameInBank || "-";
+  const vendorAddress = currentVendor.supplierAddress || currentVendor.address || "-";
+  const vendorGst = currentVendor.gstNumber || currentVendor.gstin || "-";
+  const vendorEmail = (currentVendor.emailWhatsApp && currentVendor.emailWhatsApp.includes("@"))
+    ? currentVendor.emailWhatsApp
+    : (currentVendor.email || "-");
+  const vendorBank = currentVendor.bankName || "-";
+  const vendorAccNo = currentVendor.bankAccountNo || currentVendor.accountNumber || "-";
+  const vendorIfsc = currentVendor.bankIfscCode || currentVendor.ifscCode || "-";
+  const vendorBranch = currentVendor.bankBranchCode || currentVendor.branch || "-";
+  const vendorPaymentTerms = currentVendor.paymentTerms || globalData?.stage2?.paymentTerms || "-";
+  const vendorDeliveryTerms = currentVendor.deliveryTimeline || globalData?.stage2?.deliveryTimeline || "-";
+  const poNumberToDisplay = currentVendor.poNumber || rawPoNumber || "-";
+  const refQuotationNo = currentVendor.quotationNo || currentVendor.refQuotationNo || prNumber || "-";
+  const quotationDateFormatted = currentVendor.quotationDate
+    ? fmtPoDate(currentVendor.quotationDate)
+    : (globalData?.createdAt ? fmtPoDate(globalData.createdAt) : "-");
 
-  // Cleaned delivery location (removing 2nd number / "-2" after restaurant)
   const rawDeliveryLocation =
     currentVendor.deliveryLocation ||
     globalData?.stage2?.deliveryLocation ||
     globalData?.stage1?.deliveryLocation ||
-    "SRCC MAINTENANCE CENTER, NEW SANJHA CHULLA GARDEN RESTAURANT, NEXT TO ADANI SHANTIGRAM, NR. KHODIYAR PETROL PUMP, KHORAJ. ICD Khodiyar, GANDHINAGAR, Gujarat-382501";
+    globalData?.stage1?.departmentLocation ||
+    globalData?.stage1?.deliveryLocationSite ||
+    buyerAddress1 ||
+    "-";
   const finalDeliveryLocation = cleanDeliveryAddress(rawDeliveryLocation);
 
   // Compute Items
@@ -172,7 +180,7 @@ function PoLandscapePdfGenerator({
   rawItems.forEach((it) => {
     totalQtySum += Number(it.qty || it.quantityRequested || it.quantity || 0);
   });
-  const prTotalQuantity = totalQtySum > 0 ? totalQtySum : 2;
+  const prTotalQuantity = totalQtySum > 0 ? totalQtySum : 1;
 
   const vendorTotalOrderValue = Number(currentVendor.totalOrderValue) || 0;
   const vendorUnitPrice = Number(currentVendor.unitPriceNew || currentVendor.priceQuoted || 0);
@@ -185,21 +193,17 @@ function PoLandscapePdfGenerator({
     0
   );
 
-  let vendorAllocatedTotalQty = explicitVendorQty || (vendorTotalOrderValue > 0 && vendorUnitPrice > 0 ? Math.round(vendorTotalOrderValue / vendorUnitPrice) : prTotalQuantity) || 2;
+  let vendorAllocatedTotalQty =
+    explicitVendorQty ||
+    (vendorTotalOrderValue > 0 && vendorUnitPrice > 0
+      ? Math.round(vendorTotalOrderValue / vendorUnitPrice)
+      : prTotalQuantity) ||
+    1;
 
   let calculatedSubTotal = 0;
   let calculatedTotalGst = 0;
 
-  const itemsList = rawItems.length > 0 ? rawItems : [
-    {
-      description: "ABC 6 KG FIRE EXTINGUISHER NEW",
-      hsnCode: "84241000",
-      unit: "2 NOS",
-      qty: 2,
-      rate: 1950,
-      amount: 3900,
-    }
-  ];
+  const itemsList = rawItems.length > 0 ? rawItems : [];
 
   const computedItems = itemsList.map((item, idx) => {
     let itemQty = 0;
@@ -233,7 +237,7 @@ function PoLandscapePdfGenerator({
     calculatedSubTotal += itemBase;
     calculatedTotalGst += itemGst;
 
-    const productName = item.productName || item.tyreType || item.description || currentVendor.selectedProduct || "Goods as per PR";
+    const productName = item.productName || item.tyreType || item.description || currentVendor.selectedProduct || "Item";
     const brand = item.brandPreference || item.tyreBrand || currentVendor.tyreBrand || "";
     const spec = item.sizeSpec || item.sizeSpecification || item.specification || currentVendor.sizeSpecification || "";
     const fullDescription = [productName, brand, spec].filter(Boolean).join(" - ");
@@ -241,8 +245,8 @@ function PoLandscapePdfGenerator({
     return {
       srNo: idx + 1,
       description: fullDescription || "Goods Specification as per Purchase Order",
-      hsnCode: item.hsnCode || item.hsn || currentVendor.hsnCode || "84241000",
-      unit: item.unit || `${itemQty} NOS`,
+      hsnCode: item.hsnCode || item.hsn || currentVendor.hsnCode || "-",
+      unit: item.unit || (itemQty ? `${itemQty} NOS` : "NOS"),
       itemQty,
       itemRate,
       discPercent: currentVendor.discountOffered ? `${currentVendor.discountOffered}%` : "-",
@@ -251,7 +255,11 @@ function PoLandscapePdfGenerator({
   });
 
   const grandTotal = vendorTotalOrderValue > 0 ? vendorTotalOrderValue : (calculatedSubTotal + calculatedTotalGst);
-  const gstRateDisplay = currentVendor.gstRate ? String(currentVendor.gstRate).replace(/%/g, '') : "18";
+  const gstRateDisplay = currentVendor.gstRate
+    ? String(currentVendor.gstRate).replace(/%/g, '')
+    : (calculatedTotalGst > 0 && calculatedSubTotal > 0
+        ? String(Math.round((calculatedTotalGst / calculatedSubTotal) * 100))
+        : "18");
   const amountInWordsText = numberToWords(grandTotal);
 
   const handleGeneratePdf = async () => {
@@ -632,24 +640,31 @@ function PoLandscapePdfGenerator({
           </div>
           <div style={{ padding: "8px 12px", fontSize: "10px", lineHeight: "1.45", color: "#000000" }}>
             <div style={{ marginBottom: "3px" }}>
-              <strong>1. Payment Terms:</strong> {vendorPaymentTerms}.
+              <strong>1. Payment Terms:</strong> {vendorPaymentTerms !== "-" ? vendorPaymentTerms : "As per agreed procurement terms."}
             </div>
             <div style={{ marginBottom: "3px" }}>
-              <strong>2. Delivery Timeline:</strong> {vendorDeliveryTerms}.
+              <strong>2. Delivery Timeline:</strong> {vendorDeliveryTerms !== "-" ? vendorDeliveryTerms : "As per purchase order schedule."}
             </div>
             <div style={{ marginBottom: "3px" }}>
-              <strong>3. Refilling Charge / Standard Rates:</strong> As agreed per vendor quotation and specifications.
+              <strong>3. Quality & Specifications:</strong> Goods supplied must conform strictly to the technical specifications approved in the Purchase Order.
             </div>
             <div style={{ marginBottom: "3px" }}>
-              <strong>4. Warranty:</strong> 1 Year Certificate - Standard Warranty as per supplier. If product used before 1 year, it should be refilled/replaced with above mentioned charges.
+              <strong>4. Warranty & Guarantee:</strong> Standard manufacturer/supplier warranty applies to all delivered goods.
             </div>
             <div style={{ marginBottom: "6px" }}>
-              <strong>5. Complaint / Service Registration:</strong> All warranty claims, complaints, and service requests must be registered directly to the Supplier.
+              <strong>5. Inspection & Delivery:</strong> Delivery acceptance is subject to site inspection and physical verification. Original Tax Invoice and delivery documentation must accompany the shipment.
             </div>
 
-            <div style={{ borderTop: "1px dashed #94a3b8", paddingTop: "5px", fontSize: "10px" }}>
-              <strong>Bank Details for Payment (Vendor):</strong> A/c Holder: <strong>{vendorName}</strong> | Bank: <strong>{vendorBank}</strong> | A/c No: <strong>{vendorAccNo}</strong> | IFSC: <strong>{vendorIfsc}</strong> | Branch: <strong>{vendorBranch}</strong>
-            </div>
+            {(vendorBank !== "-" || vendorAccNo !== "-") && (
+              <div style={{ borderTop: "1px dashed #94a3b8", paddingTop: "5px", fontSize: "10px" }}>
+                <strong>Bank Details for Payment (Vendor):</strong>
+                {vendorName !== "-" && <> A/c Holder: <strong>{vendorName}</strong> |</>}
+                {vendorBank !== "-" && <> Bank: <strong>{vendorBank}</strong> |</>}
+                {vendorAccNo !== "-" && <> A/c No: <strong>{vendorAccNo}</strong> |</>}
+                {vendorIfsc !== "-" && <> IFSC: <strong>{vendorIfsc}</strong> |</>}
+                {vendorBranch !== "-" && <> Branch: <strong>{vendorBranch}</strong></>}
+              </div>
+            )}
           </div>
         </div>
 
@@ -665,7 +680,7 @@ function PoLandscapePdfGenerator({
               letterSpacing: "0.5px",
             }}
           >
-            DELIVERY AND INSTALLATION LOCATION:
+            DELIVERY LOCATION:
           </div>
           <div style={{ padding: "8px 12px", fontSize: "10.5px", lineHeight: "1.45", color: "#000000" }}>
             {finalDeliveryLocation}

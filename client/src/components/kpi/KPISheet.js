@@ -162,7 +162,7 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
             let sum = 0;
             // daily_values could be a Map from backend or plain object from optimistic update
             const entries = row.daily_values instanceof Map ? row.daily_values.entries() : Object.entries(row.daily_values || {});
-            
+
             for (let [d, val] of entries) {
                 const dNum = Number(d);
                 // 1. Skip Sundays UNLESS it's a Working Sunday
@@ -234,7 +234,7 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
 
     const handleCellChange = async (rowId, day, value) => {
         if (value < 0) return;
-        
+
         // Update local state first (Optimistic UI)
         const newRows = sheet.rows.map(r => {
             if (r.row_id === rowId) {
@@ -553,6 +553,76 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
         } catch (e) {
             console.error("Error removing row", e);
             showMessage("Failed to remove row", "error");
+        }
+    };
+
+    // Restrict Auto-Fill strictly to logged-in user Rauf Dayma only (No one else, not even Admin viewing the sheet)
+    const isRaufDayma = Boolean(
+        user && (
+            user.username?.toLowerCase() === 'rauf_dayma' ||
+            String(user._id || user.id) === '69804d6fdb43a20e654eb45c' ||
+            (user.first_name?.toUpperCase() === 'RAUF' && user.last_name?.toUpperCase() === 'DAYMA') ||
+            user.personal_email?.toLowerCase() === 'daymarauf@gmail.com' ||
+            user.email?.toLowerCase() === 'daymarauf@gmail.com'
+        )
+    );
+
+    // Auto-fill working days with weighted random values (Only for Rauf Dayma):
+    // Values between 1 and 10, with 9 most frequent, then 8, then 7, and only few less randomly from 1 to 6.
+    const handleAutoFillRandom = async () => {
+        if (!isRaufDayma) {
+            showMessage("Auto-fill is only available for Rauf Dayma", "warning");
+            return;
+        }
+        if (!sheet || !sheet.rows) return;
+        if (sheet.status !== 'DRAFT' && sheet.status !== 'REJECTED') {
+            showMessage("Cannot auto-fill locked or submitted sheet", "warning");
+            return;
+        }
+
+        const getWeightedRandom = () => {
+            const r = Math.random() * 100;
+            if (r < 50) return 9;           // 50% chance of 9 (most frequent)
+            if (r < 77) return 8;           // 27% chance of 8 (second most frequent)
+            if (r < 91) return 7;           // 14% chance of 7 (third most frequent)
+            if (r < 94) return 10;          // 3% chance of 10
+            return Math.floor(Math.random() * 6) + 1; // 6% random 1-6
+        };
+
+        const newRows = sheet.rows.map(row => {
+            const newDailyValues = { ...(row.daily_values instanceof Map ? Object.fromEntries(row.daily_values) : (row.daily_values || {})) };
+            let sum = 0;
+            daysInMonth.forEach(d => {
+                const isSun = isSunday(d);
+                const isWS = isWorkingSunday(d);
+                const isHol = isHoliday(d);
+                const isFest = isFestival(d);
+                const isBlocked = (isSun && !isWS) || isHol || isFest;
+                if (!isBlocked) {
+                    const val = getWeightedRandom();
+                    newDailyValues[d] = val;
+                    sum += val;
+                }
+            });
+            return {
+                ...row,
+                daily_values: newDailyValues,
+                total: sum,
+                actual: sum
+            };
+        });
+
+        const updatedSheet = { ...sheet, rows: newRows };
+        setSheet(updatedSheet);
+        showMessage("Working days filled with random values (mostly 9, then 8, then 7)", "success");
+
+        try {
+            await axios.put(`${process.env.REACT_APP_API_STRING}/kpi/sheet/auto-fill`, {
+                sheetId: sheet._id,
+                rows: newRows
+            }, { withCredentials: true });
+        } catch (err) {
+            console.error("Failed to persist auto-filled values", err);
         }
     };
 
@@ -1047,15 +1117,39 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                     </tfoot>
                 </table>
 
-                {/* Add Row Button */}
+                {/* Add Row Button & Auto-Fill */}
                 {(sheet.status === 'DRAFT' || sheet.status === 'REJECTED') && (
-                    <div className="add-row-section">
+                    <div className="add-row-section" style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '12px' }}>
                         <button
                             className="btn btn-secondary btn-sm"
                             onClick={() => setAddRowDialog({ open: true, label: '', target: '' })}
                         >
                             + Add Custom Row
                         </button>
+                        {isRaufDayma && (
+                            <button
+                                type="button"
+                                className="btn btn-sm"
+                                style={{
+                                    backgroundColor: '#0284c7',
+                                    color: '#ffffff',
+                                    fontWeight: 700,
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    padding: '6px 14px',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    boxShadow: '0 1px 3px rgba(2, 132, 199, 0.3)',
+                                    fontSize: '12px'
+                                }}
+                                onClick={handleAutoFillRandom}
+                                title="Auto-fill working days with weighted random values (mostly 9, then 8, then 7, few 1-6)"
+                            >
+                                🎲 Auto-Fill Random (1-10)
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
@@ -1164,9 +1258,9 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                                             sx={{ m: 0 }}
                                         />
                                         {!summary.business_loss_nothing_to_report && (
-                                            <Button 
-                                                size="small" 
-                                                variant="outlined" 
+                                            <Button
+                                                size="small"
+                                                variant="outlined"
                                                 onClick={() => setLossDialogOpen(true)}
                                                 sx={{ ml: 1, textTransform: 'none', fontSize: '0.75rem' }}
                                             >
@@ -1592,10 +1686,10 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
             </Dialog>
 
             {/* Business Loss Details Dialog */}
-            <Dialog 
-                open={lossDialogOpen} 
-                onClose={() => setLossDialogOpen(false)} 
-                fullWidth 
+            <Dialog
+                open={lossDialogOpen}
+                onClose={() => setLossDialogOpen(false)}
+                fullWidth
                 maxWidth="sm"
                 className="modern-kpi-dialog"
                 PaperProps={{
@@ -1606,8 +1700,8 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                     }
                 }}
             >
-                <DialogTitle sx={{ 
-                    p: 0, 
+                <DialogTitle sx={{
+                    p: 0,
                     background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
                     color: 'white',
                     height: '80px',
@@ -1617,10 +1711,10 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                     px: 3
                 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{ 
-                            width: 36, 
-                            height: 36, 
-                            bgcolor: 'rgba(255,255,255,0.1)', 
+                        <Box sx={{
+                            width: 36,
+                            height: 36,
+                            bgcolor: 'rgba(255,255,255,0.1)',
                             borderRadius: '10px',
                             display: 'flex',
                             alignItems: 'center',
@@ -1638,14 +1732,14 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                             </Typography>
                         </Box>
                     </Box>
-                    <IconButton 
+                    <IconButton
                         onClick={() => setLossDialogOpen(false)}
                         sx={{ color: 'white', opacity: 0.8, '&:hover': { opacity: 1, bgcolor: 'rgba(255,255,255,0.1)' } }}
                     >
                         <CloseIcon />
                     </IconButton>
                 </DialogTitle>
-                
+
                 <DialogContent sx={{ p: 0 }}>
                     <Box sx={{ p: 3 }}>
                         {/* Section: Loss Type */}
@@ -1656,7 +1750,7 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                                     Business Loss Type {Number(summary.business_loss) > 0 && <span style={{ color: '#ef4444' }}>*</span>}
                                 </Typography>
                             </Box>
-                            
+
                             <Autocomplete
                                 multiple
                                 disableCloseOnSelect
@@ -1696,9 +1790,9 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                                             label={option.includes(': ') ? option.split(': ')[1] : option}
                                             {...getTagProps({ index })}
                                             size="small"
-                                            sx={{ 
-                                                bgcolor: '#f1f5f9', 
-                                                fontWeight: 600, 
+                                            sx={{
+                                                bgcolor: '#f1f5f9',
+                                                fontWeight: 600,
                                                 fontSize: '0.7rem',
                                                 border: '1px solid #e2e8f0',
                                                 height: '24px'
@@ -1734,7 +1828,7 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                         <Divider sx={{ my: 3, opacity: 0.6 }} />
 
                         <Divider sx={{ my: 3, opacity: 0.6 }} />
-                        
+
                         {/* Section: Loss Amount */}
                         <Box className="dialog-field-section">
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
@@ -1812,12 +1906,12 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ p: 3, pt: 0, justifyContent: 'center' }}>
-                    <Button 
-                        onClick={() => setLossDialogOpen(false)} 
+                    <Button
+                        onClick={() => setLossDialogOpen(false)}
                         variant="contained"
                         fullWidth
-                        sx={{ 
-                            bgcolor: '#0f172a', 
+                        sx={{
+                            bgcolor: '#0f172a',
                             '&:hover': { bgcolor: '#1e293b' },
                             height: '48px',
                             borderRadius: '12px',

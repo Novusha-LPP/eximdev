@@ -19,6 +19,26 @@ const fmtPoDate = (d) => {
   }
 };
 
+const fmtPoDateTime = (d) => {
+  if (!d) return "-";
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return String(d);
+    const day = String(dt.getDate()).padStart(2, "0");
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = months[dt.getMonth()];
+    const year = dt.getFullYear();
+    let hours = dt.getHours();
+    const minutes = String(dt.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${day}-${month}-${year} ${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
+  } catch (e) {
+    return String(d);
+  }
+};
+
 const numberToWords = (num) => {
   const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
   const b = ['', '', 'Twenty ', 'Thirty ', 'Forty ', 'Fifty ', 'Sixty ', 'Seventy ', 'Eighty ', 'Ninety '];
@@ -93,50 +113,81 @@ function PoLandscapePdfGenerator({
 
   let awardedSuppliers = [];
   if (targetSupplier) {
-    const sName = typeof targetSupplier === "string" ? targetSupplier : (targetSupplier.selectedSupplier || targetSupplier.supplierName);
-    const full = stage2Suppliers.find(
-      (s) =>
-        s.supplierName === sName ||
-        s._id === sName ||
-        s.supplierNameInBank === sName ||
-        (sName && s.supplierName && s.supplierName.trim().toUpperCase() === sName.trim().toUpperCase())
-    ) || {};
+    const sName =
+      (typeof targetSupplier === "string"
+        ? targetSupplier
+        : targetSupplier.selectedSupplier || targetSupplier.supplierName || targetSupplier.name || "")?.trim();
+
+    const full =
+      stage2Suppliers.find(
+        (s) =>
+          (sName && s.supplierName && s.supplierName.trim().toUpperCase() === sName.toUpperCase()) ||
+          (sName && s._id && String(s._id) === String(sName)) ||
+          (sName && s.supplierNameInBank && s.supplierNameInBank.trim().toUpperCase() === sName.toUpperCase())
+      ) ||
+      stage2Suppliers.find((s) => s.supplierName && !s.supplierName.toUpperCase().startsWith("SUPPLIER ")) ||
+      stage2Suppliers[0] ||
+      {};
+
+    const resolvedSupplierName =
+      sName ||
+      full.supplierName ||
+      full.supplierNameInBank ||
+      (typeof targetSupplier === "object" ? targetSupplier.supplierName : "") ||
+      "-";
+
     awardedSuppliers = [{
-      supplierName: sName || full.supplierName || full.supplierNameInBank || "-",
+      supplierName: resolvedSupplierName,
       totalOrderValue: Number(targetSupplier.totalOrderValue) || full.totalOrderValue || 0,
       priceQuoted: Number(targetSupplier.priceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
       reasonForSelection: targetSupplier.reasonForSelection || full.reasonForSelection || "",
       poNumber: targetSupplier.poNumber || globalData?.poNumber || rawPoNumber,
       ...full,
       ...(typeof targetSupplier === "object" ? targetSupplier : {}),
+      supplierName: resolvedSupplierName,
     }];
   } else if (stage2Selected && stage2Selected.length > 0) {
     awardedSuppliers = stage2Selected.map((sel) => {
-      const sName = sel.selectedSupplier || sel.supplierName;
-      const full = stage2Suppliers.find(
-        (s) =>
-          s.supplierName === sName ||
-          s._id === sName ||
-          s.supplierNameInBank === sName ||
-          (sName && s.supplierName && s.supplierName.trim().toUpperCase() === sName.trim().toUpperCase())
-      ) || {};
+      const sName = (sel.selectedSupplier || sel.supplierName || "")?.trim();
+      const full =
+        stage2Suppliers.find(
+          (s) =>
+            (sName && s.supplierName && s.supplierName.trim().toUpperCase() === sName.toUpperCase()) ||
+            (sName && s._id && String(s._id) === String(sName)) ||
+            (sName && s.supplierNameInBank && s.supplierNameInBank.trim().toUpperCase() === sName.toUpperCase())
+        ) ||
+        stage2Suppliers.find((s) => s.supplierName && !s.supplierName.toUpperCase().startsWith("SUPPLIER ")) ||
+        stage2Suppliers[0] ||
+        {};
+
+      const resolvedSupplierName = sName || full.supplierName || full.supplierNameInBank || "-";
+
       return {
-        supplierName: sName || full.supplierName || full.supplierNameInBank || "-",
+        supplierName: resolvedSupplierName,
         totalOrderValue: Number(sel.totalOrderValue) || full.totalOrderValue || 0,
         priceQuoted: Number(sel.priceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
         reasonForSelection: sel.reasonForSelection || "",
         poNumber: sel.poNumber || globalData?.poNumber || rawPoNumber,
         ...full,
         ...sel,
+        supplierName: resolvedSupplierName,
       };
     });
   } else if (stage2Suppliers.length > 0) {
     awardedSuppliers = stage2Suppliers;
   } else if (globalData?.stage2?.selectedSupplierL1) {
+    const l1Name = globalData.stage2.selectedSupplierL1;
+    const full =
+      stage2Suppliers.find(
+        (s) =>
+          (l1Name && s.supplierName && s.supplierName.trim().toUpperCase() === String(l1Name).trim().toUpperCase())
+      ) || {};
     awardedSuppliers = [{
-      supplierName: globalData.stage2.selectedSupplierL1,
-      totalOrderValue: Number(globalData.stage2.totalOrderValue) || 0,
+      supplierName: l1Name,
+      totalOrderValue: Number(globalData.stage2.totalOrderValue) || full.totalOrderValue || 0,
+      priceQuoted: Number(globalData.stage2.l1PriceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
       poNumber: globalData.poNumber || rawPoNumber,
+      ...full,
     }];
   } else {
     awardedSuppliers = [{
@@ -147,23 +198,84 @@ function PoLandscapePdfGenerator({
   }
 
   const currentVendor = awardedSuppliers[activeVendorIndex] || awardedSuppliers[0] || {};
-  const vendorName = currentVendor.supplierName || currentVendor.supplierNameInBank || "-";
-  const vendorAddress = currentVendor.supplierAddress || currentVendor.address || "-";
-  const vendorGst = currentVendor.gstNumber || currentVendor.gstin || "-";
-  const vendorEmail = (currentVendor.emailWhatsApp && currentVendor.emailWhatsApp.includes("@"))
-    ? currentVendor.emailWhatsApp
-    : (currentVendor.email || "-");
-  const vendorBank = currentVendor.bankName || "-";
-  const vendorAccNo = currentVendor.bankAccountNo || currentVendor.accountNumber || "-";
-  const vendorIfsc = currentVendor.bankIfscCode || currentVendor.ifscCode || "-";
-  const vendorBranch = currentVendor.bankBranchCode || currentVendor.branch || "-";
-  const vendorPaymentTerms = currentVendor.paymentTerms || globalData?.stage2?.paymentTerms || "-";
-  const vendorDeliveryTerms = currentVendor.deliveryTimeline || globalData?.stage2?.deliveryTimeline || "-";
-  const poNumberToDisplay = currentVendor.poNumber || rawPoNumber || "-";
-  const refQuotationNo = currentVendor.quotationNo || currentVendor.refQuotationNo || prNumber || "-";
-  const quotationDateFormatted = currentVendor.quotationDate
-    ? fmtPoDate(currentVendor.quotationDate)
-    : (globalData?.createdAt ? fmtPoDate(globalData.createdAt) : "-");
+  const vendorName =
+    (currentVendor.supplierName && currentVendor.supplierName !== "-")
+      ? currentVendor.supplierName
+      : currentVendor.supplierNameInBank ||
+        currentVendor.selectedSupplier ||
+        (targetSupplier?.supplierName && targetSupplier.supplierName !== "-" ? targetSupplier.supplierName : targetSupplier?.selectedSupplier) ||
+        globalData?.stage2?.selectedSupplierL1 ||
+        "-";
+
+  const vendorAddress =
+    currentVendor.supplierAddress ||
+    currentVendor.address ||
+    currentVendor.vendorAddress ||
+    targetSupplier?.supplierAddress ||
+    targetSupplier?.address ||
+    "-";
+
+  const vendorGst =
+    currentVendor.gstNumber ||
+    currentVendor.gstin ||
+    currentVendor.vendorGst ||
+    targetSupplier?.gstNumber ||
+    targetSupplier?.gstin ||
+    "-";
+
+  const vendorPhone =
+    currentVendor.phoneNumber ||
+    currentVendor.phone ||
+    currentVendor.mobile ||
+    currentVendor.contactNumber ||
+    currentVendor.contactPersonPhone ||
+    targetSupplier?.phoneNumber ||
+    targetSupplier?.phone ||
+    targetSupplier?.mobile ||
+    "-";
+
+  const vendorBank =
+    currentVendor.bankName ||
+    targetSupplier?.bankName ||
+    "-";
+
+  const vendorAccNo =
+    currentVendor.bankAccountNo ||
+    currentVendor.accountNumber ||
+    targetSupplier?.bankAccountNo ||
+    targetSupplier?.accountNumber ||
+    "-";
+
+  const vendorIfsc =
+    currentVendor.bankIfscCode ||
+    currentVendor.ifscCode ||
+    targetSupplier?.bankIfscCode ||
+    targetSupplier?.ifscCode ||
+    "-";
+
+  const vendorBranch =
+    currentVendor.bankBranchCode ||
+    currentVendor.branch ||
+    targetSupplier?.bankBranchCode ||
+    "-";
+
+  const vendorPaymentTerms =
+    currentVendor.paymentTerms ||
+    targetSupplier?.paymentTerms ||
+    globalData?.stage2?.paymentTerms ||
+    "-";
+
+  const vendorDeliveryTerms =
+    currentVendor.deliveryTimeline ||
+    targetSupplier?.deliveryTimeline ||
+    globalData?.stage2?.deliveryTimeline ||
+    "-";
+
+  const poNumberToDisplay =
+    currentVendor.poNumber ||
+    targetSupplier?.poNumber ||
+    rawPoNumber ||
+    "-";
 
   const rawDeliveryLocation =
     currentVendor.deliveryLocation ||
@@ -174,6 +286,38 @@ function PoLandscapePdfGenerator({
     buyerAddress1 ||
     "-";
   const finalDeliveryLocation = cleanDeliveryAddress(rawDeliveryLocation);
+
+  const deliveryContactNo =
+    currentVendor.deliveryContact ||
+    globalData?.stage2?.deliveryContact ||
+    globalData?.stage1?.requesterPhone ||
+    "-";
+
+  const isGstFreightIncluded = Boolean(
+    currentVendor.isGstFreightIncluded ??
+    globalData?.stage2?.isGstFreightIncluded ??
+    globalData?.isGstFreightIncluded ??
+    false
+  );
+
+  const customTermsList =
+    Array.isArray(currentVendor.customTerms) && currentVendor.customTerms.length > 0
+      ? currentVendor.customTerms
+      : Array.isArray(globalData?.stage2?.customTerms) && globalData.stage2.customTerms.length > 0
+      ? globalData.stage2.customTerms
+      : Array.isArray(globalData?.customTerms) && globalData.customTerms.length > 0
+      ? globalData.customTerms
+      : [
+          `Payment Terms: ${vendorPaymentTerms !== "-" ? vendorPaymentTerms : "As per agreed procurement terms."}`,
+          `Delivery Timeline: ${vendorDeliveryTerms !== "-" ? vendorDeliveryTerms : "As per purchase order schedule."}`,
+          "Quality & Specifications: Goods supplied must conform strictly to the technical specifications approved in the Purchase Order.",
+          "Warranty & Guarantee: Standard manufacturer/supplier warranty applies to all delivered goods.",
+          "Inspection & Delivery: Delivery acceptance is subject to site inspection and physical verification. Original Tax Invoice and delivery documentation must accompany the shipment.",
+        ];
+
+  const preparedAtFormatted = fmtPoDateTime(globalData?.createdAt || globalData?.stage1?.prDate || globalData?.stage1?.createdAt);
+  const checkedAtFormatted = fmtPoDateTime(globalData?.stage1?.hodValidation?.validatedAt || globalData?.stage1?.updatedAt || globalData?.createdAt);
+  const approvedAtFormatted = fmtPoDateTime(globalData?.stage3?.signOff?.dateOfApproval || globalData?.stage3?.decision?.approvedAt || globalData?.stage3?.updatedAt || poDate);
 
   // Compute Items
   let totalQtySum = 0;
@@ -245,7 +389,7 @@ function PoLandscapePdfGenerator({
     return {
       srNo: idx + 1,
       description: fullDescription || "Goods Specification as per Purchase Order",
-      hsnCode: item.hsnCode || item.hsn || currentVendor.hsnCode || "-",
+      hsnCode: currentVendor.hsnCode || item.hsnCode || item.hsn || globalData?.stage2?.hsnCode || "-",
       unit: item.unit || (itemQty ? `${itemQty} NOS` : "NOS"),
       itemQty,
       itemRate,
@@ -395,6 +539,7 @@ function PoLandscapePdfGenerator({
           padding: "24px 28px",
           boxSizing: "border-box",
           border: "2px solid #000000",
+          textAlign: "left",
         }}
       >
         {/* Header: Logo (Left) & PURCHASE ORDER Navy Bar (Right) */}
@@ -424,8 +569,8 @@ function PoLandscapePdfGenerator({
           </div>
         </div>
 
-        {/* 1. BUYER (Bill to / Ship to) & VENDOR Boxes */}
-        <table style={{ width: "100%", borderCollapse: "collapse", border: BORDER_STYLE, marginBottom: "12px" }}>
+        {/* 1. BUYER (BILL TO) & VENDOR Box */}
+        <table style={{ width: "100%", borderCollapse: "collapse", border: BORDER_STYLE, marginBottom: "8px", fontSize: "11px", tableLayout: "fixed", textAlign: "left" }}>
           <thead>
             <tr>
               <th
@@ -441,7 +586,7 @@ function PoLandscapePdfGenerator({
                   backgroundColor: HEADER_BG,
                 }}
               >
-                BUYER (Bill to / Ship to)
+                BUYER (BILL TO)
               </th>
               <th
                 style={{
@@ -461,68 +606,103 @@ function PoLandscapePdfGenerator({
           </thead>
           <tbody>
             <tr>
-              <td style={{ borderRight: BORDER_STYLE, padding: "8px 10px", verticalAlign: "top", fontSize: "10.5px", lineHeight: "1.45" }}>
-                <div style={{ fontWeight: 800, color: "#000000", fontSize: "11.5px" }}>{buyerName}</div>
-                <div>{buyerAddress1}</div>
-                <div>{buyerAddress2}</div>
-                <div>{buyerCityState}</div>
-                <div><strong>GSTIN:</strong> {buyerGstin}</div>
-                <div>{buyerStateCode}</div>
-                <div><strong>Email:</strong> {buyerEmail}</div>
+              <td style={{ width: "50%", borderRight: BORDER_STYLE, padding: "8px 10px", verticalAlign: "top", fontSize: "10.5px", lineHeight: "1.45", textAlign: "left", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal", boxSizing: "border-box" }}>
+                <div style={{ fontWeight: 800, color: "#000000", fontSize: "11.5px", textAlign: "left" }}>{buyerName}</div>
+                <div style={{ textAlign: "left" }}>{buyerAddress1}</div>
+                <div style={{ textAlign: "left" }}>{buyerAddress2}</div>
+                <div style={{ textAlign: "left" }}>{buyerCityState}</div>
+                <div style={{ textAlign: "left" }}><strong>GSTIN:</strong> {buyerGstin}</div>
+                <div style={{ textAlign: "left" }}>{buyerStateCode}</div>
+                <div style={{ textAlign: "left" }}><strong>Email:</strong> {buyerEmail}</div>
               </td>
-              <td style={{ padding: "8px 10px", verticalAlign: "top", fontSize: "10.5px", lineHeight: "1.45" }}>
-                <div style={{ fontWeight: 800, color: "#000000", fontSize: "11.5px" }}>{vendorName}</div>
-                <div>{vendorAddress}</div>
-                <div><strong>GSTIN:</strong> {vendorGst}</div>
-                <div><strong>Email:</strong> {vendorEmail}</div>
+              <td style={{ width: "50%", padding: "8px 10px", verticalAlign: "top", fontSize: "10.5px", lineHeight: "1.45", textAlign: "left", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal", boxSizing: "border-box" }}>
+                <div style={{ fontWeight: 800, color: "#000000", fontSize: "11.5px", textAlign: "left" }}>{vendorName}</div>
+                <div style={{ textAlign: "left", wordBreak: "break-word", whiteSpace: "normal" }}>{vendorAddress}</div>
+                <div style={{ textAlign: "left" }}><strong>GSTIN:</strong> {vendorGst}</div>
+                <div style={{ textAlign: "left" }}><strong>Phone / Mobile:</strong> {vendorPhone}</div>
               </td>
             </tr>
           </tbody>
         </table>
 
-        {/* 2. PO Details Grid (4 Columns, 3 Rows) */}
-        <table style={{ width: "100%", borderCollapse: "collapse", border: BORDER_STYLE, marginBottom: "12px", fontSize: "11px" }}>
+        {/* 2. SHIP TO & PURCHASE ORDER DETAILS Box */}
+        <table style={{ width: "100%", borderCollapse: "collapse", border: BORDER_STYLE, marginBottom: "10px", fontSize: "11px", tableLayout: "fixed", textAlign: "left" }}>
+          <thead>
+            <tr>
+              <th
+                style={{
+                  width: "50%",
+                  borderRight: BORDER_STYLE,
+                  borderBottom: BORDER_STYLE,
+                  padding: "6px 10px",
+                  textAlign: "left",
+                  color: NAVY,
+                  fontWeight: 800,
+                  fontSize: "11.5px",
+                  backgroundColor: HEADER_BG,
+                }}
+              >
+                SHIP TO
+              </th>
+              <th
+                style={{
+                  width: "50%",
+                  borderBottom: BORDER_STYLE,
+                  padding: "6px 10px",
+                  textAlign: "left",
+                  color: NAVY,
+                  fontWeight: 800,
+                  fontSize: "11.5px",
+                  backgroundColor: HEADER_BG,
+                }}
+              >
+                PURCHASE ORDER DETAILS
+              </th>
+            </tr>
+          </thead>
           <tbody>
             <tr>
-              <td style={{ width: "22%", padding: "6px 10px", borderRight: BORDER_STYLE, borderBottom: BORDER_STYLE, color: NAVY, fontWeight: 700, backgroundColor: HEADER_BG }}>
-                PO Number
+              <td style={{ width: "50%", borderRight: BORDER_STYLE, padding: "8px 10px", verticalAlign: "top", fontSize: "10.5px", lineHeight: "1.45", textAlign: "left", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal", boxSizing: "border-box" }}>
+                <div style={{ marginBottom: "5px", textAlign: "left", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
+                  <strong>Delivery Location:</strong> {finalDeliveryLocation}
+                </div>
+                <div style={{ textAlign: "left", wordBreak: "break-word", whiteSpace: "normal" }}>
+                  <strong>Delivery Contact / Mobile No:</strong> {deliveryContactNo}
+                </div>
               </td>
-              <td style={{ width: "28%", padding: "6px 10px", borderRight: BORDER_STYLE, borderBottom: BORDER_STYLE, fontWeight: 600 }}>
-                {poNumberToDisplay}
-              </td>
-              <td style={{ width: "22%", padding: "6px 10px", borderRight: BORDER_STYLE, borderBottom: BORDER_STYLE, color: NAVY, fontWeight: 700, backgroundColor: HEADER_BG }}>
-                PO Date
-              </td>
-              <td style={{ width: "28%", padding: "6px 10px", borderBottom: BORDER_STYLE, fontWeight: 600 }}>
-                {poDate}
-              </td>
-            </tr>
-            <tr>
-              <td style={{ padding: "6px 10px", borderRight: BORDER_STYLE, borderBottom: BORDER_STYLE, color: NAVY, fontWeight: 700, backgroundColor: HEADER_BG }}>
-                Ref. Quotation No.
-              </td>
-              <td style={{ padding: "6px 10px", borderRight: BORDER_STYLE, borderBottom: BORDER_STYLE, fontWeight: 600 }}>
-                {refQuotationNo}
-              </td>
-              <td style={{ padding: "6px 10px", borderRight: BORDER_STYLE, borderBottom: BORDER_STYLE, color: NAVY, fontWeight: 700, backgroundColor: HEADER_BG }}>
-                Quotation Date
-              </td>
-              <td style={{ padding: "6px 10px", borderBottom: BORDER_STYLE, fontWeight: 600 }}>
-                {quotationDateFormatted}
-              </td>
-            </tr>
-            <tr>
-              <td style={{ padding: "6px 10px", borderRight: BORDER_STYLE, color: NAVY, fontWeight: 700, backgroundColor: HEADER_BG }}>
-                Mode of Payment
-              </td>
-              <td style={{ padding: "6px 10px", borderRight: BORDER_STYLE, fontWeight: 600 }}>
-                {vendorPaymentTerms}
-              </td>
-              <td style={{ padding: "6px 10px", borderRight: BORDER_STYLE, color: NAVY, fontWeight: 700, backgroundColor: HEADER_BG }}>
-                Delivery Terms
-              </td>
-              <td style={{ padding: "6px 10px", fontWeight: 600 }}>
-                {vendorDeliveryTerms}
+              <td style={{ width: "50%", padding: "0", verticalAlign: "top", textAlign: "left", boxSizing: "border-box" }}>
+                <div style={{ display: "flex", borderBottom: BORDER_STYLE, fontSize: "10.5px", textAlign: "left" }}>
+                  <div style={{ width: "38%", padding: "5px 8px", borderRight: BORDER_STYLE, fontWeight: 700, color: NAVY, backgroundColor: HEADER_BG, boxSizing: "border-box", textAlign: "left" }}>
+                    PO Number
+                  </div>
+                  <div style={{ width: "62%", padding: "5px 8px", fontWeight: 700, color: "#000000", boxSizing: "border-box", textAlign: "left", wordBreak: "break-word" }}>
+                    {poNumberToDisplay}
+                  </div>
+                </div>
+                <div style={{ display: "flex", borderBottom: BORDER_STYLE, fontSize: "10.5px", textAlign: "left" }}>
+                  <div style={{ width: "38%", padding: "5px 8px", borderRight: BORDER_STYLE, fontWeight: 700, color: NAVY, backgroundColor: HEADER_BG, boxSizing: "border-box", textAlign: "left" }}>
+                    PO Date
+                  </div>
+                  <div style={{ width: "62%", padding: "5px 8px", boxSizing: "border-box", textAlign: "left" }}>
+                    {poDate}
+                  </div>
+                </div>
+                <div style={{ display: "flex", borderBottom: BORDER_STYLE, fontSize: "10.5px", textAlign: "left" }}>
+                  <div style={{ width: "38%", padding: "5px 8px", borderRight: BORDER_STYLE, fontWeight: 700, color: NAVY, backgroundColor: HEADER_BG, boxSizing: "border-box", textAlign: "left" }}>
+                    Mode of Payment
+                  </div>
+                  <div style={{ width: "62%", padding: "5px 8px", boxSizing: "border-box", textAlign: "left", wordBreak: "break-word" }}>
+                    {vendorPaymentTerms}
+                  </div>
+                </div>
+                <div style={{ display: "flex", fontSize: "10.5px", textAlign: "left" }}>
+                  <div style={{ width: "38%", padding: "5px 8px", borderRight: BORDER_STYLE, fontWeight: 700, color: NAVY, backgroundColor: HEADER_BG, boxSizing: "border-box", textAlign: "left" }}>
+                    Delivery Terms
+                  </div>
+                  <div style={{ width: "62%", padding: "5px 8px", boxSizing: "border-box", textAlign: "left", wordBreak: "break-word" }}>
+                    {vendorDeliveryTerms}
+                  </div>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -594,7 +774,19 @@ function PoLandscapePdfGenerator({
                 {vendorAllocatedTotalQty} Nos
               </td>
               <td style={{ borderRight: BORDER_STYLE }}></td>
-              <td style={{ borderRight: BORDER_STYLE }}></td>
+              <td
+                style={{
+                  borderRight: BORDER_STYLE,
+                  padding: "6px 8px",
+                  textAlign: "right",
+                  fontWeight: 700,
+                  fontSize: "10px",
+                  color: isGstFreightIncluded ? "#1e3a8a" : "transparent",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {isGstFreightIncluded ? "(Inclusive of GST & Freight)" : ""}
+              </td>
               <td
                 style={{
                   backgroundColor: NAVY,
@@ -625,7 +817,7 @@ function PoLandscapePdfGenerator({
         </div>
 
         {/* 5. TERMS AND CONDITIONS Box */}
-        <div style={{ border: BORDER_STYLE, marginBottom: "10px" }}>
+        <div style={{ border: BORDER_STYLE, marginBottom: "14px" }}>
           <div
             style={{
               backgroundColor: NAVY,
@@ -639,24 +831,14 @@ function PoLandscapePdfGenerator({
             TERMS AND CONDITIONS
           </div>
           <div style={{ padding: "8px 12px", fontSize: "10px", lineHeight: "1.45", color: "#000000" }}>
-            <div style={{ marginBottom: "3px" }}>
-              <strong>1. Payment Terms:</strong> {vendorPaymentTerms !== "-" ? vendorPaymentTerms : "As per agreed procurement terms."}
-            </div>
-            <div style={{ marginBottom: "3px" }}>
-              <strong>2. Delivery Timeline:</strong> {vendorDeliveryTerms !== "-" ? vendorDeliveryTerms : "As per purchase order schedule."}
-            </div>
-            <div style={{ marginBottom: "3px" }}>
-              <strong>3. Quality & Specifications:</strong> Goods supplied must conform strictly to the technical specifications approved in the Purchase Order.
-            </div>
-            <div style={{ marginBottom: "3px" }}>
-              <strong>4. Warranty & Guarantee:</strong> Standard manufacturer/supplier warranty applies to all delivered goods.
-            </div>
-            <div style={{ marginBottom: "6px" }}>
-              <strong>5. Inspection & Delivery:</strong> Delivery acceptance is subject to site inspection and physical verification. Original Tax Invoice and delivery documentation must accompany the shipment.
-            </div>
+            {customTermsList.map((term, tIdx) => (
+              <div key={tIdx} style={{ marginBottom: "3px" }}>
+                <strong>{tIdx + 1}.</strong> {term.replace(/^\d+[\.\s]*/, "")}
+              </div>
+            ))}
 
             {(vendorBank !== "-" || vendorAccNo !== "-") && (
-              <div style={{ borderTop: "1px dashed #94a3b8", paddingTop: "5px", fontSize: "10px" }}>
+              <div style={{ borderTop: "1px dashed #94a3b8", paddingTop: "5px", fontSize: "10px", marginTop: "4px" }}>
                 <strong>Bank Details for Payment (Vendor):</strong>
                 {vendorName !== "-" && <> A/c Holder: <strong>{vendorName}</strong> |</>}
                 {vendorBank !== "-" && <> Bank: <strong>{vendorBank}</strong> |</>}
@@ -668,26 +850,7 @@ function PoLandscapePdfGenerator({
           </div>
         </div>
 
-        {/* 6. DELIVERY AND INSTALLATION LOCATION Box */}
-        <div style={{ border: BORDER_STYLE, marginBottom: "14px" }}>
-          <div
-            style={{
-              backgroundColor: NAVY,
-              color: "#ffffff",
-              fontWeight: 800,
-              fontSize: "11.5px",
-              padding: "4px 10px",
-              letterSpacing: "0.5px",
-            }}
-          >
-            DELIVERY LOCATION:
-          </div>
-          <div style={{ padding: "8px 12px", fontSize: "10.5px", lineHeight: "1.45", color: "#000000" }}>
-            {finalDeliveryLocation}
-          </div>
-        </div>
-
-        {/* 7. Signatures Block */}
+        {/* 6. Captured Dates & Signatures Block */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "0 4px", fontSize: "10.5px", lineHeight: "1.5" }}>
           <div style={{ width: "32%" }}>
             <div style={{ fontWeight: 800, color: NAVY, textDecoration: "underline", marginBottom: "2px" }}>
@@ -695,7 +858,7 @@ function PoLandscapePdfGenerator({
             </div>
             <div><strong>Name:</strong> {prRaisedBy}</div>
             <div><strong>Designation:</strong> Purchase Officer</div>
-            <div><strong>Sign. & Date:</strong> _________________</div>
+            <div><strong>Date:</strong> {preparedAtFormatted}</div>
           </div>
 
           <div style={{ width: "32%" }}>
@@ -704,7 +867,7 @@ function PoLandscapePdfGenerator({
             </div>
             <div><strong>Name:</strong> {checkedByName}</div>
             <div><strong>Designation:</strong> HR/Admin</div>
-            <div><strong>Sign. & Date:</strong> _________________</div>
+            <div><strong>Date:</strong> {checkedAtFormatted}</div>
           </div>
 
           <div style={{ width: "32%" }}>
@@ -713,7 +876,7 @@ function PoLandscapePdfGenerator({
             </div>
             <div><strong>Name:</strong> {approvedByName}</div>
             <div><strong>Designation:</strong> Sr. Manager - Accounts</div>
-            <div><strong>Sign. & Date:</strong> _________________</div>
+            <div><strong>Date:</strong> {approvedAtFormatted}</div>
           </div>
         </div>
       </div>

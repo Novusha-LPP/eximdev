@@ -42,6 +42,14 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
       ? data.suppliers
       : [{ supplierName: "SUPPLIER 1" }, { supplierName: "SUPPLIER 2" }, { supplierName: "SUPPLIER 3" }];
 
+const DEFAULT_TERMS = [
+  "Payment Terms: As per agreed purchase order schedule.",
+  "Delivery Timeline: Strictly as specified in the purchase order schedule.",
+  "Quality & Specifications: Goods supplied must conform strictly to approved technical specifications.",
+  "Warranty & Guarantee: Standard manufacturer/supplier warranty applies to all delivered goods.",
+  "Inspection & Delivery: Acceptance is subject to site physical verification. Original Tax Invoice & delivery documents must accompany shipment.",
+];
+
   const routingChecklist = data.routingChecklist || [];
 
   // Multiple selected/awarded suppliers
@@ -388,6 +396,7 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
         current[idx].gstAmount = gstAmt;
         current[idx].deliveryLocation = s.deliveryLocation || "";
         current[idx].deliveryContact = s.deliveryContact || "";
+        current[idx].hsnCode = s.hsnCode || "";
       }
 
       // Automatically generate/assign continuous sequential PO numbers per unique supplier
@@ -418,6 +427,7 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
         address: "",
         deliveryLocation: "",
         deliveryContact: "",
+        hsnCode: "",
         gstRate: "",
         gstAmount: 0,
       },
@@ -753,6 +763,7 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
 
               {/* Quote Parameters Rows */}
               {[
+                ["HSN / SAC Code", "hsnCode", "text"],
                 ["Brand", "tyreBrand", "text"],
                 ["Specification", "sizeSpecification", "text"],
                 ["Unit Price (₹)", "unitPriceNew", "number"],
@@ -921,6 +932,15 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
                   placeholder="Contact Person"
                 />
               </div>
+              <div className="sop-field-group">
+                <label className="sop-field-label">HSN / SAC Code</label>
+                <input
+                  className="sop-input"
+                  value={item.hsnCode || ""}
+                  onChange={(e) => updateSelectedSupplier(idx, "hsnCode", e.target.value.toUpperCase())}
+                  placeholder="e.g. 84241000"
+                />
+              </div>
               <div className="sop-field-group" style={{ gridColumn: "span 2" }}>
                 <label className="sop-field-label">Supplier Address</label>
                 <input
@@ -936,11 +956,103 @@ function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange })
             </div>
           </div>
         ))}
+
+        {/* PO Setting: Inclusive of GST & Freight Toggle */}
+        <div style={{ marginTop: "12px", display: "flex", alignItems: "center", gap: "10px" }}>
+          <button
+            type="button"
+            className="sop-btn"
+            onClick={() => updateField("isGstFreightIncluded", !data.isGstFreightIncluded)}
+            style={{
+              backgroundColor: data.isGstFreightIncluded ? "#15803d" : "#f8fafc",
+              color: data.isGstFreightIncluded ? "#ffffff" : "#1e293b",
+              border: `1px solid ${data.isGstFreightIncluded ? "#15803d" : "#cbd5e1"}`,
+              fontWeight: 700,
+              fontSize: "12px",
+              padding: "6px 14px",
+              borderRadius: "6px",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow: data.isGstFreightIncluded ? "0 2px 4px rgba(21, 128, 61, 0.25)" : "none",
+            }}
+          >
+            {data.isGstFreightIncluded
+              ? "✓ Inclusive of GST & Freight (Enabled in PO Total)"
+              : "+ Show 'Inclusive of GST & Freight' beside PO Total"}
+          </button>
+        </div>
       </div>
 
-      {/* Section D: Routing & Checklist */}
+      {/* Section D: Custom Terms & Conditions for Purchase Order */}
       <div className="sop-card">
-        <div className="sop-card-title">D. Routing & Checklist</div>
+        <div className="sop-card-title">
+          <span>D. Terms & Conditions for Purchase Order</span>
+          <button
+            type="button"
+            className="sop-btn primary"
+            onClick={() => {
+              const currentTerms = Array.isArray(data.customTerms) && data.customTerms.length > 0 ? [...data.customTerms] : [...DEFAULT_TERMS];
+              currentTerms.push("");
+              onChange({ customTerms: currentTerms });
+            }}
+          >
+            <Add style={{ fontSize: "14px" }} /> Add Term & Condition
+          </button>
+        </div>
+        <div style={{ marginBottom: "8px", fontSize: "12px", color: "#64748b" }}>
+          Enter custom terms and conditions line-by-line. They will be displayed directly in the Purchase Order PDF.
+        </div>
+        <div className="sop-table-container">
+          <table className="sop-table">
+            <thead>
+              <tr>
+                <th style={{ width: "45px", textAlign: "center" }}>#</th>
+                <th>Term & Condition Description</th>
+                <th style={{ width: "70px", textAlign: "center" }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(Array.isArray(data.customTerms) && data.customTerms.length > 0 ? data.customTerms : DEFAULT_TERMS).map((term, tIdx) => (
+                <tr key={tIdx}>
+                  <td style={{ textAlign: "center", fontWeight: 700, color: "#1d4ed8" }}>{tIdx + 1}</td>
+                  <td>
+                    <input
+                      className="sop-input"
+                      value={term}
+                      onChange={(e) => {
+                        const currentTerms = Array.isArray(data.customTerms) && data.customTerms.length > 0 ? [...data.customTerms] : [...DEFAULT_TERMS];
+                        currentTerms[tIdx] = e.target.value;
+                        onChange({ customTerms: currentTerms });
+                      }}
+                      placeholder={`Terms & Condition #${tIdx + 1}`}
+                    />
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentTerms = Array.isArray(data.customTerms) && data.customTerms.length > 0 ? [...data.customTerms] : [...DEFAULT_TERMS];
+                        currentTerms.splice(tIdx, 1);
+                        onChange({ customTerms: currentTerms });
+                      }}
+                      style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: "4px" }}
+                      title="Delete Term"
+                    >
+                      <Delete style={{ fontSize: "16px" }} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Section E: Routing & Checklist */}
+      <div className="sop-card">
+        <div className="sop-card-title">E. Routing & Checklist</div>
         <div className="sop-table-container">
           <table className="sop-table">
             <thead>

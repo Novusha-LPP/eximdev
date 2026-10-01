@@ -1554,18 +1554,11 @@ export const approveRequest = async (req, res) => {
                     shift
                 );
 
-                // Resolve status based on work hours
-                const overrides = await fetchDayOverrides(empId, request.attendance_date, companyId);
-                const statusResult = AttendanceStatusResolver.resolveStatus(workData, shift, overrides);
-                let finalStatus = statusResult.status;
-                if (request.regularization_type === 'half_day') {
-                    finalStatus = 'half_day';
-                } else if (['missing_punch', 'missing_out', 'late_in', 'early_out', 'manual_override', 'absent'].includes(request.regularization_type)) {
-                    if (workData.total_work_hours >= (shift?.half_day_hours || 4)) {
-                        finalStatus = workData.total_work_hours >= (shift?.full_day_hours || 8) ? 'present' : 'half_day';
-                    } else if (workData.total_work_hours > 0) {
-                        finalStatus = 'present';
-                    }
+                // When a regularization is approved/resolved, it MUST be present (or half_day)
+                let finalStatus = request.regularization_type === 'half_day' ? 'half_day' : 'present';
+                const defaultHours = finalStatus === 'half_day' ? (shift?.half_day_hours || 4) : (shift?.full_day_hours || 8.3);
+                if (!workData.total_work_hours || workData.total_work_hours <= 0) {
+                    workData.total_work_hours = defaultHours;
                 }
 
                 let record = await AttendanceRecord.findOne({

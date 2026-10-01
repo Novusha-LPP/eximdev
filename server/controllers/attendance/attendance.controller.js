@@ -362,7 +362,12 @@ const getAttendanceThresholds = (employee, record = null) => {
 
 const normalizeAttendanceStatus = (record, employee) => {
     const status = String(record?.status || '').toLowerCase();
-    const isManuallyProcessed = Boolean((record?.processed_by && !['system', 'cron'].includes(record.processed_by)) || record?.is_regularized);
+    const isRegularized = Boolean(record?.is_regularized || record?.processed_by === 'regularization');
+    if (isRegularized) {
+        const isHalf = Boolean(record?.is_half_day || record?.isHalfDay || record?.regularization_type === 'half_day' || status === 'half_day');
+        return isHalf ? 'half_day' : 'present';
+    }
+    const isManuallyProcessed = Boolean((record?.processed_by && !['system', 'cron'].includes(record.processed_by)));
     if ((isManuallyProcessed || record?.processed_by === 'admin') && status && status !== 'absent') return status;
     if (['leave', 'weekly_off', 'holiday'].includes(status)) return status;
     if (!record?.first_in || !record?.last_out) return status;
@@ -445,6 +450,82 @@ const applySandwichRuleToHistory = (history) => {
     }
 
     return history;
+};
+
+const overlayResolvedRegularizations = (records, regs, start, end, shift) => {
+    const list = [...(records || [])];
+    const existingMap = new Map();
+    list.forEach((rec, idx) => {
+        const dKey = dateKeyUTC(rec.attendance_date);
+        existingMap.set(dKey, idx);
+    });
+
+    const startM = moment(start).tz('Asia/Kolkata').startOf('day');
+    const endM = moment(end).tz('Asia/Kolkata').endOf('day');
+
+    for (const reg of regs || []) {
+        const rDay = reg.attendance_date ? moment(reg.attendance_date).format('YYYY-MM-DD') : null;
+        if (!rDay) continue;
+        const rM = moment.tz(rDay, 'Asia/Kolkata');
+        if (rM.isBefore(startM) || rM.isAfter(endM)) continue;
+
+        const isHalf = Boolean(reg.regularization_type === 'half_day');
+        const regStatus = isHalf ? 'half_day' : 'present';
+        let hours = Number(reg.corrected_total_hours || 0);
+        if (hours <= 0) {
+            const inT = reg.corrected_punch_in_time || reg.requested_in_time;
+            const outT = reg.corrected_punch_out_time || reg.requested_out_time;
+            if (inT && outT) {
+                let outD = new Date(outT);
+                let inD = new Date(inT);
+                if (outD <= inD) {
+                    const plus12 = new Date(outD.getTime() + 12 * 3600000);
+                    if (plus12 > inD) outD = plus12;
+                }
+                hours = Math.max(0, moment(outD).diff(moment(inD), 'hours', true));
+            }
+        }
+        if (hours <= 0) {
+            hours = isHalf ? 4 : (shift?.full_day_hours || 8.3);
+        }
+
+        if (existingMap.has(rDay)) {
+            const idx = existingMap.get(rDay);
+            const ex = { ...list[idx] };
+            ex.status = regStatus;
+            ex.is_regularized = true;
+            ex.processed_by = 'regularization';
+            if (reg.corrected_punch_in_time || reg.requested_in_time) {
+                ex.first_in = reg.corrected_punch_in_time || reg.requested_in_time;
+            }
+            if (reg.corrected_punch_out_time || reg.requested_out_time) {
+                ex.last_out = reg.corrected_punch_out_time || reg.requested_out_time;
+            }
+            ex.total_work_hours = parseFloat(hours.toFixed(2));
+            ex.net_work_hours = parseFloat(hours.toFixed(2));
+            ex.regular_hours = parseFloat(hours.toFixed(2));
+            list[idx] = ex;
+        } else {
+            const newRec = {
+                _id: `resolved-reg-${rDay}`,
+                employee_id: reg.employee_id,
+                attendance_date: rM.startOf('day').toDate(),
+                attendance_date_str: rDay,
+                status: regStatus,
+                first_in: reg.corrected_punch_in_time || reg.requested_in_time || null,
+                last_out: reg.corrected_punch_out_time || reg.requested_out_time || null,
+                total_work_hours: parseFloat(hours.toFixed(2)),
+                net_work_hours: parseFloat(hours.toFixed(2)),
+                regular_hours: parseFloat(hours.toFixed(2)),
+                is_regularized: true,
+                processed_by: 'regularization',
+                remarks: reg.reason || 'Resolved Regularization'
+            };
+            existingMap.set(rDay, list.length);
+            list.push(newRec);
+        }
+    }
+    return list;
 };
 
 const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLeaves, extraFields = {}, policyResolveOptions = {}) => {
@@ -548,8 +629,9 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
 
         if (isAdminProcessed) {
             hStatus = String(rec.status).toLowerCase();
-            if (hStatus === 'absent' && (rec?.is_regularized || rec?.processed_by === 'regularization') && recWorkHours > 0) {
-                hStatus = recWorkHours >= (emp?.shift_id?.full_day_hours || 8) ? 'present' : 'half_day';
+            if (rec?.is_regularized || rec?.processed_by === 'regularization') {
+                const isHalf = Boolean(rec?.is_half_day || rec?.isHalfDay || rec?.regularization_type === 'half_day' || hStatus === 'half_day');
+                hStatus = isHalf ? 'half_day' : 'present';
             }
             hSession = rec.half_day_session || leaveSession;
 
@@ -563,8 +645,9 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             if (rec?.is_late) actualLate++;
             if (rec?.is_early_in) actualEarlyIn++;
             if (rec?.is_early_exit) actualEarlyOut++;
-            if (['present', 'late', 'half_day'].includes(hStatus) && recWorkHours > 0) {
-                actualTotalHours += recWorkHours;
+            const effectiveHours = recWorkHours > 0 ? recWorkHours : (hStatus === 'half_day' ? (emp?.shift_id?.half_day_hours || 4) : (emp?.shift_id?.full_day_hours || 8.3));
+            if (['present', 'late', 'half_day'].includes(hStatus)) {
+                actualTotalHours += effectiveHours;
                 actualDaysWithHours += (hStatus === 'half_day' ? 0.5 : 1);
             }
         } else if (hasWorkingPunches || (isToday && rec?.first_in && !['absent', 'incomplete'].includes(rec?.status))) {
@@ -2667,7 +2750,7 @@ export const getAdminAttendanceReport = async (req, res) => {
             }
         }
 
-        const [attendanceRecords, approvedLeaves] = await Promise.all([
+        const [attendanceRecords, approvedLeaves, approvedRegularizations] = await Promise.all([
             AttendanceRecord.find({
                 employee_id: { $in: employeeIds },
                 attendance_date: { $gte: start, $lte: end }
@@ -2681,7 +2764,11 @@ export const getAdminAttendanceReport = async (req, res) => {
                 $or: [
                     { from_date: { $lte: end }, to_date: { $gte: start } }
                 ]
-            }).select(REPORT_LEAVE_SELECT_FIELDS).lean()
+            }).select(REPORT_LEAVE_SELECT_FIELDS).lean(),
+            RegularizationRequest.find({
+                employee_id: { $in: employeeIds },
+                $or: [{ status: 'approved' }, { status: 'resolved' }, { is_resolved: true }]
+            }).select('employee_id attendance_date date regularization_type corrected_punch_in_time corrected_punch_out_time requested_in_time requested_out_time corrected_total_hours status is_resolved reason').lean()
         ]);
 
         const attendanceByEmployee = new Map();
@@ -2698,14 +2785,28 @@ export const getAdminAttendanceReport = async (req, res) => {
             leavesByEmployee.get(key).push(leave);
         }
 
+        const regularizationsByEmployee = new Map();
+        for (const reg of approvedRegularizations || []) {
+            const key = reg.employee_id.toString();
+            if (!regularizationsByEmployee.has(key)) regularizationsByEmployee.set(key, []);
+            regularizationsByEmployee.get(key).push(reg);
+        }
+
         const reportData = await mapWithConcurrency(employees, 20, async (emp) => {
             const empKey = emp._id.toString();
             const teamIds = teamIdsByEmployee.get(empKey) || [];
+            const empRecords = overlayResolvedRegularizations(
+                attendanceByEmployee.get(empKey) || [],
+                regularizationsByEmployee.get(empKey) || [],
+                start,
+                end,
+                emp?.shift_id
+            );
             const row = await buildPolicyAwareReportRow(
                 emp,
                 startDate,
                 endDate,
-                attendanceByEmployee.get(empKey) || [],
+                empRecords,
                 leavesByEmployee.get(empKey) || [],
                 {
                     company_id: emp.company_id?._id || emp.company_id,
@@ -2823,7 +2924,7 @@ export const getTeamAttendanceReport = async (req, res) => {
         }
 
         // 3. Fetch Attendance Data
-        const [attendanceRecords, approvedLeaves] = await Promise.all([
+        const [attendanceRecords, approvedLeaves, approvedRegularizations] = await Promise.all([
             AttendanceRecord.find({
                 employee_id: { $in: employeeIds },
                 attendance_date: { $gte: start, $lte: end }
@@ -2837,7 +2938,11 @@ export const getTeamAttendanceReport = async (req, res) => {
                 $or: [
                     { from_date: { $lte: end }, to_date: { $gte: start } }
                 ]
-            }).select(REPORT_LEAVE_SELECT_FIELDS).lean()
+            }).select(REPORT_LEAVE_SELECT_FIELDS).lean(),
+            RegularizationRequest.find({
+                employee_id: { $in: employeeIds },
+                $or: [{ status: 'approved' }, { status: 'resolved' }, { is_resolved: true }]
+            }).select('employee_id attendance_date date regularization_type corrected_punch_in_time corrected_punch_out_time requested_in_time requested_out_time corrected_total_hours status is_resolved reason').lean()
         ]);
 
         const attendanceByEmployee = new Map();
@@ -2854,15 +2959,29 @@ export const getTeamAttendanceReport = async (req, res) => {
             leavesByEmployee.get(key).push(leave);
         }
 
+        const regularizationsByEmployee = new Map();
+        for (const reg of approvedRegularizations || []) {
+            const key = reg.employee_id.toString();
+            if (!regularizationsByEmployee.has(key)) regularizationsByEmployee.set(key, []);
+            regularizationsByEmployee.get(key).push(reg);
+        }
+
         // 4. Generate Report (policy-aware)
         const reportData = await mapWithConcurrency(employees, 15, async (emp) => {
             const empKey = emp._id.toString();
             const teamIds = teamIdsByEmployee.get(empKey) || [];
+            const empRecords = overlayResolvedRegularizations(
+                attendanceByEmployee.get(empKey) || [],
+                regularizationsByEmployee.get(empKey) || [],
+                start,
+                end,
+                emp?.shift_id
+            );
             return buildPolicyAwareReportRow(
                 emp,
                 startDate,
                 endDate,
-                attendanceByEmployee.get(empKey) || [],
+                empRecords,
                 leavesByEmployee.get(empKey) || [],
                 {
                     company_id: emp.company_id?._id || emp.company_id,
@@ -4450,6 +4569,7 @@ export const approveRegularization = async (req, res) => {
         const company = await Company.findById(companyId);
         const shift = await PolicyResolver.resolveShift(employee, regularization.attendance_date);
         const attendanceDate = regularization.attendance_date;
+        const attendanceDateObj = moment.utc(attendanceDate).startOf('day').toDate();
 
         // Fetch all punches for that date (supporting both String and Date formats)
         const punches = await AttendancePunch.find({
@@ -4467,22 +4587,14 @@ export const approveRegularization = async (req, res) => {
             shift
         );
 
-        // Resolve status based on work hours
-        const overrides = await fetchDayOverrides(regularization.employee_id, attendanceDate, company._id);
-        const statusResult = AttendanceStatusResolver.resolveStatus(workData, shift, overrides);
-        let finalStatus = statusResult.status;
-        if (regularization.regularization_type === 'half_day') {
-            finalStatus = 'half_day';
-        } else if (['missing_punch', 'missing_out', 'late_in', 'early_out', 'manual_override', 'absent'].includes(regularization.regularization_type)) {
-            if (workData.total_work_hours >= (shift?.half_day_hours || 4)) {
-                finalStatus = workData.total_work_hours >= (shift?.full_day_hours || 8) ? 'present' : 'half_day';
-            } else if (workData.total_work_hours > 0) {
-                finalStatus = 'present';
-            }
+        // When a regularization is approved/resolved, it MUST be present (or half_day)
+        let finalStatus = regularization.regularization_type === 'half_day' ? 'half_day' : 'present';
+        const defaultHours = finalStatus === 'half_day' ? (shift?.half_day_hours || 4) : (shift?.full_day_hours || 8.3);
+        if (!workData.total_work_hours || workData.total_work_hours <= 0) {
+            workData.total_work_hours = defaultHours;
         }
 
         // Update or create AttendanceRecord with recalculated data
-        const attendanceDateObj = moment.utc(attendanceDate).startOf('day').toDate();
         let record = await AttendanceRecord.findOne({
             employee_id: regularization.employee_id,
             $or: [

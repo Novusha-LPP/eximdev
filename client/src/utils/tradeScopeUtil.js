@@ -1,7 +1,39 @@
 /**
  * Utility to resolve Import & Export API URLs dynamically across
  * localhost, LAN IPs, and production domains.
+ *
+ * All production URLs should come from environment variables:
+ *   CRA  → REACT_APP_API_STRING / REACT_APP_EXPORT_API_STRING
+ *   Vite → VITE_API_STRING      / VITE_IMPORT_API_STRING
  */
+
+// ── helpers ──────────────────────────────────────────────────────────
+function readEnv(key) {
+  // Vite
+  if (typeof import.meta !== "undefined" && import.meta.env && import.meta.env[key]) {
+    return import.meta.env[key];
+  }
+  // CRA / Node
+  if (typeof process !== "undefined" && process.env && process.env[key]) {
+    return process.env[key];
+  }
+  return "";
+}
+
+function getExplicitOverrides() {
+  // Try reading an explicit cross-trade env var (set in .env)
+  const importOverride =
+    readEnv("REACT_APP_IMPORT_API_STRING") ||
+    readEnv("VITE_IMPORT_API_STRING");
+
+  const exportOverride =
+    readEnv("REACT_APP_EXPORT_API_STRING") ||
+    readEnv("VITE_EXPORT_API_STRING");
+
+  return { importOverride, exportOverride };
+}
+
+// ── main ─────────────────────────────────────────────────────────────
 export function getTradeApis(currentBaseUrl, isImportProject = true) {
   let importApi = "";
   let exportApi = "";
@@ -19,40 +51,14 @@ export function getTradeApis(currentBaseUrl, isImportProject = true) {
     /^10\.\d+\.\d+\.\d+$/.test(hostname) ||
     /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(hostname);
 
-  // 1. Localhost or LAN IP: Use distinct backend ports (9006 for Import, 9002 for Export)
+  // ─── 1. Localhost / LAN → port-based ───────────────────────────────
   if (isLocalOrIp) {
     importApi = `${protocol}//${hostname}:9006/api`;
     exportApi = `${protocol}//${hostname}:9002/api`;
     return { importApi, exportApi };
   }
 
-  // 2. Production Domain: Subdomain pattern (e.g., import.alvision.in <-> export.alvision.in)
-  // NEVER attach ports (like :9002 or :9006) to production domains!
-  if (/^import\./i.test(hostname)) {
-    importApi = `${protocol}//${hostname}/api`;
-    exportApi = `${protocol}//${hostname.replace(/^import\./i, "export.")}/api`;
-    return { importApi, exportApi };
-  }
-
-  if (/^export\./i.test(hostname)) {
-    exportApi = `${protocol}//${hostname}/api`;
-    importApi = `${protocol}//${hostname.replace(/^export\./i, "import.")}/api`;
-    return { importApi, exportApi };
-  }
-
-  if (/^testingimport\./i.test(hostname)) {
-    importApi = `${protocol}//${hostname}/api`;
-    exportApi = `${protocol}//${hostname.replace(/^testingimport\./i, "testingexport.")}/api`;
-    return { importApi, exportApi };
-  }
-
-  if (/^testingexport\./i.test(hostname)) {
-    exportApi = `${protocol}//${hostname}/api`;
-    importApi = `${protocol}//${hostname.replace(/^testingexport\./i, "testingimport.")}/api`;
-    return { importApi, exportApi };
-  }
-
-  // 3. Path-based production pattern (e.g. eximbot.alvision.in/import/api <-> eximbot.alvision.in/export/api)
+  // ─── 2. Derive from base URL (comes from .env) ────────────────────
   const base = (currentBaseUrl || "").trim().replace(/\/+$/, "");
 
   if (base.includes("/import/api")) {
@@ -67,6 +73,39 @@ export function getTradeApis(currentBaseUrl, isImportProject = true) {
     return { importApi, exportApi };
   }
 
+  // ─── 3. Explicit env overrides ─────────────────────────────────────
+  const { importOverride, exportOverride } = getExplicitOverrides();
+
+  if (importOverride && exportOverride) {
+    return { importApi: importOverride, exportApi: exportOverride };
+  }
+
+  // ─── 4. Testing subdomains ─────────────────────────────────────────
+  if (/^testingimport\./i.test(hostname)) {
+    importApi = `${protocol}//${hostname}/api`;
+    exportApi = `${protocol}//${hostname.replace(/^testingimport\./i, "testingexport.")}/api`;
+    return { importApi, exportApi };
+  }
+
+  if (/^testingexport\./i.test(hostname)) {
+    exportApi = `${protocol}//${hostname}/api`;
+    importApi = `${protocol}//${hostname.replace(/^testingexport\./i, "testingimport.")}/api`;
+    return { importApi, exportApi };
+  }
+
+  // ─── 5. Partial overrides (one side from env, derive the other) ────
+  if (importOverride) {
+    importApi = importOverride;
+    exportApi = importOverride.replace(/import/gi, "export");
+    return { importApi, exportApi };
+  }
+  if (exportOverride) {
+    exportApi = exportOverride;
+    importApi = exportOverride.replace(/export/gi, "import");
+    return { importApi, exportApi };
+  }
+
+  // ─── 6. Subdomain-based derivation (base is just a domain) ────────
   if (base.includes("import.")) {
     importApi = base;
     exportApi = base.replace(/import\./i, "export.");
@@ -79,20 +118,20 @@ export function getTradeApis(currentBaseUrl, isImportProject = true) {
     return { importApi, exportApi };
   }
 
-  // 4. Fallback based on project mode
+  // ─── 7. Last-resort fallback (origin-based) ────────────────────────
   const originBase = hasWindow ? `${window.location.origin}/api` : "";
   const effective = base || originBase;
 
   if (isImportProject) {
-    importApi = effective || "http://localhost:9006/api";
-    exportApi = importApi.includes("9006")
-      ? importApi.replace(/9006/g, "9002")
-      : (importApi.includes("import") ? importApi.replace(/import/gi, "export") : importApi);
+    importApi = effective;
+    exportApi = effective.includes("9006")
+      ? effective.replace(/9006/g, "9002")
+      : (effective.includes("import") ? effective.replace(/import/gi, "export") : effective);
   } else {
-    exportApi = effective || "http://localhost:9002/api";
-    importApi = exportApi.includes("9002")
-      ? exportApi.replace(/9002/g, "9006")
-      : (exportApi.includes("export") ? exportApi.replace(/export/gi, "import") : exportApi);
+    exportApi = effective;
+    importApi = effective.includes("9002")
+      ? effective.replace(/9002/g, "9006")
+      : (effective.includes("export") ? effective.replace(/export/gi, "import") : effective);
   }
 
   return { importApi, exportApi };

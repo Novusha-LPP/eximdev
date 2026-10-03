@@ -96,11 +96,9 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
   }, [tradeScope, balanceType]);
 
   const { importApi, exportApi } = React.useMemo(() => {
-    const raw = typeof process !== "undefined" && (process.env?.REACT_APP_API_STRING || process.env?.VITE_API_STRING)
-      ? (process.env.REACT_APP_API_STRING || process.env.VITE_API_STRING)
-      : null;
-    return getTradeApis(raw, true);
+    return getTradeApis(process.env.REACT_APP_API_STRING, true);
   }, []);
+  const apiBase = tradeScope === "export" ? exportApi : importApi;
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
 
@@ -377,15 +375,15 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
     const fetchCfs = async () => {
       try {
         if (isCfsBalance) {
-          const res = await axios.get(`${process.env.REACT_APP_API_STRING}/${directoryApi}`);
+          const res = await axios.get(`${importApi}/${directoryApi}`);
           if (Array.isArray(res.data)) {
             setCfsList(res.data.map((i) => ({ ...i, directorySource: "CFS" })));
           }
         } else {
           // Fetch BOTH Terminal Directory (/get-cfs-list) AND Empty Yard Directory (/get-empty-yard-directory-list)
           const [termRes, eyRes] = await Promise.all([
-            axios.get(`${process.env.REACT_APP_API_STRING}/get-cfs-list`).catch(() => ({ data: [] })),
-            axios.get(`${process.env.REACT_APP_API_STRING}/get-empty-yard-directory-list`).catch(() => ({ data: [] })),
+            axios.get(`${importApi}/get-cfs-list`).catch(() => ({ data: [] })),
+            axios.get(`${importApi}/get-empty-yard-directory-list`).catch(() => ({ data: [] })),
           ]);
           const termData = Array.isArray(termRes.data)
             ? termRes.data.map((i) => ({ ...i, directorySource: "Terminal" }))
@@ -414,7 +412,7 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
       }
     };
     fetchCfs();
-  }, [isCfsBalance, directoryApi]);
+  }, [isCfsBalance, directoryApi, importApi]);
 
   // Fetch Jobs list - server-side search as user types
   useEffect(() => {
@@ -422,7 +420,7 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
     const fetchJobs = async () => {
       setJobsLoading(true);
       try {
-        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/${balanceApi}/jobs`, {
+        const res = await axios.get(`${apiBase}/${balanceApi}/jobs`, {
           params: { search: jobSearch },
           signal: controller.signal,
         });
@@ -440,7 +438,7 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
       clearTimeout(timer);
       controller.abort();
     };
-  }, [jobSearch, balanceApi]);
+  }, [jobSearch, balanceApi, apiBase]);
 
   // Handle jobNo blur to auto-fill exporter name
   const handleJobNoBlur = async () => {
@@ -448,7 +446,8 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
     if (!jobNo) return;
     setPartyLoading(true);
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/${balanceApi}/job-details/${encodeURIComponent(jobNo)}`);
+      const lookupApi = formValues.tradeType === "EXPORT" ? exportApi : (tradeScope === "export" ? exportApi : importApi);
+      const res = await axios.get(`${lookupApi}/${balanceApi}/job-details/${encodeURIComponent(jobNo)}`);
       if (res.data.success) {
         setFormValues((prev) => ({ ...prev, partyName: res.data.partyName }));
       }
@@ -463,7 +462,8 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
   const handleToggleStatus = async (row) => {
     const newStatus = row.status === "paid" ? "unpaid" : "paid";
     try {
-      const res = await axios.put(`${process.env.REACT_APP_API_STRING}/${balanceApi}/${row._id}`, {
+      const targetApi = (row.tradeType === "EXPORT" ? exportApi : importApi) || apiBase;
+      const res = await axios.put(`${targetApi}/${balanceApi}/${row._id}`, {
         status: newStatus,
       });
       if (res.data.success) {
@@ -505,10 +505,11 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
   };
 
   // Helper: fetch job details (partyName, branchCode, customHouse, mode) for a single job number
-  const fetchJobDetails = async (jobNo) => {
+  const fetchJobDetails = async (jobNo, entryTrade) => {
     try {
+      const targetApi = (entryTrade === "EXPORT" ? exportApi : importApi) || apiBase;
       const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/${balanceApi}/job-details/${encodeURIComponent(jobNo)}`
+        `${targetApi}/${balanceApi}/job-details/${encodeURIComponent(jobNo)}`
       );
       if (res.data.success) {
         return {
@@ -578,7 +579,7 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
               partyName: cleanPartyName(inList.partyName),
             };
           }
-          const details = await fetchJobDetails(jobNo);
+          const details = await fetchJobDetails(jobNo, entry.tradeType);
           return {
             ...details,
             partyName: cleanPartyName(details?.partyName),
@@ -624,10 +625,11 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
     const payload = { ...formValues, jobNo: jobNoString };
 
     try {
+      const targetApi = (formValues.tradeType === "EXPORT" ? exportApi : importApi) || apiBase;
       if (editId) {
-        await axios.put(`${process.env.REACT_APP_API_STRING}/${balanceApi}/${editId}`, payload);
+        await axios.put(`${targetApi}/${balanceApi}/${editId}`, payload);
       } else {
-        await axios.post(`${process.env.REACT_APP_API_STRING}/${balanceApi}`, payload);
+        await axios.post(`${targetApi}/${balanceApi}`, payload);
       }
       setFormOpen(false);
       fetchEntries();
@@ -642,7 +644,8 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
     setCompareOpen(true);
     setCompareLoading(true);
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/${balanceApi}/job-purchase-books`, {
+      const targetApi = (entry.tradeType === "EXPORT" ? exportApi : importApi) || apiBase;
+      const res = await axios.get(`${targetApi}/${balanceApi}/job-purchase-books`, {
         params: {
           jobNo: entry.jobNo,
           cfsName: entry.cfsName,
@@ -1248,7 +1251,7 @@ export default function VirtualBalanceList({ isJobs = false, balanceType = "term
                       if (inList && (inList.partyName || inList.branchCode)) return inList;
 
                       // Fallback: fetch from server
-                      const details = await fetchJobDetails(jobNo);
+                      const details = await fetchJobDetails(jobNo, formValues.tradeType);
                       const cleanDetails = {
                         ...details,
                         partyName: cleanPartyName(details?.partyName),

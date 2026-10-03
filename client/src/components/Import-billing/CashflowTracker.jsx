@@ -83,11 +83,7 @@ function toISODate(d) {
 
 export default function CashflowTracker({ mode = "import" }) {
   const isExport = mode === "export";
-  const envApi = typeof import.meta !== "undefined" && import.meta.env?.VITE_API_STRING
-    ? import.meta.env.VITE_API_STRING
-    : typeof process !== "undefined" && (process.env?.VITE_API_STRING || process.env?.REACT_APP_API_STRING)
-      ? (process.env.VITE_API_STRING || process.env.REACT_APP_API_STRING)
-      : null;
+  const envApi = process.env.REACT_APP_API_STRING || "";
 
   // Trade Scope: "import" | "export" | "both"
   const [tradeScope, setTradeScope] = useState(

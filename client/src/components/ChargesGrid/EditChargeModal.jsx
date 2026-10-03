@@ -184,7 +184,7 @@ const EditChargeModal = ({
     const name = window.prompt("Enter new Team Member Name for Expense Made By:");
     if (!name || !name.trim()) return;
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_STRING}/api/cashflow/team-members`, { name: name.trim().toUpperCase() }, { withCredentials: true });
+      const res = await axios.post(`${process.env.REACT_APP_API_STRING}/cashflow/team-members`, { name: name.trim().toUpperCase() }, { withCredentials: true });
       if (res.data?.success && Array.isArray(res.data.data)) {
         setCashflowTeamMembers(res.data.data);
       }
@@ -197,7 +197,7 @@ const EditChargeModal = ({
     if (!nameToRemove) return;
     if (!window.confirm(`Are you sure you want to remove "${nameToRemove}" from the team members list?`)) return;
     try {
-      const res = await axios.delete(`${process.env.REACT_APP_API_STRING}/api/cashflow/team-members/${encodeURIComponent(nameToRemove)}`, { withCredentials: true });
+      const res = await axios.delete(`${process.env.REACT_APP_API_STRING}/cashflow/team-members/${encodeURIComponent(nameToRemove)}`, { withCredentials: true });
       if (res.data?.success && Array.isArray(res.data.data)) {
         setCashflowTeamMembers(res.data.data);
       }
@@ -265,8 +265,8 @@ const EditChargeModal = ({
           axios.get(`${process.env.REACT_APP_API_STRING}/get-cfs-list`),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-transporters`),
           axios.get(`${process.env.REACT_APP_API_STRING}/charge-heads`),
-          axios.get(`${process.env.REACT_APP_API_STRING}/api/virtual-balance/created-terminals`).catch(() => ({ data: { data: [] } })),
-          axios.get(`${process.env.REACT_APP_API_STRING}/api/cfs-virtual-balance/created-names`).catch(() => ({ data: { data: [] } })),
+          axios.get(`${process.env.REACT_APP_API_STRING}/virtual-balance/created-terminals`).catch(() => ({ data: { data: [] } })),
+          axios.get(`${process.env.REACT_APP_API_STRING}/cfs-virtual-balance/created-names`).catch(() => ({ data: { data: [] } })),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-empty-yard-directory-list`).catch(() => ({ data: [] }))
         ]);
         setShippingLines((slRes.data || []).map(i => ({ ...i, sourceLabel: 'Shipping Line' })));
@@ -284,7 +284,7 @@ const EditChargeModal = ({
           setCreatedVirtualCfs(cfsVbRes.data.data.map(t => (t || '').trim().toUpperCase()));
         }
         try {
-          const tmRes = await axios.get(`${process.env.REACT_APP_API_STRING}/api/cashflow/team-members`);
+          const tmRes = await axios.get(`${process.env.REACT_APP_API_STRING}/cashflow/team-members`);
           if (tmRes.data?.success && Array.isArray(tmRes.data.data)) {
             setCashflowTeamMembers(tmRes.data.data);
           }

@@ -213,31 +213,31 @@ export default function CashflowTracker({ mode = "import" }) {
           (a, b) => new Date(a.postingDate) - new Date(b.postingDate)
         );
 
-        // Recalculate running cash balance chronologically across combined entries
-        let running = 0;
-        combined.forEach((r) => {
-          if (r.isBalanceAddition) {
-            running += Number(r.cashWith || 0);
-          } else {
-            running -= Number(r.expAmount || 0);
-          }
-          r.cashBal = running;
-        });
-
         setRows(combined);
 
-        let totAdded = 0;
-        let totExp = 0;
-        combined.forEach((r) => {
-          totAdded += Number(r.cashWith || 0);
-          totExp += Number(r.expAmount || 0);
-        });
+        const impSummary = importData?.summary || {};
+        const expSummary = exportData?.summary || {};
+
+        let totAdded = Number(impSummary.totalAddedBalance || 0) + Number(expSummary.totalAddedBalance || 0);
+        let totExp = Number(impSummary.totalExpense || 0) + Number(expSummary.totalExpense || 0);
+
+        if (!impSummary.totalAddedBalance && !expSummary.totalAddedBalance && combined.length > 0) {
+          totAdded = 0;
+          totExp = 0;
+          combined.forEach((r) => {
+            totAdded += Number(r.cashWith || 0);
+            totExp += Number(r.expAmount || 0);
+          });
+        }
+
+        const netBalance = totAdded - totExp;
+        const currentCashBalance = Number(impSummary.currentCashBalance || 0) + Number(expSummary.currentCashBalance || 0);
 
         setSummary({
           totalAddedBalance: totAdded,
           totalExpense: totExp,
-          netBalance: totAdded - totExp,
-          currentCashBalance: running,
+          netBalance,
+          currentCashBalance,
         });
 
         const m1 = Array.isArray(importData?.teamMembers) ? importData.teamMembers : [];

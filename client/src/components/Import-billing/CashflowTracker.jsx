@@ -15,11 +15,14 @@ import {
   DialogTitle,
   Divider,
   FormControl,
+  FormControlLabel,
   Grid,
   IconButton,
   InputAdornment,
   MenuItem,
   Paper,
+  Radio,
+  RadioGroup,
   Select,
   Stack,
   Table,
@@ -141,6 +144,7 @@ export default function CashflowTracker({ mode = "import" }) {
     particular: "CASH WITHDRAWAL FROM BANK",
     expenseMadeBy: "",
     remarks: "",
+    tradeType: mode === "export" ? "export" : "import",
   });
 
   // Add Manual Expense Form State
@@ -155,6 +159,7 @@ export default function CashflowTracker({ mode = "import" }) {
     particular: "",
     expenseMadeBy: "",
     remarks: "",
+    tradeType: mode === "export" ? "export" : "import",
   });
 
   // New Team Member input
@@ -286,7 +291,10 @@ export default function CashflowTracker({ mode = "import" }) {
     }
     setSubmitting(true);
     try {
-      const res = await axios.post(`${apiBase}/cashflow/balance`, balanceForm, {
+      const targetApi = tradeScope === "both"
+        ? (balanceForm.tradeType === "export" ? exportApi : importApi)
+        : (tradeScope === "export" ? exportApi : importApi);
+      const res = await axios.post(`${targetApi}/cashflow/balance`, balanceForm, {
         withCredentials: true,
       });
       if (res.data?.success) {
@@ -299,6 +307,7 @@ export default function CashflowTracker({ mode = "import" }) {
           particular: "CASH WITHDRAWAL FROM BANK",
           expenseMadeBy: "",
           remarks: "",
+          tradeType: tradeScope === "export" ? "export" : "import",
         });
         fetchData();
       } else {
@@ -321,7 +330,10 @@ export default function CashflowTracker({ mode = "import" }) {
     }
     setSubmitting(true);
     try {
-      const res = await axios.post(`${apiBase}/cashflow/expense`, expenseForm, {
+      const targetApi = tradeScope === "both"
+        ? (expenseForm.tradeType === "export" ? exportApi : importApi)
+        : (tradeScope === "export" ? exportApi : importApi);
+      const res = await axios.post(`${targetApi}/cashflow/expense`, expenseForm, {
         withCredentials: true,
       });
       if (res.data?.success) {
@@ -337,6 +349,7 @@ export default function CashflowTracker({ mode = "import" }) {
           particular: "",
           expenseMadeBy: "",
           remarks: "",
+          tradeType: tradeScope === "export" ? "export" : "import",
         });
         fetchData();
       } else {
@@ -575,7 +588,13 @@ export default function CashflowTracker({ mode = "import" }) {
             variant="contained"
             color="primary"
             startIcon={<AddCircleOutlineIcon sx={{ fontSize: 16 }} />}
-            onClick={() => setBalanceModalOpen(true)}
+            onClick={() => {
+              setBalanceForm((prev) => ({
+                ...prev,
+                tradeType: tradeScope === "export" ? "export" : "import",
+              }));
+              setBalanceModalOpen(true);
+            }}
             sx={{ fontWeight: 600, fontSize: "12px", py: 0.5, px: 1.5, textTransform: "none", boxShadow: "none" }}
           >
             Add Balance
@@ -586,7 +605,13 @@ export default function CashflowTracker({ mode = "import" }) {
             variant="contained"
             color="warning"
             startIcon={<AddCircleOutlineIcon sx={{ fontSize: 16 }} />}
-            onClick={() => setExpenseModalOpen(true)}
+            onClick={() => {
+              setExpenseForm((prev) => ({
+                ...prev,
+                tradeType: tradeScope === "export" ? "export" : "import",
+              }));
+              setExpenseModalOpen(true);
+            }}
             sx={{
               fontWeight: 600,
               fontSize: "12px",
@@ -1207,6 +1232,45 @@ export default function CashflowTracker({ mode = "import" }) {
               Add a bank withdrawal or capital addition. This will reflect in <b>CASH WITH</b> and increase the running <b>CASH BAL</b>.
             </Typography>
 
+            {tradeScope === "both" && (
+              <Box
+                sx={{
+                  p: 1.5,
+                  bgcolor: "#f8fafc",
+                  borderRadius: "8px",
+                  border: "1px solid #cbd5e1",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Box>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>
+                    Target Account / Database
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: "#64748b", fontSize: "12px" }}>
+                    Select where to record this cash withdrawal:
+                  </Typography>
+                </Box>
+                <RadioGroup
+                  row
+                  value={balanceForm.tradeType || "import"}
+                  onChange={(e) => setBalanceForm({ ...balanceForm, tradeType: e.target.value })}
+                >
+                  <FormControlLabel
+                    value="import"
+                    control={<Radio size="small" sx={{ color: "#0284c7", "&.Mui-checked": { color: "#0284c7" } }} />}
+                    label={<Typography variant="body2" sx={{ fontWeight: 700, color: "#0284c7", fontSize: "13px" }}>IMPORT</Typography>}
+                  />
+                  <FormControlLabel
+                    value="export"
+                    control={<Radio size="small" sx={{ color: "#ea580c", "&.Mui-checked": { color: "#ea580c" } }} />}
+                    label={<Typography variant="body2" sx={{ fontWeight: 700, color: "#ea580c", fontSize: "13px" }}>EXPORT</Typography>}
+                  />
+                </RadioGroup>
+              </Box>
+            )}
+
             <TextField
               label="Withdrawal / Added Amount (₹)"
               type="number"
@@ -1293,6 +1357,45 @@ export default function CashflowTracker({ mode = "import" }) {
             <Typography variant="body2" sx={{ color: "#64748b" }}>
               Record cash expenses not linked to an existing job charge (e.g. Petrol, Hotel, Courier, Tea, Stationeries).
             </Typography>
+
+            {tradeScope === "both" && (
+              <Box
+                sx={{
+                  p: 1.5,
+                  bgcolor: "#f8fafc",
+                  borderRadius: "8px",
+                  border: "1px solid #cbd5e1",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Box>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>
+                    Target Account / Database
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: "#64748b", fontSize: "12px" }}>
+                    Select which trade account paid this expense:
+                  </Typography>
+                </Box>
+                <RadioGroup
+                  row
+                  value={expenseForm.tradeType || "import"}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, tradeType: e.target.value })}
+                >
+                  <FormControlLabel
+                    value="import"
+                    control={<Radio size="small" sx={{ color: "#0284c7", "&.Mui-checked": { color: "#0284c7" } }} />}
+                    label={<Typography variant="body2" sx={{ fontWeight: 700, color: "#0284c7", fontSize: "13px" }}>IMPORT</Typography>}
+                  />
+                  <FormControlLabel
+                    value="export"
+                    control={<Radio size="small" sx={{ color: "#ea580c", "&.Mui-checked": { color: "#ea580c" } }} />}
+                    label={<Typography variant="body2" sx={{ fontWeight: 700, color: "#ea580c", fontSize: "13px" }}>EXPORT</Typography>}
+                  />
+                </RadioGroup>
+              </Box>
+            )}
 
             <Grid container spacing={2}>
               <Grid item xs={6}>

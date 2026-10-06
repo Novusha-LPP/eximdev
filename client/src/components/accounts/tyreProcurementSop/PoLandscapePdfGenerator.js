@@ -202,10 +202,10 @@ function PoLandscapePdfGenerator({
     (currentVendor.supplierName && currentVendor.supplierName !== "-")
       ? currentVendor.supplierName
       : currentVendor.supplierNameInBank ||
-        currentVendor.selectedSupplier ||
-        (targetSupplier?.supplierName && targetSupplier.supplierName !== "-" ? targetSupplier.supplierName : targetSupplier?.selectedSupplier) ||
-        globalData?.stage2?.selectedSupplierL1 ||
-        "-";
+      currentVendor.selectedSupplier ||
+      (targetSupplier?.supplierName && targetSupplier.supplierName !== "-" ? targetSupplier.supplierName : targetSupplier?.selectedSupplier) ||
+      globalData?.stage2?.selectedSupplierL1 ||
+      "-";
 
   const vendorAddress =
     currentVendor.supplierAddress ||
@@ -304,16 +304,16 @@ function PoLandscapePdfGenerator({
     Array.isArray(currentVendor.customTerms) && currentVendor.customTerms.length > 0
       ? currentVendor.customTerms
       : Array.isArray(globalData?.stage2?.customTerms) && globalData.stage2.customTerms.length > 0
-      ? globalData.stage2.customTerms
-      : Array.isArray(globalData?.customTerms) && globalData.customTerms.length > 0
-      ? globalData.customTerms
-      : [
-          `Payment Terms: ${vendorPaymentTerms !== "-" ? vendorPaymentTerms : "As per agreed procurement terms."}`,
-          `Delivery Timeline: ${vendorDeliveryTerms !== "-" ? vendorDeliveryTerms : "As per purchase order schedule."}`,
-          "Quality & Specifications: Goods supplied must conform strictly to the technical specifications approved in the Purchase Order.",
-          "Warranty & Guarantee: Standard manufacturer/supplier warranty applies to all delivered goods.",
-          "Inspection & Delivery: Delivery acceptance is subject to site inspection and physical verification. Original Tax Invoice and delivery documentation must accompany the shipment.",
-        ];
+        ? globalData.stage2.customTerms
+        : Array.isArray(globalData?.customTerms) && globalData.customTerms.length > 0
+          ? globalData.customTerms
+          : [
+            `Payment Terms: ${vendorPaymentTerms !== "-" ? vendorPaymentTerms : "As per agreed procurement terms."}`,
+            `Delivery Timeline: ${vendorDeliveryTerms !== "-" ? vendorDeliveryTerms : "As per purchase order schedule."}`,
+            "Quality & Specifications: Goods supplied must conform strictly to the technical specifications approved in the Purchase Order.",
+            "Warranty & Guarantee: Standard manufacturer/supplier warranty applies to all delivered goods.",
+            "Inspection & Delivery: Delivery acceptance is subject to site inspection and physical verification. Original Tax Invoice and delivery documentation must accompany the shipment.",
+          ];
 
   const preparedAtFormatted = fmtPoDateTime(globalData?.createdAt || globalData?.stage1?.prDate || globalData?.stage1?.createdAt);
   const checkedAtFormatted = fmtPoDateTime(globalData?.stage1?.hodValidation?.validatedAt || globalData?.stage1?.updatedAt || globalData?.createdAt);
@@ -402,8 +402,8 @@ function PoLandscapePdfGenerator({
   const gstRateDisplay = currentVendor.gstRate
     ? String(currentVendor.gstRate).replace(/%/g, '')
     : (calculatedTotalGst > 0 && calculatedSubTotal > 0
-        ? String(Math.round((calculatedTotalGst / calculatedSubTotal) * 100))
-        : "18");
+      ? String(Math.round((calculatedTotalGst / calculatedSubTotal) * 100))
+      : "18");
   const amountInWordsText = numberToWords(grandTotal);
 
   const handleGeneratePdf = async () => {
@@ -866,7 +866,7 @@ function PoLandscapePdfGenerator({
               Checked By:
             </div>
             <div><strong>Name:</strong> {checkedByName}</div>
-            <div><strong>Designation:</strong> HR/Admin</div>
+            <div><strong>Designation:</strong> CEO</div>
             <div><strong>Date:</strong> {checkedAtFormatted}</div>
           </div>
 

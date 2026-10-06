@@ -364,7 +364,8 @@ const normalizeAttendanceStatus = (record, employee) => {
     const status = String(record?.status || '').toLowerCase();
     const isRegularized = Boolean(record?.is_regularized || record?.processed_by === 'regularization');
     if (isRegularized) {
-        const isHalf = Boolean(record?.is_half_day || record?.isHalfDay || record?.regularization_type === 'half_day' || status === 'half_day');
+        if (status === 'present' || status === 'late') return status;
+        const isHalf = Boolean(record?.regularization_type === 'half_day' || status === 'half_day');
         return isHalf ? 'half_day' : 'present';
     }
     const isManuallyProcessed = Boolean((record?.processed_by && !['system', 'cron'].includes(record.processed_by)));
@@ -469,8 +470,6 @@ const overlayResolvedRegularizations = (records, regs, start, end, shift) => {
         const rM = moment.tz(rDay, 'Asia/Kolkata');
         if (rM.isBefore(startM) || rM.isAfter(endM)) continue;
 
-        const isHalf = Boolean(reg.regularization_type === 'half_day');
-        const regStatus = isHalf ? 'half_day' : 'present';
         let hours = Number(reg.corrected_total_hours || 0);
         if (hours <= 0) {
             const inT = reg.corrected_punch_in_time || reg.requested_in_time;
@@ -485,14 +484,18 @@ const overlayResolvedRegularizations = (records, regs, start, end, shift) => {
                 hours = Math.max(0, moment(outD).diff(moment(inD), 'hours', true));
             }
         }
+        const shiftFullHours = shift?.full_day_hours || 8;
+        const isHalf = Boolean(reg.regularization_type === 'half_day' && hours < shiftFullHours);
+        const regStatus = isHalf ? 'half_day' : 'present';
         if (hours <= 0) {
-            hours = isHalf ? 4 : (shift?.full_day_hours || 8.3);
+            hours = isHalf ? (shift?.half_day_hours || 4) : (shift?.full_day_hours || 8.3);
         }
 
         if (existingMap.has(rDay)) {
             const idx = existingMap.get(rDay);
             const ex = { ...list[idx] };
             ex.status = regStatus;
+            ex.is_half_day = isHalf;
             ex.is_regularized = true;
             ex.processed_by = 'regularization';
             if (reg.corrected_punch_in_time || reg.requested_in_time) {
@@ -512,6 +515,7 @@ const overlayResolvedRegularizations = (records, regs, start, end, shift) => {
                 attendance_date: rM.startOf('day').toDate(),
                 attendance_date_str: rDay,
                 status: regStatus,
+                is_half_day: isHalf,
                 first_in: reg.corrected_punch_in_time || reg.requested_in_time || null,
                 last_out: reg.corrected_punch_out_time || reg.requested_out_time || null,
                 total_work_hours: parseFloat(hours.toFixed(2)),
@@ -630,8 +634,14 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         if (isAdminProcessed) {
             hStatus = String(rec.status).toLowerCase();
             if (rec?.is_regularized || rec?.processed_by === 'regularization') {
-                const isHalf = Boolean(rec?.is_half_day || rec?.isHalfDay || rec?.regularization_type === 'half_day' || hStatus === 'half_day');
-                hStatus = isHalf ? 'half_day' : 'present';
+                const shiftFullHours = emp?.shift_id?.full_day_hours || 8;
+                const isFullHours = recWorkHours >= shiftFullHours;
+                if (isFullHours || hStatus === 'present' || hStatus === 'late') {
+                    hStatus = hStatus === 'late' ? 'late' : 'present';
+                } else {
+                    const isHalf = Boolean(rec?.regularization_type === 'half_day' || hStatus === 'half_day');
+                    hStatus = isHalf ? 'half_day' : 'present';
+                }
             }
             hSession = rec.half_day_session || leaveSession;
 
@@ -679,7 +689,15 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             } else {
                 actualLeaves += 1;
             }
-        } else if (rec && (rec.status === 'half_day' || rec.is_half_day)) {
+        } else if (rec && (rec.status === 'present' || rec.status === 'late')) {
+            hStatus = rec.status === 'late' ? 'late' : 'present';
+            hSession = rec.half_day_session || leaveSession;
+            actualPresent++;
+            if (rec.status === 'late' || rec?.is_late) actualLate++;
+            const effectiveHours = recWorkHours > 0 ? recWorkHours : (emp?.shift_id?.full_day_hours || 8.3);
+            actualTotalHours += effectiveHours;
+            actualDaysWithHours += 1;
+        } else if (rec && (rec.status === 'half_day' || (rec.is_half_day && rec.status !== 'present' && rec.status !== 'late'))) {
             hStatus = 'half_day';
             hSession = rec.half_day_session || leaveSession;
             actualHalfDay++;
@@ -721,7 +739,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             leaveType: leave?.leave_type || rec?.leave_type || (recIsHalfLeave ? 'PL' : null),
             leaveStatus: leave?.approval_status || null,
             leaveReason: leave?.reason || null,
-            is_half_day: Boolean(rec?.is_half_day || isHalfDayLeave || hStatus === 'half_day'),
+            is_half_day: Boolean(isHalfDayLeave || hStatus === 'half_day' || (hStatus !== 'present' && hStatus !== 'late' && Boolean(rec?.is_half_day || rec?.isHalfDay))),
             is_half_day_leave: recIsHalfLeave,
             first_in: rec?.first_in || null,
             last_out: rec?.last_out || null,
@@ -4587,9 +4605,20 @@ export const approveRegularization = async (req, res) => {
             shift
         );
 
-        // When a regularization is approved/resolved, it MUST be present (or half_day)
-        let finalStatus = regularization.regularization_type === 'half_day' ? 'half_day' : 'present';
-        const defaultHours = finalStatus === 'half_day' ? (shift?.half_day_hours || 4) : (shift?.full_day_hours || 8.3);
+        // When a regularization is approved/resolved, determine status based on approved work hours
+        const shiftFullHours = shift?.full_day_hours || 8;
+        const shiftHalfHours = shift?.half_day_hours || 4;
+        let finalStatus = 'present';
+        if (workData.total_work_hours > 0) {
+            if (workData.total_work_hours >= shiftFullHours) {
+                finalStatus = 'present';
+            } else if (workData.total_work_hours >= shiftHalfHours) {
+                finalStatus = regularization.regularization_type === 'half_day' ? 'half_day' : 'present';
+            }
+        } else {
+            finalStatus = regularization.regularization_type === 'half_day' ? 'half_day' : 'present';
+        }
+        const defaultHours = finalStatus === 'half_day' ? shiftHalfHours : (shift?.full_day_hours || 8.3);
         if (!workData.total_work_hours || workData.total_work_hours <= 0) {
             workData.total_work_hours = defaultHours;
         }
@@ -4615,6 +4644,7 @@ export const approveRegularization = async (req, res) => {
 
         // Update record with recalculated data
         record.status = finalStatus;
+        record.is_half_day = finalStatus === 'half_day';
         record.total_work_hours = workData.total_work_hours;
         record.net_work_hours = workData.total_work_hours;
         record.regular_hours = Math.min(workData.total_work_hours, shift?.full_day_hours || 8.3);
@@ -5134,6 +5164,7 @@ export const bulkUpdateAttendance = async (req, res) => {
                         attendance_date: attDate,
                         attendance_date_str: dateStr,
                         status: status,
+                        is_half_day: status === 'half_day',
                         first_in: firstIn,
                         last_out: lastOut,
                         total_work_hours: isPresent ? 9 : 0,
@@ -5260,6 +5291,7 @@ export const applyFullMonthPresence = async (req, res) => {
                 attendance_date: dayStart,
                 attendance_date_str: dateStr,
                 status: 'present',
+                is_half_day: false,
                 first_in: moment.tz(`${dateStr}T${inTime}:00`, 'Asia/Kolkata').toDate(),
                 last_out: moment.tz(`${dateStr}T${outTime}:00`, 'Asia/Kolkata').toDate(),
                 total_work_hours: workHours,

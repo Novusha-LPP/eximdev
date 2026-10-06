@@ -1554,9 +1554,20 @@ export const approveRequest = async (req, res) => {
                     shift
                 );
 
-                // When a regularization is approved/resolved, it MUST be present (or half_day)
-                let finalStatus = request.regularization_type === 'half_day' ? 'half_day' : 'present';
-                const defaultHours = finalStatus === 'half_day' ? (shift?.half_day_hours || 4) : (shift?.full_day_hours || 8.3);
+                // When a regularization is approved/resolved, determine status based on approved work hours
+                const shiftFullHours = shift?.full_day_hours || 8;
+                const shiftHalfHours = shift?.half_day_hours || 4;
+                let finalStatus = 'present';
+                if (workData.total_work_hours > 0) {
+                    if (workData.total_work_hours >= shiftFullHours) {
+                        finalStatus = 'present';
+                    } else if (workData.total_work_hours >= shiftHalfHours) {
+                        finalStatus = request.regularization_type === 'half_day' ? 'half_day' : 'present';
+                    }
+                } else {
+                    finalStatus = request.regularization_type === 'half_day' ? 'half_day' : 'present';
+                }
+                const defaultHours = finalStatus === 'half_day' ? shiftHalfHours : (shift?.full_day_hours || 8.3);
                 if (!workData.total_work_hours || workData.total_work_hours <= 0) {
                     workData.total_work_hours = defaultHours;
                 }
@@ -1581,6 +1592,7 @@ export const approveRequest = async (req, res) => {
 
                 // Update record with recalculated data
                 record.status = finalStatus;
+                record.is_half_day = finalStatus === 'half_day';
                 record.total_work_hours = workData.total_work_hours;
                 record.net_work_hours = workData.total_work_hours;
                 record.regular_hours = Math.min(workData.total_work_hours, shift?.full_day_hours || 8.3);

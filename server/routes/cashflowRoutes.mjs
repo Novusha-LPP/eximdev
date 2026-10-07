@@ -143,7 +143,15 @@ router.get("/api/cashflow", async (req, res) => {
       row.cashBal = runningBalance;
     });
 
-    const currentCashBalance = runningBalance;
+    let openingBalance = 0;
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      const priorRows = allRows.filter((r) => new Date(r.postingDate) < start);
+      if (priorRows.length > 0) {
+        openingBalance = priorRows[priorRows.length - 1].cashBal;
+      }
+    }
 
     // Apply Filters
     let filtered = allRows;
@@ -194,6 +202,7 @@ router.get("/api/cashflow", async (req, res) => {
       totalExpense += r.expAmount || 0;
     });
     const netBalance = totalAddedBalance - totalExpense;
+    const currentCashBalance = openingBalance + netBalance;
 
     const teamMembers = await getOrSeedTeamMembers();
 
@@ -201,6 +210,7 @@ router.get("/api/cashflow", async (req, res) => {
       success: true,
       data: filtered,
       summary: {
+        openingBalance,
         totalAddedBalance,
         totalExpense,
         netBalance,

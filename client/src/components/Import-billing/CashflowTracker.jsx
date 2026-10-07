@@ -210,6 +210,13 @@ export default function CashflowTracker({ mode = "import" }) {
         const importData = resImport.status === "fulfilled" && resImport.value.data?.success ? resImport.value.data : null;
         const exportData = resExport.status === "fulfilled" && resExport.value.data?.success ? resExport.value.data : null;
 
+        const impSummary = importData?.summary || {};
+        const expSummary = exportData?.summary || {};
+
+        const impOpening = Number(impSummary.openingBalance || 0);
+        const expOpening = Number(expSummary.openingBalance || 0);
+        const combinedOpening = impOpening + expOpening;
+
         const impRows = (importData?.data || []).map((r) => ({ ...r, tradeType: "IMPORT" }));
         const expRows = (exportData?.data || []).map((r) => ({ ...r, tradeType: "EXPORT" }));
 
@@ -218,10 +225,22 @@ export default function CashflowTracker({ mode = "import" }) {
           (a, b) => new Date(a.postingDate) - new Date(b.postingDate)
         );
 
-        setRows(combined);
+        // Recompute running CASH BAL across combined rows starting from combinedOpening
+        let currentCombinedBal = combinedOpening;
+        const updatedCombined = combined.map((r) => {
+          const isWithdrawal = r.isBalanceAddition || (r.jobRefNo || "").includes("CASH WITHDRAWAL");
+          if (isWithdrawal) {
+            currentCombinedBal += Number(r.cashWith || 0);
+          } else {
+            currentCombinedBal -= Number(r.expAmount || 0);
+          }
+          return {
+            ...r,
+            cashBal: currentCombinedBal,
+          };
+        });
 
-        const impSummary = importData?.summary || {};
-        const expSummary = exportData?.summary || {};
+        setRows(updatedCombined);
 
         let totAdded = Number(impSummary.totalAddedBalance || 0) + Number(expSummary.totalAddedBalance || 0);
         let totExp = Number(impSummary.totalExpense || 0) + Number(expSummary.totalExpense || 0);
@@ -229,7 +248,7 @@ export default function CashflowTracker({ mode = "import" }) {
         if (!impSummary.totalAddedBalance && !expSummary.totalAddedBalance && combined.length > 0) {
           totAdded = 0;
           totExp = 0;
-          combined.forEach((r) => {
+          updatedCombined.forEach((r) => {
             totAdded += Number(r.cashWith || 0);
             totExp += Number(r.expAmount || 0);
           });
@@ -239,6 +258,7 @@ export default function CashflowTracker({ mode = "import" }) {
         const currentCashBalance = Number(impSummary.currentCashBalance || 0) + Number(expSummary.currentCashBalance || 0);
 
         setSummary({
+          openingBalance: combinedOpening,
           totalAddedBalance: totAdded,
           totalExpense: totExp,
           netBalance,

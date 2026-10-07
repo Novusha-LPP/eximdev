@@ -79,7 +79,7 @@ const getPresentDaysForReport = (emp) => {
       workHours = moment(d.last_out).diff(moment(d.first_in), 'hours', true);
     }
 
-    if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && !d?.is_half_day && s !== 'half_day') return true;
+    if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && s !== 'half_day') return true;
     if (s === 'half_day' || d?.is_half_day) return false;
     if (workHours >= 8) return true;
     if (workHours >= 4) return false; // Half day
@@ -98,7 +98,7 @@ const getActualHalfDays = (emp) => {
     if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday' || s === 'leave') return false;
     if (isHalfDayLeave(d)) return false;
 
-    if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && !d?.is_half_day && s !== 'half_day') return false;
+    if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && s !== 'half_day') return false;
     if (s === 'half_day' || d?.is_half_day) return true;
 
     let workHours = 0;
@@ -295,7 +295,7 @@ const formatLeaveStatusLabel = (log, workHours = 0) => {
   if (isHalfLeave) {
     return `Half Day (${leaveCode})`;
   }
-  if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && !log?.is_half_day && statusLower !== 'half_day') {
+  if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && statusLower !== 'half_day') {
     return 'Present';
   }
   if (statusLower === 'half_day' || log?.is_half_day) {
@@ -590,7 +590,7 @@ const DailyLogTable = memo(({ history, shiftName, openingBalance }) => {
         } else {
           allocatedStatus = 'LWP';
         }
-      } else if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && !log?.is_half_day && statusLower !== 'half_day') {
+      } else if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && statusLower !== 'half_day') {
         allocatedStatus = 'Present';
       } else if (statusLower === 'half_day' || log?.is_half_day) {
         allocatedStatus = 'Half Day';
@@ -1520,7 +1520,7 @@ const AttendanceReports = () => {
               } else {
                 statusLabel = 'LWP';
               }
-            } else if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && !log?.is_half_day && statusLower !== 'half_day') {
+            } else if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && statusLower !== 'half_day') {
               statusLabel = 'Present';
             } else if (statusLower === 'half_day' || log?.is_half_day) {
               statusLabel = 'Half Day';
@@ -1850,7 +1850,7 @@ const AttendanceReports = () => {
           } else {
             statusLabel = 'LWP';
           }
-        } else if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && !log?.is_half_day && statusLower !== 'half_day') {
+        } else if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && statusLower !== 'half_day') {
           statusLabel = 'Present';
         } else if (statusLower === 'half_day' || log?.is_half_day) {
           statusLabel = 'Half Day';

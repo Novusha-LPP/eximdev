@@ -122,7 +122,7 @@ const getActualHalfDays = (employee) => {
             workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
         }
 
-        if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && !day?.is_half_day && s !== 'half_day') return false;
+        if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && s !== 'half_day') return false;
         if (s === 'half_day' || day?.is_half_day) return true;
 
         if (workHours >= 8) return false;
@@ -149,7 +149,7 @@ const getPresentDaysForReport = (employee) => {
             workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
         }
 
-        if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && !day?.is_half_day && s !== 'half_day') return true;
+        if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && s !== 'half_day') return true;
         if (s === 'half_day' || day?.is_half_day) return false;
         if (workHours >= 8) return true;
         if (workHours >= 4) return false; // Half day
@@ -1182,7 +1182,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                     workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
                 }
 
-                if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && !day?.is_half_day && s !== 'half_day') return true;
+                if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && s !== 'half_day') return true;
                 if (s === 'half_day' || day?.is_half_day) return false;
                 if (workHours >= 8) return true;
                 if (workHours >= 4) return false; // Half day
@@ -1201,7 +1201,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday' || s === 'leave') return false;
                 if (isHalfDayLeave(day)) return false;
 
-                if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && !day?.is_half_day && s !== 'half_day') return false;
+                if ((s === 'present' || s === 'late' || s === 'present_late' || s === 'on_duty') && s !== 'half_day') return false;
                 if (s === 'half_day' || day?.is_half_day) return true;
 
                 let workHours = 0;
@@ -1394,7 +1394,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             if (isHalfLeave) {
                 return `Half Day (${leaveCode})`;
             }
-            if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && !day?.is_half_day && statusLower !== 'half_day') {
+            if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && statusLower !== 'half_day') {
                 return 'Present';
             }
             if (statusLower === 'half_day' || day?.is_half_day) {
@@ -1707,7 +1707,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                         } else {
                             statusLabel = 'LWP';
                         }
-                    } else if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && !day?.is_half_day && statusLower !== 'half_day') {
+                    } else if ((statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late' || statusLower === 'on_duty') && statusLower !== 'half_day') {
                         statusLabel = 'Present';
                     } else if (statusLower === 'half_day' || day?.is_half_day) {
                         statusLabel = 'Half Day';

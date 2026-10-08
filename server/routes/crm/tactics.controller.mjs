@@ -490,4 +490,12 @@ export async function generateTacticsReport(req, res) {
 
 router.get('/report', generateTacticsReport);
 
+// Immutability: Block DELETE on tactics master and routes (Rule R2)
+router.delete('*', (req, res) => {
+  res.status(405).json({
+    success: false,
+    message: 'Tactics cannot be deleted or removed. Tactic assignment history is immutable per sales governance.'
+  });
+});
+
 export default router;

@@ -10,8 +10,11 @@ import SalesIncentive from '../../model/crm/SalesIncentive.mjs';
 import UserModel from '../../model/userModel.mjs';
 import CRMNotification from '../../model/crm/Notification.mjs';
 import mongoose from 'mongoose';
+import { generateTacticsReport } from './tactics.controller.mjs';
 
 const router = express.Router();
+router.get('/tactics', generateTacticsReport);
+
 
 function extractAllowedUserIds(ownerFilter) {
   if (!ownerFilter || Object.keys(ownerFilter).length === 0) {

@@ -20,8 +20,10 @@ import collateralsRouter from './collaterals.controller.mjs';
 
 import quotationCompaniesRouter from './quotationCompanies.controller.mjs';
 import quotationTemplatesRouter from './quotationTemplates.controller.mjs';
+import tacticsRouter from './tactics.controller.mjs';
 
 const router = express.Router();
+
 
 // ──────────────────────────────────────────────
 // Multi-Tenant CRM Routes
@@ -37,6 +39,8 @@ router.use('/incentives', incentivesRouter);
 router.use('/pricing-requests', pricingRequestsRouter);
 router.use('/collaterals', collateralsRouter);
 router.use('/brochures', collateralsRouter);
+router.use('/tactics', tacticsRouter);
+
 
 // Phase 1: Advanced Features
 router.use('/lead-scoring', leadScoringRouter);

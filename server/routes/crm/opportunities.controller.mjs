@@ -7,6 +7,15 @@ import UserModel from '../../model/userModel.mjs';
 import SalesIncentive from '../../model/crm/SalesIncentive.mjs';
 import PricingRequest from '../../model/crm/PricingRequest.mjs';
 import Task from '../../model/crm/Task.mjs';
+import DealTactic from '../../model/crm/DealTactic.mjs';
+import Tactic from '../../model/crm/Tactic.mjs';
+import Partner from '../../model/crm/Partner.mjs';
+import {
+  validateDealCreation,
+  attachTacticsToDeal,
+  validateDealCloseTransition,
+  recordTacticResults
+} from '../../services/crm/tacticValidationService.mjs';
 
 // Helper to create a sales incentive when a deal is won
 async function createIncentiveOnWin(opportunity, tenantId) {
@@ -896,7 +905,8 @@ router.get('/:id', async (req, res) => {
       .populate('createdBy', 'username first_name last_name')
       .populate('referredFromTeamId', 'nameCode teamName')
       .populate('referredToTeamId', 'nameCode teamName')
-      .populate('referredByUserId', 'username first_name last_name');
+      .populate('referredByUserId', 'username first_name last_name')
+      .populate('partner_source_id');
     if (!opp) return res.status(404).json({ message: 'Opportunity not found' });
 
     const pricingRequests = await PricingRequest.find({
@@ -910,11 +920,20 @@ router.get('/:id', async (req, res) => {
       status: { $in: ['open', 'in_progress', 'completed'] }
     }).populate('assignedTo', 'username first_name last_name').lean();
 
+    const dealTactics = await DealTactic.find({ deal_id: opp._id })
+      .populate('tactic_id')
+      .populate('added_by', 'username first_name last_name')
+      .populate('result_set_by', 'username first_name last_name')
+      .sort({ added_at: 1 })
+      .lean();
+
     const oppObj = opp.toObject();
     oppObj.pricingRequests = pricingRequests;
     oppObj.tasks = tasks;
+    oppObj.dealTactics = dealTactics;
 
     res.json(oppObj);
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -1073,9 +1092,32 @@ router.post('/', async (req, res) => {
       if (!oppData.referredAt) oppData.referredAt = new Date();
     }
 
+    // Validate sales tactics (Rules R1, R5)
+    const tacticIds = req.body.tactic_ids || req.body.tactics || [];
+    const tacticValidation = await validateDealCreation({
+      tactic_ids: tacticIds,
+      partner_source_id: req.body.partner_source_id
+    });
+    if (!tacticValidation.valid) {
+      return res.status(400).json({ success: false, message: tacticValidation.message });
+    }
+
     const newOpp = new Opportunity(oppData);
     await newOpp.save();
+
+    // Attach tactics to the created deal
+    if (tacticIds.length > 0) {
+      await attachTacticsToDeal({
+        dealId: newOpp._id,
+        tactic_ids: tacticIds,
+        partner_source_id: req.body.partner_source_id,
+        userId,
+        dealStatusWhenAdded: newOpp.stage || 'lead'
+      });
+    }
+
     res.status(201).json(newOpp);
+
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -1112,6 +1154,19 @@ router.put('/:id', async (req, res) => {
         opportunity.closeReason = req.body.closeReason;
         opportunity.closeNotes = req.body.closeNotes || '';
       }
+
+      // Validate tactic outcomes when moving to terminal stages (Rules R3, R4)
+      if (stage === 'won' || stage === 'lost') {
+        const tacticValidation = await validateDealCloseTransition({
+          dealId: req.params.id,
+          targetStage: stage,
+          tacticResults: req.body.tactic_results || req.body.tactics || []
+        });
+        if (!tacticValidation.valid) {
+          return res.status(400).json({ success: false, message: tacticValidation.message });
+        }
+      }
+
 
       // Update stage history
       const lastHistory = opportunity.stageHistory[opportunity.stageHistory.length - 1];
@@ -1195,7 +1250,31 @@ router.put('/:id', async (req, res) => {
     if (updatedOpp.stage === 'won') {
       await createIncentiveOnWin(updatedOpp, req.tenantId);
     }
+
+    // Record tactic results if supplied
+    if (req.body.tactic_results || req.body.results) {
+      await recordTacticResults({
+        dealId: updatedOpp._id,
+        tacticResults: req.body.tactic_results || req.body.results,
+        userId: req.user?._id || req.headers['user-id']
+      });
+    }
+
+    // Attach any newly added tactics if provided
+    const newTacticIds = req.body.tactic_ids || (Array.isArray(req.body.tactics) && req.body.tactics[0]?.code ? req.body.tactics.map(t => t.code) : null);
+    if (newTacticIds && newTacticIds.length > 0) {
+      await attachTacticsToDeal({
+        dealId: updatedOpp._id,
+        tactic_ids: newTacticIds,
+        partner_source_id: req.body.partner_source_id,
+        userId: req.user?._id || req.headers['user-id'],
+        dealStatusWhenAdded: updatedOpp.stage,
+        results: req.body.tactic_results || req.body.results
+      });
+    }
+
     res.json({ success: true, data: updatedOpp });
+
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -1225,6 +1304,18 @@ router.patch('/:id/stage', async (req, res) => {
       opp.lostStageBeforeLoss = req.body.lostFromStage || opp.stage || 'lead';
     }
 
+    // Validate tactic outcomes when moving to terminal stages (Rules R3, R4)
+    if (stage === 'won' || stage === 'lost') {
+      const tacticValidation = await validateDealCloseTransition({
+        dealId: opp._id,
+        targetStage: stage,
+        tacticResults: req.body.tactic_results || req.body.tactics || []
+      });
+      if (!tacticValidation.valid) {
+        return res.status(400).json({ success: false, message: tacticValidation.message });
+      }
+    }
+
     // Update history
     const lastHistory = opp.stageHistory[opp.stageHistory.length - 1];
     if (lastHistory) {
@@ -1240,6 +1331,16 @@ router.patch('/:id/stage', async (req, res) => {
 
     opp.lastActivityAt = new Date();
     await opp.save();
+
+    // Record tactic results if provided
+    if (req.body.tactic_results || req.body.results) {
+      await recordTacticResults({
+        dealId: opp._id,
+        tacticResults: req.body.tactic_results || req.body.results,
+        userId: req.user?._id || req.headers['user-id']
+      });
+    }
+
     if (opp.stage === 'won') {
       await createIncentiveOnWin(opp, req.tenantId);
     }
@@ -1262,6 +1363,16 @@ router.patch('/:id/close', async (req, res) => {
 
     const opp = await Opportunity.findOne({ _id: req.params.id });
     if (!opp) return res.status(404).json({ message: 'Opportunity not found' });
+
+    // Validate tactic outcomes (Rules R3, R4)
+    const tacticValidation = await validateDealCloseTransition({
+      dealId: opp._id,
+      targetStage: status,
+      tacticResults: req.body.tactic_results || req.body.tactics || []
+    });
+    if (!tacticValidation.valid) {
+      return res.status(400).json({ success: false, message: tacticValidation.message });
+    }
 
     if (status === 'won') {
       if (!opp.value || opp.value <= 0) {
@@ -1288,10 +1399,21 @@ router.patch('/:id/close', async (req, res) => {
 
     opp.lastActivityAt = new Date();
     await opp.save();
+
+    // Record tactic results if provided
+    if (req.body.tactic_results || req.body.results) {
+      await recordTacticResults({
+        dealId: opp._id,
+        tacticResults: req.body.tactic_results || req.body.results,
+        userId: req.user?._id || req.headers['user-id']
+      });
+    }
+
     if (opp.stage === 'won') {
       await createIncentiveOnWin(opp, req.tenantId);
     }
     res.json(opp);
+
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -1486,10 +1608,105 @@ router.post('/:id/duplicate', async (req, res) => {
     });
 
     await duplicated.save();
+
+    // Copy tactics from original deal if present
+    const originalTactics = await DealTactic.find({ deal_id: original._id }).lean();
+    if (originalTactics.length > 0) {
+      const tacticIdsToCopy = originalTactics.map(t => t.tactic_id);
+      await attachTacticsToDeal({
+        dealId: duplicated._id,
+        tactic_ids: tacticIdsToCopy,
+        partner_source_id: original.partner_source_id,
+        userId: req.user?._id,
+        dealStatusWhenAdded: duplicated.stage || 'lead'
+      });
+    }
+
     res.status(201).json({ success: true, data: duplicated });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
+});
+
+// GET /api/crm/opportunities/:id/tactics
+router.get('/:id/tactics', async (req, res) => {
+  try {
+    const tactics = await DealTactic.find({ deal_id: req.params.id })
+      .populate('tactic_id')
+      .populate('added_by', 'username first_name last_name')
+      .populate('result_set_by', 'username first_name last_name')
+      .sort({ added_at: 1 })
+      .lean();
+    res.json({ success: true, data: tactics });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/crm/opportunities/:id/tactics - Add tactics to deal (Rule R2: Idempotent, no delete)
+router.post('/:id/tactics', async (req, res) => {
+  try {
+    const opp = await Opportunity.findById(req.params.id);
+    if (!opp) return res.status(404).json({ success: false, message: 'Opportunity not found' });
+
+    const tacticIds = req.body.tactic_ids || req.body.tactics || [];
+    if (!Array.isArray(tacticIds) || tacticIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Provide at least one tactic to add.' });
+    }
+
+    const userId = req.user?._id || req.user?.id || req.headers['user-id'];
+    const isClosed = opp.stage === 'won' || opp.stage === 'lost';
+    
+    // If deal is already closed, results must be provided in the same request (Rule 3.3.5)
+    if (isClosed && (!req.body.results || !Array.isArray(req.body.results) || req.body.results.length === 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Adding a tactic to an already-closed deal requires results and notes to be provided.'
+      });
+    }
+
+    const attached = await attachTacticsToDeal({
+      dealId: opp._id,
+      tactic_ids: tacticIds,
+      partner_source_id: req.body.partner_source_id,
+      userId,
+      dealStatusWhenAdded: opp.stage,
+      results: req.body.results || []
+    });
+
+    res.status(201).json({ success: true, data: attached });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// PUT /api/crm/opportunities/:id/tactics/results - Update tactic results/notes
+router.put('/:id/tactics/results', async (req, res) => {
+  try {
+    const opp = await Opportunity.findById(req.params.id);
+    if (!opp) return res.status(404).json({ success: false, message: 'Opportunity not found' });
+
+    const results = req.body.results || req.body.tactic_results || [];
+    const userId = req.user?._id || req.user?.id || req.headers['user-id'];
+
+    const updated = await recordTacticResults({
+      dealId: opp._id,
+      tacticResults: results,
+      userId
+    });
+
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// Immutability: Block DELETE on tactics (Rule R2)
+router.delete('/:id/tactics', (req, res) => {
+  res.status(405).json({ success: false, message: 'Tactics cannot be removed from a deal once added.' });
+});
+router.delete('/:id/tactics/:tacticId', (req, res) => {
+  res.status(405).json({ success: false, message: 'Tactics cannot be removed from a deal once added.' });
 });
 
 // DELETE /api/crm/opportunities/:id
@@ -1504,3 +1721,4 @@ router.delete('/:id', async (req, res) => {
 });
 
 export default router;
+

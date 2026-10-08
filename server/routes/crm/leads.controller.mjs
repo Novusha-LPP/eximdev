@@ -6,8 +6,10 @@ import Contact from '../../model/crm/Contact.mjs';
 import Opportunity from '../../model/crm/Opportunity.mjs';
 import SalesTeam from '../../model/crm/SalesTeam.mjs';
 import UserModel from '../../model/userModel.mjs';
+import { attachTacticsToDeal } from '../../services/crm/tacticValidationService.mjs';
 
 const router = express.Router();
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OWNERSHIP FILTER
@@ -578,7 +580,18 @@ router.post('/:id/convert', async (req, res) => {
     });
     await opportunity.save();
 
+    // Attach tactics to converted opportunity (Rule R1)
+    const leadTactics = req.body.tactic_ids || req.body.tactics || ['T02']; // Default to T02 Problem-Solution Chain if not specified
+    await attachTacticsToDeal({
+      dealId: opportunity._id,
+      tactic_ids: Array.isArray(leadTactics) ? leadTactics : [leadTactics],
+      partner_source_id: req.body.partner_source_id,
+      userId: oppOwnerId,
+      dealStatusWhenAdded: opportunity.stage || 'lead'
+    });
+
     // 4. Mark lead as converted
+
     lead.status = 'converted';
     lead.convertedAt = new Date();
     lead.convertedTo = {

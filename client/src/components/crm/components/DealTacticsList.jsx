@@ -41,12 +41,10 @@ export default function DealTacticsList({
   };
 
   useEffect(() => {
-    if (tactics && tactics.length > 0) {
-      setDealTactics(tactics);
-    } else if (dealId) {
+    if (dealId) {
       fetchDealTactics();
     }
-  }, [dealId, tactics]);
+  }, [dealId]);
 
   const handleAddTactics = async () => {
     if (newTactics.length === 0) {

@@ -1,5 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
 import Opportunity from '../../model/crm/Opportunity.mjs';
 import Lead from '../../model/crm/Lead.mjs';
 import SalesTeam from '../../model/crm/SalesTeam.mjs';
@@ -738,9 +739,9 @@ router.get('/board', async (req, res) => {
       'relatedTo.id': { $in: oppIds },
       status: { $in: ['open', 'in_progress', 'completed'] }
     })
-    .populate('assignedTo', 'username first_name last_name')
-    .populate('createdBy', 'username first_name last_name')
-    .lean();
+      .populate('assignedTo', 'username first_name last_name')
+      .populate('createdBy', 'username first_name last_name')
+      .lean();
 
     processedOpps.forEach(opp => {
       opp.pricingRequests = pricingRequests.filter(pr =>
@@ -846,8 +847,8 @@ router.get('/planned-visits', async (req, res) => {
         if (status === 'pending' && (isCompleted || isCancelled)) return;
         if (status === 'cancelled' && !isCancelled) return;
 
-        const ownerFullName = opp.ownerId 
-          ? `${opp.ownerId.first_name || ''} ${opp.ownerId.last_name || ''}`.trim() || opp.ownerId.username 
+        const ownerFullName = opp.ownerId
+          ? `${opp.ownerId.first_name || ''} ${opp.ownerId.last_name || ''}`.trim() || opp.ownerId.username
           : '';
 
         visits.push({
@@ -1667,7 +1668,7 @@ router.post('/:id/tactics', async (req, res) => {
 
     const userId = req.user?._id || req.user?.id || req.headers['user-id'];
     const isClosed = opp.stage === 'won' || opp.stage === 'lost';
-    
+
     // If deal is already closed, results must be provided in the same request (Rule 3.3.5)
     if (isClosed && (!req.body.results || !Array.isArray(req.body.results) || req.body.results.length === 0)) {
       return res.status(400).json({
@@ -1715,10 +1716,41 @@ router.put('/:id/tactics/results', async (req, res) => {
 // Removal: Only administrators can remove tactics from a deal
 router.delete('/:id/tactics/:tacticId', async (req, res) => {
   try {
-    const userRole = (req.user?.role || '').toLowerCase();
-    const crmRole = (req.user?.crmRole || '').toLowerCase();
-    const username = (req.user?.username || '').toLowerCase();
-    const isAdmin = userRole === 'admin' || userRole === 'superadmin' || crmRole === 'admin' || username === 'dev_master' || username.includes('ajay');
+    let userRole = (req.user?.role || req.headers['user-role'] || '').toLowerCase();
+    let crmRole = (req.user?.crmRole || '').toLowerCase();
+    let username = (req.user?.username || req.headers['username'] || '').toLowerCase();
+    let userId = req.user?._id || req.user?.id || req.headers['user-id'];
+
+    if ((!userRole || !username) && req.cookies?.token) {
+      try {
+        const decoded = jwt.decode(req.cookies.token);
+        if (decoded) {
+          if (!userRole && decoded.role) userRole = decoded.role.toLowerCase();
+          if (!crmRole && decoded.crmRole) crmRole = decoded.crmRole.toLowerCase();
+          if (!username && decoded.username) username = decoded.username.toLowerCase();
+          if (!userId && decoded._id) userId = decoded._id;
+        }
+      } catch (e) {}
+    }
+
+    if (!userRole && (username || userId)) {
+      try {
+        const u = await UserModel.findOne(userId ? { _id: userId } : { username }).lean();
+        if (u) {
+          userRole = (u.role || '').toLowerCase();
+          crmRole = (u.crmRole || '').toLowerCase();
+          username = (u.username || '').toLowerCase();
+        }
+      } catch (e) {}
+    }
+
+    const isAdmin =
+      userRole === 'admin' ||
+      userRole === 'superadmin' ||
+      userRole === 'super admin' ||
+      crmRole === 'admin' ||
+      username === 'dev_master' ||
+      username.includes('ajay');
 
     if (!isAdmin) {
       return res.status(403).json({

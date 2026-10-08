@@ -100,7 +100,14 @@ export default function DealTacticsList({
           const targetId = tactic._id || tactic.tactic_code;
           const res = await axios.delete(
             `${process.env.REACT_APP_API_STRING}/crm/opportunities/${dealId}/tactics/${targetId}`,
-            { withCredentials: true }
+            {
+              headers: {
+                'user-id': user?._id || user?.id,
+                'user-role': user?.role,
+                'username': user?.username
+              },
+              withCredentials: true
+            }
           );
           if (res.data?.success) {
             message.success(`Tactic ${code} removed successfully.`);

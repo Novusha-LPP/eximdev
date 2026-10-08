@@ -1712,12 +1712,56 @@ router.put('/:id/tactics/results', async (req, res) => {
   }
 });
 
-// Immutability: Block DELETE on tactics (Rule R2)
-router.delete('/:id/tactics', (req, res) => {
-  res.status(405).json({ success: false, message: 'Tactics cannot be removed from a deal once added.' });
+// Removal: Only administrators can remove tactics from a deal
+router.delete('/:id/tactics/:tacticId', async (req, res) => {
+  try {
+    const userRole = (req.user?.role || '').toLowerCase();
+    const crmRole = (req.user?.crmRole || '').toLowerCase();
+    const username = (req.user?.username || '').toLowerCase();
+    const isAdmin = userRole === 'admin' || userRole === 'superadmin' || crmRole === 'admin' || username === 'dev_master' || username.includes('ajay');
+
+    if (!isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Permission denied: Only administrators can remove sales tactics from a deal.'
+      });
+    }
+
+    const { id, tacticId } = req.params;
+    const opp = await Opportunity.findById(id);
+    if (!opp) return res.status(404).json({ success: false, message: 'Opportunity not found' });
+
+    let filter = { deal_id: opp._id };
+    if (mongoose.Types.ObjectId.isValid(tacticId)) {
+      filter.$or = [{ _id: tacticId }, { tactic_id: tacticId }, { tactic_code: tacticId }];
+    } else {
+      filter.tactic_code = tacticId;
+    }
+
+    const deleted = await DealTactic.findOneAndDelete(filter);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Sales tactic not found on this deal.' });
+    }
+
+    // If removed tactic was T29 and no other T29 tactics remain, clear partner_source_id
+    if (deleted.tactic_code === 'T29') {
+      const remainingT29 = await DealTactic.findOne({ deal_id: opp._id, tactic_code: 'T29' });
+      if (!remainingT29) {
+        opp.partner_source_id = null;
+        await opp.save();
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Tactic ${deleted.tactic_code} successfully removed by administrator.`
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
-router.delete('/:id/tactics/:tacticId', (req, res) => {
-  res.status(405).json({ success: false, message: 'Tactics cannot be removed from a deal once added.' });
+router.delete('/:id/tactics', (req, res) => {
+  res.status(400).json({ success: false, message: 'Please specify the tactic ID to remove.' });
 });
 
 // DELETE /api/crm/opportunities/:id

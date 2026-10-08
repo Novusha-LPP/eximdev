@@ -83,6 +83,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       setFormData(opportunity);
       setNewRemark('');
       fetchQuotes();
+      refreshOpportunityAndQuotes();
       const standardSources = ['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign', 'Company Branding'];
       if (opportunity.source && !standardSources.includes(opportunity.source)) {
         setCustomSource(opportunity.source);

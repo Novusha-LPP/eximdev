@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { Tag, message, Button, Modal, Select } from 'antd';
-import { Sparkles, Plus, CheckCircle, XCircle, MinusCircle, Users } from 'lucide-react';
+import { Sparkles, Plus, CheckCircle, XCircle, MinusCircle, Users, Trash2 } from 'lucide-react';
+import { UserContext } from '../../../contexts/UserContext';
 import SalesTacticSelector from './SalesTacticSelector';
 
 export default function DealTacticsList({
@@ -12,15 +13,40 @@ export default function DealTacticsList({
   dealStage = 'lead',
   onRefresh
 }) {
+  const { user } = useContext(UserContext) || {};
+  const userRole = (user?.role || '').toLowerCase();
+  const crmRole = (user?.crmRole || '').toLowerCase();
+  const username = (user?.username || '').toLowerCase();
+  const isAdmin = userRole === 'admin' || userRole === 'superadmin' || crmRole === 'admin' || username === 'dev_master' || username.includes('ajay');
+
   const [dealTactics, setDealTactics] = useState(tactics || []);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newTactics, setNewTactics] = useState([]);
   const [newPartner, setNewPartner] = useState(null);
   const [isAdding, setIsAdding] = useState(false);
 
+  const fetchDealTactics = async () => {
+    if (!dealId) return;
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${dealId}/tactics`,
+        { withCredentials: true }
+      );
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setDealTactics(res.data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching deal tactics:', err);
+    }
+  };
+
   useEffect(() => {
-    setDealTactics(tactics || []);
-  }, [tactics]);
+    if (tactics && tactics.length > 0) {
+      setDealTactics(tactics);
+    } else if (dealId) {
+      fetchDealTactics();
+    }
+  }, [dealId, tactics]);
 
   const handleAddTactics = async () => {
     if (newTactics.length === 0) {
@@ -47,12 +73,47 @@ export default function DealTacticsList({
       setIsAddModalOpen(false);
       setNewTactics([]);
       setNewPartner(null);
+      await fetchDealTactics();
       if (onRefresh) onRefresh();
     } catch (err) {
       message.error(err.response?.data?.message || 'Failed to add tactic');
     } finally {
       setIsAdding(false);
     }
+  };
+
+  const handleRemoveTactic = (tactic) => {
+    const code = tactic.tactic_code || tactic.tactic_id?.code || 'this tactic';
+    Modal.confirm({
+      zIndex: 100025,
+      title: `Remove Tactic ${code}?`,
+      content: (
+        <div>
+          <p>Are you sure you want to remove <strong>{code}</strong> from this deal?</p>
+          <p style={{ color: '#dc2626', fontSize: '0.78rem', marginTop: '4px' }}>
+            Only administrators are authorized to remove sales tactics.
+          </p>
+        </div>
+      ),
+      okText: 'Remove',
+      okButtonProps: { danger: true },
+      async onOk() {
+        try {
+          const targetId = tactic._id || tactic.tactic_code;
+          const res = await axios.delete(
+            `${process.env.REACT_APP_API_STRING}/crm/opportunities/${dealId}/tactics/${targetId}`,
+            { withCredentials: true }
+          );
+          if (res.data?.success) {
+            message.success(`Tactic ${code} removed successfully.`);
+            await fetchDealTactics();
+            if (onRefresh) onRefresh();
+          }
+        } catch (err) {
+          message.error(err.response?.data?.message || 'Failed to remove tactic');
+        }
+      }
+    });
   };
 
   const getResultBadge = (result, note) => {
@@ -177,8 +238,19 @@ export default function DealTacticsList({
                   </div>
                 </div>
 
-                <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {getResultBadge(dt.result, dt.result_note)}
+                  {isAdmin && (
+                    <Button
+                      type="text"
+                      danger
+                      size="small"
+                      icon={<Trash2 size={13} />}
+                      onClick={() => handleRemoveTactic(dt)}
+                      title="Remove Tactic (Admin Only)"
+                      style={{ padding: '0 4px', height: '24px', display: 'flex', alignItems: 'center' }}
+                    />
+                  )}
                 </div>
               </div>
             );

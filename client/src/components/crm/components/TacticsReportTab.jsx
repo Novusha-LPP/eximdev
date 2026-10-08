@@ -73,13 +73,17 @@ export default function TacticsReportTab() {
     try {
       const [tacticsRes, usersRes] = await Promise.all([
         axios.get(`${process.env.REACT_APP_API_STRING}/crm/tactics`, { withCredentials: true }),
-        axios.get(`${process.env.REACT_APP_API_STRING}/crm/users`, { withCredentials: true }).catch(() => ({ data: [] }))
+        axios.get(`${process.env.REACT_APP_API_STRING}/crm/users`, { withCredentials: true })
+          .catch(() => axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`, { withCredentials: true }))
+          .catch(() => ({ data: [] }))
       ]);
 
       if (tacticsRes.data?.data) {
         setTacticsList(tacticsRes.data.data);
       }
-      const rawUsers = Array.isArray(usersRes.data) ? usersRes.data : (usersRes.data?.users || []);
+      const rawUsers = Array.isArray(usersRes.data)
+        ? usersRes.data
+        : (usersRes.data?.data || usersRes.data?.users || []);
       setSalespeopleList(rawUsers);
     } catch (err) {
       console.error('Error loading tactic report filter options:', err);
@@ -556,12 +560,12 @@ export default function TacticsReportTab() {
               </tr>
             </thead>
             <tbody>
-              {sortedData.map(row => {
+              {sortedData.map((row, idx) => {
                 const winStyle = getWinRateColor(row.winRate, row.dealsTagged);
                 const isSmallSample = (row.wonCount + row.lostCount) < 5;
 
                 return (
-                  <tr key={row.familiar || row.code} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <tr key={row.familiar || row.code || `line-${idx}`} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '10px 12px', fontWeight: 700, color: '#1e293b' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Building2 size={15} color="#6366f1" />
@@ -630,16 +634,18 @@ export default function TacticsReportTab() {
               </tr>
             </thead>
             <tbody>
-              {sortedData.map(row => {
+              {sortedData.map((row, idx) => {
                 const winStyle = getWinRateColor(row.winRate, row.dealsTagged);
                 const isSmallSample = (row.wonCount + row.lostCount) < 5;
+                const repName = row.ownerName || row.name || 'Sales Representative';
+                const repKey = row.ownerId || row.userId || repName || `rep-${idx}`;
 
                 return (
-                  <tr key={row.userId || row.name} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <tr key={repKey} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '10px 12px', fontWeight: 700, color: '#1e293b' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Users size={15} color="#0284c7" />
-                        <span>{row.name}</span>
+                        <span>{repName}</span>
                       </div>
                     </td>
                     <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, color: '#0f172a' }}>

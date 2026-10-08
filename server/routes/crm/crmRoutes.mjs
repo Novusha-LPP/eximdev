@@ -21,8 +21,21 @@ import collateralsRouter from './collaterals.controller.mjs';
 import quotationCompaniesRouter from './quotationCompanies.controller.mjs';
 import quotationTemplatesRouter from './quotationTemplates.controller.mjs';
 import tacticsRouter from './tactics.controller.mjs';
+import UserModel from '../../model/userModel.mjs';
 
 const router = express.Router();
+
+// CRM User directory
+router.get('/users', async (req, res) => {
+  try {
+    const users = await UserModel.find({ isActive: { $ne: false }, role: { $nin: ['driver', 'Driver'] } })
+      .select('username role _id first_name last_name employee_code designation')
+      .lean();
+    res.json({ success: true, data: users, users });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 
 // ──────────────────────────────────────────────

@@ -85,7 +85,8 @@ export default function SalesTacticSelector({
           onChange={triggerTacticsChange}
           disabled={disabled}
           style={{ width: '100%' }}
-          dropdownStyle={{ zIndex: 100020 }}
+          popupStyle={{ zIndex: 100020 }}
+          styles={{ popup: { root: { zIndex: 100020 } } }}
           size="middle"
           optionLabelProp="label"
           filterOption={(input, option) => {
@@ -143,7 +144,8 @@ export default function SalesTacticSelector({
             value={selectedPartner}
             onChange={triggerPartnerChange}
             style={{ width: '100%' }}
-            dropdownStyle={{ zIndex: 100020 }}
+            popupStyle={{ zIndex: 100020 }}
+            styles={{ popup: { root: { zIndex: 100020 } } }}
             size="middle"
             showSearch
             filterOption={(input, option) => {

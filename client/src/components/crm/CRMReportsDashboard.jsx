@@ -416,13 +416,15 @@ export default function CRMReportsDashboard() {
       });
     }
 
-    const encodedUri = encodeURI(csvContent);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const downloadUrl = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.href = downloadUrl;
     link.setAttribute("download", `crm_report_${activeTab}_wise_${new Date().toISOString().substring(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
   };
 
   const handleExportAnalysis = () => {
@@ -879,7 +881,7 @@ export default function CRMReportsDashboard() {
                 >
                   <Download size={16} /> Export Activity CSV
                 </button>
-              ) : (
+              ) : activeTab === 'tactics' ? null : (
                 <button
                   onClick={handleExportCSV}
                   style={{

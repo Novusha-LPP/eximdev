@@ -17,7 +17,7 @@ import {
   TrendingUp,
   Percent
 } from 'lucide-react';
-import { Spin, Tooltip, Tag } from 'antd';
+import { Spin, Tooltip, Tag, message } from 'antd';
 
 const VIEWS = [
   { key: 'by_tactic', label: 'By Tactic', icon: Layers },
@@ -125,19 +125,47 @@ export default function TacticsReportTab() {
     }
   };
 
-  const handleExportCSV = () => {
-    const params = new URLSearchParams({
-      view: activeView,
-      format: 'csv'
-    });
+  const [isExporting, setIsExporting] = useState(false);
 
-    if (selectedTactic && selectedTactic !== 'all') params.append('tactic_code', selectedTactic);
-    if (selectedLine && selectedLine !== 'all') params.append('business_line', selectedLine);
-    if (selectedSalesperson && selectedSalesperson !== 'all') params.append('salesperson_id', selectedSalesperson);
-    if (selectedMonth) params.append('month', selectedMonth);
+  const handleExportCSV = async () => {
+    try {
+      setIsExporting(true);
+      const params = {
+        view: activeView,
+        format: 'csv'
+      };
 
-    const exportUrl = `${process.env.REACT_APP_API_STRING}/crm/tactics/report?${params.toString()}`;
-    window.open(exportUrl, '_blank');
+      if (selectedTactic && selectedTactic !== 'all') params.tactic_code = selectedTactic;
+      if (selectedLine && selectedLine !== 'all') params.business_line = selectedLine;
+      if (selectedSalesperson && selectedSalesperson !== 'all') params.salesperson_id = selectedSalesperson;
+      if (selectedMonth) params.month = selectedMonth;
+
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/tactics/report`,
+        {
+          params,
+          responseType: 'blob',
+          withCredentials: true
+        }
+      );
+
+      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      const dateStr = new Date().toISOString().substring(0, 10);
+      link.setAttribute('download', `tactics_${activeView}_report_${dateStr}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      message.success('Tactics report CSV downloaded successfully');
+    } catch (err) {
+      console.error('Failed to export tactics CSV:', err);
+      message.error('Failed to export tactics report CSV');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleSort = (field) => {
@@ -238,6 +266,7 @@ export default function TacticsReportTab() {
           {/* Export CSV */}
           <button
             onClick={handleExportCSV}
+            disabled={isExporting}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -246,17 +275,18 @@ export default function TacticsReportTab() {
               background: '#ffffff',
               border: '1.5px solid #cbd5e1',
               borderRadius: '8px',
-              color: '#334155',
+              color: isExporting ? '#94a3b8' : '#334155',
               fontWeight: 600,
               fontSize: '0.8rem',
-              cursor: 'pointer',
+              cursor: isExporting ? 'not-allowed' : 'pointer',
+              opacity: isExporting ? 0.7 : 1,
               transition: 'all 0.2s'
             }}
-            onMouseOver={(e) => { e.currentTarget.style.borderColor = '#4f46e5'; e.currentTarget.style.color = '#4f46e5'; }}
-            onMouseOut={(e) => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#334155'; }}
+            onMouseOver={(e) => { if (!isExporting) { e.currentTarget.style.borderColor = '#4f46e5'; e.currentTarget.style.color = '#4f46e5'; } }}
+            onMouseOut={(e) => { if (!isExporting) { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#334155'; } }}
           >
-            <Download size={14} />
-            Export CSV
+            {isExporting ? <Spin size="small" /> : <Download size={14} />}
+            {isExporting ? 'Exporting...' : 'Export CSV'}
           </button>
         </div>
       </div>

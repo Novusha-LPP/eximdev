@@ -195,6 +195,7 @@ export default function DealTacticsList({
         confirmLoading={isAdding}
         okText="Add to Deal"
         width={500}
+        zIndex={100005}
       >
         <p style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '12px' }}>
           Select any additional tactics used during your sales cycle. Note: Tactics are permanent history and cannot be deleted once saved.
@@ -202,8 +203,10 @@ export default function DealTacticsList({
         <SalesTacticSelector
           selectedTactics={newTactics}
           onChangeTactics={setNewTactics}
+          onChange={setNewTactics}
           selectedPartner={newPartner}
           onChangePartner={setNewPartner}
+          onPartnerChange={setNewPartner}
           service={service}
           required={true}
         />

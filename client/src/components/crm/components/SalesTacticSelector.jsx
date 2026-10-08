@@ -8,12 +8,16 @@ const { Option, OptGroup } = Select;
 export default function SalesTacticSelector({
   selectedTactics = [],
   onChangeTactics,
+  onChange,
   selectedPartner = null,
   onChangePartner,
+  onPartnerChange,
   service = '',
   required = true,
   disabled = false
 }) {
+  const triggerTacticsChange = onChangeTactics || onChange;
+  const triggerPartnerChange = onChangePartner || onPartnerChange;
   const [tactics, setTactics] = useState([]);
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,9 +82,10 @@ export default function SalesTacticSelector({
           mode="multiple"
           placeholder="Select 1 or more tactics (e.g. T01 Money Model, T12 Decoy)..."
           value={selectedTactics}
-          onChange={onChangeTactics}
+          onChange={triggerTacticsChange}
           disabled={disabled}
           style={{ width: '100%' }}
+          dropdownStyle={{ zIndex: 100020 }}
           size="middle"
           optionLabelProp="label"
           filterOption={(input, option) => {
@@ -136,8 +141,9 @@ export default function SalesTacticSelector({
           <Select
             placeholder="Select strategic partner or CFS..."
             value={selectedPartner}
-            onChange={onChangePartner}
+            onChange={triggerPartnerChange}
             style={{ width: '100%' }}
+            dropdownStyle={{ zIndex: 100020 }}
             size="middle"
             showSearch
             filterOption={(input, option) => {

@@ -9,6 +9,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { message } from 'antd';
 import { RotateCcw } from 'lucide-react';
 import { LOST_REASONS, ALLOWED_SERVICES, formatServiceName } from './crmConstants';
+import CloseDealTacticModal from './components/CloseDealTacticModal';
+import SalesTacticSelector from './components/SalesTacticSelector';
 
 const PIPELINE_STAGES = [
   { id: 'lead', name: 'Lead', color: '#4f8ef7' },
@@ -114,6 +116,13 @@ export default function CRMKanbanBoard() {
   const [duplicateService, setDuplicateService] = useState('');
   const [duplicateValue, setDuplicateValue] = useState(0);
   const [duplicateCloseDate, setDuplicateCloseDate] = useState('');
+  const [duplicateTactics, setDuplicateTactics] = useState([]);
+  const [duplicatePartner, setDuplicatePartner] = useState(null);
+
+  // Close Deal Tactic Outcome Modal States
+  const [isCloseTacticModalOpen, setIsCloseTacticModalOpen] = useState(false);
+  const [closingOpp, setClosingOpp] = useState(null);
+  const [closingTargetStage, setClosingTargetStage] = useState('won');
 
   // Task Management States
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -706,12 +715,10 @@ export default function CRMKanbanBoard() {
           return;
         }
       }
-      if (toStage === 'lost') {
-        setLostOpportunityId(draggedOpportunity.opportunity._id);
-        setLostFromStage(draggedOpportunity.fromStage);
-        setLostReason('');
-        setLostNotes('');
-        setIsLostModalOpen(true);
+      if (toStage === 'lost' || toStage === 'won') {
+        setClosingOpp(draggedOpportunity.opportunity);
+        setClosingTargetStage(toStage);
+        setIsCloseTacticModalOpen(true);
       } else {
         handleUpdateOpportunityStage(draggedOpportunity.opportunity._id, toStage);
       }
@@ -834,6 +841,10 @@ export default function CRMKanbanBoard() {
 
   const handleConfirmDuplicate = async () => {
     if (!duplicateService) return;
+    if (!duplicateTactics || duplicateTactics.length === 0) {
+      message.warning('Please select at least one sales tactic for the duplicated deal.');
+      return;
+    }
     setUpdating(true);
     try {
       await axios.post(
@@ -843,7 +854,9 @@ export default function CRMKanbanBoard() {
           services: [duplicateService],
           value: duplicateValue,
           expectedCloseDate: duplicateCloseDate,
-          stage: duplicatingOpp.stage
+          stage: duplicatingOpp.stage,
+          tactic_ids: duplicateTactics,
+          partner_source_id: duplicatePartner
         },
         getHeaders()
       );
@@ -1770,6 +1783,15 @@ export default function CRMKanbanBoard() {
                                 setDuplicateService(opp.services && opp.services.length > 0 ? opp.services[0] : '');
                                 setDuplicateValue(opp.value || 0);
                                 setDuplicateCloseDate(opp.expectedCloseDate ? opp.expectedCloseDate.substring(0, 10) : '');
+                                setDuplicateTactics([]);
+                                setDuplicatePartner(opp.partner_source_id || null);
+                                axios.get(`${process.env.REACT_APP_API_STRING}/crm/opportunities/${opp._id}/tactics`, { withCredentials: true })
+                                  .then(res => {
+                                    if (res.data?.data && res.data.data.length > 0) {
+                                      setDuplicateTactics(res.data.data.map(dt => dt.tactic_code));
+                                    }
+                                  })
+                                  .catch(() => {});
                                 setIsDuplicateModalOpen(true);
                               }}
                               style={{
@@ -2379,6 +2401,17 @@ export default function CRMKanbanBoard() {
               </div>
             </div>
 
+            {/* Sales Playbook Tactics Selection */}
+            <div style={{ marginBottom: '14px' }}>
+              <SalesTacticSelector
+                selectedTactics={duplicateTactics}
+                onChange={setDuplicateTactics}
+                selectedPartner={duplicatePartner}
+                onPartnerChange={setDuplicatePartner}
+                service={duplicateService}
+              />
+            </div>
+
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
               <button
                 onClick={() => {
@@ -2500,6 +2533,24 @@ export default function CRMKanbanBoard() {
         onRefresh={fetchBoard}
         task={selectedTaskForModal}
       />
+
+      {/* Close Deal Tactic Outcome Modal */}
+      {isCloseTacticModalOpen && closingOpp && (
+        <CloseDealTacticModal
+          isOpen={isCloseTacticModalOpen}
+          onClose={() => {
+            setIsCloseTacticModalOpen(false);
+            setClosingOpp(null);
+          }}
+          opportunity={closingOpp}
+          targetStage={closingTargetStage}
+          onSuccess={() => {
+            setIsCloseTacticModalOpen(false);
+            setClosingOpp(null);
+            fetchBoard();
+          }}
+        />
+      )}
     </>
   );
 }

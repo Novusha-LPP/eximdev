@@ -427,6 +427,7 @@ const ChargesGrid = ({
           onOpenFileModal={(charge, tab) => setFileModalCharge({ charge, tab })}
           onRemoveAttachment={handleRemoveAttachment}
           onEditCharge={(charge) => setEditingCharges([charge])}
+          onUpdateCharge={updateCharge}
           readOnly={readOnlyFinal}
           isLocked={isLocked}
           readOnlyBase={readOnly}

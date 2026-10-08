@@ -28,6 +28,18 @@ const isNoGstDefaultCharge = (chargeHead) => {
   return NO_GST_DEFAULT_CHARGES.includes(chargeHead.toUpperCase().trim());
 };
 
+const isCustomDutyCharge = (ch) => {
+  if (!ch) return false;
+  const head = (ch.chargeHead || ch.name || '').toLowerCase().trim();
+  const cat = (ch.category || '').toLowerCase().trim();
+  const partyType = (ch.cost?.partyType || '').toLowerCase().trim();
+  return head.includes('custom duty') || 
+         head.includes('customs duty') || 
+         cat.includes('custom duty') || 
+         cat.includes('customs duty') || 
+         partyType === 'custom duty';
+};
+
 const EditChargeModal = ({
   isOpen,
   onClose,
@@ -383,6 +395,8 @@ const EditChargeModal = ({
           ...charge,
           invoice_number: charge.invoice_number || '',
           invoice_date: charge.invoice_date || '',
+          bill_no: charge.bill_no || charge.billNo || '',
+          billNo: charge.bill_no || charge.billNo || '',
           payment_request_no: charge.payment_request_no || '',
           payment_request_status: charge.payment_request_status || '',
           sacHsn: charge.sacHsn || definedSacHsn || '',
@@ -966,6 +980,29 @@ const EditChargeModal = ({
                         <option>Margin</option>
                       </select>
                     </div>
+
+                    {isCustomDutyCharge(row) && (
+                      <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
+                        <span className="charges-form-label" style={{ color: '#16a34a', fontWeight: 'bold' }}>Bill No</span>
+                        <input 
+                          type="text" 
+                          disabled={effectiveReadOnly} 
+                          placeholder="Enter Custom Duty Bill No" 
+                          value={row.bill_no || row.billNo || ''} 
+                          onChange={e => {
+                            handleFieldChange(i, 'bill_no', e.target.value);
+                            handleFieldChange(i, 'billNo', e.target.value);
+                          }} 
+                          onBlur={() => triggerAutoSave(i, true)}
+                          style={{
+                            border: (row.bill_no || row.billNo) ? '1.5px solid #22c55e' : '1.5px dashed #f59e0b',
+                            background: (row.bill_no || row.billNo) ? '#f0fdf4' : '#fff',
+                            fontWeight: (row.bill_no || row.billNo) ? 'bold' : 'normal',
+                            color: (row.bill_no || row.billNo) ? '#166534' : 'inherit'
+                          }}
+                        />
+                      </div>
+                    )}
 
                     <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
                       <span className="charges-form-label">Invoice Number</span>

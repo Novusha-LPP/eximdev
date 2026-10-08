@@ -14,6 +14,18 @@ const extractFileName = (url) => {
   }
 };
 
+const isCustomDutyCharge = (ch) => {
+  if (!ch) return false;
+  const head = (ch.chargeHead || ch.name || '').toLowerCase().trim();
+  const cat = (ch.category || '').toLowerCase().trim();
+  const partyType = (ch.cost?.partyType || '').toLowerCase().trim();
+  return head.includes('custom duty') || 
+         head.includes('customs duty') || 
+         cat.includes('custom duty') || 
+         cat.includes('customs duty') || 
+         partyType === 'custom duty';
+};
+
 const ChargesTable = ({ 
   charges, 
   activeTab, 
@@ -23,11 +35,39 @@ const ChargesTable = ({
   onOpenFileModal,
   onRemoveAttachment,
   onEditCharge,
+  onUpdateCharge,
   readOnly,
   isLocked,
   readOnlyBase,
   isAuthorized
 }) => {
+  const [billNoMap, setBillNoMap] = React.useState({});
+
+  // Synchronize local billNoMap with charges
+  React.useEffect(() => {
+    const map = {};
+    (charges || []).forEach(ch => {
+      if (ch._id) {
+        map[ch._id] = ch.bill_no || ch.billNo || '';
+      }
+    });
+    setBillNoMap(map);
+  }, [charges]);
+
+  const handleBillNoChange = (chargeId, value) => {
+    setBillNoMap(prev => ({ ...prev, [chargeId]: value }));
+  };
+
+  const handleBillNoBlur = async (charge) => {
+    const currentVal = billNoMap[charge._id] !== undefined ? billNoMap[charge._id] : (charge.bill_no || charge.billNo || '');
+    const originalVal = charge.bill_no || charge.billNo || '';
+    if (currentVal.trim() !== (originalVal || '').trim()) {
+      if (onUpdateCharge) {
+        await onUpdateCharge(charge._id, { bill_no: currentVal.trim(), billNo: currentVal.trim() });
+      }
+    }
+  };
+
   const formatNumber = (num) => {
     if (num === null || num === undefined) return '0.00';
     return Number(num).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -178,7 +218,7 @@ const ChargesTable = ({
               <input type="checkbox" onChange={onSelectAll} disabled={readOnly} />
             </th>
             <th style={{ width: '30px', textAlign: 'center' }}>No.</th>
-            <th style={{ width: '180px', textAlign: 'left' }}>Charge Item</th>
+            <th style={{ minWidth: '220px', width: '240px', textAlign: 'left' }}>Charge Item</th>
             {activeTab === 'particulars' && renderParticularsHeaders()}
             {activeTab === 'revenue' && renderRevenueHeaders()}
             {activeTab === 'cost' && renderCostHeaders()}
@@ -229,6 +269,10 @@ const ChargesTable = ({
               ...(Array.isArray(ch.cost?.url_final) ? ch.cost.url_final : []),
             ])];
 
+            const isCustomDuty = isCustomDutyCharge(ch);
+            const currentBillNo = billNoMap[ch._id] !== undefined ? billNoMap[ch._id] : (ch.bill_no || ch.billNo || '');
+            const hasBillNo = Boolean(currentBillNo && String(currentBillNo).trim().length > 0);
+
             return (
               <tr 
                 key={ch._id || idx} 
@@ -247,8 +291,96 @@ const ChargesTable = ({
                     idx + 1
                   )}
                 </td>
-                <td style={{ fontWeight: 'bold', color: isIndividualLocked ? '#666' : '#1a3a5c', textAlign: 'left' }}>
-                  {ch.chargeHead}
+                <td 
+                  style={{ 
+                    fontWeight: 'bold', 
+                    color: hasBillNo ? '#15803d' : (isIndividualLocked ? '#666' : '#1a3a5c'),
+                    backgroundColor: hasBillNo ? '#ecfdf5' : (isCustomDuty ? '#fffdf0' : 'inherit'),
+                    borderLeft: hasBillNo ? '4px solid #16a34a' : (isCustomDuty ? '4px solid #f59e0b' : undefined),
+                    textAlign: 'left',
+                    padding: '4px 8px',
+                    transition: 'all 0.25s ease'
+                  }}
+                  title={isCustomDuty ? (hasBillNo ? `Custom Duty - Bill No: ${currentBillNo}` : 'Custom Duty - Please fill Bill No.') : ''}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', minHeight: '26px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ 
+                        color: hasBillNo ? '#15803d' : (isIndividualLocked ? '#666' : '#1a3a5c'),
+                        fontWeight: 'bold',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {ch.chargeHead}
+                      </span>
+                      {isCustomDuty && hasBillNo && (
+                        <span 
+                          style={{ 
+                            fontSize: '9px',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            backgroundColor: '#dcfce7',
+                            color: '#15803d',
+                            border: '1px solid #86efac',
+                            fontWeight: '700',
+                            letterSpacing: '0.3px',
+                            textTransform: 'uppercase'
+                          }}
+                        >
+                          Billed
+                        </span>
+                      )}
+                    </div>
+
+                    {isCustomDuty && (
+                      <div 
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto' }} 
+                        onClick={(e) => e.stopPropagation()}
+                        onDoubleClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="text"
+                          placeholder="Bill No."
+                          title="Enter Custom Duty Bill No."
+                          value={currentBillNo}
+                          onChange={(e) => handleBillNoChange(ch._id, e.target.value)}
+                          onBlur={() => handleBillNoBlur(ch)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          disabled={readOnlyBase}
+                          style={{
+                            height: '22px',
+                            width: '95px',
+                            fontSize: '11px',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            border: hasBillNo ? '1.5px solid #22c55e' : '1.5px dashed #f59e0b',
+                            backgroundColor: hasBillNo ? '#ffffff' : '#fffdf5',
+                            color: hasBillNo ? '#15803d' : '#334155',
+                            fontWeight: hasBillNo ? '700' : '500',
+                            outline: 'none',
+                            boxShadow: hasBillNo ? '0 1px 2px rgba(34, 197, 94, 0.15)' : 'none',
+                            transition: 'all 0.2s ease'
+                          }}
+                        />
+                        {hasBillNo && (
+                          <span 
+                            title={`Custom Duty Bill No: ${currentBillNo}`}
+                            style={{ 
+                              color: '#16a34a', 
+                              fontSize: '13px', 
+                              fontWeight: 'bold',
+                              lineHeight: 1
+                            }}
+                          >
+                            ✓
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </td>
                 
                 {activeTab === 'particulars' && (

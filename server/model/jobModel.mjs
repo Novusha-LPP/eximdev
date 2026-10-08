@@ -289,6 +289,8 @@ const ChargeSchema = new mongoose.Schema({
   category: { type: String },
   costCenter: { type: String },
   remark: { type: String },
+  bill_no: { type: String, trim: true },
+  billNo: { type: String, trim: true },
   invoice_number: { type: String, trim: true },
   invoice_date: { type: String, trim: true },
   invoice_value: { type: String, trim: true },

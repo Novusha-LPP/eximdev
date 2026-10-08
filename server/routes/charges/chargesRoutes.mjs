@@ -231,6 +231,9 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
           charge[key] = req.body[key];
         }
       }
+    } else {
+      if (req.body.bill_no !== undefined) charge.bill_no = req.body.bill_no;
+      if (req.body.billNo !== undefined) charge.billNo = req.body.billNo;
     }
     await job.save();
 

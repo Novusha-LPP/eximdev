@@ -365,12 +365,43 @@ export default function TacticsReportTab() {
           <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
             Month
           </label>
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            style={{ width: '100%', padding: '5px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.825rem', background: '#fff' }}
-          />
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={{ width: '100%', padding: '5px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.825rem', background: '#fff' }}
+            />
+            {(selectedTactic !== 'all' || selectedLine !== 'all' || selectedSalesperson !== 'all' || selectedMonth !== '') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTactic('all');
+                  setSelectedLine('all');
+                  setSelectedSalesperson('all');
+                  setSelectedMonth('');
+                }}
+                title="Reset all filters"
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #e2e8f0',
+                  background: '#ffffff',
+                  color: '#dc2626',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s'
+                }}
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

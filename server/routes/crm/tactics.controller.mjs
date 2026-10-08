@@ -195,13 +195,19 @@ export async function generateTacticsReport(req, res) {
       format
     } = req.query;
 
-    // 1. Build Opportunity Match Criteria (Non-legacy only)
-    const oppMatch = {
-      tactics_legacy: { $ne: true }
-    };
+    // 1. Build Opportunity Match Criteria (Non-legacy only or deals that have tactics tagged)
+    const taggedDealIds = await DealTactic.distinct('deal_id');
+    const andConditions = [
+      {
+        $or: [
+          { tactics_legacy: { $ne: true } },
+          { _id: { $in: taggedDealIds } }
+        ]
+      }
+    ];
 
     if (salesperson_id && salesperson_id !== 'all' && mongoose.Types.ObjectId.isValid(salesperson_id)) {
-      oppMatch.ownerId = new mongoose.Types.ObjectId(salesperson_id);
+      andConditions.push({ ownerId: new mongoose.Types.ObjectId(salesperson_id) });
     }
 
     const targetLine = resolveLine(business_line || service);
@@ -219,11 +225,13 @@ export async function generateTacticsReport(req, res) {
 
       const combinedRegex = new RegExp(regexPatterns.join('|'), 'i');
 
-      oppMatch.$or = [
-        { businessVertical: { $regex: combinedRegex } },
-        { businessLine: targetLine.code },
-        { services: { $regex: combinedRegex } }
-      ];
+      andConditions.push({
+        $or: [
+          { businessVertical: { $regex: combinedRegex } },
+          { businessLine: targetLine.code },
+          { services: { $regex: combinedRegex } }
+        ]
+      });
     }
 
     if (month && /^\d{4}-\d{2}$/.test(month)) {
@@ -232,12 +240,15 @@ export async function generateTacticsReport(req, res) {
       const m = parseInt(monthStr, 10);
       const startOfMonth = new Date(Date.UTC(year, m - 1, 1, 0, 0, 0));
       const endOfMonth = new Date(Date.UTC(m === 12 ? year + 1 : year, m === 12 ? 0 : m, 1, 0, 0, 0));
-      oppMatch.createdAt = { $gte: startOfMonth, $lt: endOfMonth };
+      andConditions.push({ createdAt: { $gte: startOfMonth, $lt: endOfMonth } });
     } else if (date_from || date_to) {
-      oppMatch.createdAt = {};
-      if (date_from) oppMatch.createdAt.$gte = new Date(date_from);
-      if (date_to) oppMatch.createdAt.$lte = new Date(date_to);
+      const dateCond = {};
+      if (date_from) dateCond.$gte = new Date(date_from);
+      if (date_to) dateCond.$lte = new Date(date_to);
+      andConditions.push({ createdAt: dateCond });
     }
+
+    const oppMatch = andConditions.length > 1 ? { $and: andConditions } : andConditions[0];
 
     // 2. Fetch all matching opportunities
     const opportunities = await Opportunity.find(oppMatch)

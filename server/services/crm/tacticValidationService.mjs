@@ -135,11 +135,13 @@ export async function attachTacticsToDeal({
     attached.push(doc);
   }
 
-  // Update deal's partner_source_id if T29 is present
+  // Update deal: clear tactics_legacy so deal participates in playbook analytics
+  const oppUpdate = { tactics_legacy: false };
   const hasT29 = tactics.some(t => t.code === T29_CODE);
   if (hasT29 && partner_source_id) {
-    await Opportunity.findByIdAndUpdate(dealId, { partner_source_id });
+    oppUpdate.partner_source_id = partner_source_id;
   }
+  await Opportunity.findByIdAndUpdate(dealId, oppUpdate);
 
   return attached;
 }

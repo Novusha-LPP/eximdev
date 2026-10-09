@@ -483,6 +483,7 @@ function JobDetails() {
   const [dutyModalOpen, setDutyModalOpen] = useState(false);
   const [selectedContainerIndex, setSelectedContainerIndex] = useState(0);
 
+
   // IMEXCUBE upload state
   const [imexcubeUploading, setImexcubeUploading] = useState(false);
   const [imexcubeSnackbar, setImexcubeSnackbar] = useState({ open: false, message: "", severity: "success" });
@@ -743,6 +744,30 @@ function JobDetails() {
     setFileSnackbar,
     storedSearchParams
   );
+
+  const transporterFirstTimeDoneRef = useRef(false);
+  const initialTransporterCheckDoneRef = useRef(false);
+  const currentJobNoRef = useRef(params.job_no);
+
+  useEffect(() => {
+    if (currentJobNoRef.current !== params.job_no) {
+      currentJobNoRef.current = params.job_no;
+      initialTransporterCheckDoneRef.current = false;
+      transporterFirstTimeDoneRef.current = false;
+    }
+  }, [params.job_no]);
+
+  useEffect(() => {
+    if (!initialTransporterCheckDoneRef.current && formik?.values?.container_nos?.length > 0) {
+      const hasAnyTransporter = formik.values.container_nos.some(
+        (c) => c && c.transporter && String(c.transporter).trim() !== ""
+      );
+      if (hasAnyTransporter) {
+        transporterFirstTimeDoneRef.current = true;
+      }
+      initialTransporterCheckDoneRef.current = true;
+    }
+  }, [formik?.values?.container_nos]);
 
   const [cthOptions, setCthOptions] = useState({});
   const [cthLoading, setCthLoading] = useState({});
@@ -1262,13 +1287,6 @@ function JobDetails() {
     } catch (err) { }
   };
 
-  const handleTransporterChange = (e, index) => {
-    if (e.target.checked === true) {
-      formik.setFieldValue(`container_nos[${index}].transporter`, "SRCC");
-    } else {
-      formik.setFieldValue(`container_nos[${index}].transporter`, "");
-    }
-  };
 
   const handleAddContainer = () => {
     const containersList = formik.values.container_nos || [];
@@ -1335,6 +1353,39 @@ function JobDetails() {
     }));
 
     formik.setFieldValue("container_nos", updatedContainers);
+  };
+
+  const handleTransporterUpdate = (index, newTransporter, isFinal = false) => {
+    const containers = formik.values.container_nos || [];
+    const trimmed = (newTransporter || "").trim();
+
+    // If all containers are currently empty, reset first-time flag so assignment propagates
+    if (containers.every((c) => !c?.transporter || !String(c.transporter).trim())) {
+      transporterFirstTimeDoneRef.current = false;
+    }
+
+    if (!transporterFirstTimeDoneRef.current) {
+      // First time setting: assign to EVERY other container in the same job
+      const updatedContainers = containers.map((c) => ({
+        ...c,
+        transporter: newTransporter,
+      }));
+      formik.setFieldValue("container_nos", updatedContainers);
+
+      // Once confirmed (selected from dropdown or blurred with non-empty value), lock first-time as completed
+      if (isFinal && trimmed !== "") {
+        transporterFirstTimeDoneRef.current = true;
+      }
+    } else {
+      // From the next time: change for this specific container only
+      formik.setFieldValue(`container_nos[${index}].transporter`, newTransporter);
+    }
+  };
+
+  const handleTransporterChange = (e, index) => {
+    const isChecked = e.target.checked;
+    const value = isChecked ? "SRCC" : "";
+    handleTransporterUpdate(index, value, true);
   };
   const handleGenerate = () => {
     pdfRef.current?.generatePdf();
@@ -7105,7 +7156,12 @@ function JobDetails() {
                     ).map((container, i) => (
                       <div
                         key={i}
-                        onClick={() => setSelectedContainerIndex(i)}
+                        onClick={() => {
+                          if (formik.values.container_nos?.some((c) => c && c.transporter && String(c.transporter).trim() !== "")) {
+                            transporterFirstTimeDoneRef.current = true;
+                          }
+                          setSelectedContainerIndex(i);
+                        }}
                         style={{
                           padding: "10px",
                           marginBottom: "5px",
@@ -7133,6 +7189,9 @@ function JobDetails() {
                   </div>
                   <div className="mt-3">
                     <Button variant="contained" color="primary" fullWidth onClick={() => {
+                      if (formik.values.container_nos?.some((c) => c && c.transporter && String(c.transporter).trim() !== "")) {
+                        transporterFirstTimeDoneRef.current = true;
+                      }
                       handleAddContainer();
                       // Switch to the newly added container (next index)
                       setSelectedContainerIndex(formik.values.container_nos.length);
@@ -7466,55 +7525,64 @@ function JobDetails() {
                             <Col xs={12} md={6} lg={4} className="mb-3">
                               <label style={labelStyle}>Transporter</label>
                               {/* Transporter Logic */}
-                              <div className="d-flex align-items-center gap-3">
-                                <FormControlLabel
-                                  control={
-                                    <Checkbox
-                                      checked={container.transporter === "SRCC"}
-                                      disabled={
-                                        user?.role !== "Admin" &&
-                                        !formik.values.out_of_charge
-                                      }
-                                      onChange={(e) =>
-                                        handleTransporterChange(e, index)
-                                      }
-                                    />
-                                  }
-                                  label={
-                                    <span style={{ fontSize: "1rem" }}>
-                                      SRCC
-                                    </span>
-                                  }
-                                />
-
-                                {container.transporter !== "SRCC" && (
-                                  <Autocomplete
-                                    freeSolo
-                                    fullWidth
-                                    sx={{ flex: 1, minWidth: "200px" }}
-                                    size="small"
-                                    options={transportersList}
-                                    value={container.transporter || ""}
-                                    onChange={(event, newValue) => {
-                                      formik.setFieldValue(`container_nos[${index}].transporter`, newValue || "");
-                                    }}
-                                    onInputChange={(event, newInputValue) => {
-                                      formik.setFieldValue(`container_nos[${index}].transporter`, newInputValue || "");
-                                    }}
-                                    renderInput={(params) => (
-                                      <TextField
-                                        {...params}
-                                        fullWidth
-                                        variant="outlined"
-                                        label="Transporter Name"
-                                        InputLabelProps={{ shrink: true }}
-                                        name={`container_nos[${index}].transporter`}
-                                        sx={compactInputSx}
+                              {container.transporter === "SRCC" ? (
+                                <div className="d-flex align-items-center gap-2">
+                                  <FormControlLabel
+                                    control={
+                                      <Checkbox
+                                        checked={true}
+                                        disabled={
+                                          user?.role !== "Admin" &&
+                                          !formik.values.out_of_charge
+                                        }
+                                        onChange={(e) =>
+                                          handleTransporterChange(e, index)
+                                        }
                                       />
-                                    )}
+                                    }
+                                    label={
+                                      <span style={{ fontSize: "1rem" }}>
+                                        SRCC
+                                      </span>
+                                    }
                                   />
-                                )}
-                              </div>
+                                </div>
+                              ) : (
+                                <Autocomplete
+                                  freeSolo
+                                  fullWidth
+                                  size="small"
+                                  options={transportersList.includes("SRCC") ? transportersList : ["SRCC", ...transportersList]}
+                                  value={container.transporter || ""}
+                                  onChange={(event, newValue) => {
+                                    handleTransporterUpdate(index, newValue || "", true);
+                                  }}
+                                  onInputChange={(event, newInputValue, reason) => {
+                                    if (reason === "input") {
+                                      handleTransporterUpdate(index, newInputValue || "", false);
+                                    } else if (reason === "clear") {
+                                      handleTransporterUpdate(index, "", false);
+                                    }
+                                  }}
+                                  renderInput={(params) => (
+                                    <TextField
+                                      {...params}
+                                      fullWidth
+                                      variant="outlined"
+                                      label="Transporter Name"
+                                      InputLabelProps={{ shrink: true }}
+                                      name={`container_nos[${index}].transporter`}
+                                      sx={compactInputSx}
+                                      onBlur={(e) => {
+                                        if (typeof params.onBlur === "function") params.onBlur(e);
+                                        if (container?.transporter && String(container.transporter).trim() !== "") {
+                                          transporterFirstTimeDoneRef.current = true;
+                                        }
+                                      }}
+                                    />
+                                  )}
+                                />
+                              )}
                             </Col>
                           </Row>
 

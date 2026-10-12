@@ -106,28 +106,25 @@ export default function CloseDealTacticModal({
     let tacticsToSubmit = [];
 
     if (dealTactics.length === 0) {
-      // Deal had 0 tactics: check if new tactics were picked
-      if (selectedNewTactics.length === 0) {
-        message.error('Every deal requires at least one sales tactic before it can be closed.');
-        return;
-      }
-
-      // Check results for each newly selected tactic
-      for (const code of selectedNewTactics) {
-        const item = tacticResults[code];
-        if (!item?.result) {
-          message.error(`Please select an outcome ('Worked', 'Did not work', or 'Not used') for ${code}.`);
-          return;
+      // Deal had 0 tactics: tactics are optional
+      if (selectedNewTactics.length > 0) {
+        // Only validate if user chose to add tactics
+        for (const code of selectedNewTactics) {
+          const item = tacticResults[code];
+          if (!item?.result) {
+            message.error(`Please select an outcome ('Worked', 'Did not work', or 'Not used') for ${code}.`);
+            return;
+          }
+          if (item.result !== 'not_used' && (!item?.result_note || !item.result_note.trim())) {
+            message.error(`Please provide a one-line reason note for ${code}.`);
+            return;
+          }
+          tacticsToSubmit.push({
+            tactic_code: code,
+            result: item.result,
+            result_note: (item.result_note || '').trim() || (item.result === 'not_used' ? 'Not used' : '')
+          });
         }
-        if (!item?.result_note || !item.result_note.trim()) {
-          message.error(`Please provide a one-line reason note for ${code}.`);
-          return;
-        }
-        tacticsToSubmit.push({
-          tactic_code: code,
-          result: item.result,
-          result_note: item.result_note.trim()
-        });
       }
     } else {
       // Existing tactics: verify all have result and note
@@ -137,7 +134,7 @@ export default function CloseDealTacticModal({
           message.error(`Please select an outcome for ${dt.tactic_code} (${dt.tactic_id?.name || ''}).`);
           return;
         }
-        if (!item?.result_note || !item.result_note.trim()) {
+        if (item.result !== 'not_used' && (!item?.result_note || !item.result_note.trim())) {
           message.error(`Please provide a one-line reason note for ${dt.tactic_code} (${dt.tactic_id?.name || ''}).`);
           return;
         }
@@ -145,7 +142,7 @@ export default function CloseDealTacticModal({
           tactic_id: dt.tactic_id?._id || dt.tactic_id,
           tactic_code: dt.tactic_code,
           result: item.result,
-          result_note: item.result_note.trim()
+          result_note: (item.result_note || '').trim() || (item.result === 'not_used' ? 'Not used' : '')
         });
       }
     }
@@ -323,23 +320,23 @@ export default function CloseDealTacticModal({
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
             <Sparkles size={14} color="#6366f1" />
             <h4 style={{ margin: 0, fontSize: '0.88rem', color: '#1e293b', fontWeight: 700 }}>
-              Sales Tactic Outcomes & Notes (Mandatory)
+              Sales Tactic Outcomes & Notes (Optional)
             </h4>
           </div>
           <p style={{ margin: '0 0 12px 0', fontSize: '0.75rem', color: '#64748b' }}>
-            Suraj Group Playbook rules require recording whether each applied tactic worked and a short 1-line reason why.
+            Optionally record whether any sales tactics were used during this deal and their outcome.
           </p>
 
           {loading ? (
             <div style={{ padding: '24px', textAlign: 'center' }}><Spin /> Loading tactics...</div>
           ) : dealTactics.length === 0 ? (
-            // No tactics attached yet: allow selecting now
+            // No tactics attached yet: allow selecting now (optional)
             <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <Alert
                 type="info"
                 showIcon
                 message="No tactics currently attached"
-                description="Select the tactic(s) that were tried during this deal so their performance is captured in reports."
+                description="If any sales tactics were used during this deal, select them below to record their outcomes. If no tactics were used, you can leave this blank and proceed."
                 style={{ marginBottom: '12px', fontSize: '0.78rem' }}
               />
               <SalesTacticSelector
@@ -348,7 +345,7 @@ export default function CloseDealTacticModal({
                 selectedPartner={selectedNewPartner}
                 onChangePartner={setSelectedNewPartner}
                 service={opportunity?.services?.[0] || ''}
-                required={true}
+                required={false}
               />
               {selectedNewTactics.length > 0 && (
                 <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>

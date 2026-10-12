@@ -324,52 +324,51 @@ const IgstModal = ({
         );
 
         if (response.ok) {
-          const result = await response.json(); // Extract rates from CTH data - ALWAYS prioritize basic_duty_ntfn (including "0")
-          const bcdNtfnValue = result.addedFields?.cth_basic_duty_ntfn;
-          const bcdSchValue = result.addedFields?.cth_basic_duty_sch;
+          const result = await response.json();
+          // Extract rates from CTH data using the backend-calculated cth_bcd_ammount
+          const bcdRateVal =
+            result.addedFields?.cth_bcd_ammount !== undefined &&
+            result.addedFields?.cth_bcd_ammount !== null &&
+            result.addedFields?.cth_bcd_ammount !== ""
+              ? result.addedFields.cth_bcd_ammount
+              : (result.addedFields?.cth_basic_duty_sch || "0");
 
-          // Logic: ALWAYS use basic_duty_ntfn if it exists and is a valid number (including "0")
-          let bcdRate = 0;
+          const igstRateVal =
+            result.addedFields?.cth_igst_ammount !== undefined &&
+            result.addedFields?.cth_igst_ammount !== null &&
+            result.addedFields?.cth_igst_ammount !== ""
+              ? result.addedFields.cth_igst_ammount
+              : "";
 
-          // Check if basic_duty_ntfn is present and valid (including "0")
-          const isBcdNtfnValid =
-            bcdNtfnValue !== null &&
-            bcdNtfnValue !== undefined &&
-            bcdNtfnValue !== "" &&
-            bcdNtfnValue !== "nan" &&
-            bcdNtfnValue !== "NaN" &&
-            !isNaN(parseFloat(bcdNtfnValue));
+          setIgstValues((prev) => {
+            const assessable = parseFloat(prev.assessable_ammount || 0);
+            const bRate = parseFloat(bcdRateVal || 0);
+            const sRate = 10;
+            const iRate = parseFloat(igstRateVal || prev.igstRate || 0);
 
-          if (isBcdNtfnValid) {
-            bcdRate = parseFloat(bcdNtfnValue);
-          } else if (
-            bcdSchValue &&
-            bcdSchValue !== "" &&
-            bcdSchValue !== "nan" &&
-            bcdSchValue !== "NaN" &&
-            !isNaN(parseFloat(bcdSchValue))
-          ) {
-            bcdRate = parseFloat(bcdSchValue);
-          }
+            let calculatedBcd = prev.bcd_ammount;
+            let calculatedSws = prev.sws_ammount;
+            let calculatedIgst = prev.igst_ammount;
 
-          setIgstValues((prev) => ({
-            ...prev,
-            bcdRate: bcdRate.toString(),
-            igstRate: result.addedFields?.cth_igst_ammount || prev.igstRate,
-            swsRate: "10",
-            ...(prev.assessable_ammount && {
-              bcd_ammount:
-                result.addedFields?.cth_bcd_ammount || prev.bcd_ammount,
-              sws_ammount:
-                result.addedFields?.cth_sws_ammount || prev.sws_ammount,
-              igst_ammount:
-                result.addedFields?.cth_igst_ammount || prev.igst_ammount,
-            }),
-          }));
+            if (assessable > 0) {
+              const bcdAmt = (assessable * bRate) / 100;
+              const swsAmt = (bcdAmt * sRate) / 100;
+              const igstAmt = ((assessable + bcdAmt + swsAmt) * iRate) / 100;
+              calculatedBcd = bcdAmt.toFixed(2);
+              calculatedSws = swsAmt.toFixed(2);
+              calculatedIgst = igstAmt.toFixed(2);
+            }
 
-          setTimeout(() => {
-            calculateDutyAmounts();
-          }, 100);
+            return {
+              ...prev,
+              bcdRate: bcdRateVal.toString(),
+              igstRate: (igstRateVal || prev.igstRate || "").toString(),
+              swsRate: "10",
+              bcd_ammount: calculatedBcd,
+              sws_ammount: calculatedSws,
+              igst_ammount: calculatedIgst,
+            };
+          });
         }
       } catch (error) {
         console.error("Error in CTH duty lookup:", error);

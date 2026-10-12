@@ -24,8 +24,8 @@ export async function validateDealCreation({ tactic_ids = [], partner_source_id 
   const tacticsList = Array.isArray(tactic_ids) ? tactic_ids.filter(Boolean) : [];
   if (tacticsList.length === 0) {
     return {
-      valid: false,
-      message: 'Select at least one sales tactic.'
+      valid: true,
+      resolvedTactics: []
     };
   }
 
@@ -171,14 +171,11 @@ export async function validateDealCloseTransition({
   // Fetch all deal tactics
   let dealTactics = await DealTactic.find({ deal_id: dealId }).populate('tactic_id').lean();
 
-  // If deal is legacy with 0 tactics attached
+  // If deal has 0 tactics attached and none supplied, closing without tactics is allowed
   if (dealTactics.length === 0) {
     const suppliedResults = Array.isArray(tacticResults) ? tacticResults : [];
     if (suppliedResults.length === 0) {
-      return {
-        valid: false,
-        message: 'This deal requires at least one sales tactic and recorded results before it can be closed.'
-      };
+      return { valid: true };
     }
   }
 
@@ -203,7 +200,7 @@ export async function validateDealCloseTransition({
 
     if (!effectiveResult || !VALID_RESULTS.includes(effectiveResult)) {
       missingTactics.push(`${tacticCode} (${tacticName}) - missing result ('Worked', 'Did not work', or 'Not used')`);
-    } else if (!effectiveNote) {
+    } else if (effectiveResult !== 'not_used' && !effectiveNote) {
       missingTactics.push(`${tacticCode} (${tacticName}) - missing result note`);
     }
   }

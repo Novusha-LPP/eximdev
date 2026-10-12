@@ -13,7 +13,7 @@ export default function SalesTacticSelector({
   onChangePartner,
   onPartnerChange,
   service = '',
-  required = true,
+  required = false,
   disabled = false
 }) {
   const triggerTacticsChange = onChangeTactics || onChange;

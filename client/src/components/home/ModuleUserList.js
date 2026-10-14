@@ -55,6 +55,7 @@ const MODULES = [
   "Pulse",
   "Team Pulse",
   "Attendance",
+  "Attendance V2",
   "Karma Points",
   "5S Audit",
   "First Aid",

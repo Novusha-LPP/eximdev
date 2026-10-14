@@ -33,6 +33,7 @@ import DocumentationJob from "../components/documentation/DocumentationJob.js";
 // Attendance
 import AttendanceLayout from "../components/attendance/layout/AttendanceLayout.jsx";
 import DashboardSwitch from "../components/attendance/DashboardSwitch.jsx";
+import AttendanceV2Dashboard from "../components/attendance-v2/AttendanceV2Dashboard.jsx";
 import AttendancePage from "../components/attendance/Attendance.jsx";
 import LeaveManagement from "../components/attendance/LeaveManagement.jsx";
 import Regularization from "../components/attendance/Regularization.jsx";
@@ -1495,6 +1496,16 @@ function HomePageContent() {
                 <Route path="hod/report" element={<AttendanceReport />} />
                 <Route path="report" element={<AttendanceReport isAdmin />} />
               </Route>
+
+              {/* Standalone Attendance V2 Module */}
+              <Route
+                path="/attendance-v2"
+                element={
+                  <ProtectedRoute requiredModule={["Attendance V2", "Attendance"]}>
+                    <AttendanceV2Dashboard />
+                  </ProtectedRoute>
+                }
+              />
             </Routes>
           </Box>
         </Box>

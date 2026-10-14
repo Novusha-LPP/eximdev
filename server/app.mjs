@@ -414,6 +414,7 @@ import hodAttendanceRoutes from "./routes/attendance/hodRoutes.mjs";
 import masterAttendanceRoutes from "./routes/attendance/masterRoutes.mjs";
 import payrollRoutes from "./routes/attendance/payrollRoutes.mjs";
 import firstAidRoutes from "./routes/attendance/firstAidRoutes.mjs";
+import attendanceV2Routes from "./routes/attendance/attendanceV2Routes.mjs";
 // scmCube API
 import scmCubeRoutes from "./routes/scmCubeRoutes.mjs";
 import uploadToImexcube from "./routes/scmCube/uploadToImexcube.mjs";
@@ -836,6 +837,7 @@ app.use(apiKeyRoutes);
 
 // ─── Attendance Module ────────────────────────────────────────────────────────
 app.use('/api/attendance', attendanceRoutes);
+app.use('/api/attendance/v2', attendanceV2Routes);
 app.use('/api/leave', leaveRoutes);
 app.use('/api/hod-attendance', hodAttendanceRoutes);
 app.use('/api/master', masterAttendanceRoutes);
@@ -1064,6 +1066,7 @@ if (!disableCluster && cluster.isPrimary) {
               timezone: "Asia/Kolkata",
             }
           );
+
         }
 
         // Initialize WebSocket logic

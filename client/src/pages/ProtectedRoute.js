@@ -26,8 +26,8 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
   // Restrict Attendance module to RABS employees
   const isRabsUser = user.company && /RABS/i.test(user.company);
   const isAttendanceModule = Array.isArray(requiredModule)
-    ? requiredModule.includes("Attendance")
-    : requiredModule === "Attendance";
+    ? (requiredModule.includes("Attendance") || requiredModule.includes("Attendance V2"))
+    : (requiredModule === "Attendance" || requiredModule === "Attendance V2");
 
   const is5sAuditModule = Array.isArray(requiredModule)
     ? requiredModule.includes("5S Audit")

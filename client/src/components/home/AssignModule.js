@@ -47,6 +47,7 @@ const allModules = [
   "Team Pulse",
   "MasterDirectory",
   "Attendance",
+  "Attendance V2",
   "Bill Cover",
   "IT Helpdesk",
   "Karma Points",

@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import "../../styles/sidebar.scss";
 import { Avatar, IconButton, ListItemButton, Tooltip, Badge } from "@mui/material";
@@ -20,6 +20,7 @@ import DomainIcon from "@mui/icons-material/Domain";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import MoreTimeIcon from "@mui/icons-material/MoreTime";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
 import MedicalServicesIcon from "@mui/icons-material/MedicalServices";
 import ComputerIcon from "@mui/icons-material/Computer";
@@ -31,6 +32,7 @@ import RaiseTicketModal from "../it-helpdesk/RaiseTicketModal";
 
 function Sidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, setUser } = useContext(UserContext);
   const [currencyDialogOpen, setCurrencyDialogOpen] = useState(false);
   const [raiseTicketModalOpen, setRaiseTicketModalOpen] = useState(false);
@@ -148,6 +150,30 @@ function Sidebar() {
                 <Badge badgeContent={pendingCorrectionCount} color="error">
                   <AccessTimeIcon />
                 </Badge>
+              </IconButton>
+            </ListItemButton>
+          </Tooltip>
+
+          {/* Standalone Attendance V2 Module */}
+          <Tooltip title="Attendance V2" enterDelay={0} placement="right">
+            <ListItemButton
+              className={`appbar-links ${location.pathname.startsWith('/attendance-v2') ? 'active' : ''}`}
+              aria-label="list-item"
+              onClick={() => navigate("/attendance-v2")}
+              sx={{
+                ...(location.pathname.startsWith('/attendance-v2') ? {
+                  backgroundColor: 'rgba(99, 102, 241, 0.25) !important',
+                  borderRadius: '10px'
+                } : {})
+              }}
+            >
+              <IconButton
+                sx={{
+                  color: location.pathname.startsWith('/attendance-v2') ? "#818cf8 !important" : "#ffffff9f"
+                }}
+                aria-label="icon"
+              >
+                <MoreTimeIcon />
               </IconButton>
             </ListItemButton>
           </Tooltip>

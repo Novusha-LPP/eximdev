@@ -51,7 +51,7 @@ const ReasonForDelayCell = ({ row, onSaveSuccess }) => {
     if (e) e.stopPropagation();
     try {
       setLoading(true);
-      const res = await axios.put(`${process.env.REACT_APP_API_STRING}/api/update-reason-for-delay`, {
+      const res = await axios.put(`${process.env.REACT_APP_API_STRING}/update-reason-for-delay`, {
         jobId: row._id,
         reason_for_delay: reason,
       });

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { BarChart2, Download, Table, TrendingUp, AlertTriangle, ChevronDown, ChevronRight, PieChart, Phone, Mail, Calendar, FileText, CheckCircle2, MinusCircle, XCircle, Trophy, ShieldAlert } from 'lucide-react';
+import { BarChart2, Download, Table, TrendingUp, AlertTriangle, ChevronDown, ChevronRight, PieChart, Phone, Mail, Calendar, FileText, CheckCircle2, MinusCircle, XCircle, Trophy, ShieldAlert, Award } from 'lucide-react';
 import FilterBar from './components/FilterBar';
+import TacticsReportTab from './components/TacticsReportTab';
 import { LOST_REASONS } from './crmConstants';
 
 export default function CRMReportsDashboard() {
@@ -15,7 +16,14 @@ export default function CRMReportsDashboard() {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState(null);
-  const [activeTab, setActiveTab] = useState('month'); // 'month' | 'week' | 'stage_analysis' | 'reps_overview'
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab') || params.get('report');
+      if (tabParam === 'tactics' || tabParam === 'playbook') return 'tactics';
+    } catch (e) {}
+    return 'month';
+  }); // 'month' | 'week' | 'stage_analysis' | 'reps_overview' | 'tactics'
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState('all');
   const [selectedVertical, setSelectedVertical] = useState('all');
@@ -408,13 +416,15 @@ export default function CRMReportsDashboard() {
       });
     }
 
-    const encodedUri = encodeURI(csvContent);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const downloadUrl = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.href = downloadUrl;
     link.setAttribute("download", `crm_report_${activeTab}_wise_${new Date().toISOString().substring(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
   };
 
   const handleExportAnalysis = () => {
@@ -832,6 +842,17 @@ export default function CRMReportsDashboard() {
                 >
                   <BarChart2 size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} /> Representatives Overview
                 </button>
+                <button
+                  onClick={() => setActiveTab('tactics')}
+                  style={{
+                    padding: '8px 16px', borderRadius: '8px', border: 'none', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                    background: activeTab === 'tactics' ? '#ffffff' : 'transparent',
+                    color: activeTab === 'tactics' ? '#4338ca' : '#64748b',
+                    boxShadow: activeTab === 'tactics' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  <Award size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom', color: '#6366f1' }} /> Sales Tactics Playbook
+                </button>
               </div>
 
               {activeTab === 'stage_analysis' ? (
@@ -860,7 +881,7 @@ export default function CRMReportsDashboard() {
                 >
                   <Download size={16} /> Export Activity CSV
                 </button>
-              ) : (
+              ) : activeTab === 'tactics' ? null : (
                 <button
                   onClick={handleExportCSV}
                   style={{
@@ -2021,6 +2042,11 @@ export default function CRMReportsDashboard() {
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Sales Tactic Playbook Report Tab (Rule R7) */}
+              {activeTab === 'tactics' && (
+                <TacticsReportTab />
               )}
             </div>
           </div>

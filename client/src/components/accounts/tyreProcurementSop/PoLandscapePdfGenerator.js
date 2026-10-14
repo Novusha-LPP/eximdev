@@ -1,220 +1,355 @@
 import React, { useRef, useState } from "react";
-import { Button, CircularProgress } from "@mui/material";
+import { Button, CircularProgress, IconButton, Tooltip } from "@mui/material";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { SR_LOGO_BASE64 } from "./srLogoBase64";
 
-const fmtDate = (d) => {
+const fmtPoDate = (d) => {
   if (!d) return "-";
   try {
     const dt = new Date(d);
     if (isNaN(dt.getTime())) return String(d);
-    return dt.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    const day = String(dt.getDate()).padStart(2, "0");
+    const month = dt.toLocaleString("en-GB", { month: "long" });
+    const year = dt.getFullYear();
+    return `${day}-${month}-${year}`;
   } catch (e) {
     return String(d);
   }
 };
 
-function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, buttonLabel, size = "small" }) {
+const fmtPoDateTime = (d) => {
+  if (!d) return "-";
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return String(d);
+    const day = String(dt.getDate()).padStart(2, "0");
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = months[dt.getMonth()];
+    const year = dt.getFullYear();
+    let hours = dt.getHours();
+    const minutes = String(dt.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${day}-${month}-${year} ${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
+  } catch (e) {
+    return String(d);
+  }
+};
+
+const numberToWords = (num) => {
+  const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+  const b = ['', '', 'Twenty ', 'Thirty ', 'Forty ', 'Fifty ', 'Sixty ', 'Seventy ', 'Eighty ', 'Ninety '];
+
+  function inWords(n) {
+    if ((n = n.toString()).length > 9) return 'Overflow';
+    let n_arr = ('000000000' + n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+    if (!n_arr) return '';
+    let str = '';
+    str += (Number(n_arr[1]) !== 0) ? (a[Number(n_arr[1])] || b[n_arr[1][0]] + a[n_arr[1][1]]) + 'Crore ' : '';
+    str += (Number(n_arr[2]) !== 0) ? (a[Number(n_arr[2])] || b[n_arr[2][0]] + a[n_arr[2][1]]) + 'Lakh ' : '';
+    str += (Number(n_arr[3]) !== 0) ? (a[Number(n_arr[3])] || b[n_arr[3][0]] + a[n_arr[3][1]]) + 'Thousand ' : '';
+    str += (Number(n_arr[4]) !== 0) ? (a[Number(n_arr[4])] || b[n_arr[4][0]] + a[n_arr[4][1]]) + 'Hundred ' : '';
+    str += (Number(n_arr[5]) !== 0) ? (a[Number(n_arr[5])] || b[n_arr[5][0]] + a[n_arr[5][1]]) : '';
+    return str.trim();
+  }
+
+  const val = Math.round(Number(num) || 0);
+  if (val === 0) return 'INR Zero Only';
+  return 'INR ' + inWords(val) + ' Only';
+};
+
+const cleanDeliveryAddress = (str) => {
+  if (!str) return "-";
+  return str
+    .replace(/,\s*,+/g, ", ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+function PoLandscapePdfGenerator({
+  globalData,
+  stage3Data,
+  targetSupplier,
+  buttonLabel,
+  size = "small",
+  iconOnly = false,
+  tooltipTitle,
+  customColor,
+  customBgColor,
+  customHoverBg,
+  icon,
+}) {
   const [downloading, setDownloading] = useState(false);
   const [activeVendorIndex, setActiveVendorIndex] = useState(0);
   const pdfRef = useRef(null);
 
-  // Extract common data fields
+  // Common Identifiers
   const prNumber = globalData?.prNumber || globalData?.stage1?.prNumber || "-";
-  const poNumber = globalData?.poNumber || globalData?.stage3?.poNumber || globalData?.stage2?.poNumber || "-";
-  const prDate = fmtDate(globalData?.createdAt || globalData?.stage1?.prDate || globalData?.stage1?.routingChecklist?.[0]?.date);
-  const poDate = fmtDate(globalData?.stage3?.poDate || globalData?.stage2?.poDate || globalData?.stage3?.signOff?.dateOfApproval);
+  const rawPoNumber = globalData?.poNumber || globalData?.stage3?.poNumber || globalData?.stage2?.poNumber || "-";
+  const prDate = fmtPoDate(globalData?.createdAt || globalData?.stage1?.prDate || globalData?.stage1?.routingChecklist?.[0]?.date);
+  const poDate = fmtPoDate(globalData?.stage3?.poDate || globalData?.stage2?.poDate || globalData?.stage3?.signOff?.dateOfApproval || new Date());
   const prRaisedBy = globalData?.stage1?.preparedBy || globalData?.stage1?.requesterName || globalData?.stage2?.purchaseOfficerName || "-";
+  const checkedByName = globalData?.stage1?.hodValidation?.validatedBy || "-";
+  const approvedByName = globalData?.stage3?.signOff?.financeManagerName || globalData?.stage3?.decision?.approvedBy || "-";
 
-  // Company / Buyer details (Defaults to S R CONTAINER CARRIERS official details if not specifically overridden)
-  const companyName = globalData?.companyName || globalData?.buyerName || globalData?.stage1?.companyName || "S R CONTAINER CARRIERS";
-  const companyAddress =
-    globalData?.companyAddress ||
-    globalData?.buyerAddress ||
-    globalData?.stage1?.companyAddress ||
-    "A/206, WALL STREET II, OPP. ORIENT CLUB, ELLISBRIDGE, Ahmedabad, Gujarat, 380006";
-  const companyGstin =
-    globalData?.companyGstin ||
-    globalData?.gstin ||
-    globalData?.stage1?.companyGstin ||
-    "24ANGPR7652E1ZV";
-  const companyContact =
-    globalData?.companyContact ||
-    globalData?.contactNumber ||
-    globalData?.stage1?.contactNumber ||
-    "9924301166";
+  // Company / Buyer Details
+  const buyerName = globalData?.companyName || globalData?.buyerName || "S R CONTAINER CARRIERS";
+  const buyerAddress1 = globalData?.companyAddress || globalData?.buyerAddress || "A/206, WALL STREET II,";
+  const buyerAddress2 = globalData?.buyerAddress2 || "OPP. ORIENT CLUB, ELLISBRIDGE,";
+  const buyerCityState = globalData?.buyerCityState || "AHMEDABAD - 380006, Gujarat";
+  const buyerGstin = globalData?.companyGstin || globalData?.gstin || "24ANGPR7652E1ZV";
+  const buyerStateCode = globalData?.buyerStateCode || "State: Gujarat, Code: 24";
+  const buyerEmail = globalData?.companyEmail || "purchase@surajgroupofcompanies.com";
 
-  // Items / Tyre Details
+  // Items / Products List
   const rawItems = globalData?.stage1?.itemsRequired || globalData?.stage1?.items || [];
 
-  // Stage 2 Selected Suppliers
+  // Stage 2 Suppliers
   const stage2Suppliers = globalData?.stage2?.suppliers || [];
   const stage2Selected = globalData?.stage2?.selectedSuppliers || [];
 
   let awardedSuppliers = [];
   if (targetSupplier) {
-    const sName = typeof targetSupplier === "string" ? targetSupplier : (targetSupplier.selectedSupplier || targetSupplier.supplierName);
-    const full = stage2Suppliers.find(
-      (s) =>
-        s.supplierName === sName ||
-        s._id === sName ||
-        s.supplierNameInBank === sName ||
-        (sName && s.supplierName && s.supplierName.trim().toUpperCase() === sName.trim().toUpperCase())
-    ) || {};
+    const sName =
+      (typeof targetSupplier === "string"
+        ? targetSupplier
+        : targetSupplier.selectedSupplier || targetSupplier.supplierName || targetSupplier.name || "")?.trim();
+
+    const full =
+      stage2Suppliers.find(
+        (s) =>
+          (sName && s.supplierName && s.supplierName.trim().toUpperCase() === sName.toUpperCase()) ||
+          (sName && s._id && String(s._id) === String(sName)) ||
+          (sName && s.supplierNameInBank && s.supplierNameInBank.trim().toUpperCase() === sName.toUpperCase())
+      ) ||
+      stage2Suppliers.find((s) => s.supplierName && !s.supplierName.toUpperCase().startsWith("SUPPLIER ")) ||
+      stage2Suppliers[0] ||
+      {};
+
+    const resolvedSupplierName =
+      sName ||
+      full.supplierName ||
+      full.supplierNameInBank ||
+      (typeof targetSupplier === "object" ? targetSupplier.supplierName : "") ||
+      "-";
+
     awardedSuppliers = [{
-      supplierName: sName || full.supplierName || "Supplier",
+      supplierName: resolvedSupplierName,
       totalOrderValue: Number(targetSupplier.totalOrderValue) || full.totalOrderValue || 0,
       priceQuoted: Number(targetSupplier.priceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
       reasonForSelection: targetSupplier.reasonForSelection || full.reasonForSelection || "",
-      poNumber: targetSupplier.poNumber || globalData?.poNumber || "-",
+      poNumber: targetSupplier.poNumber || globalData?.poNumber || rawPoNumber,
       ...full,
       ...(typeof targetSupplier === "object" ? targetSupplier : {}),
+      supplierName: resolvedSupplierName,
     }];
   } else if (stage2Selected && stage2Selected.length > 0) {
     awardedSuppliers = stage2Selected.map((sel) => {
-      const sName = sel.selectedSupplier || sel.supplierName;
-      const full = stage2Suppliers.find(
-        (s) =>
-          s.supplierName === sName ||
-          s._id === sName ||
-          s.supplierNameInBank === sName ||
-          (sName && s.supplierName && s.supplierName.trim().toUpperCase() === sName.trim().toUpperCase())
-      ) || {};
+      const sName = (sel.selectedSupplier || sel.supplierName || "")?.trim();
+      const full =
+        stage2Suppliers.find(
+          (s) =>
+            (sName && s.supplierName && s.supplierName.trim().toUpperCase() === sName.toUpperCase()) ||
+            (sName && s._id && String(s._id) === String(sName)) ||
+            (sName && s.supplierNameInBank && s.supplierNameInBank.trim().toUpperCase() === sName.toUpperCase())
+        ) ||
+        stage2Suppliers.find((s) => s.supplierName && !s.supplierName.toUpperCase().startsWith("SUPPLIER ")) ||
+        stage2Suppliers[0] ||
+        {};
+
+      const resolvedSupplierName = sName || full.supplierName || full.supplierNameInBank || "-";
+
       return {
-        supplierName: sName || full.supplierName || full.supplierNameInBank || "Supplier",
+        supplierName: resolvedSupplierName,
         totalOrderValue: Number(sel.totalOrderValue) || full.totalOrderValue || 0,
         priceQuoted: Number(sel.priceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
         reasonForSelection: sel.reasonForSelection || "",
-        poNumber: sel.poNumber || globalData?.poNumber || "-",
+        poNumber: sel.poNumber || globalData?.poNumber || rawPoNumber,
         ...full,
         ...sel,
+        supplierName: resolvedSupplierName,
       };
     });
+  } else if (stage2Suppliers.length > 0) {
+    awardedSuppliers = stage2Suppliers;
+  } else if (globalData?.stage2?.selectedSupplierL1) {
+    const l1Name = globalData.stage2.selectedSupplierL1;
+    const full =
+      stage2Suppliers.find(
+        (s) =>
+          (l1Name && s.supplierName && s.supplierName.trim().toUpperCase() === String(l1Name).trim().toUpperCase())
+      ) || {};
+    awardedSuppliers = [{
+      supplierName: l1Name,
+      totalOrderValue: Number(globalData.stage2.totalOrderValue) || full.totalOrderValue || 0,
+      priceQuoted: Number(globalData.stage2.l1PriceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
+      poNumber: globalData.poNumber || rawPoNumber,
+      ...full,
+    }];
   } else {
-    awardedSuppliers = stage2Suppliers.length > 0 ? stage2Suppliers : [
-      {
-        supplierName: "-",
-        gstNumber: "-",
-        phoneNumber: "-",
-        emailWhatsApp: "-",
-        bankName: "-",
-        bankAccountNo: "-",
-        bankIfscCode: "-",
-        paymentTerms: "-",
-      },
-    ];
+    awardedSuppliers = [{
+      supplierName: "-",
+      totalOrderValue: 0,
+      poNumber: rawPoNumber,
+    }];
   }
 
-  // Current active vendor being rendered
   const currentVendor = awardedSuppliers[activeVendorIndex] || awardedSuppliers[0] || {};
-  const vendorName = currentVendor.supplierName || currentVendor.supplierNameInBank || "-";
+  const vendorName =
+    (currentVendor.supplierName && currentVendor.supplierName !== "-")
+      ? currentVendor.supplierName
+      : currentVendor.supplierNameInBank ||
+      currentVendor.selectedSupplier ||
+      (targetSupplier?.supplierName && targetSupplier.supplierName !== "-" ? targetSupplier.supplierName : targetSupplier?.selectedSupplier) ||
+      globalData?.stage2?.selectedSupplierL1 ||
+      "-";
 
-  // Prioritize supplierAddress / address.
-  // If blank because the user previously put the supplier address into delivery address, use delivery address!
-  const rawVendorAddress =
+  const vendorAddress =
     currentVendor.supplierAddress ||
     currentVendor.address ||
+    currentVendor.vendorAddress ||
+    targetSupplier?.supplierAddress ||
+    targetSupplier?.address ||
+    "-";
+
+  const vendorGst =
+    currentVendor.gstNumber ||
+    currentVendor.gstin ||
+    currentVendor.vendorGst ||
+    targetSupplier?.gstNumber ||
+    targetSupplier?.gstin ||
+    "-";
+
+  const vendorPhone =
+    currentVendor.phoneNumber ||
+    currentVendor.phone ||
+    currentVendor.mobile ||
+    currentVendor.contactNumber ||
+    currentVendor.contactPersonPhone ||
+    targetSupplier?.phoneNumber ||
+    targetSupplier?.phone ||
+    targetSupplier?.mobile ||
+    "-";
+
+  const vendorBank =
+    currentVendor.bankName ||
+    targetSupplier?.bankName ||
+    "-";
+
+  const vendorAccNo =
+    currentVendor.bankAccountNo ||
+    currentVendor.accountNumber ||
+    targetSupplier?.bankAccountNo ||
+    targetSupplier?.accountNumber ||
+    "-";
+
+  const vendorIfsc =
+    currentVendor.bankIfscCode ||
+    currentVendor.ifscCode ||
+    targetSupplier?.bankIfscCode ||
+    targetSupplier?.ifscCode ||
+    "-";
+
+  const vendorBranch =
+    currentVendor.bankBranchCode ||
+    currentVendor.branch ||
+    targetSupplier?.bankBranchCode ||
+    "-";
+
+  const vendorPaymentTerms =
+    currentVendor.paymentTerms ||
+    targetSupplier?.paymentTerms ||
+    globalData?.stage2?.paymentTerms ||
+    "-";
+
+  const vendorDeliveryTerms =
+    currentVendor.deliveryTimeline ||
+    targetSupplier?.deliveryTimeline ||
+    globalData?.stage2?.deliveryTimeline ||
+    "-";
+
+  const poNumberToDisplay =
+    currentVendor.poNumber ||
+    targetSupplier?.poNumber ||
+    rawPoNumber ||
+    "-";
+
+  const rawDeliveryLocation =
     currentVendor.deliveryLocation ||
     globalData?.stage2?.deliveryLocation ||
-    "";
-  const vendorAddress = rawVendorAddress || "-";
+    globalData?.stage1?.deliveryLocation ||
+    globalData?.stage1?.departmentLocation ||
+    globalData?.stage1?.deliveryLocationSite ||
+    buyerAddress1 ||
+    "-";
+  const finalDeliveryLocation = cleanDeliveryAddress(rawDeliveryLocation);
 
-  const vendorGst = currentVendor.gstNumber || currentVendor.gstin || "-";
-  const vendorContactPerson = currentVendor.contactPerson || "";
-  const vendorPhone = currentVendor.phoneNumber || "";
-  const vendorEmail = currentVendor.emailWhatsApp || "";
-  const vendorContactDetails = [vendorPhone, vendorEmail].filter(Boolean).join(" | ");
-  const vendorContact = [vendorContactPerson, vendorContactDetails].filter(Boolean).join(" - ") || "-";
-  const vendorBank = currentVendor.bankName || "-";
-  const vendorAccNo = currentVendor.bankAccountNo || currentVendor.accountNumber || "-";
-  const vendorIfsc = currentVendor.bankIfscCode || currentVendor.ifscCode || "-";
-  const vendorPaymentTerms = currentVendor.paymentTerms || "-";
-
-  // Delivery Details:
-  // Taken directly from the quotation (currentVendor), falling back to stage2 / stage1 / company details
-  const vendorDeliveryLoc =
-    (currentVendor.deliveryLocation && currentVendor.deliveryLocation !== vendorAddress)
-      ? currentVendor.deliveryLocation
-      : "";
-
-  const isVendorAddrInDelivery =
-    Boolean(vendorAddress && vendorAddress !== "-") &&
-    (globalData?.stage2?.deliveryLocation === vendorAddress ||
-     currentVendor.deliveryLocation === vendorAddress);
-
-  const deliveryLocation =
-    vendorDeliveryLoc ||
-    (isVendorAddrInDelivery
-      ? (globalData?.stage1?.departmentLocation ||
-         globalData?.stage1?.deliveryLocationSite ||
-         companyAddress ||
-         "-")
-      : (globalData?.stage2?.deliveryLocation ||
-         globalData?.stage1?.deliveryLocation ||
-         globalData?.stage1?.departmentLocation ||
-         globalData?.stage1?.deliveryLocationSite ||
-         globalData?.deliveryLocation ||
-         "-"));
-
-  const deliveryContact =
+  const deliveryContactNo =
     currentVendor.deliveryContact ||
-    (globalData?.stage2?.deliveryContact && String(globalData?.stage2?.deliveryContact).includes("|")
-      ? globalData.stage2.deliveryContact
-      : (globalData?.stage1?.deliveryContact && String(globalData?.stage1?.deliveryContact).includes("|"))
-        ? globalData.stage1.deliveryContact
-        : [
-            globalData?.stage2?.deliveryContactPerson || globalData?.stage1?.deliveryContactPerson || globalData?.stage1?.preparedBy,
-            globalData?.stage2?.deliveryContactNumber || globalData?.stage1?.deliveryContactNumber || globalData?.stage1?.contactNumber,
-          ].filter(Boolean).join(" | ")) || "-";
-  const expectedDeliveryDate = fmtDate(globalData?.stage1?.neededByDate || globalData?.stage1?.requiredByDate);
+    globalData?.stage2?.deliveryContact ||
+    globalData?.stage1?.requesterPhone ||
+    "-";
 
-  // Calculate items quantity, rates, and GST breakdown
-  let totalQtyFromItems = 0;
+  const isGstFreightIncluded = Boolean(
+    currentVendor.isGstFreightIncluded ??
+    globalData?.stage2?.isGstFreightIncluded ??
+    globalData?.isGstFreightIncluded ??
+    false
+  );
+
+  const customTermsList =
+    Array.isArray(currentVendor.customTerms) && currentVendor.customTerms.length > 0
+      ? currentVendor.customTerms
+      : Array.isArray(globalData?.stage2?.customTerms) && globalData.stage2.customTerms.length > 0
+        ? globalData.stage2.customTerms
+        : Array.isArray(globalData?.customTerms) && globalData.customTerms.length > 0
+          ? globalData.customTerms
+          : [
+            `Payment Terms: ${vendorPaymentTerms !== "-" ? vendorPaymentTerms : "As per agreed procurement terms."}`,
+            `Delivery Timeline: ${vendorDeliveryTerms !== "-" ? vendorDeliveryTerms : "As per purchase order schedule."}`,
+            "Quality & Specifications: Goods supplied must conform strictly to the technical specifications approved in the Purchase Order.",
+            "Warranty & Guarantee: Standard manufacturer/supplier warranty applies to all delivered goods.",
+            "Inspection & Delivery: Delivery acceptance is subject to site inspection and physical verification. Original Tax Invoice and delivery documentation must accompany the shipment.",
+          ];
+
+  const preparedAtFormatted = fmtPoDateTime(globalData?.createdAt || globalData?.stage1?.prDate || globalData?.stage1?.createdAt);
+  const checkedAtFormatted = fmtPoDateTime(globalData?.stage1?.hodValidation?.validatedAt || globalData?.stage1?.updatedAt || globalData?.createdAt);
+  const approvedAtFormatted = fmtPoDateTime(globalData?.stage3?.signOff?.dateOfApproval || globalData?.stage3?.decision?.approvedAt || globalData?.stage3?.updatedAt || poDate);
+
+  // Compute Items
+  let totalQtySum = 0;
   rawItems.forEach((it) => {
-    totalQtyFromItems += Number(it.qty || it.quantityRequested || it.quantity || 0);
+    totalQtySum += Number(it.qty || it.quantityRequested || it.quantity || 0);
   });
-  const prTotalQuantity = totalQtyFromItems > 0 ? totalQtyFromItems : 1;
+  const prTotalQuantity = totalQtySum > 0 ? totalQtySum : 1;
 
   const vendorTotalOrderValue = Number(currentVendor.totalOrderValue) || 0;
   const vendorUnitPrice = Number(currentVendor.unitPriceNew || currentVendor.priceQuoted || 0);
 
-  // Vendor specific allocated item quantity logic:
-  // 1. Explicitly stored on vendor object (allocatedQty, orderQty, qty, quantity, qtyAvailable)
-  // 2. Calculated from totalOrderValue / unitPrice if available and vendor total order value > 0
-  // 3. Fallback to PR total quantity if there is only 1 awarded supplier or no split detected
   const explicitVendorQty = Number(
     currentVendor.allocatedQty ||
     currentVendor.orderQty ||
     currentVendor.qty ||
     currentVendor.quantity ||
-    currentVendor.qtyAvailable ||
     0
   );
 
-  let vendorAllocatedTotalQty = explicitVendorQty;
-  if (!vendorAllocatedTotalQty && vendorTotalOrderValue > 0 && vendorUnitPrice > 0) {
-    const calcQty = vendorTotalOrderValue / vendorUnitPrice;
-    if (calcQty > 0 && Math.abs(calcQty - Math.round(calcQty)) < 0.01) {
-      vendorAllocatedTotalQty = Math.round(calcQty);
-    } else if (calcQty > 0) {
-      vendorAllocatedTotalQty = calcQty;
-    }
-  }
-
-  if (!vendorAllocatedTotalQty) {
-    vendorAllocatedTotalQty = prTotalQuantity;
-  }
+  let vendorAllocatedTotalQty =
+    explicitVendorQty ||
+    (vendorTotalOrderValue > 0 && vendorUnitPrice > 0
+      ? Math.round(vendorTotalOrderValue / vendorUnitPrice)
+      : prTotalQuantity) ||
+    1;
 
   let calculatedSubTotal = 0;
   let calculatedTotalGst = 0;
 
-  const itemsList = rawItems.length > 0 ? rawItems : [{}];
-  const computedItems = itemsList.map((item) => {
+  const itemsList = rawItems.length > 0 ? rawItems : [];
+
+  const computedItems = itemsList.map((item, idx) => {
     let itemQty = 0;
     if (rawItems.length <= 1) {
       itemQty = vendorAllocatedTotalQty;
@@ -226,61 +361,50 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
 
     const itemRate = Number(
       vendorUnitPrice ||
+      item.rate ||
       item.estUnitCost ||
-      item.ratePerTyre ||
+      item.unitPrice ||
       (vendorAllocatedTotalQty ? Math.round(vendorTotalOrderValue / vendorAllocatedTotalQty) : 0)
     );
     const itemBase = itemQty * itemRate;
 
     let itemGst = 0;
-    if (currentVendor.gstAmount !== undefined && currentVendor.gstAmount !== null && currentVendor.gstAmount !== "" && Number(currentVendor.gstAmount) > 0) {
+    if (currentVendor.gstAmount !== undefined && currentVendor.gstAmount !== null && Number(currentVendor.gstAmount) > 0) {
       itemGst = rawItems.length > 1 ? Math.round(Number(currentVendor.gstAmount) / rawItems.length) : Number(currentVendor.gstAmount);
     } else if (currentVendor.gstRate) {
       const rateVal = parseFloat(String(currentVendor.gstRate).replace("%", "")) || 0;
       itemGst = Math.round((itemBase * rateVal) / 100);
     } else if (item.gstAmount) {
       itemGst = Number(item.gstAmount) || 0;
-    } else if (vendorTotalOrderValue > 0 && rawItems.length <= 1) {
-      const diff = vendorTotalOrderValue - itemBase;
-      if (diff > 0) itemGst = diff;
     }
-
-    const itemTotal = (vendorTotalOrderValue > 0 && rawItems.length <= 1)
-      ? vendorTotalOrderValue
-      : (itemBase + itemGst);
 
     calculatedSubTotal += itemBase;
     calculatedTotalGst += itemGst;
 
+    const productName = item.productName || item.tyreType || item.description || currentVendor.selectedProduct || "Item";
+    const brand = item.brandPreference || item.tyreBrand || currentVendor.tyreBrand || "";
+    const spec = item.sizeSpec || item.sizeSpecification || item.specification || currentVendor.sizeSpecification || "";
+    const fullDescription = [productName, brand, spec].filter(Boolean).join(" - ");
+
     return {
-      raw: item,
+      srNo: idx + 1,
+      description: fullDescription || "Goods Specification as per Purchase Order",
+      hsnCode: currentVendor.hsnCode || item.hsnCode || item.hsn || globalData?.stage2?.hsnCode || "-",
+      unit: item.unit || (itemQty ? `${itemQty} NOS` : "NOS"),
       itemQty,
       itemRate,
-      itemBase,
-      itemGst,
-      itemTotal,
+      discPercent: currentVendor.discountOffered ? `${currentVendor.discountOffered}%` : "-",
+      itemTotal: itemBase,
     };
   });
 
   const grandTotal = vendorTotalOrderValue > 0 ? vendorTotalOrderValue : (calculatedSubTotal + calculatedTotalGst);
-  const subTotalToDisplay = calculatedSubTotal > 0 ? calculatedSubTotal : (grandTotal - calculatedTotalGst);
-
-  // Signatures / Approvals
-  const preparedBy = prRaisedBy;
-  const thName = globalData?.stage1?.hodValidation?.validatedBy || "MOHIT SINGH";
-  const thMode = globalData?.stage1?.hodValidation?.approvalMode
-    ? ` (${globalData.stage1.hodValidation.approvalMode})`
-    : "";
-  const transportHeadApproved = `${thName}${thMode}`;
-  const transportHeadDate =
-    fmtDate(globalData?.stage1?.hodValidation?.dateTimeOfApproval) ||
-    fmtDate(globalData?.stage1?.prDate || globalData?.prDate);
-
-  const financeManagerApproved =
-    globalData?.stage3?.signOff?.financeManagerName ||
-    stage3Data?.signOff?.financeManagerName ||
-    "CHIRAG SHAH";
-  const financeManagerDate = fmtDate(globalData?.stage3?.signOff?.dateOfApproval || stage3Data?.signOff?.dateOfApproval);
+  const gstRateDisplay = currentVendor.gstRate
+    ? String(currentVendor.gstRate).replace(/%/g, '')
+    : (calculatedTotalGst > 0 && calculatedSubTotal > 0
+      ? String(Math.round((calculatedTotalGst / calculatedSubTotal) * 100))
+      : "18");
+  const amountInWordsText = numberToWords(grandTotal);
 
   const handleGeneratePdf = async () => {
     if (!pdfRef.current) return;
@@ -289,10 +413,9 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
       const element = pdfRef.current;
       element.style.display = "block";
 
-      const poClean = poNumber !== "-" ? poNumber.replace(/[\/\\]/g, "_") : "PO";
+      const poClean = poNumberToDisplay !== "-" ? String(poNumberToDisplay).replace(/[\/\\]/g, "_") : "PO";
 
       if (targetSupplier) {
-        // Generate single supplier PO PDF (Portrait)
         setActiveVendorIndex(0);
         await new Promise((resolve) => setTimeout(resolve, 200));
 
@@ -303,19 +426,18 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
           backgroundColor: "#ffffff",
         });
 
-        const imgData = canvas.toDataURL("image/png");
+        const imgData = canvas.toDataURL("image/jpeg", 0.82);
         const pdf = new jsPDF("portrait", "pt", "a4");
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
 
-        const imgWidth = pdfWidth - 40;
+        const imgWidth = pdfWidth - 30;
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-        pdf.addImage(imgData, "PNG", 20, 20, imgWidth, Math.min(imgHeight, pdfHeight - 40));
+        pdf.addImage(imgData, "JPEG", 15, 15, imgWidth, Math.min(imgHeight, pdfHeight - 30), undefined, "FAST");
         const suppNameClean = (awardedSuppliers[0].supplierName || "Supplier").replace(/[^a-zA-Z0-9_-]/g, "_");
         pdf.save(`Purchase_Order_${suppNameClean}_${poClean}.pdf`);
       } else {
-        // Generate Combined PO PDF for ALL Awarded Suppliers in one PDF file
         const pdf = new jsPDF("portrait", "pt", "a4");
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -331,15 +453,15 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
             backgroundColor: "#ffffff",
           });
 
-          const imgData = canvas.toDataURL("image/png");
-          const imgWidth = pdfWidth - 40;
+          const imgData = canvas.toDataURL("image/jpeg", 0.82);
+          const imgWidth = pdfWidth - 30;
           const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
           if (i > 0) {
             pdf.addPage();
           }
 
-          pdf.addImage(imgData, "PNG", 20, 20, imgWidth, Math.min(imgHeight, pdfHeight - 40));
+          pdf.addImage(imgData, "JPEG", 15, 15, imgWidth, Math.min(imgHeight, pdfHeight - 30), undefined, "FAST");
         }
 
         pdf.save(`Combined_Purchase_Orders_${poClean}.pdf`);
@@ -357,420 +479,406 @@ function PoLandscapePdfGenerator({ globalData, stage3Data, targetSupplier, butto
   const labelText =
     buttonLabel ||
     (downloading
-      ? "Generating PO PDF..."
-      : `DOWNLOAD COMBINED PO PDF (${awardedSuppliers.length})`);
+      ? "Generating PO..."
+      : `DOWNLOAD PO PDF (${awardedSuppliers.length})`);
+
+  // Shared Border and Navy Blue Color Palette
+  const NAVY = "#0f3b6c";
+  const BORDER_STYLE = `1px solid ${NAVY}`;
+  const HEADER_BG = "#f0f4f8";
 
   return (
     <>
-      <Button
-        variant="contained"
-        color="secondary"
-        startIcon={downloading ? <CircularProgress size={18} color="inherit" /> : <PictureAsPdfIcon />}
-        onClick={handleGeneratePdf}
-        disabled={downloading}
-        size={size}
-        sx={{
-          fontWeight: "bold",
-          backgroundColor: "#2e7d32",
-          "&:hover": { backgroundColor: "#1b5e20" },
-        }}
-      >
-        {labelText}
-      </Button>
+      {iconOnly ? (
+        <Tooltip title={`Download Purchase Order PDF (${awardedSuppliers.length} PO${awardedSuppliers.length > 1 ? "s" : ""})`}>
+          <span>
+            <IconButton
+              size="small"
+              onClick={handleGeneratePdf}
+              disabled={downloading}
+              sx={{
+                color: "#0f3b6c",
+                bgcolor: "#f0f4f8",
+                "&:hover": { bgcolor: "#e2e8f0" },
+              }}
+            >
+              {downloading ? <CircularProgress size={16} sx={{ color: "#0f3b6c" }} /> : <PictureAsPdfIcon sx={{ fontSize: 16 }} />}
+            </IconButton>
+          </span>
+        </Tooltip>
+      ) : (
+        <Button
+          variant="contained"
+          startIcon={downloading ? <CircularProgress size={18} color="inherit" /> : <PictureAsPdfIcon />}
+          onClick={handleGeneratePdf}
+          disabled={downloading}
+          size={size}
+          sx={{
+            fontWeight: "bold",
+            backgroundColor: "#0f3b6c",
+            "&:hover": { backgroundColor: "#092545" },
+          }}
+        >
+          {labelText}
+        </Button>
+      )}
 
-      {/* Hidden DOM element rendered specifically for html2canvas Portrait PDF export */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* Hidden PO Printable Template Matching Exactly the PO Format */}
+      {/* ───────────────────────────────────────────────────────────── */}
       <div
         ref={pdfRef}
         style={{
           display: "none",
-          width: "740px",
-          minWidth: "740px",
+          width: "780px",
+          minWidth: "780px",
           backgroundColor: "#ffffff",
-          color: "#111111",
-          fontFamily: "Arial, sans-serif",
+          color: "#000000",
+          fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif",
           fontSize: "11px",
-          padding: "16px",
+          padding: "24px 28px",
           boxSizing: "border-box",
-          border: "1.5px solid #222222",
+          border: "2px solid #000000",
+          textAlign: "left",
         }}
       >
-        {/* Header Title */}
-        <div
-          style={{
-            textAlign: "center",
-            fontWeight: "bold",
-            fontSize: "16px",
-            borderBottom: "2px solid #222222",
-            paddingBottom: "6px",
-            marginBottom: "12px",
-            textTransform: "uppercase",
-            letterSpacing: "0.5px",
-          }}
-        >
-          Purchase Order (PO)
+        {/* Header: Logo (Left) & PURCHASE ORDER Navy Bar (Right) */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+          <div>
+            <img
+              src={SR_LOGO_BASE64}
+              alt="SR Container Carriers - Delivering Prosperity..."
+              style={{ height: "54px", maxWidth: "220px", width: "auto", display: "block", objectFit: "contain" }}
+            />
+          </div>
+          <div
+            style={{
+              backgroundColor: NAVY,
+              color: "#ffffff",
+              fontWeight: 800,
+              fontSize: "18px",
+              letterSpacing: "1px",
+              textAlign: "center",
+              padding: "8px 36px",
+              borderRadius: "2px",
+              textTransform: "uppercase",
+              minWidth: "300px",
+            }}
+          >
+            PURCHASE ORDER
+          </div>
         </div>
 
-        {/* 2-Column Section: Buyer & Vendor */}
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            marginBottom: "10px",
-            boxSizing: "border-box",
-          }}
-        >
-          <tbody>
-            <tr>
-              {/* Left: Buyer Details */}
-              <td style={{ width: "50%", verticalAlign: "top", paddingRight: "6px", boxSizing: "border-box" }}>
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    marginBottom: "8px",
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      <th
-                        colSpan="2"
-                        style={{
-                          textAlign: "left",
-                          border: "1px solid #333333",
-                          padding: "4px 8px",
-                          fontSize: "11px",
-                          fontWeight: "bold",
-                          backgroundColor: "#e8ecef",
-                        }}
-                      >
-                        Buyer Details
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
-                        Company Name
-                      </td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
-                        {companyName}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Billing Address</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontSize: "10px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal", lineHeight: "1.3" }}>
-                        {companyAddress}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>GSTIN</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{companyGstin}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Contact</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{companyContact}</td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                {/* Order Details */}
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      <th
-                        colSpan="2"
-                        style={{
-                          textAlign: "left",
-                          border: "1px solid #333333",
-                          padding: "4px 8px",
-                          fontSize: "11px",
-                          fontWeight: "bold",
-                          backgroundColor: "#e8ecef",
-                        }}
-                      >
-                        Order Details
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>PO Number</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
-                        {currentVendor.poNumber || poNumber}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>PO Date</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{poDate}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Delivery Location</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontSize: "10px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal", lineHeight: "1.3" }}>
-                        {deliveryLocation}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Delivery Contact</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{deliveryContact}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Expected Date</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{expectedDeliveryDate}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-
-              {/* Right: Vendor Details & PR Reference */}
-              <td style={{ width: "50%", verticalAlign: "top", paddingLeft: "6px", boxSizing: "border-box" }}>
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    marginBottom: "8px",
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      <th
-                        colSpan="2"
-                        style={{
-                          textAlign: "left",
-                          border: "1px solid #333333",
-                          padding: "4px 8px",
-                          fontSize: "11px",
-                          fontWeight: "bold",
-                          backgroundColor: "#e8ecef",
-                        }}
-                      >
-                        Vendor Details
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Vendor Name</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorName}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Address</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontSize: "10px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal", lineHeight: "1.3" }}>{vendorAddress}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>GSTIN</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorGst}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Contact Person</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorContactPerson || "-"}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Phone / Email</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorContactDetails || "-"}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Bank Details</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorBank}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>A/c No</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorAccNo}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>IFSC</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorIfsc}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Payment Terms</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{vendorPaymentTerms}</td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                {/* PR Reference */}
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                  }}
-                >
-                  <tbody>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
-                        PR Number & Date
-                      </td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
-                        {prNumber} // {prDate}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "35%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>PR Raised By</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "65%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{prRaisedBy}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* Item Details Table */}
-        <div style={{ fontWeight: "bold", fontSize: "12px", marginBottom: "4px", marginTop: "6px" }}>
-          Item Details
-        </div>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            marginBottom: "12px",
-            textAlign: "center",
-            boxSizing: "border-box",
-          }}
-        >
+        {/* 1. BUYER (BILL TO) & VENDOR Box */}
+        <table style={{ width: "100%", borderCollapse: "collapse", border: BORDER_STYLE, marginBottom: "8px", fontSize: "11px", tableLayout: "fixed", textAlign: "left" }}>
           <thead>
-            <tr style={{ backgroundColor: "#e8ecef" }}>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "5%" }}>Sr.No</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "22%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Product / Item</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "13%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Brand</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "16%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Specification</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "7%" }}>Qty</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "12%" }}>Unit Price (₹)</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "12%" }}>GST Amount (₹)</th>
-              <th style={{ border: "1px solid #333333", padding: "5px", width: "13%" }}>Total (₹)</th>
+            <tr>
+              <th
+                style={{
+                  width: "50%",
+                  borderRight: BORDER_STYLE,
+                  borderBottom: BORDER_STYLE,
+                  padding: "6px 10px",
+                  textAlign: "left",
+                  color: NAVY,
+                  fontWeight: 800,
+                  fontSize: "11.5px",
+                  backgroundColor: HEADER_BG,
+                }}
+              >
+                BUYER (BILL TO)
+              </th>
+              <th
+                style={{
+                  width: "50%",
+                  borderBottom: BORDER_STYLE,
+                  padding: "6px 10px",
+                  textAlign: "left",
+                  color: NAVY,
+                  fontWeight: 800,
+                  fontSize: "11.5px",
+                  backgroundColor: HEADER_BG,
+                }}
+              >
+                VENDOR
+              </th>
             </tr>
           </thead>
           <tbody>
-            {computedItems.map((cItem, idx) => {
-              const item = cItem.raw || {};
-              return (
-                <tr key={idx}>
-                  <td style={{ border: "1px solid #333333", padding: "5px" }}>{idx + 1}</td>
-                  <td style={{ border: "1px solid #333333", padding: "5px", fontWeight: "bold", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
-                    {item.productName || item.tyreType || currentVendor.selectedProduct || "Item"}
-                  </td>
-                  <td style={{ border: "1px solid #333333", padding: "5px", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
-                    {item.brandPreference || item.tyreBrand || currentVendor.tyreBrand || "-"}
-                  </td>
-                  <td style={{ border: "1px solid #333333", padding: "5px", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
-                    {item.sizeSpec || item.sizeSpecification || item.specification || currentVendor.sizeSpecification || "-"}
-                  </td>
-                  <td style={{ border: "1px solid #333333", padding: "5px" }}>{cItem.itemQty}</td>
-                  <td style={{ border: "1px solid #333333", padding: "5px", textAlign: "right" }}>
-                    {cItem.itemRate ? `₹ ${cItem.itemRate.toLocaleString("en-IN")}` : "-"}
-                  </td>
-                  <td style={{ border: "1px solid #333333", padding: "5px", textAlign: "right" }}>
-                    {cItem.itemGst ? `₹ ${cItem.itemGst.toLocaleString("en-IN")}` : "₹ 0"}
-                  </td>
-                  <td style={{ border: "1px solid #333333", padding: "5px", fontWeight: "bold", textAlign: "right" }}>
-                    ₹ {cItem.itemTotal.toLocaleString("en-IN")}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {/* Approvals & Totals Summary */}
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            marginTop: "6px",
-            boxSizing: "border-box",
-          }}
-        >
-          <tbody>
             <tr>
-              {/* Left Column: Signatures & Approvals */}
-              <td style={{ width: "65%", verticalAlign: "top", paddingRight: "6px", boxSizing: "border-box" }}>
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      <th
-                        colSpan="4"
-                        style={{
-                          textAlign: "left",
-                          border: "1px solid #333333",
-                          padding: "4px 8px",
-                          fontSize: "11px",
-                          fontWeight: "bold",
-                          backgroundColor: "#e8ecef",
-                        }}
-                      >
-                        Approval Section
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "28%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Prepared By</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "42%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{preparedBy}</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "12%" }}>Date</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "18%" }}>{prDate}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "28%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Transport Head</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "42%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{transportHeadApproved}</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "12%" }}>Date</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "18%" }}>{transportHeadDate}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "28%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>Finance Manager</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "42%", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>{financeManagerApproved}</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", fontWeight: "bold", width: "12%" }}>Date</td>
-                      <td style={{ border: "1px solid #333333", padding: "4px 8px", width: "18%" }}>{financeManagerDate}</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <td style={{ width: "50%", borderRight: BORDER_STYLE, padding: "8px 10px", verticalAlign: "top", fontSize: "10.5px", lineHeight: "1.45", textAlign: "left", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal", boxSizing: "border-box" }}>
+                <div style={{ fontWeight: 800, color: "#000000", fontSize: "11.5px", textAlign: "left" }}>{buyerName}</div>
+                <div style={{ textAlign: "left" }}>{buyerAddress1}</div>
+                <div style={{ textAlign: "left" }}>{buyerAddress2}</div>
+                <div style={{ textAlign: "left" }}>{buyerCityState}</div>
+                <div style={{ textAlign: "left" }}><strong>GSTIN:</strong> {buyerGstin}</div>
+                <div style={{ textAlign: "left" }}>{buyerStateCode}</div>
+                <div style={{ textAlign: "left" }}><strong>Email:</strong> {buyerEmail}</div>
               </td>
-
-              {/* Right Column: Grand Total Summary */}
-              <td style={{ width: "35%", verticalAlign: "top", boxSizing: "border-box" }}>
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                  }}
-                >
-                  <tbody>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "5px 8px", fontWeight: "bold", width: "50%" }}>Sub Total</td>
-                      <td style={{ border: "1px solid #333333", padding: "5px 8px", textAlign: "right", fontWeight: "bold", width: "50%" }}>
-                        ₹ {subTotalToDisplay.toLocaleString("en-IN")}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "5px 8px", fontWeight: "bold", width: "50%" }}>GST Amount</td>
-                      <td style={{ border: "1px solid #333333", padding: "5px 8px", textAlign: "right", width: "50%" }}>
-                        ₹ {calculatedTotalGst.toLocaleString("en-IN")}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ border: "1px solid #333333", padding: "5px 8px", fontWeight: "bold", width: "50%" }}>Delivery Charges</td>
-                      <td style={{ border: "1px solid #333333", padding: "5px 8px", textAlign: "right", width: "50%" }}>₹ 0</td>
-                    </tr>
-                    <tr style={{ backgroundColor: "#e8ecef" }}>
-                      <td style={{ border: "1px solid #333333", padding: "6px 8px", fontWeight: "bold", fontSize: "12px", width: "50%" }}>Grand Total</td>
-                      <td style={{ border: "1px solid #333333", padding: "6px 8px", textAlign: "right", fontWeight: "bold", fontSize: "12px", width: "50%" }}>
-                        ₹ {grandTotal.toLocaleString("en-IN")}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <td style={{ width: "50%", padding: "8px 10px", verticalAlign: "top", fontSize: "10.5px", lineHeight: "1.45", textAlign: "left", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal", boxSizing: "border-box" }}>
+                <div style={{ fontWeight: 800, color: "#000000", fontSize: "11.5px", textAlign: "left" }}>{vendorName}</div>
+                <div style={{ textAlign: "left", wordBreak: "break-word", whiteSpace: "normal" }}>{vendorAddress}</div>
+                <div style={{ textAlign: "left" }}><strong>GSTIN:</strong> {vendorGst}</div>
+                <div style={{ textAlign: "left" }}><strong>Phone / Mobile:</strong> {vendorPhone}</div>
               </td>
             </tr>
           </tbody>
         </table>
+
+        {/* 2. SHIP TO & PURCHASE ORDER DETAILS Box */}
+        <table style={{ width: "100%", borderCollapse: "collapse", border: BORDER_STYLE, marginBottom: "10px", fontSize: "11px", tableLayout: "fixed", textAlign: "left" }}>
+          <thead>
+            <tr>
+              <th
+                style={{
+                  width: "50%",
+                  borderRight: BORDER_STYLE,
+                  borderBottom: BORDER_STYLE,
+                  padding: "6px 10px",
+                  textAlign: "left",
+                  color: NAVY,
+                  fontWeight: 800,
+                  fontSize: "11.5px",
+                  backgroundColor: HEADER_BG,
+                }}
+              >
+                SHIP TO
+              </th>
+              <th
+                style={{
+                  width: "50%",
+                  borderBottom: BORDER_STYLE,
+                  padding: "6px 10px",
+                  textAlign: "left",
+                  color: NAVY,
+                  fontWeight: 800,
+                  fontSize: "11.5px",
+                  backgroundColor: HEADER_BG,
+                }}
+              >
+                PURCHASE ORDER DETAILS
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ width: "50%", borderRight: BORDER_STYLE, padding: "8px 10px", verticalAlign: "top", fontSize: "10.5px", lineHeight: "1.45", textAlign: "left", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal", boxSizing: "border-box" }}>
+                <div style={{ marginBottom: "5px", textAlign: "left", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal" }}>
+                  <strong>Delivery Location:</strong> {finalDeliveryLocation}
+                </div>
+                <div style={{ textAlign: "left", wordBreak: "break-word", whiteSpace: "normal" }}>
+                  <strong>Delivery Contact / Mobile No:</strong> {deliveryContactNo}
+                </div>
+              </td>
+              <td style={{ width: "50%", padding: "0", verticalAlign: "top", textAlign: "left", boxSizing: "border-box" }}>
+                <div style={{ display: "flex", borderBottom: BORDER_STYLE, fontSize: "10.5px", textAlign: "left" }}>
+                  <div style={{ width: "38%", padding: "5px 8px", borderRight: BORDER_STYLE, fontWeight: 700, color: NAVY, backgroundColor: HEADER_BG, boxSizing: "border-box", textAlign: "left" }}>
+                    PO Number
+                  </div>
+                  <div style={{ width: "62%", padding: "5px 8px", fontWeight: 700, color: "#000000", boxSizing: "border-box", textAlign: "left", wordBreak: "break-word" }}>
+                    {poNumberToDisplay}
+                  </div>
+                </div>
+                <div style={{ display: "flex", borderBottom: BORDER_STYLE, fontSize: "10.5px", textAlign: "left" }}>
+                  <div style={{ width: "38%", padding: "5px 8px", borderRight: BORDER_STYLE, fontWeight: 700, color: NAVY, backgroundColor: HEADER_BG, boxSizing: "border-box", textAlign: "left" }}>
+                    PO Date
+                  </div>
+                  <div style={{ width: "62%", padding: "5px 8px", boxSizing: "border-box", textAlign: "left" }}>
+                    {poDate}
+                  </div>
+                </div>
+                <div style={{ display: "flex", borderBottom: BORDER_STYLE, fontSize: "10.5px", textAlign: "left" }}>
+                  <div style={{ width: "38%", padding: "5px 8px", borderRight: BORDER_STYLE, fontWeight: 700, color: NAVY, backgroundColor: HEADER_BG, boxSizing: "border-box", textAlign: "left" }}>
+                    Mode of Payment
+                  </div>
+                  <div style={{ width: "62%", padding: "5px 8px", boxSizing: "border-box", textAlign: "left", wordBreak: "break-word" }}>
+                    {vendorPaymentTerms}
+                  </div>
+                </div>
+                <div style={{ display: "flex", fontSize: "10.5px", textAlign: "left" }}>
+                  <div style={{ width: "38%", padding: "5px 8px", borderRight: BORDER_STYLE, fontWeight: 700, color: NAVY, backgroundColor: HEADER_BG, boxSizing: "border-box", textAlign: "left" }}>
+                    Delivery Terms
+                  </div>
+                  <div style={{ width: "62%", padding: "5px 8px", boxSizing: "border-box", textAlign: "left", wordBreak: "break-word" }}>
+                    {vendorDeliveryTerms}
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* 3. Items Table */}
+        <table style={{ width: "100%", borderCollapse: "collapse", border: BORDER_STYLE, marginBottom: "8px", fontSize: "11px" }}>
+          <thead>
+            <tr style={{ backgroundColor: NAVY, color: "#ffffff", fontWeight: 700 }}>
+              <th style={{ width: "6%", padding: "6px 4px", borderRight: "1px solid #ffffff", textAlign: "center" }}>Sr.</th>
+              <th style={{ width: "40%", padding: "6px 8px", borderRight: "1px solid #ffffff", textAlign: "left" }}>Description of Goods</th>
+              <th style={{ width: "13%", padding: "6px 6px", borderRight: "1px solid #ffffff", textAlign: "center" }}>HSN/SAC</th>
+              <th style={{ width: "9%", padding: "6px 4px", borderRight: "1px solid #ffffff", textAlign: "center" }}>Unit</th>
+              <th style={{ width: "14%", padding: "6px 8px", borderRight: "1px solid #ffffff", textAlign: "right" }}>Rate/Unit (INR)</th>
+              <th style={{ width: "6%", padding: "6px 4px", borderRight: "1px solid #ffffff", textAlign: "center" }}>Disc.%</th>
+              <th style={{ width: "12%", padding: "6px 8px", textAlign: "right" }}>Amount (INR)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {computedItems.map((cItem, idx) => (
+              <tr key={idx} style={{ borderBottom: BORDER_STYLE }}>
+                <td style={{ padding: "6px 4px", borderRight: BORDER_STYLE, textAlign: "center", fontWeight: 600 }}>
+                  {cItem.srNo}
+                </td>
+                <td style={{ padding: "6px 8px", borderRight: BORDER_STYLE, fontWeight: 700, color: "#000000" }}>
+                  {cItem.description}
+                </td>
+                <td style={{ padding: "6px 6px", borderRight: BORDER_STYLE, textAlign: "center" }}>
+                  {cItem.hsnCode}
+                </td>
+                <td style={{ padding: "6px 4px", borderRight: BORDER_STYLE, textAlign: "center" }}>
+                  {cItem.unit}
+                </td>
+                <td style={{ padding: "6px 8px", borderRight: BORDER_STYLE, textAlign: "right" }}>
+                  {Number(cItem.itemRate).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+                <td style={{ padding: "6px 4px", borderRight: BORDER_STYLE, textAlign: "center" }}>
+                  {cItem.discPercent}
+                </td>
+                <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600 }}>
+                  {Number(cItem.itemTotal).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+              </tr>
+            ))}
+
+            {/* GST Row if applicable */}
+            {calculatedTotalGst > 0 && (
+              <tr style={{ borderBottom: BORDER_STYLE }}>
+                <td style={{ borderRight: BORDER_STYLE }}></td>
+                <td style={{ borderRight: BORDER_STYLE }}></td>
+                <td style={{ borderRight: BORDER_STYLE }}></td>
+                <td style={{ borderRight: BORDER_STYLE }}></td>
+                <td style={{ padding: "5px 8px", borderRight: BORDER_STYLE, textAlign: "right", fontWeight: 700, color: NAVY }}>
+                  GST @ {gstRateDisplay}%
+                </td>
+                <td style={{ borderRight: BORDER_STYLE }}></td>
+                <td style={{ padding: "5px 8px", textAlign: "right", fontWeight: 700 }}>
+                  {Number(calculatedTotalGst).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+              </tr>
+            )}
+
+            {/* TOTAL Row with Navy Blue Total Cell */}
+            <tr>
+              <td colSpan="3" style={{ borderRight: BORDER_STYLE, padding: "6px 8px", textAlign: "right", fontWeight: 800, fontSize: "11.5px" }}>
+                TOTAL
+              </td>
+              <td style={{ borderRight: BORDER_STYLE, padding: "6px 4px", textAlign: "center", fontWeight: 700 }}>
+                {vendorAllocatedTotalQty} Nos
+              </td>
+              <td style={{ borderRight: BORDER_STYLE }}></td>
+              <td
+                style={{
+                  borderRight: BORDER_STYLE,
+                  padding: "6px 8px",
+                  textAlign: "right",
+                  fontWeight: 700,
+                  fontSize: "10px",
+                  color: isGstFreightIncluded ? "#1e3a8a" : "transparent",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {isGstFreightIncluded ? "(Inclusive of GST & Freight)" : ""}
+              </td>
+              <td
+                style={{
+                  backgroundColor: NAVY,
+                  color: "#ffffff",
+                  fontWeight: 900,
+                  fontSize: "12px",
+                  textAlign: "right",
+                  padding: "6px 8px",
+                }}
+              >
+                INR {Number(grandTotal).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* 4. Amount in Words Box */}
+        <div
+          style={{
+            border: BORDER_STYLE,
+            padding: "6px 10px",
+            marginBottom: "10px",
+            fontSize: "11px",
+            backgroundColor: "#ffffff",
+          }}
+        >
+          <strong>Amount in Words:</strong> {amountInWordsText}
+        </div>
+
+        {/* 5. TERMS AND CONDITIONS Box */}
+        <div style={{ border: BORDER_STYLE, marginBottom: "14px" }}>
+          <div
+            style={{
+              backgroundColor: NAVY,
+              color: "#ffffff",
+              fontWeight: 800,
+              fontSize: "11.5px",
+              padding: "4px 10px",
+              letterSpacing: "0.5px",
+            }}
+          >
+            TERMS AND CONDITIONS
+          </div>
+          <div style={{ padding: "8px 12px", fontSize: "10px", lineHeight: "1.45", color: "#000000" }}>
+            {customTermsList.map((term, tIdx) => (
+              <div key={tIdx} style={{ marginBottom: "3px" }}>
+                <strong>{tIdx + 1}.</strong> {term.replace(/^\d+[\.\s]*/, "")}
+              </div>
+            ))}
+
+            {(vendorBank !== "-" || vendorAccNo !== "-") && (
+              <div style={{ borderTop: "1px dashed #94a3b8", paddingTop: "5px", fontSize: "10px", marginTop: "4px" }}>
+                <strong>Bank Details for Payment (Vendor):</strong>
+                {vendorName !== "-" && <> A/c Holder: <strong>{vendorName}</strong> |</>}
+                {vendorBank !== "-" && <> Bank: <strong>{vendorBank}</strong> |</>}
+                {vendorAccNo !== "-" && <> A/c No: <strong>{vendorAccNo}</strong> |</>}
+                {vendorIfsc !== "-" && <> IFSC: <strong>{vendorIfsc}</strong> |</>}
+                {vendorBranch !== "-" && <> Branch: <strong>{vendorBranch}</strong></>}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 6. Captured Dates & Signatures Block */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "0 4px", fontSize: "10.5px", lineHeight: "1.5" }}>
+          <div style={{ width: "32%" }}>
+            <div style={{ fontWeight: 800, color: NAVY, textDecoration: "underline", marginBottom: "2px" }}>
+              Prepared By:
+            </div>
+            <div><strong>Name:</strong> {prRaisedBy}</div>
+            <div><strong>Designation:</strong> Purchase Officer</div>
+            <div><strong>Date:</strong> {preparedAtFormatted}</div>
+          </div>
+
+          <div style={{ width: "32%" }}>
+            <div style={{ fontWeight: 800, color: NAVY, textDecoration: "underline", marginBottom: "2px" }}>
+              Checked By:
+            </div>
+            <div><strong>Name:</strong> {checkedByName}</div>
+            <div><strong>Designation:</strong> CEO</div>
+            <div><strong>Date:</strong> {checkedAtFormatted}</div>
+          </div>
+
+          <div style={{ width: "32%" }}>
+            <div style={{ fontWeight: 800, color: NAVY, textDecoration: "underline", marginBottom: "2px" }}>
+              Approved By:
+            </div>
+            <div><strong>Name:</strong> {approvedByName}</div>
+            <div><strong>Designation:</strong> Sr. Manager - Accounts</div>
+            <div><strong>Date:</strong> {approvedAtFormatted}</div>
+          </div>
+        </div>
       </div>
     </>
   );

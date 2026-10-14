@@ -120,7 +120,31 @@ const opportunitySchema = new mongoose.Schema({
     bookingNo: { type: String },
     blNo: { type: String },
     lastSyncedAt: { type: Date }
+  },
+  // Additive fields for Sales Tactics Playbook
+  partner_source_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CrmPartner',
+    default: null,
+    index: true
+  },
+  discountPercent: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  discountAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  tactics_legacy: {
+    type: Boolean,
+    default: false,
+    index: true
   }
 }, { timestamps: true });
+
 
 export default mongoose.model('Opportunity', opportunitySchema);

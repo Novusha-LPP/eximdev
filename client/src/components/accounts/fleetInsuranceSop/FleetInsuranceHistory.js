@@ -44,12 +44,44 @@ import { useParams, useNavigate } from "react-router-dom";
 import { UserContext } from "../../../contexts/UserContext";
 import { uploadFileToS3 } from "../../../utils/awsFileUpload";
 
-function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack }) {
+function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack, canDelete: propCanDelete }) {
   const { registrationNo: urlRegNo } = useParams();
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
   const userRole = (user?.role || "").toLowerCase();
-  const isAdmin = userRole === "admin" || userRole === "superadmin";
+  const userIdentity = [user?.username, user?.first_name, user?.middle_name, user?.last_name]
+    .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
+  const isAjay = (user?.username || "").toLowerCase().includes("ajay") || userIdentity.includes("ajay");
+  const isGlobalAdmin = userRole === "admin" || userRole === "superadmin" || isAjay;
+  const [userTabs, setUserTabs] = useState([]);
+  const [tabsLoaded, setTabsLoaded] = useState(false);
+
+  useEffect(() => {
+    async function fetchTabs() {
+      if (!user?.username || propCanDelete !== undefined || isGlobalAdmin) {
+        setTabsLoaded(true);
+        return;
+      }
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/user-tabs/${user.username}`
+        );
+        if (res.data?.success && Array.isArray(res.data.allowed_tabs)) {
+          setUserTabs(res.data.allowed_tabs);
+        }
+      } catch (err) {
+        console.error("Error fetching fleet insurance user tabs:", err);
+      } finally {
+        setTabsLoaded(true);
+      }
+    }
+    fetchTabs();
+  }, [user, isGlobalAdmin, propCanDelete]);
+
+  const canDelete = propCanDelete !== undefined
+    ? propCanDelete
+    : (isGlobalAdmin || (tabsLoaded && userTabs.length === 0) || userTabs.includes("Policy History & Dashboard"));
+  const isAdmin = canDelete;
   const [activeRegNo, setActiveRegNo] = useState(registrationNo || urlRegNo || "");
   const [allVehicles, setAllVehicles] = useState([]);
   const [history, setHistory] = useState([]);

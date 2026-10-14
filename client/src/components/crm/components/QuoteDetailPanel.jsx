@@ -109,7 +109,7 @@ export default function QuoteDetailPanel({ quote: initialQuote, onClose, onEdit,
     <div style={{
       position: 'fixed', top: 0, right: 0, bottom: 0,
       width: '100%', maxWidth: '620px', background: '#fff',
-      boxShadow: '-10px 0 30px rgba(0,0,0,0.1)', zIndex: 9999,
+      boxShadow: '-10px 0 30px rgba(0,0,0,0.1)', zIndex: 100002,
       display: 'flex', flexDirection: 'column',
       animation: 'slideIn 0.3s ease-out'
     }}>

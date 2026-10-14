@@ -247,12 +247,76 @@ export class WorkHoursCalculator {
    * @returns {Object} Updated work data
    */
   static recalculateWithRegularization(punches, regularization, shift) {
-    const inTime = regularization.corrected_punch_in_time || regularization.requested_in_time;
-    const outTime = regularization.corrected_punch_out_time || regularization.requested_out_time;
+    let inTime = regularization.corrected_punch_in_time || regularization.requested_in_time;
+    let outTime = regularization.corrected_punch_out_time || regularization.requested_out_time;
 
-    if (!inTime || !outTime) {
-      // No correction, use original calculation
-      return this.calculateDailyWorkHours(punches, shift);
+    const dateStr = regularization.attendance_date || (regularization.date ? moment(regularization.date).format('YYYY-MM-DD') : null);
+    const activeTz = 'Asia/Kolkata';
+
+    // 1. If inTime is missing, find earliest IN punch from punches or fall back to shift start
+    if (!inTime) {
+      const existingInPunch = (punches || []).find(p => p.punch_type === 'IN');
+      if (existingInPunch && existingInPunch.punch_time) {
+        inTime = new Date(existingInPunch.punch_time);
+      } else if (dateStr && shift?.start_time) {
+        inTime = moment.tz(`${dateStr}T${shift.start_time}:00`, activeTz).toDate();
+      }
+    }
+
+    // 2. If outTime is missing, find latest OUT punch from punches or fall back to shift end
+    if (!outTime) {
+      const existingOutPunches = (punches || []).filter(p => p.punch_type === 'OUT');
+      const latestOutPunch = existingOutPunches.length ? existingOutPunches[existingOutPunches.length - 1] : null;
+      if (latestOutPunch && latestOutPunch.punch_time) {
+        outTime = new Date(latestOutPunch.punch_time);
+      } else if (dateStr && shift?.end_time) {
+        outTime = moment.tz(`${dateStr}T${shift.end_time}:00`, activeTz).toDate();
+      }
+    }
+
+    // 3. Fallback: if still neither exists and regularization is for absent / full day
+    if (!inTime && !outTime) {
+      if (dateStr && shift?.start_time && shift?.end_time) {
+        inTime = moment.tz(`${dateStr}T${shift.start_time}:00`, activeTz).toDate();
+        outTime = moment.tz(`${dateStr}T${shift.end_time}:00`, activeTz).toDate();
+      } else {
+        return this.calculateDailyWorkHours(punches, shift);
+      }
+    }
+
+    // 4. Handle 12-hour vs 24-hour clock entry and next-day rollover
+    // Example: user entered 07:26 for PM when inTime was 10:33 AM (outTime <= inTime)
+    if (inTime && outTime) {
+      let inDate = new Date(inTime);
+      let outDate = new Date(outTime);
+
+      if (outDate <= inDate) {
+        // Test +12 hours (user entered 12h clock without PM, e.g. 07:26 -> 19:26)
+        const plus12 = new Date(outDate.getTime() + 12 * 60 * 60 * 1000);
+        const durationWith12 = (plus12 - inDate) / (1000 * 60 * 60);
+
+        if (plus12 > inDate && durationWith12 <= (shift?.max_session_hours || 18)) {
+          outDate = plus12;
+        } else {
+          // If still <= inDate or duration was too long, check next-day (+24h) for cross-day shifts
+          const plus24 = new Date(outDate.getTime() + 24 * 60 * 60 * 1000);
+          const durationWith24 = (plus24 - inDate) / (1000 * 60 * 60);
+          if (plus24 > inDate && durationWith24 <= (shift?.max_session_hours || 18)) {
+            outDate = plus24;
+          }
+        }
+      }
+      inTime = inDate;
+      outTime = outDate;
+    }
+
+    // If type is half_day, adjust outTime if necessary so duration matches half day
+    if (regularization.regularization_type === 'half_day' && inTime && outTime) {
+      const halfHours = shift?.half_day_hours || 4;
+      const curDur = (new Date(outTime) - new Date(inTime)) / (1000 * 60 * 60);
+      if (curDur > halfHours + 1) {
+        outTime = new Date(new Date(inTime).getTime() + halfHours * 60 * 60 * 1000);
+      }
     }
 
     // Create virtual punches from corrected/requested times

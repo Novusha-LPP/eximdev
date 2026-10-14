@@ -206,7 +206,7 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(8px)',
       display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-      zIndex: 99999, padding: '20px 14px', overflowY: 'auto'
+      zIndex: 100002, padding: '20px 14px', overflowY: 'auto'
     }}>
       <style>{`
         .custom-crm-scroll::-webkit-scrollbar {

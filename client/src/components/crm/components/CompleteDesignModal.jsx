@@ -107,7 +107,8 @@ export default function CompleteDesignModal({ isOpen, onClose, onSuccess, design
   if (!isOpen) return null;
 
   const handleFileUpload = async (e, index) => {
-    const file = e.target.files[0];
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // Reset file input so re-selecting same file triggers change
     if (!file) return;
 
     setUploadingIndex(index);
@@ -122,7 +123,6 @@ export default function CompleteDesignModal({ isOpen, onClose, onSuccess, design
         formData,
         {
           headers: {
-            'Content-Type': 'multipart/form-data',
             'user-id': user._id || user.id || '',
             'username': user.username || '',
             'user-role': user.role || '',
@@ -133,8 +133,8 @@ export default function CompleteDesignModal({ isOpen, onClose, onSuccess, design
 
       const updated = [...files];
       updated[index] = {
-        ...updated[index],
-        name: updated[index].name || file.name.replace(/\.[^/.]+$/, ''),
+        ...(updated[index] || {}),
+        name: (updated[index] && updated[index].name) || file.name.replace(/\.[^/.]+$/, ''),
         url: res.data.url,
         fileKey: res.data.fileKey,
         fileSize: res.data.fileSize,
@@ -144,7 +144,7 @@ export default function CompleteDesignModal({ isOpen, onClose, onSuccess, design
       message.success(`Uploaded ${file.name}`);
     } catch (err) {
       console.error('File upload failed:', err);
-      message.error('Failed to upload design file');
+      message.error(err.response?.data?.error || 'Failed to upload design file');
     } finally {
       setUploadingIndex(null);
     }

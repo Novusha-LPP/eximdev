@@ -296,3 +296,23 @@
   }
 }
 
+/* Custom Duty Bill No Highlights */
+.charges-custom-duty-billed {
+  background-color: #ecfdf5 !important;
+  border-left: 4px solid #16a34a !important;
+}
+
+.charges-custom-duty-billed:hover {
+  background-color: #d1fae5 !important;
+}
+
+.charges-custom-duty-pending {
+  background-color: #fffdf0 !important;
+  border-left: 4px solid #f59e0b !important;
+}
+
+.charges-custom-duty-pending:hover {
+  background-color: #fef3c7 !important;
+}
+
+

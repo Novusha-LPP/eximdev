@@ -395,7 +395,7 @@ function TeamDashboard() {
 
     const handleToggleAttendanceAdmin = async (userId, checked) => {
         try {
-            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/api/attendance/allowed-admins/toggle`, {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/attendance/allowed-admins/toggle`, {
                 target_user_id: userId,
                 is_admin: checked
             });
@@ -418,7 +418,7 @@ function TeamDashboard() {
     const handleToggleOperatorStatus = async (userId, category, isOperatorVal) => {
         const isOperator = isOperatorVal !== undefined ? isOperatorVal : isOperatorCategory(category);
         try {
-            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/api/payroll/config/toggle-operator`, {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/payroll/config/toggle-operator`, {
                 employeeId: userId,
                 is_operator: isOperator,
                 category: category

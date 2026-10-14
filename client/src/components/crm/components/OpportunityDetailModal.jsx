@@ -12,7 +12,11 @@ import EmailQuoteModal from './EmailQuoteModal';
 import { generateQuotePDF } from '../utils/pdfGenerator';
 import PricingRequestFormModal from './PricingRequestFormModal';
 import TaskFormModal from './TaskFormModal';
+import DealTacticsList from './DealTacticsList';
+import SalesTacticSelector from './SalesTacticSelector';
+import CloseDealTacticModal from './CloseDealTacticModal';
 import { LOST_REASONS, STANDARD_LOST_REASON_VALUES, ALLOWED_SERVICES, formatServiceName } from '../crmConstants';
+
 
 const STAGES = ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'];
 
@@ -56,8 +60,16 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
   const [rejectNotes, setRejectNotes] = useState('');
   const [emailModalQuote, setEmailModalQuote] = useState(null);
   const [isSubmittingQuoteStatus, setIsSubmittingQuoteStatus] = useState(false);
+  const [closeModalConfig, setCloseModalConfig] = useState({ isOpen: false, targetStage: 'won' });
 
   const { user } = useContext(UserContext);
+  const userRole = (user?.role || '').toLowerCase();
+  const crmRole = (user?.crmRole || '').toLowerCase();
+  const userIdentity = [user?.username, user?.first_name, user?.middle_name, user?.last_name]
+    .filter(Boolean).join(" ").replace(/[^a-z]/gi, "").toLowerCase();
+  const isAjay = (user?.username || '').toLowerCase().includes("ajay") || userIdentity.includes("ajay");
+  const isAdmin = userRole === 'admin' || userRole === 'superadmin' || crmRole === 'admin' || isAjay;
+
   const fullUserName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'Unknown User';
 
   const handleClose = () => {
@@ -175,6 +187,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
 
   const handleAcceptQuote = (quote) => {
     Modal.confirm({
+      zIndex: 100005,
       title: 'Accept Quotation & Mark Deal Won',
       content: (
         <div>
@@ -210,6 +223,36 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
     setRejectModalQuote(quote);
     setRejectReason(LOST_REASONS[0]?.label || 'Price too high');
     setRejectNotes('');
+  };
+
+  const handleDeleteQuote = (quote) => {
+    Modal.confirm({
+      zIndex: 100005,
+      title: 'Delete Quotation Record',
+      content: (
+        <div>
+          <p>Are you sure you want to delete quotation <strong>{quote.quoteNumber}</strong>?</p>
+          <p style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '6px' }}>
+            This action is permanent and only administrators can remove quotation records.
+          </p>
+        </div>
+      ),
+      okText: 'Delete Quotation',
+      okButtonProps: { danger: true },
+      async onOk() {
+        try {
+          await axios.delete(
+            `${process.env.REACT_APP_API_STRING}/crm/quotes/${quote._id}`,
+            getHeaders()
+          );
+          message.success(`Quotation ${quote.quoteNumber} deleted successfully.`);
+          await refreshOpportunityAndQuotes();
+        } catch (err) {
+          console.error(err);
+          message.error(err.response?.data?.message || 'Failed to delete quotation');
+        }
+      }
+    });
   };
 
   const handleConfirmReject = async () => {
@@ -297,6 +340,8 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
         userName: fullUserName,
         closeReason: formData.closeReason,
         closeNotes: formData.closeNotes,
+        discountPercent: formData.discountPercent,
+        discountAmount: formData.discountAmount,
         crateSize: formData.crateSize,
         location: formData.location,
         hsnCode: formData.hsnCode,
@@ -316,9 +361,10 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
         }
       }
 
-      if (stageChanged && newStage === 'lost' && !formData.closeReason) {
-        message.error('Please select a Reason for Loss');
+      // If stage changed to Won or Lost, open CloseDealTacticModal to capture required tactic outcomes and notes (Rules R3, R4)
+      if (stageChanged && (newStage === 'won' || newStage === 'lost')) {
         setIsSaving(false);
+        setCloseModalConfig({ isOpen: true, targetStage: newStage });
         return;
       }
 
@@ -478,6 +524,33 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
     } catch (error) {
       message.error('Error postponing visit: ' + (error.response?.data?.message || error.message));
     }
+  };
+
+  const handleDeleteVisit = async (visitId) => {
+    Modal.confirm({
+      title: 'Delete Planned Visit',
+      content: 'Are you sure you want to delete this planned visit?',
+      okText: 'Delete',
+      okType: 'danger',
+      zIndex: 100005,
+      async onOk() {
+        try {
+          await axios.delete(
+            `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}/planned-visits/${visitId}`,
+            { withCredentials: true }
+          );
+          message.success('Planned visit deleted');
+          onRefresh();
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`,
+            { withCredentials: true }
+          );
+          setFormData(res.data);
+        } catch (error) {
+          message.error('Error deleting visit: ' + (error.response?.data?.message || error.message));
+        }
+      }
+    });
   };
 
   const handleDeleteRemark = (remarkId) => {
@@ -770,6 +843,53 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 <IndianRupee size={12} color="#16a34a" /> Request Pricing
               </button>
 
+              {!['won', 'lost'].includes(formData.stage || opportunity.stage) && (
+                <>
+                  <button
+                    onClick={() => setCloseModalConfig({ isOpen: true, targetStage: 'won' })}
+                    style={{
+                      padding: '4px 10px',
+                      background: '#ecfdf5',
+                      color: '#059669',
+                      border: '1px solid #a7f3d0',
+                      borderRadius: '5px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontWeight: 700,
+                      fontSize: '0.75rem',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.background = '#d1fae5'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.background = '#ecfdf5'; }}
+                  >
+                    🏆 Win Deal
+                  </button>
+                  <button
+                    onClick={() => setCloseModalConfig({ isOpen: true, targetStage: 'lost' })}
+                    style={{
+                      padding: '4px 10px',
+                      background: '#fff1f2',
+                      color: '#e11d48',
+                      border: '1px solid #fecdd3',
+                      borderRadius: '5px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontWeight: 700,
+                      fontSize: '0.75rem',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.background = '#ffe4e6'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.background = '#fff1f2'; }}
+                  >
+                    ❌ Mark Lost
+                  </button>
+                </>
+              )}
+
               <button
                 onClick={handleDelete}
                 style={{
@@ -838,6 +958,11 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
               <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', fontFamily: 'monospace' }}>
                 ₹{parseFloat(formData.value || 0).toLocaleString('en-IN')}
               </div>
+              {(formData.discountPercent > 0 || formData.discountAmount > 0) && (
+                <div style={{ fontSize: '0.68rem', color: '#e11d48', fontWeight: 600, marginTop: '2px' }}>
+                  🏷️ Disc: {formData.discountPercent ? `${formData.discountPercent}%` : ''}{formData.discountPercent && formData.discountAmount ? ' · ' : ''}{formData.discountAmount ? `₹${parseFloat(formData.discountAmount).toLocaleString('en-IN')}` : ''}
+                </div>
+              )}
             </div>
 
             {/* Probability Card */}
@@ -1092,19 +1217,47 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 </div>
               )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Deal Value (₹)</label>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>Deal Value (₹)</label>
                   <input
                     type="number"
                     value={formData.value || ''}
                     onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.85rem' }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Probability (%)</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>Discount (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.discountPercent !== undefined && formData.discountPercent !== null ? formData.discountPercent : ''}
+                    onChange={(e) => {
+                      const pct = e.target.value === '' ? '' : Number(e.target.value);
+                      const val = Number(formData.value) || 0;
+                      const amt = pct !== '' && val > 0 ? (val * pct) / 100 : formData.discountAmount;
+                      setFormData({ ...formData, discountPercent: pct, discountAmount: amt });
+                    }}
+                    placeholder="0%"
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.85rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>Discount (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.discountAmount !== undefined && formData.discountAmount !== null ? formData.discountAmount : ''}
+                    onChange={(e) => setFormData({ ...formData, discountAmount: e.target.value === '' ? '' : Number(e.target.value) })}
+                    placeholder="₹ 0"
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.85rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>Probability (%)</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '4px' }}>
                     <input
                       type="range"
                       min="0"
@@ -1113,7 +1266,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                       onChange={(e) => setFormData({ ...formData, probability: parseInt(e.target.value) })}
                       style={{ flex: 1 }}
                     />
-                    <span style={{ minWidth: '40px', textAlign: 'center', fontWeight: 700, color: '#4f46e5' }}>{formData.probability || 0}%</span>
+                    <span style={{ minWidth: '35px', textAlign: 'center', fontWeight: 700, color: '#4f46e5', fontSize: '0.8rem' }}>{formData.probability || 0}%</span>
                   </div>
                 </div>
               </div>
@@ -1744,8 +1897,28 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 )}
               </div>
 
+              {/* Playbook Sales Tactics Section */}
+              <DealTacticsList
+                dealId={opportunity._id}
+                tactics={formData.dealTactics || opportunity.dealTactics || []}
+                partner={formData.partner_source_id || opportunity.partner_source_id}
+                service={formData.services?.[0] || ''}
+                dealStage={formData.stage || opportunity.stage}
+                onRefresh={async () => {
+                  if (onRefresh) onRefresh();
+                  // Re-fetch current opportunity details to refresh tactics in modal state
+                  try {
+                    const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`, getHeaders());
+                    if (res.data) setFormData(res.data);
+                  } catch (e) {
+                    console.error('Error refreshing modal opportunity:', e);
+                  }
+                }}
+              />
+
               {/* Quotations Section */}
               <div style={{ marginBottom: '24px' }}>
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <h4 style={{ color: '#475569', fontWeight: 700, margin: 0, fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -1901,6 +2074,20 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                               >
                                 <Mail size={12} /> Send Email
                               </button>
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteQuote(quote)}
+                                  title="Delete this quotation record (Admin only)"
+                                  style={{
+                                    padding: '4px 8px', borderRadius: '5px', border: '1px solid #fecaca',
+                                    background: '#fff', fontSize: '0.75rem', fontWeight: 600, color: '#dc2626',
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                                  }}
+                                >
+                                  <Trash2 size={12} /> Delete
+                                </button>
+                              )}
                             </div>
 
                             {/* Status Resolution Actions */}
@@ -1979,56 +2166,182 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                         borderRadius: '10px',
                         border: visit.isCompleted ? '1px solid #bbf7d0' : visit.isCancelled ? '1px solid #e2e8f0' : '1px solid #fed7aa',
                         display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '12px'
+                        flexDirection: 'column',
+                        gap: '8px'
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '8px',
-                            background: visit.isCompleted ? '#dcfce7' : visit.isCancelled ? '#f1f5f9' : '#ffedd5',
-                            color: visit.isCompleted ? '#16a34a' : visit.isCancelled ? '#94a3b8' : '#ea580c',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}>
-                            <Calendar size={16} />
-                          </span>
-                          <div>
-                            <div style={{
-                              fontSize: '0.9rem',
-                              fontWeight: 700,
-                              color: visit.isCompleted ? '#15803d' : visit.isCancelled ? '#64748b' : '#9a3412',
-                              textDecoration: visit.isCancelled ? 'line-through' : 'none'
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                          flexWrap: 'wrap'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '8px',
+                              background: visit.isCompleted ? '#dcfce7' : visit.isCancelled ? '#f1f5f9' : '#ffedd5',
+                              color: visit.isCompleted ? '#16a34a' : visit.isCancelled ? '#94a3b8' : '#ea580c',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
                             }}>
-                              {visit.visitDate ? new Date(visit.visitDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'No date'}
+                              <Calendar size={16} />
+                            </span>
+                            <div>
+                              <div style={{
+                                fontSize: '0.9rem',
+                                fontWeight: 700,
+                                color: visit.isCompleted ? '#15803d' : visit.isCancelled ? '#64748b' : '#9a3412',
+                                textDecoration: visit.isCancelled ? 'line-through' : 'none'
+                              }}>
+                                {visit.visitDate ? new Date(visit.visitDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'No date'}
+                              </div>
+                              {visit.isCompleted && visit.completedAt && (
+                                <div style={{ fontSize: '0.75rem', color: '#16a34a', marginTop: '2px' }}>
+                                  ✓ Completed on {new Date(visit.completedAt).toLocaleDateString('en-IN')}
+                                </div>
+                              )}
+                              {visit.isCancelled && visit.cancelledAt && (
+                                <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '2px' }}>
+                                  ❌ Cancelled on {new Date(visit.cancelledAt).toLocaleDateString('en-IN')}
+                                </div>
+                              )}
                             </div>
-                            {visit.isCompleted && visit.completedAt && (
-                              <div style={{ fontSize: '0.75rem', color: '#16a34a', marginTop: '2px' }}>
-                                ✓ Completed on {new Date(visit.completedAt).toLocaleDateString('en-IN')}
-                              </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{
+                              fontSize: '0.75rem',
+                              background: visit.isCompleted ? '#dcfce7' : visit.isCancelled ? '#fee2e2' : '#ffedd5',
+                              color: visit.isCompleted ? '#15803d' : visit.isCancelled ? '#ef4444' : '#c2410c',
+                              padding: '3px 12px',
+                              borderRadius: '16px',
+                              fontWeight: 700,
+                              border: visit.isCompleted ? '1px solid #bbf7d0' : visit.isCancelled ? '1px solid #fca5a5' : '1px solid #fed7aa'
+                            }}>
+                              {visit.isCompleted ? 'Completed' : visit.isCancelled ? 'Cancelled' : 'Pending'}
+                            </span>
+
+                            {!visit.isCompleted && !visit.isCancelled && (
+                              <>
+                                <button
+                                  type="button"
+                                  title="Mark visit as completed"
+                                  onClick={() => handleCompleteVisit(visit._id)}
+                                  disabled={completingVisitId === visit._id}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '4px 10px',
+                                    background: '#16a34a',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <CheckCircle2 size={13} /> Complete
+                                </button>
+
+                                <button
+                                  type="button"
+                                  title="Postpone visit"
+                                  onClick={() => {
+                                    setPostponingVisitId(postponingVisitId === visit._id ? null : visit._id);
+                                    setPostponeDate(visit.visitDate ? visit.visitDate.substring(0, 10) : '');
+                                  }}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '4px 10px',
+                                    background: '#2563eb',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <RefreshCw size={13} /> Postpone
+                                </button>
+
+                                <button
+                                  type="button"
+                                  title="Cancel visit"
+                                  onClick={() => handleCancelVisit(visit._id)}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '4px 10px',
+                                    background: '#dc2626',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <XCircle size={13} /> Cancel
+                                </button>
+                              </>
                             )}
-                            {visit.isCancelled && visit.cancelledAt && (
-                              <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '2px' }}>
-                                ❌ Cancelled on {new Date(visit.cancelledAt).toLocaleDateString('en-IN')}
-                              </div>
-                            )}
+
+                            <button
+                              type="button"
+                              title="Delete planned visit"
+                              onClick={() => handleDeleteVisit(visit._id)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '4px 6px',
+                                background: '#fee2e2',
+                                color: '#dc2626',
+                                border: '1px solid #fecaca',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.75rem'
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </div>
                         </div>
 
-                        <span style={{
-                          fontSize: '0.75rem',
-                          background: visit.isCompleted ? '#dcfce7' : visit.isCancelled ? '#fee2e2' : '#ffedd5',
-                          color: visit.isCompleted ? '#15803d' : visit.isCancelled ? '#ef4444' : '#c2410c',
-                          padding: '3px 12px',
-                          borderRadius: '16px',
-                          fontWeight: 700,
-                          border: visit.isCompleted ? '1px solid #bbf7d0' : visit.isCancelled ? '1px solid #fca5a5' : '1px solid #fed7aa'
-                        }}>
-                          {visit.isCompleted ? 'Completed' : visit.isCancelled ? 'Cancelled' : 'Pending'}
-                        </span>
+                        {postponingVisitId === visit._id && (
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px', background: '#ffffff', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%' }}>
+                            <span style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600 }}>New Date:</span>
+                            <input
+                              type="date"
+                              value={postponeDate}
+                              onChange={(e) => setPostponeDate(e.target.value)}
+                              style={{ padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.85rem' }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handlePostponeVisit(visit._id)}
+                              style={{ padding: '4px 10px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                              Save Date
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPostponingVisitId(null)}
+                              style={{ padding: '4px 8px', background: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '4px', fontSize: '0.8rem', cursor: 'pointer' }}
+                            >
+                              Close
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2326,6 +2639,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       {/* Reject Quotation & Move to Lost Reason Modal */}
       {rejectModalQuote && (
         <Modal
+          zIndex={100005}
           title={
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b91c1c' }}>
               <AlertTriangle size={18} />
@@ -2403,6 +2717,27 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Close Deal Tactic Outcome Modal */}
+      {closeModalConfig.isOpen && (
+        <CloseDealTacticModal
+          isOpen={closeModalConfig.isOpen}
+          onClose={() => setCloseModalConfig(prev => ({ ...prev, isOpen: false }))}
+          opportunity={formData || opportunity}
+          targetStage={closeModalConfig.targetStage}
+          onSuccess={async () => {
+            setCloseModalConfig(prev => ({ ...prev, isOpen: false }));
+            setIsEditMode(false);
+            if (onRefresh) onRefresh();
+            try {
+              const res = await axios.get(`${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`, getHeaders());
+              if (res.data) setFormData(res.data);
+            } catch (e) {
+              console.error('Error refreshing modal opportunity:', e);
+            }
+          }}
+        />
       )}
     </div>,
     document.body

@@ -205,9 +205,9 @@ function Stage3FinanceApproval({ formData, handleChange }) {
                 </TableCell>
               </TableRow>
               <TableRow hover>
-                <TableCell sx={{ pl: 3, fontSize: "12px", color: "#475569" }}>• New NCB Amount</TableCell>
+                <TableCell sx={{ pl: 3, fontSize: "12px", color: "#475569" }}>• New NCB Amount (₹)</TableCell>
                 <TableCell sx={{ fontSize: "12px", textAlign: "right", fontWeight: 600, color: "#16a34a" }}>
-                  ₹ {Number(formData.newNcbAmount || 0).toLocaleString("en-IN")}
+                  - ₹ {Number(formData.newNcbAmount || formData.newNcb || 0).toLocaleString("en-IN")}
                 </TableCell>
               </TableRow>
               <TableRow hover sx={{ bgcolor: "#f1f5f9" }}>

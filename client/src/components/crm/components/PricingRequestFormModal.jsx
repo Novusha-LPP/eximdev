@@ -221,7 +221,7 @@ export default function PricingRequestFormModal({ isOpen, onClose, onRefresh, in
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 9999,
+      zIndex: 100002,
       padding: '20px'
     }}>
       <div style={{

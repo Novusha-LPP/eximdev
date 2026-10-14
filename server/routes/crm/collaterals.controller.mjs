@@ -41,10 +41,24 @@ export const isKinjalOrAdmin = (req) => {
     ''
   ).toLowerCase().trim();
 
+  const email = (
+    req.user?.email || 
+    req.headers['user-email'] || 
+    ''
+  ).toLowerCase().trim();
+
+  const firstName = (
+    req.user?.first_name || 
+    req.headers['user-firstname'] || 
+    ''
+  ).toLowerCase().trim();
+
   // Kinjal Khatri check or Admin role check
   return (
     username === 'kinjal_khatri' ||
     username.includes('kinjal') ||
+    firstName.includes('kinjal') ||
+    email.includes('kinjal') ||
     role === 'admin'
   );
 };
@@ -61,28 +75,57 @@ const requireKinjalOrAdmin = (req, res, next) => {
 // ──────────────────────────────────────────────
 // File Upload Endpoint
 // ──────────────────────────────────────────────
-router.post('/upload', upload.single('file'), async (req, res) => {
+const uploadFieldsMiddleware = upload.fields([
+  { name: 'file', maxCount: 1 },
+  { name: 'files', maxCount: 10 }
+]);
+
+router.post('/upload', (req, res, next) => {
+  uploadFieldsMiddleware(req, res, (err) => {
+    if (err) {
+      logger.error(`CRM Collaterals Multer error: ${err.message}`, { stack: err.stack });
+      return res.status(400).json({ error: err.message || 'File upload parsing error' });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
-    const file = req.file;
+    const file = req.file || (req.files?.file && req.files.file[0]) || (req.files?.files && req.files.files[0]);
     if (!file) {
       return res.status(400).json({ error: 'No file provided' });
     }
 
     const timestamp = Date.now();
-    const cleanOriginalName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const cleanOriginalName = (file.originalname || 'document.pdf').replace(/[^a-zA-Z0-9._-]/g, '_');
     const key = `crm-brochures/${timestamp}-${cleanOriginalName}`;
 
+    // Ensure valid ContentType (especially for PDFs)
+    let contentType = file.mimetype;
+    if (!contentType || contentType === 'application/octet-stream') {
+      const ext = (file.originalname || '').split('.').pop().toLowerCase();
+      if (ext === 'pdf') contentType = 'application/pdf';
+      else if (ext === 'png') contentType = 'image/png';
+      else if (ext === 'jpg' || ext === 'jpeg') contentType = 'image/jpeg';
+      else if (ext === 'webp') contentType = 'image/webp';
+      else if (ext === 'docx') contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      else if (ext === 'doc') contentType = 'application/msword';
+      else if (ext === 'pptx') contentType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      else if (ext === 'ppt') contentType = 'application/vnd.ms-powerpoint';
+      else contentType = 'application/pdf';
+    }
+
+    const bucket = process.env.REACT_APP_S3_BUCKET || 'exim-images-p1';
+    const region = process.env.REACT_APP_AWS_REGION || 'ap-south-1';
+
     const command = new PutObjectCommand({
-      Bucket: process.env.REACT_APP_S3_BUCKET,
+      Bucket: bucket,
       Key: key,
       Body: file.buffer,
-      ContentType: file.mimetype,
+      ContentType: contentType,
     });
 
     await s3Client.send(command);
 
-    const region = process.env.REACT_APP_AWS_REGION || 'ap-south-1';
-    const bucket = process.env.REACT_APP_S3_BUCKET;
     const url = `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
 
     return res.status(200).json({
@@ -90,11 +133,11 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       fileName: file.originalname,
       fileKey: key,
       fileSize: file.size,
-      fileType: file.mimetype
+      fileType: contentType
     });
   } catch (err) {
     logger.error(`CRM Collaterals upload error: ${err.message}`, { stack: err.stack });
-    return res.status(500).json({ error: 'Failed to upload file to storage' });
+    return res.status(500).json({ error: `Failed to upload file to storage: ${err.message}` });
   }
 });
 

@@ -16,6 +16,23 @@ const balanceFilter = (req) => getBalanceType(req) === "CFS"
   ? { balanceType: "CFS" }
   : { $or: [{ balanceType: "TERMINAL" }, { balanceType: { $exists: false } }, { balanceType: "" }, { balanceType: null }] };
 
+// Helper to sanitize party name (remove any duplicated "JOB_NO: " prefixes and deduplicate)
+function cleanPartyName(partyName) {
+  if (!partyName || typeof partyName !== "string") return "";
+  const lines = partyName
+    .split(/[\r\n]+/)
+    .map((line) => {
+      const trimmed = line.trim();
+      const colonIdx = trimmed.indexOf(":");
+      if (colonIdx !== -1) {
+        return trimmed.slice(colonIdx + 1).trim();
+      }
+      return trimmed;
+    })
+    .filter(Boolean);
+  return [...new Set(lines)].join("\n");
+}
+
 // Helper function to escape regex characters
 function escapeRegex(string) {
   return string.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
@@ -183,6 +200,7 @@ router.get(["/api/virtual-balance", "/api/cfs-virtual-balance"], async (req, res
 
       return {
         ...entry,
+        partyName: cleanPartyName(entry.partyName),
         openingBalance,
         availableBalance,
         spentAmount,
@@ -260,9 +278,9 @@ router.post(["/api/virtual-balance", "/api/cfs-virtual-balance"], async (req, re
       return res.status(400).json({ success: false, message: "CFS Name and Amount Paid are required." });
     }
 
-    // Use partyName from request body if provided (client sends formatted string for multi-job)
+    // Use partyName from request body if provided (clean any jobNo prefixes)
     const partyName = req.body.partyName !== undefined
-      ? req.body.partyName
+      ? cleanPartyName(req.body.partyName)
       : (jobNo ? await getImporterName(jobNo) : "");
 
     // Sequence generation: VB/IMP/YYYY/XXXX
@@ -324,9 +342,9 @@ router.put(["/api/virtual-balance/:id", "/api/cfs-virtual-balance/:id"], async (
 
     if (jobNo !== undefined) {
       entry.jobNo = (jobNo || "").trim();
-      // Use partyName from request body if provided (client now sends formatted string)
+      // Use partyName from request body if provided (cleaned of any jobNo prefix)
       if (req.body.partyName !== undefined) {
-        entry.partyName = req.body.partyName;
+        entry.partyName = cleanPartyName(req.body.partyName);
       }
     }
 

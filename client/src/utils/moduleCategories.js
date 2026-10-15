@@ -13,6 +13,7 @@ export const moduleCategories = {
   "Exit Feedback": "HR & Admin",
   "Document Collection": "HR & Admin",
   "Attendance": "HR & Admin",
+  "Attendance V2": "HR & Admin",
   "5S Audit": "HR & Admin",
   "First Aid": "HR & Admin",
   "Customer KYC": "Customer KYC",

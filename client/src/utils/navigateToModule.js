@@ -103,6 +103,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/document-collection");
     case "Attendance":
       return navigate("/attendance/dashboard");
+    case "Attendance V2":
+      return navigate("/attendance-v2");
     case "IT Helpdesk":
       sessionStorage.removeItem("it_helpdesk_expiry_modal_shown");
       return navigate("/it-helpdesk");

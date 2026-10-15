@@ -2,6 +2,7 @@ import express from "express";
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import auditMiddleware from "../middleware/auditTrail.mjs";
 import authMiddleware from "../middleware/authMiddleware.mjs";
+import logger from "../logger.js";
 
 const router = express.Router();
 
@@ -36,8 +37,13 @@ router.post("/api/delete-s3-file", authMiddleware, auditMiddleware("S3File"), as
     await s3.send(command);
     res.status(200).json({ message: "File deleted successfully" });
   } catch (err) {
+    logger.error(`S3 deletion error for key ${key}: ${err.message}`, { stack: err.stack, code: err.name });
     console.error("S3 deletion error:", err);
-    res.status(500).json({ message: "Error deleting file from S3" });
+    res.status(500).json({
+      message: "Error deleting file from S3",
+      error: err.message,
+      code: err.name,
+    });
   }
 });
 

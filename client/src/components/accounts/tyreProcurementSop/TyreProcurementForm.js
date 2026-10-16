@@ -21,10 +21,16 @@ import Stage6Grn from "./Stage6Grn";
 import "../../../styles/enterprise-sop.scss";
 
 const emptyPr = {
+  companyKey: "SURAVIO",
+  companyName: "SURAVIO",
+  poFormatStyle: "standard",
   prNumber: "",
   poNumber: "",
   status: "Draft",
   stage1: {
+    companyKey: "SURAVIO",
+    companyName: "SURAVIO",
+    poFormatStyle: "standard",
     itemsRequired: [],
     routingChecklist: [],
     hodValidation: {
@@ -200,19 +206,52 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
         })
         .finally(() => setLoading(false));
     } else {
-      setFormData(emptyPr);
+      const today = new Date().toISOString().split("T")[0];
+      setFormData({
+        ...emptyPr,
+        stage1: {
+          ...emptyPr.stage1,
+          prDate: today,
+        },
+      });
       setPersistedCompletedStages(getCompletedStages(emptyPr));
       setPersistedStatus(emptyPr.status);
       setActiveStage(1);
+
+      // Immediately fetch next sequential PR and PO numbers for new request
+      axios
+        .get(`${process.env.REACT_APP_API_STRING}/tyre-procurement/next-numbers?date=${today}`)
+        .then((res) => {
+          if (res.data?.success && res.data.prNumber) {
+            setFormData((prev) => ({
+              ...prev,
+              prNumber: prev.prNumber || res.data.prNumber,
+              poNumber: prev.poNumber || res.data.poNumber,
+              stage1: {
+                ...prev.stage1,
+                prDate: prev.stage1?.prDate || today,
+              },
+            }));
+          }
+        })
+        .catch((err) => {
+          console.error("Error pre-fetching PR number:", err);
+        });
     }
   }, [prId]);
 
   const mergeWithEmpty = (data) => ({
     ...emptyPr,
     ...data,
+    companyKey: data.companyKey || data.stage1?.companyKey || "SURAVIO",
+    companyName: data.companyName || data.stage1?.companyName || "SURAVIO",
+    poFormatStyle: data.poFormatStyle || data.stage1?.poFormatStyle || "standard",
     stage1: {
       ...emptyPr.stage1,
       ...(data.stage1 || {}),
+      companyKey: data.stage1?.companyKey || data.companyKey || "SURAVIO",
+      companyName: data.stage1?.companyName || data.companyName || "SURAVIO",
+      poFormatStyle: data.stage1?.poFormatStyle || data.poFormatStyle || "standard",
       hodValidation: {
         ...emptyPr.stage1.hodValidation,
         ...(data.stage1?.hodValidation || {}),
@@ -248,17 +287,36 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
   const isStageLocked = (stage) => !canOverrideSignOffLock && (isSiteGrnLocked || persistedCompletedStages[stage]);
 
   const handleSave = async () => {
-    if (!formData.prNumber || !formData.prNumber.trim()) {
-      alert("PR Number is required");
-      return;
+    let prNum = formData.prNumber?.trim();
+    let poNum = formData.poNumber?.trim();
+
+    // If PR number is empty, auto-generate it right now before failing
+    if (!prNum) {
+      try {
+        const today = formData.stage1?.prDate || new Date().toISOString().split("T")[0];
+        const numRes = await axios.get(`${process.env.REACT_APP_API_STRING}/tyre-procurement/next-numbers?date=${today}`);
+        if (numRes.data?.success && numRes.data.prNumber) {
+          prNum = numRes.data.prNumber;
+          if (!poNum) poNum = numRes.data.poNumber;
+        }
+      } catch (err) {
+        console.error("Error generating PR number on save:", err);
+      }
     }
+
+    const payload = {
+      ...formData,
+      ...(prNum ? { prNumber: prNum } : {}),
+      ...(poNum ? { poNumber: poNum } : {}),
+    };
+
     setSaving(true);
     try {
       let res;
       if (prId) {
-        res = await axios.put(`${process.env.REACT_APP_API_STRING}/tyre-procurement/${prId}`, formData);
+        res = await axios.put(`${process.env.REACT_APP_API_STRING}/tyre-procurement/${prId}`, payload);
       } else {
-        res = await axios.post(`${process.env.REACT_APP_API_STRING}/tyre-procurement`, formData);
+        res = await axios.post(`${process.env.REACT_APP_API_STRING}/tyre-procurement`, payload);
       }
       const savedData = res.data?.data || res.data;
       alert(res.data?.message || "Purchase Request saved successfully!");
@@ -307,9 +365,24 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
       >
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#0f172a", fontSize: "0.95rem" }}>
-              {isView ? "View Purchase Request" : prId ? "Edit Purchase Request" : "Create Purchase Request"}
-            </Typography>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#0f172a", fontSize: "0.95rem" }}>
+                {isView ? "View Purchase Request" : prId ? "Edit Purchase Request" : "Create Purchase Request"}
+              </Typography>
+              <Chip
+                label={formData.companyName || "S R CONTAINER CARRIERS"}
+                size="small"
+                sx={{
+                  fontWeight: 700,
+                  fontSize: "0.72rem",
+                  borderRadius: "4px",
+                  height: 20,
+                  bgcolor: "#f1f5f9",
+                  color: "#0f3b6c",
+                  border: "1px solid #cbd5e1",
+                }}
+              />
+            </Stack>
             {formData.prNumber && (
               <Typography variant="caption" sx={{ color: "#64748b" }}>
                 PR: <strong>{formData.prNumber}</strong> {formData.poNumber ? `| PO: ${formData.poNumber}` : ""}

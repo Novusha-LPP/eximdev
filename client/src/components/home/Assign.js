@@ -19,12 +19,7 @@ import {
 } from "antd";
 import {
   UserOutlined,
-  AppstoreOutlined,
   SafetyCertificateOutlined,
-  KeyOutlined,
-  EnvironmentOutlined,
-  ProjectOutlined,
-  RobotOutlined,
   SearchOutlined,
   GroupOutlined,
   InfoCircleOutlined,

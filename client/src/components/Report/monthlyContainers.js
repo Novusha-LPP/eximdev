@@ -44,7 +44,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid, Legend, ResponsiveContainer, defs, linearGradient, stop } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid, Legend, ResponsiveContainer } from 'recharts';
 import { useFetchYears } from "../../utils/useFetchYears";
 import { BranchContext } from "../../contexts/BranchContext";
 import useDynamicICDs from "../../customHooks/useDynamicICDs";
@@ -149,30 +149,30 @@ const TrendChart = ({ trendData, importerName }) => {
           <AreaChart data={dataWithStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="colorBE" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#1976d2" stopOpacity={0.1}/>
-                <stop offset="95%" stopColor="#1976d2" stopOpacity={0}/>
+                <stop offset="5%" stopColor="#1976d2" stopOpacity={0.1} />
+                <stop offset="95%" stopColor="#1976d2" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorTEU" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#d32f2f" stopOpacity={0.1}/>
-                <stop offset="95%" stopColor="#d32f2f" stopOpacity={0}/>
+                <stop offset="5%" stopColor="#d32f2f" stopOpacity={0.1} />
+                <stop offset="95%" stopColor="#d32f2f" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" />
-            <XAxis 
-              dataKey="month" 
-              tick={{ fontSize: 11, fontWeight: 500 }} 
+            <XAxis
+              dataKey="month"
+              tick={{ fontSize: 11, fontWeight: 500 }}
               axisLine={false}
               tickLine={false}
               dy={10}
             />
-            <YAxis 
-              tick={{ fontSize: 11, fontWeight: 500 }} 
+            <YAxis
+              tick={{ fontSize: 11, fontWeight: 500 }}
               axisLine={false}
               tickLine={false}
             />
             <RechartsTooltip content={<ChartTooltip />} />
-            <Legend 
-              verticalAlign="top" 
+            <Legend
+              verticalAlign="top"
               height={36}
               iconType="circle"
               wrapperStyle={{ fontSize: '11px', fontWeight: 600, paddingBottom: '10px' }}
@@ -253,10 +253,10 @@ const MonthlyContainers = () => {
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const dynamicMonths = [];
-    
+
     // Use the selected month/year instead of the current date
-    const selectedMonthIdx = parseInt(month) - 1; 
-    
+    const selectedMonthIdx = parseInt(month) - 1;
+
     for (let i = 5; i >= 0; i--) {
       const monthIndex = (selectedMonthIdx - i + 12) % 12;
       dynamicMonths.push(monthNames[monthIndex]);
@@ -411,10 +411,10 @@ const MonthlyContainers = () => {
         }}
       >
         <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 2 }}>
-          <Avatar sx={{ 
-            bgcolor: `${color}20`, 
-            color: color, 
-            width: 50, 
+          <Avatar sx={{
+            bgcolor: `${color}20`,
+            color: color,
+            width: 50,
             height: 50,
             boxShadow: `0 4px 10px ${color}30`
           }}>
@@ -653,7 +653,7 @@ const MonthlyContainers = () => {
                           active={sortColumn === 'importer'}
                           direction={sortColumn === 'importer' ? sortDirection : 'asc'}
                           onClick={() => handleSort('importer')}
-                          sx={{ 
+                          sx={{
                             color: 'white !important',
                             '& .MuiTableSortLabel-icon': { color: 'white !important' }
                           }}
@@ -666,7 +666,7 @@ const MonthlyContainers = () => {
                           active={sortColumn === 'beDateCount'}
                           direction={sortColumn === 'beDateCount' ? sortDirection : 'asc'}
                           onClick={() => handleSort('beDateCount')}
-                          sx={{ 
+                          sx={{
                             color: 'white !important',
                             '& .MuiTableSortLabel-icon': { color: 'white !important' }
                           }}
@@ -679,7 +679,7 @@ const MonthlyContainers = () => {
                           active={sortColumn === 'oocCount'}
                           direction={sortColumn === 'oocCount' ? sortDirection : 'asc'}
                           onClick={() => handleSort('oocCount')}
-                          sx={{ 
+                          sx={{
                             color: 'white !important',
                             '& .MuiTableSortLabel-icon': { color: 'white !important' }
                           }}
@@ -695,7 +695,7 @@ const MonthlyContainers = () => {
                               active={sortColumn === 'container20Ft'}
                               direction={sortColumn === 'container20Ft' ? sortDirection : 'asc'}
                               onClick={() => handleSort('container20Ft')}
-                              sx={{ 
+                              sx={{
                                 color: 'white !important',
                                 '& .MuiTableSortLabel-icon': { color: 'white !important' }
                               }}
@@ -708,7 +708,7 @@ const MonthlyContainers = () => {
                               active={sortColumn === 'container40Ft'}
                               direction={sortColumn === 'container40Ft' ? sortDirection : 'asc'}
                               onClick={() => handleSort('container40Ft')}
-                              sx={{ 
+                              sx={{
                                 color: 'white !important',
                                 '& .MuiTableSortLabel-icon': { color: 'white !important' }
                               }}
@@ -721,7 +721,7 @@ const MonthlyContainers = () => {
                               active={sortColumn === 'lcl20Ft'}
                               direction={sortColumn === 'lcl20Ft' ? sortDirection : 'asc'}
                               onClick={() => handleSort('lcl20Ft')}
-                              sx={{ 
+                              sx={{
                                 color: 'white !important',
                                 '& .MuiTableSortLabel-icon': { color: 'white !important' }
                               }}
@@ -734,7 +734,7 @@ const MonthlyContainers = () => {
                               active={sortColumn === 'totalContainers'}
                               direction={sortColumn === 'totalContainers' ? sortDirection : 'asc'}
                               onClick={() => handleSort('totalContainers')}
-                              sx={{ 
+                              sx={{
                                 color: 'white !important',
                                 '& .MuiTableSortLabel-icon': { color: 'white !important' }
                               }}
@@ -747,7 +747,7 @@ const MonthlyContainers = () => {
                               active={sortColumn === 'teu'}
                               direction={sortColumn === 'teu' ? sortDirection : 'asc'}
                               onClick={() => handleSort('teu')}
-                              sx={{ 
+                              sx={{
                                 color: 'white !important',
                                 '& .MuiTableSortLabel-icon': { color: 'white !important' }
                               }}
@@ -973,19 +973,19 @@ const MonthlyContainers = () => {
             <Fade in={popperOpen} timeout={300}>
               <Box>
                 <ClickAwayListener onClickAway={handlePopperClose}>
-                  <Card 
-                    elevation={12} 
-                    sx={{ 
-                      borderRadius: 3, 
+                  <Card
+                    elevation={12}
+                    sx={{
+                      borderRadius: 3,
                       overflow: 'hidden',
                       border: '1px solid rgba(25, 118, 210, 0.1)',
                       boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
                     }}
                   >
                     {selectedRowData && (
-                      <TrendChart 
-                        trendData={selectedRowData} 
-                        importerName={selectedImporter} 
+                      <TrendChart
+                        trendData={selectedRowData}
+                        importerName={selectedImporter}
                       />
                     )}
                   </Card>

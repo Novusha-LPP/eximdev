@@ -33,10 +33,7 @@ import {
     DeleteOutlined,
     EditOutlined,
     SearchOutlined,
-    UserAddOutlined,
-    KeyOutlined,
-    AppstoreOutlined,
-    EnvironmentOutlined
+    UserAddOutlined
 } from "@ant-design/icons";
 import { UserContext } from "../../contexts/UserContext";
 import AssignDepartment from "../home/AssignRole/AssignDepartment";

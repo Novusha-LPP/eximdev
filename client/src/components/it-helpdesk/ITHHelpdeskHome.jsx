@@ -161,6 +161,15 @@ const getPriorityBadgeClass = (priority) => {
 
 const MODULES = [
   {
+    title: "Unified Asset & Inventory",
+    desc: "Consolidated equipment lifecycle, stockroom, spares & employee tracking",
+    icon: Boxes,
+    to: "/it-helpdesk/unified-assets",
+    color: "#4f46e5",
+    bgColor: "#eef2ff",
+    badge: "NEW",
+  },
+  {
     title: "Asset Management",
     desc: "Computers, Laptops, Printers & Peripherals",
     icon: Laptop,
@@ -1229,7 +1238,24 @@ export default function ITHHelpdeskHome() {
                       justifyContent: "space-between",
                     }}
                   >
-                    <span>{mod.title}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span>{mod.title}</span>
+                      {mod.badge && (
+                        <span
+                          style={{
+                            fontSize: "9.5px",
+                            fontWeight: 800,
+                            padding: "1px 6px",
+                            borderRadius: "10px",
+                            background: "#4f46e5",
+                            color: "#ffffff",
+                            letterSpacing: "0.5px",
+                          }}
+                        >
+                          {mod.badge}
+                        </span>
+                      )}
+                    </div>
                     <ArrowRight size={14} className="it-module-arrow" style={{ color: "#94a3b8", transition: "all 0.2s ease" }} />
                   </div>
                   <div

@@ -8,6 +8,7 @@ import AssetManagement from "../components/it-helpdesk/AssetManagement";
 import TicketManagement from "../components/it-helpdesk/TicketManagement";
 import VendorManagement from "../components/it-helpdesk/VendorManagement";
 import InventoryManagement from "../components/it-helpdesk/InventoryManagement";
+import UnifiedAssetInventory from "../components/it-helpdesk/UnifiedAssetInventory";
 import LicenseManagement from "../components/it-helpdesk/LicenseManagement";
 import ITReports from "../components/it-helpdesk/ITReports";
 import ITNotifications from "../components/it-helpdesk/ITNotifications";
@@ -43,6 +44,7 @@ export default function ItHelpdeskPage() {
         <Route path="/tickets" element={<TicketManagement />} />
         <Route path="/vendors" element={<VendorManagement />} />
         <Route path="/inventory" element={<InventoryManagement />} />
+        <Route path="/unified-assets" element={<UnifiedAssetInventory />} />
         <Route path="/licenses" element={<LicenseManagement />} />
         <Route path="/reports" element={<ITReports />} />
         <Route path="/notifications" element={<ITNotifications />} />

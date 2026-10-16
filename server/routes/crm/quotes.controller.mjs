@@ -912,14 +912,17 @@ router.post('/:id/convert-to-opportunity', async (req, res) => {
 
     await newOpportunity.save();
 
-    // Attach tactics to converted opportunity (Rule R1)
-    await attachTacticsToDeal({
-      dealId: newOpportunity._id,
-      tactic_ids: req.body.tactic_ids || req.body.tactics || ['T01'],
-      partner_source_id: req.body.partner_source_id,
-      userId: currentUserId,
-      dealStatusWhenAdded: newOpportunity.stage || 'opportunity'
-    });
+    // Attach tactics to converted opportunity if provided
+    const quoteTactics = req.body.tactic_ids || req.body.tactics;
+    if (quoteTactics && (Array.isArray(quoteTactics) ? quoteTactics.length > 0 : quoteTactics)) {
+      await attachTacticsToDeal({
+        dealId: newOpportunity._id,
+        tactic_ids: Array.isArray(quoteTactics) ? quoteTactics : [quoteTactics],
+        partner_source_id: req.body.partner_source_id,
+        userId: currentUserId,
+        dealStatusWhenAdded: newOpportunity.stage || 'opportunity'
+      });
+    }
 
     quote.opportunityId = newOpportunity._id;
 

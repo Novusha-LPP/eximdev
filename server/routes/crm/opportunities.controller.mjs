@@ -1610,16 +1610,18 @@ router.post('/:id/duplicate', async (req, res) => {
 
     await duplicated.save();
 
-    // Attach supplied tactics or copy tactics from original deal if present
-    const explicitTactics = req.body.tactic_ids || req.body.tactics;
-    if (explicitTactics && explicitTactics.length > 0) {
-      await attachTacticsToDeal({
-        dealId: duplicated._id,
-        tactic_ids: explicitTactics,
-        partner_source_id: req.body.partner_source_id || original.partner_source_id,
-        userId: req.user?._id,
-        dealStatusWhenAdded: duplicated.stage || 'lead'
-      });
+    // Attach supplied tactics or copy tactics from original deal if not specified
+    const explicitTactics = req.body.tactic_ids !== undefined ? req.body.tactic_ids : req.body.tactics;
+    if (Array.isArray(explicitTactics)) {
+      if (explicitTactics.length > 0) {
+        await attachTacticsToDeal({
+          dealId: duplicated._id,
+          tactic_ids: explicitTactics,
+          partner_source_id: req.body.partner_source_id || original.partner_source_id,
+          userId: req.user?._id,
+          dealStatusWhenAdded: duplicated.stage || 'lead'
+        });
+      }
     } else {
       const originalTactics = await DealTactic.find({ deal_id: original._id }).lean();
       if (originalTactics.length > 0) {

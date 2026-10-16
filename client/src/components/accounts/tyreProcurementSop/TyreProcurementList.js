@@ -1102,7 +1102,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
 
         {/* Search Bar */}
         <TextField
-          placeholder="Search PR Number, PO, Prepared By, Supplier..."
+          placeholder="Search PR Number, PO, Company (Suravio, Novusha, Suraj, Paramount, RABS), Supplier..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           fullWidth
@@ -1190,17 +1190,67 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                         }}
                       >
                         <TableCell sx={{ fontWeight: 700, fontSize: "13px", py: 1, px: 1.5 }}>
-                          <Box
-                            component="span"
-                            onClick={() => !editLocked && onEdit(row)}
-                            sx={{
-                              cursor: editLocked ? "default" : "pointer",
-                              color: editLocked ? "#64748b" : "#2563eb",
-                              "&:hover": editLocked ? {} : { color: "#1d4ed8", textDecoration: "underline" },
-                            }}
-                          >
-                            {row.prNumber}
-                          </Box>
+                          <Stack spacing={0.3} alignItems="flex-start">
+                            <Box
+                              component="span"
+                              onClick={() => !editLocked && onEdit(row)}
+                              sx={{
+                                cursor: editLocked ? "default" : "pointer",
+                                color: editLocked ? "#64748b" : "#2563eb",
+                                "&:hover": editLocked ? {} : { color: "#1d4ed8", textDecoration: "underline" },
+                              }}
+                            >
+                              {row.prNumber}
+                            </Box>
+                            {(() => {
+                              const cKey = (row.companyKey || row.stage1?.companyKey || "SURAVIO").toUpperCase();
+                              const cName =
+                                row.companyName ||
+                                row.stage1?.companyName ||
+                                (cKey === "SURAVIO" || cKey === "SRCC"
+                                  ? "SURAVIO"
+                                  : cKey === "SURAJ"
+                                  ? "Suraj Forwarders"
+                                  : cKey === "NOVUSHA"
+                                  ? "Novusha Consulting"
+                                  : cKey === "PARAMOUNT"
+                                  ? "Paramount Propack"
+                                  : cKey === "RABS"
+                                  ? "RABS Industries"
+                                  : cKey);
+                              const badgeTheme =
+                                cKey === "NOVUSHA"
+                                  ? { bg: "#f3e8ff", color: "#6b21a8", border: "#d8b4fe" }
+                                  : cKey === "SURAJ"
+                                  ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" }
+                                  : cKey === "PARAMOUNT"
+                                  ? { bg: "#fef2f2", color: "#991b1b", border: "#fecaca" }
+                                  : cKey === "RABS"
+                                  ? { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" }
+                                  : { bg: "#e0f2fe", color: "#0369a1", border: "#7dd3fc" };
+                              return (
+                                <Box
+                                  sx={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    px: 0.7,
+                                    py: 0.15,
+                                    borderRadius: "4px",
+                                    fontSize: "10.5px",
+                                    fontWeight: 700,
+                                    letterSpacing: "0.2px",
+                                    bgcolor: badgeTheme.bg,
+                                    color: badgeTheme.color,
+                                    border: `1px solid ${badgeTheme.border}`,
+                                    whiteSpace: "nowrap",
+                                  }}
+                                  title={row.companyName || cName}
+                                >
+                                  {cName.length > 22 ? `${cName.slice(0, 20)}…` : cName}
+                                </Box>
+                              );
+                            })()}
+                          </Stack>
                         </TableCell>
                         <TableCell sx={{ color: "#047857", fontWeight: 700, fontSize: "12.5px", py: 1, px: 1.5 }}>
                           {Array.isArray(row.displayPoNumbers) && row.displayPoNumbers.length > 1 ? (

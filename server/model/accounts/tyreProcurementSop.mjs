@@ -49,6 +49,13 @@ const routingChecklistSchema = new mongoose.Schema(
 
 const stage1Schema = new mongoose.Schema(
   {
+    companyKey: { type: String, default: "SRCC" },
+    companyName: { type: String, default: "S R CONTAINER CARRIERS" },
+    buyerAddress: String,
+    buyerGstin: String,
+    buyerEmail: String,
+    buyerPhone: String,
+    poFormatStyle: { type: String, default: "letterhead" },
     prNumber: String,
     prDate: Date,
     preparedBy: String,
@@ -376,6 +383,13 @@ const stage6Schema = new mongoose.Schema(
 // ─── Main Schema ───
 const tyreProcurementSopSchema = new mongoose.Schema(
   {
+    companyKey: { type: String, default: "SRCC" },
+    companyName: { type: String, default: "S R CONTAINER CARRIERS" },
+    buyerAddress: String,
+    buyerGstin: String,
+    buyerEmail: String,
+    buyerPhone: String,
+    poFormatStyle: { type: String, default: "letterhead" },
     prNumber: {
       type: String,
       required: true,

@@ -1,10 +1,35 @@
-import React, { useState, useEffect } from "react";
+import { COMPANY_PROFILES, COMPANY_OPTIONS, getCompanyProfile } from "./companyProfiles";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { Add, Delete } from "@mui/icons-material";
 import "../../../styles/enterprise-sop.scss";
 
 function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalChange }) {
   const [savedProducts, setSavedProducts] = useState([]);
+
+  const fetchAutoNumbers = useCallback(async () => {
+    try {
+      const today = data.prDate ? data.prDate.split("T")[0] : new Date().toISOString().split("T")[0];
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/tyre-procurement/next-numbers?date=${today}`);
+      if (res.data?.success) {
+        if (onGlobalChange) {
+          if (res.data.prNumber) onGlobalChange("prNumber", res.data.prNumber);
+          if (res.data.poNumber) onGlobalChange("poNumber", res.data.poNumber);
+        }
+        if (!data.prDate) {
+          onChange({ prDate: today });
+        }
+      }
+    } catch (err) {
+      console.error("Error auto-fetching PR/PO numbers:", err);
+    }
+  }, [data.prDate, onGlobalChange, onChange]);
+
+  useEffect(() => {
+    if (!globalData?.prNumber) {
+      fetchAutoNumbers();
+    }
+  }, [globalData?.prNumber, fetchAutoNumbers]);
 
   useEffect(() => {
     // Fetch saved generic procurement products from backend
@@ -27,6 +52,54 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
 
   const itemsRequired = data.itemsRequired || [];
   const routingChecklist = data.routingChecklist || [];
+
+  const currentCompanyKey = globalData?.companyKey || data.companyKey || (globalData?.companyName ? getCompanyProfile(globalData.companyName).id : "SURAVIO");
+  const compProfile = getCompanyProfile(currentCompanyKey);
+
+  const handleCompanyChange = (e) => {
+    const key = e.target.value;
+    const profile = getCompanyProfile(key);
+
+    if (onGlobalChange) {
+      onGlobalChange("companyKey", profile.id);
+      onGlobalChange("companyName", profile.name);
+      onGlobalChange("buyerName", profile.name);
+      onGlobalChange("companyAddress", `${profile.buyerAddress1} ${profile.buyerAddress2} ${profile.buyerCityState}`.trim());
+      onGlobalChange("companyGstin", profile.buyerGstin);
+      onGlobalChange("companyEmail", profile.buyerEmail);
+      onGlobalChange("companyPhone", profile.buyerPhone);
+      if (profile.defaultPoFormatStyle) {
+        onGlobalChange("poFormatStyle", profile.defaultPoFormatStyle);
+      }
+    }
+
+    const stageUpdates = {
+      companyKey: profile.id,
+      companyName: profile.name,
+      departmentLocation: profile.name,
+    };
+
+    const isDefaultOrEmpty =
+      !data.deliveryLocation ||
+      Object.values(COMPANY_PROFILES).some((p) => p.defaultDeliveryLocation === data.deliveryLocation);
+
+    if (isDefaultOrEmpty) {
+      stageUpdates.deliveryLocation = profile.defaultDeliveryLocation;
+      stageUpdates.deliveryContact = profile.defaultDeliveryContact;
+      stageUpdates.deliveryContactPerson = profile.defaultDeliveryContact;
+    }
+
+    onChange(stageUpdates);
+  };
+
+  const applyCompanyDefaultLocation = () => {
+    onChange({
+      deliveryLocation: compProfile.defaultDeliveryLocation,
+      deliveryContact: compProfile.defaultDeliveryContact,
+      deliveryContactPerson: compProfile.defaultDeliveryContact,
+      departmentLocation: compProfile.name,
+    });
+  };
 
   const saveProductDetails = (item) => {
     if (!item) return;
@@ -197,14 +270,91 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
           </div>
         </div>
 
+        {/* Company Selection & PO Layout Options */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1.4fr 1fr",
+            gap: "14px",
+            marginBottom: "14px",
+            padding: "12px 14px",
+            backgroundColor: "#f8fafc",
+            border: "1.5px solid #e2e8f0",
+            borderRadius: "8px",
+          }}
+        >
+          <div>
+            <label className="sop-field-label" style={{ fontWeight: 800, color: "#0f3b6c", marginBottom: "4px" }}>
+              🏢 Purchasing Company (Buyer)
+            </label>
+            <select
+              className="sop-input"
+              style={{ fontWeight: 700, fontSize: "12.5px", height: "36px", borderColor: "#cbd5e1" }}
+              value={currentCompanyKey}
+              onChange={handleCompanyChange}
+            >
+              {COMPANY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <div style={{ marginTop: "4px", fontSize: "10px", color: "#64748b" }}>
+              <strong>GSTIN:</strong> {compProfile.buyerGstin} | <strong>Email:</strong> {compProfile.buyerEmail}
+            </div>
+          </div>
+
+          <div>
+            <label className="sop-field-label" style={{ fontWeight: 700, color: "#334155", marginBottom: "4px" }}>
+              📄 PO Layout Format
+            </label>
+            <select
+              className="sop-input"
+              style={{ fontWeight: 600, fontSize: "12px", height: "36px" }}
+              value={globalData?.poFormatStyle || "letterhead"}
+              onChange={(e) => onGlobalChange && onGlobalChange("poFormatStyle", e.target.value)}
+            >
+              <option value="letterhead">📜 Official Company Letterhead (Built-in Logo)</option>
+              <option value="standard">📄 Standard PO (Standalone Logo)</option>
+              <option value="plain">🖨️ Plain Body (Pre-Printed Stationery)</option>
+            </select>
+            <div style={{ marginTop: "4px", fontSize: "10px", color: "#64748b" }}>
+              {globalData?.poFormatStyle === "letterhead"
+                ? "Uses company's full letterhead graphic. Removes duplicate top logo."
+                : "Standard white box with separate company logo on top-left."}
+            </div>
+          </div>
+        </div>
+
         <div className="sop-grid-4">
           <div className="sop-field-group">
-            <label className="sop-field-label">PR Number</label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2px" }}>
+              <label className="sop-field-label" style={{ marginBottom: 0 }}>PR Number</label>
+              {!globalData?.prNumber && (
+                <button
+                  type="button"
+                  onClick={fetchAutoNumbers}
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    color: "#2563eb",
+                    background: "#eff6ff",
+                    border: "1px solid #bfdbfe",
+                    borderRadius: "4px",
+                    padding: "1px 6px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ⚡ Auto-Generate
+                </button>
+              )}
+            </div>
             <input
               className="sop-input"
               value={globalData?.prNumber || ""}
-              onChange={(e) => onGlobalChange("prNumber", e.target.value)}
-              placeholder="PR/SEP/01/26-27"
+              onChange={(e) => onGlobalChange && onGlobalChange("prNumber", e.target.value)}
+              placeholder="Auto-generating..."
+              style={{ fontWeight: 700, color: "#0f172a" }}
             />
           </div>
           <div className="sop-field-group">
@@ -213,7 +363,8 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
               className="sop-input"
               value={globalData?.poNumber || ""}
               readOnly
-              placeholder="PO/SEP-01/26-27"
+              placeholder="Auto-generating..."
+              style={{ fontWeight: 700, color: "#047857", backgroundColor: "#f8fafc" }}
             />
           </div>
           <div className="sop-field-group">
@@ -266,9 +417,28 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
         {/* Delivery Location & Delivery Contact (Editable) */}
         <div className="sop-grid-2" style={{ marginTop: "12px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
           <div className="sop-field-group">
-            <label className="sop-field-label" style={{ fontWeight: 700, color: "#0369a1" }}>
-              📍 Delivery Location (Editable)
-            </label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+              <label className="sop-field-label" style={{ fontWeight: 700, color: "#0369a1", margin: 0 }}>
+                📍 Delivery Location (Editable)
+              </label>
+              <button
+                type="button"
+                onClick={applyCompanyDefaultLocation}
+                style={{
+                  fontSize: "9.5px",
+                  fontWeight: 700,
+                  color: "#0284c7",
+                  background: "#e0f2fe",
+                  border: "1px solid #bae6fd",
+                  borderRadius: "4px",
+                  padding: "1px 6px",
+                  cursor: "pointer",
+                }}
+                title="Reset to selected company's facility address"
+              >
+                Auto-fill {compProfile.id} Location
+              </button>
+            </div>
             <input
               className="sop-input"
               value={data.deliveryLocation || data.departmentLocation || ""}

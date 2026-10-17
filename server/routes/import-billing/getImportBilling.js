@@ -1705,21 +1705,25 @@ router.post("/api/approve-payment-request", async (req, res) => {
 
 router.post("/api/reject-payment-request", async (req, res) => {
   try {
-    const { requestNo, firstName, lastName, reason } = req.body;
+    const { requestNo: rawRequestNo, firstName, lastName, reason } = req.body;
+    const requestNo = rawRequestNo?.trim();
 
-    if (!requestNo || !firstName || !lastName || !reason) {
-      return res.status(400).json({ message: "Request No, First Name, Last Name, and Reason are required" });
+    if (!requestNo) {
+      return res.status(400).json({ message: "Request No is required" });
     }
+
+    const fName = firstName || req.headers.username || "System";
+    const lName = lastName || "";
 
     // 1. Update PaymentRequestModel
     const updatedRequest = await PaymentRequestModel.findOneAndUpdate(
-      { requestNo: requestNo },
+      { requestNo: { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, "i") } },
       { 
         $set: { 
           isRejected: true,
-          rejectedByFirst: firstName,
-          rejectedByLast: lastName,
-          rejectionReason: reason,
+          rejectedByFirst: fName,
+          rejectedByLast: lName,
+          rejectionReason: reason || "Rejected",
           rejectedAt: new Date(),
           status: 'Rejected'
         } 
@@ -1731,20 +1735,41 @@ router.post("/api/reject-payment-request", async (req, res) => {
       return res.status(404).json({ message: "Payment Request not found" });
     }
 
-    // 2. Update JobModel charges (Set status to Rejected but keep the number to show in UI)
-    await JobModel.updateMany(
-      { "charges.payment_request_no": requestNo },
-      { 
-        $set: { 
-          "charges.$[elem].payment_request_status": "Rejected",
-          "charges.$[elem].payment_request_is_approved": false,
-          "charges.$[elem].payment_request_requested_by": ""
-        } 
-      },
-      { 
-        arrayFilters: [{ "elem.payment_request_no": requestNo }] 
+    // 2. Update JobModel charges: clear PR number, status, is_approved, and record rejection remark
+    const targetChargeIds = new Set([
+      ...(updatedRequest.chargeRef ? [String(updatedRequest.chargeRef)] : []),
+      ...((updatedRequest.chargeRefs || []).map(String))
+    ]);
+
+    const matchingJobs = await JobModel.find({
+      $or: [
+        { "charges.payment_request_no": { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, "i") } },
+        ...(updatedRequest.jobRef ? [{ _id: updatedRequest.jobRef }] : []),
+        ...(updatedRequest.jobNo ? [{ job_number: updatedRequest.jobNo }, { job_no: updatedRequest.jobNo }] : []),
+        ...(targetChargeIds.size > 0 ? [{ "charges._id": { $in: Array.from(targetChargeIds) } }] : [])
+      ]
+    });
+
+    for (const job of matchingJobs) {
+      let modified = false;
+      if (Array.isArray(job.charges)) {
+        job.charges.forEach(charge => {
+          const matchPrNo = charge.payment_request_no && charge.payment_request_no.trim().toLowerCase() === requestNo.toLowerCase();
+          const matchRef = targetChargeIds.has(String(charge._id));
+          if (matchPrNo || matchRef) {
+            charge.payment_request_no = null;
+            charge.payment_request_status = null;
+            charge.payment_request_is_approved = false;
+            charge.payment_request_requested_by = "";
+            charge.remark = (charge.remark ? charge.remark + " | " : "") + `Rejected PR: ${reason || 'No reason'}`;
+            modified = true;
+          }
+        });
       }
-    );
+      if (modified) {
+        await job.save();
+      }
+    }
 
     res.status(200).json({ 
       success: true, 
@@ -1882,19 +1907,22 @@ router.post("/api/reject-purchase-entry", async (req, res) => {
     const { requestNo: rawRequestNo, firstName, lastName, reason } = req.body;
     const requestNo = rawRequestNo?.trim();
 
-    if (!requestNo || !firstName || !lastName || !reason) {
-      return res.status(400).json({ message: "Entry No, First Name, Last Name, and Reason are required" });
+    if (!requestNo) {
+      return res.status(400).json({ message: "Entry No is required" });
     }
+
+    const fName = firstName || req.headers.username || "System";
+    const lName = lastName || "";
 
     // 1. Update PurchaseBookEntryModel
     const updatedEntry = await PurchaseBookEntryModel.findOneAndUpdate(
-      { entryNo: requestNo },
+      { entryNo: { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, "i") } },
       { 
         $set: { 
           isRejected: true,
-          rejectedByFirst: firstName,
-          rejectedByLast: lastName,
-          rejectionReason: reason,
+          rejectedByFirst: fName,
+          rejectedByLast: lName,
+          rejectionReason: reason || "Rejected",
           rejectedAt: new Date(),
           status: 'Rejected'
         } 
@@ -1906,20 +1934,41 @@ router.post("/api/reject-purchase-entry", async (req, res) => {
       return res.status(404).json({ message: "Purchase Book entry not found" });
     }
 
-    // 2. Update JobModel charges (Set status to Rejected but keep the number to show in UI)
-    await JobModel.updateMany(
-      { "charges.purchase_book_no": requestNo },
-      { 
-        $set: { 
-          "charges.$[elem].purchase_book_status": "Rejected",
-          "charges.$[elem].purchase_book_is_approved": false,
-          "charges.$[elem].purchase_book_requested_by": ""
-        } 
-      },
-      { 
-        arrayFilters: [{ "elem.purchase_book_no": requestNo }] 
+    // 2. Update JobModel charges: clear PB number, status, is_approved, and record rejection remark
+    const targetChargeIds = new Set([
+      ...(updatedEntry.chargeRef ? [String(updatedEntry.chargeRef)] : []),
+      ...((updatedEntry.chargeRefs || []).map(String))
+    ]);
+
+    const matchingJobs = await JobModel.find({
+      $or: [
+        { "charges.purchase_book_no": { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, "i") } },
+        ...(updatedEntry.jobRef ? [{ _id: updatedEntry.jobRef }] : []),
+        ...(updatedEntry.jobNo ? [{ job_number: updatedEntry.jobNo }, { job_no: updatedEntry.jobNo }] : []),
+        ...(targetChargeIds.size > 0 ? [{ "charges._id": { $in: Array.from(targetChargeIds) } }] : [])
+      ]
+    });
+
+    for (const job of matchingJobs) {
+      let modified = false;
+      if (Array.isArray(job.charges)) {
+        job.charges.forEach(charge => {
+          const matchPbNo = charge.purchase_book_no && charge.purchase_book_no.trim().toLowerCase() === requestNo.toLowerCase();
+          const matchRef = targetChargeIds.has(String(charge._id));
+          if (matchPbNo || matchRef) {
+            charge.purchase_book_no = null;
+            charge.purchase_book_status = null;
+            charge.purchase_book_is_approved = false;
+            charge.purchase_book_requested_by = "";
+            charge.remark = (charge.remark ? charge.remark + " | " : "") + `Rejected PB: ${reason || 'No reason'}`;
+            modified = true;
+          }
+        });
       }
-    );
+      if (modified) {
+        await job.save();
+      }
+    }
 
     res.status(200).json({ 
       success: true, 

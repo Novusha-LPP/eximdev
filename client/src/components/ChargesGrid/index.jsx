@@ -237,7 +237,11 @@ const ChargesGrid = ({
       const charge = charges.find(c => c._id === id);
       const role = (user?.role || "").toLowerCase();
       const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
-      const isIndividualLocked = (charge?.payment_request_no || charge?.purchase_book_no) && !isAuth;
+      const isPrRejected = String(charge?.payment_request_status || '').toLowerCase() === 'rejected';
+      const isPbRejected = String(charge?.purchase_book_status || '').toLowerCase() === 'rejected';
+      const hasActivePR = Boolean(charge?.payment_request_no && !isPrRejected);
+      const hasActivePB = Boolean(charge?.purchase_book_no && !isPbRejected);
+      const isIndividualLocked = (hasActivePR || hasActivePB) && !isAuth;
       
       if (!isIndividualLocked) {
         newSel.add(id);
@@ -248,11 +252,15 @@ const ChargesGrid = ({
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      // If not authorized, only select charges that don't have PR/PB
+      // If not authorized, only select charges that don't have active PR/PB
       const selectable = charges.filter(c => {
         const role = (user?.role || "").toLowerCase();
         const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
-        const isIndividualLocked = (c.payment_request_no || c.purchase_book_no) && !isAuth;
+        const isPrRejected = String(c?.payment_request_status || '').toLowerCase() === 'rejected';
+        const isPbRejected = String(c?.purchase_book_status || '').toLowerCase() === 'rejected';
+        const hasActivePR = Boolean(c?.payment_request_no && !isPrRejected);
+        const hasActivePB = Boolean(c?.purchase_book_no && !isPbRejected);
+        const isIndividualLocked = (hasActivePR || hasActivePB) && !isAuth;
         return !isIndividualLocked;
       });
       setSelectedIds(new Set(selectable.map(c => c._id)));

@@ -474,8 +474,10 @@ const EditChargeModal = ({
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const role = (user?.role || "").toLowerCase();
       const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
-      const hasActivePR = row.payment_request_no && row.payment_request_status !== 'Rejected';
-      const hasActivePB = row.purchase_book_no && row.purchase_book_status !== 'Rejected';
+      const isPrRejected = String(row.payment_request_status || '').toLowerCase() === 'rejected';
+      const isPbRejected = String(row.purchase_book_status || '').toLowerCase() === 'rejected';
+      const hasActivePR = Boolean(row.payment_request_no && !isPrRejected);
+      const hasActivePB = Boolean(row.purchase_book_no && !isPbRejected);
       const isIndividualLocked = (hasActivePR || hasActivePB) && !isAuth;
       const effectiveReadOnly = readOnly || isIndividualLocked;
 
@@ -921,6 +923,42 @@ const EditChargeModal = ({
     return cat;
   };
 
+  const handleReject = async (type, requestNo) => {
+    if (!requestNo) return;
+    const reason = window.prompt("Enter rejection reason:");
+    if (reason === null) return; // Cancelled
+
+    try {
+      const endpoint = type === 'PB' ? 'reject-purchase-entry' : 'reject-payment-request';
+      const userObj = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      await axios.post(`${process.env.REACT_APP_API_STRING}/${endpoint}`, {
+        requestNo,
+        reason: reason || 'Rejected by user',
+        firstName: userObj.first_name || userObj.username || 'User',
+        lastName: userObj.last_name || ''
+      });
+
+      // Update local state
+      const updated = [...formData];
+      formData.forEach((r, idx) => {
+        if (type === 'PB' && r.purchase_book_no === requestNo) {
+          updated[idx].purchase_book_no = null;
+          updated[idx].purchase_book_status = null;
+          updated[idx].purchase_book_is_approved = false;
+        } else if (type === 'PR' && r.payment_request_no === requestNo) {
+          updated[idx].payment_request_no = null;
+          updated[idx].payment_request_status = null;
+          updated[idx].payment_request_is_approved = false;
+        }
+      });
+      setFormData(updated);
+      alert(`${type} Rejected successfully`);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to reject");
+    }
+  };
+
   return createPortal(
     <div className="charges-edit-modal-overlay charges-active" onMouseDown={() => setActiveDropdown({ index: null, section: null })}>
       <div className="charges-edit-modal" ref={modalRef} onMouseDown={(e) => e.stopPropagation()}>
@@ -934,8 +972,10 @@ const EditChargeModal = ({
             const role = (user?.role || "").toLowerCase();
             const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
 
-            const hasActivePR = row.payment_request_no && row.payment_request_status !== 'Rejected';
-            const hasActivePB = row.purchase_book_no && row.purchase_book_status !== 'Rejected';
+            const isPrRejected = String(row.payment_request_status || '').toLowerCase() === 'rejected';
+            const isPbRejected = String(row.purchase_book_status || '').toLowerCase() === 'rejected';
+            const hasActivePR = Boolean(row.payment_request_no && !isPrRejected);
+            const hasActivePB = Boolean(row.purchase_book_no && !isPbRejected);
             const isIndividualLocked = (hasActivePR || hasActivePB) && !isAuth;
             const effectiveReadOnly = readOnly || isIndividualLocked;
 
@@ -1895,8 +1935,7 @@ const EditChargeModal = ({
                                 </div>
                                 <div className="charges-ep-grid" style={{ marginTop: '10px' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    {/* Conditionally show based on workMode or if already exists */}
-                                    {(!row.purchase_book_no || row.purchase_book_status === 'Rejected') && (
+                                    {(!row.purchase_book_no || String(row.purchase_book_status || '').toLowerCase() === 'rejected') ? (
                                       <button
                                         type="button"
                                         className="charges-upload-btn"
@@ -2014,8 +2053,24 @@ const EditChargeModal = ({
                                       >
                                         Purchase book
                                       </button>
-                                    )}
-                                    {(!row.payment_request_no || row.payment_request_status === 'Rejected') && (
+                                    ) : row.purchase_book_no ? (
+                                      <button
+                                        type="button"
+                                        className="charges-upload-btn"
+                                        style={{
+                                          marginRight: '10px',
+                                          backgroundColor: '#fff',
+                                          color: '#d32f2f',
+                                          borderColor: '#d32f2f',
+                                          fontSize: '11px',
+                                          padding: '4px 8px'
+                                        }}
+                                        onClick={() => handleReject('PB', row.purchase_book_no)}
+                                      >
+                                        Reject PB
+                                      </button>
+                                    ) : null}
+                                    {(!row.payment_request_no || String(row.payment_request_status || '').toLowerCase() === 'rejected') ? (
                                       <button
                                         type="button"
                                         className="charges-upload-btn"
@@ -2073,7 +2128,22 @@ const EditChargeModal = ({
                                       >
                                         Request Payment
                                       </button>
-                                    )}
+                                    ) : row.payment_request_no ? (
+                                      <button
+                                        type="button"
+                                        className="charges-upload-btn"
+                                        style={{
+                                          backgroundColor: '#fff',
+                                          color: '#d32f2f',
+                                          borderColor: '#d32f2f',
+                                          fontSize: '11px',
+                                          padding: '4px 8px'
+                                        }}
+                                        onClick={() => handleReject('PR', row.payment_request_no)}
+                                      >
+                                        Reject PR
+                                      </button>
+                                    ) : null}
                                   </div>
                                 </div>
                               </div>

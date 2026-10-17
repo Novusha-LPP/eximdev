@@ -4,6 +4,10 @@ import ChargeHeadModel from '../../model/ChargeHead.mjs';
 import verifyToken from '../../middleware/authMiddleware.mjs';
 import { findChanges, logAuditTrail } from '../../services/auditTrailService.mjs';
 import AuditTrailModel from '../../model/auditTrailModel.mjs';
+import PurchaseBookEntryModel from '../../model/purchaseBookEntryModel.mjs';
+import PaymentRequestModel from '../../model/paymentRequestModel.mjs';
+
+const escapeRegex = (str) => (str ? String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : "");
 
 const router = express.Router();
 
@@ -124,6 +128,118 @@ router.get('/charges', async (req, res) => {
     }
     const job = await JobModel.findById(parentId).populate('charges.createdBy', 'first_name last_name');
     if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+
+    // Auto-reconcile charges with rejected PB / PR entries
+    let jobModified = false;
+    if (Array.isArray(job.charges) && job.charges.length > 0) {
+      const pbNos = [...new Set(job.charges.map(c => c.purchase_book_no).filter(Boolean))];
+      const prNos = [...new Set(job.charges.map(c => c.payment_request_no).filter(Boolean))];
+      const chargeIds = job.charges.map(c => String(c._id));
+
+      let rejectedPbs = new Set();
+      let rejectedPbChargeIds = new Set();
+
+      if (pbNos.length > 0) {
+        const pbRegexes = pbNos.map(no => {
+          const clean = escapeRegex(no.replace(/\/\d{2}-\d{2}$/, ''));
+          return new RegExp(`^${clean}`, 'i');
+        });
+        const pbs = await PurchaseBookEntryModel.find({
+          $and: [
+            {
+              $or: [
+                { entryNo: { $in: pbNos } },
+                { entryNo: { $in: pbRegexes } },
+                { chargeRef: { $in: chargeIds } },
+                { chargeRefs: { $in: chargeIds } }
+              ]
+            },
+            {
+              $or: [{ status: { $regex: /^rejected$/i } }, { isRejected: true }]
+            }
+          ]
+        }).select('entryNo chargeRef chargeRefs').lean();
+
+        pbs.forEach(p => {
+          if (p.entryNo) {
+            rejectedPbs.add(p.entryNo.toLowerCase());
+            rejectedPbs.add(p.entryNo.replace(/\/\d{2}-\d{2}$/, '').toLowerCase());
+          }
+          if (p.chargeRef) {
+            String(p.chargeRef).split(',').forEach(id => rejectedPbChargeIds.add(id.trim()));
+          }
+          if (Array.isArray(p.chargeRefs)) {
+            p.chargeRefs.forEach(id => rejectedPbChargeIds.add(String(id).trim()));
+          }
+        });
+      }
+
+      let rejectedPrs = new Set();
+      let rejectedPrChargeIds = new Set();
+
+      if (prNos.length > 0) {
+        const prRegexes = prNos.map(no => {
+          const clean = escapeRegex(no.replace(/\/\d{2}-\d{2}$/, ''));
+          return new RegExp(`^${clean}`, 'i');
+        });
+        const prs = await PaymentRequestModel.find({
+          $and: [
+            {
+              $or: [
+                { requestNo: { $in: prNos } },
+                { requestNo: { $in: prRegexes } },
+                { chargeRef: { $in: chargeIds } },
+                { chargeRefs: { $in: chargeIds } }
+              ]
+            },
+            {
+              $or: [{ status: { $regex: /^rejected$/i } }, { isRejected: true }]
+            }
+          ]
+        }).select('requestNo chargeRef chargeRefs').lean();
+
+        prs.forEach(p => {
+          if (p.requestNo) {
+            rejectedPrs.add(p.requestNo.toLowerCase());
+            rejectedPrs.add(p.requestNo.replace(/\/\d{2}-\d{2}$/, '').toLowerCase());
+          }
+          if (p.chargeRef) {
+            String(p.chargeRef).split(',').forEach(id => rejectedPrChargeIds.add(id.trim()));
+          }
+          if (Array.isArray(p.chargeRefs)) {
+            p.chargeRefs.forEach(id => rejectedPrChargeIds.add(String(id).trim()));
+          }
+        });
+      }
+
+      job.charges.forEach(charge => {
+        const cPb = (charge.purchase_book_no || '').trim().toLowerCase();
+        const cleanCPb = cPb.replace(/\/\d{2}-\d{2}$/, '');
+        const isChargePbRejected = String(charge.purchase_book_status || '').toLowerCase() === 'rejected';
+
+        if (cPb && (isChargePbRejected || rejectedPbs.has(cPb) || rejectedPbs.has(cleanCPb) || rejectedPbChargeIds.has(String(charge._id)))) {
+          charge.purchase_book_no = null;
+          charge.purchase_book_status = null;
+          charge.purchase_book_is_approved = false;
+          jobModified = true;
+        }
+
+        const cPr = (charge.payment_request_no || '').trim().toLowerCase();
+        const cleanCPr = cPr.replace(/\/\d{2}-\d{2}$/, '');
+        const isChargePrRejected = String(charge.payment_request_status || '').toLowerCase() === 'rejected';
+
+        if (cPr && (isChargePrRejected || rejectedPrs.has(cPr) || rejectedPrs.has(cleanCPr) || rejectedPrChargeIds.has(String(charge._id)))) {
+          charge.payment_request_no = null;
+          charge.payment_request_status = null;
+          charge.payment_request_is_approved = false;
+          jobModified = true;
+        }
+      });
+
+      if (jobModified) {
+        await job.save();
+      }
+    }
     
     res.json({ success: true, data: job.charges || [] });
   } catch (error) {
@@ -186,9 +302,63 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
     const isAuthorized = role === 'admin' || role === 'head_of_department' || role === 'hod';
 
     // If locked and not authorized, we only allow updates to NON-COST fields
-    // A charge is locked if it has a PB or PR number that is NOT rejected.
-    const hasActivePR = charge.payment_request_no && charge.payment_request_status !== 'Rejected';
-    const hasActivePB = charge.purchase_book_no && charge.purchase_book_status !== 'Rejected';
+    // A charge is locked if it has an ACTIVE (non-rejected) PB or PR number.
+    let isPrRejected = String(charge.payment_request_status || '').toLowerCase() === 'rejected' ||
+                       String(req.body.payment_request_status || '').toLowerCase() === 'rejected';
+    let isPbRejected = String(charge.purchase_book_status || '').toLowerCase() === 'rejected' ||
+                       String(req.body.purchase_book_status || '').toLowerCase() === 'rejected';
+
+    // Verify against DB in case charge document was not synced
+    if (!isPbRejected && charge.purchase_book_no) {
+      const cleanPb = charge.purchase_book_no.replace(/\/\d{2}-\d{2}$/, '');
+      const pbEntry = await PurchaseBookEntryModel.findOne({
+        $and: [
+          {
+            $or: [
+              { entryNo: charge.purchase_book_no },
+              { entryNo: { $regex: new RegExp(`^${escapeRegex(cleanPb)}`, 'i') } },
+              { chargeRef: { $regex: new RegExp(escapeRegex(String(charge._id)), 'i') } },
+              { chargeRefs: String(charge._id) }
+            ]
+          },
+          { $or: [{ status: { $regex: /^rejected$/i } }, { isRejected: true }] }
+        ]
+      }).select('_id').lean();
+
+      if (pbEntry) {
+        isPbRejected = true;
+        charge.purchase_book_no = null;
+        charge.purchase_book_status = null;
+        charge.purchase_book_is_approved = false;
+      }
+    }
+
+    if (!isPrRejected && charge.payment_request_no) {
+      const cleanPr = charge.payment_request_no.replace(/\/\d{2}-\d{2}$/, '');
+      const prEntry = await PaymentRequestModel.findOne({
+        $and: [
+          {
+            $or: [
+              { requestNo: charge.payment_request_no },
+              { requestNo: { $regex: new RegExp(`^${escapeRegex(cleanPr)}`, 'i') } },
+              { chargeRef: { $regex: new RegExp(escapeRegex(String(charge._id)), 'i') } },
+              { chargeRefs: String(charge._id) }
+            ]
+          },
+          { $or: [{ status: { $regex: /^rejected$/i } }, { isRejected: true }] }
+        ]
+      }).select('_id').lean();
+
+      if (prEntry) {
+        isPrRejected = true;
+        charge.payment_request_no = null;
+        charge.payment_request_status = null;
+        charge.payment_request_is_approved = false;
+      }
+    }
+
+    const hasActivePR = Boolean(charge.payment_request_no && !isPrRejected);
+    const hasActivePB = Boolean(charge.purchase_book_no && !isPbRejected);
     const isLocked = (hasActivePR || hasActivePB) && !isAuthorized;
     
     // Assign fields
@@ -273,8 +443,10 @@ router.delete('/charges/:id', verifyToken, async (req, res) => {
     const charge = job.charges.id(req.params.id);
 
     // Check if locked (exclude rejected)
-    const hasActivePR = charge.payment_request_no && charge.payment_request_status !== 'Rejected';
-    const hasActivePB = charge.purchase_book_no && charge.purchase_book_status !== 'Rejected';
+    const isPrRejected = String(charge.payment_request_status || '').toLowerCase() === 'rejected';
+    const isPbRejected = String(charge.purchase_book_status || '').toLowerCase() === 'rejected';
+    const hasActivePR = Boolean(charge.payment_request_no && !isPrRejected);
+    const hasActivePB = Boolean(charge.purchase_book_no && !isPbRejected);
     const isLocked = hasActivePR || hasActivePB;
     const role = (req.user?.role || "").toLowerCase();
     const isAuthorized = role === 'admin' || role === 'head_of_department' || role === 'hod';
@@ -303,6 +475,138 @@ router.get('/charges/audit-trail/:id', verifyToken, async (req, res) => {
     }
     const logs = await AuditTrailModel.find({ documentId: req.params.id, documentType: "Charge" }).sort({ timestamp: -1 });
     res.json({ success: true, data: logs });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/reject-purchase-entry', async (req, res) => {
+  try {
+    const { requestNo: rawRequestNo, reason } = req.body;
+    const requestNo = rawRequestNo?.trim();
+    if (!requestNo) return res.status(400).json({ success: false, message: 'Request No is required' });
+
+    const cleanReq = requestNo.replace(/\/\d{2}-\d{2}$/, '');
+    const pbEntry = await PurchaseBookEntryModel.findOneAndUpdate(
+      {
+        $or: [
+          { entryNo: { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, 'i') } },
+          { entryNo: { $regex: new RegExp(`^${escapeRegex(cleanReq)}`, 'i') } }
+        ]
+      },
+      {
+        $set: {
+          isRejected: true,
+          status: 'Rejected',
+          rejectionReason: reason || 'Rejected',
+          rejectedAt: new Date()
+        }
+      },
+      { new: true }
+    );
+
+    const rawRefs = [
+      ...(pbEntry?.chargeRef ? String(pbEntry.chargeRef).split(',') : []),
+      ...((pbEntry?.chargeRefs || []).map(String))
+    ].map(s => s.trim()).filter(Boolean);
+    const targetChargeIds = new Set(rawRefs);
+
+    const jobs = await JobModel.find({
+      $or: [
+        { "charges.purchase_book_no": { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, 'i') } },
+        { "charges.purchase_book_no": { $regex: new RegExp(`^${escapeRegex(cleanReq)}`, 'i') } },
+        ...(pbEntry?.jobRef ? [{ _id: pbEntry.jobRef }] : []),
+        ...(pbEntry?.jobNo ? [{ job_number: pbEntry.jobNo }, { job_no: pbEntry.jobNo }] : []),
+        ...(targetChargeIds.size > 0 ? [{ "charges._id": { $in: Array.from(targetChargeIds) } }] : [])
+      ]
+    });
+
+    for (const job of jobs) {
+      let modified = false;
+      job.charges.forEach(charge => {
+        const chargePb = (charge.purchase_book_no || '').trim().toLowerCase();
+        const cleanChargePb = chargePb.replace(/\/\d{2}-\d{2}$/, '');
+        const matchPb = chargePb && (chargePb === requestNo.toLowerCase() || cleanChargePb === cleanReq.toLowerCase());
+        const matchRef = targetChargeIds.has(String(charge._id));
+        if (matchPb || matchRef) {
+          charge.purchase_book_no = null;
+          charge.purchase_book_status = null;
+          charge.purchase_book_is_approved = false;
+          charge.purchase_book_requested_by = "";
+          charge.remark = (charge.remark ? charge.remark + " | " : "") + `Rejected PB: ${reason || 'No reason'}`;
+          modified = true;
+        }
+      });
+      if (modified) await job.save();
+    }
+
+    res.json({ success: true, message: 'PB Rejected successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/reject-payment-request', async (req, res) => {
+  try {
+    const { requestNo: rawRequestNo, reason } = req.body;
+    const requestNo = rawRequestNo?.trim();
+    if (!requestNo) return res.status(400).json({ success: false, message: 'Request No is required' });
+
+    const cleanReq = requestNo.replace(/\/\d{2}-\d{2}$/, '');
+    const prEntry = await PaymentRequestModel.findOneAndUpdate(
+      {
+        $or: [
+          { requestNo: { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, 'i') } },
+          { requestNo: { $regex: new RegExp(`^${escapeRegex(cleanReq)}`, 'i') } }
+        ]
+      },
+      {
+        $set: {
+          isRejected: true,
+          status: 'Rejected',
+          rejectionReason: reason || 'Rejected',
+          rejectedAt: new Date()
+        }
+      },
+      { new: true }
+    );
+
+    const rawRefs = [
+      ...(prEntry?.chargeRef ? String(prEntry.chargeRef).split(',') : []),
+      ...((prEntry?.chargeRefs || []).map(String))
+    ].map(s => s.trim()).filter(Boolean);
+    const targetChargeIds = new Set(rawRefs);
+
+    const jobs = await JobModel.find({
+      $or: [
+        { "charges.payment_request_no": { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, 'i') } },
+        { "charges.payment_request_no": { $regex: new RegExp(`^${escapeRegex(cleanReq)}`, 'i') } },
+        ...(prEntry?.jobRef ? [{ _id: prEntry.jobRef }] : []),
+        ...(prEntry?.jobNo ? [{ job_number: prEntry.jobNo }, { job_no: prEntry.jobNo }] : []),
+        ...(targetChargeIds.size > 0 ? [{ "charges._id": { $in: Array.from(targetChargeIds) } }] : [])
+      ]
+    });
+
+    for (const job of jobs) {
+      let modified = false;
+      job.charges.forEach(charge => {
+        const chargePr = (charge.payment_request_no || '').trim().toLowerCase();
+        const cleanChargePr = chargePr.replace(/\/\d{2}-\d{2}$/, '');
+        const matchPr = chargePr && (chargePr === requestNo.toLowerCase() || cleanChargePr === cleanReq.toLowerCase());
+        const matchRef = targetChargeIds.has(String(charge._id));
+        if (matchPr || matchRef) {
+          charge.payment_request_no = null;
+          charge.payment_request_status = null;
+          charge.payment_request_is_approved = false;
+          charge.payment_request_requested_by = "";
+          charge.remark = (charge.remark ? charge.remark + " | " : "") + `Rejected PR: ${reason || 'No reason'}`;
+          modified = true;
+        }
+      });
+      if (modified) await job.save();
+    }
+
+    res.json({ success: true, message: 'PR Rejected successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

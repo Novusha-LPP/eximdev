@@ -257,8 +257,10 @@ const ChargesTable = ({
             const role = (user?.role || "").toLowerCase();
             const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
             
-            const hasPR = ch.payment_request_no && String(ch.payment_request_no).trim().length > 0;
-            const hasPB = ch.purchase_book_no && String(ch.purchase_book_no).trim().length > 0;
+            const isPrRejected = String(ch.payment_request_status || '').toLowerCase() === 'rejected';
+            const isPbRejected = String(ch.purchase_book_status || '').toLowerCase() === 'rejected';
+            const hasPR = Boolean(ch.payment_request_no && String(ch.payment_request_no).trim().length > 0 && !isPrRejected);
+            const hasPB = Boolean(ch.purchase_book_no && String(ch.purchase_book_no).trim().length > 0 && !isPbRejected);
             const isIndividualLocked = (hasPR || hasPB) && !isAuth;
             const attachmentUrls = [...new Set([
               ...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []),

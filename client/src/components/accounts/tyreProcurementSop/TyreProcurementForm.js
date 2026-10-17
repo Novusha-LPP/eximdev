@@ -73,6 +73,58 @@ const STAGE_TABS = [
   { label: "6. Site GRN", stage: 6, component: Stage6Grn },
 ];
 
+const parseCreditDays = (terms) => {
+  if (!terms) return 0;
+  const str = String(terms).toUpperCase().trim();
+  if (str.includes("ADVANCE") || str.includes("ADV")) return 0;
+  const match = str.match(/(\d+)\s*(DAY|DAYS)?/);
+  return match && match[1] ? parseInt(match[1], 10) : 0;
+};
+
+const getPrCreditInfo = (doc) => {
+  if (!doc) return { isCredit: false, maxCreditDays: 0, isPaid: false };
+  const s2 = doc.stage2 || {};
+  const s4 = doc.stage4 || {};
+  const selectedSuppliers = s2.selectedSuppliers || [];
+  const suppliers = s2.suppliers || [];
+  const supplierPayments = s4.supplierPayments || [];
+
+  let creditDaysList = [];
+  if (selectedSuppliers.length > 0) {
+    selectedSuppliers.forEach((sel) => {
+      const selName = (sel.selectedSupplier || "").toUpperCase().trim();
+      const matchSup = suppliers.find(
+        (s) => (s.supplierName || "").toUpperCase().trim() === selName || String(s._id) === String(sel.selectedSupplier)
+      );
+      const terms = matchSup?.paymentTerms || sel.paymentTerms;
+      creditDaysList.push(parseCreditDays(terms));
+    });
+  } else if (suppliers.length > 0) {
+    suppliers.forEach((s) => {
+      if (s.supplierName) {
+        creditDaysList.push(parseCreditDays(s.paymentTerms));
+      }
+    });
+  } else if (supplierPayments.length > 0) {
+    supplierPayments.forEach((sp) => {
+      creditDaysList.push(parseCreditDays(sp.paymentTerms));
+    });
+  }
+
+  const maxCreditDays = creditDaysList.length > 0 ? Math.max(...creditDaysList) : 0;
+  const isCredit = maxCreditDays > 0;
+
+  const isPaid =
+    supplierPayments.length > 0
+      ? supplierPayments.every((sp) => Boolean(sp.isPaid && sp.utrNumber?.trim()))
+      : Boolean(
+          (s4.paymentDetails?.paymentReferenceUtr?.trim() || s4.paymentDetails?.paymentDate) &&
+          doc.status !== "Finance Approved"
+        );
+
+  return { isCredit, maxCreditDays, isPaid };
+};
+
 const getCompletedStages = (data) => {
   const isDone = (item) => Boolean(item && (item.checked || item.status === "Done" || item.status === "DONE" || item.date));
   const approvals = data.stage6?.approvals || [];
@@ -156,6 +208,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
   }, [visibleStageTabs, activeStage]);
 
   const getActiveTabForStatus = (status, doc) => {
+    const ci = doc?.creditInfo || getPrCreditInfo(doc);
     switch (status) {
       case "Draft":
         return 0; // Stage 1: Purchase Request
@@ -167,7 +220,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
       case "Quotation Updated":
         return 2; // Stage 3: Finance Approval
       case "Finance Approved":
-        if (doc?.creditInfo?.isCredit) {
+        if (ci?.isCredit) {
           return 5; // Bypass upfront Payment & UTR for Credit suppliers; move directly to Stage 6: Site GRN
         }
         return 3; // Stage 4: Payment & UTR
@@ -182,6 +235,9 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
       case "GRN Done":
       case "GRN Completed":
       case "Closed":
+        if (ci?.isCredit && !ci?.isPaid) {
+          return 3; // Stage 4: Payment & UTR
+        }
         return 5; // Stage 6: Site GRN
       default:
         return 0;
@@ -283,8 +339,19 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
 
   const completedStages = useMemo(() => getCompletedStages(formData), [formData]);
 
-  const isSiteGrnLocked = persistedCompletedStages[6] || ["GRN Done", "GRN Completed", "Closed"].includes(persistedStatus);
-  const isStageLocked = (stage) => !canOverrideSignOffLock && (isSiteGrnLocked || persistedCompletedStages[stage]);
+  const creditInfo = formData?.creditInfo || getPrCreditInfo(formData);
+  const isCreditPr = Boolean(creditInfo?.isCredit);
+
+  const isSiteGrnLocked =
+    !isCreditPr &&
+    (persistedCompletedStages[6] || ["GRN Done", "GRN Completed", "Closed"].includes(persistedStatus));
+
+  const isStageLocked = (stage) => {
+    if (canOverrideSignOffLock) return false;
+    if (isSiteGrnLocked) return true;
+    if (isCreditPr && (stage === 4 || stage === 6)) return false;
+    return Boolean(persistedCompletedStages[stage]);
+  };
 
   const handleSave = async () => {
     let prNum = formData.prNumber?.trim();

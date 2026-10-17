@@ -1179,7 +1179,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                   getDisplayRows(data).map((row) => {
                     const rowCreditInfo = row.creditInfo || getPrCreditInfo(row);
                     const chipStyle = getStatusChipProps(row.status, row);
-                    const editLocked = isCompletedSiteGrn(row) && !canOverrideSignOffLock;
+                    const editLocked = isCompletedSiteGrn(row) && !canOverrideSignOffLock && !rowCreditInfo.isCredit;
                     return (
                       <TableRow
                         key={row._displayKey}

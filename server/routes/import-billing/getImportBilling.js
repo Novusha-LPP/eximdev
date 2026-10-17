@@ -1428,12 +1428,23 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
       return res.status(400).json({ message: "Payment Request Number is required" });
     }
 
-    let request = await PaymentRequestModel.findOne({ requestNo }).lean();
+    const cleanNo = requestNo.replace(/\/\d{2}-\d{2}$/, "");
+    let request = await PaymentRequestModel.findOne({
+      $or: [
+        { requestNo: requestNo },
+        { requestNo: { $regex: new RegExp(`^${escapeRegex(cleanNo)}`, "i") } }
+      ]
+    }).lean();
     let isPurchaseBook = false;
 
     if (!request) {
       // If not found in payment, check purchase book entries
-      const purchaseEntry = await PurchaseBookEntryModel.findOne({ entryNo: requestNo }).lean();
+      const purchaseEntry = await PurchaseBookEntryModel.findOne({
+        $or: [
+          { entryNo: requestNo },
+          { entryNo: { $regex: new RegExp(`^${escapeRegex(cleanNo)}`, "i") } }
+        ]
+      }).lean();
       if (purchaseEntry) {
         isPurchaseBook = true;
         // Map purchase book entry to a structure the frontend modal can render
@@ -1715,9 +1726,15 @@ router.post("/api/reject-payment-request", async (req, res) => {
     const fName = firstName || req.headers.username || "System";
     const lName = lastName || "";
 
+    const cleanReq = requestNo.replace(/\/\d{2}-\d{2}$/, '');
     // 1. Update PaymentRequestModel
     const updatedRequest = await PaymentRequestModel.findOneAndUpdate(
-      { requestNo: { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, "i") } },
+      {
+        $or: [
+          { requestNo: { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, "i") } },
+          { requestNo: { $regex: new RegExp(`^${escapeRegex(cleanReq)}`, "i") } }
+        ]
+      },
       { 
         $set: { 
           isRejected: true,
@@ -1736,14 +1753,16 @@ router.post("/api/reject-payment-request", async (req, res) => {
     }
 
     // 2. Update JobModel charges: clear PR number, status, is_approved, and record rejection remark
-    const targetChargeIds = new Set([
-      ...(updatedRequest.chargeRef ? [String(updatedRequest.chargeRef)] : []),
+    const rawRefs = [
+      ...(updatedRequest.chargeRef ? String(updatedRequest.chargeRef).split(',') : []),
       ...((updatedRequest.chargeRefs || []).map(String))
-    ]);
+    ].map(s => s.trim()).filter(Boolean);
+    const targetChargeIds = new Set(rawRefs);
 
     const matchingJobs = await JobModel.find({
       $or: [
         { "charges.payment_request_no": { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, "i") } },
+        { "charges.payment_request_no": { $regex: new RegExp(`^${escapeRegex(cleanReq)}`, "i") } },
         ...(updatedRequest.jobRef ? [{ _id: updatedRequest.jobRef }] : []),
         ...(updatedRequest.jobNo ? [{ job_number: updatedRequest.jobNo }, { job_no: updatedRequest.jobNo }] : []),
         ...(targetChargeIds.size > 0 ? [{ "charges._id": { $in: Array.from(targetChargeIds) } }] : [])
@@ -1754,7 +1773,9 @@ router.post("/api/reject-payment-request", async (req, res) => {
       let modified = false;
       if (Array.isArray(job.charges)) {
         job.charges.forEach(charge => {
-          const matchPrNo = charge.payment_request_no && charge.payment_request_no.trim().toLowerCase() === requestNo.toLowerCase();
+          const chargePr = (charge.payment_request_no || '').trim().toLowerCase();
+          const cleanChargePr = chargePr.replace(/\/\d{2}-\d{2}$/, '');
+          const matchPrNo = chargePr && (chargePr === requestNo.toLowerCase() || cleanChargePr === cleanReq.toLowerCase());
           const matchRef = targetChargeIds.has(String(charge._id));
           if (matchPrNo || matchRef) {
             charge.payment_request_no = null;
@@ -1914,9 +1935,15 @@ router.post("/api/reject-purchase-entry", async (req, res) => {
     const fName = firstName || req.headers.username || "System";
     const lName = lastName || "";
 
+    const cleanReq = requestNo.replace(/\/\d{2}-\d{2}$/, '');
     // 1. Update PurchaseBookEntryModel
     const updatedEntry = await PurchaseBookEntryModel.findOneAndUpdate(
-      { entryNo: { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, "i") } },
+      {
+        $or: [
+          { entryNo: { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, "i") } },
+          { entryNo: { $regex: new RegExp(`^${escapeRegex(cleanReq)}`, "i") } }
+        ]
+      },
       { 
         $set: { 
           isRejected: true,
@@ -1935,14 +1962,16 @@ router.post("/api/reject-purchase-entry", async (req, res) => {
     }
 
     // 2. Update JobModel charges: clear PB number, status, is_approved, and record rejection remark
-    const targetChargeIds = new Set([
-      ...(updatedEntry.chargeRef ? [String(updatedEntry.chargeRef)] : []),
+    const rawRefs = [
+      ...(updatedEntry.chargeRef ? String(updatedEntry.chargeRef).split(',') : []),
       ...((updatedEntry.chargeRefs || []).map(String))
-    ]);
+    ].map(s => s.trim()).filter(Boolean);
+    const targetChargeIds = new Set(rawRefs);
 
     const matchingJobs = await JobModel.find({
       $or: [
         { "charges.purchase_book_no": { $regex: new RegExp(`^${escapeRegex(requestNo)}$`, "i") } },
+        { "charges.purchase_book_no": { $regex: new RegExp(`^${escapeRegex(cleanReq)}`, "i") } },
         ...(updatedEntry.jobRef ? [{ _id: updatedEntry.jobRef }] : []),
         ...(updatedEntry.jobNo ? [{ job_number: updatedEntry.jobNo }, { job_no: updatedEntry.jobNo }] : []),
         ...(targetChargeIds.size > 0 ? [{ "charges._id": { $in: Array.from(targetChargeIds) } }] : [])
@@ -1953,7 +1982,9 @@ router.post("/api/reject-purchase-entry", async (req, res) => {
       let modified = false;
       if (Array.isArray(job.charges)) {
         job.charges.forEach(charge => {
-          const matchPbNo = charge.purchase_book_no && charge.purchase_book_no.trim().toLowerCase() === requestNo.toLowerCase();
+          const chargePb = (charge.purchase_book_no || '').trim().toLowerCase();
+          const cleanChargePb = chargePb.replace(/\/\d{2}-\d{2}$/, '');
+          const matchPbNo = chargePb && (chargePb === requestNo.toLowerCase() || cleanChargePb === cleanReq.toLowerCase());
           const matchRef = targetChargeIds.has(String(charge._id));
           if (matchPbNo || matchRef) {
             charge.purchase_book_no = null;

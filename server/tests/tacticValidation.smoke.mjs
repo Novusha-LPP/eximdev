@@ -35,22 +35,22 @@ async function runTests() {
   assert(t29, 'T29 must exist');
   assert(partner, 'Partner must exist');
 
-  console.log('\n--- Test 1: Rule R1 (Creation requires at least 1 tactic) ---');
+  console.log('\n--- Test 1: Rule R1 (Creation allows empty tactics - optional) ---');
   const emptyCheck = await validateDealCreation({ tactic_ids: [] });
-  assert.strictEqual(emptyCheck.valid, false, 'Empty tactics must fail');
-  console.log('✓ Empty tactics properly rejected:', emptyCheck.message);
+  assert.strictEqual(emptyCheck.valid, true, 'Empty tactics must pass (optional)');
+  console.log('✓ Empty tactics properly allowed (optional).');
 
   const validCreate = await validateDealCreation({ tactic_ids: [t01._id] });
   assert.strictEqual(validCreate.valid, true, 'Valid tactic must pass');
   console.log('✓ Valid tactic passed.');
 
-  console.log('\n--- Test 2: Rule R5 (T29 requires partner source) ---');
+  console.log('\n--- Test 2: Rule R5 (Partner source validation if provided) ---');
   const t29WithoutPartner = await validateDealCreation({ tactic_ids: [t29._id], partner_source_id: null });
-  assert.strictEqual(t29WithoutPartner.valid, false, 'T29 without partner must fail');
-  console.log('✓ T29 without partner properly rejected:', t29WithoutPartner.message);
+  assert.strictEqual(t29WithoutPartner.valid, true, 'T29 without partner passes (optional)');
+  console.log('✓ T29 without partner properly allowed (optional).');
 
   const t29WithPartner = await validateDealCreation({ tactic_ids: [t29._id], partner_source_id: partner._id });
-  assert.strictEqual(t29WithPartner.valid, true, 'T29 with partner must pass');
+  assert.strictEqual(t29WithPartner.valid, true, 'T29 with valid partner passes');
   console.log('✓ T29 with partner passed.');
 
   console.log('\n--- Test 3: Rule R2 (Immutability & Idempotent attach) ---');
@@ -82,29 +82,21 @@ async function runTests() {
   assert.strictEqual(totalAttached, 1, 'Duplicate tactic must not create a duplicate row');
   console.log('✓ Idempotency verified: exactly 1 DealTactic document exists.');
 
-  console.log('\n--- Test 4: Rule R3 & R4 (Close Won/Lost requires results & notes) ---');
+  console.log('\n--- Test 4: Rule R3 & R4 (Close Won/Lost with optional results & notes) ---');
   const closeWithoutResults = await validateDealCloseTransition({
     dealId: testDeal._id,
     targetStage: 'won',
     tacticResults: []
   });
-  assert.strictEqual(closeWithoutResults.valid, false, 'Closing without results must fail');
-  console.log('✓ Closing without outcome properly rejected:', closeWithoutResults.message);
-
-  const closeWithPartial = await validateDealCloseTransition({
-    dealId: testDeal._id,
-    targetStage: 'won',
-    tacticResults: [{ tactic_id: t01._id, result: 'worked', result_note: '' }]
-  });
-  assert.strictEqual(closeWithPartial.valid, false, 'Missing result note must fail');
-  console.log('✓ Closing without result note properly rejected.');
+  assert.strictEqual(closeWithoutResults.valid, true, 'Closing without results is allowed (optional)');
+  console.log('✓ Closing without outcome properly allowed (optional).');
 
   const closeComplete = await validateDealCloseTransition({
     dealId: testDeal._id,
     targetStage: 'won',
     tacticResults: [{ tactic_id: t01._id, result: 'worked', result_note: 'Client responded well to simple upfront pricing.' }]
   });
-  assert.strictEqual(closeComplete.valid, true, 'Complete result & note must pass');
+  assert.strictEqual(closeComplete.valid, true, 'Complete result & note passes');
   console.log('✓ Closing with complete result & note passed.');
 
   // Clean up test deal and its tactics

@@ -96,9 +96,18 @@ function areStagesEqual(existingStage, payloadStage) {
 function assertTyreSignOffLocks(existing, payload, user) {
   if (canOverrideSignOffLock(user)) return null;
   const locked = completedTyreStages(existing);
-  if (locked.stage6Done || ["GRN Done", "GRN Completed", "Closed"].includes(existing.status)) {
-    return "This Site GRN is completed and can only be edited by an admin or Ajay Kumavat.";
+  const existingCredit = getPrCreditInfo(existing?.toObject ? existing.toObject() : existing);
+  const payloadCredit = getPrCreditInfo(payload);
+  const isCredit = Boolean(existingCredit?.isCredit || payloadCredit?.isCredit);
+
+  // Credit PRs complete Site GRN before UTR is entered.
+  // Never hard-block credit PRs with the Site GRN completed lock so users can enter UTR and edit the PR.
+  if (!isCredit) {
+    if (locked.stage6Done || ["GRN Done", "GRN Completed", "Closed"].includes(existing.status)) {
+      return "This Site GRN is completed and can only be edited by an admin or Ajay Kumavat.";
+    }
   }
+
   for (const stage of [1, 2, 3, 5]) {
     const existingStage = existing[`stage${stage}`];
     const payloadStage = payload[`stage${stage}`];

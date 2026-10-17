@@ -93,6 +93,7 @@ export const itHelpdeskAPI = {
     quickAssign: (id, payload) => api.put(`/it-helpdesk/unified-assets/${id}/quick-assign`, payload).then((r) => r.data),
     quickReturn: (id, payload) => api.put(`/it-helpdesk/unified-assets/${id}/quick-return`, payload).then((r) => r.data),
     quickStatus: (id, payload) => api.put(`/it-helpdesk/unified-assets/${id}/quick-status`, payload).then((r) => r.data),
+    updateWorkflow: (id, payload) => api.put(`/it-helpdesk/unified-assets/${id}/workflow`, payload).then((r) => r.data),
     remove: (id) => api.delete(`/it-helpdesk/unified-assets/${id}`).then((r) => r.data),
     exportExcel: (params = {}) => api.get("/it-helpdesk/unified-assets/export/excel", { params, responseType: "blob" }),
     cloneFromLegacy: () => api.post("/it-helpdesk/unified-assets/clone-from-legacy").then((r) => r.data),

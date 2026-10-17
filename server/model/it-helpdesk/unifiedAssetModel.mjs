@@ -213,6 +213,16 @@ const unifiedAssetSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    payment_mode: {
+      type: String,
+      trim: true,
+      default: "UPI",
+    },
+    invoice_url: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     warranty_start_date: {
       type: Date,
       default: null,
@@ -223,13 +233,94 @@ const unifiedAssetSchema = new mongoose.Schema(
       index: true,
     },
 
-    // ─── Approval Stage ────────────────────────────────────
+    // ─── Multi-Tier Invoice Verification & Approval Workflow ──
     approval_stage: {
       type: String,
-      enum: ["Draft", "Pending Approval", "Completed", "Rejected"],
+      enum: [
+        "First Admin Approval",
+        "Second Admin Approval",
+        "IT Correction",
+        "Completed",
+        "Rejected",
+        "N/A",
+      ],
       default: "Completed",
       index: true,
     },
+    approval_status: {
+      type: String,
+      default: "N/A - Existing Inventory",
+      index: true,
+    },
+    assigned_first_approver: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    first_approver_username: {
+      type: String,
+      trim: true,
+      default: "shalini_arun",
+    },
+    first_approver_name: {
+      type: String,
+      trim: true,
+      default: "Shalini Arun",
+    },
+    approval_cycle: {
+      type: Number,
+      default: 1,
+    },
+    completed_at: {
+      type: Date,
+      default: null,
+    },
+    rejection_remarks: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    rejected_by: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    rejected_by_name: {
+      type: String,
+      default: "",
+    },
+    rejected_by_role: {
+      type: String,
+      default: "",
+    },
+    rejected_at: {
+      type: Date,
+      default: null,
+    },
+    admin_verifications: [
+      {
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        username: String,
+        name: String,
+        role: String,
+        action: { type: String, default: "First Admin Verified" },
+        remarks: { type: String, default: "" },
+        approval_cycle: { type: Number, default: 1 },
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
+    workflow_history: [
+      {
+        stage: String,
+        action: String,
+        performed_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        performed_by_name: String,
+        performed_by_role: String,
+        remarks: String,
+        approval_cycle: { type: Number, default: 1 },
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
 
     // ─── Traceability & History ────────────────────────────
     origin_source: {

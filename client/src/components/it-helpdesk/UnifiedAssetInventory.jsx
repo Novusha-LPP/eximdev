@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
+import { UserContext } from "../../contexts/UserContext";
 import {
   ChevronLeft,
   Search,
@@ -34,6 +35,16 @@ import {
   Package,
   Wrench,
   Archive,
+  Check,
+  XCircle,
+  FileText,
+  Receipt,
+  CreditCard,
+  Building,
+  MapPin,
+  Calendar,
+  DollarSign,
+  ExternalLink,
 } from "lucide-react";
 import {
   Dialog,
@@ -42,12 +53,159 @@ import {
   DialogActions,
   IconButton,
   Tooltip,
+  Box,
+  Typography,
+  Grid,
+  Chip,
+  Button,
 } from "@mui/material";
 
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
+import AddVendorModal from "./AddVendorModal";
 import CustomSelect from "./CustomSelect";
 import ITPagination from "./ITPagination";
 import "../../styles/scorecard.scss";
+
+// Reusable Spec Tile component for technical specifications in View Modal
+const SpecTile = ({ label, value, isChip, chipColor, copyable, icon, onCopy, isCopied }) => (
+  <Box
+    sx={{
+      p: 1.2,
+      backgroundColor: "#f8fafc",
+      borderRadius: "8px",
+      border: "1px solid #f1f5f9",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-between",
+      minHeight: 54,
+    }}
+  >
+    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <Typography
+        sx={{
+          fontSize: "0.68rem",
+          fontWeight: 700,
+          color: "#64748b",
+          textTransform: "uppercase",
+          letterSpacing: "0.3px",
+        }}
+      >
+        {label}
+      </Typography>
+      {icon && <Box sx={{ color: "#94a3b8", display: "flex" }}>{icon}</Box>}
+      {copyable && value && value !== "—" && (
+        <Tooltip title={isCopied ? "Copied!" : "Copy"}>
+          <IconButton
+            size="small"
+            onClick={() => onCopy && onCopy(value)}
+            sx={{ p: 0.2, color: isCopied ? "#16a34a" : "#94a3b8", "&:hover": { color: "#2563eb" } }}
+          >
+            {isCopied ? <Check size={12} /> : <Copy size={12} />}
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
+    <Box sx={{ mt: 0.4 }}>
+      {isChip && value && value !== "—" ? (
+        <Chip
+          label={value}
+          size="small"
+          sx={{
+            height: 22,
+            fontSize: "0.74rem",
+            fontWeight: 700,
+            backgroundColor: chipColor?.bg || "#eff6ff",
+            color: chipColor?.text || "#2563eb",
+            border: `1px solid ${chipColor?.border || "#bfdbfe"}`,
+            borderRadius: "6px",
+          }}
+        />
+      ) : (
+        <Typography
+          sx={{
+            fontSize: "0.84rem",
+            fontWeight: 600,
+            color: value && value !== "—" ? "#0f172a" : "#94a3b8",
+            wordBreak: "break-word",
+            lineHeight: 1.3,
+          }}
+        >
+          {value || "—"}
+        </Typography>
+      )}
+    </Box>
+  </Box>
+);
+
+const getCategoryTheme = (category) => {
+  const norm = String(category || "").toLowerCase();
+  if (norm.includes("laptop")) return { bg: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: "#2563eb", lightBg: "#eff6ff", border: "#dbeafe" };
+  if (norm.includes("desktop") || norm.includes("computer")) return { bg: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)", color: "#0284c7", lightBg: "#f0f9ff", border: "#e0f2fe" };
+  if (norm.includes("printer")) return { bg: "linear-gradient(135deg, #059669 0%, #047857 100%)", color: "#059669", lightBg: "#ecfdf5", border: "#d1fae5" };
+  if (norm.includes("network")) return { bg: "linear-gradient(135deg, #0891b2 0%, #0e7490 100%)", color: "#0891b2", lightBg: "#ecfeff", border: "#cffafe" };
+  if (norm.includes("software")) return { bg: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)", color: "#7c3aed", lightBg: "#f5f3ff", border: "#ede9fe" };
+  if (norm.includes("sim") || norm.includes("phone")) return { bg: "linear-gradient(135deg, #ea580c 0%, #c2410c 100%)", color: "#ea580c", lightBg: "#fff7ed", border: "#ffedd5" };
+  if (norm.includes("rack")) return { bg: "linear-gradient(135deg, #475569 0%, #334155 100%)", color: "#475569", lightBg: "#f8fafc", border: "#e2e8f0" };
+  if (norm.includes("cable")) return { bg: "linear-gradient(135deg, #d97706 0%, #b45309 100%)", color: "#d97706", lightBg: "#fffbeb", border: "#fef3c7" };
+  return { bg: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: "#2563eb", lightBg: "#eff6ff", border: "#dbeafe" };
+};
+
+const getCategoryIcon = (category, size = 18) => {
+  const norm = String(category || "").toLowerCase();
+  if (norm.includes("laptop")) return <Laptop size={size} />;
+  if (norm.includes("desktop") || norm.includes("computer")) return <Monitor size={size} />;
+  if (norm.includes("printer")) return <Printer size={size} />;
+  if (norm.includes("network") || norm.includes("router") || norm.includes("switch") || norm.includes("firewall")) return <Wifi size={size} />;
+  if (norm.includes("software")) return <FileText size={size} />;
+  if (norm.includes("sim") || norm.includes("phone")) return <Smartphone size={size} />;
+  if (norm.includes("rack")) return <Server size={size} />;
+  if (norm.includes("cable")) return <Layers size={size} />;
+  return <Tag size={size} />;
+};
+
+const getAssignedUserInitials = (name) => {
+  if (!name || name === "Unassigned") return "UA";
+  const parts = name.trim().split(" ");
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+const formatAssetDate = (dateVal) => {
+  if (!dateVal) return "—";
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    return d.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return String(dateVal);
+  }
+};
+
+const getWarrantyStatus = (warrantyDate) => {
+  if (!warrantyDate) return null;
+  try {
+    const expiry = new Date(warrantyDate);
+    if (isNaN(expiry.getTime())) return null;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    expiry.setHours(0, 0, 0, 0);
+    const diffTime = expiry - now;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) {
+      return { status: "expired", label: "Expired", color: "#dc2626", bg: "#fef2f2", border: "#fecaca" };
+    } else if (diffDays <= 30) {
+      return { status: "expiring_soon", label: `Expires in ${diffDays}d`, color: "#d97706", bg: "#fffbeb", border: "#fde68a" };
+    } else {
+      return { status: "active", label: "Active", color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0" };
+    }
+  } catch {
+    return null;
+  }
+};
 
 const CATEGORIES = [
   "Computer / Desktop",
@@ -120,6 +278,8 @@ const EMPTY_FORM = {
   purchase_cost: "",
   invoice_number: "",
   invoice_date: "",
+  payment_mode: "UPI",
+  invoice_url: "",
 
   // Dynamic Technical Specifications (Standard Sections 2 - 10)
   specs: {
@@ -202,6 +362,7 @@ export default function UnifiedAssetInventory() {
   // Masters
   const [usersList, setUsersList] = useState([]);
   const [vendorsList, setVendorsList] = useState([]);
+  const [showAddVendorModal, setShowAddVendorModal] = useState(false);
 
   // Modals
   const [formModalOpen, setFormModalOpen] = useState(false);
@@ -211,6 +372,55 @@ export default function UnifiedAssetInventory() {
 
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null);
+  const [detailsTab, setDetailsTab] = useState("overview");
+  const [copiedTag, setCopiedTag] = useState(false);
+  const [copiedSerial, setCopiedSerial] = useState(false);
+  const [previewInvoiceUrl, setPreviewInvoiceUrl] = useState(null);
+  const [previewInvoiceTitle, setPreviewInvoiceTitle] = useState("");
+
+  const handleCopyText = (text, type = "tag") => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    if (type === "tag") {
+      setCopiedTag(true);
+      setTimeout(() => setCopiedTag(false), 2000);
+    } else if (type === "serial") {
+      setCopiedSerial(true);
+      setTimeout(() => setCopiedSerial(false), 2000);
+    }
+    toast.success(`Copied ${type === "tag" ? "Asset Tag" : "Serial Number"} to clipboard`);
+  };
+
+  const handleDownloadInvoice = async (url, title = "Asset_Invoice") => {
+    if (!url) return;
+    try {
+      const cleanTitle = (title || "Asset_Invoice").replace(/[^a-zA-Z0-9_-]/g, "_");
+      if (url.startsWith("data:") || url.startsWith("blob:")) {
+        let ext = "pdf";
+        if (url.includes("image/jpeg") || url.includes("image/jpg")) ext = "jpg";
+        else if (url.includes("image/png")) ext = "png";
+        else if (url.includes("image/webp")) ext = "webp";
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${cleanTitle}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        toast.success("Download started");
+        return;
+      }
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.download = cleanTitle;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast.success("Invoice opened for download");
+    } catch (err) {
+      window.open(url, "_blank");
+    }
+  };
 
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignTarget, setAssignTarget] = useState(null);
@@ -234,6 +444,22 @@ export default function UnifiedAssetInventory() {
 
   const [syncingLegacy, setSyncingLegacy] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
+
+  // Logged-in user context
+  const { user: currentUser } = useContext(UserContext) || {};
+  const currentUsername = String(currentUser?.username || "").toLowerCase().trim();
+  const currentUserRole = String(currentUser?.role || "").toLowerCase();
+  const isAdmin =
+    currentUsername === "admin" ||
+    currentUserRole.includes("admin") ||
+    Boolean(currentUser?.is_operator);
+
+  // Workflow Dialog States
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowTarget, setWorkflowTarget] = useState(null);
+  const [workflowAction, setWorkflowAction] = useState("");
+  const [workflowRemarks, setWorkflowRemarks] = useState("");
+  const [workflowSubmitting, setWorkflowSubmitting] = useState(false);
 
   // Active Filters (synchronized with URL params)
   const activeTab = searchParams.get("tab") || "ALL";
@@ -267,32 +493,51 @@ export default function UnifiedAssetInventory() {
   );
 
   // ── Fetch Master Data (Users & Vendors) ──────────────────────────────────
+  const fetchVendorsList = useCallback(async () => {
+    try {
+      const res = await itHelpdeskAPI.vendors.getAll({ all: "true" }).catch(() => ({ data: [] }));
+      const list = (Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [])
+        .slice()
+        .sort((a, b) => (a.name || a.vendor_name || "").localeCompare(b.name || b.vendor_name || ""));
+      setVendorsList(list);
+      return list;
+    } catch (e) {
+      console.error("Error loading vendors:", e);
+      return [];
+    }
+  }, []);
+
+  const handleVendorCreated = useCallback(async (newVendor) => {
+    const list = await fetchVendorsList();
+    if (newVendor && (newVendor._id || newVendor.id)) {
+      const vId = newVendor._id || newVendor.id;
+      setFormData((prev) => ({
+        ...prev,
+        vendor: vId,
+        vendor_name: newVendor.name || newVendor.vendor_name || "",
+      }));
+    }
+  }, [fetchVendorsList]);
+
   useEffect(() => {
     const fetchMasters = async () => {
       try {
-        const [usersRes, vendorsRes] = await Promise.all([
+        const [usersRes] = await Promise.all([
           itHelpdeskAPI.users.getAll({ limit: 1000 }).catch(() => ({ data: [] })),
-          itHelpdeskAPI.vendors.getAll({ limit: 200 }).catch(() => ({ data: [] })),
+          fetchVendorsList(),
         ]);
         const userList = Array.isArray(usersRes?.data)
           ? usersRes.data
           : Array.isArray(usersRes)
-          ? usersRes
-          : [];
+            ? usersRes
+            : [];
         setUsersList(userList);
-
-        const vendorList = Array.isArray(vendorsRes?.data)
-          ? vendorsRes.data
-          : Array.isArray(vendorsRes)
-          ? vendorsRes
-          : [];
-        setVendorsList(vendorList);
       } catch (e) {
         console.error("Error loading master data:", e);
       }
     };
     fetchMasters();
-  }, []);
+  }, [fetchVendorsList]);
 
   // ── Fetch Assets & Stats ────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -415,10 +660,12 @@ export default function UnifiedAssetInventory() {
       asset_type: item.asset_type || item.category || "Computer / Desktop",
       stock_type: item.stock_type || "Old",
       vendor: item.vendor?._id || item.vendor || "",
-      vendor_name: item.vendor_name || item.vendor?.vendor_name || "",
+      vendor_name: item.vendor_name || item.vendor?.name || item.vendor?.vendor_name || "",
       purchase_cost: item.purchase_cost || "",
       invoice_number: item.invoice_number || "",
       invoice_date: item.invoice_date ? item.invoice_date.slice(0, 10) : "",
+      payment_mode: item.payment_mode || "UPI",
+      invoice_url: item.invoice_url || "",
 
       // Dynamic Specifications (All categories)
       specs: {
@@ -531,7 +778,11 @@ export default function UnifiedAssetInventory() {
         toast.success("Equipment details updated successfully");
       } else {
         await itHelpdeskAPI.unifiedAssets.create(payload);
-        toast.success("New equipment created and added to registry");
+        if (payload.inventory_type === "New Inventory" || payload.stock_type === "New") {
+          toast.success("New equipment created and submitted for Invoice Approval (Shalini Arun)");
+        } else {
+          toast.success("New equipment created and added to registry");
+        }
       }
       setFormModalOpen(false);
       fetchData();
@@ -539,6 +790,184 @@ export default function UnifiedAssetInventory() {
       toast.error(err?.response?.data?.message || "Failed to save equipment");
     } finally {
       setFormSaving(false);
+    }
+  };
+
+  // ── Invoice Approval Workflow Helpers ─────────────────────────────────────
+  const getApprovalPermissions = (item) => {
+    if (!item) {
+      return {
+        canApproveFirst: false,
+        canApproveSecond: false,
+        canReturn: false,
+        canResubmit: false,
+        isCompleted: false,
+        isReturnedToIT: false,
+        hasFirstVerified: false,
+        hasManuVerified: false,
+      };
+    }
+    const rawStage = item.approval_stage || "";
+    const rawStatus = item.approval_status || "";
+    const normStage = rawStage.toLowerCase().trim();
+    const normStatus = rawStatus.toLowerCase().trim();
+    const currentCycle = item.approval_cycle || 1;
+
+    const hasFirstVerified =
+      Array.isArray(item.admin_verifications) &&
+      item.admin_verifications.some(
+        (v) =>
+          (String(v.username || "").toLowerCase() === "shalini_arun" ||
+            String(v.username || "").toLowerCase() ===
+            String(item.first_approver_username || "").toLowerCase().trim() ||
+            String(v.action || "").toLowerCase().includes("first")) &&
+          (v.approval_cycle === currentCycle || !v.approval_cycle)
+      );
+
+    const hasManuVerified =
+      Array.isArray(item.admin_verifications) &&
+      item.admin_verifications.some(
+        (v) =>
+          String(v.username || "").toLowerCase() === "manu_pillai" &&
+          (v.approval_cycle === currentCycle || !v.approval_cycle)
+      );
+
+    const isReturnedToIT =
+      normStage.includes("correction") ||
+      normStatus.includes("returned") ||
+      normStatus === "returned to it";
+
+    const isCompleted =
+      normStage.includes("completed") ||
+      normStatus.includes("completed") ||
+      (hasFirstVerified && hasManuVerified);
+
+    const isFirstApprover =
+      currentUsername === "shalini_arun" ||
+      currentUsername === String(item.first_approver_username || "").toLowerCase().trim() ||
+      currentUsername === "admin";
+
+    const isManuPillai = currentUsername === "manu_pillai" || currentUsername === "admin";
+    const isReturnedFromManu = normStatus.includes("rejected by manu_pillai");
+
+    const canApproveFirst =
+      !isCompleted &&
+      (!hasFirstVerified || isReturnedFromManu) &&
+      !isReturnedToIT &&
+      isFirstApprover;
+
+    const canApproveSecond =
+      !isCompleted && hasFirstVerified && !hasManuVerified && !isReturnedToIT && isManuPillai;
+
+    const canReturn = !isCompleted && !isReturnedToIT && (canApproveFirst || canApproveSecond);
+    const canResubmit = isReturnedToIT;
+
+    return {
+      canApproveFirst,
+      canApproveSecond,
+      canReturn,
+      canResubmit,
+      isCompleted,
+      isReturnedToIT,
+      hasFirstVerified,
+      hasManuVerified,
+    };
+  };
+
+  const getWorkflowBadgeInfo = (stage = "", status = "", verifications = [], approverUsername = "") => {
+    const normStage = String(stage || "").toLowerCase().trim();
+    const normStatus = String(status || "").toLowerCase().trim();
+
+    const isReturnedToIT =
+      normStage.includes("correction") ||
+      normStatus.includes("returned") ||
+      normStatus === "returned to it";
+
+    const isRejectedStatus =
+      (normStage.includes("reject") || normStatus.includes("reject")) && !isReturnedToIT;
+
+    const isCompleted = normStage.includes("completed") || normStatus.includes("completed");
+
+    const hasFirst = (verifications || []).some(
+      (v) =>
+        String(v.username || "").toLowerCase() === "shalini_arun" ||
+        String(v.username || "").toLowerCase() === String(approverUsername || "").toLowerCase() ||
+        String(v.action || "").toLowerCase().includes("first")
+    );
+    const hasManu = (verifications || []).some(
+      (v) => String(v.username || "").toLowerCase() === "manu_pillai"
+    );
+
+    if (isReturnedToIT) {
+      return {
+        color: "#c2410c",
+        bg: "#fff7ed",
+        border: "#fed7aa",
+        label: "Returned to IT",
+        icon: "rotate",
+      };
+    }
+    if (isRejectedStatus) {
+      return {
+        color: "#b91c1c",
+        bg: "#fef2f2",
+        border: "#fecaca",
+        label: "Rejected",
+        icon: "reject",
+      };
+    }
+    if (isCompleted || (hasFirst && hasManu)) {
+      return {
+        color: "#15803d",
+        bg: "#f0fdf4",
+        border: "#bbf7d0",
+        label: "Completed",
+        icon: "shield",
+      };
+    }
+    if (hasFirst && !hasManu) {
+      return {
+        color: "#1d4ed8",
+        bg: "#eff6ff",
+        border: "#bfdbfe",
+        label: "Pending manu_pillai",
+        icon: "clock",
+      };
+    }
+    return {
+      color: "#92400e",
+      bg: "#fffbeb",
+      border: "#fde68a",
+      label: approverUsername ? `Pending ${approverUsername}` : "Pending shalini_arun",
+      icon: "clock",
+    };
+  };
+
+  const handleOpenWorkflowAction = (asset, actionType) => {
+    setWorkflowTarget(asset);
+    setWorkflowAction(actionType);
+    setWorkflowRemarks("");
+    setWorkflowModalOpen(true);
+  };
+
+  const handleExecuteWorkflow = async () => {
+    if (!workflowTarget || !workflowAction) return;
+    setWorkflowSubmitting(true);
+    try {
+      const res = await itHelpdeskAPI.unifiedAssets.updateWorkflow(workflowTarget._id, {
+        action: workflowAction,
+        remarks: workflowRemarks,
+      });
+      toast.success(res.message || "Approval status updated successfully!");
+      setWorkflowModalOpen(false);
+      if (detailsModalOpen && selectedAsset?._id === workflowTarget._id) {
+        setSelectedAsset(res.data || res);
+      }
+      fetchData();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to update workflow.");
+    } finally {
+      setWorkflowSubmitting(false);
     }
   };
 
@@ -1554,20 +1983,21 @@ export default function UnifiedAssetInventory() {
                     <tr>
                       <th style={{ width: 44, minWidth: 44, textAlign: "center" }}>#</th>
                       <th style={{ minWidth: 140 }}>Asset Tag / Serial</th>
-                      <th style={{ minWidth: 190 }}>Equipment &amp; Model</th>
+                      <th style={{ minWidth: 180 }}>Equipment &amp; Model</th>
                       <th style={{ minWidth: 120 }}>Category</th>
-                      <th style={{ minWidth: 130 }}>Inventory Type</th>
-                      <th style={{ minWidth: 130 }}>Status</th>
+                      <th style={{ minWidth: 125 }}>Inventory Type</th>
+                      <th style={{ minWidth: 110 }}>Status</th>
                       <th style={{ minWidth: 100 }}>Condition</th>
-                      <th style={{ minWidth: 170 }}>Assigned To</th>
-                      <th style={{ minWidth: 120 }}>Warranty</th>
-                      <th style={{ width: 120, minWidth: 120, textAlign: "center" }}>Actions</th>
+                      <th style={{ minWidth: 160 }}>Assigned To</th>
+                      <th style={{ minWidth: 165 }}>Invoice Approval Status</th>
+                      <th style={{ minWidth: 110 }}>Warranty</th>
+                      <th style={{ width: 140, minWidth: 140, textAlign: "center" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.length === 0 ? (
                       <tr>
-                        <td colSpan={10} style={{ textAlign: "center", padding: "48px 16px", color: "#94a3b8" }}>
+                        <td colSpan={11} style={{ textAlign: "center", padding: "48px 16px", color: "#94a3b8" }}>
                           <PackageCheck size={36} color="#cbd5e1" style={{ margin: "0 auto 8px" }} />
                           <div style={{ fontWeight: 700, fontSize: "14px", color: "#475569" }}>
                             No equipment found matching criteria
@@ -1684,7 +2114,7 @@ export default function UnifiedAssetInventory() {
 
                           {/* Assigned To */}
                           <td>
-                            {item.assigned_to ? (
+                            {(item.assigned_to || item.assigned_to_name) ? (
                               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                 <div
                                   style={{
@@ -1715,6 +2145,126 @@ export default function UnifiedAssetInventory() {
                             ) : (
                               <span style={{ color: "#94a3b8", fontSize: "12px", fontStyle: "italic" }}>
                                 — Unassigned
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Invoice Approval Status (Two-Tier Workflow for New Inventory) */}
+                          <td style={{ verticalAlign: "middle" }}>
+                            {item.inventory_type === "New Inventory" || item.stock_type === "New" ? (
+                              (() => {
+                                const perms = getApprovalPermissions(item);
+                                const badge = getWorkflowBadgeInfo(
+                                  item.approval_stage,
+                                  item.approval_status,
+                                  item.admin_verifications,
+                                  item.first_approver_username
+                                );
+                                const verifiers = [];
+                                if (!perms.isReturnedToIT && Array.isArray(item.admin_verifications)) {
+                                  item.admin_verifications.forEach((v) => {
+                                    const u = v.username || v.name;
+                                    if (u && !verifiers.some((x) => x.username === u)) {
+                                      verifiers.push({ username: u, action: v.action });
+                                    }
+                                  });
+                                }
+
+                                return (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                    <div
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "5px",
+                                        fontSize: "11px",
+                                        fontWeight: 700,
+                                        color: badge.color,
+                                        backgroundColor: badge.bg,
+                                        border: `1px solid ${badge.border}`,
+                                        padding: "2px 8px",
+                                        borderRadius: "5px",
+                                        width: "fit-content",
+                                      }}
+                                    >
+                                      {badge.icon === "rotate" && <RotateCcw size={11} />}
+                                      {badge.icon === "reject" && <XCircle size={11} />}
+                                      {badge.icon === "shield" && <ShieldCheck size={11} />}
+                                      {badge.icon === "clock" && <Clock size={11} />}
+                                      <span>{badge.label}</span>
+                                    </div>
+
+                                    {verifiers.length > 0 && (
+                                      <div style={{ display: "flex", flexWrap: "wrap", gap: "3px" }}>
+                                        {verifiers.map((v, i) => (
+                                          <span
+                                            key={i}
+                                            style={{
+                                              fontSize: "10px",
+                                              padding: "1px 6px",
+                                              borderRadius: "3px",
+                                              backgroundColor: "#f0fdf4",
+                                              color: "#166534",
+                                              border: "1px solid #bbf7d0",
+                                              fontWeight: 600,
+                                              display: "inline-flex",
+                                              alignItems: "center",
+                                              gap: "2px",
+                                            }}
+                                          >
+                                            ✓ {v.username}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Action button if logged-in user can approve */}
+                                    {(perms.canApproveFirst || perms.canApproveSecond) && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleOpenWorkflowAction(
+                                            item,
+                                            perms.canApproveFirst ? "approve_first" : "approve_second"
+                                          )
+                                        }
+                                        style={{
+                                          marginTop: "2px",
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: "4px",
+                                          fontSize: "10.5px",
+                                          fontWeight: 700,
+                                          color: "#166534",
+                                          background: "#dcfce7",
+                                          border: "1px solid #86efac",
+                                          padding: "2px 8px",
+                                          borderRadius: "4px",
+                                          cursor: "pointer",
+                                          width: "fit-content",
+                                        }}
+                                      >
+                                        <Check size={11} />{" "}
+                                        {perms.canApproveFirst ? "Verify (Shalini)" : "Approve (Manu)"}
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })()
+                            ) : (
+                              <span
+                                style={{
+                                  display: "inline-block",
+                                  fontSize: "11px",
+                                  fontWeight: 600,
+                                  color: "#64748b",
+                                  backgroundColor: "#f8fafc",
+                                  border: "1px solid #e2e8f0",
+                                  padding: "2px 8px",
+                                  borderRadius: "5px",
+                                }}
+                              >
+                                N/A — Existing Inventory
                               </span>
                             )}
                           </td>
@@ -1751,12 +2301,20 @@ export default function UnifiedAssetInventory() {
                               )}
 
                               {/* View Details */}
-                              <Tooltip title="View Specifications & History">
+                              <Tooltip title="View Specifications, Invoice & History">
                                 <button
                                   type="button"
                                   className="btn btn-icon btn-secondary"
-                                  onClick={() => {
-                                    setSelectedAsset(item);
+                                  onClick={async () => {
+                                    try {
+                                      const res = await itHelpdeskAPI.unifiedAssets.getById(item._id);
+                                      setSelectedAsset(res.data || res || item);
+                                    } catch (err) {
+                                      setSelectedAsset(item);
+                                    }
+                                    setDetailsTab("overview");
+                                    setCopiedTag(false);
+                                    setCopiedSerial(false);
                                     setDetailsModalOpen(true);
                                   }}
                                   style={{ width: "28px", height: "28px", color: "#4f46e5" }}
@@ -1815,7 +2373,13 @@ export default function UnifiedAssetInventory() {
       </div>
 
       {/* ── MODAL: ADD / EDIT EQUIPMENT ───────────────────────────────────── */}
-      <Dialog open={formModalOpen} onClose={() => setFormModalOpen(false)} maxWidth="md" fullWidth>
+      <Dialog
+        open={formModalOpen}
+        onClose={() => setFormModalOpen(false)}
+        maxWidth="md"
+        fullWidth
+        disableEnforceFocus={showAddVendorModal}
+      >
         <DialogTitle
           style={{
             padding: "14px 20px",
@@ -1860,31 +2424,30 @@ export default function UnifiedAssetInventory() {
                       background: isMonitor
                         ? "#ecfeff"
                         : isComputer || isLaptop
-                        ? "#eff6ff"
-                        : isPrinter
-                        ? "#fffbeb"
-                        : isServer
-                        ? "#f5f3ff"
-                        : isNetworkDevice
-                        ? "#ecfdf5"
-                        : isSoftware
-                        ? "#f0fdf4"
-                        : "#f8fafc",
-                      border: `1px solid ${
-                        isMonitor
-                          ? "#a5f3fc"
-                          : isComputer || isLaptop
+                          ? "#eff6ff"
+                          : isPrinter
+                            ? "#fffbeb"
+                            : isServer
+                              ? "#f5f3ff"
+                              : isNetworkDevice
+                                ? "#ecfdf5"
+                                : isSoftware
+                                  ? "#f0fdf4"
+                                  : "#f8fafc",
+                      border: `1px solid ${isMonitor
+                        ? "#a5f3fc"
+                        : isComputer || isLaptop
                           ? "#bfdbfe"
                           : isPrinter
-                          ? "#fde68a"
-                          : isServer
-                          ? "#ddd6fe"
-                          : isNetworkDevice
-                          ? "#a7f3d0"
-                          : isSoftware
-                          ? "#bbf7d0"
-                          : "#e2e8f0"
-                      }`,
+                            ? "#fde68a"
+                            : isServer
+                              ? "#ddd6fe"
+                              : isNetworkDevice
+                                ? "#a7f3d0"
+                                : isSoftware
+                                  ? "#bbf7d0"
+                                  : "#e2e8f0"
+                        }`,
                       borderRadius: "8px",
                       marginBottom: "16px",
                       display: "flex",
@@ -1915,20 +2478,20 @@ export default function UnifiedAssetInventory() {
                       {isComputer
                         ? "Sec 2 • Desktop Standard"
                         : isLaptop
-                        ? "Sec 3 • Laptop Standard"
-                        : isMonitor
-                        ? "Sec 4 • Monitor Standard"
-                        : isPrinter
-                        ? "Sec 5 • Printer Standard"
-                        : isServer
-                        ? "Sec 6 • Server Standard"
-                        : isNetworkDevice
-                        ? "Sec 7 • Network Device Standard"
-                        : isMobileDevice
-                        ? "Sec 8 • Mobile Device Standard"
-                        : isSoftware
-                        ? "Sec 9 • Software License Standard"
-                        : "Sec 10 • Other Assets"}
+                          ? "Sec 3 • Laptop Standard"
+                          : isMonitor
+                            ? "Sec 4 • Monitor Standard"
+                            : isPrinter
+                              ? "Sec 5 • Printer Standard"
+                              : isServer
+                                ? "Sec 6 • Server Standard"
+                                : isNetworkDevice
+                                  ? "Sec 7 • Network Device Standard"
+                                  : isMobileDevice
+                                    ? "Sec 8 • Mobile Device Standard"
+                                    : isSoftware
+                                      ? "Sec 9 • Software License Standard"
+                                      : "Sec 10 • Other Assets"}
                     </span>
                   </div>
 
@@ -1989,12 +2552,12 @@ export default function UnifiedAssetInventory() {
                             isSoftware
                               ? "e.g. SURAJ-LIC-001"
                               : isComputer
-                              ? "e.g. SURAJ-PC-001"
-                              : isLaptop
-                              ? "e.g. SURAJ-LAP-001"
-                              : isMonitor
-                              ? "e.g. SURAJ-MON-001"
-                              : "e.g. AST-2026-001"
+                                ? "e.g. SURAJ-PC-001"
+                                : isLaptop
+                                  ? "e.g. SURAJ-LAP-001"
+                                  : isMonitor
+                                    ? "e.g. SURAJ-MON-001"
+                                    : "e.g. AST-2026-001"
                           }
                           style={{ fontWeight: 800, fontFamily: "monospace", letterSpacing: "0.5px" }}
                         />
@@ -2159,23 +2722,44 @@ export default function UnifiedAssetInventory() {
                           />
                         </div>
                         <div className="form-field">
-                          <label>Vendor</label>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                            <label style={{ margin: 0 }}>Vendor</label>
+                            <button
+                              type="button"
+                              onClick={() => setShowAddVendorModal(true)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "#4f46e5",
+                                fontSize: "11px",
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "2px",
+                                padding: 0,
+                              }}
+                            >
+                              <Plus size={12} /> Add Vendor
+                            </button>
+                          </div>
                           <select
                             className="form-select"
                             value={formData.vendor}
                             onChange={(e) => {
-                              const v = vendorsList.find((vnd) => vnd._id === e.target.value);
+                              const selectedId = e.target.value;
+                              const v = vendorsList.find((vnd) => String(vnd._id) === String(selectedId));
                               setFormData({
                                 ...formData,
-                                vendor: e.target.value,
-                                vendor_name: v?.vendor_name || "",
+                                vendor: selectedId,
+                                vendor_name: v?.name || v?.vendor_name || "",
                               });
                             }}
                           >
                             <option value="">— Select Vendor —</option>
                             {vendorsList.map((v) => (
                               <option key={v._id} value={v._id}>
-                                {v.vendor_name}
+                                {v.name || v.vendor_name}{v.vendor_code ? ` (${v.vendor_code})` : ""}
                               </option>
                             ))}
                           </select>
@@ -2202,12 +2786,12 @@ export default function UnifiedAssetInventory() {
                               isMonitor
                                 ? "e.g. Dell / HP / Lenovo / Samsung / LG"
                                 : isPrinter
-                                ? "e.g. HP / Canon / Epson"
-                                : isNetworkDevice
-                                ? "e.g. Cisco / Fortinet / Aruba"
-                                : isMobileDevice
-                                ? "e.g. Samsung / Apple"
-                                : "e.g. Dell / HP / Lenovo"
+                                  ? "e.g. HP / Canon / Epson"
+                                  : isNetworkDevice
+                                    ? "e.g. Cisco / Fortinet / Aruba"
+                                    : isMobileDevice
+                                      ? "e.g. Samsung / Apple"
+                                      : "e.g. Dell / HP / Lenovo"
                             }
                           />
                         </div>
@@ -2223,14 +2807,14 @@ export default function UnifiedAssetInventory() {
                               isComputer
                                 ? "e.g. OptiPlex 7090"
                                 : isLaptop
-                                ? "e.g. Latitude 5400"
-                                : isMonitor
-                                ? "e.g. P2422H"
-                                : isPrinter
-                                ? "e.g. LaserJet Pro MFP M428fdw"
-                                : isServer
-                                ? "e.g. PowerEdge R750"
-                                : "Model name or number"
+                                  ? "e.g. Latitude 5400"
+                                  : isMonitor
+                                    ? "e.g. P2422H"
+                                    : isPrinter
+                                      ? "e.g. LaserJet Pro MFP M428fdw"
+                                      : isServer
+                                        ? "e.g. PowerEdge R750"
+                                        : "Model name or number"
                             }
                           />
                         </div>
@@ -2958,8 +3542,8 @@ export default function UnifiedAssetInventory() {
                               lifecycle_status: selectedId
                                 ? "In Use"
                                 : formData.lifecycle_status === "In Use" || formData.lifecycle_status === "Assigned"
-                                ? "Available"
-                                : formData.lifecycle_status,
+                                  ? "Available"
+                                  : formData.lifecycle_status,
                             });
                           }}
                         >
@@ -3001,8 +3585,8 @@ export default function UnifiedAssetInventory() {
                             isPrinter
                               ? "e.g. 1st Floor Print Room"
                               : isServer
-                              ? "e.g. Server Room - Rack A"
-                              : "e.g. 1st Floor / Desk"
+                                ? "e.g. Server Room - Rack A"
+                                : "e.g. 1st Floor / Desk"
                           }
                         />
                       </div>
@@ -3180,23 +3764,44 @@ export default function UnifiedAssetInventory() {
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
                       <div className="form-field">
-                        <label>Vendor</label>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                          <label style={{ margin: 0 }}>Vendor</label>
+                          <button
+                            type="button"
+                            onClick={() => setShowAddVendorModal(true)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#4f46e5",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "2px",
+                              padding: 0,
+                            }}
+                          >
+                            <Plus size={12} /> Add Vendor
+                          </button>
+                        </div>
                         <select
                           className="form-select"
                           value={formData.vendor}
                           onChange={(e) => {
-                            const v = vendorsList.find((vnd) => vnd._id === e.target.value);
+                            const selectedId = e.target.value;
+                            const v = vendorsList.find((vnd) => String(vnd._id) === String(selectedId));
                             setFormData({
                               ...formData,
-                              vendor: e.target.value,
-                              vendor_name: v?.vendor_name || "",
+                              vendor: selectedId,
+                              vendor_name: v?.name || v?.vendor_name || "",
                             });
                           }}
                         >
                           <option value="">— Select Vendor —</option>
                           {vendorsList.map((v) => (
                             <option key={v._id} value={v._id}>
-                              {v.vendor_name}
+                              {v.name || v.vendor_name}{v.vendor_code ? ` (${v.vendor_code})` : ""}
                             </option>
                           ))}
                         </select>
@@ -3221,6 +3826,63 @@ export default function UnifiedAssetInventory() {
                           placeholder="e.g. INV-2026-098"
                         />
                       </div>
+                      <div className="form-field">
+                        <label>Payment Mode</label>
+                        <select
+                          className="form-select"
+                          value={formData.payment_mode || "UPI"}
+                          onChange={(e) => setFormData({ ...formData, payment_mode: e.target.value })}
+                        >
+                          <option value="UPI">UPI</option>
+                          <option value="Net Banking">Net Banking</option>
+                          <option value="Credit Card">Credit Card</option>
+                          <option value="Debit Card">Debit Card</option>
+                          <option value="Cash">Cash</option>
+                          <option value="Cheque">Cheque</option>
+                        </select>
+                      </div>
+                      <div className="form-field">
+                        <label>Invoice Date</label>
+                        <input
+                          type="date"
+                          className="form-input"
+                          value={formData.invoice_date}
+                          onChange={(e) => setFormData({ ...formData, invoice_date: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-field">
+                        <label>Invoice Document / URL</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={formData.invoice_url}
+                          onChange={(e) => setFormData({ ...formData, invoice_url: e.target.value })}
+                          placeholder="https://... or S3 link"
+                        />
+                      </div>
+
+                      {/* Approval notice when inventory_type is New Inventory */}
+                      {(formData.inventory_type === "New Inventory" || formData.inventory_type === "New") && (
+                        <div
+                          style={{
+                            gridColumn: "1 / -1",
+                            background: "#eff6ff",
+                            border: "1px solid #bfdbfe",
+                            borderRadius: "8px",
+                            padding: "9px 12px",
+                            fontSize: "12px",
+                            color: "#1e40af",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                          }}
+                        >
+                          <ShieldCheck size={16} color="#2563eb" style={{ flexShrink: 0 }} />
+                          <span>
+                            <b>Two-Tier Approval Notice:</b> Submitting this <b>New Inventory</b> asset will initiate the Invoice Approval Pipeline (Stage 1: <b>Shalini Arun</b> → Stage 2: <b>Manu Pillai</b>).
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>
@@ -3399,200 +4061,2155 @@ export default function UnifiedAssetInventory() {
       </Dialog>
 
       {/* ── MODAL: VIEW DETAILS ───────────────────────────────────────────── */}
-      <Dialog open={detailsModalOpen} onClose={() => setDetailsModalOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle
-          style={{
-            padding: "14px 20px",
-            borderBottom: "1px solid #e2e8f0",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            fontWeight: 700,
-            fontSize: "15px",
-            color: "#0f172a",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Tag size={17} color="#4f46e5" />
-            <span>Equipment Details: {selectedAsset?.asset_tag}</span>
-          </div>
-          <IconButton size="small" onClick={() => setDetailsModalOpen(false)}>
-            <X size={18} />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent style={{ padding: "18px 20px", fontSize: "13px" }}>
-          {selectedAsset && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              {/* Header Box */}
-              <div
-                style={{
-                  padding: "12px 14px",
-                  background: "#f8fafc",
-                  borderRadius: "10px",
-                  border: "1px solid #e2e8f0",
+      <Dialog
+        open={detailsModalOpen}
+        onClose={() => setDetailsModalOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "16px",
+            boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.25)",
+            overflow: "hidden",
+            border: "1px solid #e2e8f0",
+            backgroundColor: "#ffffff",
+            maxWidth: "1060px",
+            width: "100%",
+          },
+        }}
+      >
+        {selectedAsset && (() => {
+          const theme = getCategoryTheme(selectedAsset.category);
+          const warrantyInfo = getWarrantyStatus(selectedAsset.warranty_end_date || selectedAsset.warranty_expiry);
+          const assignedName =
+            selectedAsset.assigned_to_name ||
+            selectedAsset.assigned_to?.name ||
+            (typeof selectedAsset.assigned_to === "string" && !/^[0-9a-fA-F]{24}$/.test(selectedAsset.assigned_to)
+              ? selectedAsset.assigned_to
+              : "") ||
+            "Unassigned";
+          const vendorName =
+            selectedAsset.vendor_name ||
+            selectedAsset.vendor?.name ||
+            selectedAsset.vendor?.vendor_name ||
+            "—";
+          const invoiceUrl = selectedAsset.invoice_url || selectedAsset.image_url || "";
+          const invoiceNum = selectedAsset.invoice_number || "";
+
+          const formatRejectRole = (role) => {
+            if (!role) return "";
+            const map = {
+              head_of_department: "Head of Department",
+              sr_manager_accounts: "Sr. Manager Accounts",
+              admin: "Admin",
+              user: "User",
+              it_admin: "IT Admin",
+              super_admin: "Super Admin",
+            };
+            const lower = String(role).toLowerCase();
+            if (map[lower]) return map[lower];
+            return String(role).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+          };
+
+          const latestReject = Array.isArray(selectedAsset.workflow_history)
+            ? [...selectedAsset.workflow_history].reverse().find(
+                (h) =>
+                  (h.action || "").toLowerCase().includes("reject") ||
+                  (h.stage || "").toLowerCase().includes("reject") ||
+                  (h.stage || "").toLowerCase().includes("correction") ||
+                  (h.action || "").toLowerCase().includes("returned") ||
+                  Boolean(
+                    selectedAsset.rejection_remarks &&
+                      (h.remarks === selectedAsset.rejection_remarks ||
+                        (h.action || "").includes(selectedAsset.rejection_remarks))
+                  )
+              )
+            : null;
+
+          const rejectedByName =
+            selectedAsset.rejected_by_name ||
+            latestReject?.performed_by_name ||
+            latestReject?.performed_by?.username ||
+            "";
+
+          const rawRejectRole =
+            selectedAsset.rejected_by_role ||
+            latestReject?.performed_by_role ||
+            "";
+          const rejectedByRole = formatRejectRole(rawRejectRole);
+
+          const rawRejectDate = selectedAsset.rejected_at || latestReject?.timestamp;
+          const rejectedAtDate = rawRejectDate
+            ? new Date(rawRejectDate).toLocaleString("en-IN", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              })
+            : "";
+
+          const recordFirstUsername = String(
+            selectedAsset.first_approver_username || "shalini_arun"
+          ).toLowerCase().trim();
+
+          const recordFirstName =
+            selectedAsset.first_approver_name ||
+            (recordFirstUsername === "shalini_arun" ? "Shalini Arun" : recordFirstUsername);
+
+          const perms = getApprovalPermissions(selectedAsset);
+          const badge = getWorkflowBadgeInfo(
+            selectedAsset.approval_stage,
+            selectedAsset.approval_status,
+            selectedAsset.admin_verifications,
+            selectedAsset.first_approver_username
+          );
+
+          const deduplicatedWorkflowHistory = (Array.isArray(selectedAsset.workflow_history)
+            ? selectedAsset.workflow_history
+            : []
+          ).filter((h, idx, arr) => {
+            if (idx === 0) return true;
+            const prev = arr[idx - 1];
+            const actLower = (h.action || "").toLowerCase();
+            const stgLower = (h.stage || "").toLowerCase();
+            const isCurrentRej =
+              actLower.includes("reject") ||
+              stgLower.includes("reject") ||
+              actLower.includes("returned") ||
+              stgLower.includes("correction");
+
+            const prevActLower = (prev.action || "").toLowerCase();
+            const prevStgLower = (prev.stage || "").toLowerCase();
+            const isPrevRej =
+              prevActLower.includes("reject") ||
+              prevStgLower.includes("reject") ||
+              prevActLower.includes("returned") ||
+              prevStgLower.includes("correction");
+
+            if (
+              isCurrentRej &&
+              isPrevRej &&
+              Number(h.approval_cycle) === Number(prev.approval_cycle) &&
+              (String(h.performed_by?._id || h.performed_by || "") ===
+                String(prev.performed_by?._id || prev.performed_by || "") ||
+                String(h.performed_by_name || "") === String(prev.performed_by_name || ""))
+            ) {
+              return false;
+            }
+            return true;
+          });
+
+          const normCat = String(selectedAsset.category || "").toLowerCase();
+          const isDesktop = normCat.includes("desktop") || normCat.includes("computer");
+          const isLaptop = normCat.includes("laptop");
+          const isCable = normCat.includes("cable");
+          const isPrinter = normCat.includes("printer");
+          const isNetwork = normCat.includes("network") || normCat.includes("switch") || normCat.includes("router");
+          const isSoftware = normCat.includes("software");
+          const isPhone = normCat.includes("phone") || normCat.includes("smartphone");
+          const isSIM = normCat.includes("sim");
+          const isRack = normCat.includes("rack") || normCat.includes("cabinet");
+
+          const getWorkflowStatusLabelText = () => {
+            const rawStage = selectedAsset.approval_stage || "";
+            const rawStatus = selectedAsset.approval_status || "";
+            const norm = String(rawStatus || rawStage || "").toLowerCase();
+            if (norm.includes("completed")) return "Completed";
+            if (norm.includes("rejected")) return "Rejected";
+            if (norm.includes("returned") || norm.includes("correction")) return "Returned to IT";
+            if (norm.includes("manu")) return "Pending Final Approval (manu_pillai)";
+            if (norm.includes("shalini") || norm.includes("first")) return `Pending First Approval (${recordFirstName})`;
+            return rawStatus || rawStage || "Pending Approval";
+          };
+
+          return (
+            <>
+              {/* ── Dialog Header ── */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  px: 3,
+                  py: 2,
+                  borderBottom: "1px solid #f1f5f9",
+                  background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                }}
+              >
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <Box
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: "12px",
+                      background: theme.bg,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#ffffff",
+                      boxShadow: `0 4px 12px ${theme.color}40`,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {getCategoryIcon(selectedAsset.category, 22)}
+                  </Box>
+                  <Box>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, flexWrap: "wrap" }}>
+                      <Typography sx={{ fontSize: "1.15rem", fontWeight: 700, color: "#0f172a", lineHeight: 1.2, flexShrink: 0 }}>
+                        {selectedAsset.asset_tag} — {selectedAsset.asset_name || `${selectedAsset.brand || ""} ${selectedAsset.model || ""}`.trim() || selectedAsset.category}
+                      </Typography>
+
+                      {/* Asset Tag with 1-click Copy */}
+                      <Box
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 0.5,
+                          backgroundColor: "#eff6ff",
+                          border: "1px solid #bfdbfe",
+                          borderRadius: "6px",
+                          px: 1,
+                          py: "3px",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Typography sx={{ fontSize: "0.76rem", fontWeight: 700, color: "#1d4ed8", lineHeight: 1 }}>
+                          {selectedAsset.asset_tag}
+                        </Typography>
+                        <Tooltip title={copiedTag ? "Copied!" : "Copy Asset Tag"}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleCopyText(selectedAsset.asset_tag, "tag")}
+                            sx={{ p: 0.2, color: copiedTag ? "#16a34a" : "#3b82f6", "&:hover": { color: "#1d4ed8" } }}
+                          >
+                            {copiedTag ? <Check size={12} /> : <Copy size={12} />}
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+
+                      {/* Status Badge */}
+                      {(() => {
+                        const norm = String(selectedAsset.lifecycle_status || selectedAsset.status || "").toLowerCase();
+                        let bg = "#f0fdf4";
+                        let color = "#166534";
+                        let border = "#bbf7d0";
+                        if (norm.includes("assigned") || norm.includes("in use")) {
+                          bg = "#eff6ff";
+                          color = "#1d4ed8";
+                          border = "#bfdbfe";
+                        } else if (norm.includes("repair") || norm.includes("maintenance")) {
+                          bg = "#fffbeb";
+                          color = "#b45309";
+                          border = "#fde68a";
+                        } else if (norm.includes("lost") || norm.includes("expired") || norm.includes("damaged") || norm.includes("retired")) {
+                          bg = "#fef2f2";
+                          color = "#b91c1c";
+                          border = "#fecaca";
+                        }
+                        return (
+                          <Box
+                            sx={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              height: 24,
+                              px: 1,
+                              borderRadius: "6px",
+                              fontSize: "0.72rem",
+                              fontWeight: 700,
+                              backgroundColor: bg,
+                              color: color,
+                              border: `1px solid ${border}`,
+                              whiteSpace: "nowrap",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {selectedAsset.lifecycle_status || selectedAsset.status || "Available"}
+                          </Box>
+                        );
+                      })()}
+
+                      {/* Category Chip */}
+                      <Chip
+                        label={selectedAsset.category || "Equipment"}
+                        size="small"
+                        sx={{
+                          height: 24,
+                          fontSize: "0.72rem",
+                          fontWeight: 600,
+                          backgroundColor: "#f8fafc",
+                          color: "#475569",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "6px",
+                          flexShrink: 0,
+                        }}
+                      />
+
+                      {/* Stock / Inventory Type Chip */}
+                      {(selectedAsset.inventory_type || selectedAsset.stock_type) && (
+                        <Chip
+                          label={selectedAsset.inventory_type || (selectedAsset.stock_type === "New" ? "New Inventory" : "Old Inventory")}
+                          size="small"
+                          sx={{
+                            height: 24,
+                            fontSize: "0.72rem",
+                            fontWeight: 700,
+                            backgroundColor: selectedAsset.inventory_type === "New Inventory" || selectedAsset.stock_type === "New" ? "#ecfdf5" : "#f1f5f9",
+                            color: selectedAsset.inventory_type === "New Inventory" || selectedAsset.stock_type === "New" ? "#059669" : "#475569",
+                            border: `1px solid ${selectedAsset.inventory_type === "New Inventory" || selectedAsset.stock_type === "New" ? "#a7f3d0" : "#e2e8f0"}`,
+                            borderRadius: "6px",
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
+                    </Box>
+
+                    {/* Meta Subtitle */}
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 0.5, flexWrap: "wrap" }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "#64748b", fontSize: "0.75rem" }}>
+                        <Building size={13} color="#94a3b8" />
+                        <span>{selectedAsset.department || "General Dept"}</span>
+                      </Box>
+                      <span style={{ color: "#cbd5e1", fontSize: "0.7rem" }}>•</span>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "#64748b", fontSize: "0.75rem" }}>
+                        <MapPin size={13} color="#94a3b8" />
+                        <span>{selectedAsset.location || "Office"}</span>
+                      </Box>
+                      <span style={{ color: "#cbd5e1", fontSize: "0.7rem" }}>•</span>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "#64748b", fontSize: "0.75rem" }}>
+                        <UserCheck size={13} color="#94a3b8" />
+                        <span>{assignedName}</span>
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+
+                {/* Header Right Actions */}
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <IconButton
+                    onClick={() => setDetailsModalOpen(false)}
+                    size="small"
+                    sx={{
+                      color: "#94a3b8",
+                      borderRadius: "8px",
+                      "&:hover": { color: "#0f172a", backgroundColor: "#f1f5f9" },
+                    }}
+                  >
+                    <X size={18} />
+                  </IconButton>
+                </Box>
+              </Box>
+
+              {/* ── Segmented Navigation Tabs ── */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  px: 3,
+                  py: 1,
+                  borderBottom: "1px solid #e2e8f0",
+                  backgroundColor: "#ffffff",
+                }}
+              >
+                <Box sx={{ display: "flex", gap: 0.8, backgroundColor: "#f1f5f9", p: "4px", borderRadius: "10px" }}>
+                  {[
+                    { id: "overview", label: "Overview & Specs", icon: <Cpu size={14} /> },
+                    {
+                      id: "procurement",
+                      label: "Procurement & Invoice",
+                      icon: <Receipt size={14} />,
+                      badge: invoiceUrl ? "Invoice Attached" : null,
+                    },
+                    {
+                      id: "workflow",
+                      label: "Approval & Audit",
+                      icon: <ShieldCheck size={14} />,
+                      badge:
+                        deduplicatedWorkflowHistory.length > 0
+                          ? `${deduplicatedWorkflowHistory.length}`
+                          : null,
+                    },
+                  ].map((tab) => {
+                    const isActive = detailsTab === tab.id;
+                    return (
+                      <Button
+                        key={tab.id}
+                        onClick={() => setDetailsTab(tab.id)}
+                        size="small"
+                        startIcon={tab.icon}
+                        sx={{
+                          textTransform: "none",
+                          fontSize: "0.8rem",
+                          fontWeight: isActive ? 700 : 500,
+                          color: isActive ? "#0f172a" : "#64748b",
+                          backgroundColor: isActive ? "#ffffff" : "transparent",
+                          boxShadow: isActive ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+                          borderRadius: "7px",
+                          px: 1.8,
+                          py: 0.5,
+                          transition: "all 0.15s ease",
+                          "&:hover": {
+                            backgroundColor: isActive ? "#ffffff" : "rgba(255,255,255,0.6)",
+                            color: "#0f172a",
+                          },
+                        }}
+                      >
+                        {tab.label}
+                        {tab.badge && (
+                          <Box
+                            component="span"
+                            sx={{
+                              ml: 0.8,
+                              px: 0.8,
+                              py: "1px",
+                              borderRadius: "10px",
+                              fontSize: "0.68rem",
+                              fontWeight: 700,
+                              backgroundColor: isActive ? "#eff6ff" : "#e2e8f0",
+                              color: isActive ? "#2563eb" : "#475569",
+                            }}
+                          >
+                            {tab.badge}
+                          </Box>
+                        )}
+                      </Button>
+                    );
+                  })}
+                </Box>
+                <Typography sx={{ fontSize: "0.74rem", color: "#94a3b8", display: { xs: "none", sm: "block" } }}>
+                  Workflow: <strong style={{ color: "#475569" }}>{getWorkflowStatusLabelText()}</strong>
+                </Typography>
+              </Box>
+
+              {/* ── Dialog Content Body ── */}
+              <DialogContent
+                sx={{
+                  p: 2.5,
+                  backgroundColor: "#f8fafc",
+                  maxHeight: "calc(88vh - 140px)",
+                  overflowY: "auto",
+                }}
+              >
+                {/* ── TAB 1: OVERVIEW & SPECS (Zero-Scroll Layout) ── */}
+                {detailsTab === "overview" && (
+                  <Grid container spacing={2}>
+                    {/* Left Column: Technical Specifications Card */}
+                    <Grid item xs={12} md={7}>
+                      <Box
+                        sx={{
+                          backgroundColor: "#ffffff",
+                          borderRadius: "12px",
+                          border: "1px solid #e2e8f0",
+                          p: 2,
+                          height: "100%",
+                          display: "flex",
+                          flexDirection: "column",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                        }}
+                      >
+                        {/* Card Header */}
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            pb: 1.2,
+                            mb: 1.5,
+                            borderBottom: "1px solid #f1f5f9",
+                          }}
+                        >
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box sx={{ p: 0.6, borderRadius: "6px", backgroundColor: theme.lightBg, color: theme.color, display: "flex" }}>
+                              {getCategoryIcon(selectedAsset.category, 16)}
+                            </Box>
+                            <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#0f172a" }}>
+                              {isSoftware
+                                ? "Software & License Specifications"
+                                : isCable
+                                ? "Cable Specifications"
+                                : isPrinter
+                                ? "Printer Specifications"
+                                : isNetwork
+                                ? "Network Device Specifications"
+                                : isRack
+                                ? "Rack Specifications"
+                                : isPhone
+                                ? "Phone Specifications"
+                                : isSIM
+                                ? "SIM Card & Plan Details"
+                                : "Hardware & Device Specifications"}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={selectedAsset.category || "Equipment"}
+                            size="small"
+                            sx={{ fontSize: "0.7rem", height: 20, fontWeight: 600, backgroundColor: "#f1f5f9", color: "#475569" }}
+                          />
+                        </Box>
+
+                        {/* Spec Grid */}
+                        <Grid container spacing={1.2}>
+                          {/* Cable Category Specifications */}
+                          {isCable && (
+                            <>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Cable Name" value={selectedAsset.specs?.cable_name || selectedAsset.brand || selectedAsset.model} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Cable Type" value={selectedAsset.specs?.cable_type || selectedAsset.specs?.device_type} />
+                              </Grid>
+                              <Grid item xs={12} sm={4}>
+                                <SpecTile label="Length" value={selectedAsset.specs?.length || selectedAsset.specs?.screen_size} />
+                              </Grid>
+                              {selectedAsset.serial_number && (
+                                <Grid item xs={12} sm={6}>
+                                  <SpecTile
+                                    label="Serial / Lot #"
+                                    value={selectedAsset.serial_number}
+                                    copyable
+                                    onCopy={(val) => handleCopyText(val, "serial")}
+                                    isCopied={copiedSerial}
+                                  />
+                                </Grid>
+                              )}
+                              {selectedAsset.specs?.connectivity && (
+                                <Grid item xs={12} sm={6}>
+                                  <SpecTile label="Connector" value={selectedAsset.specs.connectivity} />
+                                </Grid>
+                              )}
+                            </>
+                          )}
+
+                          {/* Desktop / Laptop / Computer Specifications */}
+                          {(isDesktop || isLaptop || (!isCable && !isPrinter && !isNetwork && !isSoftware && !isPhone && !isSIM && !isRack)) && (
+                            <>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Brand / Manufacturer" value={selectedAsset.brand} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Model" value={selectedAsset.model} />
+                              </Grid>
+                              <Grid item xs={12} sm={4}>
+                                <SpecTile
+                                  label="Serial Number"
+                                  value={selectedAsset.serial_number}
+                                  copyable
+                                  onCopy={(val) => handleCopyText(val, "serial")}
+                                  isCopied={copiedSerial}
+                                />
+                              </Grid>
+                              {selectedAsset.specs?.processor && (
+                                <Grid item xs={6} sm={4}>
+                                  <SpecTile label="Processor" value={selectedAsset.specs.processor} icon={<Cpu size={13} />} />
+                                </Grid>
+                              )}
+                              {selectedAsset.specs?.ram && (
+                                <Grid item xs={6} sm={4}>
+                                  <SpecTile
+                                    label="RAM"
+                                    value={selectedAsset.specs.ram}
+                                    isChip
+                                    chipColor={{ bg: "#eff6ff", text: "#2563eb", border: "#bfdbfe" }}
+                                  />
+                                </Grid>
+                              )}
+                              {selectedAsset.specs?.storage && (
+                                <Grid item xs={6} sm={4}>
+                                  <SpecTile
+                                    label="Storage"
+                                    value={selectedAsset.specs.storage}
+                                    isChip
+                                    chipColor={{ bg: "#ecfdf5", text: "#059669", border: "#a7f3d0" }}
+                                  />
+                                </Grid>
+                              )}
+                              {selectedAsset.specs?.operating_system && (
+                                <Grid item xs={6} sm={6}>
+                                  <SpecTile label="Operating System" value={selectedAsset.specs.operating_system} />
+                                </Grid>
+                              )}
+                              {selectedAsset.specs?.screen_size && (
+                                <Grid item xs={6} sm={6}>
+                                  <SpecTile label="Screen Size" value={selectedAsset.specs.screen_size} />
+                                </Grid>
+                              )}
+                              {selectedAsset.specs?.resolution && (
+                                <Grid item xs={6} sm={6}>
+                                  <SpecTile label="Resolution" value={selectedAsset.specs.resolution} />
+                                </Grid>
+                              )}
+                              {(selectedAsset.specs?.warranty_duration || selectedAsset.warranty_duration) && (
+                                <Grid item xs={6} sm={6}>
+                                  <SpecTile label="Warranty (Duration)" value={selectedAsset.specs?.warranty_duration || selectedAsset.warranty_duration} />
+                                </Grid>
+                              )}
+                            </>
+                          )}
+
+                          {/* Printer Specifications */}
+                          {isPrinter && (
+                            <>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Brand" value={selectedAsset.brand} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Model" value={selectedAsset.model} />
+                              </Grid>
+                              <Grid item xs={12} sm={4}>
+                                <SpecTile
+                                  label="Serial Number"
+                                  value={selectedAsset.serial_number}
+                                  copyable
+                                  onCopy={(val) => handleCopyText(val, "serial")}
+                                  isCopied={copiedSerial}
+                                />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Printer Type" value={selectedAsset.specs?.printer_type} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Technology" value={selectedAsset.specs?.technology || selectedAsset.specs?.print_technology} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Connectivity" value={selectedAsset.specs?.connectivity} />
+                              </Grid>
+                              {selectedAsset.specs?.duplex_support && (
+                                <Grid item xs={6} sm={6}>
+                                  <SpecTile label="Duplex Support" value={selectedAsset.specs.duplex_support} />
+                                </Grid>
+                              )}
+                              {selectedAsset.specs?.color_capability && (
+                                <Grid item xs={6} sm={6}>
+                                  <SpecTile label="Color Capability" value={selectedAsset.specs.color_capability} />
+                                </Grid>
+                              )}
+                            </>
+                          )}
+
+                          {/* Network Device Specifications */}
+                          {isNetwork && (
+                            <>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Brand" value={selectedAsset.brand} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Model" value={selectedAsset.model} />
+                              </Grid>
+                              <Grid item xs={12} sm={4}>
+                                <SpecTile
+                                  label="Serial Number"
+                                  value={selectedAsset.serial_number}
+                                  copyable
+                                  onCopy={(val) => handleCopyText(val, "serial")}
+                                  isCopied={copiedSerial}
+                                />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Device Type" value={selectedAsset.specs?.device_type} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Port Count" value={selectedAsset.specs?.port_count} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="PoE Support" value={selectedAsset.specs?.poe_support} />
+                              </Grid>
+                              {selectedAsset.specs?.ip_address && (
+                                <Grid item xs={6} sm={6}>
+                                  <SpecTile label="IP Address" value={selectedAsset.specs.ip_address} />
+                                </Grid>
+                              )}
+                              {selectedAsset.specs?.mac_address && (
+                                <Grid item xs={6} sm={6}>
+                                  <SpecTile label="MAC Address" value={selectedAsset.specs.mac_address} />
+                                </Grid>
+                              )}
+                              {selectedAsset.specs?.firmware_version && (
+                                <Grid item xs={12} sm={6}>
+                                  <SpecTile label="Firmware" value={selectedAsset.specs.firmware_version} />
+                                </Grid>
+                              )}
+                            </>
+                          )}
+
+                          {/* Software License Specifications */}
+                          {isSoftware && (
+                            <>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Software Name" value={selectedAsset.specs?.software_name || selectedAsset.brand} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Version" value={selectedAsset.specs?.version || selectedAsset.model} />
+                              </Grid>
+                              <Grid item xs={12} sm={4}>
+                                <SpecTile label="License Type" value={selectedAsset.specs?.license_type} />
+                              </Grid>
+                              <Grid item xs={12} sm={8}>
+                                <SpecTile
+                                  label="License Key"
+                                  value={selectedAsset.specs?.license_key || selectedAsset.serial_number}
+                                  copyable
+                                  onCopy={(val) => handleCopyText(val, "serial")}
+                                  isCopied={copiedSerial}
+                                />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Seats" value={selectedAsset.specs?.seat_count} />
+                              </Grid>
+                            </>
+                          )}
+
+                          {/* Phone / SIM Specifications */}
+                          {(isPhone || isSIM) && (
+                            <>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Brand" value={selectedAsset.brand} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Model" value={selectedAsset.model} />
+                              </Grid>
+                              <Grid item xs={12} sm={4}>
+                                <SpecTile
+                                  label={isSIM ? "SIM / ICCID" : "IMEI 1"}
+                                  value={selectedAsset.specs?.imei_number || selectedAsset.specs?.sim_number || selectedAsset.serial_number}
+                                  copyable
+                                  onCopy={(val) => handleCopyText(val, "serial")}
+                                  isCopied={copiedSerial}
+                                />
+                              </Grid>
+                              {selectedAsset.specs?.imei_2 && (
+                                <Grid item xs={6} sm={6}>
+                                  <SpecTile label="IMEI 2" value={selectedAsset.specs.imei_2} />
+                                </Grid>
+                              )}
+                              {selectedAsset.specs?.service_provider && (
+                                <Grid item xs={6} sm={6}>
+                                  <SpecTile label="Service Provider" value={selectedAsset.specs.service_provider} />
+                                </Grid>
+                              )}
+                              {selectedAsset.specs?.plan_type && (
+                                <Grid item xs={6} sm={6}>
+                                  <SpecTile label="Plan Type" value={selectedAsset.specs.plan_type} />
+                                </Grid>
+                              )}
+                            </>
+                          )}
+
+                          {/* Rack Specifications */}
+                          {isRack && (
+                            <>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Rack Name / #" value={selectedAsset.specs?.rack_name || selectedAsset.brand} />
+                              </Grid>
+                              <Grid item xs={6} sm={4}>
+                                <SpecTile label="Rack Type" value={selectedAsset.specs?.rack_type || selectedAsset.model} />
+                              </Grid>
+                              <Grid item xs={12} sm={4}>
+                                <SpecTile label="U Height" value={selectedAsset.specs?.u_height || selectedAsset.specs?.rack_size_u_height} />
+                              </Grid>
+                              {selectedAsset.specs?.rack_cabinet && (
+                                <Grid item xs={12} sm={6}>
+                                  <SpecTile label="Cabinet" value={selectedAsset.specs.rack_cabinet} />
+                                </Grid>
+                              )}
+                            </>
+                          )}
+                        </Grid>
+
+                        {/* Remarks / Description Callout inside Left Card */}
+                        {(selectedAsset.remarks || selectedAsset.description || selectedAsset.specs?.custom_notes) && (
+                          <Box
+                            sx={{
+                              mt: 2,
+                              pt: 1.5,
+                              borderTop: "1px solid #f1f5f9",
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1,
+                            }}
+                          >
+                            <FileText size={14} color="#64748b" style={{ marginTop: 2, flexShrink: 0 }} />
+                            <Box>
+                              <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                                Remarks & Description
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.8rem", color: "#334155", mt: 0.3, lineHeight: 1.4 }}>
+                                {selectedAsset.remarks || selectedAsset.description || selectedAsset.specs?.custom_notes}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        )}
+                      </Box>
+                    </Grid>
+
+                    {/* Right Column: Assignment & Location + Quick Warranty / Financial Snapshot */}
+                    <Grid item xs={12} md={5}>
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        {/* Assignment & Location Card */}
+                        <Box
+                          sx={{
+                            backgroundColor: "#ffffff",
+                            borderRadius: "12px",
+                            border: "1px solid #e2e8f0",
+                            p: 2,
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                          }}
+                        >
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 1.2, mb: 1.5, borderBottom: "1px solid #f1f5f9" }}>
+                            <Box sx={{ p: 0.6, borderRadius: "6px", backgroundColor: "#f0fdf4", color: "#16a34a", display: "flex" }}>
+                              <UserCheck size={16} />
+                            </Box>
+                            <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#0f172a" }}>
+                              Assignment & Location
+                            </Typography>
+                          </Box>
+
+                          {/* Assigned User Hero Card */}
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1.5,
+                              p: 1.2,
+                              backgroundColor: "#f8fafc",
+                              borderRadius: "9px",
+                              border: "1px solid #f1f5f9",
+                              mb: 1.5,
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: "50%",
+                                background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                                color: "#ffffff",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontWeight: 700,
+                                fontSize: "0.82rem",
+                                flexShrink: 0,
+                                boxShadow: "0 2px 6px rgba(37, 99, 235, 0.25)",
+                              }}
+                            >
+                              {getAssignedUserInitials(assignedName)}
+                            </Box>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography sx={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                                Assigned User
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {assignedName}
+                              </Typography>
+                            </Box>
+                            <Chip
+                              label={assignedName !== "Unassigned" ? "Assigned" : "Unallocated"}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: "0.68rem",
+                                fontWeight: 700,
+                                backgroundColor: assignedName !== "Unassigned" ? "#dcfce7" : "#f1f5f9",
+                                color: assignedName !== "Unassigned" ? "#15803d" : "#64748b",
+                              }}
+                            />
+                          </Box>
+
+                          <Grid container spacing={1.5}>
+                            <Grid item xs={6}>
+                              <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Department</Typography>
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, mt: 0.2 }}>
+                                <Building size={13} color="#64748b" />
+                                <Typography sx={{ fontSize: "0.82rem", color: "#0f172a", fontWeight: 600 }}>
+                                  {selectedAsset.department || "—"}
+                                </Typography>
+                              </Box>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Physical Location</Typography>
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, mt: 0.2 }}>
+                                <MapPin size={13} color="#64748b" />
+                                <Typography sx={{ fontSize: "0.82rem", color: "#0f172a", fontWeight: 600 }}>
+                                  {selectedAsset.location || "—"}
+                                </Typography>
+                              </Box>
+                            </Grid>
+                            {selectedAsset.assigned_date && (
+                              <Grid item xs={12}>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.6, pt: 0.8, borderTop: "1px dashed #f1f5f9" }}>
+                                  <Calendar size={13} color="#64748b" />
+                                  <Typography sx={{ fontSize: "0.74rem", color: "#64748b" }}>
+                                    Assigned on: <strong style={{ color: "#334155" }}>{formatAssetDate(selectedAsset.assigned_date)}</strong>
+                                  </Typography>
+                                </Box>
+                              </Grid>
+                            )}
+                          </Grid>
+                        </Box>
+
+                        {/* Warranty & Financial Snapshot Card */}
+                        <Box
+                          sx={{
+                            backgroundColor: "#ffffff",
+                            borderRadius: "12px",
+                            border: "1px solid #e2e8f0",
+                            p: 2,
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                          }}
+                        >
+                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1.2, mb: 1.5, borderBottom: "1px solid #f1f5f9" }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Box sx={{ p: 0.6, borderRadius: "6px", backgroundColor: "#fff7ed", color: "#ea580c", display: "flex" }}>
+                                <Calendar size={16} />
+                              </Box>
+                              <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#0f172a" }}>
+                                Procurement & Warranty
+                              </Typography>
+                            </Box>
+                            {warrantyInfo && (
+                              <Chip
+                                label={warrantyInfo.label}
+                                size="small"
+                                sx={{
+                                  height: 20,
+                                  fontSize: "0.68rem",
+                                  fontWeight: 700,
+                                  backgroundColor: warrantyInfo.bg,
+                                  color: warrantyInfo.color,
+                                  border: `1px solid ${warrantyInfo.border}`,
+                                }}
+                              />
+                            )}
+                          </Box>
+
+                          <Grid container spacing={1.5}>
+                            <Grid item xs={6}>
+                              <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Purchase Date</Typography>
+                              <Typography sx={{ fontSize: "0.82rem", color: "#0f172a", fontWeight: 600, mt: 0.2 }}>
+                                {formatAssetDate(selectedAsset.purchase_date)}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Warranty Expiry</Typography>
+                              <Typography sx={{ fontSize: "0.82rem", color: "#0f172a", fontWeight: 600, mt: 0.2 }}>
+                                {formatAssetDate(selectedAsset.warranty_end_date || selectedAsset.warranty_expiry)}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Vendor / Supplier</Typography>
+                              <Typography sx={{ fontSize: "0.82rem", color: "#0f172a", fontWeight: 600, mt: 0.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {vendorName}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Purchase Cost</Typography>
+                              <Typography sx={{ fontSize: "0.88rem", color: "#166534", fontWeight: 700, mt: 0.2 }}>
+                                {selectedAsset.purchase_cost ? `₹${Number(selectedAsset.purchase_cost).toLocaleString("en-IN")}` : "—"}
+                              </Typography>
+                            </Grid>
+                          </Grid>
+
+                          {/* Quick link button to Tab 2 if invoice is attached */}
+                          {invoiceUrl ? (
+                            <Box
+                              onClick={() => setDetailsTab("procurement")}
+                              sx={{
+                                mt: 1.5,
+                                p: 0.8,
+                                px: 1.2,
+                                borderRadius: "8px",
+                                backgroundColor: "#eff6ff",
+                                border: "1px solid #dbeafe",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                cursor: "pointer",
+                                transition: "all 0.15s ease",
+                                "&:hover": { backgroundColor: "#dbeafe" },
+                              }}
+                            >
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <Receipt size={14} color="#2563eb" />
+                                <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: "#1e40af" }}>
+                                  Invoice Attached ({invoiceNum || "View Doc"})
+                                </Typography>
+                              </Box>
+                              <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#2563eb" }}>
+                                View →
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <Box
+                              onClick={() => setDetailsTab("procurement")}
+                              sx={{
+                                mt: 1.5,
+                                pt: 1,
+                                borderTop: "1px dashed #f1f5f9",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Typography sx={{ fontSize: "0.72rem", color: "#64748b" }}>
+                                Financial & billing details
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.72rem", fontWeight: 600, color: "#2563eb" }}>
+                                View Full Tab →
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                )}
+
+                {/* ── TAB 2: PROCUREMENT & INVOICE ── */}
+                {detailsTab === "procurement" && (
+                  <Grid container spacing={2.5}>
+                    {/* Left: Financial & Warranty Overview */}
+                    <Grid item xs={12} md={6}>
+                      <Box
+                        sx={{
+                          backgroundColor: "#ffffff",
+                          borderRadius: "12px",
+                          border: "1px solid #e2e8f0",
+                          p: 2.5,
+                          height: "100%",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                        }}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1.5, mb: 2, borderBottom: "1px solid #f1f5f9" }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box sx={{ p: 0.6, borderRadius: "6px", backgroundColor: "#ecfdf5", color: "#059669", display: "flex" }}>
+                              <DollarSign size={16} />
+                            </Box>
+                            <Typography sx={{ fontSize: "0.9rem", fontWeight: 700, color: "#0f172a" }}>
+                              Financial &amp; Warranty Overview
+                            </Typography>
+                          </Box>
+                          {warrantyInfo && (
+                            <Chip
+                              label={warrantyInfo.label}
+                              size="small"
+                              sx={{
+                                height: 22,
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                backgroundColor: warrantyInfo.bg,
+                                color: warrantyInfo.color,
+                                border: `1px solid ${warrantyInfo.border}`,
+                              }}
+                            />
+                          )}
+                        </Box>
+
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Purchase Cost</Typography>
+                            <Typography sx={{ fontSize: "0.95rem", color: "#166534", fontWeight: 700, mt: 0.3 }}>
+                              {selectedAsset.purchase_cost ? `₹${Number(selectedAsset.purchase_cost).toLocaleString("en-IN")}` : "Not Specified"}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Payment Mode</Typography>
+                            <Box sx={{ mt: 0.3 }}>
+                              <Chip
+                                size="small"
+                                label={selectedAsset.payment_mode ? `${selectedAsset.payment_mode}` : "UPI Payment"}
+                                sx={{
+                                  height: 22,
+                                  fontSize: "0.72rem",
+                                  fontWeight: 700,
+                                  backgroundColor: String(selectedAsset.payment_mode || "").toLowerCase().includes("cash") ? "#fef3c7" : "#eff6ff",
+                                  color: String(selectedAsset.payment_mode || "").toLowerCase().includes("cash") ? "#92400e" : "#1e40af",
+                                  border: `1px solid ${String(selectedAsset.payment_mode || "").toLowerCase().includes("cash") ? "#fde68a" : "#bfdbfe"}`,
+                                }}
+                              />
+                            </Box>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Purchase Date</Typography>
+                            <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600, mt: 0.3 }}>
+                              {formatAssetDate(selectedAsset.purchase_date)}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Warranty Expiry</Typography>
+                            <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600, mt: 0.3 }}>
+                              {formatAssetDate(selectedAsset.warranty_end_date || selectedAsset.warranty_expiry)}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={12}>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Vendor / Supplier</Typography>
+                            <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600, mt: 0.3 }}>
+                              {vendorName}
+                            </Typography>
+                          </Grid>
+                          {selectedAsset.inventory_type && (
+                            <Grid item xs={6}>
+                              <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Inventory Type</Typography>
+                              <Typography sx={{ fontSize: "0.85rem", color: "#0f172a", fontWeight: 600, mt: 0.3 }}>
+                                {selectedAsset.inventory_type}
+                              </Typography>
+                            </Grid>
+                          )}
+                          {selectedAsset.stock_type && (
+                            <Grid item xs={6}>
+                              <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Stock Classification</Typography>
+                              <Typography sx={{ fontSize: "0.85rem", color: "#0f172a", fontWeight: 600, mt: 0.3 }}>
+                                {selectedAsset.stock_type}
+                              </Typography>
+                            </Grid>
+                          )}
+                        </Grid>
+                      </Box>
+                    </Grid>
+
+                    {/* Right: Attached Invoice & Billing Document */}
+                    <Grid item xs={12} md={6}>
+                      <Box
+                        sx={{
+                          backgroundColor: "#ffffff",
+                          borderRadius: "12px",
+                          border: "1px solid #e2e8f0",
+                          p: 2.5,
+                          height: "100%",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                        }}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, pb: 1.5, mb: 2, borderBottom: "1px solid #f1f5f9" }}>
+                          <Box sx={{ p: 0.6, borderRadius: "6px", backgroundColor: "#eff6ff", color: "#2563eb", display: "flex" }}>
+                            <Receipt size={16} />
+                          </Box>
+                          <Typography sx={{ fontSize: "0.9rem", fontWeight: 700, color: "#0f172a" }}>
+                            Invoice &amp; Billing Details
+                          </Typography>
+                        </Box>
+
+                        <Grid container spacing={2} sx={{ mb: 2 }}>
+                          <Grid item xs={6}>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Invoice Number</Typography>
+                            <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 700, mt: 0.3 }}>
+                              {invoiceNum || "—"}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Invoice Date</Typography>
+                            <Typography sx={{ fontSize: "0.88rem", color: "#0f172a", fontWeight: 600, mt: 0.3 }}>
+                              {formatAssetDate(selectedAsset.invoice_date)}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+
+                        {/* Document Thumbnail / Attachment */}
+                        {invoiceUrl ? (
+                          <Box
+                            sx={{
+                              p: 2,
+                              borderRadius: "10px",
+                              backgroundColor: "#f8fafc",
+                              border: "1px solid #e2e8f0",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 2,
+                            }}
+                          >
+                            <Box
+                              onClick={() => {
+                                setPreviewInvoiceUrl(invoiceUrl);
+                                setPreviewInvoiceTitle(
+                                  invoiceNum
+                                    ? `Invoice_${invoiceNum}`
+                                    : `Invoice_${selectedAsset.asset_tag || "Asset"}`
+                                );
+                              }}
+                              sx={{
+                                width: 76,
+                                height: 76,
+                                borderRadius: "8px",
+                                overflow: "hidden",
+                                border: "1px solid #cbd5e1",
+                                flexShrink: 0,
+                                backgroundColor: "#ffffff",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                                transition: "all 0.2s ease",
+                                "&:hover": {
+                                  borderColor: "#3b82f6",
+                                  transform: "scale(1.03)",
+                                  boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+                                },
+                              }}
+                              title="Click to preview invoice document"
+                            >
+                              {invoiceUrl.includes(".pdf") || invoiceUrl.startsWith("data:application/pdf") ? (
+                                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#dc2626" }}>
+                                  <FileText size={30} />
+                                  <Typography sx={{ fontSize: "0.65rem", fontWeight: 700, mt: 0.3 }}>PDF</Typography>
+                                </Box>
+                              ) : (
+                                <img
+                                  src={invoiceUrl}
+                                  alt={selectedAsset.asset_tag}
+                                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                />
+                              )}
+                            </Box>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {invoiceNum ? `Invoice #${invoiceNum}` : "Asset Invoice Document"}
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.74rem", color: "#64748b", mt: 0.3 }}>
+                                Official purchase invoice &amp; billing documentation
+                              </Typography>
+                              <Box sx={{ display: "flex", gap: 1, mt: 1.2, flexWrap: "wrap" }}>
+                                <Button
+                                  variant="outlined"
+                                  size="small"
+                                  startIcon={<Eye size={13} />}
+                                  onClick={() => {
+                                    setPreviewInvoiceUrl(invoiceUrl);
+                                    setPreviewInvoiceTitle(
+                                      invoiceNum
+                                        ? `Invoice_${invoiceNum}`
+                                        : `Invoice_${selectedAsset.asset_tag || "Asset"}`
+                                    );
+                                  }}
+                                  sx={{
+                                    textTransform: "none",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 600,
+                                    borderRadius: "6px",
+                                    py: 0.3,
+                                    px: 1.2,
+                                  }}
+                                >
+                                  Preview
+                                </Button>
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  startIcon={<Download size={13} />}
+                                  onClick={() =>
+                                    handleDownloadInvoice(
+                                      invoiceUrl,
+                                      invoiceNum
+                                        ? `Invoice_${invoiceNum}`
+                                        : `Invoice_${selectedAsset.asset_tag || "Asset"}`
+                                    )
+                                  }
+                                  sx={{
+                                    textTransform: "none",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 600,
+                                    borderRadius: "6px",
+                                    py: 0.3,
+                                    px: 1.2,
+                                    backgroundColor: "#2563eb",
+                                    "&:hover": { backgroundColor: "#1d4ed8" },
+                                  }}
+                                >
+                                  Download
+                                </Button>
+                              </Box>
+                            </Box>
+                          </Box>
+                        ) : (
+                          <Box
+                            sx={{
+                              p: 3,
+                              borderRadius: "10px",
+                              border: "2px dashed #cbd5e1",
+                              backgroundColor: "#f8fafc",
+                              textAlign: "center",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <Receipt size={32} color="#94a3b8" />
+                            <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: "#64748b", mt: 1 }}>
+                              No Invoice Document Attached
+                            </Typography>
+                            <Typography sx={{ fontSize: "0.75rem", color: "#94a3b8", mt: 0.3 }}>
+                              You can attach a PDF or image invoice by editing this asset.
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Invoice Approval Status & Actions */}
+                        <Box
+                          sx={{
+                            mt: 2.5,
+                            pt: 2,
+                            borderTop: "1px solid #f1f5f9",
+                          }}
+                        >
+                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5, flexWrap: "wrap", gap: 1 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                              <Box sx={{ p: 0.5, borderRadius: "6px", backgroundColor: "#f0fdf4", color: "#16a34a", display: "flex" }}>
+                                <ShieldCheck size={16} />
+                              </Box>
+                              <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#0f172a" }}>
+                                Invoice Approval Status
+                              </Typography>
+                            </Box>
+                            <Chip
+                              label={badge.label}
+                              size="small"
+                              sx={{
+                                height: 22,
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                backgroundColor: badge.bg,
+                                color: badge.color,
+                                border: `1px solid ${badge.border}`,
+                              }}
+                            />
+                          </Box>
+
+                          {/* Rejection remarks if any */}
+                          {selectedAsset.rejection_remarks && (
+                            <Box
+                              sx={{
+                                p: 1.6,
+                                mb: 1.6,
+                                borderRadius: "10px",
+                                backgroundColor: "#fef2f2",
+                                border: "1px solid #fecaca",
+                                boxShadow: "0 1px 3px rgba(239, 68, 68, 0.06)",
+                              }}
+                            >
+                              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1, mb: 1 }}>
+                                <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.8 }}>
+                                  <Box
+                                    sx={{
+                                      width: 22,
+                                      height: 22,
+                                      borderRadius: "50%",
+                                      backgroundColor: "#fee2e2",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      border: "1px solid #fca5a5",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <XCircle size={13} color="#dc2626" />
+                                  </Box>
+                                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: "#991b1b" }}>
+                                    Rejected by: <span style={{ color: "#7f1d1d" }}>{rejectedByName || "Approver"}</span>
+                                    {rejectedByRole && <span style={{ color: "#b91c1c", fontWeight: 500 }}> ({rejectedByRole})</span>}
+                                  </Typography>
+                                </Box>
+                                {rejectedAtDate && (
+                                  <Typography sx={{ fontSize: "0.72rem", color: "#991b1b", fontWeight: 500, fontStyle: "italic" }}>
+                                    {rejectedAtDate}
+                                  </Typography>
+                                )}
+                              </Box>
+                              <Box
+                                sx={{
+                                  backgroundColor: "#ffffff",
+                                  p: 1.2,
+                                  px: 1.5,
+                                  borderRadius: "7px",
+                                  border: "1px solid #fee2e2",
+                                }}
+                              >
+                                <Typography sx={{ fontSize: "0.84rem", color: "#7f1d1d", fontWeight: 500, lineHeight: 1.55 }}>
+                                  {selectedAsset.rejection_remarks}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          )}
+
+                          {/* Verification Badges for active 1st approver & manu_pillai */}
+                          <Box sx={{ display: "flex", gap: 0.8, flexWrap: "wrap", mb: 1.5 }}>
+                            {perms.hasFirstVerified ? (
+                              <Chip
+                                size="small"
+                                icon={<Check size={12} color="#16a34a" />}
+                                label={`1st Approved: ${recordFirstName}`}
+                                sx={{
+                                  height: 22,
+                                  fontSize: "0.68rem",
+                                  fontWeight: 600,
+                                  backgroundColor: "#f0fdf4",
+                                  color: "#166534",
+                                  border: "1px solid #bbf7d0",
+                                }}
+                              />
+                            ) : (
+                              <Chip
+                                size="small"
+                                icon={<Clock size={12} color="#ca8a04" />}
+                                label={`Pending 1st Approval: ${recordFirstName}`}
+                                sx={{
+                                  height: 22,
+                                  fontSize: "0.68rem",
+                                  fontWeight: 600,
+                                  backgroundColor: "#fefce8",
+                                  color: "#854d0e",
+                                  border: "1px solid #fef08a",
+                                }}
+                              />
+                            )}
+
+                            {perms.hasManuVerified ? (
+                              <Chip
+                                size="small"
+                                icon={<Check size={12} color="#16a34a" />}
+                                label="Final Approved: manu_pillai"
+                                sx={{
+                                  height: 22,
+                                  fontSize: "0.68rem",
+                                  fontWeight: 600,
+                                  backgroundColor: "#f0fdf4",
+                                  color: "#166534",
+                                  border: "1px solid #bbf7d0",
+                                }}
+                              />
+                            ) : (
+                              <Chip
+                                size="small"
+                                icon={<Clock size={12} color="#ca8a04" />}
+                                label="Pending Final Approval: manu_pillai"
+                                sx={{
+                                  height: 22,
+                                  fontSize: "0.68rem",
+                                  fontWeight: 600,
+                                  backgroundColor: "#fefce8",
+                                  color: "#854d0e",
+                                  border: "1px solid #fef08a",
+                                }}
+                              />
+                            )}
+                          </Box>
+
+                          {/* Quick Workflow Action Buttons */}
+                          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
+                            {perms.canApproveFirst && (
+                              <Button
+                                variant="contained"
+                                size="small"
+                                startIcon={<Check size={14} />}
+                                onClick={() => handleOpenWorkflowAction(selectedAsset, "approve_first")}
+                                sx={{
+                                  textTransform: "none",
+                                  fontSize: "0.78rem",
+                                  fontWeight: 600,
+                                  borderRadius: "8px",
+                                  backgroundColor: "#16a34a",
+                                  "&:hover": { backgroundColor: "#15803d" },
+                                  boxShadow: "none",
+                                }}
+                              >
+                                Approve (1st Approval)
+                              </Button>
+                            )}
+                            {perms.canApproveSecond && (
+                              <Button
+                                variant="contained"
+                                size="small"
+                                startIcon={<Check size={14} />}
+                                onClick={() => handleOpenWorkflowAction(selectedAsset, "approve_second")}
+                                sx={{
+                                  textTransform: "none",
+                                  fontSize: "0.78rem",
+                                  fontWeight: 600,
+                                  borderRadius: "8px",
+                                  backgroundColor: "#16a34a",
+                                  "&:hover": { backgroundColor: "#15803d" },
+                                  boxShadow: "none",
+                                }}
+                              >
+                                Approve (Final Approval)
+                              </Button>
+                            )}
+                            {perms.canReturn && (
+                              <Button
+                                variant="outlined"
+                                color="error"
+                                size="small"
+                                startIcon={<X size={14} />}
+                                onClick={() => handleOpenWorkflowAction(selectedAsset, "reject_admin")}
+                                sx={{
+                                  textTransform: "none",
+                                  fontSize: "0.78rem",
+                                  fontWeight: 600,
+                                  borderRadius: "8px",
+                                }}
+                              >
+                                Return to IT
+                              </Button>
+                            )}
+                            {perms.canResubmit && (
+                              <Button
+                                variant="contained"
+                                size="small"
+                                startIcon={<RotateCcw size={14} />}
+                                onClick={() => handleOpenWorkflowAction(selectedAsset, "resubmit")}
+                                sx={{
+                                  textTransform: "none",
+                                  fontSize: "0.78rem",
+                                  fontWeight: 600,
+                                  borderRadius: "8px",
+                                  backgroundColor: "#2563eb",
+                                  "&:hover": { backgroundColor: "#1d4ed8" },
+                                  boxShadow: "none",
+                                }}
+                              >
+                                Resubmit for Approval
+                              </Button>
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                )}
+
+                {/* ── TAB 3: APPROVAL & WORKFLOW AUDIT ── */}
+                {detailsTab === "workflow" && (
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    {/* Workflow Status Card */}
+                    <Box
+                      sx={{
+                        backgroundColor: "#ffffff",
+                        borderRadius: "12px",
+                        border: "1px solid #e2e8f0",
+                        p: 2.2,
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                      }}
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1.2, mb: 2, borderBottom: "1px solid #f1f5f9" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Box sx={{ p: 0.6, borderRadius: "6px", backgroundColor: "#f0fdf4", color: "#16a34a", display: "flex" }}>
+                            <ShieldCheck size={16} />
+                          </Box>
+                          <Typography sx={{ fontSize: "0.88rem", fontWeight: 700, color: "#0f172a" }}>
+                            Approval Workflow &amp; Verification Status
+                          </Typography>
+                        </Box>
+                        <Chip
+                          label={badge.label}
+                          size="small"
+                          sx={{
+                            height: 22,
+                            fontSize: "0.7rem",
+                            fontWeight: 700,
+                            backgroundColor: badge.bg,
+                            color: badge.color,
+                            border: `1px solid ${badge.border}`,
+                          }}
+                        />
+                      </Box>
+
+                      {/* 4-Step Stepper Progress Bar */}
+                      <Box sx={{ display: "flex", alignItems: "center", mb: 2.5, px: 1 }}>
+                        {[
+                          { label: "1. Created", done: true },
+                          {
+                            label: `2. ${recordFirstName} (1st Approval)`,
+                            done: perms.hasFirstVerified,
+                            active: !perms.hasFirstVerified && !perms.isReturnedToIT && !perms.isCompleted,
+                          },
+                          {
+                            label: "3. manu_pillai (Final Approval)",
+                            done: perms.hasManuVerified,
+                            active: perms.hasFirstVerified && !perms.hasManuVerified && !perms.isReturnedToIT && !perms.isCompleted,
+                          },
+                          {
+                            label: "4. Completed",
+                            done: perms.isCompleted || (perms.hasFirstVerified && perms.hasManuVerified),
+                          },
+                        ].map((step, idx, arr) => (
+                          <React.Fragment key={idx}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                              <Box
+                                sx={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: "50%",
+                                  backgroundColor: step.done ? "#16a34a" : step.active ? "#2563eb" : "#e2e8f0",
+                                  color: step.done || step.active ? "#ffffff" : "#64748b",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: "0.72rem",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {step.done ? <Check size={13} /> : idx + 1}
+                              </Box>
+                              <Typography
+                                sx={{
+                                  fontSize: "0.78rem",
+                                  fontWeight: step.active || step.done ? 700 : 500,
+                                  color: step.active ? "#1d4ed8" : step.done ? "#166534" : "#64748b",
+                                }}
+                              >
+                                {step.label}
+                              </Typography>
+                            </Box>
+                            {idx < arr.length - 1 && (
+                              <Box
+                                sx={{
+                                  flex: 1,
+                                  height: 2,
+                                  backgroundColor: step.done ? "#16a34a" : "#e2e8f0",
+                                  mx: 1.5,
+                                }}
+                              />
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </Box>
+
+                      {/* 2-tier approval cards */}
+                      <Grid container spacing={2}>
+                        {/* 1. First Admin Approval */}
+                        <Grid item xs={12} sm={6}>
+                          <Box sx={{ p: 1.5, backgroundColor: perms.hasFirstVerified ? "#f0fdf4" : perms.isReturnedToIT ? "#fff7ed" : "#eff6ff", borderRadius: "9px", border: `1px solid ${perms.hasFirstVerified ? "#86efac" : perms.isReturnedToIT ? "#fed7aa" : "#bfdbfe"}`, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                            <Box>
+                              <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                                <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
+                                  1. First Admin Approval ({recordFirstName})
+                                </Typography>
+                                {perms.hasFirstVerified ? (
+                                  <Chip
+                                    label="✓ Verified"
+                                    size="small"
+                                    sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, backgroundColor: "#dcfce7", color: "#15803d" }}
+                                  />
+                                ) : (
+                                  <Chip
+                                    label="Pending"
+                                    size="small"
+                                    sx={{ height: 20, fontSize: "0.68rem", fontWeight: 600, backgroundColor: "#fef3c7", color: "#92400e" }}
+                                  />
+                                )}
+                              </Box>
+                              <Typography sx={{ fontSize: "0.75rem", color: "#64748b" }}>
+                                Designated Approver: <strong style={{ color: "#334155" }}>{recordFirstName}</strong> ({recordFirstUsername})
+                              </Typography>
+                            </Box>
+
+                            {perms.canApproveFirst && (
+                              <Box sx={{ mt: 1.5 }}>
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  startIcon={<Check size={13} />}
+                                  onClick={() => handleOpenWorkflowAction(selectedAsset, "approve_first")}
+                                  sx={{
+                                    fontSize: "0.74rem",
+                                    textTransform: "none",
+                                    fontWeight: 700,
+                                    borderRadius: "6px",
+                                    backgroundColor: "#16a34a",
+                                    "&:hover": { backgroundColor: "#15803d" },
+                                  }}
+                                >
+                                  + Approve ({recordFirstName})
+                                </Button>
+                              </Box>
+                            )}
+                          </Box>
+                        </Grid>
+
+                        {/* 2. Final Admin Approval (manu_pillai) */}
+                        <Grid item xs={12} sm={6}>
+                          <Box sx={{ p: 1.5, backgroundColor: perms.hasManuVerified ? "#f0fdf4" : perms.hasFirstVerified ? "#eff6ff" : "#f8fafc", borderRadius: "9px", border: `1px solid ${perms.hasManuVerified ? "#86efac" : perms.hasFirstVerified ? "#bfdbfe" : "#e2e8f0"}`, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                            <Box>
+                              <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                                <Typography sx={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
+                                  2. Final Admin Approval (manu_pillai)
+                                </Typography>
+                                {perms.hasManuVerified ? (
+                                  <Chip
+                                    label="✓ Approved"
+                                    size="small"
+                                    sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, backgroundColor: "#dcfce7", color: "#15803d" }}
+                                  />
+                                ) : perms.hasFirstVerified ? (
+                                  <Chip
+                                    label="Pending"
+                                    size="small"
+                                    sx={{ height: 20, fontSize: "0.68rem", fontWeight: 600, backgroundColor: "#dbeafe", color: "#1d4ed8" }}
+                                  />
+                                ) : (
+                                  <Chip
+                                    label="Awaiting Step 1"
+                                    size="small"
+                                    sx={{ height: 20, fontSize: "0.68rem", color: "#94a3b8", backgroundColor: "#f1f5f9" }}
+                                  />
+                                )}
+                              </Box>
+                              <Typography sx={{ fontSize: "0.75rem", color: "#64748b" }}>
+                                Final Sign-off: <strong style={{ color: "#334155" }}>Manu Pillai</strong> (manu_pillai)
+                              </Typography>
+                            </Box>
+
+                            {perms.canApproveSecond && (
+                              <Box sx={{ mt: 1.5 }}>
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  startIcon={<Check size={13} />}
+                                  onClick={() => handleOpenWorkflowAction(selectedAsset, "approve_second")}
+                                  sx={{
+                                    fontSize: "0.74rem",
+                                    textTransform: "none",
+                                    fontWeight: 700,
+                                    borderRadius: "6px",
+                                    backgroundColor: "#16a34a",
+                                    "&:hover": { backgroundColor: "#15803d" },
+                                  }}
+                                >
+                                  + Approve (manu_pillai)
+                                </Button>
+                              </Box>
+                            )}
+                          </Box>
+                        </Grid>
+
+                        {/* Rejection remarks */}
+                        {selectedAsset.rejection_remarks && (
+                          <Grid item xs={12}>
+                            <Box
+                              sx={{
+                                p: 1.8,
+                                background: "linear-gradient(180deg, #fff5f5 0%, #fef2f2 100%)",
+                                borderRadius: "10px",
+                                border: "1px solid #fecaca",
+                                boxShadow: "0 1px 3px rgba(239, 68, 68, 0.08)",
+                              }}
+                            >
+                              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 0.8, mb: 1 }}>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                  <Box
+                                    sx={{
+                                      width: 24,
+                                      height: 24,
+                                      borderRadius: "50%",
+                                      backgroundColor: "#fee2e2",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      border: "1px solid #fca5a5",
+                                    }}
+                                  >
+                                    <XCircle size={14} color="#dc2626" />
+                                  </Box>
+                                  <Typography sx={{ fontSize: "0.76rem", fontWeight: 700, color: "#991b1b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                    Rejection Details / Remarks
+                                  </Typography>
+                                </Box>
+
+                                <Chip
+                                  size="small"
+                                  icon={<XCircle size={12} color="#b91c1c" />}
+                                  label={`Rejected by: ${rejectedByName || "Approver"}${rejectedByRole ? ` (${rejectedByRole})` : ""}`}
+                                  sx={{
+                                    height: 22,
+                                    fontSize: "0.7rem",
+                                    fontWeight: 700,
+                                    backgroundColor: "#fee2e2",
+                                    color: "#991b1b",
+                                    border: "1px solid #fca5a5",
+                                  }}
+                                />
+                              </Box>
+
+                              <Box
+                                sx={{
+                                  backgroundColor: "#ffffff",
+                                  p: 1.2,
+                                  px: 1.5,
+                                  borderRadius: "6px",
+                                  border: "1px dashed #fca5a5",
+                                  mb: 1,
+                                }}
+                              >
+                                <Typography sx={{ fontSize: "0.84rem", color: "#7f1d1d", fontWeight: 500, lineHeight: 1.5 }}>
+                                  {selectedAsset.rejection_remarks}
+                                </Typography>
+                              </Box>
+
+                              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1, pt: 0.3 }}>
+                                <Typography sx={{ fontSize: "0.74rem", color: "#991b1b", fontWeight: 600 }}>
+                                  Rejected by: <span style={{ color: "#7f1d1d", fontWeight: 700 }}>{rejectedByName || "Approver"}</span>
+                                  {rejectedByRole && <span style={{ color: "#b91c1c", fontWeight: 500 }}> • {rejectedByRole}</span>}
+                                </Typography>
+                                {rejectedAtDate && (
+                                  <Typography sx={{ fontSize: "0.72rem", color: "#b91c1c", fontStyle: "italic" }}>
+                                    {rejectedAtDate}
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Box>
+                          </Grid>
+                        )}
+
+                        {/* Secondary action buttons */}
+                        {(perms.canReturn || perms.canResubmit) && (
+                          <Grid item xs={12}>
+                            <Box sx={{ display: "flex", gap: 1, pt: 1, borderTop: "1px dashed #e2e8f0" }}>
+                              {perms.canReturn && (
+                                <Button
+                                  variant="outlined"
+                                  color="error"
+                                  size="small"
+                                  startIcon={<X size={13} />}
+                                  onClick={() => handleOpenWorkflowAction(selectedAsset, "reject_admin")}
+                                  sx={{
+                                    textTransform: "none",
+                                    fontWeight: 600,
+                                    fontSize: "0.75rem",
+                                    borderRadius: "6px",
+                                  }}
+                                >
+                                  Return to IT for Correction
+                                </Button>
+                              )}
+                              {perms.canResubmit && (
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  startIcon={<RotateCcw size={13} />}
+                                  onClick={() => handleOpenWorkflowAction(selectedAsset, "resubmit")}
+                                  sx={{
+                                    backgroundColor: "#2563eb",
+                                    textTransform: "none",
+                                    fontWeight: 600,
+                                    fontSize: "0.75rem",
+                                    borderRadius: "6px",
+                                    "&:hover": { backgroundColor: "#1d4ed8" },
+                                  }}
+                                >
+                                  Resubmit for Approval
+                                </Button>
+                              )}
+                            </Box>
+                          </Grid>
+                        )}
+                      </Grid>
+                    </Box>
+
+                    {/* Stage History Timeline */}
+                    <Box
+                      sx={{
+                        backgroundColor: "#ffffff",
+                        borderRadius: "12px",
+                        border: "1px solid #e2e8f0",
+                        p: 2.2,
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                      }}
+                    >
+                      <Typography sx={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase", mb: 1.5 }}>
+                        Workflow Stage History &amp; Audit Trail
+                      </Typography>
+                      {deduplicatedWorkflowHistory.length > 0 ? (
+                        <Box sx={{ border: "1px solid #e2e8f0", borderRadius: "8px", overflow: "hidden" }}>
+                          {deduplicatedWorkflowHistory.map((h, i) => {
+                            const actLower = (h.action || "").toLowerCase();
+                            const stgLower = (h.stage || "").toLowerCase();
+                            const isHistoryRejected =
+                              actLower.includes("reject") ||
+                              stgLower.includes("reject") ||
+                              actLower.includes("returned") ||
+                              stgLower.includes("correction");
+                            const isHistoryVerified =
+                              actLower.includes("verified") ||
+                              actLower.includes("approved");
+
+                            return (
+                              <Box
+                                key={i}
+                                sx={{
+                                  p: 1.4,
+                                  px: 2,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  borderBottom: i < deduplicatedWorkflowHistory.length - 1 ? "1px solid #f1f5f9" : "none",
+                                  borderLeft: isHistoryRejected
+                                    ? "4px solid #ef4444"
+                                    : isHistoryVerified
+                                      ? "4px solid #22c55e"
+                                      : "4px solid transparent",
+                                  backgroundColor: isHistoryRejected
+                                    ? "#fef2f2"
+                                    : i % 2 === 0
+                                      ? "#ffffff"
+                                      : "#f8fafc",
+                                  transition: "background-color 0.15s ease",
+                                }}
+                              >
+                                <Box display="flex" alignItems="center" gap={1.4}>
+                                  <Box
+                                    sx={{
+                                      width: 28,
+                                      height: 28,
+                                      borderRadius: "50%",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      backgroundColor: isHistoryRejected
+                                        ? "#fee2e2"
+                                        : isHistoryVerified
+                                          ? "#f0fdf4"
+                                          : "#f1f5f9",
+                                      border: isHistoryRejected
+                                        ? "1px solid #fca5a5"
+                                        : isHistoryVerified
+                                          ? "1px solid #bbf7d0"
+                                          : "1px solid #e2e8f0",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    {isHistoryRejected ? (
+                                      <XCircle size={15} color="#dc2626" />
+                                    ) : isHistoryVerified ? (
+                                      <Check size={14} color="#16a34a" />
+                                    ) : (
+                                      <Clock size={14} color="#64748b" />
+                                    )}
+                                  </Box>
+                                  <Box>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                                      <Typography
+                                        sx={{
+                                          fontSize: "0.82rem",
+                                          fontWeight: isHistoryRejected ? 700 : 600,
+                                          color: isHistoryRejected ? "#991b1b" : "#0f172a",
+                                        }}
+                                      >
+                                        {h.action || h.stage}
+                                      </Typography>
+                                      {isHistoryRejected && (
+                                        <Chip
+                                          size="small"
+                                          label="Rejected"
+                                          sx={{
+                                            height: 18,
+                                            fontSize: "0.62rem",
+                                            fontWeight: 700,
+                                            backgroundColor: "#fee2e2",
+                                            color: "#991b1b",
+                                            border: "1px solid #fca5a5",
+                                            textTransform: "uppercase",
+                                          }}
+                                        />
+                                      )}
+                                    </Box>
+                                    <Typography
+                                      sx={{
+                                        fontSize: "0.72rem",
+                                        color: isHistoryRejected ? "#b91c1c" : "#64748b",
+                                        mt: 0.2,
+                                      }}
+                                    >
+                                      By <strong>{h.performed_by_name || h.performed_by?.username || "System"}</strong>
+                                    </Typography>
+                                    {h.remarks && h.remarks !== h.action && (
+                                      <Typography
+                                        sx={{
+                                          fontSize: "0.72rem",
+                                          color: isHistoryRejected ? "#7f1d1d" : "#475569",
+                                          fontStyle: "italic",
+                                          mt: 0.3,
+                                          pl: 1,
+                                          borderLeft: isHistoryRejected ? "2px solid #fca5a5" : "2px solid #cbd5e1",
+                                        }}
+                                      >
+                                        Remarks: &quot;{h.remarks}&quot;
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                </Box>
+                                <Typography
+                                  sx={{
+                                    fontSize: "0.72rem",
+                                    color: isHistoryRejected ? "#b91c1c" : "#94a3b8",
+                                    fontWeight: isHistoryRejected ? 600 : 500,
+                                    whiteSpace: "nowrap",
+                                    ml: 2,
+                                  }}
+                                >
+                                  {h.timestamp ? new Date(h.timestamp).toLocaleString("en-IN") : "—"}
+                                </Typography>
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                      ) : (
+                        <Typography sx={{ fontSize: "0.8rem", color: "#94a3b8", fontStyle: "italic", p: 1 }}>
+                          No workflow history recorded yet.
+                        </Typography>
+                      )}
+                    </Box>
+
+                    {/* Record Audit Metadata */}
+                    <Box
+                      sx={{
+                        backgroundColor: "#ffffff",
+                        borderRadius: "12px",
+                        border: "1px solid #e2e8f0",
+                        p: 2.2,
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                      }}
+                    >
+                      <Typography sx={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase", mb: 1.5 }}>
+                        Record Audit Metadata
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={6} sm={3}>
+                          <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Created By</Typography>
+                          <Typography sx={{ fontSize: "0.82rem", color: "#0f172a", fontWeight: 600, mt: 0.2 }}>
+                            {selectedAsset.created_by_name || selectedAsset.history?.[0]?.changed_by_name || "System"}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6} sm={3}>
+                          <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Created Date</Typography>
+                          <Typography sx={{ fontSize: "0.82rem", color: "#0f172a", fontWeight: 600, mt: 0.2 }}>
+                            {selectedAsset.createdAt ? new Date(selectedAsset.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6} sm={3}>
+                          <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Last Updated By</Typography>
+                          <Typography sx={{ fontSize: "0.82rem", color: "#0f172a", fontWeight: 600, mt: 0.2 }}>
+                            {selectedAsset.updated_by_name || selectedAsset.history?.[selectedAsset.history.length - 1]?.changed_by_name || "System"}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6} sm={3}>
+                          <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>Last Updated Date</Typography>
+                          <Typography sx={{ fontSize: "0.82rem", color: "#0f172a", fontWeight: 600, mt: 0.2 }}>
+                            {selectedAsset.updatedAt ? new Date(selectedAsset.updatedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"}
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  </Box>
+                )}
+              </DialogContent>
+
+              {/* ── Dialog Actions Footer ── */}
+              <DialogActions
+                sx={{
+                  px: 3,
+                  py: 1.5,
+                  borderTop: "1px solid #e2e8f0",
+                  backgroundColor: "#ffffff",
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
                 }}
               >
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: "14px", color: "#0f172a" }}>
-                    {selectedAsset.asset_tag} — {selectedAsset.asset_name || `${selectedAsset.brand} ${selectedAsset.model}`.trim()}
-                  </div>
-                  <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
-                    <b>{selectedAsset.brand}</b> {selectedAsset.model} • S/N: {selectedAsset.serial_number || "—"}
-                  </div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
-                  {getStatusBadge(selectedAsset.lifecycle_status)}
-                  {getInventoryTypeBadge(selectedAsset.inventory_type || selectedAsset.stock_type)}
-                </div>
-              </div>
+                <Typography sx={{ fontSize: "0.75rem", color: "#94a3b8" }}>
+                  Asset Tag: <strong style={{ color: "#475569" }}>{selectedAsset.asset_tag}</strong>
+                </Typography>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <Button
+                    onClick={() => setDetailsModalOpen(false)}
+                    variant="outlined"
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: 600,
+                      fontSize: "0.82rem",
+                      color: "#475569",
+                      borderColor: "#cbd5e1",
+                      px: 2.5,
+                      py: 0.6,
+                      borderRadius: "8px",
+                      "&:hover": { backgroundColor: "#f1f5f9", borderColor: "#94a3b8", color: "#0f172a" },
+                    }}
+                  >
+                    Close
+                  </Button>
+                </Box>
+              </DialogActions>
+            </>
+          );
+        })()}
+      </Dialog>
 
-              {/* 1. Common Asset Information */}
-              <div>
-                <div style={{ fontWeight: 700, fontSize: "12px", textTransform: "uppercase", color: "#4f46e5", marginBottom: "8px" }}>
-                  Common Asset Information
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", background: "#f8fafc", padding: "10px 12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                  <div><span style={{ color: "#64748b" }}>Category:</span> <b>{selectedAsset.category}</b></div>
-                  <div><span style={{ color: "#64748b" }}>Condition:</span> <b>{selectedAsset.condition || "Good"}</b></div>
-                  <div><span style={{ color: "#64748b" }}>Assigned To:</span> <b>{selectedAsset.assigned_to_name || selectedAsset.assigned_to?.name || "Unassigned"}</b></div>
-                  <div><span style={{ color: "#64748b" }}>Department:</span> <b>{selectedAsset.department || "—"}</b></div>
-                  <div><span style={{ color: "#64748b" }}>Location:</span> <b>{selectedAsset.location || "—"}</b></div>
-                  <div><span style={{ color: "#64748b" }}>Purchase Date:</span> <b>{selectedAsset.purchase_date ? new Date(selectedAsset.purchase_date).toLocaleDateString("en-IN") : "—"}</b></div>
-                  <div><span style={{ color: "#64748b" }}>Warranty Start:</span> <b>{selectedAsset.warranty_start_date ? new Date(selectedAsset.warranty_start_date).toLocaleDateString("en-IN") : "—"}</b></div>
-                  <div><span style={{ color: "#64748b" }}>Warranty End:</span> <b>{selectedAsset.warranty_end_date ? new Date(selectedAsset.warranty_end_date).toLocaleDateString("en-IN") : "—"}</b></div>
-                  {selectedAsset.remarks && (
-                    <div style={{ gridColumn: "1 / -1" }}>
-                      <span style={{ color: "#64748b" }}>Remarks:</span> <b>{selectedAsset.remarks}</b>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 2. Technical Specifications */}
-              <div>
-                <div style={{ fontWeight: 700, fontSize: "12px", textTransform: "uppercase", color: "#4f46e5", marginBottom: "8px" }}>
-                  Technical Specifications ({selectedAsset.category})
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", background: "#f8fafc", padding: "10px 12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                  {selectedAsset.specs?.processor && <div><span style={{ color: "#64748b" }}>Processor:</span> <b>{selectedAsset.specs.processor}</b></div>}
-                  {selectedAsset.specs?.cpu_cores && <div><span style={{ color: "#64748b" }}>CPU Cores:</span> <b>{selectedAsset.specs.cpu_cores}</b></div>}
-                  {selectedAsset.specs?.ram && <div><span style={{ color: "#64748b" }}>RAM:</span> <b>{selectedAsset.specs.ram}</b></div>}
-                  {(selectedAsset.specs?.storage_capacity || selectedAsset.specs?.storage) && (
-                    <div>
-                      <span style={{ color: "#64748b" }}>Storage:</span>{" "}
-                      <b>{[selectedAsset.specs.storage_capacity || selectedAsset.specs.storage, selectedAsset.specs.storage_type].filter(Boolean).join(" ")}</b>
-                    </div>
-                  )}
-                  {selectedAsset.specs?.total_storage && <div><span style={{ color: "#64748b" }}>Total Storage:</span> <b>{selectedAsset.specs.total_storage}</b></div>}
-                  {selectedAsset.specs?.raid_config && <div><span style={{ color: "#64748b" }}>RAID:</span> <b>{selectedAsset.specs.raid_config}</b></div>}
-                  {selectedAsset.specs?.operating_system && <div><span style={{ color: "#64748b" }}>OS:</span> <b>{selectedAsset.specs.operating_system}</b></div>}
-                  {selectedAsset.specs?.hostname && <div><span style={{ color: "#64748b" }}>Hostname:</span> <b>{selectedAsset.specs.hostname}</b></div>}
-                  {selectedAsset.specs?.server_role && <div><span style={{ color: "#64748b" }}>Server Role:</span> <b>{selectedAsset.specs.server_role}</b></div>}
-                  {selectedAsset.specs?.screen_size && <div><span style={{ color: "#64748b" }}>Screen Size:</span> <b>{selectedAsset.specs.screen_size}</b></div>}
-                  {selectedAsset.specs?.resolution && <div><span style={{ color: "#64748b" }}>Resolution:</span> <b>{selectedAsset.specs.resolution}</b></div>}
-                  {selectedAsset.specs?.warranty_duration && <div><span style={{ color: "#64748b" }}>Warranty (Duration):</span> <b>{selectedAsset.specs.warranty_duration}</b></div>}
-                  {selectedAsset.specs?.printer_type && <div><span style={{ color: "#64748b" }}>Printer Type:</span> <b>{selectedAsset.specs.printer_type} ({selectedAsset.specs.color_mono || "Mono"})</b></div>}
-                  {selectedAsset.specs?.print_technology && <div><span style={{ color: "#64748b" }}>Technology:</span> <b>{selectedAsset.specs.print_technology}</b></div>}
-                  {selectedAsset.specs?.connectivity && <div><span style={{ color: "#64748b" }}>Connectivity:</span> <b>{selectedAsset.specs.connectivity}</b></div>}
-                  {selectedAsset.specs?.print_count && <div><span style={{ color: "#64748b" }}>Print Meter:</span> <b>{selectedAsset.specs.print_count}</b></div>}
-                  {selectedAsset.specs?.device_type && <div><span style={{ color: "#64748b" }}>Device Type:</span> <b>{selectedAsset.specs.device_type}</b></div>}
-                  {selectedAsset.specs?.firmware_version && <div><span style={{ color: "#64748b" }}>Firmware:</span> <b>{selectedAsset.specs.firmware_version}</b></div>}
-                  {selectedAsset.specs?.port_count && <div><span style={{ color: "#64748b" }}>Port Count:</span> <b>{selectedAsset.specs.port_count}</b></div>}
-                  {selectedAsset.specs?.poe_support && selectedAsset.specs.poe_support !== "No" && (
-                    <div><span style={{ color: "#64748b" }}>PoE Support:</span> <b>{selectedAsset.specs.poe_support} {selectedAsset.specs.poe_budget ? `(${selectedAsset.specs.poe_budget})` : ""}</b></div>
-                  )}
-                  {selectedAsset.specs?.uplink_port && <div><span style={{ color: "#64748b" }}>Uplink Port:</span> <b>{selectedAsset.specs.uplink_port}</b></div>}
-                  {selectedAsset.specs?.rack_cabinet && <div><span style={{ color: "#64748b" }}>Rack / Cabinet:</span> <b>{selectedAsset.specs.rack_cabinet}</b></div>}
-                  {selectedAsset.specs?.ip_address && <div><span style={{ color: "#64748b" }}>IP Address:</span> <b style={{ fontFamily: "monospace" }}>{selectedAsset.specs.ip_address}</b></div>}
-                  {selectedAsset.specs?.mac_address && <div><span style={{ color: "#64748b" }}>MAC Address:</span> <b style={{ fontFamily: "monospace" }}>{selectedAsset.specs.mac_address}</b></div>}
-                  {selectedAsset.specs?.imei_number && <div><span style={{ color: "#64748b" }}>IMEI 1:</span> <b style={{ fontFamily: "monospace" }}>{selectedAsset.specs.imei_number}</b></div>}
-                  {selectedAsset.specs?.imei_2 && <div><span style={{ color: "#64748b" }}>IMEI 2:</span> <b style={{ fontFamily: "monospace" }}>{selectedAsset.specs.imei_2}</b></div>}
-                  {selectedAsset.specs?.sim_number && <div><span style={{ color: "#64748b" }}>SIM Number:</span> <b>{selectedAsset.specs.sim_number}</b></div>}
-                  {selectedAsset.specs?.software_name && <div><span style={{ color: "#64748b" }}>Software:</span> <b>{selectedAsset.specs.software_name}</b></div>}
-                  {selectedAsset.specs?.version && <div><span style={{ color: "#64748b" }}>Version:</span> <b>{selectedAsset.specs.version}</b></div>}
-                  {selectedAsset.specs?.license_type && <div><span style={{ color: "#64748b" }}>License Type:</span> <b>{selectedAsset.specs.license_type}</b></div>}
-                  {selectedAsset.specs?.license_key && <div><span style={{ color: "#64748b" }}>License Key:</span> <b style={{ fontFamily: "monospace" }}>{selectedAsset.specs.license_key}</b></div>}
-                  {selectedAsset.specs?.seat_count && <div><span style={{ color: "#64748b" }}>Seats:</span> <b>{selectedAsset.specs.seat_count}</b></div>}
-                  {selectedAsset.specs?.custom_notes && (
-                    <div style={{ gridColumn: "1 / -1" }}>
-                      <span style={{ color: "#64748b" }}>Custom Specs:</span> <b>{selectedAsset.specs.custom_notes}</b>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 3. Procurement & Commercial */}
-              <div>
-                <div style={{ fontWeight: 700, fontSize: "12px", textTransform: "uppercase", color: "#4f46e5", marginBottom: "8px" }}>
-                  Procurement &amp; Invoice
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", background: "#f8fafc", padding: "10px 12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                  <div><span style={{ color: "#64748b" }}>Vendor:</span> <b>{selectedAsset.vendor_name || selectedAsset.vendor?.vendor_name || "—"}</b></div>
-                  <div><span style={{ color: "#64748b" }}>Purchase Cost:</span> <b>₹{selectedAsset.purchase_cost || 0}</b></div>
-                  <div><span style={{ color: "#64748b" }}>Invoice No:</span> <b>{selectedAsset.invoice_number || "—"}</b></div>
-                  <div>
-                    <span style={{ color: "#64748b" }}>Warranty Expiry:</span>{" "}
-                    <b>{selectedAsset.warranty_end_date ? new Date(selectedAsset.warranty_end_date).toLocaleDateString("en-IN") : "—"}</b>
-                  </div>
-                </div>
-              </div>
-
-              {/* Audit / Transition Timeline */}
-              {selectedAsset.history && selectedAsset.history.length > 0 && (
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: "12px", textTransform: "uppercase", color: "#4f46e5", marginBottom: "8px" }}>
-                    Audit &amp; Lifecycle Timeline
-                  </div>
-                  <div style={{ borderLeft: "2px solid #c7d2fe", paddingLeft: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                    {selectedAsset.history.slice(-5).map((h, idx) => (
-                      <div key={idx} style={{ position: "relative" }}>
-                        <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "12.5px" }}>{h.action}</div>
-                        <div style={{ fontSize: "11px", color: "#64748b" }}>
-                          {h.changed_by_name || "System"} •{" "}
-                          {new Date(h.timestamp).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
-                        </div>
-                        {h.remarks && <div style={{ fontSize: "11px", color: "#475569", fontStyle: "italic", marginTop: "2px" }}>"{h.remarks}"</div>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* System Audit Tracking (Section 11, Recommendation 7) */}
-              <div>
-                <div style={{ fontWeight: 700, fontSize: "12px", textTransform: "uppercase", color: "#4f46e5", marginBottom: "8px" }}>
-                  Record Audit Metadata
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", background: "#f8fafc", padding: "10px 12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                  <div>
-                    <span style={{ color: "#64748b" }}>Created By:</span>{" "}
-                    <b>{selectedAsset.created_by_name || selectedAsset.history?.[0]?.changed_by_name || "System"}</b>
-                  </div>
-                  <div>
-                    <span style={{ color: "#64748b" }}>Created Date:</span>{" "}
-                    <b>{selectedAsset.createdAt ? new Date(selectedAsset.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"}</b>
-                  </div>
-                  <div>
-                    <span style={{ color: "#64748b" }}>Last Updated By:</span>{" "}
-                    <b>{selectedAsset.updated_by_name || selectedAsset.history?.[selectedAsset.history.length - 1]?.changed_by_name || "System"}</b>
-                  </div>
-                  <div>
-                    <span style={{ color: "#64748b" }}>Last Updated Date:</span>{" "}
-                    <b>{selectedAsset.updatedAt ? new Date(selectedAsset.updatedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"}</b>
-                  </div>
-                </div>
-              </div>
-            </div>
+      {/* Invoice Document Preview & Download Modal */}
+      <Dialog
+        open={Boolean(previewInvoiceUrl)}
+        onClose={() => setPreviewInvoiceUrl(null)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          style: {
+            borderRadius: "14px",
+            overflow: "hidden",
+            maxHeight: "90vh",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            px: 2.5,
+            py: 1.8,
+            borderBottom: "1px solid #e2e8f0",
+            backgroundColor: "#f8fafc",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Receipt size={18} color="#2563eb" />
+            <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#0f172a" }}>
+              {previewInvoiceTitle || "Invoice Document Preview"}
+            </Typography>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<Download size={14} />}
+              onClick={() => handleDownloadInvoice(previewInvoiceUrl, previewInvoiceTitle)}
+              sx={{ textTransform: "none", fontSize: "0.78rem", fontWeight: 600, borderRadius: "6px" }}
+            >
+              Download
+            </Button>
+            <IconButton
+              size="small"
+              onClick={() => setPreviewInvoiceUrl(null)}
+              sx={{ color: "#94a3b8", "&:hover": { color: "#0f172a" } }}
+            >
+              <X size={18} />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0, backgroundColor: "#0f172a", minHeight: "500px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {previewInvoiceUrl && (
+            previewInvoiceUrl.includes(".pdf") || previewInvoiceUrl.startsWith("data:application/pdf") ? (
+              <iframe
+                src={previewInvoiceUrl}
+                title="Invoice Preview"
+                style={{ width: "100%", height: "75vh", border: "none" }}
+              />
+            ) : (
+              <img
+                src={previewInvoiceUrl}
+                alt="Invoice Preview"
+                style={{ maxWidth: "100%", maxHeight: "75vh", objectFit: "contain" }}
+              />
+            )
           )}
         </DialogContent>
-        <DialogActions style={{ padding: "12px 20px", background: "#f8fafc", borderTop: "1px solid #e2e8f0" }}>
-          <button type="button" className="btn btn-secondary" onClick={() => setDetailsModalOpen(false)}>
-            Close
-          </button>
-        </DialogActions>
       </Dialog>
 
       {/* ── MODAL: DELETE CONFIRMATION ────────────────────────────────────── */}
@@ -3619,6 +6236,121 @@ export default function UnifiedAssetInventory() {
           </button>
         </DialogActions>
       </Dialog>
+
+      {/* ── MODAL: WORKFLOW ACTION DIALOG (Approve / Reject / Resubmit) ───── */}
+      <Dialog
+        open={workflowModalOpen}
+        onClose={() => !workflowSubmitting && setWorkflowModalOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: "12px", p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: "16px", pb: 1, display: "flex", alignItems: "center", gap: 1 }}>
+          {workflowAction.includes("approve") ? (
+            <>
+              <CheckCircle2 size={18} color="#16a34a" />
+              <span>Confirm Invoice Verification &amp; Approval</span>
+            </>
+          ) : workflowAction === "resubmit" ? (
+            <>
+              <RotateCcw size={18} color="#2563eb" />
+              <span>Resubmit Asset for Approval</span>
+            </>
+          ) : (
+            <>
+              <AlertCircle size={18} color="#dc2626" />
+              <span>Reject / Return Invoice to IT</span>
+            </>
+          )}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <div style={{ fontSize: "13px", color: "#475569", marginBottom: "12px" }}>
+            {workflowAction.includes("approve") ? (
+              <span>
+                You are approving the invoice and equipment specifications for{" "}
+                <b>{workflowTarget?.asset_tag}</b> ({workflowTarget?.asset_name || workflowTarget?.brand}).
+              </span>
+            ) : workflowAction === "resubmit" ? (
+              <span>
+                Resubmit <b>{workflowTarget?.asset_tag}</b> back to Shalini Arun for approval after making necessary corrections.
+              </span>
+            ) : (
+              <span>
+                Please state the reason for rejecting or returning <b>{workflowTarget?.asset_tag}</b> to IT for correction.
+              </span>
+            )}
+          </div>
+          <div className="form-field">
+            <label style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>
+              {workflowAction.includes("approve") ? "Verification Remarks (Optional)" : "Reason / Remarks *"}
+            </label>
+            <textarea
+              className="form-textarea"
+              rows={3}
+              placeholder={
+                workflowAction.includes("approve")
+                  ? "e.g. Verified with physical invoice and vendor portal."
+                  : "Explain what needs to be corrected by IT..."
+              }
+              value={workflowRemarks}
+              onChange={(e) => setWorkflowRemarks(e.target.value)}
+              style={{
+                width: "100%",
+                borderRadius: "8px",
+                border: "1px solid #cbd5e1",
+                padding: "8px",
+                fontSize: "13px",
+                fontFamily: "inherit",
+              }}
+            />
+          </div>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={workflowSubmitting}
+            onClick={() => setWorkflowModalOpen(false)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={workflowSubmitting || (!workflowAction.includes("approve") && !workflowRemarks.trim())}
+            onClick={handleExecuteWorkflow}
+            style={{
+              background: workflowAction.includes("approve")
+                ? "#16a34a"
+                : workflowAction === "resubmit"
+                  ? "#2563eb"
+                  : "#dc2626",
+              color: "#ffffff",
+              padding: "7px 16px",
+              borderRadius: "8px",
+              fontWeight: 700,
+              fontSize: "13px",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            {workflowSubmitting
+              ? "Processing..."
+              : workflowAction.includes("approve")
+                ? "Approve Invoice"
+                : workflowAction === "resubmit"
+                  ? "Resubmit"
+                  : "Reject & Return"}
+          </button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── MODAL: ADD VENDOR MODAL ─────────────────────────────────────── */}
+      <AddVendorModal
+        isOpen={showAddVendorModal}
+        onClose={() => setShowAddVendorModal(false)}
+        onSuccess={handleVendorCreated}
+        defaultVendorType="Supplier"
+      />
     </>
   );
 }

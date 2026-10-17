@@ -3,10 +3,38 @@ import mongoose from "mongoose";
 import ExcelJS from "exceljs";
 import ITUnifiedAsset from "../../model/it-helpdesk/unifiedAssetModel.mjs";
 import User from "../../model/userModel.mjs";
+import ItVendor from "../../model/it-helpdesk/vendorModel.mjs";
 import Asset from "../../model/it-helpdesk/assetModel.mjs";
 import Inventory from "../../model/it-helpdesk/inventoryModel.mjs";
+import AssetSetting from "../../model/it-helpdesk/assetSettingModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import logger from "../../logger.js";
+
+export async function getFirstApproverConfig() {
+  try {
+    const setting = await AssetSetting.findOne({ key: "asset_approval_config" }).lean();
+    if (setting && setting.first_approver_username) {
+      return {
+        username: String(setting.first_approver_username).toLowerCase().trim(),
+        name: setting.first_approver_name || setting.first_approver_username,
+        first_approver_id: setting.first_approver_id,
+        updated_at: setting.updatedAt,
+        updated_by_username: setting.updated_by_username || "manu_pillai",
+        notes: setting.notes || "",
+      };
+    }
+  } catch (err) {
+    logger.error(`Error reading asset approval setting: ${err.message}`);
+  }
+  return {
+    username: "shalini_arun",
+    name: "Shalini Arun",
+    first_approver_id: null,
+    updated_at: null,
+    updated_by_username: "system",
+    notes: "",
+  };
+}
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -223,7 +251,7 @@ router.get("/", async (req, res) => {
     if (all === "true") {
       const data = await ITUnifiedAsset.find(filter)
         .populate("assigned_to", "name first_name last_name username email department designation")
-        .populate("vendor", "vendor_name contact_person phone email")
+        .populate("vendor", "name vendor_name vendor_code contact_person mobile_number email")
         .sort(sortObj);
       return res.json({ success: true, data });
     }
@@ -235,7 +263,7 @@ router.get("/", async (req, res) => {
     const [data, total] = await Promise.all([
       ITUnifiedAsset.find(filter)
         .populate("assigned_to", "name first_name last_name username email department designation")
-        .populate("vendor", "vendor_name contact_person phone email")
+        .populate("vendor", "name vendor_name vendor_code contact_person mobile_number email")
         .sort(sortObj)
         .skip(skip)
         .limit(limitNum),
@@ -265,7 +293,9 @@ router.get("/:id", validateId, async (req, res) => {
   try {
     const item = await ITUnifiedAsset.findById(req.params.id)
       .populate("assigned_to", "name first_name last_name username email department designation")
-      .populate("vendor", "vendor_name contact_person phone email");
+      .populate("vendor", "name vendor_name vendor_code contact_person mobile_number email")
+      .populate("workflow_history.performed_by", "username first_name last_name email")
+      .populate("admin_verifications.user", "username first_name last_name email");
 
     if (!item) {
       return res.status(404).json({ success: false, message: "Asset not found" });
@@ -319,6 +349,14 @@ router.post("/", async (req, res) => {
       }
     }
 
+    // Resolve Vendor Name if vendor is set
+    if (payload.vendor && !payload.vendor_name) {
+      const v = await ItVendor.findById(payload.vendor).select("name vendor_name vendor_code").lean();
+      if (v) {
+        payload.vendor_name = v.name || v.vendor_name || "";
+      }
+    }
+
     // Recommendation 7: Audit Fields
     const userName = req.user?.name || req.user?.username || "System";
     payload.created_by = req.user?._id || null;
@@ -336,6 +374,49 @@ router.post("/", async (req, res) => {
         remarks: payload.remarks || "Initial asset creation",
       },
     ];
+
+    // ── Workflow Initialization based on Inventory Type ──
+    const isNewInventory =
+      payload.inventory_type === "New Inventory" ||
+      payload.inventory_type === "New" ||
+      payload.stock_type === "New";
+
+    if (isNewInventory) {
+      const firstApprover = await getFirstApproverConfig();
+      payload.approval_stage = "First Admin Approval";
+      payload.approval_status = `Pending First Approval (${firstApprover.name || firstApprover.username})`;
+      payload.first_approver_username = firstApprover.username;
+      payload.first_approver_name = firstApprover.name || "Shalini Arun";
+      payload.assigned_first_approver = firstApprover.first_approver_id || null;
+      payload.approval_cycle = 1;
+      payload.workflow_history = [
+        {
+          stage: "First Admin Approval",
+          action: "Asset Created & Submitted for Approval",
+          performed_by: req.user?._id || null,
+          performed_by_name: userName,
+          performed_by_role: req.user?.role || "IT Admin",
+          remarks: payload.remarks || "Initial asset creation submitted for invoice verification",
+          approval_cycle: 1,
+          timestamp: new Date(),
+        },
+      ];
+    } else {
+      payload.approval_stage = "Completed";
+      payload.approval_status = "N/A - Existing Inventory";
+      payload.workflow_history = [
+        {
+          stage: "Completed",
+          action: "Registered as Existing Inventory",
+          performed_by: req.user?._id || null,
+          performed_by_name: userName,
+          performed_by_role: req.user?.role || "IT Admin",
+          remarks: "Existing inventory registered",
+          approval_cycle: 1,
+          timestamp: new Date(),
+        },
+      ];
+    }
 
     const newItem = new ITUnifiedAsset(payload);
     await newItem.save();
@@ -403,6 +484,17 @@ router.put("/:id", validateId, async (req, res) => {
       payload.assigned_to_name = "";
     }
 
+    // Resolve or clear Vendor Name on update
+    if (payload.vendor && !payload.vendor_name) {
+      const v = await ItVendor.findById(payload.vendor).select("name vendor_name vendor_code").lean();
+      if (v) {
+        payload.vendor_name = v.name || v.vendor_name || "";
+      }
+    } else if (payload.vendor === null || payload.vendor === "") {
+      payload.vendor = null;
+      payload.vendor_name = "";
+    }
+
     // Recommendation 7: Update Audit Fields
     const userName = req.user?.name || req.user?.username || "System";
     payload.updated_by = req.user?._id || null;
@@ -426,11 +518,287 @@ router.put("/:id", validateId, async (req, res) => {
       runValidators: true,
     })
       .populate("assigned_to", "name first_name last_name username email department designation")
-      .populate("vendor", "vendor_name contact_person phone email");
+      .populate("vendor", "name vendor_name vendor_code contact_person mobile_number email");
 
     res.json({ success: true, data: updated });
   } catch (err) {
     logger.error(`Error updating unified asset: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── INVOICE APPROVAL WORKFLOW ────────────────────────────────────────────────
+router.put("/:id/workflow", validateId, async (req, res) => {
+  try {
+    const { action, remarks, updatedFields } = req.body;
+    const asset = await ITUnifiedAsset.findById(req.params.id);
+    if (!asset) {
+      return res.status(404).json({ success: false, message: "Asset not found" });
+    }
+
+    const userName = req.user?.first_name
+      ? `${req.user.first_name} ${req.user.last_name || ""}`.trim()
+      : req.user?.name || req.user?.username || "System User";
+    const userRole = req.user?.role || "Admin";
+    const currentUsername = String(req.user?.username || "").toLowerCase().trim();
+    const currentUserId = String(req.user?._id || "");
+    const isAdminUser =
+      currentUsername === "admin" ||
+      String(userRole).toLowerCase().includes("admin") ||
+      req.user?.is_operator;
+
+    let currentCycle = asset.approval_cycle || 1;
+    if (!Array.isArray(asset.admin_verifications)) asset.admin_verifications = [];
+    if (!Array.isArray(asset.workflow_history)) asset.workflow_history = [];
+
+    const origFirstUsername = String(
+      asset.first_approver_username || "shalini_arun"
+    ).toLowerCase().trim();
+    const origFirstName =
+      asset.first_approver_name ||
+      (origFirstUsername === "shalini_arun" ? "Shalini Arun" : origFirstUsername);
+
+    const isCurrentFirstApprover = currentUsername === origFirstUsername || currentUsername === "admin";
+    const isManuPillai = currentUsername === "manu_pillai" || currentUsername === "admin";
+
+    const hasFirstVerified = asset.admin_verifications.some(
+      (v) =>
+        (String(v.username || "").toLowerCase() === origFirstUsername ||
+          String(v.username || "").toLowerCase() === "shalini_arun" ||
+          String(v.action || "").toLowerCase().includes("first")) &&
+        (v.approval_cycle === currentCycle || !v.approval_cycle)
+    );
+    const hasManuVerified = asset.admin_verifications.some(
+      (v) =>
+        String(v.username || "").toLowerCase() === "manu_pillai" &&
+        (v.approval_cycle === currentCycle || !v.approval_cycle)
+    );
+
+    const isStageSecondApproval =
+      asset.approval_stage === "Second Admin Approval" ||
+      (String(asset.approval_status || "").toLowerCase().includes("manu_pillai") &&
+        !String(asset.approval_status || "").toLowerCase().includes("rejected by manu_pillai"));
+
+    const isReturnedFromManu =
+      String(asset.approval_status || "").toLowerCase().includes("rejected by manu_pillai") ||
+      (Boolean(asset.rejection_remarks) &&
+        String(asset.rejected_by_name || "").toLowerCase().includes("manu_pillai"));
+
+    let updatedStage = asset.approval_stage;
+    let updatedStatus = asset.approval_status;
+    let rejectionRemarks = asset.rejection_remarks || "";
+    let actionDescription = "";
+
+    // ── 1. APPROVAL ACTIONS ──
+    if (
+      action === "approve_admin" ||
+      action === "verify_admin" ||
+      action === "approve_first" ||
+      action === "approve_second"
+    ) {
+      if (!hasFirstVerified || isReturnedFromManu) {
+        // Step 1: First Admin Approval
+        if (!isCurrentFirstApprover) {
+          return res.status(403).json({
+            success: false,
+            message: `Permission denied: First approval must be completed by ${origFirstName} (${origFirstUsername}).`,
+          });
+        }
+
+        updatedStage = "Second Admin Approval";
+        updatedStatus = "Pending Final Approval (manu_pillai)";
+        rejectionRemarks = "";
+        asset.rejected_by = null;
+        asset.rejected_by_name = "";
+        asset.rejected_by_role = "";
+        asset.rejected_at = null;
+
+        asset.assigned_first_approver = req.user._id;
+        asset.first_approver_username = currentUsername;
+        asset.first_approver_name = userName;
+
+        actionDescription = remarks
+          ? `First Approval by ${currentUsername} (${userName}, Cycle ${currentCycle}): ${remarks}`
+          : `First Approval by ${currentUsername} (${userName}, Cycle ${currentCycle})`;
+
+        asset.admin_verifications.push({
+          user: req.user._id,
+          username: req.user.username || origFirstUsername,
+          name: userName,
+          role: userRole,
+          action: `First Admin Verified (${currentUsername})`,
+          remarks: remarks || "",
+          approval_cycle: currentCycle,
+          timestamp: new Date(),
+        });
+      } else if (!hasManuVerified) {
+        // Step 2: Final Approval by Manu Pillai
+        if (!isManuPillai) {
+          return res.status(403).json({
+            success: false,
+            message: "Permission denied: Final approval must be completed by manu_pillai.",
+          });
+        }
+
+        updatedStage = "Completed";
+        updatedStatus = "Completed";
+        rejectionRemarks = "";
+        asset.rejected_by = null;
+        asset.rejected_by_name = "";
+        asset.rejected_by_role = "";
+        asset.rejected_at = null;
+        asset.completed_at = new Date();
+
+        actionDescription = remarks
+          ? `Final Approval by manu_pillai (${userName}, Cycle ${currentCycle}): ${remarks}`
+          : `Final Approval by manu_pillai (${userName}, Cycle ${currentCycle})`;
+
+        asset.admin_verifications.push({
+          user: req.user._id,
+          username: req.user.username || "manu_pillai",
+          name: userName,
+          role: userRole,
+          action: "Final Admin Verified (manu_pillai)",
+          remarks: remarks || "",
+          approval_cycle: currentCycle,
+          timestamp: new Date(),
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "This asset has already been fully approved and completed.",
+        });
+      }
+    }
+    // ── 2. REJECTION / RETURN ACTIONS ──
+    else if (
+      action === "reject_admin" ||
+      action === "admin_return_to_it" ||
+      action === "reject"
+    ) {
+      if (
+        isStageSecondApproval &&
+        isManuPillai &&
+        action !== "admin_return_to_it"
+      ) {
+        // Manu Pillai rejects -> Route back to First Approver
+        updatedStage = "First Admin Approval";
+        updatedStatus = `Rejected by manu_pillai (Returned to ${origFirstName})`;
+        rejectionRemarks = remarks || "Rejected by manu_pillai.";
+        actionDescription = `Rejected by manu_pillai (Returned to ${origFirstName}, Cycle ${currentCycle}): ${rejectionRemarks}`;
+
+        asset.rejected_by = req.user._id;
+        asset.rejected_by_name = userName;
+        asset.rejected_by_role = userRole;
+        asset.rejected_at = new Date();
+
+        asset.admin_verifications = asset.admin_verifications.filter(
+          (v) =>
+            !(
+              v.approval_cycle === currentCycle &&
+              String(v.username || "").toLowerCase() !== "manu_pillai"
+            )
+        );
+      } else {
+        // First Approver rejects -> Send back to IT Person
+        if (!isCurrentFirstApprover) {
+          return res.status(403).json({
+            success: false,
+            message: `Permission denied: Only ${origFirstName} (${origFirstUsername}) can return this invoice to IT.`,
+          });
+        }
+
+        updatedStage = "IT Correction";
+        updatedStatus = "Returned to IT";
+        rejectionRemarks =
+          remarks ||
+          (isReturnedFromManu
+            ? asset.rejection_remarks
+            : `Returned to IT by ${currentUsername}. Please correct and resubmit.`);
+        actionDescription = `Returned to IT by ${currentUsername} (Cycle ${currentCycle}): ${rejectionRemarks}`;
+
+        asset.rejected_by = req.user._id;
+        asset.rejected_by_name = userName;
+        asset.rejected_by_role = userRole;
+        asset.rejected_at = new Date();
+      }
+    }
+    // ── 3. RESUBMIT ACTION ──
+    else if (action === "resubmit" || action === "resubmit_it") {
+      currentCycle += 1;
+      asset.approval_cycle = currentCycle;
+      updatedStage = "First Admin Approval";
+      updatedStatus = `Pending First Approval (${origFirstName})`;
+      rejectionRemarks = "";
+      asset.rejected_by = null;
+      asset.rejected_by_name = "";
+      asset.rejected_by_role = "";
+      asset.rejected_at = null;
+
+      actionDescription = remarks
+        ? `Resubmitted for Verification (Cycle ${currentCycle}): ${remarks}`
+        : `Resubmitted for Verification (Cycle ${currentCycle})`;
+
+      if (req.body.image_url) asset.image_url = req.body.image_url;
+      if (req.body.invoice_url) asset.invoice_url = req.body.invoice_url;
+      if (req.body.invoice_number) asset.invoice_number = req.body.invoice_number;
+      if (req.body.invoice_date) asset.invoice_date = req.body.invoice_date;
+
+      // If updated fields provided
+      if (updatedFields && typeof updatedFields === "object") {
+        Object.keys(updatedFields).forEach((key) => {
+          if (
+            key !== "_id" &&
+            key !== "history" &&
+            key !== "workflow_history" &&
+            key !== "admin_verifications"
+          ) {
+            asset[key] = updatedFields[key];
+          }
+        });
+      }
+    } else {
+      return res.status(400).json({ success: false, message: "Invalid workflow action." });
+    }
+
+    asset.approval_stage = updatedStage;
+    asset.approval_status = updatedStatus;
+    asset.rejection_remarks = rejectionRemarks;
+
+    asset.workflow_history.push({
+      stage: updatedStage,
+      action: actionDescription || action,
+      performed_by: req.user._id,
+      performed_by_name: userName,
+      performed_by_role: userRole,
+      remarks: remarks || "",
+      approval_cycle: currentCycle,
+      timestamp: new Date(),
+    });
+
+    asset.history.push({
+      action: `Workflow: ${actionDescription || action}`,
+      changed_by: req.user._id,
+      changed_by_name: userName,
+      timestamp: new Date(),
+      remarks: remarks || updatedStatus,
+    });
+
+    await asset.save();
+
+    const populated = await ITUnifiedAsset.findById(asset._id)
+      .populate("assigned_to", "name first_name last_name username email department designation")
+      .populate("vendor", "name vendor_name vendor_code contact_person mobile_number email")
+      .populate("workflow_history.performed_by", "username first_name last_name email")
+      .populate("admin_verifications.user", "username first_name last_name email");
+
+    res.json({
+      success: true,
+      message: `Workflow updated to "${updatedStatus}"`,
+      data: populated,
+    });
+  } catch (err) {
+    logger.error(`Error updating workflow for unified asset ${req.params.id}: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -580,7 +948,7 @@ router.get("/export/excel", async (req, res) => {
 
     const items = await ITUnifiedAsset.find(filter)
       .populate("assigned_to", "name first_name last_name username department")
-      .populate("vendor", "vendor_name")
+      .populate("vendor", "name vendor_name vendor_code")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -655,7 +1023,7 @@ router.get("/export/excel", async (req, res) => {
         warranty_end_date: item.warranty_end_date
           ? new Date(item.warranty_end_date).toLocaleDateString("en-IN")
           : "—",
-        vendor_name: item.vendor_name || item.vendor?.vendor_name || "—",
+        vendor_name: item.vendor_name || item.vendor?.name || item.vendor?.vendor_name || "—",
       });
     });
 

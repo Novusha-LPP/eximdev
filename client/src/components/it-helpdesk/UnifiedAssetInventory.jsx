@@ -12,6 +12,7 @@ import {
   Eye,
   RefreshCw,
   RotateCcw,
+  ShoppingCart,
   X,
   Tag,
   Cpu,
@@ -805,6 +806,7 @@ export default function UnifiedAssetInventory() {
         isReturnedToIT: false,
         hasFirstVerified: false,
         hasManuVerified: false,
+        isExistingInventory: false,
       };
     }
     const rawStage = item.approval_stage || "";
@@ -837,10 +839,21 @@ export default function UnifiedAssetInventory() {
       normStatus.includes("returned") ||
       normStatus === "returned to it";
 
+    const isExistingInventory =
+      normStatus.includes("n/a") ||
+      normStatus.includes("existing") ||
+      normStage === "n/a";
+
+    const isPending =
+      normStatus.includes("pending") ||
+      normStage.includes("first admin approval") ||
+      normStage.includes("second admin approval");
+
     const isCompleted =
-      normStage.includes("completed") ||
-      normStatus.includes("completed") ||
-      (hasFirstVerified && hasManuVerified);
+      !isReturnedToIT &&
+      !isPending &&
+      !isExistingInventory &&
+      (hasManuVerified || (normStatus === "completed" && (hasFirstVerified || normStage === "completed")));
 
     const isFirstApprover =
       currentUsername === "shalini_arun" ||
@@ -852,15 +865,21 @@ export default function UnifiedAssetInventory() {
 
     const canApproveFirst =
       !isCompleted &&
+      !isExistingInventory &&
       (!hasFirstVerified || isReturnedFromManu) &&
       !isReturnedToIT &&
       isFirstApprover;
 
     const canApproveSecond =
-      !isCompleted && hasFirstVerified && !hasManuVerified && !isReturnedToIT && isManuPillai;
+      !isCompleted &&
+      !isExistingInventory &&
+      (hasFirstVerified || String(item.approval_stage || "") === "Second Admin Approval") &&
+      !hasManuVerified &&
+      !isReturnedToIT &&
+      isManuPillai;
 
-    const canReturn = !isCompleted && !isReturnedToIT && (canApproveFirst || canApproveSecond);
-    const canResubmit = isReturnedToIT;
+    const canReturn = !isCompleted && !isExistingInventory && !isReturnedToIT && (canApproveFirst || canApproveSecond);
+    const canResubmit = isReturnedToIT && !isExistingInventory;
 
     return {
       canApproveFirst,
@@ -871,6 +890,7 @@ export default function UnifiedAssetInventory() {
       isReturnedToIT,
       hasFirstVerified,
       hasManuVerified,
+      isExistingInventory,
     };
   };
 
@@ -885,8 +905,6 @@ export default function UnifiedAssetInventory() {
 
     const isRejectedStatus =
       (normStage.includes("reject") || normStatus.includes("reject")) && !isReturnedToIT;
-
-    const isCompleted = normStage.includes("completed") || normStatus.includes("completed");
 
     const hasFirst = (verifications || []).some(
       (v) =>
@@ -916,16 +934,18 @@ export default function UnifiedAssetInventory() {
         icon: "reject",
       };
     }
-    if (isCompleted || (hasFirst && hasManu)) {
+    // Existing inventory / N/A
+    if (normStatus.includes("n/a") || normStatus.includes("existing") || normStage === "n/a") {
       return {
-        color: "#15803d",
-        bg: "#f0fdf4",
-        border: "#bbf7d0",
-        label: "Completed",
-        icon: "shield",
+        color: "#475569",
+        bg: "#f1f5f9",
+        border: "#cbd5e1",
+        label: "N/A - Existing Inventory",
+        icon: "info",
       };
     }
-    if (hasFirst && !hasManu) {
+    // Pending Manu (Final Approval)
+    if (normStatus.includes("manu") || (hasFirst && !hasManu)) {
       return {
         color: "#1d4ed8",
         bg: "#eff6ff",
@@ -934,11 +954,31 @@ export default function UnifiedAssetInventory() {
         icon: "clock",
       };
     }
+    // Pending First Approval
+    if (normStage.includes("first") || normStatus.includes("first") || (!hasFirst && !hasManu)) {
+      return {
+        color: "#92400e",
+        bg: "#fffbeb",
+        border: "#fde68a",
+        label: approverUsername ? `Pending ${approverUsername}` : "Pending shalini_arun",
+        icon: "clock",
+      };
+    }
+    // Completed ONLY when manu has verified or status is explicitly completed
+    if (hasManu || (normStatus === "completed" && (hasFirst || normStage === "completed"))) {
+      return {
+        color: "#15803d",
+        bg: "#f0fdf4",
+        border: "#bbf7d0",
+        label: "Completed",
+        icon: "shield",
+      };
+    }
     return {
-      color: "#92400e",
-      bg: "#fffbeb",
-      border: "#fde68a",
-      label: approverUsername ? `Pending ${approverUsername}` : "Pending shalini_arun",
+      color: "#64748b",
+      bg: "#f8fafc",
+      border: "#e2e8f0",
+      label: status || stage || "In Review",
       icon: "clock",
     };
   };
@@ -1498,6 +1538,18 @@ export default function UnifiedAssetInventory() {
         </div>
 
         <div className="topbar-actions">
+          {/* Procurement Pipeline */}
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => navigate("/it-helpdesk/procurement")}
+            title="Open IT Procurement, Quotations & Approvals Pipeline"
+            style={{ borderColor: "#ea580c", color: "#c2410c", background: "#fff7ed", fontWeight: 650 }}
+          >
+            <ShoppingCart size={14} color="#ea580c" />
+            <span>Procurement &amp; Approvals</span>
+          </button>
+
           {/* Sync from Legacy */}
           <button
             type="button"
@@ -5344,6 +5396,53 @@ export default function UnifiedAssetInventory() {
                           </Box>
                         )}
 
+                        {/* Linked Procurement Request Banner */}
+                        {selectedAsset.procurement_ref && (
+                          <Box
+                            sx={{
+                              mt: 2,
+                              p: 1.5,
+                              borderRadius: "8px",
+                              backgroundColor: "#fff7ed",
+                              border: "1px solid #ffedd5",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 1,
+                            }}
+                          >
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <ShoppingCart size={16} color="#ea580c" />
+                              <Box>
+                                <Typography sx={{ fontSize: "0.78rem", fontWeight: 750, color: "#9a3412" }}>
+                                  Procurement Link: {selectedAsset.procurement_ref}
+                                </Typography>
+                                <Typography sx={{ fontSize: "0.7rem", color: "#c2410c" }}>
+                                  Auto-bridged from IT Procurement &amp; Approval Pipeline
+                                </Typography>
+                              </Box>
+                            </Box>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => {
+                                setDetailsModalOpen(false);
+                                navigate(`/it-helpdesk/procurement?search=${selectedAsset.procurement_ref}`);
+                              }}
+                              sx={{
+                                textTransform: "none",
+                                fontSize: "0.72rem",
+                                fontWeight: 650,
+                                borderColor: "#ea580c",
+                                color: "#ea580c",
+                                "&:hover": { backgroundColor: "#ffedd5" },
+                              }}
+                            >
+                              View PR Workflow →
+                            </Button>
+                          </Box>
+                        )}
+
                         {/* Invoice Approval Status & Actions */}
                         <Box
                           sx={{
@@ -5619,17 +5718,30 @@ export default function UnifiedAssetInventory() {
                           { label: "1. Created", done: true },
                           {
                             label: `2. ${recordFirstName} (1st Approval)`,
-                            done: perms.hasFirstVerified,
-                            active: !perms.hasFirstVerified && !perms.isReturnedToIT && !perms.isCompleted,
+                            done:
+                              perms.hasFirstVerified ||
+                              String(selectedAsset.approval_stage || "") === "Second Admin Approval" ||
+                              perms.isCompleted,
+                            active:
+                              !perms.hasFirstVerified &&
+                              !perms.isReturnedToIT &&
+                              !perms.isCompleted &&
+                              !perms.isExistingInventory &&
+                              String(selectedAsset.approval_stage || "") !== "Second Admin Approval",
                           },
                           {
                             label: "3. manu_pillai (Final Approval)",
-                            done: perms.hasManuVerified,
-                            active: perms.hasFirstVerified && !perms.hasManuVerified && !perms.isReturnedToIT && !perms.isCompleted,
+                            done: perms.hasManuVerified || perms.isCompleted,
+                            active:
+                              (perms.hasFirstVerified || String(selectedAsset.approval_stage || "") === "Second Admin Approval") &&
+                              !perms.hasManuVerified &&
+                              !perms.isReturnedToIT &&
+                              !perms.isCompleted &&
+                              !perms.isExistingInventory,
                           },
                           {
                             label: "4. Completed",
-                            done: perms.isCompleted || (perms.hasFirstVerified && perms.hasManuVerified),
+                            done: perms.isCompleted,
                           },
                         ].map((step, idx, arr) => (
                           <React.Fragment key={idx}>

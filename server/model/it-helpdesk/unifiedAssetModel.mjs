@@ -325,8 +325,19 @@ const unifiedAssetSchema = new mongoose.Schema(
     // ─── Traceability & History ────────────────────────────
     origin_source: {
       type: String,
-      enum: ["Direct", "Cloned_Asset", "Cloned_Inventory"],
+      enum: ["Direct", "Cloned_Asset", "Cloned_Inventory", "Procurement"],
       default: "Direct",
+    },
+    procurement_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ProcurementRequest",
+      default: null,
+      index: true,
+    },
+    procurement_ref: {
+      type: String,
+      trim: true,
+      default: "",
     },
     legacy_ref_id: {
       type: mongoose.Schema.Types.ObjectId,

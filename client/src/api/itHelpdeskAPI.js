@@ -98,6 +98,31 @@ export const itHelpdeskAPI = {
     exportExcel: (params = {}) => api.get("/it-helpdesk/unified-assets/export/excel", { params, responseType: "blob" }),
     cloneFromLegacy: () => api.post("/it-helpdesk/unified-assets/clone-from-legacy").then((r) => r.data),
   },
+  procurement: {
+    getAll: (params = {}) => api.get("/it-helpdesk/procurement", { params }).then((r) => r.data),
+    getStats: () => api.get("/it-helpdesk/procurement/stats").then((r) => r.data),
+    getNextPr: () => api.get("/it-helpdesk/procurement/next-pr").then((r) => r.data),
+    getById: (id) => api.get(`/it-helpdesk/procurement/${id}`).then((r) => r.data),
+    create: (payload) => api.post("/it-helpdesk/procurement", payload).then((r) => r.data),
+    update: (id, payload) => api.put(`/it-helpdesk/procurement/${id}`, payload).then((r) => r.data),
+    uploadQuotations: (id, payload) => api.post(`/it-helpdesk/procurement/${id}/quotations`, payload).then((r) => r.data),
+    evaluateIT: (id, payload) => api.post(`/it-helpdesk/procurement/${id}/it-evaluate`, payload).then((r) => r.data),
+    approveHOD: (id, payload) => api.post(`/it-helpdesk/procurement/${id}/approve-hod`, payload).then((r) => r.data),
+    approveGM: (id, payload) => api.post(`/it-helpdesk/procurement/${id}/approve-gm`, payload).then((r) => r.data),
+    createPO: (id, payload) => api.post(`/it-helpdesk/procurement/${id}/po`, payload).then((r) => r.data),
+    recordGRN: (id, payload) => api.post(`/it-helpdesk/procurement/${id}/grn`, payload).then((r) => r.data),
+    verifyInvoice: (id, payload) => api.post(`/it-helpdesk/procurement/${id}/invoice-verify`, payload).then((r) => r.data),
+    recordPayment: (id, payload) => api.post(`/it-helpdesk/procurement/${id}/payment`, payload).then((r) => r.data),
+    convertToAsset: (id, payload = {}) => api.post(`/it-helpdesk/procurement/${id}/convert-to-asset`, payload).then((r) => r.data),
+    handover: (id, payload) => api.post(`/it-helpdesk/procurement/${id}/handover`, payload).then((r) => r.data),
+    uploadDoc: (formData) =>
+      api
+        .post("/it-helpdesk/procurement/upload-doc", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        })
+        .then((r) => r.data),
+    remove: (id) => api.delete(`/it-helpdesk/procurement/${id}`).then((r) => r.data),
+  },
   users: {
     getAll: (params = {}) => api.get("/it-helpdesk/users", { params }).then((r) => r.data),
     getById: (id) => api.get(`/it-helpdesk/users/${id}`).then((r) => r.data),

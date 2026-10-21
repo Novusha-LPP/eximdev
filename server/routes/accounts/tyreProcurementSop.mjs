@@ -1,7 +1,7 @@
 import express from "express";
 import { isDeepStrictEqual } from "node:util";
 import XLSX from "xlsx";
-import TyreProcurementSop from "../../model/accounts/tyreProcurementSop.mjs";
+import TyreProcurementSop, { statusEnum } from "../../model/accounts/tyreProcurementSop.mjs";
 import UserModel from "../../model/userModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import logger from "../../logger.js";

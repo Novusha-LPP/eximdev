@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import auditPlugin from "../../plugins/auditPlugin.mjs";
 
-const statusEnum = [
+export const statusEnum = [
   "Draft",
   "PR Raised",
   "Preparing for Quotation",

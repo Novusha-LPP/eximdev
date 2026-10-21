@@ -542,7 +542,7 @@ router.post("/:id/it-evaluate", validateId, async (req, res) => {
       item.quotations = req.body.quotations.map((q, idx) => ({
         quotation_no: q.quotation_no || `QTN-00${idx + 1}`,
         vendor_name: q.vendor_name || "",
-        vendor_id: q.vendor_id || null,
+        vendor_id: (q.vendor_id && q.vendor_id._id) ? q.vendor_id._id : (q.vendor_id || null),
         total_amount: parseFloat(q.total_amount) || 0,
         warranty_period: q.warranty_period || "1 Year",
         delivery_days: parseInt(q.delivery_days, 10) || 7,

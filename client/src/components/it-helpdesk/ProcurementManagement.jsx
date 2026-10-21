@@ -119,9 +119,9 @@ export default function ProcurementManagement() {
   // Role Checks - support designated names & organizational roles
   const isSuperAdmin = currentRole === "admin" || currentRole === "administrator" || currentUsername === "admin";
   const isHOD = currentUsername === "shalini_arun" || currentRole === "hod" || currentRole === "head_of_department" || Boolean(currentUser?.isHOD);
-  const isGM = (currentUsername === "manu_pillai" || currentRole.includes("general manager") || currentRole === "gm") && !isHOD;
+  const isGM = currentUsername === "manu_pillai" || currentRole.includes("general manager") || currentRole === "gm";
   const isShaliniArun = isHOD || isSuperAdmin;
-  const isManuPillai = (isGM || isSuperAdmin) && !isHOD;
+  const isManuPillai = isGM || isSuperAdmin;
   const isAccountsUser = currentDept.includes("account") || isSuperAdmin;
   const isITUser = currentDept.includes("it") || isSuperAdmin || Boolean(currentUser?.is_operator);
 
@@ -153,7 +153,6 @@ export default function ProcurementManagement() {
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState(parsedStatus);
   const [stageFilter, setStageFilter] = useState(parsedStage);
-  const showStage5 = isManuPillai && !isHOD && stageFilter !== 4;
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [vendorList, setVendorList] = useState([]);
@@ -164,6 +163,17 @@ export default function ProcurementManagement() {
   const [selectedPR, setSelectedPR] = useState(null);
   const [workflowTab, setWorkflowTab] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [isEditingHod, setIsEditingHod] = useState(false);
+
+  const showStage5 =
+    isManuPillai ||
+    Boolean(
+      selectedPR &&
+        (selectedPR.current_stage >= 4 ||
+          selectedPR.first_approval?.decision === "Approved" ||
+          selectedPR.overall_status === "GM Approval Pending" ||
+          selectedPR.final_approval?.decision)
+    );
 
   // Document Viewer Modal
   const [docViewerUrl, setDocViewerUrl] = useState(null);
@@ -424,6 +434,7 @@ export default function ProcurementManagement() {
       const res = await itHelpdeskAPI.procurement.getById(pr._id);
       const data = res?.data || pr;
       setSelectedPR(data);
+      setIsEditingHod(false);
 
       // Populate quotes list (ensure at least 3 quote slots exist)
       let qList = Array.isArray(data.quotations) ? [...data.quotations] : [];
@@ -449,8 +460,12 @@ export default function ProcurementManagement() {
       setQuotesList(qList);
 
       // Populate Evaluation Form
+      const initialDecision =
+        data.it_evaluation?.decision && data.it_evaluation.decision !== "Pending"
+          ? data.it_evaluation.decision
+          : "Approved";
       setItEvalForm({
-        decision: data.it_evaluation?.decision || "Approved",
+        decision: initialDecision,
         recommended_vendor: data.it_evaluation?.recommended_vendor || "",
         recommended_quote_no: activeRecommendedNo,
         remarks: data.it_evaluation?.remarks || "",
@@ -666,19 +681,52 @@ export default function ProcurementManagement() {
 
   // Submit IT Evaluation (Stage 3)
   const handleSubmitItEval = async () => {
+    if (!selectedPR?._id) {
+      toast.error("Procurement Request ID is missing. Please refresh and reopen the request.");
+      return;
+    }
+
+    const decision = itEvalForm.decision || "Approved";
+    const activeQuoteNo = itEvalForm.recommended_quote_no;
+
+    // Validate if Approving: Ensure at least one quotation with vendor exists and a recommended quote is picked
+    const hasVendorQuotes = (quotesList || []).some((q) => q.vendor_name && q.vendor_name.trim());
+    if (decision === "Approved") {
+      if (!hasVendorQuotes) {
+        toast.error("Please fill in at least one vendor quotation in the comparison matrix above.");
+        return;
+      }
+      if (!activeQuoteNo) {
+        toast.error("Please select a Recommended Quote / Vendor before submitting IT technical evaluation.");
+        return;
+      }
+    }
+
+    // Resolve recommended vendor name
+    const foundVendorQuote = (quotesList || []).find((q) => q.quotation_no === activeQuoteNo);
+    const recommendedVendor = foundVendorQuote?.vendor_name || itEvalForm.recommended_vendor || "";
+
+    // Sanitize quotations payload (ensure vendor_id is an ObjectId string or null)
+    const updatedQuotes = (quotesList || []).map((item) => ({
+      ...item,
+      vendor_id: item.vendor_id?._id || (typeof item.vendor_id === "string" && item.vendor_id.trim() ? item.vendor_id : null),
+      is_recommended_by_it: Boolean(activeQuoteNo && item.quotation_no === activeQuoteNo),
+    }));
+
+    const payload = {
+      ...itEvalForm,
+      decision,
+      recommended_quote_no: activeQuoteNo || "",
+      recommended_vendor: recommendedVendor,
+      remarks: itEvalForm.remarks || (recommendedVendor ? `Recommended vendor: ${recommendedVendor}` : ""),
+      quotations: updatedQuotes,
+    };
+
     setSubmitting(true);
     try {
-      const activeQuoteNo = itEvalForm.recommended_quote_no;
-      const updatedQuotes = quotesList.map((item) => ({
-        ...item,
-        is_recommended_by_it: Boolean(activeQuoteNo && item.quotation_no === activeQuoteNo),
-      }));
-      const payload = {
-        ...itEvalForm,
-        quotations: updatedQuotes,
-      };
+      console.log("[Procurement] Submitting IT Technical Evaluation:", { prId: selectedPR._id, payload });
       const res = await itHelpdeskAPI.procurement.evaluateIT(selectedPR._id, payload);
-      toast.success(`IT Technical Evaluation recorded: ${itEvalForm.decision}`);
+      toast.success(`IT Technical Evaluation recorded: ${decision}`);
       if (res?.data) {
         setSelectedPR(res.data);
         if (Array.isArray(res.data.quotations) && res.data.quotations.length > 0) {
@@ -700,66 +748,41 @@ export default function ProcurementManagement() {
       }
       fetchStats();
       fetchRequests();
+
+      // Automatically advance to Stage 4 (HOD Approval tab) when approved
+      if (decision === "Approved") {
+        setWorkflowTab(2);
+      }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to record IT evaluation");
+      console.error("[Procurement] IT Technical Evaluation failed:", err);
+      toast.error(err.response?.data?.message || err.message || "Failed to record IT evaluation");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Instant Auto-Save of Recommended Quote (Stage 3 API Call)
-  const handleSelectRecommendedQuote = async (quoteNo) => {
-    // 1. Immediately update quotesList so only the selected quote is recommended
-    const updatedQuotes = quotesList.map((q) => ({
+  // Set Recommended Quote in Stage 3 IT Technical Evaluation Form
+  const handleSelectRecommendedQuote = (quoteNo) => {
+    const updatedQuotes = (quotesList || []).map((q) => ({
       ...q,
       is_recommended_by_it: Boolean(quoteNo && q.quotation_no === quoteNo),
     }));
     setQuotesList(updatedQuotes);
 
-    // 2. Find selected quotation vendor details
     const found = updatedQuotes.find((q) => q.quotation_no === quoteNo);
     const updatedForm = {
       ...itEvalForm,
-      decision: itEvalForm.decision || "Approved",
+      decision: (!itEvalForm.decision || itEvalForm.decision === "Pending") ? "Approved" : itEvalForm.decision,
       recommended_quote_no: quoteNo || "",
       recommended_vendor: found?.vendor_name || "",
-      remarks: itEvalForm.remarks || (found?.vendor_name ? `Recommended vendor: ${found.vendor_name} (₹${Number(found.total_amount || 0).toLocaleString("en-IN")})` : ""),
+      remarks:
+        itEvalForm.remarks ||
+        (found?.vendor_name
+          ? `Recommended vendor: ${found.vendor_name} (₹${Number(found.total_amount || 0).toLocaleString("en-IN")})`
+          : itEvalForm.remarks || ""),
       quotations: updatedQuotes,
     };
     setItEvalForm(updatedForm);
-
-    // 3. Immediately trigger API call to backend
-    if (selectedPR?._id && quoteNo) {
-      const toastId = toast.loading(`Saving recommendation: ${found?.vendor_name || quoteNo}...`);
-      try {
-        const res = await itHelpdeskAPI.procurement.evaluateIT(selectedPR._id, updatedForm);
-        if (res?.data) {
-          setSelectedPR(res.data);
-          if (Array.isArray(res.data.quotations) && res.data.quotations.length > 0) {
-            let updatedQList = [...res.data.quotations];
-            while (updatedQList.length < 3) {
-              updatedQList.push({
-                quotation_no: `QTN-00${updatedQList.length + 1}`,
-                vendor_name: "",
-                total_amount: "",
-                warranty_period: "1 Year",
-                delivery_days: 7,
-                payment_terms: "30 Days Credit",
-                file_url: "",
-                notes: "",
-              });
-            }
-            setQuotesList(updatedQList);
-          }
-          toast.success(`✓ Recommended quote saved: ${found?.vendor_name || quoteNo}`, { id: toastId });
-          fetchStats();
-          fetchRequests();
-        }
-      } catch (err) {
-        console.error("Auto-save recommended quote error:", err);
-        toast.error(err.response?.data?.message || "Failed to save recommendation", { id: toastId });
-      }
-    }
   };
 
   // Submit HOD Approval (Stage 4 - Shalini Arun)
@@ -769,6 +792,7 @@ export default function ProcurementManagement() {
       const res = await itHelpdeskAPI.procurement.approveHOD(selectedPR._id, hodForm);
       toast.success(`HOD / Admin decision submitted: ${hodForm.decision}`);
       setSelectedPR(res.data);
+      setIsEditingHod(false);
       fetchStats();
       fetchRequests();
     } catch (err) {
@@ -791,6 +815,10 @@ export default function ProcurementManagement() {
       setSelectedPR(res.data);
       fetchStats();
       fetchRequests();
+      // Auto advance to PO tab if approved
+      if (gmForm.decision === "Approved") {
+        setWorkflowTab(3);
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to record GM approval");
     } finally {
@@ -2162,10 +2190,11 @@ export default function ProcurementManagement() {
               borderBottom: "1px solid #e2e8f0",
               display: "flex",
               alignItems: "center",
-              gap: 1,
+              gap: 1.2,
               overflowX: "auto",
-              "&::-webkit-scrollbar": { height: 4 },
-              "&::-webkit-scrollbar-thumb": { bgcolor: "#cbd5e1", borderRadius: 2 },
+              whiteSpace: "nowrap",
+              "&::-webkit-scrollbar": { height: 5 },
+              "&::-webkit-scrollbar-thumb": { bgcolor: "#cbd5e1", borderRadius: 3 },
             }}
           >
             {[
@@ -2178,7 +2207,7 @@ export default function ProcurementManagement() {
               },
               {
                 id: 2,
-                label: isHOD && !isGM ? "3. Stage 4: HOD Sign-Off" : "3. Approvals (HOD & GM)",
+                label: "3. Approvals (HOD & GM)",
                 icon: ShieldCheck,
               },
               { id: 3, label: "4. PO & GRN Receiving", icon: Truck },
@@ -2194,8 +2223,10 @@ export default function ProcurementManagement() {
                   onClick={() => setWorkflowTab(tab.id)}
                   startIcon={<IconComp size={16} />}
                   sx={{
-                    px: 1.8,
+                    px: 2,
                     py: 0.85,
+                    minWidth: "fit-content",
+                    flexShrink: 0,
                     borderRadius: "10px",
                     textTransform: "none",
                     fontSize: "0.82rem",
@@ -2207,6 +2238,9 @@ export default function ProcurementManagement() {
                     borderColor: isActive ? "#4f46e5" : "#e2e8f0",
                     boxShadow: isActive ? "0 4px 12px rgba(79, 70, 229, 0.22)" : "none",
                     transition: "all 0.15s ease",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 0.8,
                     "&:hover": {
                       bgcolor: isActive ? "#4338ca" : "#f8fafc",
                       borderColor: isActive ? "#4338ca" : "#cbd5e1",
@@ -2214,19 +2248,20 @@ export default function ProcurementManagement() {
                     },
                   }}
                 >
-                  {tab.label}
+                  <span>{tab.label}</span>
                   {tab.badge && (
                     <Box
                       component="span"
                       sx={{
-                        ml: 1,
-                        px: 0.9,
-                        py: 0.15,
-                        borderRadius: "10px",
+                        ml: 0.5,
+                        px: 1,
+                        py: 0.2,
+                        borderRadius: "12px",
                         fontSize: "0.68rem",
                         fontWeight: 750,
                         bgcolor: isActive ? "rgba(255,255,255,0.25)" : "#ede9fe",
                         color: isActive ? "#ffffff" : "#6d28d9",
+                        lineHeight: 1.2,
                       }}
                     >
                       {tab.badge}
@@ -3060,7 +3095,7 @@ export default function ProcurementManagement() {
                         label="Recommended Quote / Vendor *"
                         value={itEvalForm.recommended_quote_no}
                         onChange={(e) => handleSelectRecommendedQuote(e.target.value)}
-                        helperText="Selecting automatically triggers API to save recommendation"
+                        helperText="Select the vendor quotation recommended for approval"
                         FormHelperTextProps={{ sx: { fontSize: "0.68rem", color: "#6366f1", fontWeight: 650 } }}
                       >
                         <MenuItem value="">None</MenuItem>
@@ -3103,9 +3138,17 @@ export default function ProcurementManagement() {
                       variant="contained"
                       onClick={handleSubmitItEval}
                       disabled={submitting}
-                      sx={{ bgcolor: "#4f46e5", textTransform: "none", fontWeight: 650 }}
+                      startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <ShieldCheck size={16} />}
+                      sx={{
+                        bgcolor: "#4f46e5",
+                        textTransform: "none",
+                        fontWeight: 650,
+                        px: 3,
+                        py: 1,
+                        "&:hover": { bgcolor: "#4338ca" },
+                      }}
                     >
-                      Submit Technical Evaluation
+                      {submitting ? "Submitting Evaluation..." : "Submit Technical Evaluation"}
                     </Button>
                   </Box>
                 </Paper>
@@ -3236,7 +3279,7 @@ export default function ProcurementManagement() {
                     >
                       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <CheckCircle2 size={20} color="#4f46e5" />
+                          <CheckCircle2 size={20} color={selectedPR.first_approval?.decision === "Approved" ? "#10b981" : "#4f46e5"} />
                           <Typography sx={{ fontSize: "0.95rem", fontWeight: 750, color: "#1e293b" }}>
                             Stage 4: HOD / Admin Approval
                           </Typography>
@@ -3260,7 +3303,7 @@ export default function ProcurementManagement() {
                             fullWidth
                             size="small"
                             label="Decision *"
-                            disabled={!isShaliniArun}
+                            disabled={!isShaliniArun || (selectedPR.first_approval?.decision === "Approved" && !isEditingHod)}
                             value={hodForm.decision}
                             onChange={(e) => setHodForm({ ...hodForm, decision: e.target.value })}
                           >
@@ -3276,7 +3319,7 @@ export default function ProcurementManagement() {
                             size="small"
                             type="number"
                             label="Approved Amount (₹) *"
-                            disabled={!isShaliniArun}
+                            disabled={!isShaliniArun || (selectedPR.first_approval?.decision === "Approved" && !isEditingHod)}
                             value={hodForm.approved_amount}
                             onChange={(e) => setHodForm({ ...hodForm, approved_amount: e.target.value })}
                           />
@@ -3290,22 +3333,51 @@ export default function ProcurementManagement() {
                             size="small"
                             label="HOD Remarks"
                             placeholder="Add approval remarks or conditions..."
-                            disabled={!isShaliniArun}
+                            disabled={!isShaliniArun || (selectedPR.first_approval?.decision === "Approved" && !isEditingHod)}
                             value={hodForm.remarks}
                             onChange={(e) => setHodForm({ ...hodForm, remarks: e.target.value })}
                           />
                         </Grid>
                       </Grid>
 
-                      {isShaliniArun ? (
-                        <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
+                      {selectedPR.first_approval?.decision === "Approved" && !isEditingHod ? (
+                        <Box sx={{ mt: 2, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+                          <Chip
+                            icon={<CheckCircle2 size={16} />}
+                            label={`Decision Approved by ${selectedPR.first_approval?.approver_name || "Approver"} (₹${Number(selectedPR.first_approval?.approved_amount || 0).toLocaleString("en-IN")})`}
+                            color="success"
+                            sx={{ fontWeight: 700, fontSize: "0.8rem" }}
+                          />
+                          {isShaliniArun && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => setIsEditingHod(true)}
+                              sx={{ textTransform: "none", fontSize: "0.75rem", borderColor: "#cbd5e1", color: "#475569" }}
+                            >
+                              Edit Decision
+                            </Button>
+                          )}
+                        </Box>
+                      ) : isShaliniArun ? (
+                        <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}>
+                          {isEditingHod && (
+                            <Button
+                              variant="outlined"
+                              onClick={() => setIsEditingHod(false)}
+                              disabled={submitting}
+                              sx={{ textTransform: "none", fontSize: "0.8rem", color: "#64748b", borderColor: "#cbd5e1" }}
+                            >
+                              Cancel
+                            </Button>
+                          )}
                           <Button
                             variant="contained"
                             onClick={handleSubmitHodApproval}
                             disabled={submitting}
-                            sx={{ bgcolor: "#4f46e5", textTransform: "none", fontWeight: 650 }}
+                            sx={{ bgcolor: "#4f46e5", textTransform: "none", fontWeight: 650, "&:hover": { bgcolor: "#4338ca" } }}
                           >
-                            Submit HOD Decision
+                            {isEditingHod ? "Update HOD Decision" : "Submit HOD Decision"}
                           </Button>
                         </Box>
                       ) : (
@@ -3355,7 +3427,7 @@ export default function ProcurementManagement() {
                               fullWidth
                               size="small"
                               label="GM Decision *"
-                              disabled={!isManuPillai}
+                              disabled={!isManuPillai || selectedPR.final_approval?.decision === "Approved"}
                               value={gmForm.decision}
                               onChange={(e) => setGmForm({ ...gmForm, decision: e.target.value })}
                             >
@@ -3371,7 +3443,7 @@ export default function ProcurementManagement() {
                               fullWidth
                               size="small"
                               label="Selected Winner Vendor *"
-                              disabled={!isManuPillai}
+                              disabled={!isManuPillai || selectedPR.final_approval?.decision === "Approved"}
                               value={gmForm.selected_quote_no}
                               onChange={(e) => {
                                 const qNo = e.target.value;
@@ -3400,7 +3472,7 @@ export default function ProcurementManagement() {
                               size="small"
                               type="number"
                               label="Final Approved ₹ *"
-                              disabled={!isManuPillai}
+                              disabled={!isManuPillai || selectedPR.final_approval?.decision === "Approved"}
                               value={gmForm.final_approved_amount}
                               onChange={(e) => setGmForm({ ...gmForm, final_approved_amount: e.target.value })}
                             />
@@ -3424,14 +3496,23 @@ export default function ProcurementManagement() {
                               size="small"
                               label="Management Remarks"
                               placeholder="Why this vendor was chosen, negotiated pricing terms..."
-                              disabled={!isManuPillai}
+                              disabled={!isManuPillai || selectedPR.final_approval?.decision === "Approved"}
                               value={gmForm.remarks}
                               onChange={(e) => setGmForm({ ...gmForm, remarks: e.target.value })}
                             />
                           </Grid>
                         </Grid>
 
-                        {isManuPillai ? (
+                        {selectedPR.final_approval?.decision === "Approved" ? (
+                          <Box sx={{ mt: 2, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+                            <Chip
+                              icon={<CheckCircle2 size={16} />}
+                              label={`Management Approved (₹${Number(selectedPR.final_approval?.final_approved_amount || 0).toLocaleString("en-IN")}) • Winner: ${selectedPR.final_approval?.selected_vendor || "N/A"}`}
+                              color="success"
+                              sx={{ fontWeight: 750, fontSize: "0.8rem" }}
+                            />
+                          </Box>
+                        ) : isManuPillai ? (
                           <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
                             <Button
                               variant="contained"

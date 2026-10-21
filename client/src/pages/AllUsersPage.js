@@ -35,7 +35,6 @@ import {
   Sort as SortIcon,
   Person as PersonIcon,
   Schedule as ScheduleIcon,
-  Activity as ActivityIcon,
   ArrowBack as ArrowBackIcon,
   Refresh as RefreshIcon,
   Download as DownloadIcon,

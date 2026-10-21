@@ -270,26 +270,64 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
           </div>
         </div>
 
-        {/* Company Selection & PO Layout Options */}
+        {/* Highlighted Purchasing Company & PO Layout Format Spotlight Cards */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1.4fr 1fr",
+            gridTemplateColumns: "1.3fr 1fr",
             gap: "14px",
-            marginBottom: "14px",
-            padding: "12px 14px",
-            backgroundColor: "#f8fafc",
-            border: "1.5px solid #e2e8f0",
-            borderRadius: "8px",
+            marginBottom: "16px",
           }}
+          className="sop-grid-2"
         >
-          <div>
-            <label className="sop-field-label" style={{ fontWeight: 800, color: "#0f3b6c", marginBottom: "4px" }}>
-              🏢 Purchasing Company (Buyer)
-            </label>
+          {/* Card 1: Purchasing Company (Buyer) */}
+          <div
+            style={{
+              background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
+              border: "2px solid #3b82f6",
+              borderLeft: "5px solid #1d4ed8",
+              borderRadius: "8px",
+              padding: "12px 14px",
+              boxShadow: "0 2px 8px rgba(37, 99, 235, 0.12)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label style={{ fontWeight: 800, fontSize: "13px", color: "#1e3a8a", margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
+                <span>🏢</span>
+                <span>Purchasing Company (Buyer)</span>
+              </label>
+              <span
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  padding: "2px 8px",
+                  borderRadius: "10px",
+                  backgroundColor: "#2563eb",
+                  color: "#ffffff",
+                  boxShadow: "0 1px 2px rgba(37, 99, 235, 0.2)",
+                }}
+              >
+                Primary Entity
+              </span>
+            </div>
+
             <select
               className="sop-input"
-              style={{ fontWeight: 700, fontSize: "12.5px", height: "36px", borderColor: "#cbd5e1" }}
+              style={{
+                fontWeight: 700,
+                fontSize: "13.5px",
+                height: "38px",
+                borderColor: "#2563eb",
+                backgroundColor: "#ffffff",
+                color: "#0f172a",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08)",
+                cursor: "pointer",
+              }}
               value={currentCompanyKey}
               onChange={handleCompanyChange}
             >
@@ -299,18 +337,133 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
                 </option>
               ))}
             </select>
-            <div style={{ marginTop: "4px", fontSize: "10px", color: "#64748b" }}>
-              <strong>GSTIN:</strong> {compProfile.buyerGstin} | <strong>Email:</strong> {compProfile.buyerEmail}
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                flexWrap: "wrap",
+                fontSize: "11px",
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  backgroundColor: "#ffffff",
+                  border: "1px solid #bfdbfe",
+                  padding: "2px 8px",
+                  borderRadius: "4px",
+                  color: "#1e40af",
+                  fontWeight: 700,
+                }}
+              >
+                <span>🧾 GSTIN:</span>
+                <span style={{ fontFamily: "monospace", letterSpacing: "0.4px" }}>
+                  {compProfile.buyerGstin || "N/A"}
+                </span>
+              </span>
+
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  backgroundColor: "#ffffff",
+                  border: "1px solid #bfdbfe",
+                  padding: "2px 8px",
+                  borderRadius: "4px",
+                  color: "#334155",
+                  fontWeight: 600,
+                }}
+              >
+                <span>✉️</span>
+                <span>{compProfile.buyerEmail || "N/A"}</span>
+              </span>
+
+              <button
+                type="button"
+                onClick={applyCompanyDefaultLocation}
+                title="Click to auto-fill delivery site location and contact from this company profile"
+                style={{
+                  marginLeft: "auto",
+                  fontSize: "10.5px",
+                  fontWeight: 700,
+                  color: "#1d4ed8",
+                  backgroundColor: "#ffffff",
+                  border: "1px dashed #60a5fa",
+                  borderRadius: "4px",
+                  padding: "2px 8px",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  transition: "all 0.15s ease",
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = "#eff6ff";
+                  e.currentTarget.style.borderColor = "#2563eb";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = "#ffffff";
+                  e.currentTarget.style.borderColor = "#60a5fa";
+                }}
+              >
+                <span>⚡ Sync Site Defaults</span>
+              </button>
             </div>
           </div>
 
-          <div>
-            <label className="sop-field-label" style={{ fontWeight: 700, color: "#334155", marginBottom: "4px" }}>
-              📄 PO Layout Format
-            </label>
+          {/* Card 2: PO Layout Format */}
+          <div
+            style={{
+              background: "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)",
+              border: "2px solid #8b5cf6",
+              borderLeft: "5px solid #6d28d9",
+              borderRadius: "8px",
+              padding: "12px 14px",
+              boxShadow: "0 2px 8px rgba(109, 40, 217, 0.12)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label style={{ fontWeight: 800, fontSize: "13px", color: "#5b21b6", margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
+                <span>📄</span>
+                <span>PO Layout Format</span>
+              </label>
+              <span
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  padding: "2px 8px",
+                  borderRadius: "10px",
+                  backgroundColor: "#7c3aed",
+                  color: "#ffffff",
+                  boxShadow: "0 1px 2px rgba(109, 40, 217, 0.2)",
+                }}
+              >
+                PDF & Print Style
+              </span>
+            </div>
+
             <select
               className="sop-input"
-              style={{ fontWeight: 600, fontSize: "12px", height: "36px" }}
+              style={{
+                fontWeight: 700,
+                fontSize: "12.5px",
+                height: "38px",
+                borderColor: "#7c3aed",
+                backgroundColor: "#ffffff",
+                color: "#0f172a",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08)",
+                cursor: "pointer",
+              }}
               value={globalData?.poFormatStyle || "letterhead"}
               onChange={(e) => onGlobalChange && onGlobalChange("poFormatStyle", e.target.value)}
             >
@@ -318,10 +471,74 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
               <option value="standard">📄 Standard PO (Standalone Logo)</option>
               <option value="plain">🖨️ Plain Body (Pre-Printed Stationery)</option>
             </select>
-            <div style={{ marginTop: "4px", fontSize: "10px", color: "#64748b" }}>
-              {globalData?.poFormatStyle === "letterhead"
-                ? "Uses company's full letterhead graphic. Removes duplicate top logo."
-                : "Standard white box with separate company logo on top-left."}
+
+            <div style={{ display: "flex", alignItems: "center" }}>
+              {(globalData?.poFormatStyle || "letterhead") === "letterhead" && (
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #ddd6fe",
+                    padding: "3px 8px",
+                    borderRadius: "4px",
+                    fontSize: "11px",
+                    color: "#6b21a8",
+                    fontWeight: 600,
+                    width: "100%",
+                  }}
+                >
+                  <span>📜</span>
+                  <span>
+                    <strong>Official Letterhead:</strong> Uses full company letterhead graphic (Header & Footer).
+                  </span>
+                </div>
+              )}
+              {globalData?.poFormatStyle === "standard" && (
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #bfdbfe",
+                    padding: "3px 8px",
+                    borderRadius: "4px",
+                    fontSize: "11px",
+                    color: "#1d4ed8",
+                    fontWeight: 600,
+                    width: "100%",
+                  }}
+                >
+                  <span>📄</span>
+                  <span>
+                    <strong>Standard PO:</strong> Clean white box layout with standalone top-left company logo.
+                  </span>
+                </div>
+              )}
+              {globalData?.poFormatStyle === "plain" && (
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #fde68a",
+                    padding: "3px 8px",
+                    borderRadius: "4px",
+                    fontSize: "11px",
+                    color: "#92400e",
+                    fontWeight: 600,
+                    width: "100%",
+                  }}
+                >
+                  <span>🖨️</span>
+                  <span>
+                    <strong>Plain Body:</strong> Top blank margin reserved for pre-printed physical stationery.
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

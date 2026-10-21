@@ -59,7 +59,7 @@ export async function syncVehiclesToFleetInsurance() {
           engineNumber: v.engineNumber || "",
           chassisNumber: v.chassisNumber || "",
           policyToDate: v.insuranceDate ? new Date(v.insuranceDate) : null,
-          renewalDate: v.insuranceDate ? new Date(v.insuranceDate) : null,
+          renewalDate: null,
           modelType: "TRAILER",
           size: v.loadCapacity?.value ? `${v.loadCapacity.value} KG` : "20 FT",
           financialApprovalStatus: "Pending",
@@ -895,6 +895,20 @@ router.delete("/fleet-insurance-sop/:id/attachments/:attachmentId", authMiddlewa
 // CREATE new record
 router.post("/fleet-insurance-sop", authMiddleware, async (req, res) => {
   try {
+    const hasPayment = Boolean(
+      req.body.paymentUtr && String(req.body.paymentUtr).trim().length > 0 &&
+      req.body.financialApprovalStatus !== "Rejected"
+    );
+
+    if (!hasPayment) {
+      req.body.renewed = "NO";
+      req.body.renewalStatus = "Pending";
+      req.body.renewalDate = null;
+      req.body.renewedDate = null;
+      req.body.paymentDate = null;
+      req.body.tat = null;
+    }
+
     const newRecord = new FleetInsuranceSopModel(req.body);
     await context.run({ user: req.user, req }, async () => {
       await newRecord.save();
@@ -913,6 +927,34 @@ router.put("/fleet-insurance-sop/:id", authMiddleware, async (req, res) => {
     await context.run({ user: req.user, req }, async () => {
       const record = await FleetInsuranceSopModel.findById(req.params.id);
       if (!record) throw new Error("Record not found");
+
+      // Server-side guard: A renewal actually happens ONLY when payment is done, not rejected, and NEW VALID FROM * is available
+      const hasPayment = Boolean(
+        req.body.paymentUtr && String(req.body.paymentUtr).trim().length > 0 &&
+        req.body.financialApprovalStatus !== "Rejected"
+      );
+
+      const hasNewValidFrom = Boolean(
+        req.body.newPolicyFromDate !== undefined ? req.body.newPolicyFromDate : record.newPolicyFromDate
+      );
+
+      const isFullyRenewed = hasPayment && hasNewValidFrom;
+
+      if (!isFullyRenewed) {
+        req.body.renewed = "NO";
+        req.body.renewalStatus = "Pending";
+        req.body.renewalDate = null;
+        req.body.renewedDate = null;
+        record.renewalDate = null;
+        record.renewedDate = null;
+        if (!hasPayment) {
+          req.body.paymentDate = null;
+          req.body.tat = null;
+          record.paymentDate = null;
+          record.tat = null;
+        }
+      }
+
       Object.assign(record, req.body);
       updatedRecord = await record.save();
     });

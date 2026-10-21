@@ -389,16 +389,16 @@ const ChargesTable = ({
                   <>
                     <td>{ch.category}</td>
                   
-                    <td style={{ fontWeight: '600', color: '#2e7d32' }}>
-                      {ch.purchase_book_no || '-'}
+                    <td style={{ fontWeight: '600', color: isPbRejected ? '#d32f2f' : '#2e7d32' }}>
+                      {ch.purchase_book_no ? (isPbRejected ? `${ch.purchase_book_no} (Rejected)` : ch.purchase_book_no) : '-'}
                       {ch.purchase_book_no && (
                         <IconButton size="small" onClick={(e) => handleCopy(e, ch.purchase_book_no)} title="Copy PB No">
                           <ContentCopyIcon style={{ fontSize: '14px' }} />
                         </IconButton>
                       )}
                     </td>
-                    <td style={{ fontWeight: '600', color: '#1565c0' }}>
-                      {ch.payment_request_no || '-'}
+                    <td style={{ fontWeight: '600', color: isPrRejected ? '#d32f2f' : '#1565c0' }}>
+                      {ch.payment_request_no ? (isPrRejected ? `${ch.payment_request_no} (Rejected)` : ch.payment_request_no) : '-'}
                       {ch.payment_request_no && (
                         <IconButton size="small" onClick={(e) => handleCopy(e, ch.payment_request_no)} title="Copy PR No">
                           <ContentCopyIcon style={{ fontSize: '14px' }} />

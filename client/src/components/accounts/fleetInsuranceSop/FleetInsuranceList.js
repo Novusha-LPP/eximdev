@@ -612,20 +612,44 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
       }
     }
 
-    const isOldRenewed = !isWithinOneMonthOfExpiry && (
-      String(row.renewed).toUpperCase() === "YES" ||
-      row.renewalStatus === "Renewed" ||
-      Boolean(row.paymentUtr)
+    // A renewal actually happens ONLY when:
+    // 1. Payment is done (UTR recorded and approval not rejected)
+    // 2. New policy expiry is updated
+    // 3. NEW VALID FROM * is available for that respective year!
+    const hasPaymentDone = Boolean(
+      row.paymentUtr && String(row.paymentUtr).trim().length > 0 &&
+      row.financialApprovalStatus !== "Rejected"
     );
 
+    const hasExpiryUpdated = Boolean(
+      row.newPolicyToDate || row.newExpiryDate
+    );
+
+    const nFrom = row.newPolicyFromDate ? new Date(row.newPolicyFromDate) : null;
+    const hasValidNewFrom = Boolean(nFrom && !isNaN(nFrom.getTime()));
+
+    let isNewFromAvailableForYear = false;
+    if (hasValidNewFrom) {
+      if (reqYear) {
+        // Must be available for that respective year
+        isNewFromAvailableForYear = (nFrom.getFullYear() === reqYear);
+      } else {
+        isNewFromAvailableForYear = true;
+      }
+    }
+
+    const isOldRenewed = !isWithinOneMonthOfExpiry && hasPaymentDone && hasExpiryUpdated && isNewFromAvailableForYear;
+
     let rowTat = null;
-    if (row.tat !== undefined && row.tat !== null && row.tat !== "") {
-      rowTat = Number(row.tat);
-    } else if (row.prDate && (row.paymentDate || row.renewalDate || row.renewedDate)) {
-      const pr = new Date(row.prDate);
-      const pay = new Date(row.paymentDate || row.renewalDate || row.renewedDate);
-      if (!isNaN(pr.getTime()) && !isNaN(pay.getTime())) {
-        rowTat = Math.max(0, Math.ceil((pay - pr) / (1000 * 60 * 60 * 24)));
+    if (isOldRenewed) {
+      if (row.tat !== undefined && row.tat !== null && row.tat !== "") {
+        rowTat = Number(row.tat);
+      } else if (row.prDate && (row.paymentDate || row.renewalDate || row.renewedDate)) {
+        const pr = new Date(row.prDate);
+        const pay = new Date(row.paymentDate || row.renewalDate || row.renewedDate);
+        if (!isNaN(pr.getTime()) && !isNaN(pay.getTime())) {
+          rowTat = Math.max(0, Math.ceil((pay - pr) / (1000 * 60 * 60 * 24)));
+        }
       }
     }
 
@@ -644,10 +668,11 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
     }
 
     // Default or matching old policy cycle (e.g. August 2026):
+    // Renewal Date and TAT should ONLY display if NEW VALID FROM * is available for that year!
     return {
       displayExpiry: pDate || nDate,
-      displayRenewalDate: rDate || row.renewalDate || row.renewedDate || null,
-      tat: rowTat,
+      displayRenewalDate: isOldRenewed ? (rDate || row.renewalDate || row.renewedDate || null) : null,
+      tat: isOldRenewed ? rowTat : null,
       isRenewed: isOldRenewed,
       stageStatus: isOldRenewed ? { label: "Renewed", color: "success" } : getStageStatus(row),
       previousPremium: row.totalPolicyPremium || row.premiumAmount,
@@ -1246,10 +1271,10 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                             {ctx.displayExpiry ? new Date(ctx.displayExpiry).toLocaleDateString("en-IN") : "-"}
                           </TableCell>
                           <TableCell sx={{ color: "#16a34a", fontWeight: 700, fontSize: "11.5px", py: 0.4, px: 0.8 }}>
-                            {ctx.displayRenewalDate ? new Date(ctx.displayRenewalDate).toLocaleDateString("en-IN") : "-"}
+                            {ctx.isRenewed && ctx.displayRenewalDate ? new Date(ctx.displayRenewalDate).toLocaleDateString("en-IN") : "-"}
                           </TableCell>
                           <TableCell align="center" sx={{ py: 0.4, px: 0.8 }}>
-                            {ctx.tat !== null && ctx.tat !== undefined ? (
+                            {ctx.isRenewed && ctx.tat !== null && ctx.tat !== undefined ? (
                               <Chip
                                 label={`${ctx.tat} ${ctx.tat === 1 ? "day" : "days"}`}
                                 size="small"
@@ -1372,8 +1397,12 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                                   <Edit sx={{ fontSize: 16 }} />
                                 </IconButton>
                               </Tooltip>
-                              <Tooltip title="Renew Policy">
-                                <IconButton size="small" onClick={() => onRenew(row)} sx={{ p: 0.3, color: "#16a34a" }}>
+                              <Tooltip title={ctx.isRenewed ? "Renew Policy for Next Year" : "Policy not renewed for current year (Click to Edit)"}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => (ctx.isRenewed ? onRenew(row) : onEdit(row))}
+                                  sx={{ p: 0.3, color: ctx.isRenewed ? "#16a34a" : "#64748b" }}
+                                >
                                   <Autorenew sx={{ fontSize: 16 }} />
                                 </IconButton>
                               </Tooltip>

@@ -52,9 +52,52 @@ import {
   PictureAsPdf,
   OpenInNew,
   Description,
+  FilterList,
+  RestartAlt,
+  CalendarMonth,
 } from "@mui/icons-material";
 import { toast } from "react-hot-toast";
 import PoLandscapePdfGenerator from "./PoLandscapePdfGenerator";
+
+const columnInputSx = (isActive) => ({
+  "& .MuiOutlinedInput-root": {
+    borderRadius: "4px",
+    bgcolor: isActive ? "#0369a1 !important" : "#0f172a !important",
+    color: "#ffffff !important",
+    height: 30,
+    fontSize: "11.5px !important",
+    "& fieldset": {
+      borderColor: isActive ? "#38bdf8 !important" : "#334155 !important",
+      borderWidth: isActive ? "1.5px !important" : "1px !important",
+    },
+    "&:hover fieldset": {
+      borderColor: "#64748b !important",
+    },
+    "&.Mui-focused fieldset": {
+      borderColor: "#38bdf8 !important",
+    },
+    "& input": {
+      color: "#ffffff !important",
+      py: "4px !important",
+      px: "6px !important",
+      fontSize: "11.5px !important",
+      "&::placeholder": {
+        color: "#94a3b8 !important",
+        opacity: 1,
+      },
+    },
+    "& .MuiSelect-select": {
+      color: "#ffffff !important",
+      py: "4px !important",
+      px: "6px !important",
+      fontSize: "11.5px !important",
+    },
+    "& .MuiSvgIcon-root": {
+      color: "#94a3b8 !important",
+      fontSize: "16px !important",
+    },
+  },
+});
 
 const stageTabsList = [
   { label: "All PRs", value: "0" },
@@ -376,6 +419,59 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   const [stageTab, setStageTab] = useState("0");
   const [loading, setLoading] = useState(false);
 
+  // Column Filters State (PR Number, PO Number, Prepared by, L1 supplier, Total Value, Status, Created at / Date / Month / Year)
+  const [filters, setFilters] = useState({
+    prNumber: "",
+    poNumber: "",
+    preparedBy: "",
+    supplier: "",
+    totalValue: "",
+    status: "",
+    date: "",
+    month: "",
+    year: "",
+  });
+  const [filterOptions, setFilterOptions] = useState({
+    preparers: [],
+    suppliers: [],
+    years: [],
+    statuses: [],
+  });
+  const [showColumnFilters, setShowColumnFilters] = useState(true);
+
+  const handleFilterChange = (field, value) => {
+    setFilters((prev) => ({ ...prev, [field]: value }));
+    setPage(0);
+  };
+
+  const handleClearAllFilters = () => {
+    setSearch("");
+    setFilters({
+      prNumber: "",
+      poNumber: "",
+      preparedBy: "",
+      supplier: "",
+      totalValue: "",
+      status: "",
+      date: "",
+      month: "",
+      year: "",
+    });
+    setPage(0);
+  };
+
+  const activeFiltersCount = React.useMemo(() => {
+    let count = search ? 1 : 0;
+    Object.entries(filters).forEach(([_, val]) => {
+      if (val !== undefined && val !== null && String(val).trim() !== "" && val !== "ALL") {
+        count += 1;
+      }
+    });
+    return count;
+  }, [search, filters]);
+
+  const hasActiveFilters = activeFiltersCount > 0;
+
   // Invoice Documents Modal State
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [invoiceModalRow, setInvoiceModalRow] = useState(null);
@@ -482,6 +578,67 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
     }
   };
 
+  useEffect(() => {
+    async function fetchOptions() {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/tyre-procurement/filter-options`);
+        if (res.data?.success) {
+          setFilterOptions({
+            preparers: res.data.preparers || [],
+            suppliers: res.data.suppliers || [],
+            years: res.data.years || [],
+            statuses: res.data.statuses || [],
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching tyre filter options:", err);
+      }
+    }
+    fetchOptions();
+  }, []);
+
+  useEffect(() => {
+    if (allRecords.length > 0) {
+      setFilterOptions((prev) => {
+        const preparers = prev.preparers?.length
+          ? prev.preparers
+          : [...new Set(allRecords.map((r) => r.stage1?.preparedBy).filter(Boolean))].sort();
+        const suppliers = prev.suppliers?.length
+          ? prev.suppliers
+          : [...new Set(allRecords.flatMap((r) => [r.stage2?.selectedSupplierL1, ...(r.stage2?.selectedSuppliers || []).map((s) => s?.selectedSupplier)].filter(Boolean)))].sort();
+        const currentYear = new Date().getFullYear();
+        const detectedYears = [...new Set(allRecords.map((r) => (r.createdAt ? new Date(r.createdAt).getFullYear() : null)).filter(Boolean))];
+        const allYears = [...new Set([...detectedYears, currentYear, currentYear - 1, currentYear + 1])].sort((a, b) => b - a);
+        const years = prev.years?.length ? prev.years : allYears;
+        return {
+          preparers,
+          suppliers,
+          years,
+          statuses: prev.statuses?.length
+            ? prev.statuses
+            : [
+                "Draft",
+                "PR Raised",
+                "Preparing for Quotation",
+                "HoD Validated",
+                "Quotation Received",
+                "Quotation Updated",
+                "Finance Approved",
+                "Payment Done",
+                "Order Placed",
+                "Dispatched",
+                "Dispatched / Site GRN Ready",
+                "GRN Ready",
+                "GRN Received",
+                "GRN Completed",
+                "GRN Done",
+                "Closed",
+              ],
+        };
+      });
+    }
+  }, [allRecords]);
+
   const fetchRecords = async () => {
     setLoading(true);
     try {
@@ -491,6 +648,15 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           stageTab,
           page: page + 1,
           limit: rowsPerPage,
+          prNumber: filters.prNumber,
+          poNumber: filters.poNumber,
+          preparedBy: filters.preparedBy,
+          supplier: filters.supplier,
+          totalValue: filters.totalValue,
+          status: filters.status,
+          date: filters.date,
+          month: filters.month,
+          year: filters.year,
         },
       });
       setData(res.data.data || []);
@@ -503,9 +669,12 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   };
 
   useEffect(() => {
-    fetchRecords();
-    fetchAllRecords();
-  }, [page, rowsPerPage, search, stageTab]);
+    const timer = setTimeout(() => {
+      fetchRecords();
+      fetchAllRecords();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [page, rowsPerPage, search, stageTab, filters]);
 
   // Quick Finance Approval Dialog state
   const [quickApprovalOpen, setQuickApprovalOpen] = useState(false);
@@ -847,6 +1016,70 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
     }
   };
 
+  const displayRows = React.useMemo(() => {
+    const rows = getDisplayRows(data);
+    return rows.filter((row) => {
+      if (filters.prNumber && !row.prNumber?.toLowerCase().includes(filters.prNumber.toLowerCase())) {
+        return false;
+      }
+      if (filters.poNumber) {
+        const q = filters.poNumber.toLowerCase();
+        const match =
+          (row.displayPoNumbers || []).some((p) => p?.toLowerCase().includes(q)) ||
+          row.displayPoNumber?.toLowerCase().includes(q) ||
+          row.poNumber?.toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      if (filters.preparedBy && filters.preparedBy !== "ALL" && row.stage1?.preparedBy !== filters.preparedBy) {
+        return false;
+      }
+      if (filters.supplier && filters.supplier !== "ALL") {
+        const q = filters.supplier.toLowerCase();
+        const match =
+          (row.displaySuppliers || []).some((s) => s?.toLowerCase().includes(q)) ||
+          row.displaySupplier?.toLowerCase().includes(q) ||
+          row.stage2?.selectedSupplierL1?.toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      if (filters.status && filters.status !== "ALL" && row.status !== filters.status) {
+        return false;
+      }
+      if (filters.totalValue) {
+        const valStr = String(filters.totalValue).trim();
+        const v = Number(row.displayTotalValue || 0);
+        if (valStr.startsWith(">")) {
+          const min = parseFloat(valStr.slice(1).replace(/[^0-9.]/g, ""));
+          if (!isNaN(min) && v < min) return false;
+        } else if (valStr.startsWith("<")) {
+          const max = parseFloat(valStr.slice(1).replace(/[^0-9.]/g, ""));
+          if (!isNaN(max) && v > max) return false;
+        } else if (valStr.includes("-")) {
+          const [min, max] = valStr.split("-").map((n) => parseFloat(n.replace(/[^0-9.]/g, "")));
+          if (!isNaN(min) && v < min) return false;
+          if (!isNaN(max) && v > max) return false;
+        } else {
+          const num = parseFloat(valStr.replace(/[^0-9.]/g, ""));
+          if (!isNaN(num) && (v < num * 0.85 || v > num * 1.15) && !String(Math.round(v)).includes(String(Math.round(num)))) {
+            return false;
+          }
+        }
+      }
+      if (filters.date && row.createdAt) {
+        const rowDateStr = new Date(row.createdAt).toISOString().split("T")[0];
+        if (rowDateStr !== filters.date) return false;
+      }
+      if (filters.month && row.createdAt) {
+        const rowMonth = new Date(row.createdAt).getMonth() + 1;
+        if (rowMonth !== parseInt(filters.month, 10)) return false;
+      }
+      if (filters.year && row.createdAt) {
+        const rowYear = new Date(row.createdAt).getFullYear();
+        if (rowYear !== parseInt(filters.year, 10)) return false;
+      }
+      return true;
+    });
+  }, [data, filters]);
+
   return (
     <Box sx={{ width: "100%" }}>
       {/* Top Operational Metrics Header Cards */}
@@ -1100,36 +1333,283 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           </Tabs>
         </Box>
 
-        {/* Search Bar */}
-        <TextField
-          placeholder="Search PR Number, PO, Company (Suravio, Novusha, Suraj, Paramount, RABS), Supplier..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          fullWidth
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search sx={{ color: "#94a3b8", fontSize: 20 }} />
-              </InputAdornment>
-            ),
-            endAdornment: search ? (
-              <InputAdornment position="end">
-                <IconButton size="small" onClick={() => setSearch("")}>
-                  <Clear sx={{ color: "#94a3b8", fontSize: 18 }} />
-                </IconButton>
-              </InputAdornment>
-            ) : null,
-          }}
-          sx={{
-            "& .MuiOutlinedInput-root": {
-              borderRadius: "6px",
-              bgcolor: "#fafaff",
-              height: 38,
-              fontSize: "13px",
-              "& fieldset": { borderColor: "#cbd5e1" },
-            },
-          }}
-        />
+        {/* Filter and Date/Month/Year Search Toolbar */}
+        <Grid container spacing={1.5} alignItems="center">
+          {/* General Search */}
+          <Grid item xs={12} md={4}>
+            <TextField
+              placeholder="Search PR#, PO#, Company, Supplier, or Date (e.g. Sep 2026, 17/09/2026)..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              fullWidth
+              size="small"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search sx={{ color: "#94a3b8", fontSize: 19 }} />
+                  </InputAdornment>
+                ),
+                endAdornment: search ? (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearch("")}>
+                      <Clear sx={{ color: "#94a3b8", fontSize: 16 }} />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+              }}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "6px",
+                  bgcolor: "#fafaff",
+                  height: 38,
+                  fontSize: "12.5px",
+                  "& fieldset": { borderColor: "#cbd5e1" },
+                },
+              }}
+            />
+          </Grid>
+
+          {/* Month Selector */}
+          <Grid item xs={6} sm={3} md={2}>
+            <TextField
+              select
+              label="Created Month"
+              size="small"
+              fullWidth
+              value={filters.month}
+              onChange={(e) => handleFilterChange("month", e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "6px",
+                  bgcolor: filters.month ? "#eff6ff" : "#fafaff",
+                  height: 38,
+                  fontSize: "12.5px",
+                  "& fieldset": { borderColor: filters.month ? "#3b82f6" : "#cbd5e1" },
+                },
+              }}
+            >
+              <MenuItem value="" sx={{ fontSize: "12.5px" }}>All Months</MenuItem>
+              <MenuItem value="1" sx={{ fontSize: "12.5px" }}>January</MenuItem>
+              <MenuItem value="2" sx={{ fontSize: "12.5px" }}>February</MenuItem>
+              <MenuItem value="3" sx={{ fontSize: "12.5px" }}>March</MenuItem>
+              <MenuItem value="4" sx={{ fontSize: "12.5px" }}>April</MenuItem>
+              <MenuItem value="5" sx={{ fontSize: "12.5px" }}>May</MenuItem>
+              <MenuItem value="6" sx={{ fontSize: "12.5px" }}>June</MenuItem>
+              <MenuItem value="7" sx={{ fontSize: "12.5px" }}>July</MenuItem>
+              <MenuItem value="8" sx={{ fontSize: "12.5px" }}>August</MenuItem>
+              <MenuItem value="9" sx={{ fontSize: "12.5px" }}>September</MenuItem>
+              <MenuItem value="10" sx={{ fontSize: "12.5px" }}>October</MenuItem>
+              <MenuItem value="11" sx={{ fontSize: "12.5px" }}>November</MenuItem>
+              <MenuItem value="12" sx={{ fontSize: "12.5px" }}>December</MenuItem>
+            </TextField>
+          </Grid>
+
+          {/* Year Selector */}
+          <Grid item xs={6} sm={3} md={1.8}>
+            <TextField
+              select
+              label="Created Year"
+              size="small"
+              fullWidth
+              value={filters.year}
+              onChange={(e) => handleFilterChange("year", e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "6px",
+                  bgcolor: filters.year ? "#eff6ff" : "#fafaff",
+                  height: 38,
+                  fontSize: "12.5px",
+                  "& fieldset": { borderColor: filters.year ? "#3b82f6" : "#cbd5e1" },
+                },
+              }}
+            >
+              <MenuItem value="" sx={{ fontSize: "12.5px" }}>All Years</MenuItem>
+              {(filterOptions.years?.length ? filterOptions.years : [2027, 2026, 2025, 2024]).map((y) => (
+                <MenuItem key={y} value={String(y)} sx={{ fontSize: "12.5px" }}>
+                  {y}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+
+          {/* Exact Date Picker */}
+          <Grid item xs={6} sm={3} md={2.2}>
+            <TextField
+              type="date"
+              label="Exact Date"
+              size="small"
+              fullWidth
+              value={filters.date}
+              onChange={(e) => handleFilterChange("date", e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              InputProps={{
+                endAdornment: filters.date ? (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => handleFilterChange("date", "")}>
+                      <Clear sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+              }}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "6px",
+                  bgcolor: filters.date ? "#eff6ff" : "#fafaff",
+                  height: 38,
+                  fontSize: "12px",
+                  "& fieldset": { borderColor: filters.date ? "#3b82f6" : "#cbd5e1" },
+                },
+              }}
+            />
+          </Grid>
+
+          {/* Column Filters Toggle & Clear Button */}
+          <Grid item xs={6} sm={3} md={2}>
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Tooltip title={showColumnFilters ? "Hide column filters" : "Show column filters"}>
+                <Button
+                  variant={showColumnFilters ? "contained" : "outlined"}
+                  size="small"
+                  onClick={() => setShowColumnFilters((prev) => !prev)}
+                  startIcon={<FilterList sx={{ fontSize: 16 }} />}
+                  sx={{
+                    height: 38,
+                    borderRadius: "6px",
+                    textTransform: "none",
+                    fontWeight: 600,
+                    fontSize: "12px",
+                    px: 1.5,
+                    bgcolor: showColumnFilters ? "#0f172a" : "transparent",
+                    color: showColumnFilters ? "#fff" : "#475569",
+                    borderColor: "#cbd5e1",
+                    "&:hover": {
+                      bgcolor: showColumnFilters ? "#1e293b" : "#f1f5f9",
+                      borderColor: "#94a3b8",
+                    },
+                  }}
+                >
+                  Filters
+                </Button>
+              </Tooltip>
+
+              <Button
+                variant="outlined"
+                color="error"
+                size="small"
+                startIcon={<RestartAlt sx={{ fontSize: 16 }} />}
+                onClick={handleClearAllFilters}
+                disabled={!hasActiveFilters}
+                sx={{
+                  height: 38,
+                  borderRadius: "6px",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: "12px",
+                  px: 1.5,
+                  borderColor: hasActiveFilters ? "#fca5a5" : "#e2e8f0",
+                  color: hasActiveFilters ? "#dc2626" : "#94a3b8",
+                  bgcolor: hasActiveFilters ? "#fef2f2" : "#f8fafc",
+                  "&:hover": {
+                    bgcolor: "#fee2e2",
+                    borderColor: "#f87171",
+                    color: "#b91c1c",
+                  },
+                }}
+              >
+                Clear {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ""}
+              </Button>
+            </Stack>
+          </Grid>
+        </Grid>
+
+        {/* Active Filters Summary Chips */}
+        {hasActiveFilters && (
+          <Box sx={{ mt: 1.5, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <Typography sx={{ fontSize: "11.5px", color: "#64748b", fontWeight: 600 }}>Active Filters:</Typography>
+            {search && (
+              <Chip
+                label={`Search: "${search}"`}
+                size="small"
+                onDelete={() => setSearch("")}
+                sx={{ fontSize: "11px", height: 22, bgcolor: "#e0f2fe", color: "#0369a1", fontWeight: 600 }}
+              />
+            )}
+            {filters.prNumber && (
+              <Chip
+                label={`PR#: ${filters.prNumber}`}
+                size="small"
+                onDelete={() => handleFilterChange("prNumber", "")}
+                sx={{ fontSize: "11px", height: 22, bgcolor: "#e0f2fe", color: "#0369a1", fontWeight: 600 }}
+              />
+            )}
+            {filters.poNumber && (
+              <Chip
+                label={`PO#: ${filters.poNumber}`}
+                size="small"
+                onDelete={() => handleFilterChange("poNumber", "")}
+                sx={{ fontSize: "11px", height: 22, bgcolor: "#e0f2fe", color: "#0369a1", fontWeight: 600 }}
+              />
+            )}
+            {filters.preparedBy && filters.preparedBy !== "ALL" && (
+              <Chip
+                label={`Prepared By: ${filters.preparedBy}`}
+                size="small"
+                onDelete={() => handleFilterChange("preparedBy", "")}
+                sx={{ fontSize: "11px", height: 22, bgcolor: "#f3e8ff", color: "#7e22ce", fontWeight: 600 }}
+              />
+            )}
+            {filters.supplier && filters.supplier !== "ALL" && (
+              <Chip
+                label={`Supplier: ${filters.supplier}`}
+                size="small"
+                onDelete={() => handleFilterChange("supplier", "")}
+                sx={{ fontSize: "11px", height: 22, bgcolor: "#ecfdf5", color: "#047857", fontWeight: 600 }}
+              />
+            )}
+            {filters.totalValue && (
+              <Chip
+                label={`Value: ${filters.totalValue}`}
+                size="small"
+                onDelete={() => handleFilterChange("totalValue", "")}
+                sx={{ fontSize: "11px", height: 22, bgcolor: "#fef3c7", color: "#b45309", fontWeight: 600 }}
+              />
+            )}
+            {filters.status && filters.status !== "ALL" && (
+              <Chip
+                label={`Status: ${filters.status}`}
+                size="small"
+                onDelete={() => handleFilterChange("status", "")}
+                sx={{ fontSize: "11px", height: 22, bgcolor: "#f1f5f9", color: "#334155", fontWeight: 600 }}
+              />
+            )}
+            {filters.date && (
+              <Chip
+                label={`Date: ${filters.date}`}
+                size="small"
+                onDelete={() => handleFilterChange("date", "")}
+                sx={{ fontSize: "11px", height: 22, bgcolor: "#fee2e2", color: "#b91c1c", fontWeight: 600 }}
+              />
+            )}
+            {filters.month && (
+              <Chip
+                label={`Month: ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][parseInt(filters.month, 10) - 1]}`}
+                size="small"
+                onDelete={() => handleFilterChange("month", "")}
+                sx={{ fontSize: "11px", height: 22, bgcolor: "#e0e7ff", color: "#4338ca", fontWeight: 600 }}
+              />
+            )}
+            {filters.year && (
+              <Chip
+                label={`Year: ${filters.year}`}
+                size="small"
+                onDelete={() => handleFilterChange("year", "")}
+                sx={{ fontSize: "11px", height: 22, bgcolor: "#e0e7ff", color: "#4338ca", fontWeight: 600 }}
+              />
+            )}
+          </Box>
+        )}
       </Paper>
 
       {/* Table Container */}
@@ -1165,18 +1645,215 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                   {stageTab === "7" && <TableCell>Invoice</TableCell>}
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
+
+                {/* Column Filters Row for All Headings */}
+                {showColumnFilters && (
+                  <TableRow
+                    sx={{
+                      bgcolor: "#1e293b !important",
+                      "& .MuiTableCell-root": {
+                        py: "6px !important",
+                        px: "8px !important",
+                        borderBottom: "1px solid #334155",
+                      },
+                    }}
+                  >
+                    {/* PR Number */}
+                    <TableCell>
+                      <TextField
+                        placeholder="Filter PR#..."
+                        size="small"
+                        value={filters.prNumber}
+                        onChange={(e) => handleFilterChange("prNumber", e.target.value)}
+                        fullWidth
+                        InputProps={{
+                          endAdornment: filters.prNumber ? (
+                            <InputAdornment position="end">
+                              <IconButton size="small" onClick={() => handleFilterChange("prNumber", "")} sx={{ p: 0.2, color: "#94a3b8" }}>
+                                <Clear sx={{ fontSize: 13 }} />
+                              </IconButton>
+                            </InputAdornment>
+                          ) : null,
+                        }}
+                        sx={columnInputSx(Boolean(filters.prNumber))}
+                      />
+                    </TableCell>
+
+                    {/* PO Number */}
+                    <TableCell>
+                      <TextField
+                        placeholder="Filter PO#..."
+                        size="small"
+                        value={filters.poNumber}
+                        onChange={(e) => handleFilterChange("poNumber", e.target.value)}
+                        fullWidth
+                        InputProps={{
+                          endAdornment: filters.poNumber ? (
+                            <InputAdornment position="end">
+                              <IconButton size="small" onClick={() => handleFilterChange("poNumber", "")} sx={{ p: 0.2, color: "#94a3b8" }}>
+                                <Clear sx={{ fontSize: 13 }} />
+                              </IconButton>
+                            </InputAdornment>
+                          ) : null,
+                        }}
+                        sx={columnInputSx(Boolean(filters.poNumber))}
+                      />
+                    </TableCell>
+
+                    {/* Prepared By */}
+                    <TableCell>
+                      <TextField
+                        select
+                        size="small"
+                        value={filters.preparedBy}
+                        onChange={(e) => handleFilterChange("preparedBy", e.target.value)}
+                        fullWidth
+                        sx={columnInputSx(Boolean(filters.preparedBy))}
+                      >
+                        <MenuItem value="" sx={{ fontSize: "12px" }}>All Preparers</MenuItem>
+                        {(filterOptions.preparers || []).map((p) => (
+                          <MenuItem key={p} value={p} sx={{ fontSize: "12px" }}>
+                            {p}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </TableCell>
+
+                    {/* L1 Supplier */}
+                    <TableCell>
+                      <TextField
+                        placeholder="Filter Supplier..."
+                        size="small"
+                        value={filters.supplier}
+                        onChange={(e) => handleFilterChange("supplier", e.target.value)}
+                        fullWidth
+                        InputProps={{
+                          endAdornment: filters.supplier ? (
+                            <InputAdornment position="end">
+                              <IconButton size="small" onClick={() => handleFilterChange("supplier", "")} sx={{ p: 0.2, color: "#94a3b8" }}>
+                                <Clear sx={{ fontSize: 13 }} />
+                              </IconButton>
+                            </InputAdornment>
+                          ) : null,
+                        }}
+                        sx={columnInputSx(Boolean(filters.supplier))}
+                      />
+                    </TableCell>
+
+                    {/* Total Value */}
+                    <TableCell>
+                      <TextField
+                        placeholder="Min ₹ / >50k..."
+                        size="small"
+                        value={filters.totalValue}
+                        onChange={(e) => handleFilterChange("totalValue", e.target.value)}
+                        fullWidth
+                        InputProps={{
+                          endAdornment: filters.totalValue ? (
+                            <InputAdornment position="end">
+                              <IconButton size="small" onClick={() => handleFilterChange("totalValue", "")} sx={{ p: 0.2, color: "#94a3b8" }}>
+                                <Clear sx={{ fontSize: 13 }} />
+                              </IconButton>
+                            </InputAdornment>
+                          ) : null,
+                        }}
+                        sx={columnInputSx(Boolean(filters.totalValue))}
+                      />
+                    </TableCell>
+
+                    {/* Status */}
+                    <TableCell>
+                      <TextField
+                        select
+                        size="small"
+                        value={filters.status}
+                        onChange={(e) => handleFilterChange("status", e.target.value)}
+                        fullWidth
+                        sx={columnInputSx(Boolean(filters.status))}
+                      >
+                        <MenuItem value="" sx={{ fontSize: "12px" }}>
+                          {stageTab === "0" ? "All Active (Default)" : "All Statuses"}
+                        </MenuItem>
+                        <MenuItem value="ALL" sx={{ fontSize: "12px" }}>All (Inc. Closed)</MenuItem>
+                        {(filterOptions.statuses || []).map((s) => (
+                          <MenuItem key={s} value={s} sx={{ fontSize: "12px" }}>
+                            {s}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </TableCell>
+
+                    {/* Created At */}
+                    <TableCell>
+                      <TextField
+                        type="date"
+                        size="small"
+                        value={filters.date}
+                        onChange={(e) => handleFilterChange("date", e.target.value)}
+                        fullWidth
+                        InputProps={{
+                          endAdornment: filters.date ? (
+                            <InputAdornment position="end">
+                              <IconButton size="small" onClick={() => handleFilterChange("date", "")} sx={{ p: 0.2, color: "#94a3b8" }}>
+                                <Clear sx={{ fontSize: 13 }} />
+                              </IconButton>
+                            </InputAdornment>
+                          ) : null,
+                        }}
+                        sx={columnInputSx(Boolean(filters.date))}
+                      />
+                    </TableCell>
+
+                    {/* Invoice (when stageTab === "7") */}
+                    {stageTab === "7" && <TableCell />}
+
+                    {/* Actions Reset */}
+                    <TableCell align="center">
+                      <Tooltip title="Reset column filters">
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setFilters({
+                                prNumber: "",
+                                poNumber: "",
+                                preparedBy: "",
+                                supplier: "",
+                                totalValue: "",
+                                status: "",
+                                date: "",
+                                month: "",
+                                year: "",
+                              });
+                              setPage(0);
+                            }}
+                            disabled={!Object.values(filters).some(Boolean)}
+                            sx={{
+                              color: Object.values(filters).some(Boolean) ? "#f87171" : "#64748b",
+                              bgcolor: Object.values(filters).some(Boolean) ? "rgba(239, 68, 68, 0.15)" : "transparent",
+                              p: 0.5,
+                              "&:hover": { bgcolor: "rgba(239, 68, 68, 0.25)" },
+                            }}
+                          >
+                            <RestartAlt sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableHead>
               <TableBody>
-                {getDisplayRows(data).length === 0 ? (
+                {displayRows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={stageTab === "7" ? 9 : 8} align="center" sx={{ py: 4, color: "#64748b" }}>
                       <Typography sx={{ fontWeight: 500, fontSize: "13px" }}>
-                        No procurement records found for this view.
+                        No procurement records found matching the applied filters.
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  getDisplayRows(data).map((row) => {
+                  displayRows.map((row) => {
                     const rowCreditInfo = row.creditInfo || getPrCreditInfo(row);
                     const chipStyle = getStatusChipProps(row.status, row);
                     const editLocked = isCompletedSiteGrn(row) && !canOverrideSignOffLock && !rowCreditInfo.isCredit;
@@ -1561,33 +2238,6 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                                 <GetApp sx={{ fontSize: 16 }} />
                               </IconButton>
                             </Tooltip>
-                            {/* PO Download Button */}
-                            {Boolean(row.poNumber || (row.stage2?.selectedSuppliers && row.stage2.selectedSuppliers.length > 0)) ? (
-                              <PoLandscapePdfGenerator
-                                globalData={row}
-                                iconOnly={true}
-                                tooltipTitle={`Download PO PDF (${row.displayPoNumbers?.join(", ") || row.poNumber || "Purchase Order"})`}
-                                customColor="#dc2626"
-                                customBgColor="#fef2f2"
-                                customHoverBg="#fee2e2"
-                              />
-                            ) : (
-                              <Tooltip title="PO not generated yet (Available after Stage 2/3)">
-                                <span>
-                                  <IconButton
-                                    size="small"
-                                    disabled
-                                    sx={{
-                                      color: "#94a3b8",
-                                      bgcolor: "#f8fafc",
-                                      cursor: "not-allowed",
-                                    }}
-                                  >
-                                    <PictureAsPdf sx={{ fontSize: 16 }} />
-                                  </IconButton>
-                                </span>
-                              </Tooltip>
-                            )}
 
                             {/* Invoice Doc Button */}
                             {(() => {

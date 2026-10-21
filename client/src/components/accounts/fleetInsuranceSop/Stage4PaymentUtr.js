@@ -19,7 +19,7 @@ function Stage4PaymentUtr({ formData, handleChange, formatDateValue }) {
           Payment & UTR Details
         </Typography>
 
-        <Box className="sop-grid-3" sx={{ mb: 1.2 }}>
+        <Box className="sop-grid-2" sx={{ mb: 1.2 }}>
           <Box>
             <label className="sop-label">PAYMENT UTR NO. *</label>
             <input
@@ -38,15 +38,6 @@ function Stage4PaymentUtr({ formData, handleChange, formatDateValue }) {
               className="sop-input"
               value={formatDateValue(formData.paymentDate)}
               onChange={(e) => handleChange("paymentDate", e.target.value)}
-            />
-          </Box>
-          <Box>
-            <label className="sop-label">RENEWAL DATE</label>
-            <input
-              type="date"
-              className="sop-input"
-              value={formatDateValue(formData.renewalDate || formData.paymentDate)}
-              onChange={(e) => handleChange("renewalDate", e.target.value)}
             />
           </Box>
         </Box>

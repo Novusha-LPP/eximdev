@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 import {
   Box,
   Button,
@@ -132,15 +133,21 @@ const emptyRecord = {
   prDate: "",
   financialApprovalStatus: "Pending",
   paymentUtr: "",
-  paymentDate: new Date().toISOString().split("T")[0],
+  paymentDate: "",
   renewalStatus: "Pending",
   tat: "",
 };
 
-function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved, onCancel }) {
+function FleetInsuranceForm({ proposal, isView, isRenew: propIsRenew, initialTab = 0, onSaved, onCancel }) {
   const { id: urlId } = useParams();
   const navigate = useNavigate();
   const targetId = proposal?._id || urlId;
+
+  const [isRenew, setIsRenew] = useState(Boolean(propIsRenew));
+
+  useEffect(() => {
+    setIsRenew(Boolean(propIsRenew));
+  }, [propIsRenew]);
 
   const [formData, setFormData] = useState(emptyRecord);
   const [loading, setLoading] = useState(false);
@@ -193,7 +200,25 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
         .get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/${targetId}`)
         .then((res) => {
           let fetchedData = res.data.data || {};
-          if (isRenew) {
+
+          // A policy for the current cycle is truly renewed ONLY if payment is done, approval not rejected, and marked renewed / expiry updated
+          const isPolicyRenewed = Boolean(
+            (String(fetchedData.renewed).toUpperCase() === "YES" || fetchedData.renewalStatus === "Renewed") &&
+            fetchedData.paymentUtr && String(fetchedData.paymentUtr).trim().length > 0 &&
+            fetchedData.financialApprovalStatus !== "Rejected"
+          );
+
+          // Rule: If current year policy is NOT renewed, it MUST open in Edit mode only and NOT renewal mode!
+          const effectiveIsRenew = Boolean(propIsRenew && isPolicyRenewed);
+          if (propIsRenew && !isPolicyRenewed) {
+            setIsRenew(false);
+            toast("Current year policy is not yet renewed. Opened in Edit mode.", { icon: "ℹ️" });
+            navigate(`/fleet-insurance/edit/${targetId}`, { replace: true });
+          } else {
+            setIsRenew(effectiveIsRenew);
+          }
+
+          if (effectiveIsRenew) {
             delete fetchedData._id;
             // Copy renewed details into previous details
             if (fetchedData.newInsuranceCompany) fetchedData.insuranceCompany = fetchedData.newInsuranceCompany;
@@ -265,7 +290,9 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
             fetchedData.prDate = todayStr;
             fetchedData.financialApprovalStatus = "Pending";
             fetchedData.paymentUtr = "";
-            fetchedData.paymentDate = todayStr;
+            fetchedData.paymentDate = "";
+            fetchedData.renewalDate = "";
+            fetchedData.renewedDate = "";
           } else {
             // When editing an existing record, if new* fields are empty, populate them from active policy details
             // so Proposed Renewed Policy & Premium Breakdown (Section 3) is populated and editable!
@@ -354,7 +381,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       }
       setFormData(initial);
     }
-  }, [proposal, isRenew]);
+  }, [targetId, propIsRenew]);
 
   // Auto-calc: TAT days counting from PR generation date to Payment Date
   useEffect(() => {
@@ -422,17 +449,24 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
         }
       }
 
+      if (field === "renewalDate") {
+        next.renewalDate = val;
+        next.renewedDate = val;
+      }
+
       if (field === "paymentDate") {
-        if (val) {
-          next.renewalDate = val;
-          next.renewedDate = val;
+        if (val && next.paymentUtr && next.paymentUtr.trim().length > 0 && next.financialApprovalStatus !== "Rejected") {
+          if (!next.renewalDate) {
+            next.renewalDate = val;
+            next.renewedDate = val;
+          }
         }
       }
 
-      if (field === "prDate" || field === "paymentDate") {
+      if (field === "prDate" || field === "paymentDate" || field === "paymentUtr") {
         const targetPr = next.prDate;
-        const targetPay = next.paymentDate || new Date().toISOString().split("T")[0];
-        if (targetPr && targetPay) {
+        const targetPay = next.paymentDate;
+        if (targetPr && targetPay && next.paymentUtr && next.paymentUtr.trim().length > 0 && next.financialApprovalStatus !== "Rejected") {
           const pr = new Date(targetPr);
           const pay = new Date(targetPay);
           if (!isNaN(pr) && !isNaN(pay)) {
@@ -445,10 +479,27 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       }
 
       if (field === "paymentUtr") {
-        if (val && val.trim().length > 0) {
+        if (val && val.trim().length > 0 && next.financialApprovalStatus !== "Rejected") {
           next.renewalStatus = "Renewed";
+          if (!next.paymentDate) {
+            next.paymentDate = new Date().toISOString().split("T")[0];
+          }
+          if (!next.renewalDate) {
+            next.renewalDate = next.paymentDate;
+            next.renewedDate = next.paymentDate;
+          }
         } else {
           next.renewalStatus = "Pending";
+          next.tat = "";
+        }
+      }
+
+      if (field === "financialApprovalStatus") {
+        if (val === "Rejected") {
+          next.renewalStatus = "Pending";
+          next.renewalDate = "";
+          next.renewedDate = "";
+          next.tat = "";
         }
       }
 
@@ -504,24 +555,26 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
     );
 
     const hasCompletedUtr = Boolean(
-      dataToSave.paymentUtr && String(dataToSave.paymentUtr).trim().length > 0
+      dataToSave.paymentUtr && String(dataToSave.paymentUtr).trim().length > 0 &&
+      dataToSave.financialApprovalStatus !== "Rejected"
     );
 
-    // Only set renewed = YES and renewalStatus = Renewed when payment UTR is completed
-    if (hasCompletedUtr) {
+    const hasExpiryUpdated = Boolean(
+      dataToSave.newPolicyToDate || dataToSave.newExpiryDate
+    );
+
+    const hasNewValidFrom = Boolean(dataToSave.newPolicyFromDate);
+
+    // Renewal actually happens ONLY when payment is done, expiry is updated, AND NEW VALID FROM * is available:
+    const isRenewalComplete = hasCompletedUtr && hasExpiryUpdated && hasNewValidFrom;
+
+    if (isRenewalComplete) {
       dataToSave.renewed = "YES";
       dataToSave.renewalStatus = "Renewed";
-      dataToSave.renewalDate = formData.renewalDate || dataToSave.paymentDate || "";
-      dataToSave.renewedDate = formData.renewedDate || formData.renewalDate || dataToSave.paymentDate || "";
-    } else {
-      dataToSave.renewed = "NO";
-      dataToSave.renewalStatus = "Pending";
-      dataToSave.renewalDate = formData.renewalDate || "";
-      dataToSave.renewedDate = formData.renewedDate || formData.renewalDate || "";
-    }
+      const actualRenewalDate = dataToSave.renewalDate || formData.renewalDate || dataToSave.paymentDate || new Date().toISOString().split("T")[0];
+      dataToSave.renewalDate = actualRenewalDate;
+      dataToSave.renewedDate = actualRenewalDate;
 
-    // ONCE THE PAYMENT UTR STAGE IS COMPLETED (paymentUtr entered), RENEW THE OLD POLICY WITH THE NEW POLICY
-    if (dataToSave.paymentUtr && dataToSave.paymentUtr.trim().length > 0) {
       // Overwrite previous policy fields with newly renewed policy details if present
       if (dataToSave.newInsuranceCompany) dataToSave.insuranceCompany = dataToSave.newInsuranceCompany;
       if (dataToSave.newPolicyNo) dataToSave.policyNo = dataToSave.newPolicyNo;
@@ -564,6 +617,13 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       }
 
       // Keep new* fields populated so Section 3 & Section 3B retain their full data and remain editable
+    } else {
+      dataToSave.renewed = "NO";
+      dataToSave.renewalStatus = "Pending";
+      dataToSave.renewalDate = null;
+      dataToSave.renewedDate = null;
+      dataToSave.paymentDate = null;
+      dataToSave.tat = null;
     }
 
     setSaving(true);
@@ -785,7 +845,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
     <Box sx={{ pb: 10 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: "bold", color: "#1a237e" }}>
-          {isView ? "View Vehicle Record" : (proposal?._id ? (isRenew ? "Renew Vehicle Policy" : "Edit Vehicle Record") : "Add Vehicle Record")}
+          {isView ? "View Vehicle Record" : (targetId ? (isRenew ? "Renew Vehicle Policy" : "Edit Vehicle Policy Details") : "Add Vehicle Record")}
         </Typography>
       </Box>
 

@@ -124,6 +124,7 @@ router.get("/api/get-job-by-id/:_id", async (req, res) => {
       });
 
       if (jobModified) {
+        job.markModified('charges');
         await job.save();
       }
     }

@@ -82,6 +82,14 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
     ? propCanDelete
     : (isGlobalAdmin || (tabsLoaded && userTabs.length === 0) || userTabs.includes("Policy History & Dashboard"));
   const isAdmin = canDelete;
+
+  const isRecordRenewed = (rec) => Boolean(
+    rec &&
+    (String(rec.renewed).toUpperCase() === "YES" || rec.renewalStatus === "Renewed") &&
+    rec.paymentUtr && String(rec.paymentUtr).trim().length > 0 &&
+    rec.financialApprovalStatus !== "Rejected"
+  );
+
   const [activeRegNo, setActiveRegNo] = useState(registrationNo || urlRegNo || "");
   const [allVehicles, setAllVehicles] = useState([]);
   const [history, setHistory] = useState([]);
@@ -323,11 +331,19 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
               variant="contained"
               color="primary"
               startIcon={<AutorenewIcon />}
-              onClick={() => history.length > 0 && onRenew(history[0])}
+              onClick={() => {
+                if (history.length > 0) {
+                  if (isRecordRenewed(history[0])) {
+                    onRenew(history[0]);
+                  } else {
+                    onEdit(history[0]);
+                  }
+                }
+              }}
               disabled={loading || history.length === 0}
               sx={{ boxShadow: 2, borderRadius: 2, px: 3, height: 40 }}
             >
-              Renew Policy
+              {history.length > 0 && !isRecordRenewed(history[0]) ? "Edit Current Policy" : "Renew Policy"}
             </Button>
           </Box>
         </Box>
@@ -545,12 +561,12 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
                         {onRenew && (
                           <Button
                             size="small"
-                            variant="contained"
+                            variant={isRecordRenewed(rec) ? "contained" : "outlined"}
                             color="primary"
                             startIcon={<AutorenewIcon />}
-                            onClick={() => onRenew(rec)}
+                            onClick={() => (isRecordRenewed(rec) ? onRenew(rec) : onEdit(rec))}
                           >
-                            Renew from this Year
+                            {isRecordRenewed(rec) ? "Renew from this Year" : "Edit this Record"}
                           </Button>
                         )}
                         {isAdmin && (
@@ -772,8 +788,12 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
                             </Tooltip>
                           )}
                           {onRenew && (
-                            <Tooltip title="Renew Policy">
-                              <IconButton size="small" color="success" onClick={() => onRenew(row)}>
+                            <Tooltip title={isRecordRenewed(row) ? "Renew Policy" : "Policy not renewed yet (Edit Record)"}>
+                              <IconButton
+                                size="small"
+                                color={isRecordRenewed(row) ? "success" : "default"}
+                                onClick={() => (isRecordRenewed(row) ? onRenew(row) : onEdit(row))}
+                              >
                                 <AutorenewIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>

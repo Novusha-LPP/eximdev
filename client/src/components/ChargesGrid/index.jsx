@@ -30,7 +30,8 @@ const ChargesGrid = ({
   billNo = '',
   workMode = 'Payment',
   awbBlNo = '',
-  awbBlDate = ''
+  awbBlDate = '',
+  defaultGst = true
 }) => {
   const { charges, loading, error, addChargesBulk, updateCharge, deleteCharge } = useCharges(parentId, parentModule);
   
@@ -69,10 +70,13 @@ const ChargesGrid = ({
       return;
     }
 
-    // Check if any selected charge already has a PB
-    const existingPb = selectedCharges.filter(c => c.purchase_book_no);
+    // Check if any selected charge already has an active PB
+    const existingPb = selectedCharges.filter(c => {
+      const isPbRejected = String(c.purchase_book_status || '').toLowerCase() === 'rejected';
+      return c.purchase_book_no && !isPbRejected;
+    });
     if (existingPb.length > 0) {
-      alert(`The following charge(s) already have a Purchase Book Entry:\n${existingPb.map(c => `• ${c.chargeHead} (${c.purchase_book_no})`).join('\n')}\n\nPlease unselect them before proceeding.`);
+      alert(`The following charge(s) already have an active Purchase Book Entry:\n${existingPb.map(c => `• ${c.chargeHead} (${c.purchase_book_no})`).join('\n')}\n\nPlease unselect them before proceeding.`);
       return;
     }
 
@@ -283,6 +287,14 @@ const ChargesGrid = ({
       } else if (upperName === 'DAMAGE CHARGES' && shippingLineAirline) {
         finalName = `DAMAGE.${shippingLineAirline}`;
       }
+      const isNoGst = defaultGst === false || (
+        upperName.includes("NFMIMS") ||
+        upperName.includes("NFIMS") ||
+        upperName.includes("SIMS") ||
+        upperName.includes("PIMS")
+      );
+      const isGstVal = !isNoGst;
+
       return {
         parentId,
         parentModule,
@@ -291,13 +303,13 @@ const ChargesGrid = ({
         isPurchaseBookMandatory: head.isPurchaseBookMandatory,
         sacHsn: head.sacHsn || '',
         revenue: {
-          isGst: true,
+          isGst: isGstVal,
           isTds: !!head.tdsCategory,
           tdsPercent: head.tdsCategory ? 2 : 0,
           tdsCategory: head.tdsCategory || ''
         },
         cost: {
-          isGst: true,
+          isGst: isGstVal,
           isTds: !!head.tdsCategory,
           tdsPercent: head.tdsCategory ? 2 : 0,
           tdsCategory: head.tdsCategory || ''
@@ -473,6 +485,7 @@ const ChargesGrid = ({
           readOnly={readOnlyFinal}
           isLocked={isLocked}
           readOnlyBase={readOnly}
+          defaultGst={defaultGst}
         />
       )}
 

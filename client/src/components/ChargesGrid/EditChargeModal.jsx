@@ -20,12 +20,23 @@ const NO_GST_DEFAULT_CHARGES = [
   "SIMS APPLICATION FEES",
   "PIMS APPLICATION FEES",
   "SIMS REGISTRATION CHARGES",
-  "PIMS REGISTRATION CHARGES"
+  "PIMS REGISTRATION CHARGES",
+  "NFMIMS APPLICATION FEES",
+  "NFMIMS REGISTRATION CHARGES",
+  "NFIMS APPLICATION FEES",
+  "NFIMS REGISTRATION CHARGES"
 ];
 
 const isNoGstDefaultCharge = (chargeHead) => {
   if (!chargeHead) return false;
-  return NO_GST_DEFAULT_CHARGES.includes(chargeHead.toUpperCase().trim());
+  const upper = chargeHead.toUpperCase().trim();
+  return (
+    NO_GST_DEFAULT_CHARGES.includes(upper) ||
+    upper.includes("NFMIMS") ||
+    upper.includes("NFIMS") ||
+    upper.includes("SIMS") ||
+    upper.includes("PIMS")
+  );
 };
 
 const isCustomDutyCharge = (ch) => {
@@ -62,7 +73,8 @@ const EditChargeModal = ({
   isLocked = false,
   readOnlyBase = false,
   awbBlNo = '',
-  awbBlDate = ''
+  awbBlDate = '',
+  defaultGst = true
 }) => {
   const [formData, setFormData] = useState([]);
   const [localImporterName, setLocalImporterName] = useState(importerName || '');
@@ -371,11 +383,11 @@ const EditChargeModal = ({
           ? charge.cost.isTds
           : Boolean(charge.cost?.tdsAmount > 0 || charge.cost?.tdsCategory || charge.tdsCategory);
 
-        const isNoGstDefault = isNoGstDefaultCharge(charge.chargeHead);
+        const isNoGstDefault = defaultGst === false || isNoGstDefaultCharge(charge.chargeHead);
 
         const costIsGst = (charge.cost && charge.cost.isGst !== undefined)
           ? (isNoGstDefault && charge.payment_request_status !== 'Paid' && !charge.cost?.userModifiedGst ? false : charge.cost.isGst)
-          : (isNoGstDefault ? false : true);
+          : (isNoGstDefault ? false : (defaultGst !== undefined ? defaultGst : true));
 
         const costTdsPercent = parseFloat(charge.cost?.tdsPercent) || (costIsTds ? 2 : 0);
         const costTdsCat = charge.cost?.tdsCategory || charge.tdsCategory || '94C';
@@ -434,7 +446,7 @@ const EditChargeModal = ({
         });
       }, 100);
     }
-  }, [isOpen, selectedCharges, chargeHeads]);
+  }, [isOpen, selectedCharges, chargeHeads, defaultGst]);
 
   if (!isOpen) return null;
 
@@ -464,6 +476,34 @@ const EditChargeModal = ({
     }
   };
 
+  const getChargeRejectionStatus = (charge) => {
+    if (!charge) return { isPbRejected: false, isPrRejected: false };
+    
+    const findAudit = (no) => {
+      if (!no) return null;
+      if (paymentDetailsAudit[no]) return paymentDetailsAudit[no];
+      const cleanNo = String(no).replace(/\/\d{2}-\d{2}$/, '').trim().toLowerCase();
+      for (const [key, val] of Object.entries(paymentDetailsAudit || {})) {
+        const cleanKey = String(key).replace(/\/\d{2}-\d{2}$/, '').trim().toLowerCase();
+        if (cleanKey === cleanNo) return val;
+      }
+      return null;
+    };
+
+    const pbAudit = findAudit(charge.purchase_book_no);
+    const prAudit = findAudit(charge.payment_request_no);
+
+    const isPbRejected = String(charge.purchase_book_status || '').toLowerCase() === 'rejected' ||
+                         pbAudit?.status?.toLowerCase() === 'rejected' ||
+                         Boolean(pbAudit?.isRejected);
+
+    const isPrRejected = String(charge.payment_request_status || '').toLowerCase() === 'rejected' ||
+                         prAudit?.status?.toLowerCase() === 'rejected' ||
+                         Boolean(prAudit?.isRejected);
+
+    return { isPbRejected, isPrRejected };
+  };
+
   const handleFieldChange = (index, field, value, section = null) => {
     setFormData(prev => {
       const updated = [...prev];
@@ -474,8 +514,7 @@ const EditChargeModal = ({
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const role = (user?.role || "").toLowerCase();
       const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
-      const isPrRejected = String(row.payment_request_status || '').toLowerCase() === 'rejected';
-      const isPbRejected = String(row.purchase_book_status || '').toLowerCase() === 'rejected';
+      const { isPbRejected, isPrRejected } = getChargeRejectionStatus(row);
       const hasActivePR = Boolean(row.payment_request_no && !isPrRejected);
       const hasActivePB = Boolean(row.purchase_book_no && !isPbRejected);
       const isIndividualLocked = (hasActivePR || hasActivePB) && !isAuth;
@@ -938,19 +977,34 @@ const EditChargeModal = ({
         lastName: userObj.last_name || ''
       });
 
-      // Update local state
+      // Update local state and persist immediately
       const updated = [...formData];
-      formData.forEach((r, idx) => {
-        if (type === 'PB' && r.purchase_book_no === requestNo) {
+      const cleanReq = requestNo.replace(/\/\d{2}-\d{2}$/, '').toLowerCase();
+
+      for (let idx = 0; idx < updated.length; idx++) {
+        const r = updated[idx];
+        const rPb = (r.purchase_book_no || '').trim().toLowerCase();
+        const cleanRPb = rPb.replace(/\/\d{2}-\d{2}$/, '');
+        const rPr = (r.payment_request_no || '').trim().toLowerCase();
+        const cleanRPr = rPr.replace(/\/\d{2}-\d{2}$/, '');
+
+        let chargeChanged = false;
+        if (type === 'PB' && (rPb === requestNo.toLowerCase() || cleanRPb === cleanReq)) {
           updated[idx].purchase_book_no = null;
           updated[idx].purchase_book_status = null;
           updated[idx].purchase_book_is_approved = false;
-        } else if (type === 'PR' && r.payment_request_no === requestNo) {
+          chargeChanged = true;
+        } else if (type === 'PR' && (rPr === requestNo.toLowerCase() || cleanRPr === cleanReq)) {
           updated[idx].payment_request_no = null;
           updated[idx].payment_request_status = null;
           updated[idx].payment_request_is_approved = false;
+          chargeChanged = true;
         }
-      });
+
+        if (chargeChanged && updateCharge && updated[idx]._id) {
+          updateCharge(updated[idx]._id, updated[idx]);
+        }
+      }
       setFormData(updated);
       alert(`${type} Rejected successfully`);
     } catch (err) {
@@ -972,8 +1026,7 @@ const EditChargeModal = ({
             const role = (user?.role || "").toLowerCase();
             const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
 
-            const isPrRejected = String(row.payment_request_status || '').toLowerCase() === 'rejected';
-            const isPbRejected = String(row.purchase_book_status || '').toLowerCase() === 'rejected';
+            const { isPbRejected, isPrRejected } = getChargeRejectionStatus(row);
             const hasActivePR = Boolean(row.payment_request_no && !isPrRejected);
             const hasActivePB = Boolean(row.purchase_book_no && !isPbRejected);
             const isIndividualLocked = (hasActivePR || hasActivePB) && !isAuth;
@@ -1104,12 +1157,12 @@ const EditChargeModal = ({
                           fontSize: '11px',
                           padding: '2px 8px',
                           borderRadius: '10px',
-                          background: row.purchase_book_status === 'Rejected' ? '#ffebee' : (row.purchase_book_status ? '#e8f5e9' : '#f5f5f5'),
-                          color: row.purchase_book_status === 'Rejected' ? '#c62828' : (row.purchase_book_status === 'Active' || row.purchase_book_status === 'Approved' || row.purchase_book_status === 'Paid' ? '#2e7d32' : '#757575'),
-                          border: `1px solid ${row.purchase_book_status === 'Rejected' ? '#ef9a9a' : '#ddd'}`,
+                          background: (isPbRejected || row.purchase_book_status === 'Rejected') ? '#ffebee' : (row.purchase_book_status ? '#e8f5e9' : '#f5f5f5'),
+                          color: (isPbRejected || row.purchase_book_status === 'Rejected') ? '#c62828' : (row.purchase_book_status === 'Active' || row.purchase_book_status === 'Approved' || row.purchase_book_status === 'Paid' ? '#2e7d32' : '#757575'),
+                          border: `1px solid ${(isPbRejected || row.purchase_book_status === 'Rejected') ? '#ef9a9a' : '#ddd'}`,
                           fontWeight: 'bold'
                         }}>
-                          {row.purchase_book_status || 'Pending'}
+                          {isPbRejected ? 'Rejected' : (row.purchase_book_status || 'Pending')}
                         </span>
                       </div>
                     </div>
@@ -1155,12 +1208,12 @@ const EditChargeModal = ({
                             fontSize: '11px',
                             padding: '2px 8px',
                             borderRadius: '10px',
-                            background: row.payment_request_status === 'Rejected' ? '#ffebee' : ((row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? '#e8f5e9' : '#fff3e0'),
-                            color: row.payment_request_status === 'Rejected' ? '#c62828' : ((row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? '#2e7d32' : '#ef6c00'),
-                            border: `1px solid ${row.payment_request_status === 'Rejected' ? '#ef9a9a' : '#ffe0e0'}`,
+                            background: (isPrRejected || row.payment_request_status === 'Rejected') ? '#ffebee' : ((row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? '#e8f5e9' : '#fff3e0'),
+                            color: (isPrRejected || row.payment_request_status === 'Rejected') ? '#c62828' : ((row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? '#2e7d32' : '#ef6c00'),
+                            border: `1px solid ${(isPrRejected || row.payment_request_status === 'Rejected') ? '#ef9a9a' : '#ffe0e0'}`,
                             fontWeight: 'bold'
                           }}>
-                            {row.payment_request_status === 'Rejected' ? 'Rejected' : ((row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? 'Payment Done' : (row.payment_request_status || 'Pending'))}
+                            {(isPrRejected || row.payment_request_status === 'Rejected') ? 'Rejected' : ((row.payment_request_status === 'Paid' || paymentDetailsAudit[row.payment_request_no]?.utrNumber) ? 'Payment Done' : (row.payment_request_status || 'Pending'))}
                           </span>
                         </div>
                         {paymentDetailsAudit[row.payment_request_no]?.utrNumber && (
@@ -1935,7 +1988,7 @@ const EditChargeModal = ({
                                 </div>
                                 <div className="charges-ep-grid" style={{ marginTop: '10px' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    {(!row.purchase_book_no || String(row.purchase_book_status || '').toLowerCase() === 'rejected') ? (
+                                    {(!row.purchase_book_no || isPbRejected) ? (
                                       <button
                                         type="button"
                                         className="charges-upload-btn"
@@ -2053,7 +2106,7 @@ const EditChargeModal = ({
                                       >
                                         Purchase book
                                       </button>
-                                    ) : row.purchase_book_no ? (
+                                    ) : (row.purchase_book_no && !isPbRejected) ? (
                                       <button
                                         type="button"
                                         className="charges-upload-btn"
@@ -2070,7 +2123,7 @@ const EditChargeModal = ({
                                         Reject PB
                                       </button>
                                     ) : null}
-                                    {(!row.payment_request_no || String(row.payment_request_status || '').toLowerCase() === 'rejected') ? (
+                                    {(!row.payment_request_no || isPrRejected) ? (
                                       <button
                                         type="button"
                                         className="charges-upload-btn"
@@ -2100,7 +2153,7 @@ const EditChargeModal = ({
                                             partyDetails = allParties.find(p => p.name?.trim().toUpperCase() === normName);
                                           }
 
-                                          if (row.isPurchaseBookMandatory && (!row.purchase_book_no || row.purchase_book_status === 'Rejected')) {
+                                          if (row.isPurchaseBookMandatory && (!row.purchase_book_no || isPbRejected)) {
                                             alert(`Purchase Book entry is mandatory for "${row.chargeHead}" before requesting payment.`);
                                             return;
                                           }
@@ -2128,7 +2181,7 @@ const EditChargeModal = ({
                                       >
                                         Request Payment
                                       </button>
-                                    ) : row.payment_request_no ? (
+                                    ) : (row.payment_request_no && !isPrRejected) ? (
                                       <button
                                         type="button"
                                         className="charges-upload-btn"

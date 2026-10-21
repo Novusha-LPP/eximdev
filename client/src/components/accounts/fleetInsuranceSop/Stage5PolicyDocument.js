@@ -112,7 +112,7 @@ function Stage5PolicyDocument({ formData, handleChange, formatDateValue, isView 
           5. Final Issued Policy Details
         </Typography>
 
-        <Box className="sop-grid-3" sx={{ mb: 1.5 }}>
+        <Box className="sop-grid-4" sx={{ mb: 1.5 }}>
           <Box>
             <label className="sop-label">NEW POLICY NO. *</label>
             <input
@@ -122,6 +122,15 @@ function Stage5PolicyDocument({ formData, handleChange, formatDateValue, isView 
               onChange={(e) => handleChange("newPolicyNo", e.target.value)}
               placeholder="e.g. 7412079532 / 33 / 34"
               style={{ fontWeight: 700, color: "#1d4ed8" }}
+            />
+          </Box>
+          <Box>
+            <label className="sop-label">RENEWAL DATE</label>
+            <input
+              type="date"
+              className="sop-input"
+              value={formatDateValue(formData.renewalDate)}
+              onChange={(e) => handleChange("renewalDate", e.target.value)}
             />
           </Box>
           <Box>

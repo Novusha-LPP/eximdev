@@ -237,6 +237,7 @@ router.get('/charges', async (req, res) => {
       });
 
       if (jobModified) {
+        job.markModified('charges');
         await job.save();
       }
     }
@@ -405,6 +406,7 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
       if (req.body.bill_no !== undefined) charge.bill_no = req.body.bill_no;
       if (req.body.billNo !== undefined) charge.billNo = req.body.billNo;
     }
+    job.markModified('charges');
     await job.save();
 
     // Log targeted audit trail for the charge
@@ -537,7 +539,10 @@ router.post('/reject-purchase-entry', async (req, res) => {
           modified = true;
         }
       });
-      if (modified) await job.save();
+      if (modified) {
+        job.markModified('charges');
+        await job.save();
+      }
     }
 
     res.json({ success: true, message: 'PB Rejected successfully' });
@@ -603,7 +608,10 @@ router.post('/reject-payment-request', async (req, res) => {
           modified = true;
         }
       });
-      if (modified) await job.save();
+      if (modified) {
+        job.markModified('charges');
+        await job.save();
+      }
     }
 
     res.json({ success: true, message: 'PR Rejected successfully' });

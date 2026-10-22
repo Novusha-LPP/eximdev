@@ -42,6 +42,8 @@ const quotationTemplateSchema = new mongoose.Schema({
   }],
 
   isDefault: { type: Boolean, default: false },
+  teamId: { type: mongoose.Schema.Types.ObjectId, ref: 'SalesTeam', default: null },
+  teamName: { type: String, default: '' },
   createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });
 

@@ -415,6 +415,7 @@ import masterAttendanceRoutes from "./routes/attendance/masterRoutes.mjs";
 import payrollRoutes from "./routes/attendance/payrollRoutes.mjs";
 import firstAidRoutes from "./routes/attendance/firstAidRoutes.mjs";
 import attendanceV2Routes from "./routes/attendance/attendanceV2Routes.mjs";
+import hrmsSyncService from "./services/hrms/hrmsSyncService.mjs";
 // scmCube API
 import scmCubeRoutes from "./routes/scmCubeRoutes.mjs";
 import uploadToImexcube from "./routes/scmCube/uploadToImexcube.mjs";
@@ -973,6 +974,11 @@ if (!disableCluster && cluster.isPrimary) {
         // initialize cron jobs only on the first worker to avoid duplicates
         if (!cluster.worker || cluster.worker.id === 1) {
           await fixCorruptAttendanceRecords();
+          try {
+            hrmsSyncService.startBackgroundSync(60000);
+          } catch (syncErr) {
+            console.error('Failed to start HRMS background sync:', syncErr.message);
+          }
           cron.schedule(
             "1 0 * * *",
             async () => {

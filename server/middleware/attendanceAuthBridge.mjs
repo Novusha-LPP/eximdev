@@ -115,7 +115,12 @@ const attendanceAuthBridge = async (req, res, next) => {
     const resolvedCompanyId = await resolveLegacyCompany(freshUser);
     const finalCompanyId = resolvedCompanyId || freshUser.company_id;
 
-    if (!finalCompanyId) {
+    // Attendance V2 routes (/api/attendance/v2/*) communicate with the external HRMS
+    // and do not depend on the legacy MongoDB Company collection. For V2 routes, allow
+    // authentication to proceed even if the user does not yet have a legacy MongoDB company_id.
+    const isV2Request = (req.baseUrl && req.baseUrl.includes('/v2')) || (req.originalUrl && req.originalUrl.includes('/attendance/v2'));
+
+    if (!finalCompanyId && !isV2Request) {
       return res.status(403).json({ message: "Access Denied: No company or branch assigned to your account. Please contact administrator." });
     }
 

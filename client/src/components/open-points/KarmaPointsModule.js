@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Card, Table, Typography, Space, Input, Tag, Spin, Empty, Select, Button, Row, Col } from 'antd';
-import { SearchOutlined, TrophyOutlined, TeamOutlined, FilterOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { Card, Table, Typography, Space, Input, Tag, Spin, Empty, Select, Button, Row, Col, Modal, Divider } from 'antd';
+import { SearchOutlined, TrophyOutlined, TeamOutlined, FilterOutlined, ArrowLeftOutlined, QuestionCircleOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import moment from 'moment';
 
 const { Title, Text } = Typography;
@@ -13,6 +13,7 @@ const KarmaPointsModule = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('all');
     const [selectedTeam, setSelectedTeam] = useState(null);
+    const [showHelpModal, setShowHelpModal] = useState(false);
 
     useEffect(() => {
         const fetchTeamKarma = async () => {
@@ -235,7 +236,14 @@ const KarmaPointsModule = () => {
                     </div>
                 </div>
                 
-                <Space>
+                <Space wrap>
+                    <Button 
+                        icon={<QuestionCircleOutlined style={{ color: '#0284c7' }} />}
+                        onClick={() => setShowHelpModal(true)}
+                        style={{ borderRadius: '6px', fontWeight: 600 }}
+                    >
+                        How Karma Works
+                    </Button>
                     <Select 
                         value={filterType} 
                         onChange={setFilterType} 
@@ -251,7 +259,7 @@ const KarmaPointsModule = () => {
                         prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        style={{ width: 250, borderRadius: '6px' }}
+                        style={{ width: 220, borderRadius: '6px' }}
                         allowClear
                     />
                 </Space>
@@ -350,6 +358,87 @@ const KarmaPointsModule = () => {
                     ))}
                 </Row>
             )}
+
+            {/* Help & Calculation Rules Modal */}
+            <Modal
+                title={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '18px' }}>
+                        <TrophyOutlined style={{ color: '#eab308' }} />
+                        <span>How Karma Points Are Calculated</span>
+                    </div>
+                }
+                open={showHelpModal}
+                onOk={() => setShowHelpModal(false)}
+                onCancel={() => setShowHelpModal(false)}
+                footer={[
+                    <Button key="close" type="primary" onClick={() => setShowHelpModal(false)}>
+                        Understood
+                    </Button>
+                ]}
+                width={650}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '13.5px', color: '#334155' }}>
+                    <p style={{ margin: 0, lineHeight: 1.5 }}>
+                        <strong>Karma Points</strong> measure execution velocity, task completion diligence, and operational accountability. Points are earned automatically from your assigned <strong>Open Points</strong> tasks.
+                    </p>
+
+                    <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontWeight: 700, marginBottom: '8px', color: '#0f172a' }}>Standard Point Values by Priority:</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#fff', borderRadius: '6px', border: '1px solid #fee2e2' }}>
+                                <span>🚨 <strong>Critical / P1</strong></span>
+                                <span style={{ fontWeight: 700, color: '#dc2626' }}>±20 pts</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#fff', borderRadius: '6px', border: '1px solid #ffedd5' }}>
+                                <span>🔥 <strong>High / P2</strong></span>
+                                <span style={{ fontWeight: 700, color: '#ea580c' }}>±15 pts</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#fff', borderRadius: '6px', border: '1px solid #dbeafe' }}>
+                                <span>⚡ <strong>Medium / P3</strong></span>
+                                <span style={{ fontWeight: 700, color: '#2563eb' }}>±10 pts</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#fff', borderRadius: '6px', border: '1px solid #dcfce7' }}>
+                                <span>🌱 <strong>Low / P4</strong></span>
+                                <span style={{ fontWeight: 700, color: '#16a34a' }}>±5 pts</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style={{ fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>Task Status Rules:</div>
+                        <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <li>
+                                <strong style={{ color: '#16a34a' }}>🟢 Completed (Green):</strong> Awards full positive priority points (e.g. +20 for Critical).
+                            </li>
+                            <li>
+                                <strong style={{ color: '#d97706' }}>🟡 In Progress (Yellow / Orange):</strong> Neutral (0 pts). Active tasks within schedule are never penalized.
+                            </li>
+                            <li>
+                                <strong style={{ color: '#dc2626' }}>🔴 Delayed / Overdue (Red):</strong> Deducts priority points (e.g. -20 for Critical). <em>Fair Policy:</em> Deductions only apply if the target date has passed or the task is stalled past its deadline. Newly assigned upcoming tasks are not penalized.
+                            </li>
+                        </ul>
+                    </div>
+
+                    <Divider style={{ margin: '4px 0' }} />
+
+                    <div>
+                        <div style={{ fontWeight: 700, marginBottom: '6px', color: '#0f172a' }}>Time Period Views:</div>
+                        <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <li>
+                                <strong>All Time (Total):</strong> Lifetime net score — all completed tasks minus any currently active overdue tasks.
+                            </li>
+                            <li>
+                                <strong>This Month:</strong> Tasks completed within the current month minus tasks that became overdue in the month.
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div style={{ background: '#eff6ff', padding: '10px 14px', borderRadius: '6px', border: '1px solid #bfdbfe', fontSize: '12.5px', color: '#1e40af' }}>
+                        <InfoCircleOutlined style={{ marginRight: '6px' }} />
+                        <strong>MRM Composite Score:</strong> In Monthly Review Meetings, your Karma score is normalized and carries an equal 33% weight alongside Attendance (34%) and KPI (33%) to form your overall performance evaluation.
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };

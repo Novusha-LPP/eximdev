@@ -10,6 +10,7 @@ import { getBranchMatch } from "../../utils/branchFilter.mjs";
 import CustomerKycModel from "../../model/CustomerKyc/customerKycModel.mjs";
 import EximClientUserModel from "../../model/eximClientUserModel.mjs";
 import OpenPointModel from "../../model/openPoints/openPointModel.mjs";
+import { getKarmaPriorityPoints, isPointDelayedOrOverdue } from "../../utils/karmaPointsUtil.mjs";
 
 const router = express.Router();
 
@@ -438,14 +439,12 @@ router.get("/karma-leaderboard", authMiddleware, async (req, res) => {
     try {
         const { filterType, month, year, quarter, startDate, endDate } = req.query;
 
-        // Fetch all points where status is Green (Completed) and responsible_person is set
+        // Fetch all points where responsible_person is set
         const matchStage = {
-            status: "Green",
             responsible_person: { $ne: null }
         };
 
-        // We fetch all completed points to calculate both total accumulated Karma points and periodic ones
-        const completedPoints = await OpenPointModel.find(matchStage)
+        const allPoints = await OpenPointModel.find(matchStage)
             .populate('responsible_person', 'username first_name last_name employee_photo department role')
             .lean();
 
@@ -454,20 +453,11 @@ router.get("/karma-leaderboard", authMiddleware, async (req, res) => {
             .select("username first_name last_name employee_photo department role")
             .lean();
 
-        // Priority to Points Mapping
-        const getKarmaPoints = (priority) => {
-            if (!priority) return 5; // Default fallback to Low
-            const prio = priority.toLowerCase();
-            if (prio === 'emergency' || prio === 'p1' || prio === 'critical') return 20;
-            if (prio === 'high' || prio === 'p2') return 15;
-            if (prio === 'medium' || prio === 'p3') return 10;
-            if (prio === 'low' || prio === 'p4') return 5;
-            return 5; // Default fallback
-        };
+        const now = new Date();
+        const currentMonthNum = month !== undefined ? parseInt(month, 10) : now.getMonth();
+        const currentYearNum = year ? parseInt(year, 10) : now.getFullYear();
 
-        // Determine target monthly month & year
-        const currentMonthNum = month !== undefined ? parseInt(month) : new Date().getMonth(); // 0-11
-        const currentYearNum = year ? parseInt(year) : new Date().getFullYear();
+        const endOfTargetMonth = new Date(currentYearNum, currentMonthNum + 1, 0, 23, 59, 59, 999);
 
         // Process monthly/accumulated points per user
         const userKarmaMap = {};
@@ -491,12 +481,11 @@ router.get("/karma-leaderboard", authMiddleware, async (req, res) => {
         });
 
         // Calculate points
-        completedPoints.forEach(pt => {
+        allPoints.forEach(pt => {
             const responsiblePerson = pt.responsible_person;
             if (!responsiblePerson) return;
 
             const rIdStr = responsiblePerson._id.toString();
-            // If user is not active but has completed tasks, they might not be in our pre-populated map
             if (!userKarmaMap[rIdStr]) {
                 const displayName = `${responsiblePerson.first_name || ""} ${responsiblePerson.last_name || ""}`.trim() || responsiblePerson.username;
                 userKarmaMap[rIdStr] = {
@@ -514,64 +503,79 @@ router.get("/karma-leaderboard", authMiddleware, async (req, res) => {
                 };
             }
 
-            const points = getKarmaPoints(pt.priority);
+            const points = getKarmaPriorityPoints(pt.priority);
 
-            // Increment totals
-            userKarmaMap[rIdStr].totalKarma += points;
-            userKarmaMap[rIdStr].totalCompleted += 1;
+            if (pt.status === "Green") {
+                userKarmaMap[rIdStr].totalKarma += points;
+                userKarmaMap[rIdStr].totalCompleted += 1;
 
-            // Increment breakdown
-            const prio = pt.priority ? pt.priority.toLowerCase() : 'low';
-            if (prio === 'emergency' || prio === 'p1' || prio === 'critical') {
-                userKarmaMap[rIdStr].breakdown.critical += 1;
-            } else if (prio === 'high' || prio === 'p2') {
-                userKarmaMap[rIdStr].breakdown.high += 1;
-            } else if (prio === 'medium' || prio === 'p3') {
-                userKarmaMap[rIdStr].breakdown.medium += 1;
-            } else {
-                userKarmaMap[rIdStr].breakdown.low += 1;
-            }
-
-            // Check if periodic/monthly condition is met
-            const compDate = pt.completion_date ? new Date(pt.completion_date) : null;
-            let matchesFilter = false;
-
-            if (filterType === 'all') {
-                matchesFilter = true;
-            } else if (compDate) {
-                if (filterType === 'date-range' && startDate && endDate) {
-                    const start = new Date(startDate);
-                    const end = new Date(endDate);
-                    end.setHours(23, 59, 59, 999);
-                    matchesFilter = (compDate >= start && compDate <= end);
-                } else if (filterType === 'quarter' && quarter && year) {
-                    const q = parseInt(quarter);
-                    const y = parseInt(year);
-                    const compMonth = compDate.getMonth(); // 0-11
-                    const compYear = compDate.getFullYear();
-                    const startMonth = (q - 1) * 3; // 0, 3, 6, 9
-                    const endMonth = startMonth + 2; // 2, 5, 8, 11
-                    matchesFilter = (compYear === y && compMonth >= startMonth && compMonth <= endMonth);
-                } else if (filterType === 'year' && year) {
-                    const y = parseInt(year);
-                    matchesFilter = (compDate.getFullYear() === y);
+                const prio = String(pt.priority || '').trim().toLowerCase();
+                if (prio === 'emergency' || prio === 'p1' || prio === 'critical') {
+                    userKarmaMap[rIdStr].breakdown.critical += 1;
+                } else if (prio === 'high' || prio === 'p2') {
+                    userKarmaMap[rIdStr].breakdown.high += 1;
+                } else if (prio === 'medium' || prio === 'p3') {
+                    userKarmaMap[rIdStr].breakdown.medium += 1;
                 } else {
-                    // Default to 'month' filter
-                    const compMonth = compDate.getMonth();
-                    const compYear = compDate.getFullYear();
-                    matchesFilter = (compMonth === currentMonthNum && compYear === currentYearNum);
+                    userKarmaMap[rIdStr].breakdown.low += 1;
                 }
-            }
 
-            if (matchesFilter) {
-                userKarmaMap[rIdStr].monthlyKarma += points;
-                userKarmaMap[rIdStr].monthlyCompleted += 1;
+                // Check periodic completion filter
+                const compDate = pt.completion_date ? new Date(pt.completion_date) : null;
+                let matchesFilter = false;
+
+                if (filterType === 'all') {
+                    matchesFilter = true;
+                } else if (compDate && !isNaN(compDate.getTime())) {
+                    if (filterType === 'date-range' && startDate && endDate) {
+                        const start = new Date(startDate);
+                        const end = new Date(endDate);
+                        end.setHours(23, 59, 59, 999);
+                        matchesFilter = (compDate >= start && compDate <= end);
+                    } else if (filterType === 'quarter' && quarter && year) {
+                        const q = parseInt(quarter, 10);
+                        const y = parseInt(year, 10);
+                        const compMonth = compDate.getMonth();
+                        const compYear = compDate.getFullYear();
+                        const startMonth = (q - 1) * 3;
+                        const endMonth = startMonth + 2;
+                        matchesFilter = (compYear === y && compMonth >= startMonth && compMonth <= endMonth);
+                    } else if (filterType === 'year' && year) {
+                        const y = parseInt(year, 10);
+                        matchesFilter = (compDate.getFullYear() === y);
+                    } else {
+                        const compMonth = compDate.getMonth();
+                        const compYear = compDate.getFullYear();
+                        matchesFilter = (compMonth === currentMonthNum && compYear === currentYearNum);
+                    }
+                }
+
+                if (matchesFilter) {
+                    userKarmaMap[rIdStr].monthlyKarma += points;
+                    userKarmaMap[rIdStr].monthlyCompleted += 1;
+                }
+            } else if (pt.status !== "Yellow" && pt.status !== "Orange") {
+                // Red / Delayed task
+                if (isPointDelayedOrOverdue(pt, now)) {
+                    userKarmaMap[rIdStr].totalKarma -= points;
+                }
+
+                if (filterType === 'month' || filterType === 'all') {
+                    const wasCreatedBeforeMonthEnd = !pt.creation_date || new Date(pt.creation_date) <= endOfTargetMonth;
+                    if (wasCreatedBeforeMonthEnd && isPointDelayedOrOverdue(pt, endOfTargetMonth)) {
+                        userKarmaMap[rIdStr].monthlyKarma -= points;
+                    }
+                }
             }
         });
 
-        // Convert map to array, sort by totalKarma descending
+        // Convert map to array, sort by totalKarma or monthlyKarma descending
         const leaderboard = Object.values(userKarmaMap);
-        leaderboard.sort((a, b) => b.totalKarma - a.totalKarma);
+        if (filterType === 'month') {
+            leaderboard.sort((a, b) => b.monthlyKarma - a.monthlyKarma);
+        } else {
+            leaderboard.sort((a, b) => b.totalKarma - a.totalKarma);
+        }
 
         res.json(leaderboard);
     } catch (error) {

@@ -82,6 +82,39 @@ class HrmsSyncService {
   }
 
   /**
+   * Syncs user separation or rehire to HRMS when their status changes in EXIM.
+   */
+  async syncUserStatusToHrms(userId, isActive, { lastWorkingDay = null } = {}) {
+    try {
+      const user = await UserModel.findById(userId);
+      if (!user) return null;
+      const externalId = user._id.toString();
+
+      if (!isActive) {
+        const lwd =
+          lastWorkingDay ||
+          (user.deactivatedAt
+            ? user.deactivatedAt.toISOString().split("T")[0]
+            : new Date().toISOString().split("T")[0]);
+        console.log(`[HRMS Sync] Syncing exit for user ${user.username} (${externalId}) to HRMS...`);
+        return await hrmsClient.exitEmployee(externalId, {
+          lastWorkingDay: lwd,
+          reasonCode: "RESIGNED",
+        });
+      } else {
+        const hireDate = user.date_of_joining
+          ? user.date_of_joining.toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0];
+        console.log(`[HRMS Sync] Syncing rehire for user ${user.username} (${externalId}) to HRMS...`);
+        return await hrmsClient.rehireEmployee(externalId, { hireDate });
+      }
+    } catch (err) {
+      console.warn(`[HRMS Sync] User status sync warning:`, err?.message || err);
+      return null;
+    }
+  }
+
+  /**
    * Pushes all active EXIM users to HRMS in bulk batches of up to 100.
    */
   async syncAllUsersToHrms({ dryRun = false } = {}) {

@@ -264,6 +264,7 @@ function NfimsSimsJobs() {
                             jobYear={row.original.year}
                             awbBlNo={row.original.awb_bl_no}
                             awbBlDate={row.original.awb_bl_date}
+                            defaultGst={false}
                         />
                     </Box>
                 )}

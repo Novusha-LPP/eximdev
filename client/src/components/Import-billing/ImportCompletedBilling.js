@@ -564,11 +564,13 @@ function ImportCompletedBilling({ workMode = 'Payment' }) {
 
           // Helper to extract manual bill numbers
           const getManualBillNumbers = () => {
-            if (!bill_no) return { manualAgency: "", manualReimb: "" };
+            const fallbackAgency = cell.row.original.agency_bill_no || cell.row.original.billing_details?.agency_bill_no || "";
+            const fallbackReimb = cell.row.original.reimbursement_bill_no || cell.row.original.billing_details?.reimbursement_bill_no || "";
+            if (!bill_no) return { manualAgency: fallbackAgency, manualReimb: fallbackReimb };
             const parts = bill_no.split(",");
             return {
-              manualAgency: parts[0]?.trim() || "",
-              manualReimb: parts[1]?.trim() || "",
+              manualAgency: parts[0]?.trim() || fallbackAgency,
+              manualReimb: parts[1]?.trim() || fallbackReimb,
             };
           };
 

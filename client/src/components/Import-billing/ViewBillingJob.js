@@ -229,23 +229,25 @@ const ViewBillingJob = () => {
 
   // Extract bill information
   const extractBillInfo = () => {
-    if (!data?.bill_no) return { agencyBill: "", reimbursementBill: "" };
-
-    const bills = data.bill_no.split(",");
+    const rawBillNo = data?.bill_no || "";
+    const bills = rawBillNo ? rawBillNo.split(",") : [];
+    const fallbackAgency = data?.agency_bill_no || data?.agency_invoice_no || data?.billing_details?.agency_bill_no || "";
+    const fallbackReimb = data?.reimbursement_bill_no || data?.reimbursement_invoice_no || data?.billing_details?.reimbursement_bill_no || "";
     return {
-      agencyBill: bills[0] || "",
-      reimbursementBill: bills[1] || "",
+      agencyBill: (bills[0] || fallbackAgency || "").trim(),
+      reimbursementBill: (bills[1] || fallbackReimb || "").trim(),
     };
   };
 
   // Extract bill dates
   const extractBillDates = () => {
-    if (!data?.bill_date) return { agencyDate: "", reimbursementDate: "" };
-
-    const dates = data.bill_date.split(",");
+    const rawDate = data?.bill_date || "";
+    const dates = rawDate ? rawDate.split(",") : [];
+    const fallbackAgencyDate = data?.agency_bill_date || data?.billing_details?.agency_bill_date || "";
+    const fallbackReimbDate = data?.reimbursement_bill_date || data?.billing_details?.reimbursement_bill_date || "";
     return {
-      agencyDate: dates[0] || "",
-      reimbursementDate: dates[1] || "",
+      agencyDate: (dates[0] || fallbackAgencyDate || "").trim(),
+      reimbursementDate: (dates[1] || fallbackReimbDate || "").trim(),
     };
   };
 
@@ -257,12 +259,12 @@ const ViewBillingJob = () => {
     initialValues: {
       agency_bill_no: agencyBill || "",
       agency_bill_date: agencyDate || "",
-      agency_bill_amount: data?.bill_amount?.split(",")?.[0] || "",
+      agency_bill_amount: data?.bill_amount?.split(",")?.[0] || data?.agency_bill_amount || data?.billing_details?.agency_bill_amount || "",
       reimbursement_bill_no: reimbursementBill || "",
       reimbursement_bill_date: reimbursementDate || "",
-      reimbursement_bill_amount: data?.bill_amount?.split(",")?.[1] || "",
-      upload_agency_bill_img: data?.upload_agency_bill_img || "",
-      upload_reimbursement_bill_img: data?.upload_reimbursement_bill_img || "",
+      reimbursement_bill_amount: data?.bill_amount?.split(",")?.[1] || data?.reimbursement_bill_amount || data?.billing_details?.reimbursement_bill_amount || "",
+      upload_agency_bill_img: data?.upload_agency_bill_img || data?.agency_bill_doc || data?.billing_details?.agency_bill_doc || "",
+      upload_reimbursement_bill_img: data?.upload_reimbursement_bill_img || data?.reimbursement_bill_doc || data?.billing_details?.reimbursement_bill_doc || "",
       billing_completed_date: data?.billing_completed_date || "",
       dsr_queries: data?.dsr_queries || [],
       thar_invoices: data?.thar_invoices || [],

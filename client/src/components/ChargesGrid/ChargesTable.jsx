@@ -257,8 +257,10 @@ const ChargesTable = ({
             const role = (user?.role || "").toLowerCase();
             const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
             
-            const hasPR = ch.payment_request_no && String(ch.payment_request_no).trim().length > 0;
-            const hasPB = ch.purchase_book_no && String(ch.purchase_book_no).trim().length > 0;
+            const isPrRejected = String(ch.payment_request_status || '').toLowerCase() === 'rejected';
+            const isPbRejected = String(ch.purchase_book_status || '').toLowerCase() === 'rejected';
+            const hasPR = Boolean(ch.payment_request_no && String(ch.payment_request_no).trim().length > 0 && !isPrRejected);
+            const hasPB = Boolean(ch.purchase_book_no && String(ch.purchase_book_no).trim().length > 0 && !isPbRejected);
             const isIndividualLocked = (hasPR || hasPB) && !isAuth;
             const attachmentUrls = [...new Set([
               ...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []),
@@ -387,16 +389,16 @@ const ChargesTable = ({
                   <>
                     <td>{ch.category}</td>
                   
-                    <td style={{ fontWeight: '600', color: '#2e7d32' }}>
-                      {ch.purchase_book_no || '-'}
+                    <td style={{ fontWeight: '600', color: isPbRejected ? '#d32f2f' : '#2e7d32' }}>
+                      {ch.purchase_book_no ? (isPbRejected ? `${ch.purchase_book_no} (Rejected)` : ch.purchase_book_no) : '-'}
                       {ch.purchase_book_no && (
                         <IconButton size="small" onClick={(e) => handleCopy(e, ch.purchase_book_no)} title="Copy PB No">
                           <ContentCopyIcon style={{ fontSize: '14px' }} />
                         </IconButton>
                       )}
                     </td>
-                    <td style={{ fontWeight: '600', color: '#1565c0' }}>
-                      {ch.payment_request_no || '-'}
+                    <td style={{ fontWeight: '600', color: isPrRejected ? '#d32f2f' : '#1565c0' }}>
+                      {ch.payment_request_no ? (isPrRejected ? `${ch.payment_request_no} (Rejected)` : ch.payment_request_no) : '-'}
                       {ch.payment_request_no && (
                         <IconButton size="small" onClick={(e) => handleCopy(e, ch.payment_request_no)} title="Copy PR No">
                           <ContentCopyIcon style={{ fontSize: '14px' }} />

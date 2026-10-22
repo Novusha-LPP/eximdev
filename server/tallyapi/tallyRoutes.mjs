@@ -1792,7 +1792,7 @@ const formatTallyBillNumber = (rawBillNo, job = {}, fallbackType = "IMPORT", bil
 
   // Default: Ahmedabad
   const prefix = isReimb ? "GIR" : "GIA";
-  return `${prefix}/${seq.toString().padStart(5, '0')}/${yearStr}`;
+  return `${prefix}/${seq.toString().padStart(4, '0')}/${yearStr}`;
 };
 
 /**
@@ -1837,15 +1837,30 @@ const updateImportBillingDetailsHandler = async (req, res) => {
       return res.status(400).json({ error: "job_no is required in request body" });
     }
 
-    const rawAgencyNo = bill_no || billNo || bill_number || agency_bill_no || agencyBillNo || "";
-    const rawAgencyDate = bill_date || billDate || agency_bill_date || agencyBillDate;
-    const rawAgencyAmt = (bill_amount ?? billAmount ?? agency_bill_amount ?? agencyBillAmount);
-    const rawAgencyDoc = bill_doc || billDoc || agency_bill_doc || agencyBillDoc || "";
+    const isExplicitReimbType = (req.body.bill_type || req.body.type || req.body.bill_category || "").toString().toLowerCase().includes("reimb");
+    const isReimbBillNo = /ER|IR|REIMB/i.test(bill_no || billNo || bill_number || "");
 
-    const rawReimbNo = reimbursement_bill_no || reimbursementBillNo || "";
-    const rawReimbDate = reimbursement_bill_date || reimbursementBillDate;
-    const rawReimbAmt = (reimbursement_bill_amount ?? reimbursementBillAmount);
-    const rawReimbDoc = reimbursement_bill_doc || reimbursementBillDoc || "";
+    let rawAgencyNo = agency_bill_no || agencyBillNo || "";
+    let rawAgencyDate = agency_bill_date || agencyBillDate;
+    let rawAgencyAmt = (agency_bill_amount ?? agencyBillAmount);
+    let rawAgencyDoc = agency_bill_doc || agencyBillDoc || "";
+
+    let rawReimbNo = reimbursement_bill_no || reimbursementBillNo || "";
+    let rawReimbDate = reimbursement_bill_date || reimbursementBillDate;
+    let rawReimbAmt = (reimbursement_bill_amount ?? reimbursementBillAmount);
+    let rawReimbDoc = reimbursement_bill_doc || reimbursementBillDoc || "";
+
+    if (isExplicitReimbType || isReimbBillNo) {
+      if (!rawReimbNo) rawReimbNo = bill_no || billNo || bill_number || "";
+      if (rawReimbDate === undefined) rawReimbDate = bill_date || billDate;
+      if (rawReimbAmt === undefined) rawReimbAmt = (bill_amount ?? billAmount);
+      if (!rawReimbDoc) rawReimbDoc = bill_doc || billDoc || "";
+    } else {
+      if (!rawAgencyNo) rawAgencyNo = bill_no || billNo || bill_number || "";
+      if (rawAgencyDate === undefined) rawAgencyDate = bill_date || billDate;
+      if (rawAgencyAmt === undefined) rawAgencyAmt = (bill_amount ?? billAmount);
+      if (!rawAgencyDoc) rawAgencyDoc = bill_doc || billDoc || "";
+    }
 
     const conditions = resolveJobNumberQuery(targetJobNo);
     const matchingJobs = await JobModel.find({ $or: conditions }).limit(20).lean();
@@ -1874,51 +1889,107 @@ const updateImportBillingDetailsHandler = async (req, res) => {
     const reimbAmt = (rawReimbAmt !== undefined && rawReimbAmt !== null && rawReimbAmt !== "") ? Number(rawReimbAmt) : undefined;
     const reimbDoc = rawReimbDoc;
 
-    const existingBDetails = doc.billing_details || {};
-    const finalAgencyNo = agencyNo || existingBDetails.agency_bill_no || "";
-    const finalAgencyDate = agencyDate || existingBDetails.agency_bill_date || "";
-    const finalAgencyAmt = agencyAmt !== undefined ? agencyAmt : existingBDetails.agency_bill_amount;
-    const finalAgencyDoc = agencyDoc || existingBDetails.agency_bill_doc || "";
+    // Check existing bill numbers from all possible fields on the import job
+    const existingBillParts = (doc.bill_no || "").split(",");
+    const existingBillDateParts = (doc.bill_date || "").split(",");
+    const existingBillAmtParts = (doc.bill_amount || "").split(",");
 
-    const finalReimbNo = reimbNo || existingBDetails.reimbursement_bill_no || "";
-    const finalReimbDate = reimbDate || existingBDetails.reimbursement_bill_date || "";
-    const finalReimbAmt = reimbAmt !== undefined ? reimbAmt : existingBDetails.reimbursement_bill_amount;
-    const finalReimbDoc = reimbDoc || existingBDetails.reimbursement_bill_doc || "";
+    const existingAgencyNo = (agencyNo || existingBillParts[0] || doc.agency_invoice_no || doc.agency_bill_no || doc.billing_details?.agency_bill_no || doc.operations?.[0]?.statusDetails?.[0]?.billing_details?.agency_bill_no || "").trim();
+    const existingReimbNo = (reimbNo || existingBillParts[1] || doc.reimbursement_invoice_no || doc.reimbursement_bill_no || doc.billing_details?.reimbursement_bill_no || doc.operations?.[0]?.statusDetails?.[0]?.billing_details?.reimbursement_bill_no || "").trim();
+
+    const existingAgencyDate = normalizeBillingDate(agencyDate || existingBillDateParts[0] || doc.agency_bill_date || doc.billing_details?.agency_bill_date || doc.operations?.[0]?.statusDetails?.[0]?.billing_details?.agency_bill_date || "");
+    const existingReimbDate = normalizeBillingDate(reimbDate || existingBillDateParts[1] || doc.reimbursement_bill_date || doc.billing_details?.reimbursement_bill_date || doc.operations?.[0]?.statusDetails?.[0]?.billing_details?.reimbursement_bill_date || "");
+
+    const existingAgencyAmt = (agencyAmt !== undefined) ? agencyAmt : (
+      existingBillAmtParts[0] && !isNaN(Number(existingBillAmtParts[0])) ? Number(existingBillAmtParts[0]) : (
+        doc.agency_bill_amount ?? doc.billing_details?.agency_bill_amount ?? doc.operations?.[0]?.statusDetails?.[0]?.billing_details?.agency_bill_amount
+      )
+    );
+    const existingReimbAmt = (reimbAmt !== undefined) ? reimbAmt : (
+      existingBillAmtParts[1] && !isNaN(Number(existingBillAmtParts[1])) ? Number(existingBillAmtParts[1]) : (
+        doc.reimbursement_bill_amount ?? doc.billing_details?.reimbursement_bill_amount ?? doc.operations?.[0]?.statusDetails?.[0]?.billing_details?.reimbursement_bill_amount
+      )
+    );
+
+    let combinedBillNo = "";
+    if (existingAgencyNo && existingReimbNo) {
+      combinedBillNo = `${existingAgencyNo},${existingReimbNo}`;
+    } else if (existingAgencyNo) {
+      combinedBillNo = `${existingAgencyNo},`;
+    } else if (existingReimbNo) {
+      combinedBillNo = `,${existingReimbNo}`;
+    }
+
+    let combinedBillDate = "";
+    if (existingAgencyDate || existingReimbDate) {
+      combinedBillDate = `${existingAgencyDate || ""},${existingReimbDate || ""}`;
+    }
+
+    let combinedBillAmt = "";
+    if (existingAgencyAmt !== undefined || existingReimbAmt !== undefined) {
+      combinedBillAmt = `${existingAgencyAmt !== undefined ? existingAgencyAmt : ""},${existingReimbAmt !== undefined ? existingReimbAmt : ""}`;
+    }
 
     const setObj = {};
-    if (finalAgencyNo) {
-      setObj["billing_details.agency_bill_no"] = finalAgencyNo;
-      setObj["agency_bill_no"] = finalAgencyNo;
+    if (combinedBillNo) setObj["bill_no"] = combinedBillNo;
+    if (combinedBillDate) setObj["bill_date"] = combinedBillDate;
+    if (combinedBillAmt) setObj["bill_amount"] = combinedBillAmt;
+
+    if (existingAgencyNo) {
+      setObj["billing_details.agency_bill_no"] = existingAgencyNo;
+      setObj["agency_bill_no"] = existingAgencyNo;
+      setObj["agency_invoice_no"] = existingAgencyNo;
+      setObj["operations.0.statusDetails.0.billing_details.agency_bill_no"] = existingAgencyNo;
     }
-    if (finalAgencyDate) {
-      setObj["billing_details.agency_bill_date"] = finalAgencyDate;
-      setObj["agency_bill_date"] = finalAgencyDate;
+    if (existingAgencyDate) {
+      setObj["billing_details.agency_bill_date"] = existingAgencyDate;
+      setObj["agency_bill_date"] = existingAgencyDate;
+      setObj["operations.0.statusDetails.0.billing_details.agency_bill_date"] = existingAgencyDate;
     }
-    if (finalAgencyAmt !== undefined) {
-      setObj["billing_details.agency_bill_amount"] = finalAgencyAmt;
-      setObj["agency_bill_amount"] = finalAgencyAmt;
+    if (existingAgencyAmt !== undefined) {
+      setObj["billing_details.agency_bill_amount"] = existingAgencyAmt;
+      setObj["agency_bill_amount"] = existingAgencyAmt;
+      setObj["operations.0.statusDetails.0.billing_details.agency_bill_amount"] = existingAgencyAmt;
     }
-    if (finalAgencyDoc) {
-      setObj["billing_details.agency_bill_doc"] = finalAgencyDoc;
-      setObj["agency_bill_doc"] = finalAgencyDoc;
+    if (agencyDoc) {
+      setObj["billing_details.agency_bill_doc"] = agencyDoc;
+      setObj["agency_bill_doc"] = agencyDoc;
+      setObj["upload_agency_bill_img"] = agencyDoc;
+      setObj["operations.0.statusDetails.0.billing_details.agency_bill_doc"] = agencyDoc;
     }
 
-    if (finalReimbNo) {
-      setObj["billing_details.reimbursement_bill_no"] = finalReimbNo;
-      setObj["reimbursement_bill_no"] = finalReimbNo;
+    if (existingReimbNo) {
+      setObj["billing_details.reimbursement_bill_no"] = existingReimbNo;
+      setObj["reimbursement_bill_no"] = existingReimbNo;
+      setObj["reimbursement_invoice_no"] = existingReimbNo;
+      setObj["operations.0.statusDetails.0.billing_details.reimbursement_bill_no"] = existingReimbNo;
     }
-    if (finalReimbDate) {
-      setObj["billing_details.reimbursement_bill_date"] = finalReimbDate;
-      setObj["reimbursement_bill_date"] = finalReimbDate;
+    if (existingReimbDate) {
+      setObj["billing_details.reimbursement_bill_date"] = existingReimbDate;
+      setObj["reimbursement_bill_date"] = existingReimbDate;
+      setObj["operations.0.statusDetails.0.billing_details.reimbursement_bill_date"] = existingReimbDate;
     }
-    if (finalReimbAmt !== undefined) {
-      setObj["billing_details.reimbursement_bill_amount"] = finalReimbAmt;
-      setObj["reimbursement_bill_amount"] = finalReimbAmt;
+    if (existingReimbAmt !== undefined) {
+      setObj["billing_details.reimbursement_bill_amount"] = existingReimbAmt;
+      setObj["reimbursement_bill_amount"] = existingReimbAmt;
+      setObj["operations.0.statusDetails.0.billing_details.reimbursement_bill_amount"] = existingReimbAmt;
     }
-    if (finalReimbDoc) {
-      setObj["billing_details.reimbursement_bill_doc"] = finalReimbDoc;
-      setObj["reimbursement_bill_doc"] = finalReimbDoc;
+    if (reimbDoc) {
+      setObj["billing_details.reimbursement_bill_doc"] = reimbDoc;
+      setObj["reimbursement_bill_doc"] = reimbDoc;
+      setObj["upload_reimbursement_bill_img"] = reimbDoc;
+      setObj["operations.0.statusDetails.0.billing_details.reimbursement_bill_doc"] = reimbDoc;
     }
+
+    // If both bills are present, automatically mark job as Billed and Completed
+    if (existingAgencyNo && existingReimbNo) {
+      setObj["detailed_status"] = "Billed";
+      setObj["status"] = "Completed";
+      if (!doc.billing_completed_date) {
+        setObj["billing_completed_date"] = existingAgencyDate || existingReimbDate || new Date().toISOString().slice(0, 16);
+      }
+    }
+
     setObj["updatedAt"] = new Date();
 
     await JobModel.updateOne({ _id: doc._id }, { $set: setObj });
@@ -1929,14 +2000,15 @@ const updateImportBillingDetailsHandler = async (req, res) => {
       job_no: matchedJobNo,
       job_type: "IMPORT",
       billing_details: {
-        agency_bill_no: finalAgencyNo,
-        agency_bill_date: finalAgencyDate,
-        agency_bill_amount: finalAgencyAmt !== undefined ? finalAgencyAmt : 0,
-        agency_bill_doc: finalAgencyDoc,
-        reimbursement_bill_no: finalReimbNo,
-        reimbursement_bill_date: finalReimbDate,
-        reimbursement_bill_amount: finalReimbAmt !== undefined ? finalReimbAmt : 0,
-        reimbursement_bill_doc: finalReimbDoc
+        bill_no: combinedBillNo || "",
+        agency_bill_no: existingAgencyNo || "",
+        agency_bill_date: existingAgencyDate || "",
+        agency_bill_amount: existingAgencyAmt !== undefined ? existingAgencyAmt : 0,
+        agency_bill_doc: agencyDoc || "",
+        reimbursement_bill_no: existingReimbNo || "",
+        reimbursement_bill_date: existingReimbDate || "",
+        reimbursement_bill_amount: existingReimbAmt !== undefined ? existingReimbAmt : 0,
+        reimbursement_bill_doc: reimbDoc || ""
       }
     });
 

@@ -58,6 +58,7 @@ class HrmsSyncService {
       company: user.company || 'Suraj Forwarders Private Limited',
       department: user.department || 'Operations',
       designation: user.designation || 'Executive',
+      location: user.branch || user.location || 'Suraj Forwarders Private Limited Head Office',
       role: isManager ? 'MANAGER' : 'EMPLOYEE',
       hire_date: hireDateStr,
       source_updated_at: new Date().toISOString(),

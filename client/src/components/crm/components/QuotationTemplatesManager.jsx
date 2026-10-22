@@ -78,6 +78,7 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
   // Data states
   const [companies, setCompanies] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Edit / Form states for Company
@@ -106,6 +107,8 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
   const [templateForm, setTemplateForm] = useState({
     templateName: '',
     companyId: '',
+    teamId: '',
+    teamName: '',
     description: '',
     category: 'general',
     templateStyle: {
@@ -149,14 +152,17 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [compRes, tempRes] = await Promise.all([
+      const [compRes, tempRes, teamRes] = await Promise.all([
         axios.get(`${process.env.REACT_APP_API_STRING}/crm/quotation-companies`, getHeaders()),
-        axios.get(`${process.env.REACT_APP_API_STRING}/crm/quotation-templates`, getHeaders())
+        axios.get(`${process.env.REACT_APP_API_STRING}/crm/quotation-templates`, getHeaders()),
+        axios.get(`${process.env.REACT_APP_API_STRING}/crm/teams?all=true`, getHeaders()).catch(() => ({ data: { teams: [] } }))
       ]);
       setCompanies(compRes.data || []);
       setTemplates(tempRes.data || []);
+      const teamList = teamRes.data?.teams || (Array.isArray(teamRes.data) ? teamRes.data : []);
+      setTeams(teamList);
     } catch (err) {
-      console.error('Failed to load companies/templates:', err);
+      console.error('Failed to load companies/templates/teams:', err);
       message.error('Failed to load quotation configurations');
     } finally {
       setLoading(false);
@@ -389,6 +395,8 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
       setTemplateForm({
         templateName: temp.templateName || '',
         companyId: temp.companyId?._id || temp.companyId || (companies[0]?._id || ''),
+        teamId: temp.teamId?._id || temp.teamId || '',
+        teamName: temp.teamName || temp.teamId?.name || '',
         description: temp.description || '',
         category: temp.category || 'general',
         templateStyle: {
@@ -404,7 +412,15 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
           footerNotes: temp.templateStyle?.footerNotes || 'Thank you for considering our services.'
         },
         customColumns: temp.customColumns || [],
-        defaultLineItems: temp.defaultLineItems || [],
+        defaultLineItems: (temp.defaultLineItems || []).map(i => ({
+          productName: i.productName || '',
+          hsnSac: i.hsnSac || '996713',
+          quantity: i.quantity || 1,
+          unitPrice: i.unitPrice || 0,
+          discount: i.discount || 0,
+          tax: i.tax ?? 18,
+          customFields: i.customFields || {}
+        })),
         isDefault: !!temp.isDefault
       });
     } else {
@@ -413,6 +429,8 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
       setTemplateForm({
         templateName: '',
         companyId: defaultCompId,
+        teamId: '',
+        teamName: '',
         description: '',
         category: 'general',
         templateStyle: {
@@ -431,7 +449,9 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
           { key: 'cbm', label: 'Volume (CBM)', type: 'number', width: '100px', align: 'center', defaultValue: '' },
           { key: 'containerSize', label: 'Container Size', type: 'select', options: ['20FT', '40FT', '40HC', 'LCL'], width: '120px', align: 'center', defaultValue: '20FT' }
         ],
-        defaultLineItems: [],
+        defaultLineItems: [
+          { productName: 'Customs Clearance Charge', hsnSac: '996713', quantity: 1, unitPrice: 0, discount: 0, tax: 18, customFields: {} }
+        ],
         isDefault: templates.length === 0
       });
     }
@@ -527,6 +547,58 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
     setTemplateForm(prev => ({
       ...prev,
       customColumns: prev.customColumns.filter(c => c.key !== keyToRemove)
+    }));
+  };
+
+  const handleAddDefaultLineItem = () => {
+    const initialCustom = {};
+    (templateForm.customColumns || []).forEach(col => {
+      if (col.defaultValue) initialCustom[col.key] = col.defaultValue;
+    });
+
+    setTemplateForm(prev => ({
+      ...prev,
+      defaultLineItems: [
+        ...(prev.defaultLineItems || []),
+        {
+          productName: '',
+          hsnSac: '996713',
+          quantity: 1,
+          unitPrice: 0,
+          discount: 0,
+          tax: 18,
+          customFields: initialCustom
+        }
+      ]
+    }));
+  };
+
+  const handleDefaultLineItemChange = (index, field, value) => {
+    setTemplateForm(prev => {
+      const items = [...(prev.defaultLineItems || [])];
+      items[index] = { ...items[index], [field]: value };
+      return { ...prev, defaultLineItems: items };
+    });
+  };
+
+  const handleDefaultLineItemCustomChange = (itemIndex, colKey, value) => {
+    setTemplateForm(prev => {
+      const items = [...(prev.defaultLineItems || [])];
+      items[itemIndex] = {
+        ...items[itemIndex],
+        customFields: {
+          ...(items[itemIndex].customFields || {}),
+          [colKey]: value
+        }
+      };
+      return { ...prev, defaultLineItems: items };
+    });
+  };
+
+  const handleRemoveDefaultLineItem = (index) => {
+    setTemplateForm(prev => ({
+      ...prev,
+      defaultLineItems: (prev.defaultLineItems || []).filter((_, i) => i !== index)
     }));
   };
 
@@ -715,6 +787,24 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                                 </span>
                               ))}
                             </div>
+                          </div>
+
+                          {/* Team & Default Items Badges */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {temp.teamName || temp.teamId?.name ? (
+                              <span style={{ background: '#f3e8ff', color: '#6b21a8', fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                                🏢 Team: {temp.teamName || temp.teamId?.name}
+                              </span>
+                            ) : (
+                              <span style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                                🌐 All Teams
+                              </span>
+                            )}
+                            {(temp.defaultLineItems || []).length > 0 && (
+                              <span style={{ background: '#ecfdf5', color: '#047857', fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                                📋 {temp.defaultLineItems.length} Default Items
+                              </span>
+                            )}
                           </div>
 
                           {/* Action Footer */}
@@ -1203,8 +1293,8 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                 )}
               </div>
 
-              {/* Template Name & Category */}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '14px' }}>
+              {/* Template Name, Team Assignment & Category */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.2fr 1fr', gap: '14px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>TEMPLATE NAME *</label>
                   <input
@@ -1213,6 +1303,30 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                     onChange={e => setTemplateForm({ ...templateForm, templateName: e.target.value })}
                     style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem' }}
                   />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                    ASSIGNED TEAM (ACCESS)
+                  </label>
+                  <select
+                    value={templateForm.teamId || ''}
+                    onChange={e => {
+                      const selectedTeam = teams.find(t => t._id === e.target.value);
+                      setTemplateForm({
+                        ...templateForm,
+                        teamId: e.target.value || '',
+                        teamName: selectedTeam ? selectedTeam.name : ''
+                      });
+                    }}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', background: '#fff' }}
+                  >
+                    <option value="">-- All Teams (Global) --</option>
+                    {teams.map(t => (
+                      <option key={t._id} value={t._id}>
+                        {t.name} {t.businessVertical ? `(${t.businessVertical})` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>CATEGORY</label>
@@ -1263,40 +1377,54 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                 </div>
               </div>
 
-              {/* 3. DYNAMIC QUOTE LINE ITEM TABLE COLUMNS (CRITICAL REQUIREMENT) */}
+              {/* 3. DYNAMIC QUOTE LINE ITEM TABLE COLUMNS & DEFAULT ITEMS */}
               <div style={{ border: '2px solid #3b82f6', borderRadius: '14px', padding: '18px', background: '#f8fafc' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
                   <div>
                     <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e3a8a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Layers size={18} /> QUOTE LINE ITEMS - DYNAMIC TABLE COLUMNS
+                      <Layers size={18} /> QUOTE LINE ITEMS - DEFAULT ITEMS & DYNAMIC COLUMNS
                     </div>
                     <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: '#64748b' }}>
-                      Define custom extra columns (e.g. Container Size, CBM Volume, Gross Wt, Port of Loading) for every line item in quotes using this template.
+                      Pre-define default line items (e.g. Customs Clearance Charge, HSN/SAC, Rates) and custom dynamic table columns for quotes using this template.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsColumnModalOpen(true)}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '6px',
-                      background: '#1e3a8a', color: '#fff', border: 'none',
-                      padding: '8px 14px', borderRadius: '8px', fontSize: '0.8rem',
-                      fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 6px rgba(30, 58, 138, 0.2)'
-                    }}
-                  >
-                    <Plus size={15} /> Add Custom Column
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={handleAddDefaultLineItem}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        background: '#059669', color: '#fff', border: 'none',
+                        padding: '8px 14px', borderRadius: '8px', fontSize: '0.8rem',
+                        fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 6px rgba(5, 150, 105, 0.2)'
+                      }}
+                    >
+                      <Plus size={15} /> Add Default Line Item
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsColumnModalOpen(true)}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        background: '#1e3a8a', color: '#fff', border: 'none',
+                        padding: '8px 14px', borderRadius: '8px', fontSize: '0.8rem',
+                        fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 6px rgba(30, 58, 138, 0.2)'
+                      }}
+                    >
+                      <Plus size={15} /> Add Custom Column
+                    </button>
+                  </div>
                 </div>
 
-                {/* Table Preview of Columns */}
+                {/* Table Preview / Editing of Default Line Items */}
                 <div style={{ overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#fff' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                     <thead>
                       <tr style={{ background: templateForm.templateStyle?.themeColor || '#1e3a8a', color: '#fff' }}>
-                        <th style={{ padding: '8px 10px', textAlign: 'left' }}>Product / Service *</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'center' }}>HSN/SAC</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'center' }}>Qty</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'right' }}>Rate (₹)</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'left', minWidth: '220px' }}>Product / Service *</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'center', width: '95px' }}>HSN/SAC</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'center', width: '65px' }}>Qty</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'right', width: '95px' }}>Rate (₹)</th>
                         
                         {/* Dynamic Custom Columns Headers */}
                         {(templateForm.customColumns || []).map(col => (
@@ -1307,6 +1435,7 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                                 type="button"
                                 onClick={() => handleRemoveCustomColumn(col.key)}
                                 style={{ background: 'none', border: 'none', color: '#fca5a5', cursor: 'pointer', padding: '0 2px' }}
+                                title="Remove column"
                               >
                                 <X size={12} />
                               </button>
@@ -1314,33 +1443,156 @@ export default function QuotationTemplatesManager({ isOpen, onClose, onRefresh }
                           </th>
                         ))}
 
-                        <th style={{ padding: '8px 10px', textAlign: 'center' }}>Disc %</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'center' }}>Tax %</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'right' }}>Total</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'center', width: '65px' }}>Disc %</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'center', width: '65px' }}>Tax %</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'right', width: '85px' }}>Total</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'center', width: '45px' }}></th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td style={{ padding: '8px 10px', color: '#94a3b8' }}>Sample Line Item...</td>
-                        <td style={{ padding: '8px 10px', textAlign: 'center', color: '#94a3b8' }}>9967</td>
-                        <td style={{ padding: '8px 10px', textAlign: 'center', color: '#94a3b8' }}>1</td>
-                        <td style={{ padding: '8px 10px', textAlign: 'right', color: '#94a3b8' }}>₹0</td>
-                        {(templateForm.customColumns || []).map(col => (
-                          <td key={col.key} style={{ padding: '8px 10px', textAlign: col.align || 'center', background: '#eff6ff', color: '#1e40af', fontWeight: 600 }}>
-                            {col.defaultValue || `[${col.type}]`}
+                      {(templateForm.defaultLineItems || []).length === 0 ? (
+                        <tr>
+                          <td colSpan={7 + (templateForm.customColumns?.length || 0)} style={{ textAlign: 'center', padding: '24px 16px', background: '#f8fafc', color: '#64748b' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>No default line items configured yet</span>
+                              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                                Add pre-defined charges (e.g. Customs Clearance Charge, HSN 996713, Rate) that auto-populate when this template is selected.
+                              </span>
+                              <button
+                                type="button"
+                                onClick={handleAddDefaultLineItem}
+                                style={{
+                                  marginTop: '4px',
+                                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                  background: '#2563eb', color: '#fff', border: 'none',
+                                  padding: '6px 14px', borderRadius: '6px', fontSize: '0.8rem',
+                                  fontWeight: 600, cursor: 'pointer'
+                                }}
+                              >
+                                <Plus size={14} /> Add First Default Charge / Item
+                              </button>
+                            </div>
                           </td>
-                        ))}
-                        <td style={{ padding: '8px 10px', textAlign: 'center', color: '#94a3b8' }}>0%</td>
-                        <td style={{ padding: '8px 10px', textAlign: 'center', color: '#94a3b8' }}>18%</td>
-                        <td style={{ padding: '8px 10px', textAlign: 'right', color: '#94a3b8' }}>₹0</td>
-                      </tr>
+                        </tr>
+                      ) : (
+                        templateForm.defaultLineItems.map((item, idx) => {
+                          const qty = Number(item.quantity) || 1;
+                          const unitPrice = Number(item.unitPrice) || 0;
+                          const disc = Number(item.discount) || 0;
+                          const tax = Number(item.tax) || 0;
+                          const lineSubtotal = qty * unitPrice;
+                          const discAmt = lineSubtotal * (disc / 100);
+                          const taxAmt = (lineSubtotal - discAmt) * (tax / 100);
+                          const total = Math.round(lineSubtotal - discAmt + taxAmt);
+
+                          return (
+                            <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                              <td style={{ padding: '6px 8px' }}>
+                                <input
+                                  type="text"
+                                  placeholder="e.g. Customs Clearance Charge"
+                                  value={item.productName || ''}
+                                  onChange={e => handleDefaultLineItemChange(idx, 'productName', e.target.value)}
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', outline: 'none' }}
+                                />
+                              </td>
+                              <td style={{ padding: '6px 8px' }}>
+                                <input
+                                  type="text"
+                                  placeholder="996713"
+                                  value={item.hsnSac || ''}
+                                  onChange={e => handleDefaultLineItemChange(idx, 'hsnSac', e.target.value)}
+                                  style={{ width: '100%', textAlign: 'center', padding: '6px 6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', outline: 'none' }}
+                                />
+                              </td>
+                              <td style={{ padding: '6px 8px' }}>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity ?? 1}
+                                  onChange={e => handleDefaultLineItemChange(idx, 'quantity', Number(e.target.value))}
+                                  style={{ width: '100%', textAlign: 'center', padding: '6px 4px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', outline: 'none' }}
+                                />
+                              </td>
+                              <td style={{ padding: '6px 8px' }}>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={item.unitPrice ?? 0}
+                                  onChange={e => handleDefaultLineItemChange(idx, 'unitPrice', Number(e.target.value))}
+                                  style={{ width: '100%', textAlign: 'right', padding: '6px 6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', outline: 'none' }}
+                                />
+                              </td>
+
+                              {/* Dynamic Custom Columns Cells */}
+                              {(templateForm.customColumns || []).map(col => (
+                                <td key={col.key} style={{ padding: '6px 8px', background: '#f8fafc' }}>
+                                  {col.type === 'select' ? (
+                                    <select
+                                      value={item.customFields?.[col.key] || col.defaultValue || ''}
+                                      onChange={e => handleDefaultLineItemCustomChange(idx, col.key, e.target.value)}
+                                      style={{ width: '100%', padding: '6px 4px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', outline: 'none', background: '#fff' }}
+                                    >
+                                      <option value="">--</option>
+                                      {(col.options || []).map((opt, oIdx) => (
+                                        <option key={oIdx} value={opt}>{opt}</option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <input
+                                      type={col.type === 'number' ? 'number' : 'text'}
+                                      value={item.customFields?.[col.key] ?? (col.defaultValue || '')}
+                                      onChange={e => handleDefaultLineItemCustomChange(idx, col.key, e.target.value)}
+                                      placeholder={col.defaultValue || `[${col.type}]`}
+                                      style={{ width: '100%', textAlign: col.align || 'center', padding: '6px 6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', outline: 'none' }}
+                                    />
+                                  )}
+                                </td>
+                              ))}
+
+                              <td style={{ padding: '6px 8px' }}>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={item.discount ?? 0}
+                                  onChange={e => handleDefaultLineItemChange(idx, 'discount', Number(e.target.value))}
+                                  style={{ width: '100%', textAlign: 'center', padding: '6px 4px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', outline: 'none' }}
+                                />
+                              </td>
+                              <td style={{ padding: '6px 8px' }}>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={item.tax ?? 18}
+                                  onChange={e => handleDefaultLineItemChange(idx, 'tax', Number(e.target.value))}
+                                  style={{ width: '100%', textAlign: 'center', padding: '6px 4px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', outline: 'none' }}
+                                />
+                              </td>
+                              <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: '#1e3a8a' }}>
+                                ₹{total.toLocaleString()}
+                              </td>
+                              <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveDefaultLineItem(idx)}
+                                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                                  title="Delete item"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
 
                 <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#64748b', display: 'flex', gap: '16px' }}>
                   <span>🔒 Standard columns are preserved automatically</span>
-                  <span>➕ You can add as many dynamic columns as needed</span>
+                  <span>➕ You can add as many default items and dynamic columns as needed</span>
                 </div>
               </div>
 

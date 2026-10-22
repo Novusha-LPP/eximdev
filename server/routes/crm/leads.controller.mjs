@@ -492,7 +492,10 @@ router.post('/:id/convert', async (req, res) => {
     const account = new Account({
       name: lead.company,
       ownerId: lead.ownerId,
-      businessVertical: lead.businessVertical
+      businessVertical: lead.businessVertical,
+      billingAddress: lead.billingAddress,
+      shippingAddress: lead.shippingAddress,
+      gstDetails: lead.gstDetails
     });
     await account.save();
 

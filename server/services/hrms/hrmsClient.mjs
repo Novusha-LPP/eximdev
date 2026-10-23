@@ -8,7 +8,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const HRMS_BASE_URL = (process.env.HRMS_BASE_URL || 'http://hrmsapi.alvision.in').replace(/\/$/, '');
-const HRMS_API_KEY = process.env.HRMS_API_KEY || 'hrms_test_815s1Llf_9zjzDUDxXYig9bbon50f143amohESutz7pmWa60r';
+const HRMS_API_KEY = process.env.HRMS_API_KEY || 'hrms_test_i50hhHYx_KuXYvGMeJOk76AzvIapcmWKg5wvNIyKxDFaax1fQ';
 
 class HrmsClient {
   constructor() {
@@ -40,7 +40,20 @@ class HrmsClient {
     }
 
     const url = `${this.baseUrl}${path}`;
-    const res = await fetch(url, { ...options, headers });
+    const timeoutMs = options.timeoutMs || 15000;
+    const signal = options.signal || AbortSignal.timeout(timeoutMs);
+
+    let res;
+    try {
+      res = await fetch(url, { ...options, headers, signal });
+    } catch (fetchErr) {
+      const err = new Error(fetchErr.name === 'TimeoutError' || fetchErr.name === 'AbortError'
+        ? `HRMS request timed out after ${timeoutMs / 1000}s`
+        : `HRMS connection failed: ${fetchErr.message}`);
+      err.code = fetchErr.code || (fetchErr.name === 'TimeoutError' ? 'ETIMEDOUT' : 'HRMS_NETWORK_ERROR');
+      err.status = 503;
+      throw err;
+    }
 
     if (!res.ok) {
       const errorJson = await res.json().catch(() => null);
@@ -72,9 +85,25 @@ class HrmsClient {
     }
 
     const url = `${this.baseUrl}${path}`;
-    const res = await fetch(url, { ...options, headers });
+    const timeoutMs = options.timeoutMs || 15000;
+    const signal = options.signal || AbortSignal.timeout(timeoutMs);
+
+    let res;
+    try {
+      res = await fetch(url, { ...options, headers, signal });
+    } catch (fetchErr) {
+      const err = new Error(fetchErr.name === 'TimeoutError' || fetchErr.name === 'AbortError'
+        ? `HRMS request timed out after ${timeoutMs / 1000}s`
+        : `HRMS connection failed: ${fetchErr.message}`);
+      err.code = fetchErr.code || (fetchErr.name === 'TimeoutError' ? 'ETIMEDOUT' : 'HRMS_NETWORK_ERROR');
+      err.status = 503;
+      throw err;
+    }
 
     if (!res.ok) {
+      if (res.status === 401 && options.userId) {
+        this.sessionCache.delete(String(options.userId));
+      }
       const errorJson = await res.json().catch(() => null);
       const detail = errorJson?.detail || errorJson?.error?.message || errorJson?.message || `HRMS error ${res.status}`;
       const err = new Error(detail);
@@ -100,11 +129,15 @@ class HrmsClient {
     let allEmployees = [];
     let offset = 0;
     const limit = 200;
+    let pageCount = 0;
+    const MAX_PAGES = 50;
+
     while (true) {
       const res = await this.integrationRequest(`/v1/integrations/employees?limit=${limit}&offset=${offset}`);
       const emps = res?.employees || [];
       allEmployees.push(...emps);
-      if (emps.length < limit || !res?.has_more) break;
+      pageCount++;
+      if (emps.length < limit || !res?.has_more || pageCount >= MAX_PAGES) break;
       offset += limit;
     }
 
@@ -192,6 +225,13 @@ class HrmsClient {
       return cached;
     }
 
+    // Periodic prune of expired sessions from cache
+    if (this.sessionCache.size > 200) {
+      for (const [key, val] of this.sessionCache.entries()) {
+        if (!val || val.expiresAt <= now) this.sessionCache.delete(key);
+      }
+    }
+
     try {
       const data = await this.integrationRequest('/v1/integrations/sessions', {
         method: 'POST',
@@ -243,7 +283,7 @@ class HrmsClient {
   async getTodayStatus(user, workDate = null) {
     const session = await this.getEmployeeSession(user);
     const query = workDate ? `?work_date=${encodeURIComponent(workDate)}` : '';
-    return await this.bearerRequest(`/v1/time/today${query}`, session.access_token);
+    return await this.bearerRequest(`/v1/time/today${query}`, session.access_token, { userId: user._id });
   }
 
   /**
@@ -261,6 +301,7 @@ class HrmsClient {
     return await this.bearerRequest('/v1/time/punches', session.access_token, {
       method: 'POST',
       body,
+      userId: user._id,
     });
   }
 
@@ -273,7 +314,7 @@ class HrmsClient {
       from_date: fromDate,
       to_date: toDate,
     });
-    return await this.bearerRequest(`/v1/time/attendance-days?${params.toString()}`, session.access_token);
+    return await this.bearerRequest(`/v1/time/attendance-days?${params.toString()}`, session.access_token, { userId: user._id });
   }
 
   /**
@@ -282,7 +323,7 @@ class HrmsClient {
   async getLeaveBalances(user, year = null) {
     const session = await this.getEmployeeSession(user);
     const query = year ? `?year=${encodeURIComponent(year)}` : '';
-    return await this.bearerRequest(`/v1/leave/balances${query}`, session.access_token);
+    return await this.bearerRequest(`/v1/leave/balances${query}`, session.access_token, { userId: user._id });
   }
 
   /**
@@ -290,7 +331,7 @@ class HrmsClient {
    */
   async getLeaveTypes(user) {
     const session = await this.getEmployeeSession(user);
-    return await this.bearerRequest('/v1/leave/types', session.access_token);
+    return await this.bearerRequest('/v1/leave/types', session.access_token, { userId: user._id });
   }
 
   /**
@@ -299,7 +340,7 @@ class HrmsClient {
   async getLeaveApplications(user, status = null) {
     const session = await this.getEmployeeSession(user);
     const query = status ? `?status=${encodeURIComponent(status)}` : '';
-    return await this.bearerRequest(`/v1/leave/applications${query}`, session.access_token);
+    return await this.bearerRequest(`/v1/leave/applications${query}`, session.access_token, { userId: user._id });
   }
 
   /**
@@ -318,6 +359,7 @@ class HrmsClient {
         half_day_option: halfDayOption || 'NONE',
         reason: reason || null,
       },
+      userId: user._id,
     });
 
     // 2. Submit the draft application
@@ -325,11 +367,16 @@ class HrmsClient {
       try {
         const submitted = await this.bearerRequest(`/v1/leave/applications/${encodeURIComponent(draft.id)}/submit`, session.access_token, {
           method: 'POST',
+          userId: user._id,
         });
         return submitted;
       } catch (submitErr) {
         console.warn(`[HRMS Client] Application created (${draft.id}) but submit failed:`, submitErr.message);
-        return { ...draft, submitError: submitErr.message };
+        const err = new Error(`Leave application drafted, but submit failed: ${submitErr.message}`);
+        err.status = submitErr.status || 400;
+        err.code = submitErr.code || 'LEAVE_SUBMIT_FAILED';
+        err.details = submitErr.details || [];
+        throw err;
       }
     }
 
@@ -346,6 +393,7 @@ class HrmsClient {
       body: {
         cancel_reason: cancelReason || null,
       },
+      userId: user._id,
     });
   }
 
@@ -355,7 +403,7 @@ class HrmsClient {
   async getCorrections(user, status = null) {
     const session = await this.getEmployeeSession(user);
     const query = status ? `?status=${encodeURIComponent(status)}` : '';
-    return await this.bearerRequest(`/v1/corrections${query}`, session.access_token);
+    return await this.bearerRequest(`/v1/corrections${query}`, session.access_token, { userId: user._id });
   }
 
   /**
@@ -372,6 +420,7 @@ class HrmsClient {
         requested_punch_out: requestedPunchOut || null,
         reason: reason || 'Attendance correction',
       },
+      userId: user._id,
     });
   }
 
@@ -382,6 +431,7 @@ class HrmsClient {
     const session = await this.getEmployeeSession(user);
     return await this.bearerRequest(`/v1/corrections/${encodeURIComponent(correctionId)}/cancel`, session.access_token, {
       method: 'POST',
+      userId: user._id,
     });
   }
 
@@ -390,7 +440,7 @@ class HrmsClient {
    */
   async getApprovalsInbox(user) {
     const session = await this.getEmployeeSession(user);
-    return await this.bearerRequest('/v1/approvals/inbox', session.access_token);
+    return await this.bearerRequest('/v1/approvals/inbox', session.access_token, { userId: user._id });
   }
 
   /**
@@ -404,6 +454,7 @@ class HrmsClient {
         action: action === 'REJECT' ? 'REJECT' : 'APPROVE',
         comments: comments || null,
       },
+      userId: user._id,
     });
   }
 
@@ -412,7 +463,7 @@ class HrmsClient {
    */
   async getProfile(user) {
     const session = await this.getEmployeeSession(user);
-    return await this.bearerRequest('/v1/persons/me', session.access_token);
+    return await this.bearerRequest('/v1/persons/me', session.access_token, { userId: user._id });
   }
 
   // ─── Direct Integration API Operations (via X-API-Key) ──────────────────────

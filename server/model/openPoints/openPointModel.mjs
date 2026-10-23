@@ -61,6 +61,13 @@ pointSchema.pre('save', function (next) {
     if (this.isNew && !this.creation_date) {
         this.creation_date = new Date();
     }
+    if (this.status === 'Green') {
+        if (!this.completion_date) {
+            this.completion_date = new Date();
+        }
+    } else {
+        this.completion_date = null;
+    }
     next();
 });
 

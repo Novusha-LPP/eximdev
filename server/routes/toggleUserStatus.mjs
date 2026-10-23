@@ -1,3 +1,4 @@
+import hrmsSyncService from "../services/hrms/hrmsSyncService.mjs";
 import express from "express";
 import UserModel from "../model/userModel.mjs";
 import auditMiddleware from "../middleware/auditTrail.mjs";
@@ -26,6 +27,12 @@ router.post("/api/toggle-user-status", authMiddleware, auditMiddleware("User"), 
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    try {
+      await hrmsSyncService.syncUserStatusToHrms(user._id, isActive);
+    } catch (statusSyncErr) {
+      console.warn(`[HRMS Sync] Warning syncing user status for ${user.username} to HRMS:`, statusSyncErr?.message || statusSyncErr);
     }
 
     res.json({ message: "User status updated", user });

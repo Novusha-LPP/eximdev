@@ -1,3 +1,4 @@
+import hrmsSyncService from "../services/hrms/hrmsSyncService.mjs";
 import express from "express";
 import mongoose from "mongoose";
 import bcryptjs from "bcryptjs";
@@ -36,6 +37,13 @@ router.post("/api/users", async (req, res) => {
       department,
       modules: ["IT Helpdesk"]
     });
+
+    try {
+      await hrmsSyncService.pushUserToHrms(user._id);
+      console.log(`[HRMS Sync] Successfully synced newly created user ${user.username} to HRMS`);
+    } catch (syncErr) {
+      console.warn(`[HRMS Sync] Warning syncing newly created user ${user.username} to HRMS:`, syncErr?.message || syncErr);
+    }
 
     res.status(201).json({ success: true, data: user });
   } catch (err) {

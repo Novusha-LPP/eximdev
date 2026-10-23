@@ -1,3 +1,4 @@
+import hrmsSyncService from "../../services/hrms/hrmsSyncService.mjs";
 import express from "express";
 import bcrypt from "bcryptjs";
 import UserModel from "../../model/userModel.mjs";
@@ -94,6 +95,13 @@ router.post("/api/onboard-employee", verifyToken, (req, res, next) => {
     });
 
     await newUser.save();
+
+    try {
+      await hrmsSyncService.pushUserToHrms(newUser._id);
+      console.log(`[HRMS Sync] Successfully synced newly onboarded user ${newUser.username} to HRMS`);
+    } catch (hrmsSyncErr) {
+      console.warn(`[HRMS Sync] Warning syncing newly onboarded user ${newUser.username} to HRMS:`, hrmsSyncErr?.message || hrmsSyncErr);
+    }
 
     const mailOptions = {
       from: DEFAULT_FROM,

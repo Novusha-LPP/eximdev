@@ -1,9 +1,40 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { X } from 'lucide-react';
+import { X, Building, MapPin, FileText, ChevronRight } from 'lucide-react';
 import { message } from 'antd';
 import GarudaTeamMemberInput from './GarudaTeamMemberInput';
-import { ALLOWED_SERVICES, formatServiceName } from '../crmConstants';
+import {
+  ALLOWED_SERVICES,
+  formatServiceName,
+  GST_TREATMENT_OPTIONS,
+  INDIAN_STATES_GST,
+  PAYMENT_TERMS_OPTIONS,
+  CURRENCY_OPTIONS,
+  getStateFromGstin,
+  getPanFromGstin
+} from '../crmConstants';
+
+const initialAddressState = {
+  attention: '',
+  country: 'India',
+  addressLine1: '',
+  addressLine2: '',
+  city: '',
+  state: '',
+  pincode: '',
+  phone: '',
+  fax: ''
+};
+
+const initialGstState = {
+  gstTreatment: 'Unregistered Business',
+  gstin: '',
+  placeOfSupply: '',
+  pan: '',
+  taxPreference: 'Taxable',
+  currency: 'INR',
+  paymentTerms: 'Due on Receipt'
+};
 
 const TASK_PRESETS = [
   { label: '📞 First Intro Call', title: 'First follow-up call with lead', type: 'call' },
@@ -56,6 +87,8 @@ const ALL_STANDARD_SOURCES = [
 ];
 
 export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplicate, leadToEdit }) {
+  const [activeFormTab, setActiveFormTab] = useState('lead_info'); // 'lead_info' | 'address' | 'gst'
+
   const currentUser = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem('exim_user') || '{}');
@@ -108,8 +141,36 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
     hsnCode: '',
     monthlyVolume: '',
     monthlyRevenue: '',
-    companyType: ''
+    companyType: '',
+    billingAddress: { ...initialAddressState },
+    shippingAddress: { ...initialAddressState },
+    gstDetails: { ...initialGstState }
   });
+
+  const handleCopyBillingAddress = (e) => {
+    if (e) e.preventDefault();
+    setFormData(prev => ({
+      ...prev,
+      shippingAddress: { ...prev.billingAddress }
+    }));
+    message.success('Billing address copied to Shipping address!');
+  };
+
+  const handleGstinChange = (e) => {
+    const rawVal = e.target.value.toUpperCase();
+    const autoState = getStateFromGstin(rawVal);
+    const autoPan = getPanFromGstin(rawVal);
+
+    setFormData(prev => ({
+      ...prev,
+      gstDetails: {
+        ...prev.gstDetails,
+        gstin: rawVal,
+        placeOfSupply: autoState || prev.gstDetails.placeOfSupply,
+        pan: autoPan || prev.gstDetails.pan
+      }
+    }));
+  };
   const [customSource, setCustomSource] = useState('');
   const [customCompanyType, setCustomCompanyType] = useState('');
   const [isOtherCompanyType, setIsOtherCompanyType] = useState(false);
@@ -184,7 +245,19 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
           hsnCode: activeLead.hsnCode || '',
           monthlyVolume: activeLead.monthlyVolume || '',
           monthlyRevenue: activeLead.monthlyRevenue || '',
-          companyType: activeLead.companyType || ''
+          companyType: activeLead.companyType || '',
+          billingAddress: {
+            ...initialAddressState,
+            ...(activeLead.billingAddress || {})
+          },
+          shippingAddress: {
+            ...initialAddressState,
+            ...(activeLead.shippingAddress || {})
+          },
+          gstDetails: {
+            ...initialGstState,
+            ...(activeLead.gstDetails || {})
+          }
         });
         const standardSources = ALL_STANDARD_SOURCES;
         if (activeLead.source && !standardSources.includes(activeLead.source)) {
@@ -236,11 +309,15 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
           hsnCode: '',
           monthlyVolume: '',
           monthlyRevenue: '',
-          companyType: ''
+          companyType: '',
+          billingAddress: { ...initialAddressState },
+          shippingAddress: { ...initialAddressState },
+          gstDetails: { ...initialGstState }
         });
         setCustomSource('');
         setCustomCompanyType('');
         setIsOtherCompanyType(false);
+        setActiveFormTab('lead_info');
       }
     }
   }, [isOpen, leadToDuplicate, leadToEdit, currentUserId, currentUser]);
@@ -266,6 +343,10 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.company?.trim() || !formData.firstName?.trim()) {
+      setActiveFormTab('lead_info');
+      return message.error('Please enter Company Name and First Name in Basic Lead Details');
+    }
     if (assignTask && !taskData.title.trim()) {
       return message.error('Please enter a task title, or uncheck "Assign Follow-up Task"');
     }
@@ -366,8 +447,8 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
       <div style={{
         background: '#fff',
         width: '100%',
-        maxWidth: '800px',
-        maxHeight: '90vh',
+        maxWidth: '920px',
+        maxHeight: '92vh',
         borderRadius: '16px',
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
         overflow: 'hidden',
@@ -397,16 +478,19 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
 
         {/* Header */}
         <div style={{
-          padding: '20px 24px',
+          padding: '18px 24px',
           borderBottom: '1px solid #f1f5f9',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           background: '#f8fafc'
         }}>
-          <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.25rem' }}>
-            {leadToEdit ? 'Edit Lead' : leadToDuplicate ? 'Duplicate Lead' : 'Create New Lead'}
-          </h3>
+          <div>
+            <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.25rem' }}>
+              {leadToEdit ? 'Edit Lead' : leadToDuplicate ? 'Duplicate Lead' : 'Create New Lead'}
+            </h3>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Configure basic details, addresses, and GST profile (Zoho compatible)</span>
+          </div>
           <button
             onClick={onClose}
             style={{
@@ -428,6 +512,85 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
           </button>
         </div>
 
+        {/* Zoho-style Navigation Tabs */}
+        <div style={{
+          display: 'flex',
+          borderBottom: '1px solid #e2e8f0',
+          background: '#f8fafc',
+          padding: '0 20px',
+          gap: '4px',
+          overflowX: 'auto'
+        }}>
+          <button
+            type="button"
+            onClick={() => setActiveFormTab('lead_info')}
+            style={{
+              padding: '12px 16px',
+              border: 'none',
+              background: 'transparent',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              color: activeFormTab === 'lead_info' ? '#4f46e5' : '#64748b',
+              borderBottom: activeFormTab === 'lead_info' ? '2.5px solid #4f46e5' : '2.5px solid transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Building size={15} /> Basic Lead Details
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFormTab('address')}
+            style={{
+              padding: '12px 16px',
+              border: 'none',
+              background: 'transparent',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              color: activeFormTab === 'address' ? '#4f46e5' : '#64748b',
+              borderBottom: activeFormTab === 'address' ? '2.5px solid #4f46e5' : '2.5px solid transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <MapPin size={15} /> Address (Billing & Shipping)
+            {(formData.billingAddress?.city || formData.shippingAddress?.city || formData.billingAddress?.addressLine1) ? (
+              <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '10px', background: '#dcfce7', color: '#166534', fontWeight: 700 }}>Filled</span>
+            ) : null}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFormTab('gst')}
+            style={{
+              padding: '12px 16px',
+              border: 'none',
+              background: 'transparent',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              color: activeFormTab === 'gst' ? '#4f46e5' : '#64748b',
+              borderBottom: activeFormTab === 'gst' ? '2.5px solid #4f46e5' : '2.5px solid transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <FileText size={15} /> GST & Invoicing Details
+            {(formData.gstDetails?.gstin || formData.gstDetails?.pan || formData.gstDetails?.placeOfSupply) ? (
+              <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '10px', background: '#dcfce7', color: '#166534', fontWeight: 700 }}>Configured</span>
+            ) : null}
+          </button>
+        </div>
+
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
           <div className="modal-scroll" style={{
@@ -438,53 +601,53 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
             gridTemplateColumns: '1fr 1fr',
             gap: '20px 24px'
           }}>
-            {/* Freight Forwarding Sync Indicator */}
-            {leadToEdit?.freightEnquiryRef && (
-              <div style={{ gridColumn: 'span 2', background: '#eff6ff', padding: '12px 16px', borderRadius: '8px', borderLeft: '4px solid #3b82f6', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🚢</span>
-                <span style={{ fontSize: '0.85rem', color: '#1e40af', fontWeight: 600 }}>
-                  This lead was auto-synced from Export Freight Forwarding (Enquiry No: {leadToEdit.freightEnquiryRef}). Basic details are managed in the Export system.
-                </span>
-              </div>
-            )}
+            {activeFormTab === 'lead_info' && (
+              <>
+                {/* Freight Forwarding Sync Indicator */}
+                {leadToEdit?.freightEnquiryRef && (
+                  <div style={{ gridColumn: 'span 2', background: '#eff6ff', padding: '12px 16px', borderRadius: '8px', borderLeft: '4px solid #3b82f6', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>🚢</span>
+                    <span style={{ fontSize: '0.85rem', color: '#1e40af', fontWeight: 600 }}>
+                      This lead was auto-synced from Export Freight Forwarding (Enquiry No: {leadToEdit.freightEnquiryRef}). Basic details are managed in the Export system.
+                    </span>
+                  </div>
+                )}
 
-            {/* Company */}
-            <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Company Name *</label>
-              <input
-                required
-                type="text"
-                value={formData.company}
-                onChange={e => setFormData({ ...formData, company: e.target.value })}
-                placeholder="Ex. Global Trade Inc."
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
-              />
-            </div>
+                {/* Company */}
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Company Name *</label>
+                  <input
+                    type="text"
+                    value={formData.company}
+                    onChange={e => setFormData({ ...formData, company: e.target.value })}
+                    placeholder="Ex. Global Trade Inc."
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
+                  />
+                </div>
 
-            {/* Name Grid */}
-            <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>First Name *</label>
-                <input
-                  required
-                  type="text"
-                  value={formData.firstName}
-                  onChange={e => setFormData({ ...formData, firstName: e.target.value })}
-                  placeholder="John"
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Last Name</label>
-                <input
-                  type="text"
-                  value={formData.lastName}
-                  onChange={e => setFormData({ ...formData, lastName: e.target.value })}
-                  placeholder="Doe"
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
-                />
-              </div>
-            </div>
+                {/* Name Grid */}
+                <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>First Name *</label>
+                    <input
+                      type="text"
+                      value={formData.firstName}
+                      onChange={e => setFormData({ ...formData, firstName: e.target.value })}
+                      placeholder="John"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Last Name</label>
+                    <input
+                      type="text"
+                      value={formData.lastName}
+                      onChange={e => setFormData({ ...formData, lastName: e.target.value })}
+                      placeholder="Doe"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
+                    />
+                  </div>
+                </div>
 
             {/* Contact Grid */}
             <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -1134,7 +1297,457 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplic
                 </div>
               )}
             </div>
+
+            <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', marginTop: '6px', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+              <button
+                type="button"
+                onClick={() => setActiveFormTab('address')}
+                style={{
+                  padding: '9px 18px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px',
+                  color: '#4f46e5', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                Next: Add Address & GST Details (Optional) <ChevronRight size={16} />
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* 2. Zoho-Style Address Tab (Billing & Shipping) */}
+        {activeFormTab === 'address' && (
+          <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <div style={{
+              background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '12px 16px',
+              display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: '#1e40af'
+            }}>
+              <MapPin size={18} style={{ flexShrink: 0 }} />
+              <span>
+                <strong>Billing & Shipping Addresses:</strong> Enter address details as per Zoho standard. These will be ready for invoice generation.
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              {/* Billing Address Card */}
+              <div style={{
+                background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px',
+                display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>🏢</span> Billing Address
+                  </h4>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>Attention</label>
+                  <input
+                    type="text"
+                    value={formData.billingAddress?.attention || ''}
+                    onChange={e => setFormData({ ...formData, billingAddress: { ...formData.billingAddress, attention: e.target.value } })}
+                    placeholder="e.g. Accounts Department / Contact Name"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>Country / Region</label>
+                  <input
+                    type="text"
+                    value={formData.billingAddress?.country || 'India'}
+                    onChange={e => setFormData({ ...formData, billingAddress: { ...formData.billingAddress, country: e.target.value } })}
+                    placeholder="India"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>Address</label>
+                  <input
+                    type="text"
+                    value={formData.billingAddress?.addressLine1 || ''}
+                    onChange={e => setFormData({ ...formData, billingAddress: { ...formData.billingAddress, addressLine1: e.target.value } })}
+                    placeholder="Street 1 / Building / Unit"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none', marginBottom: '6px' }}
+                  />
+                  <input
+                    type="text"
+                    value={formData.billingAddress?.addressLine2 || ''}
+                    onChange={e => setFormData({ ...formData, billingAddress: { ...formData.billingAddress, addressLine2: e.target.value } })}
+                    placeholder="Street 2 / Road / Area / Landmark"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>City</label>
+                    <input
+                      type="text"
+                      value={formData.billingAddress?.city || ''}
+                      onChange={e => setFormData({ ...formData, billingAddress: { ...formData.billingAddress, city: e.target.value } })}
+                      placeholder="City"
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>State</label>
+                    <select
+                      value={formData.billingAddress?.state || ''}
+                      onChange={e => setFormData({ ...formData, billingAddress: { ...formData.billingAddress, state: e.target.value } })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none', background: '#fff' }}
+                    >
+                      <option value="">Select or type</option>
+                      {INDIAN_STATES_GST.map(s => (
+                        <option key={s.state} value={s.state}>{s.state}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>Pin Code</label>
+                    <input
+                      type="text"
+                      value={formData.billingAddress?.pincode || ''}
+                      onChange={e => setFormData({ ...formData, billingAddress: { ...formData.billingAddress, pincode: e.target.value } })}
+                      placeholder="e.g. 382010"
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>Phone</label>
+                    <input
+                      type="text"
+                      value={formData.billingAddress?.phone || ''}
+                      onChange={e => setFormData({ ...formData, billingAddress: { ...formData.billingAddress, phone: e.target.value } })}
+                      placeholder="+91 Phone"
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>Fax Number</label>
+                  <input
+                    type="text"
+                    value={formData.billingAddress?.fax || ''}
+                    onChange={e => setFormData({ ...formData, billingAddress: { ...formData.billingAddress, fax: e.target.value } })}
+                    placeholder="Fax Number"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                  />
+                </div>
+              </div>
+
+              {/* Shipping Address Card */}
+              <div style={{
+                background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px',
+                display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>🚚</span> Shipping Address
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={handleCopyBillingAddress}
+                    style={{
+                      background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: '6px',
+                      padding: '3px 9px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                    }}
+                  >
+                    <span>⬇</span> Copy billing address
+                  </button>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>Attention</label>
+                  <input
+                    type="text"
+                    value={formData.shippingAddress?.attention || ''}
+                    onChange={e => setFormData({ ...formData, shippingAddress: { ...formData.shippingAddress, attention: e.target.value } })}
+                    placeholder="e.g. Warehouse In-charge / Consignee"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>Country / Region</label>
+                  <input
+                    type="text"
+                    value={formData.shippingAddress?.country || 'India'}
+                    onChange={e => setFormData({ ...formData, shippingAddress: { ...formData.shippingAddress, country: e.target.value } })}
+                    placeholder="India"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>Address</label>
+                  <input
+                    type="text"
+                    value={formData.shippingAddress?.addressLine1 || ''}
+                    onChange={e => setFormData({ ...formData, shippingAddress: { ...formData.shippingAddress, addressLine1: e.target.value } })}
+                    placeholder="Street 1 / Warehouse / Yard"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none', marginBottom: '6px' }}
+                  />
+                  <input
+                    type="text"
+                    value={formData.shippingAddress?.addressLine2 || ''}
+                    onChange={e => setFormData({ ...formData, shippingAddress: { ...formData.shippingAddress, addressLine2: e.target.value } })}
+                    placeholder="Street 2 / Road / Area / Landmark"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>City</label>
+                    <input
+                      type="text"
+                      value={formData.shippingAddress?.city || ''}
+                      onChange={e => setFormData({ ...formData, shippingAddress: { ...formData.shippingAddress, city: e.target.value } })}
+                      placeholder="City"
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>State</label>
+                    <select
+                      value={formData.shippingAddress?.state || ''}
+                      onChange={e => setFormData({ ...formData, shippingAddress: { ...formData.shippingAddress, state: e.target.value } })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none', background: '#fff' }}
+                    >
+                      <option value="">Select or type</option>
+                      {INDIAN_STATES_GST.map(s => (
+                        <option key={s.state} value={s.state}>{s.state}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>Pin Code</label>
+                    <input
+                      type="text"
+                      value={formData.shippingAddress?.pincode || ''}
+                      onChange={e => setFormData({ ...formData, shippingAddress: { ...formData.shippingAddress, pincode: e.target.value } })}
+                      placeholder="e.g. 382010"
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>Phone</label>
+                    <input
+                      type="text"
+                      value={formData.shippingAddress?.phone || ''}
+                      onChange={e => setFormData({ ...formData, shippingAddress: { ...formData.shippingAddress, phone: e.target.value } })}
+                      placeholder="+91 Phone"
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '5px' }}>Fax Number</label>
+                  <input
+                    type="text"
+                    value={formData.shippingAddress?.fax || ''}
+                    onChange={e => setFormData({ ...formData, shippingAddress: { ...formData.shippingAddress, fax: e.target.value } })}
+                    placeholder="Fax Number"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Address Tab Navigation */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', paddingTop: '16px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={() => setActiveFormTab('lead_info')}
+                style={{ padding: '8px 16px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', color: '#475569', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+              >
+                ← Back to Lead Details
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveFormTab('gst')}
+                style={{ padding: '8px 18px', background: '#4f46e5', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                Next: GST & Invoicing Details →
+              </button>
+            </div>
           </div>
+        )}
+
+        {/* 3. Zoho-Style GST & Invoicing Details Tab */}
+        {activeFormTab === 'gst' && (
+          <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <div style={{
+              background: '#fefce8', border: '1px solid #fef08a', borderRadius: '10px', padding: '12px 16px',
+              display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: '#854d0e'
+            }}>
+              <FileText size={18} style={{ flexShrink: 0 }} />
+              <span>
+                <strong>GST & Tax Preferences (Zoho Books Compatible):</strong> Configure GST treatment, Place of Supply, PAN, and payment terms for future invoices.
+              </span>
+            </div>
+
+            <div style={{
+              background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '22px',
+              display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+            }}>
+              {/* GST Treatment */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  GST Treatment <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <select
+                  value={formData.gstDetails?.gstTreatment || 'Unregistered Business'}
+                  onChange={e => setFormData({ ...formData, gstDetails: { ...formData.gstDetails, gstTreatment: e.target.value } })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', fontSize: '0.95rem', outline: 'none', background: '#fff' }}
+                >
+                  {GST_TREATMENT_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px' }}>
+                  {GST_TREATMENT_OPTIONS.find(o => o.value === (formData.gstDetails?.gstTreatment || 'Unregistered Business'))?.desc}
+                </div>
+              </div>
+
+              {/* GSTIN (with smart auto-detection) */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  GSTIN / GST Number {['Registered Business - Regular', 'Registered Business - Composition', 'Special Economic Zone (SEZ)', 'Deemed Export'].includes(formData.gstDetails?.gstTreatment) ? <span style={{ color: '#ef4444' }}>*</span> : <span style={{ color: '#94a3b8', fontWeight: 400 }}>(Optional)</span>}
+                </label>
+                <input
+                  type="text"
+                  maxLength={15}
+                  value={formData.gstDetails?.gstin || ''}
+                  onChange={handleGstinChange}
+                  placeholder="e.g. 24AAACG1234A1Z5"
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1',
+                    fontSize: '0.95rem', outline: 'none', letterSpacing: '0.05em', textTransform: 'uppercase'
+                  }}
+                />
+                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
+                  💡 Typing GSTIN automatically auto-fills Place of Supply (State) and PAN.
+                </div>
+              </div>
+
+              {/* Place of Supply */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  Place of Supply <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <select
+                  value={formData.gstDetails?.placeOfSupply || ''}
+                  onChange={e => setFormData({ ...formData, gstDetails: { ...formData.gstDetails, placeOfSupply: e.target.value } })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', fontSize: '0.95rem', outline: 'none', background: '#fff' }}
+                >
+                  <option value="">Select Place of Supply State</option>
+                  {INDIAN_STATES_GST.map(s => (
+                    <option key={s.code} value={s.label}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* PAN */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  PAN (Permanent Account Number)
+                </label>
+                <input
+                  type="text"
+                  maxLength={10}
+                  value={formData.gstDetails?.pan || ''}
+                  onChange={e => setFormData({ ...formData, gstDetails: { ...formData.gstDetails, pan: e.target.value.toUpperCase() } })}
+                  placeholder="e.g. AAACG1234A"
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', fontSize: '0.95rem', outline: 'none', letterSpacing: '0.05em', textTransform: 'uppercase' }}
+                />
+              </div>
+
+              {/* Tax Preference (Taxable vs Tax Exempt) */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                  Tax Preference <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: '#1e293b', fontWeight: 600 }}>
+                    <input
+                      type="radio"
+                      name="taxPreference"
+                      value="Taxable"
+                      checked={formData.gstDetails?.taxPreference === 'Taxable'}
+                      onChange={() => setFormData({ ...formData, gstDetails: { ...formData.gstDetails, taxPreference: 'Taxable' } })}
+                      style={{ accentColor: '#4f46e5', width: '16px', height: '16px' }}
+                    />
+                    Taxable
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: '#1e293b', fontWeight: 600 }}>
+                    <input
+                      type="radio"
+                      name="taxPreference"
+                      value="Tax Exempt"
+                      checked={formData.gstDetails?.taxPreference === 'Tax Exempt'}
+                      onChange={() => setFormData({ ...formData, gstDetails: { ...formData.gstDetails, taxPreference: 'Tax Exempt' } })}
+                      style={{ accentColor: '#4f46e5', width: '16px', height: '16px' }}
+                    />
+                    Tax Exempt
+                  </label>
+                </div>
+              </div>
+
+              {/* Currency & Payment Terms */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Currency</label>
+                  <select
+                    value={formData.gstDetails?.currency || 'INR'}
+                    onChange={e => setFormData({ ...formData, gstDetails: { ...formData.gstDetails, currency: e.target.value } })}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', outline: 'none', background: '#fff' }}
+                  >
+                    {CURRENCY_OPTIONS.map(c => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Payment Terms</label>
+                  <select
+                    value={formData.gstDetails?.paymentTerms || 'Due on Receipt'}
+                    onChange={e => setFormData({ ...formData, gstDetails: { ...formData.gstDetails, paymentTerms: e.target.value } })}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', outline: 'none', background: '#fff' }}
+                  >
+                    {PAYMENT_TERMS_OPTIONS.map(pt => (
+                      <option key={pt} value={pt}>{pt}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* GST Tab Navigation */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', paddingTop: '16px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={() => setActiveFormTab('address')}
+                style={{ padding: '8px 16px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', color: '#475569', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+              >
+                ← Back to Address Details
+              </button>
+              <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'flex', alignItems: 'center' }}>
+                Ready to save! Click "{leadToEdit ? 'Update Lead' : 'Create Lead'}" below.
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
 
           {/* Footer */}
           <div style={{

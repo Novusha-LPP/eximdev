@@ -295,6 +295,72 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
             </div>
           )}
 
+          {/* Billing & Shipping Address Details */}
+          {(lead.billingAddress?.addressLine1 || lead.billingAddress?.city || lead.shippingAddress?.addressLine1 || lead.shippingAddress?.city) && (
+            <div style={{ marginBottom: '20px', background: '#f8fafc', padding: '14px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '6px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>📍 Address Details</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ background: '#fff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4f46e5', display: 'block', marginBottom: '4px' }}>🏢 Billing Address</span>
+                  {lead.billingAddress?.attention && <p style={{ margin: '0 0 2px 0', fontSize: '0.78rem', color: '#64748b' }}>Attn: {lead.billingAddress.attention}</p>}
+                  <p style={{ margin: '0', fontSize: '0.82rem', color: '#1e293b', fontWeight: 500, lineHeight: '1.4' }}>
+                    {[lead.billingAddress?.addressLine1, lead.billingAddress?.addressLine2, lead.billingAddress?.city, lead.billingAddress?.state, lead.billingAddress?.pincode, lead.billingAddress?.country].filter(Boolean).join(', ') || 'N/A'}
+                  </p>
+                  {lead.billingAddress?.phone && <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: '#64748b' }}>📞 {lead.billingAddress.phone}</p>}
+                </div>
+                <div style={{ background: '#fff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#059669', display: 'block', marginBottom: '4px' }}>🚚 Shipping Address</span>
+                  {lead.shippingAddress?.attention && <p style={{ margin: '0 0 2px 0', fontSize: '0.78rem', color: '#64748b' }}>Attn: {lead.shippingAddress.attention}</p>}
+                  <p style={{ margin: '0', fontSize: '0.82rem', color: '#1e293b', fontWeight: 500, lineHeight: '1.4' }}>
+                    {[lead.shippingAddress?.addressLine1, lead.shippingAddress?.addressLine2, lead.shippingAddress?.city, lead.shippingAddress?.state, lead.shippingAddress?.pincode, lead.shippingAddress?.country].filter(Boolean).join(', ') || 'N/A'}
+                  </p>
+                  {lead.shippingAddress?.phone && <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: '#64748b' }}>📞 {lead.shippingAddress.phone}</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* GST & Invoicing Details */}
+          {(lead.gstDetails?.gstTreatment || lead.gstDetails?.gstin || lead.gstDetails?.pan || lead.gstDetails?.placeOfSupply) && (
+            <div style={{ marginBottom: '20px', background: '#f8fafc', padding: '14px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '6px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>🏛️ GST & Invoicing Details</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px 16px' }}>
+                <div>
+                  <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block' }}>GST Treatment</span>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{lead.gstDetails?.gstTreatment || 'Unregistered Business'}</p>
+                </div>
+                {lead.gstDetails?.gstin && (
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block' }}>GSTIN</span>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', fontWeight: 700, color: '#0369a1', letterSpacing: '0.04em' }}>{lead.gstDetails.gstin}</p>
+                  </div>
+                )}
+                <div>
+                  <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block' }}>Place of Supply</span>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{lead.gstDetails?.placeOfSupply || 'N/A'}</p>
+                </div>
+                {lead.gstDetails?.pan && (
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block' }}>PAN</span>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', fontWeight: 700, color: '#1e293b', letterSpacing: '0.04em' }}>{lead.gstDetails.pan}</p>
+                  </div>
+                )}
+                <div>
+                  <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block' }}>Tax Preference</span>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{lead.gstDetails?.taxPreference || 'Taxable'}</p>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block' }}>Payment Terms</span>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{lead.gstDetails?.paymentTerms || 'Due on Receipt'}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Activity Timeline */}
           <div style={{ marginTop: '24px' }}>
             <ActivityTimeline linkedId={lead._id} linkedType="lead" />

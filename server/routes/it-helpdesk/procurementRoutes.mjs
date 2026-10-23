@@ -8,6 +8,7 @@ import ProcurementRequest from "../../model/it-helpdesk/procurementModel.mjs";
 import ITUnifiedAsset from "../../model/it-helpdesk/unifiedAssetModel.mjs";
 import ItVendor from "../../model/it-helpdesk/vendorModel.mjs";
 import User from "../../model/userModel.mjs";
+import Company from "../../model/attendance/Company.js";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import logger from "../../logger.js";
 
@@ -141,6 +142,489 @@ async function generateNextAssetTag() {
   return nextTag;
 }
 
+// ── 0. GET ALL COMPANIES FOR PR ENTITY SELECTION ─────────────────────────────
+router.get("/companies", async (req, res) => {
+  try {
+    const dbCompanies = await Company.find({ status: { $ne: "inactive" } })
+      .select("_id company_name company_code gst_number address contact")
+      .sort({ company_name: 1 })
+      .lean();
+
+    let list = (dbCompanies || []).map((c) => ({
+      id: c._id,
+      _id: c._id,
+      name: c.company_name,
+      company_name: c.company_name,
+      code: c.company_code,
+      company_code: c.company_code,
+      gst_number: c.gst_number || "",
+    }));
+
+    const defaultCompanies = [
+      { name: "Suraj Forwarders Private Limited", code: "SURAJF" },
+      { name: "SR Container Carriers", code: "SRCONT" },
+      { name: "Novusha Consulting Services India LLP", code: "NOVUSH" },
+      { name: "Paramount Propack Private Limited", code: "PARAMO" },
+      { name: "RABS Industries India Private Limited", code: "RABSIN" },
+      { name: "Eximbiz Enterprise", code: "EXIMBI" },
+      { name: "Sansar Tradelink", code: "SANSAR" },
+      { name: "SURAVIO", code: "SURAVIO" },
+    ];
+
+    defaultCompanies.forEach((def) => {
+      if (
+        !list.some(
+          (c) =>
+            c.name.toLowerCase() === def.name.toLowerCase() ||
+            c.code.toLowerCase() === def.code.toLowerCase()
+        )
+      ) {
+        list.push({
+          id: def.code,
+          _id: def.code,
+          name: def.name,
+          company_name: def.name,
+          code: def.code,
+          company_code: def.code,
+          gst_number: "",
+        });
+      }
+    });
+
+    res.json({ success: true, data: list });
+  } catch (err) {
+    logger.error(`Get procurement companies error: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── 0b. ADD NEW COMPANY ENTITY ────────────────────────────────────────────────
+router.post("/companies", async (req, res) => {
+  try {
+    const { company_name, company_code, gst_number, address, contact } = req.body || {};
+    if (!company_name || !company_name.trim()) {
+      return res.status(400).json({ success: false, message: "Company name is required" });
+    }
+
+    const trimmedName = company_name.trim();
+    const cleanCode = (
+      company_code ||
+      trimmedName
+        .split(" ")
+        .map((w) => w[0])
+        .join("")
+        .slice(0, 6) ||
+      "COMP"
+    )
+      .toUpperCase()
+      .trim();
+
+    const existing = await Company.findOne({
+      $or: [
+        { company_name_lower: trimmedName.toLowerCase() },
+        { company_name: new RegExp(`^${trimmedName}$`, "i") },
+        { company_code: cleanCode },
+      ],
+    });
+
+    if (existing) {
+      return res.json({
+        success: true,
+        message: "Company already exists",
+        data: {
+          id: existing._id,
+          _id: existing._id,
+          name: existing.company_name,
+          company_name: existing.company_name,
+          code: existing.company_code,
+          company_code: existing.company_code,
+          gst_number: existing.gst_number || "",
+        },
+      });
+    }
+
+    const newCompany = new Company({
+      company_name: trimmedName,
+      company_name_lower: trimmedName.toLowerCase(),
+      company_code: cleanCode,
+      gst_number: gst_number?.trim() || "",
+      address: typeof address === "object" ? address : { line1: address || "" },
+      contact: typeof contact === "object" ? contact : { email: contact || "" },
+      status: "active",
+      created_by: req.user?._id || null,
+    });
+
+    await newCompany.save();
+
+    logger.info(`New company entity registered via IT Procurement: ${trimmedName} (${cleanCode}) by ${req.user?.username}`);
+
+    res.status(201).json({
+      success: true,
+      message: "Company entity registered successfully",
+      data: {
+        id: newCompany._id,
+        _id: newCompany._id,
+        name: newCompany.company_name,
+        company_name: newCompany.company_name,
+        code: newCompany.company_code,
+        company_code: newCompany.company_code,
+        gst_number: newCompany.gst_number || "",
+      },
+    });
+  } catch (err) {
+    logger.error(`Create company entity error: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── 0c. GET DEPARTMENTS & DESIGNATED HOD MAPPING ─────────────────────────────
+router.get("/departments", async (req, res) => {
+  try {
+    const { company, company_id } = req.query;
+
+    const departmentDefaults = [
+      {
+        department: "Software Development",
+        category: "Technology",
+        default_hod_username: "punit_pandey",
+        default_hod_name: "Punit Pandey",
+        default_designation: "Product Manager",
+      },
+      {
+        department: "IT Infrastructure",
+        category: "Technology",
+        default_hod_username: "punit_pandey",
+        default_hod_name: "Punit Pandey",
+        default_designation: "Product Manager",
+      },
+      {
+        department: "Accounts & Finance",
+        category: "Finance",
+        default_hod_username: "chirag_shah",
+        default_hod_name: "Chirag Shah",
+        default_designation: "Sr. Manager Accounts",
+      },
+      {
+        department: "Import Operations",
+        category: "Operations",
+        default_hod_username: "sreekumar_pillai",
+        default_hod_name: "Sreekumar Pillai",
+        default_designation: "Sr Manager - Import",
+      },
+      {
+        department: "Export Operations",
+        category: "Operations",
+        default_hod_username: "sojith_mammuttil",
+        default_hod_name: "Sojith Mammuttil",
+        default_designation: "Senior Manager - Export",
+      },
+      {
+        department: "DGFT & Licensing",
+        category: "Compliance",
+        default_hod_username: "renjith_r",
+        default_hod_name: "Renjith R",
+        default_designation: "Head of Department - DGFT",
+      },
+      {
+        department: "HR & Administration",
+        category: "Human Resources",
+        default_hod_username: "deepak_singh",
+        default_hod_name: "Deepak Singh",
+        default_designation: "Asst Manager - HR & Admin",
+      },
+      {
+        department: "General Operations",
+        category: "Operations",
+        default_hod_username: "mahesh_patil",
+        default_hod_name: "Mahesh Patil",
+        default_designation: "Operation Manager",
+      },
+      {
+        department: "Sanand Operations",
+        category: "Operations",
+        default_hod_username: "majhar_khan",
+        default_hod_name: "Majhar Khan",
+        default_designation: "Manager Import Operations",
+      },
+      {
+        department: "Sales & Marketing",
+        category: "Commercial",
+        default_hod_username: "kinjal_khatri",
+        default_hod_name: "Kinjal Khatri",
+        default_designation: "Head of Department - Marketing",
+      },
+      {
+        department: "Paramount Propack",
+        category: "Business Unit",
+        default_hod_username: "krishnapal_puvar",
+        default_hod_name: "Krishnapal Puvar",
+        default_designation: "Head of Department",
+      },
+      {
+        department: "RABS Logistics",
+        category: "Business Unit",
+        default_hod_username: "ajith_sivadasan",
+        default_hod_name: "Ajith Sivadasan",
+        default_designation: "Head of Department",
+      },
+      {
+        department: "Executive Office",
+        category: "Executive",
+        default_hod_username: "manu_pillai",
+        default_hod_name: "Manu Pillai",
+        default_designation: "General Manager",
+      },
+    ];
+
+    const hodUsers = await User.find({
+      $or: [
+        { isHod: true },
+        { role: { $in: ["Head_of_Department", "head_of_department", "HOD", "Admin", "Manager", "admin"] } },
+        { designation: /manager|head|hod|director|lead/i },
+        { username: { $in: departmentDefaults.map((d) => d.default_hod_username) } },
+      ],
+      isActive: { $ne: false },
+    })
+      .select("_id username name first_name last_name email role designation department company company_id")
+      .lean();
+
+    const userMap = new Map();
+    const allHodsList = [];
+
+    hodUsers.forEach((u) => {
+      const displayName = u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.username;
+      const hodObj = {
+        id: u._id,
+        _id: u._id,
+        username: u.username,
+        name: displayName,
+        email: u.email || "",
+        designation: u.designation || (u.role === "Admin" ? "Administrator" : "Head of Department"),
+        department: u.department || "",
+        company: u.company || "",
+        role: u.role || "Head_of_Department",
+      };
+      userMap.set(u.username.toLowerCase(), hodObj);
+      allHodsList.push(hodObj);
+    });
+
+    if (!userMap.has("shalini_arun")) {
+      const shaliniUser = await User.findOne({ username: "shalini_arun" }).lean();
+      if (shaliniUser) {
+        const shaliniObj = {
+          id: shaliniUser._id,
+          _id: shaliniUser._id,
+          username: shaliniUser.username,
+          name: shaliniUser.name || "Shalini Arun",
+          email: shaliniUser.email || "admin@surajforwarders.com",
+          designation: shaliniUser.designation || "Manager - HR & Admin",
+          department: shaliniUser.department || "Admin",
+          company: shaliniUser.company || "",
+          role: shaliniUser.role || "Admin",
+        };
+        userMap.set("shalini_arun", shaliniObj);
+        allHodsList.push(shaliniObj);
+      }
+    }
+
+    const standardMappedDepartments = departmentDefaults.map((item) => {
+      const mappedUser = userMap.get(item.default_hod_username.toLowerCase());
+      const designatedHod = mappedUser
+        ? {
+            id: mappedUser.id,
+            name: mappedUser.name,
+            username: mappedUser.username,
+            email: mappedUser.email,
+            designation: mappedUser.designation || item.default_designation,
+          }
+        : {
+            id: null,
+            name: item.default_hod_name,
+            username: item.default_hod_username,
+            email: "",
+            designation: item.default_designation,
+          };
+
+      return {
+        department: item.department,
+        category: item.category,
+        designated_hod: designatedHod,
+      };
+    });
+
+    let mappedDepartments = standardMappedDepartments;
+
+    // If specific company is provided, dynamically extract departments for that company
+    if (company && company.trim()) {
+      const compName = company.trim();
+      const firstWord = compName.split(" ")[0];
+      const compRegex = new RegExp(`^${compName}$|${firstWord}`, "i");
+
+      const companyQuery = {
+        $or: [
+          { company: compRegex },
+          { company: compName },
+          ...(company_id ? [{ company_id }] : []),
+        ],
+        department: { $exists: true, $ne: "" },
+        isActive: { $ne: false },
+      };
+
+      const companyUsers = await User.find(companyQuery)
+        .select("_id username name first_name last_name email role designation department company isHod")
+        .lean();
+
+      const uniqueDeptNames = [...new Set(companyUsers.map((u) => u.department?.trim()).filter(Boolean))];
+      const isRabs = /rabs/i.test(compName);
+      const isAlluvium = /alluvium/i.test(compName);
+
+      if (isRabs) {
+        const ajithUser = companyUsers.find((u) => u.username === "ajith_sivadasan") ||
+          (await User.findOne({ username: "ajith_sivadasan" }).lean());
+
+        const rabsManagerHod = ajithUser
+          ? {
+              id: ajithUser._id,
+              name: ajithUser.name || `${ajithUser.first_name || ""} ${ajithUser.last_name || ""}`.trim() || "Ajith Sivadasan",
+              username: ajithUser.username,
+              email: ajithUser.email || "ajith@rabs.co.in",
+              designation: ajithUser.designation || "Manager - RABS",
+            }
+          : {
+              id: null,
+              name: "Ajith Sivadasan",
+              username: "ajith_sivadasan",
+              email: "ajith@rabs.co.in",
+              designation: "Manager - RABS",
+            };
+
+        mappedDepartments = [
+          {
+            department: "RABS Operations",
+            category: "Operations",
+            designated_hod: rabsManagerHod,
+          },
+        ];
+      } else if (isAlluvium) {
+        const punitUser = (await User.findOne({ username: "punit_pandey" }).lean()) ||
+          companyUsers.find((u) => u.username === "punit_pandey");
+
+        const punitHod = punitUser
+          ? {
+              id: punitUser._id,
+              name: punitUser.name || `${punitUser.first_name || ""} ${punitUser.last_name || ""}`.trim() || "Punit Pandey",
+              username: "punit_pandey",
+              email: punitUser.email || "punit@alluvium.in",
+              designation: punitUser.designation || "Product Manager",
+            }
+          : {
+              id: null,
+              name: "Punit Pandey",
+              username: "punit_pandey",
+              email: "punit@alluvium.in",
+              designation: "Product Manager",
+            };
+
+        mappedDepartments = [
+          {
+            department: "Software Development",
+            category: "Technology",
+            designated_hod: punitHod,
+          },
+          {
+            department: "Software",
+            category: "Technology",
+            designated_hod: punitHod,
+          },
+        ];
+      } else if (uniqueDeptNames.length > 0) {
+        mappedDepartments = uniqueDeptNames.map((deptName) => {
+          const deptUsers = companyUsers.filter(
+            (u) => (u.department || "").trim().toLowerCase() === deptName.toLowerCase()
+          );
+
+          // Find designated HOD in this company & department
+          const companyHod = deptUsers.find(
+            (u) =>
+              u.isHod ||
+              /head|manager|lead|director/i.test(u.designation || "") ||
+              /head_of_department|manager/i.test(u.role || "")
+          );
+
+          // Fallback to standard defaults
+          const stdDefault = departmentDefaults.find(
+            (d) =>
+              d.department.toLowerCase().includes(deptName.toLowerCase()) ||
+              deptName.toLowerCase().includes(d.department.toLowerCase())
+          );
+
+          let finalHod = null;
+          if (companyHod) {
+            const displayName = companyHod.name || `${companyHod.first_name || ""} ${companyHod.last_name || ""}`.trim() || companyHod.username;
+            finalHod = {
+              id: companyHod._id,
+              name: displayName,
+              username: companyHod.username,
+              email: companyHod.email || "",
+              designation: companyHod.designation || "Head of Department",
+            };
+          } else if (stdDefault) {
+            const mappedUser = userMap.get(stdDefault.default_hod_username.toLowerCase());
+            finalHod = mappedUser
+              ? {
+                  id: mappedUser.id,
+                  name: mappedUser.name,
+                  username: mappedUser.username,
+                  email: mappedUser.email,
+                  designation: mappedUser.designation || stdDefault.default_designation,
+                }
+              : {
+                  id: null,
+                  name: stdDefault.default_hod_name,
+                  username: stdDefault.default_hod_username,
+                  email: "",
+                  designation: stdDefault.default_designation,
+                };
+          } else if (deptUsers[0]) {
+            const fallbackUser = deptUsers[0];
+            const displayName = fallbackUser.name || `${fallbackUser.first_name || ""} ${fallbackUser.last_name || ""}`.trim() || fallbackUser.username;
+            finalHod = {
+              id: fallbackUser._id,
+              name: displayName,
+              username: fallbackUser.username,
+              email: fallbackUser.email || "",
+              designation: fallbackUser.designation || "Department In-Charge",
+            };
+          }
+
+          return {
+            department: deptName,
+            category: stdDefault?.category || "General",
+            designated_hod: finalHod || {
+              id: null,
+              name: "Department In-Charge",
+              username: "",
+              email: "",
+              designation: "Head of Department",
+            },
+          };
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        departments: mappedDepartments,
+        all_hods: allHodsList.sort((a, b) => (a.name || "").localeCompare(b.name || "")),
+      },
+    });
+  } catch (err) {
+    logger.error(`Get procurement departments error: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ── 1. GET STATS ─────────────────────────────────────────────────────────────
 router.get("/stats", async (req, res) => {
   try {
@@ -259,20 +743,52 @@ router.get("/", async (req, res) => {
     const skip = (page - 1) * limit;
 
     const query = {};
+    const andClauses = [];
 
     if (req.query.search) {
       const s = String(req.query.search).trim();
       const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const rx = new RegExp(escaped, "i");
-      query.$or = [
-        { pr_number: rx },
-        { "item_details.item_name": rx },
-        { "requested_by.name": rx },
-        { "requested_by.department": rx },
-        { "purchase_order.po_number": rx },
-        { "invoice_details.invoice_number": rx },
-        { "final_approval.selected_vendor": rx },
-      ];
+      andClauses.push({
+        $or: [
+          { pr_number: rx },
+          { "item_details.item_name": rx },
+          { "requested_by.name": rx },
+          { "requested_by.department": rx },
+          { department: rx },
+          { "designated_hod.name": rx },
+          { "designated_hod.username": rx },
+          { "purchase_order.po_number": rx },
+          { "invoice_details.invoice_number": rx },
+          { "final_approval.selected_vendor": rx },
+          { "company.name": rx },
+          { "company.code": rx },
+          { company_name: rx },
+        ],
+      });
+    }
+
+    if (req.query.company && req.query.company !== "All") {
+      andClauses.push({
+        $or: [
+          { "company.name": req.query.company },
+          { "company.code": req.query.company },
+          { company_name: req.query.company },
+        ],
+      });
+    }
+
+    if (req.query.department && req.query.department !== "All") {
+      andClauses.push({
+        $or: [
+          { department: req.query.department },
+          { "requested_by.department": req.query.department },
+        ],
+      });
+    }
+
+    if (andClauses.length > 0) {
+      query.$and = andClauses;
     }
 
     if (req.query.branch && req.query.branch !== "All") {
@@ -368,11 +884,32 @@ router.post("/", async (req, res) => {
     const body = req.body || {};
     const prNumber = body.pr_number || (await generateNextPRNumber());
 
+    const deptName = (
+      body.department ||
+      body.requested_by?.department ||
+      req.user?.department ||
+      ""
+    ).trim();
+
+    const deptId = mongoose.Types.ObjectId.isValid(body.department_id)
+      ? body.department_id
+      : null;
+
+    const designatedHod = {
+      id: mongoose.Types.ObjectId.isValid(body.designated_hod?.id || body.designated_hod?._id)
+        ? body.designated_hod?.id || body.designated_hod?._id
+        : null,
+      name: (body.designated_hod?.name || "").trim(),
+      username: (body.designated_hod?.username || "").trim(),
+      email: (body.designated_hod?.email || "").trim(),
+      designation: (body.designated_hod?.designation || "").trim(),
+    };
+
     const requester = {
       id: req.user?._id || null,
       name: body.requested_by?.name || req.user?.name || req.user?.username || "Requester",
       email: body.requested_by?.email || req.user?.email || "",
-      department: body.requested_by?.department || req.user?.department || "IT",
+      department: deptName || body.requested_by?.department || req.user?.department || "IT",
     };
 
     const hasQuotations = Array.isArray(body.quotations) && body.quotations.length > 0;
@@ -385,11 +922,34 @@ router.post("/", async (req, res) => {
       ? "Draft"
       : "Quotation Pending";
 
+    const companyData = {
+      id: mongoose.Types.ObjectId.isValid(body.company?.id || body.company_id)
+        ? body.company?.id || body.company_id
+        : null,
+      name: (body.company?.name || body.company_name || (typeof body.company === "string" ? body.company : "") || "").trim(),
+      code: (body.company?.code || body.company_code || "").trim(),
+    };
+
     const newRequest = new ProcurementRequest({
       pr_number: prNumber,
       request_date: body.request_date || new Date(),
       required_by_date: body.required_by_date || null,
       requested_by: requester,
+      company: companyData,
+      company_name: companyData.name,
+      company_id: companyData.id,
+      department: deptName,
+      department_id: deptId,
+      designated_hod: designatedHod,
+      first_approval: {
+        approver_username: designatedHod.username || "shalini_arun",
+        approver_name: designatedHod.name || "Shalini Arun",
+        approver_id: designatedHod.id || null,
+        decision: "Pending",
+        approved_amount: 0,
+        approval_date: null,
+        remarks: "",
+      },
       branch: body.branch || "Head Office",
       item_details: {
         item_name: body.item_details?.item_name || body.item_name || "IT Hardware",
@@ -436,6 +996,41 @@ router.put("/:id", validateId, async (req, res) => {
     }
 
     const body = req.body;
+    if (body.company || body.company_name) {
+      const cName = (body.company?.name || body.company_name || (typeof body.company === "string" ? body.company : "") || "").trim();
+      const cCode = (body.company?.code || body.company_code || "").trim();
+      const cId = mongoose.Types.ObjectId.isValid(body.company?.id || body.company_id)
+        ? body.company?.id || body.company_id
+        : item.company?.id || null;
+      item.company = { id: cId, name: cName, code: cCode };
+      item.company_name = cName;
+      item.company_id = cId;
+    }
+    if (body.department !== undefined) {
+      item.department = (body.department || "").trim();
+      if (item.requested_by) item.requested_by.department = item.department;
+    }
+    if (body.department_id !== undefined) {
+      item.department_id = mongoose.Types.ObjectId.isValid(body.department_id) ? body.department_id : null;
+    }
+    if (body.designated_hod) {
+      const dId = mongoose.Types.ObjectId.isValid(body.designated_hod.id || body.designated_hod._id)
+        ? body.designated_hod.id || body.designated_hod._id
+        : item.designated_hod?.id || null;
+      item.designated_hod = {
+        id: dId,
+        name: (body.designated_hod.name || item.designated_hod?.name || "").trim(),
+        username: (body.designated_hod.username || item.designated_hod?.username || "").trim(),
+        email: (body.designated_hod.email || item.designated_hod?.email || "").trim(),
+        designation: (body.designated_hod.designation || item.designated_hod?.designation || "").trim(),
+      };
+      if (item.current_stage <= 4 && (!item.first_approval || item.first_approval.decision === "Pending")) {
+        if (!item.first_approval) item.first_approval = {};
+        if (item.designated_hod.name) item.first_approval.approver_name = item.designated_hod.name;
+        if (item.designated_hod.username) item.first_approval.approver_username = item.designated_hod.username;
+        if (item.designated_hod.id) item.first_approval.approver_id = item.designated_hod.id;
+      }
+    }
     if (body.branch) item.branch = body.branch;
     if (body.required_by_date) item.required_by_date = body.required_by_date;
     if (body.item_details) {

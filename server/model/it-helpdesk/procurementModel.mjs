@@ -108,6 +108,40 @@ const procurementRequestSchema = new mongoose.Schema(
       default: "Head Office",
       index: true,
     },
+    company: {
+      id: { type: mongoose.Schema.Types.ObjectId, ref: "Company", default: null },
+      name: { type: String, trim: true, default: "" },
+      code: { type: String, trim: true, default: "" },
+    },
+    company_name: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+    company_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+    },
+    department: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+    department_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Department",
+      default: null,
+    },
+    designated_hod: {
+      id: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+      name: { type: String, trim: true, default: "" },
+      username: { type: String, trim: true, default: "" },
+      email: { type: String, trim: true, default: "" },
+      designation: { type: String, trim: true, default: "" },
+    },
     item_details: {
       item_name: { type: String, required: true, trim: true },
       category: {

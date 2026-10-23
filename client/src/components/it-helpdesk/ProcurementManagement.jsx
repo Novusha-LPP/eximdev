@@ -59,6 +59,13 @@ import {
   History,
   AlertCircle,
   TrendingUp,
+  RotateCcw,
+  XCircle,
+  Award,
+  DollarSign,
+  CheckCheck,
+  BadgePercent,
+  Briefcase,
 } from "lucide-react";
 import { UserContext } from "../../contexts/UserContext";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
@@ -149,6 +156,8 @@ export default function ProcurementManagement() {
   const parsedStatus = parsedStage === 4 ? "HOD Approval Pending" : parsedStage === 5 ? "GM Approval Pending" : "All";
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("All");
+  const [departmentFilter, setDepartmentFilter] = useState("All");
   const [branchFilter, setBranchFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState(parsedStatus);
@@ -156,9 +165,22 @@ export default function ProcurementManagement() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [vendorList, setVendorList] = useState([]);
+  const [companyList, setCompanyList] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [allHods, setAllHods] = useState([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(false);
+  const [customHodMode, setCustomHodMode] = useState(false);
 
   // Modal States
   const [newPrModalOpen, setNewPrModalOpen] = useState(false);
+  const [addCompanyModalOpen, setAddCompanyModalOpen] = useState(false);
+  const [newCompanyForm, setNewCompanyForm] = useState({
+    company_name: "",
+    company_code: "",
+    gst_number: "",
+    city: "",
+  });
+  const [creatingCompany, setCreatingCompany] = useState(false);
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [selectedPR, setSelectedPR] = useState(null);
   const [workflowTab, setWorkflowTab] = useState(0);
@@ -175,6 +197,13 @@ export default function ProcurementManagement() {
           selectedPR.final_approval?.decision)
     );
 
+  const canApproveHOD =
+    isSuperAdmin ||
+    isHOD ||
+    (selectedPR?.designated_hod?.username && currentUsername === selectedPR.designated_hod.username.toLowerCase()) ||
+    (selectedPR?.first_approval?.approver_username && currentUsername === selectedPR.first_approval.approver_username.toLowerCase()) ||
+    currentUsername === "shalini_arun";
+
   // Document Viewer Modal
   const [docViewerUrl, setDocViewerUrl] = useState(null);
   const [docViewerTitle, setDocViewerTitle] = useState("");
@@ -182,6 +211,18 @@ export default function ProcurementManagement() {
   // New PR Form
   const [prForm, setPrForm] = useState({
     pr_number: "",
+    company_name: "",
+    company_code: "",
+    company_id: null,
+    department: "",
+    department_id: null,
+    designated_hod: {
+      id: null,
+      name: "",
+      username: "",
+      email: "",
+      designation: "",
+    },
     item_name: "",
     category: "Computer / Desktop",
     quantity: 1,
@@ -300,6 +341,35 @@ export default function ProcurementManagement() {
     }
   }, []);
 
+  // Fetch Companies for Entity Hierarchy Selection
+  const fetchCompanies = useCallback(async () => {
+    try {
+      const res = await itHelpdeskAPI.procurement.getCompanies();
+      const list = Array.isArray(res?.data) ? res.data : [];
+      setCompanyList(list);
+    } catch (err) {
+      console.warn("Could not load companies:", err);
+    }
+  }, []);
+
+  // Fetch Departments & Designated HOD Mapping (optionally company-filtered)
+  const fetchDepartments = useCallback(async (params = {}) => {
+    setLoadingDepartments(true);
+    try {
+      const res = await itHelpdeskAPI.procurement.getDepartments(params);
+      if (res?.data) {
+        setDepartments(res.data.departments || []);
+        if (res.data.all_hods) {
+          setAllHods(res.data.all_hods || []);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load departments:", err);
+    } finally {
+      setLoadingDepartments(false);
+    }
+  }, []);
+
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
@@ -307,6 +377,8 @@ export default function ProcurementManagement() {
         page,
         limit: 15,
         search: searchTerm,
+        company: companyFilter !== "All" ? companyFilter : undefined,
+        department: departmentFilter !== "All" ? departmentFilter : undefined,
         branch: branchFilter,
         category: categoryFilter,
         status: statusFilter,
@@ -322,12 +394,14 @@ export default function ProcurementManagement() {
     } finally {
       setLoading(false);
     }
-  }, [page, searchTerm, branchFilter, categoryFilter, statusFilter, stageFilter]);
+  }, [page, searchTerm, companyFilter, departmentFilter, branchFilter, categoryFilter, statusFilter, stageFilter]);
 
   useEffect(() => {
     fetchVendors();
     fetchStats();
-  }, [fetchVendors, fetchStats]);
+    fetchCompanies();
+    fetchDepartments();
+  }, [fetchVendors, fetchStats, fetchCompanies, fetchDepartments]);
 
   useEffect(() => {
     fetchRequests();
@@ -350,8 +424,10 @@ export default function ProcurementManagement() {
         .then((res) => {
           if (res?.data) {
             handleOpenWorkflow(res.data);
-            if (res.data.current_stage === 4 || res.data.current_stage === 5) {
-              setWorkflowTab(2); // Directly open Approvals tab
+            if (res.data.current_stage === 4) {
+              setWorkflowTab(2); // Directly open HOD Approval tab
+            } else if (res.data.current_stage === 5) {
+              setWorkflowTab(3); // Directly open GM Approval tab
             }
           }
         })
@@ -363,8 +439,15 @@ export default function ProcurementManagement() {
   const handleOpenNewPrModal = async () => {
     try {
       const res = await itHelpdeskAPI.procurement.getNextPr();
+
       setPrForm({
         pr_number: res?.next_pr_number || `PR-${new Date().getFullYear()}-001`,
+        company_name: "",
+        company_code: "",
+        company_id: null,
+        department: "",
+        department_id: null,
+        designated_hod: { id: null, name: "", username: "", email: "", designation: "" },
         item_name: "",
         category: "Computer / Desktop",
         quantity: 1,
@@ -378,15 +461,164 @@ export default function ProcurementManagement() {
         ram: "",
         storage: "",
       });
+      setDepartments([]);
       setNewPrModalOpen(true);
     } catch (err) {
       toast.error("Failed to generate PR sequence");
     }
   };
 
+  // Helper to handle Company Selection and dynamically fetch company departments
+  const handleCompanyChange = async (newValue) => {
+    if (!newValue) {
+      setPrForm((prev) => ({
+        ...prev,
+        company_name: "",
+        company_code: "",
+        company_id: null,
+        department: "",
+        department_id: null,
+        designated_hod: { id: null, name: "", username: "", email: "", designation: "" },
+      }));
+      setDepartments([]);
+      return;
+    }
+
+    const companyName = typeof newValue === "string" ? newValue : (newValue.name || newValue.company_name || "");
+    const companyCode = typeof newValue === "string" ? "" : (newValue.code || newValue.company_code || "");
+    const companyId = typeof newValue === "string" ? null : (newValue.id || newValue._id || null);
+
+    setPrForm((prev) => ({
+      ...prev,
+      company_name: companyName,
+      company_code: companyCode,
+      company_id: companyId,
+      department: "",
+      department_id: null,
+      designated_hod: { id: null, name: "", username: "", email: "", designation: "" },
+    }));
+
+    if (companyName.trim()) {
+      await fetchDepartments({
+        company: companyName.trim(),
+        company_id: companyId || undefined,
+      });
+    }
+  };
+
+  // Helper to change department and auto-map designated HOD
+  const handleDepartmentChange = (deptName) => {
+    const trimmed = (deptName || "").trim();
+    if (!trimmed) {
+      setPrForm((prev) => ({
+        ...prev,
+        department: "",
+        department_id: null,
+        designated_hod: { id: null, name: "", username: "", email: "", designation: "" },
+      }));
+      return;
+    }
+    const matchedDept = departments.find(
+      (d) => d.department?.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (matchedDept && matchedDept.designated_hod) {
+      setPrForm((prev) => ({
+        ...prev,
+        department: matchedDept.department,
+        department_id: matchedDept.id || null,
+        designated_hod: { ...matchedDept.designated_hod },
+      }));
+    } else {
+      setPrForm((prev) => ({
+        ...prev,
+        department: deptName,
+      }));
+    }
+  };
+
+  // Helper to manually override designated HOD
+  const handleHodChange = (hodObj) => {
+    if (!hodObj) {
+      setPrForm((prev) => ({
+        ...prev,
+        designated_hod: { id: null, name: "", username: "", email: "", designation: "" },
+      }));
+      return;
+    }
+    setPrForm((prev) => ({
+      ...prev,
+      designated_hod: {
+        id: hodObj.id || hodObj._id || null,
+        name: hodObj.name || "",
+        username: hodObj.username || "",
+        email: hodObj.email || "",
+        designation: hodObj.designation || "Head of Department",
+      },
+    }));
+  };
+
+  // Add / Register New Company Entity
+  const handleCreateCompany = async (e) => {
+    e?.preventDefault();
+    if (!newCompanyForm.company_name?.trim()) {
+      toast.error("Company Legal Name is required");
+      return;
+    }
+    setCreatingCompany(true);
+    try {
+      const res = await itHelpdeskAPI.procurement.addCompany({
+        company_name: newCompanyForm.company_name.trim(),
+        company_code: newCompanyForm.company_code.trim(),
+        gst_number: newCompanyForm.gst_number.trim(),
+        address: { city: newCompanyForm.city.trim() },
+      });
+      toast.success(res?.message || "Company entity registered successfully!");
+      const created = res?.data;
+      if (created) {
+        setCompanyList((prev) => {
+          const exists = prev.some(
+            (c) => c.name?.toLowerCase() === created.name?.toLowerCase()
+          );
+          return exists ? prev : [...prev, created];
+        });
+        setPrForm((prev) => ({
+          ...prev,
+          company_name: created.name,
+          company_code: created.code,
+          company_id: created.id || created._id,
+          department: "",
+          department_id: null,
+          designated_hod: { id: null, name: "", username: "", email: "", designation: "" },
+        }));
+        fetchDepartments({
+          company: created.name,
+          company_id: created.id || created._id,
+        });
+      }
+      setAddCompanyModalOpen(false);
+      setNewCompanyForm({ company_name: "", company_code: "", gst_number: "", city: "" });
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to add company entity");
+    } finally {
+      setCreatingCompany(false);
+    }
+  };
+
   // Submit New PR
   const handleCreatePR = async (e) => {
     e?.preventDefault();
+    if (!prForm.company_name?.trim()) {
+      toast.error("Please select a Company Entity first");
+      return;
+    }
+    if (!prForm.department?.trim()) {
+      toast.error("Please select the initiating Department");
+      return;
+    }
+    if (!prForm.designated_hod?.name?.trim()) {
+      toast.error("Please select the Designated HOD reviewer");
+      return;
+    }
     if (!prForm.item_name || !prForm.estimated_budget) {
       toast.error("Please fill in Item Name and Estimated Budget");
       return;
@@ -395,6 +627,22 @@ export default function ProcurementManagement() {
     try {
       const payload = {
         pr_number: prForm.pr_number,
+        company: {
+          id: prForm.company_id || null,
+          name: prForm.company_name.trim(),
+          code: prForm.company_code || "",
+        },
+        company_name: prForm.company_name.trim(),
+        company_id: prForm.company_id || null,
+        department: prForm.department.trim(),
+        department_id: prForm.department_id || null,
+        designated_hod: {
+          id: prForm.designated_hod?.id || prForm.designated_hod?._id || null,
+          name: prForm.designated_hod?.name || "",
+          username: prForm.designated_hod?.username || "",
+          email: prForm.designated_hod?.email || "",
+          designation: prForm.designated_hod?.designation || "",
+        },
         branch: prForm.branch,
         required_by_date: prForm.required_by_date || null,
         item_details: {
@@ -414,7 +662,7 @@ export default function ProcurementManagement() {
       };
 
       await itHelpdeskAPI.procurement.create(payload);
-      toast.success(`Purchase Request ${prForm.pr_number} created!`);
+      toast.success(`Purchase Request ${prForm.pr_number} created for ${prForm.department} (${prForm.company_name})!`);
       setNewPrModalOpen(false);
       fetchStats();
       fetchRequests();
@@ -566,10 +814,11 @@ export default function ProcurementManagement() {
       // Set default tab based on current stage
       if (data.current_stage <= 2) setWorkflowTab(1); // Quotations
       else if (data.current_stage === 3) setWorkflowTab(1); // IT Eval
-      else if (data.current_stage <= 5) setWorkflowTab(2); // Approvals
-      else if (data.current_stage <= 7) setWorkflowTab(3); // PO & GRN
-      else if (data.current_stage <= 9) setWorkflowTab(4); // Invoicing
-      else if (data.current_stage >= 10) setWorkflowTab(5); // Payment & Asset Bridge
+      else if (data.current_stage === 4) setWorkflowTab(2); // Stage 4: HOD Approval
+      else if (data.current_stage === 5) setWorkflowTab(3); // Stage 5: GM Approval
+      else if (data.current_stage <= 7) setWorkflowTab(4); // PO & GRN
+      else if (data.current_stage <= 9) setWorkflowTab(5); // Invoicing
+      else if (data.current_stage >= 10) setWorkflowTab(6); // Payment & Asset Bridge
 
       setWorkflowModalOpen(true);
     } catch (err) {
@@ -795,6 +1044,9 @@ export default function ProcurementManagement() {
       setIsEditingHod(false);
       fetchStats();
       fetchRequests();
+      if (hodForm.decision === "Approved") {
+        setWorkflowTab(3); // Automatically advance to Stage 5: GM Approval tab
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to submit HOD decision");
     } finally {
@@ -817,7 +1069,7 @@ export default function ProcurementManagement() {
       fetchRequests();
       // Auto advance to PO tab if approved
       if (gmForm.decision === "Approved") {
-        setWorkflowTab(3);
+        setWorkflowTab(4);
       }
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to record GM approval");
@@ -1033,6 +1285,18 @@ export default function ProcurementManagement() {
       </Box>
     );
   };
+
+  // Financial Intelligence Metrics for Selected PR
+  const prBudget = selectedPR?.item_details?.estimated_budget || 0;
+  const activeRecQuoteNo = itEvalForm.recommended_quote_no || selectedPR?.it_evaluation?.recommended_quote_no;
+  const recommendedQuote = (quotesList || []).find((q) => q.quotation_no === activeRecQuoteNo);
+  const lowestQuote = (quotesList || [])
+    .filter((q) => Number(q.total_amount) > 0)
+    .sort((a, b) => Number(a.total_amount) - Number(b.total_amount))[0];
+  const bestTargetQuote = recommendedQuote || lowestQuote;
+  const quoteTargetAmount = Number(bestTargetQuote?.total_amount || 0);
+  const projectedSavings = prBudget > quoteTargetAmount && quoteTargetAmount > 0 ? prBudget - quoteTargetAmount : 0;
+  const projectedSavingsPct = prBudget > 0 && projectedSavings > 0 ? Math.round((projectedSavings / prBudget) * 100) : 0;
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f8fafc", minHeight: "100vh" }}>
@@ -1358,24 +1622,66 @@ export default function ProcurementManagement() {
 
       {/* ── 4. SEARCH & FILTER TOOLBAR ── */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: "12px", border: "1px solid #e2e8f0", bgcolor: "#fff" }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={4}>
+        <Grid container spacing={1.5} alignItems="center">
+          <Grid item xs={12} sm={2.5}>
             <TextField
               fullWidth
               size="small"
-              placeholder="Search PR No, item, requester, vendor, PO..."
+              placeholder="Search PR No, item, entity, HOD..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setPage(1);
               }}
               InputProps={{
-                startAdornment: <Search size={18} style={{ marginRight: 8, color: "#94a3b8" }} />,
+                startAdornment: <Search size={16} style={{ marginRight: 6, color: "#94a3b8" }} />,
               }}
             />
           </Grid>
 
           <Grid item xs={6} sm={2}>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Company Entity"
+              value={companyFilter}
+              onChange={(e) => {
+                setCompanyFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <MenuItem value="All">All Companies</MenuItem>
+              {companyList.map((c) => (
+                <MenuItem key={c.id || c._id || c.code} value={c.name || c.company_name}>
+                  {c.name || c.company_name}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+
+          <Grid item xs={6} sm={2}>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Department"
+              value={departmentFilter}
+              onChange={(e) => {
+                setDepartmentFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <MenuItem value="All">All Departments</MenuItem>
+              {departments.map((d) => (
+                <MenuItem key={d.department} value={d.department}>
+                  {d.department}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+
+          <Grid item xs={6} sm={1.4}>
             <TextField
               select
               fullWidth
@@ -1396,7 +1702,7 @@ export default function ProcurementManagement() {
             </TextField>
           </Grid>
 
-          <Grid item xs={6} sm={2}>
+          <Grid item xs={6} sm={1.4}>
             <TextField
               select
               fullWidth
@@ -1417,7 +1723,7 @@ export default function ProcurementManagement() {
             </TextField>
           </Grid>
 
-          <Grid item xs={6} sm={2}>
+          <Grid item xs={6} sm={1.7}>
             <TextField
               select
               fullWidth
@@ -1444,19 +1750,21 @@ export default function ProcurementManagement() {
             </TextField>
           </Grid>
 
-          <Grid item xs={6} sm={2} sx={{ display: "flex", gap: 1 }}>
+          <Grid item xs={6} sm={1} sx={{ display: "flex", gap: 1 }}>
             <Button
               fullWidth
               variant="outlined"
               onClick={() => {
                 setSearchTerm("");
+                setCompanyFilter("All");
+                setDepartmentFilter("All");
                 setBranchFilter("All");
                 setCategoryFilter("All");
                 setStatusFilter("All");
                 setStageFilter("All");
                 setPage(1);
               }}
-              sx={{ textTransform: "none", borderColor: "#cbd5e1", color: "#475569" }}
+              sx={{ textTransform: "none", borderColor: "#cbd5e1", color: "#475569", px: 1, minWidth: 0 }}
             >
               Reset
             </Button>
@@ -1544,12 +1852,28 @@ export default function ProcurementManagement() {
                         <Typography sx={{ fontWeight: 650, color: "#334155" }}>
                           {row.requested_by?.name || "IT Dept"}
                         </Typography>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "#64748b", fontSize: "0.75rem" }}>
-                          <Building2 size={12} />
+                        {(row.company?.name || row.company_name || row.company) && (
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "#4f46e5", fontSize: "0.74rem", fontWeight: 700, mt: 0.2 }}>
+                            <Building2 size={12} />
+                            <span title={row.company?.name || row.company_name || row.company}>
+                              {row.company?.code ? `${row.company.code} - ` : ""}
+                              {row.company?.name || row.company_name || row.company}
+                            </span>
+                          </Box>
+                        )}
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "#64748b", fontSize: "0.74rem", mt: 0.2 }}>
                           <span>{row.branch || "Head Office"}</span>
                           <span>•</span>
-                          <span>{row.requested_by?.department || "IT"}</span>
+                          <span style={{ color: "#7c3aed", fontWeight: 700 }}>
+                            {row.department || row.requested_by?.department || "IT"}
+                          </span>
                         </Box>
+                        {(row.designated_hod?.name || row.first_approval?.approver_name) && (
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "#6b21a8", fontSize: "0.68rem", mt: 0.2 }}>
+                            <UserCheck size={11} />
+                            <span>HOD: {row.designated_hod?.name || row.first_approval?.approver_name}</span>
+                          </Box>
+                        )}
                       </td>
 
                       {/* 3. Item & Quantity */}
@@ -1760,6 +2084,216 @@ export default function ProcurementManagement() {
         <form onSubmit={handleCreatePR}>
           <DialogContent sx={{ p: 3 }}>
             <Grid container spacing={2.5}>
+              {/* ── COMPANY ENTITY (FIRST SELECTION) ── */}
+              <Grid item xs={12} sm={8}>
+                <Autocomplete
+                  freeSolo
+                  forcePopupIcon
+                  openOnFocus
+                  options={companyList}
+                  getOptionLabel={(option) => {
+                    if (typeof option === "string") return option;
+                    return option.name || option.company_name || "";
+                  }}
+                  value={
+                    companyList.find(
+                      (c) =>
+                        (c.name && c.name.toLowerCase() === (prForm.company_name || "").toLowerCase()) ||
+                        (c.code && c.code.toLowerCase() === (prForm.company_code || "").toLowerCase())
+                    ) ||
+                    prForm.company_name ||
+                    null
+                  }
+                  onChange={(_e, newValue) => handleCompanyChange(newValue)}
+                  onInputChange={(_e, newInputValue, reason) => {
+                    if (reason === "input") {
+                      setPrForm((prev) => ({ ...prev, company_name: newInputValue }));
+                    } else if (reason === "clear") {
+                      handleCompanyChange(null);
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      required
+                      fullWidth
+                      label="Company Entity"
+                      placeholder="Select or enter company entity..."
+                      helperText="Select the associated company entity"
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Building2 size={18} color="#4f46e5" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <li {...props} key={option.id || option._id || option.code || option.name}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", py: 0.5 }}>
+                        <Box>
+                          <Typography sx={{ fontWeight: 650, fontSize: "0.85rem", color: "#1e293b" }}>
+                            {option.name || option.company_name}
+                          </Typography>
+                          {option.gst_number && (
+                            <Typography sx={{ fontSize: "0.7rem", color: "#64748b" }}>
+                              GSTIN: {option.gst_number}
+                            </Typography>
+                          )}
+                        </Box>
+                        {(option.code || option.company_code) && (
+                          <Chip
+                            size="small"
+                            label={option.code || option.company_code}
+                            sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, bgcolor: "#eef2ff", color: "#4f46e5" }}
+                          />
+                        )}
+                      </Box>
+                    </li>
+                  )}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={4}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<Plus size={16} />}
+                  onClick={() => {
+                    setNewCompanyForm({ company_name: "", company_code: "", gst_number: "", city: "" });
+                    setAddCompanyModalOpen(true);
+                  }}
+                  sx={{
+                    height: 54,
+                    textTransform: "none",
+                    fontSize: "0.85rem",
+                    fontWeight: 650,
+                    color: "#4f46e5",
+                    borderColor: "#cbd5e1",
+                    bgcolor: "#f8fafc",
+                    "&:hover": { bgcolor: "#eef2ff", borderColor: "#4f46e5" },
+                  }}
+                >
+                  + Add New Company
+                </Button>
+              </Grid>
+
+              {/* ── DEPARTMENT & DESIGNATED HOD MAPPING ── */}
+              <Grid item xs={12} sm={6}>
+                <Autocomplete
+                  freeSolo
+                  forcePopupIcon
+                  openOnFocus
+                  disabled={!prForm.company_name}
+                  loading={loadingDepartments}
+                  options={departments.map((d) => d.department)}
+                  value={prForm.department}
+                  onChange={(_event, newValue) => handleDepartmentChange(newValue)}
+                  onInputChange={(_event, newInputValue, reason) => {
+                    if (reason === "input") handleDepartmentChange(newInputValue);
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      required
+                      fullWidth
+                      label="Department"
+                      placeholder={
+                        !prForm.company_name
+                          ? "Select Company Entity first"
+                          : loadingDepartments
+                          ? "Loading departments..."
+                          : "Select or enter department..."
+                      }
+                      helperText={
+                        !prForm.company_name
+                          ? "Select Company Entity first"
+                          : loadingDepartments
+                          ? `Loading departments for ${prForm.company_name}...`
+                          : departments.length > 0
+                          ? `Departments in ${prForm.company_name}`
+                          : "Department requesting this purchase"
+                      }
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Layers size={18} color={prForm.company_name ? "#7c3aed" : "#94a3b8"} />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <Autocomplete
+                  disabled={!prForm.company_name}
+                  options={allHods}
+                  getOptionLabel={(option) => {
+                    if (typeof option === "string") return option;
+                    if (!option) return "";
+                    const designation = option.designation || option.department || "HOD";
+                    return `${option.name || option.username} (${designation})`;
+                  }}
+                  value={
+                    allHods.find(
+                      (h) =>
+                        (h.username && h.username.toLowerCase() === (prForm.designated_hod?.username || "").toLowerCase()) ||
+                        (h.name && h.name.toLowerCase() === (prForm.designated_hod?.name || "").toLowerCase())
+                    ) || (prForm.designated_hod?.name ? prForm.designated_hod : null)
+                  }
+                  onChange={(_event, newValue) => handleHodChange(newValue)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      required
+                      fullWidth
+                      label="Designated HOD"
+                      placeholder={prForm.company_name ? "Select designated HOD..." : "Select Company Entity first"}
+                      helperText={
+                        !prForm.company_name
+                          ? "Select Company Entity first"
+                          : prForm.designated_hod?.email
+                          ? `${prForm.designated_hod.email} • Mapped for initial review`
+                          : "Automatically mapped for initial review"
+                      }
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <UserCheck size={18} color={prForm.company_name ? "#7c3aed" : "#94a3b8"} />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <li {...props} key={option.id || option._id || option.username}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", py: 0.5 }}>
+                        <Box>
+                          <Typography sx={{ fontWeight: 650, fontSize: "0.85rem", color: "#1e293b" }}>
+                            {option.name}
+                          </Typography>
+                          <Typography sx={{ fontSize: "0.7rem", color: "#64748b" }}>
+                            {option.designation || option.department || "Head of Department"}
+                          </Typography>
+                        </Box>
+                        <Chip
+                          size="small"
+                          label={`@${option.username}`}
+                          sx={{ height: 18, fontSize: "0.62rem", bgcolor: "#f3e8ff", color: "#6b21a8" }}
+                        />
+                      </Box>
+                    </li>
+                  )}
+                />
+              </Grid>
+
+              {/* ── PR DETAILS ── */}
               <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
@@ -1774,7 +2308,8 @@ export default function ProcurementManagement() {
                 <TextField
                   select
                   fullWidth
-                  label="Branch / Location *"
+                  required
+                  label="Branch / Location"
                   value={prForm.branch}
                   onChange={(e) => setPrForm({ ...prForm, branch: e.target.value })}
                 >
@@ -1801,7 +2336,7 @@ export default function ProcurementManagement() {
                 <TextField
                   fullWidth
                   required
-                  label="Item / Requirement Title *"
+                  label="Item / Requirement Title"
                   placeholder="e.g. Dell OptiPlex Desktop i7 / HP LaserJet Pro"
                   value={prForm.item_name}
                   onChange={(e) => setPrForm({ ...prForm, item_name: e.target.value })}
@@ -1813,7 +2348,7 @@ export default function ProcurementManagement() {
                   select
                   fullWidth
                   required
-                  label="Category *"
+                  label="Category"
                   value={prForm.category}
                   onChange={(e) => setPrForm({ ...prForm, category: e.target.value })}
                 >
@@ -1830,7 +2365,7 @@ export default function ProcurementManagement() {
                   fullWidth
                   required
                   type="number"
-                  label="Quantity *"
+                  label="Quantity"
                   inputProps={{ min: 1 }}
                   value={prForm.quantity}
                   onChange={(e) => setPrForm({ ...prForm, quantity: e.target.value })}
@@ -1842,7 +2377,7 @@ export default function ProcurementManagement() {
                   fullWidth
                   required
                   type="number"
-                  label="Estimated Budget (₹) *"
+                  label="Estimated Budget (₹)"
                   placeholder="e.g. 65000"
                   value={prForm.estimated_budget}
                   onChange={(e) => setPrForm({ ...prForm, estimated_budget: e.target.value })}
@@ -1875,9 +2410,10 @@ export default function ProcurementManagement() {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
+                  required
                   multiline
                   rows={2}
-                  label="Business / Technical Justification *"
+                  label="Business / Technical Justification"
                   placeholder="Explain why this equipment is needed, user impact, or legacy asset being replaced..."
                   value={prForm.justification}
                   onChange={(e) => setPrForm({ ...prForm, justification: e.target.value })}
@@ -1935,6 +2471,107 @@ export default function ProcurementManagement() {
               sx={{ bgcolor: "#4f46e5", textTransform: "none", fontWeight: 650, px: 3, "&:hover": { bgcolor: "#4338ca" } }}
             >
               {submitting ? <CircularProgress size={20} color="inherit" /> : "Submit Purchase Request"}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      {/* ── 6b. ADD NEW COMPANY ENTITY MODAL ── */}
+      <Dialog
+        open={addCompanyModalOpen}
+        onClose={() => setAddCompanyModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: "14px" } }}
+      >
+        <DialogTitle sx={{ borderBottom: "1px solid #e2e8f0", pb: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+            <Box
+              sx={{
+                width: 34,
+                height: 34,
+                borderRadius: "8px",
+                bgcolor: "#eef2ff",
+                color: "#4f46e5",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              <Building2 size={18} />
+            </Box>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 750, color: "#0f172a", fontSize: "1.05rem" }}>
+                Add New Company Entity
+              </Typography>
+              <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.75rem" }}>
+                Register associated corporate entity for organizational hierarchy
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton onClick={() => setAddCompanyModalOpen(false)}>
+            <X size={18} />
+          </IconButton>
+        </DialogTitle>
+
+        <form onSubmit={handleCreateCompany}>
+          <DialogContent sx={{ p: 3 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Company Legal Name *"
+                  placeholder="e.g. Suraj Forwarders Private Limited"
+                  value={newCompanyForm.company_name}
+                  onChange={(e) => setNewCompanyForm({ ...newCompanyForm, company_name: e.target.value })}
+                  helperText="Official registered entity name"
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Company Code / Short Key *"
+                  placeholder="e.g. SURAJF, SRCC, NOVUSH"
+                  value={newCompanyForm.company_code}
+                  onChange={(e) => setNewCompanyForm({ ...newCompanyForm, company_code: e.target.value.toUpperCase() })}
+                  helperText="Unique uppercase identifier code"
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="GSTIN / Tax ID"
+                  placeholder="e.g. 24ANGPR7652E1ZV"
+                  value={newCompanyForm.gst_number}
+                  onChange={(e) => setNewCompanyForm({ ...newCompanyForm, gst_number: e.target.value.toUpperCase() })}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Registered City / Location"
+                  placeholder="e.g. Ahmedabad, Gujarat"
+                  value={newCompanyForm.city}
+                  onChange={(e) => setNewCompanyForm({ ...newCompanyForm, city: e.target.value })}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+
+          <DialogActions sx={{ p: 2.5, borderTop: "1px solid #e2e8f0" }}>
+            <Button onClick={() => setAddCompanyModalOpen(false)} sx={{ textTransform: "none", color: "#64748b" }}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={creatingCompany}
+              sx={{ bgcolor: "#4f46e5", textTransform: "none", fontWeight: 650, px: 3, "&:hover": { bgcolor: "#4338ca" } }}
+            >
+              {creatingCompany ? <CircularProgress size={20} color="inherit" /> : "Save & Associate Entity"}
             </Button>
           </DialogActions>
         </form>
@@ -2064,26 +2701,82 @@ export default function ProcurementManagement() {
               </Box>
             </Box>
 
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            {/* Executive Financial Snapshot & Modal Actions */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+              {/* Estimated Budget KPI */}
               <Box
                 sx={{
-                  bgcolor: "#f0fdf4",
-                  border: "1.5px solid #86efac",
-                  px: 2.2,
-                  py: 0.8,
+                  bgcolor: "#f8fafc",
+                  border: "1.5px solid #e2e8f0",
+                  px: 2,
+                  py: 0.7,
                   borderRadius: "12px",
                   textAlign: "right",
-                  minWidth: 150,
-                  boxShadow: "0 2px 6px rgba(16, 185, 129, 0.08)",
+                  minWidth: 130,
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
                 }}
               >
-                <Typography sx={{ fontSize: "0.68rem", fontWeight: 800, color: "#166534", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                <Typography sx={{ fontSize: "0.64rem", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   Estimated Budget
                 </Typography>
-                <Typography sx={{ fontSize: "1.25rem", fontWeight: 850, color: "#14532d", lineHeight: 1.15 }}>
+                <Typography sx={{ fontSize: "1.15rem", fontWeight: 850, color: "#0f172a", lineHeight: 1.15 }}>
                   ₹{(selectedPR.item_details?.estimated_budget || 0).toLocaleString("en-IN")}
                 </Typography>
               </Box>
+
+              {/* IT Recommended / Lowest Bid Card (if quotes exist) */}
+              {quoteTargetAmount > 0 && (
+                <Box
+                  sx={{
+                    bgcolor: "#eef2ff",
+                    border: "1.5px solid #c7d2fe",
+                    px: 2,
+                    py: 0.7,
+                    borderRadius: "12px",
+                    textAlign: "right",
+                    minWidth: 140,
+                    boxShadow: "0 2px 6px rgba(99, 102, 241, 0.08)",
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 0.5 }}>
+                    <Sparkles size={11} color="#4f46e5" />
+                    <Typography sx={{ fontSize: "0.64rem", fontWeight: 800, color: "#4338ca", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      IT Recommended
+                    </Typography>
+                  </Box>
+                  <Typography sx={{ fontSize: "1.15rem", fontWeight: 850, color: "#3730a3", lineHeight: 1.15 }}>
+                    ₹{quoteTargetAmount.toLocaleString("en-IN")}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Net Cost Savings Pill */}
+              {projectedSavings > 0 && (
+                <Box
+                  sx={{
+                    bgcolor: "#ecfdf5",
+                    border: "1.5px solid #86efac",
+                    px: 2,
+                    py: 0.7,
+                    borderRadius: "12px",
+                    textAlign: "right",
+                    minWidth: 145,
+                    boxShadow: "0 2px 6px rgba(16, 185, 129, 0.08)",
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 0.5 }}>
+                    <TrendingUp size={11} color="#059669" />
+                    <Typography sx={{ fontSize: "0.64rem", fontWeight: 800, color: "#166534", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Cost Savings
+                    </Typography>
+                  </Box>
+                  <Typography sx={{ fontSize: "1.15rem", fontWeight: 850, color: "#047857", lineHeight: 1.15 }}>
+                    ₹{projectedSavings.toLocaleString("en-IN")}{" "}
+                    <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#059669" }}>({projectedSavingsPct}%)</span>
+                  </Typography>
+                </Box>
+              )}
+
               <IconButton
                 onClick={() => setWorkflowModalOpen(false)}
                 sx={{
@@ -2094,6 +2787,7 @@ export default function ProcurementManagement() {
                   borderRadius: "10px",
                   p: 1,
                   color: "#475569",
+                  ml: 0.5,
                 }}
               >
                 <X size={20} />
@@ -2102,8 +2796,8 @@ export default function ProcurementManagement() {
           </DialogTitle>
 
           {/* Stepper Progress Sub-Header (Interactive 12-Stage Visual Tracker) */}
-          <Box sx={{ px: 3.5, py: 1.2, bgcolor: "#faf5ff", borderBottom: "1px solid #f3e8ff" }}>
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 0.5, overflowX: "auto" }}>
+          <Box sx={{ px: 3.5, py: 1.2, bgcolor: "#ffffff", borderBottom: "1px solid #e2e8f0" }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 0.6, overflowX: "auto" }}>
               {STAGES.map((s, idx) => {
                 const isPassed = (selectedPR.current_stage || 1) > s.id;
                 const isCurrent = (selectedPR.current_stage || 1) === s.id;
@@ -2113,25 +2807,26 @@ export default function ProcurementManagement() {
                       onClick={() => {
                         if (s.id === 1) setWorkflowTab(0);
                         else if (s.id === 2 || s.id === 3) setWorkflowTab(1);
-                        else if (s.id === 4 || s.id === 5) setWorkflowTab(2);
-                        else if (s.id === 6 || s.id === 7) setWorkflowTab(3);
-                        else if (s.id === 8 || s.id === 9) setWorkflowTab(4);
-                        else if (s.id >= 10) setWorkflowTab(5);
+                        else if (s.id === 4) setWorkflowTab(2); // Stage 4: HOD
+                        else if (s.id === 5) setWorkflowTab(3); // Stage 5: GM
+                        else if (s.id === 6 || s.id === 7) setWorkflowTab(4);
+                        else if (s.id === 8 || s.id === 9) setWorkflowTab(5);
+                        else if (s.id >= 10) setWorkflowTab(6);
                       }}
                       sx={{
                         display: "flex",
                         alignItems: "center",
                         gap: 0.8,
-                        py: 0.4,
-                        px: 1,
-                        borderRadius: "8px",
+                        py: 0.5,
+                        px: 1.2,
+                        borderRadius: "10px",
                         cursor: "pointer",
-                        bgcolor: isCurrent ? "#ffffff" : isPassed ? "rgba(236, 253, 245, 0.7)" : "transparent",
-                        border: "1px solid",
-                        borderColor: isCurrent ? "#7c3aed" : isPassed ? "#a7f3d0" : "transparent",
-                        boxShadow: isCurrent ? "0 2px 8px rgba(124, 58, 237, 0.18)" : "none",
-                        transition: "all 0.15s ease",
-                        "&:hover": { bgcolor: isCurrent ? "#ffffff" : "#f3e8ff" },
+                        bgcolor: isCurrent ? "#f5f3ff" : isPassed ? "#f0fdf4" : "transparent",
+                        border: "1.5px solid",
+                        borderColor: isCurrent ? "#7c3aed" : isPassed ? "#86efac" : "transparent",
+                        boxShadow: isCurrent ? "0 2px 10px rgba(124, 58, 237, 0.16)" : "none",
+                        transition: "all 0.18s ease",
+                        "&:hover": { bgcolor: isCurrent ? "#f5f3ff" : "#f8fafc", transform: "translateY(-1px)" },
                         flexShrink: 0,
                       }}
                       title={`Stage ${s.id}: ${s.title}`}
@@ -2207,13 +2902,20 @@ export default function ProcurementManagement() {
               },
               {
                 id: 2,
-                label: "3. Approvals (HOD & GM)",
-                icon: ShieldCheck,
+                label: "3. HOD Approval",
+                icon: UserCheck,
+                badge: selectedPR.first_approval?.decision ? selectedPR.first_approval.decision : (selectedPR.current_stage === 4 ? "Pending" : null),
               },
-              { id: 3, label: "4. PO & GRN Receiving", icon: Truck },
-              { id: 4, label: "5. Invoice & 3-Way Match", icon: Receipt },
-              { id: 5, label: "6. Payment & Asset Bridge", icon: CreditCard },
-              { id: 6, label: "7. Workflow Audit", icon: History },
+              {
+                id: 3,
+                label: "4. GM Approval",
+                icon: ShieldCheck,
+                badge: selectedPR.final_approval?.decision ? selectedPR.final_approval.decision : (selectedPR.current_stage === 5 ? "Pending" : null),
+              },
+              { id: 4, label: "5. PO & GRN Receiving", icon: Truck },
+              { id: 5, label: "6. Invoice & 3-Way Match", icon: Receipt },
+              { id: 6, label: "7. Payment & Asset Bridge", icon: CreditCard },
+              { id: 7, label: "8. Workflow Audit", icon: History },
             ].map((tab) => {
               const isActive = workflowTab === tab.id;
               const IconComp = tab.icon;
@@ -2676,6 +3378,41 @@ export default function ProcurementManagement() {
                         </Box>
                       </Box>
 
+                      {/* Associated Corporate Entity */}
+                      {(selectedPR.company?.name || selectedPR.company_name || selectedPR.company) && (
+                        <Box sx={{ p: 1.5, borderRadius: "10px", bgcolor: "#f8fafc", border: "1px solid #e0e7ff", mb: 1.8 }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, color: "#4f46e5", mb: 0.3 }}>
+                            <Building2 size={14} />
+                            <Typography sx={{ fontSize: "0.68rem", fontWeight: 750, textTransform: "uppercase" }}>
+                              Associated Corporate Entity
+                            </Typography>
+                          </Box>
+                          <Typography sx={{ fontWeight: 750, color: "#0f172a", fontSize: "0.88rem" }}>
+                            {selectedPR.company?.name || selectedPR.company_name || selectedPR.company}
+                            {(selectedPR.company?.code || selectedPR.company_code) && ` (${selectedPR.company?.code || selectedPR.company_code})`}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {/* Initiating Department & Designated HOD */}
+                      {(selectedPR.department || selectedPR.requested_by?.department) && (
+                        <Box sx={{ p: 1.5, borderRadius: "10px", bgcolor: "#f5f3ff", border: "1px solid #ddd6fe", mb: 1.8 }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, color: "#7c3aed", mb: 0.3 }}>
+                            <Layers size={14} />
+                            <Typography sx={{ fontSize: "0.68rem", fontWeight: 750, textTransform: "uppercase" }}>
+                              Initiating Department &amp; Designated HOD
+                            </Typography>
+                          </Box>
+                          <Typography sx={{ fontWeight: 750, color: "#4c1d95", fontSize: "0.88rem" }}>
+                            {selectedPR.department || selectedPR.requested_by?.department}
+                          </Typography>
+                          <Typography sx={{ fontSize: "0.74rem", color: "#6b21a8", mt: 0.2 }}>
+                            Reviewer: <b>{selectedPR.designated_hod?.name || selectedPR.first_approval?.approver_name || "Designated HOD"}</b>
+                            {selectedPR.designated_hod?.designation ? ` (${selectedPR.designated_hod.designation})` : ""}
+                          </Typography>
+                        </Box>
+                      )}
+
                       {/* Branch & Timestamp */}
                       <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
                         <Grid item xs={6}>
@@ -2747,7 +3484,9 @@ export default function ProcurementManagement() {
                           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                               <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: selectedPR.first_approval?.decision === "Approved" ? "#10b981" : "#8b5cf6" }} />
-                              <Typography sx={{ fontSize: "0.8rem", fontWeight: 650, color: "#1e293b" }}>3. Stage 4: HOD Sign-Off (Shalini Arun)</Typography>
+                              <Typography sx={{ fontSize: "0.8rem", fontWeight: 650, color: "#1e293b" }}>
+                                3. Stage 4: HOD Sign-Off ({selectedPR.designated_hod?.name || selectedPR.first_approval?.approver_name || "Designated HOD"})
+                              </Typography>
                             </Box>
                             <Chip
                               size="small"
@@ -3155,88 +3894,895 @@ export default function ProcurementManagement() {
               </Box>
             )}
 
-            {/* ── TAB 2: APPROVALS (HOD & GM) ── */}
+            {/* ── TAB 2: STAGE 4: HOD / ADMIN COMMERCIAL & TECHNICAL APPROVAL ── */}
             {workflowTab === 2 && (
-              <Box>
-                {/* Quotation Comparison Preview for HOD & GM Approvers */}
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {/* 1. Commercial Variance & Key Metrics Ribbon */}
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2,
+                        borderRadius: "14px",
+                        border: "1px solid #e2e8f0",
+                        bgcolor: "#ffffff",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.8,
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: "12px",
+                          bgcolor: "#f8fafc",
+                          border: "1.5px solid #e2e8f0",
+                          display: "grid",
+                          placeItems: "center",
+                          color: "#475569",
+                        }}
+                      >
+                        <CreditCard size={22} />
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: "0.68rem", fontWeight: 750, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          PR Estimated Budget
+                        </Typography>
+                        <Typography sx={{ fontSize: "1.2rem", fontWeight: 850, color: "#0f172a", lineHeight: 1.15 }}>
+                          ₹{prBudget.toLocaleString("en-IN")}
+                        </Typography>
+                        <Typography sx={{ fontSize: "0.7rem", color: "#64748b", mt: 0.3 }}>
+                          {selectedPR.department || "General"} CapEx Quota
+                        </Typography>
+                      </Box>
+                    </Paper>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2,
+                        borderRadius: "14px",
+                        border: "1px solid #c7d2fe",
+                        bgcolor: "#f5f7ff",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.8,
+                        boxShadow: "0 2px 6px rgba(99, 102, 241, 0.06)",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: "12px",
+                          bgcolor: "#e0e7ff",
+                          border: "1.5px solid #a5b4fc",
+                          display: "grid",
+                          placeItems: "center",
+                          color: "#4338ca",
+                        }}
+                      >
+                        <Award size={22} />
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: "0.68rem", fontWeight: 750, color: "#4338ca", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          IT Recommended Bid
+                        </Typography>
+                        <Typography sx={{ fontSize: "1.2rem", fontWeight: 850, color: "#312e81", lineHeight: 1.15 }}>
+                          ₹{quoteTargetAmount.toLocaleString("en-IN")}
+                        </Typography>
+                        <Typography sx={{ fontSize: "0.7rem", color: "#4f46e5", fontWeight: 650, mt: 0.3 }} noWrap>
+                          {bestTargetQuote?.vendor_name || "Lowest Bidder"}
+                        </Typography>
+                      </Box>
+                    </Paper>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2,
+                        borderRadius: "14px",
+                        border: "1px solid #86efac",
+                        bgcolor: "#f0fdf4",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.8,
+                        boxShadow: "0 2px 6px rgba(16, 185, 129, 0.06)",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: "12px",
+                          bgcolor: "#dcfce7",
+                          border: "1.5px solid #86efac",
+                          display: "grid",
+                          placeItems: "center",
+                          color: "#059669",
+                        }}
+                      >
+                        <TrendingUp size={22} />
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: "0.68rem", fontWeight: 750, color: "#166534", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          Projected Cost Savings
+                        </Typography>
+                        <Typography sx={{ fontSize: "1.2rem", fontWeight: 850, color: "#14532d", lineHeight: 1.15 }}>
+                          ₹{projectedSavings.toLocaleString("en-IN")}
+                        </Typography>
+                        <Typography sx={{ fontSize: "0.7rem", color: "#15803d", fontWeight: 700, mt: 0.3 }}>
+                          {projectedSavingsPct > 0 ? `${projectedSavingsPct}% Under PR Budget` : "Within Budget Limits"}
+                        </Typography>
+                      </Box>
+                    </Paper>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2,
+                        borderRadius: "14px",
+                        border: "1px solid #e2e8f0",
+                        bgcolor: "#ffffff",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.8,
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: "12px",
+                          bgcolor: "#faf5ff",
+                          border: "1.5px solid #e9d5ff",
+                          display: "grid",
+                          placeItems: "center",
+                          color: "#7c3aed",
+                        }}
+                      >
+                        <ShieldCheck size={22} />
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: "0.68rem", fontWeight: 750, color: "#6b21a8", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          Workflow Mandate
+                        </Typography>
+                        <Typography sx={{ fontSize: "1.1rem", fontWeight: 850, color: "#581c87", lineHeight: 1.15 }}>
+                          Stage 4 of 12
+                        </Typography>
+                        <Typography sx={{ fontSize: "0.7rem", color: selectedPR.first_approval?.decision === "Approved" ? "#16a34a" : "#ea580c", fontWeight: 750, mt: 0.3 }}>
+                          {selectedPR.first_approval?.decision === "Approved" ? "✓ HOD Approved" : "Pending HOD Sign-Off"}
+                        </Typography>
+                      </Box>
+                    </Paper>
+                  </Grid>
+                </Grid>
+
+                {/* 2. Evaluated Quotations Comparison Cards */}
                 <Paper
                   elevation={0}
                   sx={{
-                    p: 2.2,
-                    mb: 3,
-                    borderRadius: "10px",
+                    p: 2.5,
+                    borderRadius: "16px",
                     border: "1px solid #e2e8f0",
-                    bgcolor: "#fff",
+                    bgcolor: "#ffffff",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.03)",
                   }}
                 >
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <FileSpreadsheet size={18} color="#4f46e5" />
-                      <Typography sx={{ fontSize: "0.92rem", fontWeight: 750, color: "#1e293b" }}>
-                        Evaluated Quotations for Approval (Minimum 3 Quotes)
-                      </Typography>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, flexWrap: "wrap", gap: 1.5 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                      <Box sx={{ width: 32, height: 32, borderRadius: "8px", bgcolor: "#eef2ff", color: "#4f46e5", display: "grid", placeItems: "center" }}>
+                        <FileSpreadsheet size={18} />
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: "0.95rem", fontWeight: 750, color: "#0f172a" }}>
+                          Evaluated Vendor Quotations (Comparative Commercial Audit)
+                        </Typography>
+                        <Typography sx={{ fontSize: "0.74rem", color: "#64748b" }}>
+                          Review all vendor bids submitted by IT Helpdesk before issuing departmental commercial approval
+                        </Typography>
+                      </Box>
                     </Box>
                     {selectedPR.it_evaluation?.recommended_vendor && (
                       <Chip
-                        size="small"
-                        label={`IT Recommended: ${selectedPR.it_evaluation.recommended_vendor}`}
-                        sx={{ bgcolor: "#e0e7ff", color: "#4338ca", fontWeight: 700, fontSize: "0.75rem" }}
+                        icon={<Sparkles size={14} />}
+                        label={`IT Recommended Pick: ${selectedPR.it_evaluation.recommended_vendor}`}
+                        sx={{ bgcolor: "#e0e7ff", color: "#3730a3", fontWeight: 750, fontSize: "0.76rem", py: 1.8, px: 0.5, border: "1px solid #c7d2fe" }}
                       />
                     )}
                   </Box>
 
-                  <Grid container spacing={2}>
+                  <Grid container spacing={2.5}>
                     {quotesList.map((q, idx) => {
-                      const activeWinnerQuoteNo = gmForm.selected_quote_no || selectedPR?.final_approval?.selected_quote_no;
-                      const isWinner = Boolean(activeWinnerQuoteNo && q.quotation_no === activeWinnerQuoteNo);
                       const activeRecommendedQuoteNo = itEvalForm.recommended_quote_no || selectedPR?.it_evaluation?.recommended_quote_no;
                       const isRecommended = Boolean(activeRecommendedQuoteNo && q.quotation_no === activeRecommendedQuoteNo);
+                      const isLowest = lowestQuote && lowestQuote.quotation_no === q.quotation_no;
+                      const quoteAmt = Number(q.total_amount || 0);
+                      const quoteSavings = prBudget > quoteAmt ? prBudget - quoteAmt : 0;
+                      const quoteSavingsPct = prBudget > 0 && quoteSavings > 0 ? Math.round((quoteSavings / prBudget) * 100) : 0;
+                      const vendorInitial = (q.vendor_name || "V").trim().charAt(0).toUpperCase();
 
                       return (
                         <Grid item xs={12} sm={4} key={idx}>
                           <Box
                             sx={{
-                              p: 1.5,
-                              borderRadius: "8px",
-                              border: "1.5px solid",
-                              borderColor: isWinner ? "#10b981" : isRecommended ? "#6366f1" : "#e2e8f0",
-                              bgcolor: isWinner ? "#f0fdf4" : isRecommended ? "#eef2ff" : "#f8fafc",
+                              p: 2.2,
+                              borderRadius: "14px",
+                              border: "2px solid",
+                              borderColor: isRecommended ? "#6366f1" : "#e2e8f0",
+                              bgcolor: isRecommended ? "#f8faff" : "#ffffff",
+                              boxShadow: isRecommended ? "0 4px 18px rgba(99, 102, 241, 0.12)" : "0 1px 3px rgba(0,0,0,0.03)",
+                              display: "flex",
+                              flexDirection: "column",
+                              justifyContent: "space-between",
+                              minHeight: 220,
+                              transition: "all 0.2s ease",
+                              "&:hover": { borderColor: isRecommended ? "#4f46e5" : "#cbd5e1", transform: "translateY(-2px)" },
                             }}
                           >
-                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.8 }}>
-                              <Typography sx={{ fontSize: "0.78rem", fontWeight: 750, color: "#334155" }}>
-                                Quotation {idx + 1}
-                              </Typography>
-                              {isWinner ? (
-                                <Chip size="small" label="Winner (GM)" color="success" sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700 }} />
-                              ) : isRecommended ? (
-                                <Chip size="small" label="IT Pick" color="primary" sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700 }} />
-                              ) : null}
+                            <Box>
+                              {/* Card Header Tag Row */}
+                              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+                                <Typography sx={{ fontSize: "0.72rem", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                  Quotation 0{idx + 1}
+                                </Typography>
+                                <Box sx={{ display: "flex", gap: 0.6, flexWrap: "wrap" }}>
+                                  {isLowest && (
+                                    <Chip
+                                      size="small"
+                                      label="L1 Lowest"
+                                      sx={{ height: 20, fontSize: "0.65rem", fontWeight: 800, bgcolor: "#ecfdf5", color: "#047857", border: "1px solid #86efac" }}
+                                    />
+                                  )}
+                                  {isRecommended && (
+                                    <Chip
+                                      size="small"
+                                      icon={<Sparkles size={11} />}
+                                      label="IT Pick"
+                                      sx={{ height: 20, fontSize: "0.65rem", fontWeight: 800, bgcolor: "#e0e7ff", color: "#3730a3", border: "1px solid #c7d2fe" }}
+                                    />
+                                  )}
+                                </Box>
+                              </Box>
+
+                              {/* Vendor Identity */}
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.2 }}>
+                                <Box
+                                  sx={{
+                                    width: 34,
+                                    height: 34,
+                                    borderRadius: "10px",
+                                    bgcolor: isRecommended ? "#e0e7ff" : "#f1f5f9",
+                                    color: isRecommended ? "#4338ca" : "#475569",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    fontWeight: 850,
+                                    fontSize: "0.85rem",
+                                    border: "1px solid",
+                                    borderColor: isRecommended ? "#c7d2fe" : "#e2e8f0",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {vendorInitial}
+                                </Box>
+                                <Box sx={{ overflow: "hidden" }}>
+                                  <Typography sx={{ fontWeight: 800, fontSize: "0.92rem", color: "#0f172a", lineHeight: 1.2 }} noWrap>
+                                    {q.vendor_name || "Unspecified Vendor"}
+                                  </Typography>
+                                  <Typography sx={{ fontSize: "0.68rem", color: "#64748b", mt: 0.2 }} noWrap>
+                                    Quote #{q.quotation_no || `Q-${idx + 1}`}
+                                  </Typography>
+                                </Box>
+                              </Box>
+
+                              {/* Rate & Savings */}
+                              <Box sx={{ mt: 1.5, p: 1.2, borderRadius: "10px", bgcolor: isRecommended ? "#ffffff" : "#f8fafc", border: "1px solid", borderColor: isRecommended ? "#e0e7ff" : "#e2e8f0" }}>
+                                <Typography sx={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                                  All-Inclusive Quotation Rate
+                                </Typography>
+                                <Typography sx={{ fontWeight: 850, fontSize: "1.25rem", color: "#0f172a", mt: 0.2 }}>
+                                  ₹{quoteAmt.toLocaleString("en-IN")}
+                                </Typography>
+                                {quoteSavings > 0 ? (
+                                  <Typography sx={{ fontSize: "0.72rem", fontWeight: 750, color: "#059669", mt: 0.3, display: "flex", alignItems: "center", gap: 0.4 }}>
+                                    <TrendingUp size={12} /> ₹{quoteSavings.toLocaleString("en-IN")} ({quoteSavingsPct}%) under PR Budget
+                                  </Typography>
+                                ) : (
+                                  <Typography sx={{ fontSize: "0.7rem", color: "#94a3b8", mt: 0.3 }}>
+                                    Standard quotation pricing
+                                  </Typography>
+                                )}
+                              </Box>
                             </Box>
-                            <Typography sx={{ fontWeight: 700, fontSize: "0.88rem", color: "#0f172a", mb: 0.5 }}>
-                              {q.vendor_name || "—"}
+
+                            {/* Action Button Footer */}
+                            <Box sx={{ mt: 2, pt: 1.5, borderTop: "1px solid", borderColor: isRecommended ? "#e0e7ff" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                              {q.file_url ? (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<Eye size={13} />}
+                                  onClick={() => openDocViewer(q.file_url, `Quotation ${idx + 1} - ${q.vendor_name || ""}`)}
+                                  sx={{ textTransform: "none", fontSize: "0.74rem", height: 28, borderRadius: "8px", borderColor: "#cbd5e1", color: "#334155" }}
+                                >
+                                  View Quote Document
+                                </Button>
+                              ) : (
+                                <Typography sx={{ fontSize: "0.72rem", color: "#94a3b8", fontStyle: "italic" }}>No quote document</Typography>
+                              )}
+                              <Typography sx={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 600 }}>
+                                Verified by IT
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+
+                  {selectedPR.it_evaluation?.remarks && (
+                    <Box sx={{ mt: 2.2, p: 1.8, borderRadius: "10px", bgcolor: "#f8fafc", border: "1px solid #e2e8f0", display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+                      <Box sx={{ color: "#4f46e5", mt: 0.2 }}><Info size={18} /></Box>
+                      <Box>
+                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 800, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                          IT Technical Evaluation Recommendation
+                        </Typography>
+                        <Typography sx={{ fontSize: "0.82rem", color: "#334155", mt: 0.3, fontStyle: "italic" }}>
+                          "{selectedPR.it_evaluation.remarks}"
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+                </Paper>
+
+                {/* 3. Stage 4: Executive HOD / Admin Approval Console */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 3,
+                    borderRadius: "16px",
+                    border: "1.5px solid",
+                    borderColor: selectedPR.first_approval?.decision === "Approved" ? "#86efac" : "#cbd5e1",
+                    bgcolor: "#ffffff",
+                    boxShadow: "0 2px 12px rgba(15, 23, 42, 0.04)",
+                  }}
+                >
+                  {/* Console Header & Approver Authority Card */}
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 2, mb: 2.5, pb: 2.5, borderBottom: "1px solid #f1f5f9" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                      <Box
+                        sx={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: "14px",
+                          bgcolor: selectedPR.first_approval?.decision === "Approved" ? "#dcfce7" : "#ede9fe",
+                          border: "1.5px solid",
+                          borderColor: selectedPR.first_approval?.decision === "Approved" ? "#86efac" : "#c4b5fd",
+                          display: "grid",
+                          placeItems: "center",
+                          color: selectedPR.first_approval?.decision === "Approved" ? "#15803d" : "#7c3aed",
+                          boxShadow: "0 2px 8px rgba(124, 58, 237, 0.12)",
+                        }}
+                      >
+                        <UserCheck size={24} />
+                      </Box>
+                      <Box>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Typography sx={{ fontSize: "1.05rem", fontWeight: 850, color: "#0f172a" }}>
+                            Stage 4: HOD / Admin Commercial & Technical Approval
+                          </Typography>
+                          <Chip
+                            size="small"
+                            label="Level 1 Authority"
+                            sx={{ height: 20, fontSize: "0.65rem", fontWeight: 800, bgcolor: "#f1f5f9", color: "#475569" }}
+                          />
+                        </Box>
+                        <Typography sx={{ fontSize: "0.8rem", color: "#64748b", mt: 0.3 }}>
+                          Designated Reviewer:{" "}
+                          <b style={{ color: "#0f172a" }}>{selectedPR.designated_hod?.name || selectedPR.first_approval?.approver_name || "Department HOD"}</b>
+                          {" • "}
+                          <span>{selectedPR.department || "General"} Department</span>
+                          {selectedPR.company_name ? ` • ${selectedPR.company_name}` : ""}
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Chip
+                      icon={selectedPR.first_approval?.decision === "Approved" ? <CheckCircle2 size={15} /> : <Clock size={15} />}
+                      label={selectedPR.first_approval?.decision ? `Decision: ${selectedPR.first_approval.decision}` : "Pending Review"}
+                      color={selectedPR.first_approval?.decision === "Approved" ? "success" : "default"}
+                      sx={{ fontWeight: 800, px: 1, py: 2, fontSize: "0.82rem" }}
+                    />
+                  </Box>
+
+                  {/* Form Inputs / Decision Mode */}
+                  {selectedPR.first_approval?.decision === "Approved" && !isEditingHod ? (
+                    /* Official Verified Sign-Off Certificate */
+                    <Box
+                      sx={{
+                        p: 2.5,
+                        borderRadius: "14px",
+                        bgcolor: "#f0fdf4",
+                        border: "1.5px solid #86efac",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: 2,
+                      }}
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.8 }}>
+                        <Box sx={{ width: 42, height: 42, borderRadius: "50%", bgcolor: "#dcfce7", color: "#16a34a", display: "grid", placeItems: "center" }}>
+                          <ShieldCheck size={24} />
+                        </Box>
+                        <Box>
+                          <Typography sx={{ fontWeight: 850, fontSize: "0.95rem", color: "#14532d" }}>
+                            Commercial & Technical Approval Verified
+                          </Typography>
+                          <Typography sx={{ fontSize: "0.8rem", color: "#166534", mt: 0.3 }}>
+                            Digitally signed by <b>{selectedPR.first_approval?.approver_name || "Designated HOD"}</b> • Approved Cap: <b>₹{Number(selectedPR.first_approval?.approved_amount || 0).toLocaleString("en-IN")}</b>
+                          </Typography>
+                          {selectedPR.first_approval?.remarks && (
+                            <Typography sx={{ fontSize: "0.78rem", color: "#15803d", mt: 0.5, fontStyle: "italic" }}>
+                              "{selectedPR.first_approval.remarks}"
                             </Typography>
-                            <Typography sx={{ fontWeight: 800, fontSize: "1.05rem", color: "#059669" }}>
-                              ₹{Number(q.total_amount || 0).toLocaleString("en-IN")}
+                          )}
+                        </Box>
+                      </Box>
+
+                      {canApproveHOD && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => setIsEditingHod(true)}
+                          sx={{ textTransform: "none", fontSize: "0.78rem", fontWeight: 700, borderColor: "#16a34a", color: "#16a34a", "&:hover": { bgcolor: "#dcfce7" } }}
+                        >
+                          Modify Decision
+                        </Button>
+                      )}
+                    </Box>
+                  ) : (
+                    <Box>
+                      {/* Segmented Interactive Decision Cards */}
+                      <Typography sx={{ fontSize: "0.82rem", fontWeight: 800, color: "#1e293b", mb: 1.2, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        1. Select Executive Decision *
+                      </Typography>
+                      <Grid container spacing={2} sx={{ mb: 2.5 }}>
+                        {[
+                          {
+                            val: "Approved",
+                            title: "Approve Quotation",
+                            desc: "Endorse technical terms and submit to General Manager for winner finalization",
+                            icon: CheckCircle2,
+                            color: "#16a34a",
+                            activeBg: "#f0fdf4",
+                            activeBorder: "#86efac",
+                          },
+                          {
+                            val: "Returned",
+                            title: "Return for Clarification",
+                            desc: "Send back to IT Helpdesk to request quote adjustments or technical clarifications",
+                            icon: RotateCcw,
+                            color: "#ea580c",
+                            activeBg: "#fff7ed",
+                            activeBorder: "#fdba74",
+                          },
+                          {
+                            val: "Rejected",
+                            title: "Decline Requirement",
+                            desc: "Decline purchase requirement and archive this purchase request",
+                            icon: XCircle,
+                            color: "#dc2626",
+                            activeBg: "#fef2f2",
+                            activeBorder: "#fca5a5",
+                          },
+                        ].map((d) => {
+                          const isSel = hodForm.decision === d.val;
+                          const IconD = d.icon;
+                          return (
+                            <Grid item xs={12} sm={4} key={d.val}>
+                              <Box
+                                onClick={() => canApproveHOD && setHodForm({ ...hodForm, decision: d.val })}
+                                sx={{
+                                  p: 1.8,
+                                  borderRadius: "12px",
+                                  border: "2px solid",
+                                  borderColor: isSel ? d.activeBorder : "#e2e8f0",
+                                  bgcolor: isSel ? d.activeBg : "#ffffff",
+                                  cursor: canApproveHOD ? "pointer" : "not-allowed",
+                                  transition: "all 0.15s ease",
+                                  boxShadow: isSel ? `0 4px 12px ${d.color}20` : "none",
+                                  "&:hover": { borderColor: isSel ? d.activeBorder : "#cbd5e1" },
+                                }}
+                              >
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.6 }}>
+                                  <IconD size={18} color={d.color} />
+                                  <Typography sx={{ fontWeight: 800, fontSize: "0.88rem", color: isSel ? d.color : "#0f172a" }}>
+                                    {d.title}
+                                  </Typography>
+                                </Box>
+                                <Typography sx={{ fontSize: "0.72rem", color: "#64748b", lineHeight: 1.35 }}>
+                                  {d.desc}
+                                </Typography>
+                              </Box>
+                            </Grid>
+                          );
+                        })}
+                      </Grid>
+
+                      {/* Commercial Financial Terms & Remarks */}
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Box sx={{ mb: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <Typography sx={{ fontSize: "0.78rem", fontWeight: 750, color: "#334155" }}>
+                              Approved Amount Cap (₹) *
                             </Typography>
-                            <Box sx={{ mt: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            {/* Quick Presets */}
+                            <Box sx={{ display: "flex", gap: 0.8 }}>
+                              {quoteTargetAmount > 0 && (
+                                <Chip
+                                  size="small"
+                                  label={`Match IT Pick: ₹${quoteTargetAmount.toLocaleString("en-IN")}`}
+                                  onClick={() => canApproveHOD && setHodForm({ ...hodForm, approved_amount: quoteTargetAmount })}
+                                  sx={{ height: 20, fontSize: "0.68rem", fontWeight: 750, cursor: "pointer", bgcolor: "#eef2ff", color: "#4338ca" }}
+                                />
+                              )}
+                              {prBudget > 0 && (
+                                <Chip
+                                  size="small"
+                                  label={`Match PR Budget: ₹${prBudget.toLocaleString("en-IN")}`}
+                                  onClick={() => canApproveHOD && setHodForm({ ...hodForm, approved_amount: prBudget })}
+                                  sx={{ height: 20, fontSize: "0.68rem", fontWeight: 750, cursor: "pointer", bgcolor: "#f1f5f9", color: "#475569" }}
+                                />
+                              )}
+                            </Box>
+                          </Box>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            type="number"
+                            disabled={!canApproveHOD}
+                            value={hodForm.approved_amount}
+                            onChange={(e) => setHodForm({ ...hodForm, approved_amount: e.target.value })}
+                            InputProps={{
+                              startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <Box sx={{ mb: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <Typography sx={{ fontSize: "0.78rem", fontWeight: 750, color: "#334155" }}>
+                              Quick Remarks Presets
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: "flex", gap: 0.6, flexWrap: "wrap", mt: 0.5 }}>
+                            {[
+                              "Technically Verified & Recommended",
+                              "Approved within Department Cap",
+                              "Urgent Requirement - Fast Track PO",
+                            ].map((tag, tIdx) => (
+                              <Chip
+                                key={tIdx}
+                                size="small"
+                                label={`+ ${tag}`}
+                                onClick={() => {
+                                  if (!canApproveHOD) return;
+                                  const cur = hodForm.remarks ? `${hodForm.remarks}. ${tag}` : tag;
+                                  setHodForm({ ...hodForm, remarks: cur });
+                                }}
+                                sx={{ height: 22, fontSize: "0.68rem", fontWeight: 650, cursor: "pointer", bgcolor: "#f8fafc", border: "1px solid #e2e8f0" }}
+                              />
+                            ))}
+                          </Box>
+                        </Grid>
+
+                        <Grid item xs={12}>
+                          <TextField
+                            fullWidth
+                            multiline
+                            rows={2.5}
+                            size="small"
+                            label="HOD Commercial & Technical Remarks"
+                            placeholder="Add approval conditions, justification notes, or vendor preferences for GM review..."
+                            disabled={!canApproveHOD}
+                            value={hodForm.remarks}
+                            onChange={(e) => setHodForm({ ...hodForm, remarks: e.target.value })}
+                          />
+                        </Grid>
+                      </Grid>
+
+                      {/* Action Submission Row */}
+                      <Box sx={{ mt: 2.5, pt: 2, borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
+                        <Typography sx={{ fontSize: "0.74rem", color: "#64748b" }}>
+                          * Only <b>{selectedPR.designated_hod?.name || selectedPR.first_approval?.approver_name || "Department HOD"}</b> or Administrators have sign-off authority.
+                        </Typography>
+
+                        {canApproveHOD && (
+                          <Box sx={{ display: "flex", gap: 1.5 }}>
+                            {isEditingHod && (
+                              <Button
+                                variant="outlined"
+                                onClick={() => setIsEditingHod(false)}
+                                disabled={submitting}
+                                sx={{ textTransform: "none", fontSize: "0.82rem", color: "#64748b", borderColor: "#cbd5e1" }}
+                              >
+                                Cancel
+                              </Button>
+                            )}
+                            <Button
+                              variant="contained"
+                              onClick={handleSubmitHodApproval}
+                              disabled={submitting}
+                              endIcon={<ArrowRight size={16} />}
+                              sx={{
+                                background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
+                                textTransform: "none",
+                                fontWeight: 750,
+                                px: 3,
+                                py: 1,
+                                borderRadius: "10px",
+                                boxShadow: "0 4px 14px rgba(79, 70, 229, 0.28)",
+                                "&:hover": { background: "linear-gradient(135deg, #4338ca 0%, #4f46e5 100%)" },
+                              }}
+                            >
+                              {submitting ? "Recording Decision..." : isEditingHod ? "Update HOD Decision" : "Submit HOD Endorsement & Route to GM"}
+                            </Button>
+                          </Box>
+                        )}
+                      </Box>
+                    </Box>
+                  )}
+                </Paper>
+              </Box>
+            )}
+
+            {/* ── TAB 3: STAGE 5: GENERAL MANAGER EXECUTIVE AUTHORIZATION ── */}
+            {workflowTab === 3 && (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {/* 1. Stage 4 HOD Sign-Off Seal & Verification Banner */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 2.2,
+                    borderRadius: "14px",
+                    border: "1.5px solid",
+                    borderColor: selectedPR.first_approval?.decision === "Approved" ? "#86efac" : "#fed7aa",
+                    bgcolor: selectedPR.first_approval?.decision === "Approved" ? "#f0fdf4" : "#fff7ed",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: 1.8,
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.8 }}>
+                    <Box
+                      sx={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: "12px",
+                        bgcolor: selectedPR.first_approval?.decision === "Approved" ? "#dcfce7" : "#ffedd5",
+                        color: selectedPR.first_approval?.decision === "Approved" ? "#15803d" : "#c2410c",
+                        border: "1.5px solid",
+                        borderColor: selectedPR.first_approval?.decision === "Approved" ? "#86efac" : "#fdba74",
+                        display: "grid",
+                        placeItems: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <UserCheck size={24} />
+                    </Box>
+                    <Box>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Typography sx={{ fontWeight: 850, fontSize: "0.95rem", color: "#1e293b" }}>
+                          Stage 4 HOD Commercial Sign-Off:{" "}
+                          <span style={{ color: selectedPR.first_approval?.decision === "Approved" ? "#16a34a" : "#ea580c" }}>
+                            {selectedPR.first_approval?.decision || "Pending HOD Sign-Off"}
+                          </span>
+                        </Typography>
+                        {selectedPR.first_approval?.decision === "Approved" && (
+                          <Chip size="small" icon={<Check size={12} />} label="Endorsed" sx={{ height: 20, fontSize: "0.68rem", fontWeight: 800, bgcolor: "#dcfce7", color: "#166534" }} />
+                        )}
+                      </Box>
+                      <Typography sx={{ fontSize: "0.78rem", color: "#64748b", mt: 0.3 }}>
+                        Designated HOD: <b>{selectedPR.designated_hod?.name || selectedPR.first_approval?.approver_name || "Department HOD"}</b>
+                        {selectedPR.first_approval?.approved_amount ? ` • Approved Cap: ₹${Number(selectedPR.first_approval.approved_amount).toLocaleString("en-IN")}` : ""}
+                        {selectedPR.first_approval?.remarks ? ` • Note: "${selectedPR.first_approval.remarks}"` : ""}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {selectedPR.first_approval?.decision !== "Approved" && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setWorkflowTab(2)}
+                      sx={{ textTransform: "none", fontSize: "0.78rem", fontWeight: 700, borderColor: "#ea580c", color: "#ea580c" }}
+                    >
+                      Review HOD Sign-Off (Stage 4)
+                    </Button>
+                  )}
+                </Paper>
+
+                {/* 2. Quotation Comparison with Winner Selection */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 2.5,
+                    borderRadius: "16px",
+                    border: "1px solid #e2e8f0",
+                    bgcolor: "#ffffff",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.03)",
+                  }}
+                >
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, flexWrap: "wrap", gap: 1.5 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                      <Box sx={{ width: 32, height: 32, borderRadius: "8px", bgcolor: "#ecfdf5", color: "#059669", display: "grid", placeItems: "center" }}>
+                        <Award size={18} />
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: "0.95rem", fontWeight: 750, color: "#0f172a" }}>
+                          Select Winning Quotation (General Manager Final Vendor Award)
+                        </Typography>
+                        <Typography sx={{ fontSize: "0.74rem", color: "#64748b" }}>
+                          Click "Select as Winner" to assign the vendor for Purchase Order (PO) issuance
+                        </Typography>
+                      </Box>
+                    </Box>
+                    {selectedPR.it_evaluation?.recommended_vendor && (
+                      <Chip
+                        icon={<Sparkles size={14} />}
+                        label={`IT Recommended: ${selectedPR.it_evaluation.recommended_vendor}`}
+                        sx={{ bgcolor: "#e0e7ff", color: "#3730a3", fontWeight: 750, fontSize: "0.76rem", py: 1.8, px: 0.5, border: "1px solid #c7d2fe" }}
+                      />
+                    )}
+                  </Box>
+
+                  <Grid container spacing={2.5}>
+                    {quotesList.map((q, idx) => {
+                      const activeWinnerQuoteNo = gmForm.selected_quote_no || selectedPR?.final_approval?.selected_quote_no;
+                      const isWinner = Boolean(activeWinnerQuoteNo && q.quotation_no === activeWinnerQuoteNo);
+                      const activeRecommendedQuoteNo = itEvalForm.recommended_quote_no || selectedPR?.it_evaluation?.recommended_quote_no;
+                      const isRecommended = Boolean(activeRecommendedQuoteNo && q.quotation_no === activeRecommendedQuoteNo);
+                      const isLowest = lowestQuote && lowestQuote.quotation_no === q.quotation_no;
+                      const quoteAmt = Number(q.total_amount || 0);
+                      const quoteSavings = prBudget > quoteAmt ? prBudget - quoteAmt : 0;
+                      const quoteSavingsPct = prBudget > 0 && quoteSavings > 0 ? Math.round((quoteSavings / prBudget) * 100) : 0;
+                      const vendorInitial = (q.vendor_name || "V").trim().charAt(0).toUpperCase();
+
+                      return (
+                        <Grid item xs={12} sm={4} key={idx}>
+                          <Box
+                            sx={{
+                              p: 2.2,
+                              borderRadius: "14px",
+                              border: "2px solid",
+                              borderColor: isWinner ? "#10b981" : isRecommended ? "#6366f1" : "#e2e8f0",
+                              bgcolor: isWinner ? "#f0fdf4" : isRecommended ? "#f8faff" : "#ffffff",
+                              boxShadow: isWinner ? "0 4px 20px rgba(16, 185, 129, 0.18)" : isRecommended ? "0 4px 16px rgba(99, 102, 241, 0.1)" : "0 1px 3px rgba(0,0,0,0.03)",
+                              display: "flex",
+                              flexDirection: "column",
+                              justifyContent: "space-between",
+                              minHeight: 240,
+                              transition: "all 0.2s ease",
+                              "&:hover": { borderColor: isWinner ? "#059669" : "#cbd5e1", transform: "translateY(-2px)" },
+                            }}
+                          >
+                            <Box>
+                              {/* Header Tag Row */}
+                              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+                                <Typography sx={{ fontSize: "0.72rem", fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                  Quotation 0{idx + 1}
+                                </Typography>
+                                <Box sx={{ display: "flex", gap: 0.6, flexWrap: "wrap" }}>
+                                  {isWinner && (
+                                    <Chip
+                                      size="small"
+                                      icon={<CheckCheck size={12} />}
+                                      label="Winner (GM)"
+                                      sx={{ height: 22, fontSize: "0.68rem", fontWeight: 800, bgcolor: "#10b981", color: "#ffffff" }}
+                                    />
+                                  )}
+                                  {isLowest && !isWinner && (
+                                    <Chip
+                                      size="small"
+                                      label="L1 Lowest"
+                                      sx={{ height: 20, fontSize: "0.65rem", fontWeight: 800, bgcolor: "#ecfdf5", color: "#047857", border: "1px solid #86efac" }}
+                                    />
+                                  )}
+                                  {isRecommended && !isWinner && (
+                                    <Chip
+                                      size="small"
+                                      icon={<Sparkles size={11} />}
+                                      label="IT Pick"
+                                      sx={{ height: 20, fontSize: "0.65rem", fontWeight: 800, bgcolor: "#e0e7ff", color: "#3730a3", border: "1px solid #c7d2fe" }}
+                                    />
+                                  )}
+                                </Box>
+                              </Box>
+
+                              {/* Vendor Details */}
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.2 }}>
+                                <Box
+                                  sx={{
+                                    width: 34,
+                                    height: 34,
+                                    borderRadius: "10px",
+                                    bgcolor: isWinner ? "#dcfce7" : isRecommended ? "#e0e7ff" : "#f1f5f9",
+                                    color: isWinner ? "#15803d" : isRecommended ? "#4338ca" : "#475569",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    fontWeight: 850,
+                                    fontSize: "0.85rem",
+                                    border: "1px solid",
+                                    borderColor: isWinner ? "#86efac" : isRecommended ? "#c7d2fe" : "#e2e8f0",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {vendorInitial}
+                                </Box>
+                                <Box sx={{ overflow: "hidden" }}>
+                                  <Typography sx={{ fontWeight: 800, fontSize: "0.92rem", color: "#0f172a", lineHeight: 1.2 }} noWrap>
+                                    {q.vendor_name || "Unspecified Vendor"}
+                                  </Typography>
+                                  <Typography sx={{ fontSize: "0.68rem", color: "#64748b", mt: 0.2 }} noWrap>
+                                    Quote #{q.quotation_no || `Q-${idx + 1}`}
+                                  </Typography>
+                                </Box>
+                              </Box>
+
+                              {/* Rate & Savings */}
+                              <Box sx={{ mt: 1.5, p: 1.2, borderRadius: "10px", bgcolor: isWinner ? "#ffffff" : "#f8fafc", border: "1px solid", borderColor: isWinner ? "#bbf7d0" : "#e2e8f0" }}>
+                                <Typography sx={{ fontSize: "0.65rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                                  Proposed Commercial Price
+                                </Typography>
+                                <Typography sx={{ fontWeight: 850, fontSize: "1.25rem", color: isWinner ? "#047857" : "#0f172a", mt: 0.2 }}>
+                                  ₹{quoteAmt.toLocaleString("en-IN")}
+                                </Typography>
+                                {quoteSavings > 0 ? (
+                                  <Typography sx={{ fontSize: "0.72rem", fontWeight: 750, color: "#059669", mt: 0.3, display: "flex", alignItems: "center", gap: 0.4 }}>
+                                    <TrendingUp size={12} /> ₹{quoteSavings.toLocaleString("en-IN")} ({quoteSavingsPct}%) under PR Budget
+                                  </Typography>
+                                ) : (
+                                  <Typography sx={{ fontSize: "0.7rem", color: "#94a3b8", mt: 0.3 }}>
+                                    Standard quotation pricing
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Box>
+
+                            {/* Action Footer: View PDF and Select as Winner */}
+                            <Box sx={{ mt: 2, pt: 1.5, borderTop: "1px solid", borderColor: isWinner ? "#bbf7d0" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
                               {q.file_url ? (
                                 <Button
                                   size="small"
                                   variant="outlined"
                                   startIcon={<Eye size={12} />}
                                   onClick={() => openDocViewer(q.file_url, `Quotation ${idx + 1} - ${q.vendor_name || ""}`)}
-                                  sx={{ textTransform: "none", fontSize: "0.72rem", height: 24, py: 0.2 }}
+                                  sx={{ textTransform: "none", fontSize: "0.72rem", height: 26, borderRadius: "8px", borderColor: "#cbd5e1", color: "#334155" }}
                                 >
-                                  View Quote File
+                                  View Quote
                                 </Button>
                               ) : (
                                 <Typography sx={{ fontSize: "0.7rem", color: "#94a3b8" }}>No file</Typography>
                               )}
-                              {showStage5 && !isWinner && q.vendor_name && (
+
+                              {isManuPillai && selectedPR.final_approval?.decision !== "Approved" && (
                                 <Button
                                   size="small"
-                                  variant="contained"
+                                  variant={isWinner ? "contained" : "outlined"}
                                   onClick={() => {
                                     setGmForm({
                                       ...gmForm,
@@ -3245,9 +4791,20 @@ export default function ProcurementManagement() {
                                       final_approved_amount: q.total_amount || gmForm.final_approved_amount,
                                     });
                                   }}
-                                  sx={{ textTransform: "none", fontSize: "0.7rem", height: 24, py: 0.2, bgcolor: "#059669", "&:hover": { bgcolor: "#047857" } }}
+                                  startIcon={isWinner ? <Check size={13} /> : <Award size={13} />}
+                                  sx={{
+                                    textTransform: "none",
+                                    fontSize: "0.74rem",
+                                    fontWeight: 750,
+                                    height: 28,
+                                    borderRadius: "8px",
+                                    bgcolor: isWinner ? "#059669" : "transparent",
+                                    color: isWinner ? "#ffffff" : "#059669",
+                                    borderColor: "#059669",
+                                    "&:hover": { bgcolor: isWinner ? "#047857" : "#ecfdf5" },
+                                  }}
                                 >
-                                  Select as Winner
+                                  {isWinner ? "Selected Winner" : "Select as Winner"}
                                 </Button>
                               )}
                             </Box>
@@ -3258,58 +4815,203 @@ export default function ProcurementManagement() {
                   </Grid>
 
                   {selectedPR.it_evaluation?.remarks && (
-                    <Box sx={{ mt: 1.5, p: 1.2, borderRadius: "6px", bgcolor: "#f1f5f9", fontSize: "0.78rem", color: "#475569" }}>
-                      <b>IT Recommendation Remarks:</b> {selectedPR.it_evaluation.remarks}
+                    <Box sx={{ mt: 2.2, p: 1.8, borderRadius: "10px", bgcolor: "#f8fafc", border: "1px solid #e2e8f0", display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+                      <Box sx={{ color: "#4f46e5", mt: 0.2 }}><Info size={18} /></Box>
+                      <Box>
+                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 800, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                          IT Technical Evaluation Recommendation
+                        </Typography>
+                        <Typography sx={{ fontSize: "0.82rem", color: "#334155", mt: 0.3, fontStyle: "italic" }}>
+                          "{selectedPR.it_evaluation.remarks}"
+                        </Typography>
+                      </Box>
                     </Box>
                   )}
                 </Paper>
 
-                <Grid container spacing={3}>
-                  {/* Tier 1: HOD / Admin Approval (Shalini Arun) */}
-                  <Grid item xs={12} md={showStage5 ? 6 : 12}>
-                    <Paper
-                      elevation={0}
+                {/* 3. Stage 5: General Manager Executive Authorization Console */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 3,
+                    borderRadius: "16px",
+                    border: "1.5px solid",
+                    borderColor: selectedPR.final_approval?.decision === "Approved" ? "#86efac" : "#cbd5e1",
+                    bgcolor: "#ffffff",
+                    boxShadow: "0 2px 12px rgba(15, 23, 42, 0.04)",
+                  }}
+                >
+                  {/* Console Header */}
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 2, mb: 2.5, pb: 2.5, borderBottom: "1px solid #f1f5f9" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                      <Box
+                        sx={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: "14px",
+                          bgcolor: selectedPR.final_approval?.decision === "Approved" ? "#dcfce7" : "#ecfdf5",
+                          border: "1.5px solid",
+                          borderColor: selectedPR.final_approval?.decision === "Approved" ? "#86efac" : "#6ee7b7",
+                          display: "grid",
+                          placeItems: "center",
+                          color: "#059669",
+                          boxShadow: "0 2px 8px rgba(16, 185, 129, 0.12)",
+                        }}
+                      >
+                        <ShieldCheck size={26} />
+                      </Box>
+                      <Box>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Typography sx={{ fontSize: "1.05rem", fontWeight: 850, color: "#0f172a" }}>
+                            Stage 5: General Manager Executive Authorization
+                          </Typography>
+                          <Chip
+                            size="small"
+                            label="Level 2 Final Authority"
+                            sx={{ height: 20, fontSize: "0.65rem", fontWeight: 800, bgcolor: "#ecfdf5", color: "#047857" }}
+                          />
+                        </Box>
+                        <Typography sx={{ fontSize: "0.8rem", color: "#64748b", mt: 0.3 }}>
+                          Final Management Approver: <b style={{ color: "#0f172a" }}>Manu Pillai</b> (General Manager) or Administrator
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Chip
+                      icon={selectedPR.final_approval?.decision === "Approved" ? <CheckCircle2 size={15} /> : <Clock size={15} />}
+                      label={selectedPR.final_approval?.decision ? `Decision: ${selectedPR.final_approval.decision}` : "Pending GM Decision"}
+                      color={selectedPR.final_approval?.decision === "Approved" ? "success" : "default"}
+                      sx={{ fontWeight: 800, px: 1, py: 2, fontSize: "0.82rem" }}
+                    />
+                  </Box>
+
+                  {/* Decision Form vs Approved Seal */}
+                  {selectedPR.final_approval?.decision === "Approved" ? (
+                    <Box
                       sx={{
                         p: 2.5,
-                        borderRadius: "10px",
-                        border: "1px solid",
-                        borderColor: selectedPR.first_approval?.decision === "Approved" ? "#10b981" : "#e2e8f0",
-                        bgcolor: "#fff",
+                        borderRadius: "14px",
+                        bgcolor: "#f0fdf4",
+                        border: "1.5px solid #86efac",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 2,
                       }}
                     >
-                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <CheckCircle2 size={20} color={selectedPR.first_approval?.decision === "Approved" ? "#10b981" : "#4f46e5"} />
-                          <Typography sx={{ fontSize: "0.95rem", fontWeight: 750, color: "#1e293b" }}>
-                            Stage 4: HOD / Admin Approval
-                          </Typography>
-                        </Box>
-                        <Chip
-                          size="small"
-                          label={selectedPR.first_approval?.decision || "Pending"}
-                          color={selectedPR.first_approval?.decision === "Approved" ? "success" : "default"}
-                          sx={{ fontWeight: 700 }}
-                        />
+                      <Box sx={{ width: 44, height: 44, borderRadius: "50%", bgcolor: "#dcfce7", color: "#16a34a", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                        <ShieldCheck size={26} />
                       </Box>
-
-                      <Typography sx={{ fontSize: "0.8rem", color: "#64748b", mb: 2 }}>
-                        Designated Approver: <b>Shalini Arun</b> (or Administrator)
+                      <Box>
+                        <Typography sx={{ fontWeight: 850, fontSize: "0.95rem", color: "#14532d" }}>
+                          Management Authorization Finalized & Approved
+                        </Typography>
+                        <Typography sx={{ fontSize: "0.82rem", color: "#166534", mt: 0.3 }}>
+                          Winning Vendor: <b>{selectedPR.final_approval?.selected_vendor || "Awarded Vendor"}</b> • Final Approved Amount: <b>₹{Number(selectedPR.final_approval?.final_approved_amount || 0).toLocaleString("en-IN")}</b>
+                        </Typography>
+                        {selectedPR.final_approval?.remarks && (
+                          <Typography sx={{ fontSize: "0.78rem", color: "#15803d", mt: 0.4, fontStyle: "italic" }}>
+                            "{selectedPR.final_approval.remarks}"
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Box>
+                      {/* Segmented Decision Tiles */}
+                      <Typography sx={{ fontSize: "0.82rem", fontWeight: 800, color: "#1e293b", mb: 1.2, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        1. Select Management Decision *
                       </Typography>
+                      <Grid container spacing={2} sx={{ mb: 2.5 }}>
+                        {[
+                          {
+                            val: "Approved",
+                            title: "Authorize Purchase Order",
+                            desc: "Confirm winner vendor and authorize IT to generate Purchase Order (PO)",
+                            icon: ShieldCheck,
+                            color: "#16a34a",
+                            activeBg: "#f0fdf4",
+                            activeBorder: "#86efac",
+                          },
+                          {
+                            val: "Returned",
+                            title: "Return to HOD / IT",
+                            desc: "Send back for rate re-negotiation or additional technical details",
+                            icon: RotateCcw,
+                            color: "#ea580c",
+                            activeBg: "#fff7ed",
+                            activeBorder: "#fdba74",
+                          },
+                          {
+                            val: "Rejected",
+                            title: "Decline Requirement",
+                            desc: "Decline purchase request and close procurement ticket",
+                            icon: XCircle,
+                            color: "#dc2626",
+                            activeBg: "#fef2f2",
+                            activeBorder: "#fca5a5",
+                          },
+                        ].map((d) => {
+                          const isSel = gmForm.decision === d.val;
+                          const IconD = d.icon;
+                          return (
+                            <Grid item xs={12} sm={4} key={d.val}>
+                              <Box
+                                onClick={() => isManuPillai && setGmForm({ ...gmForm, decision: d.val })}
+                                sx={{
+                                  p: 1.8,
+                                  borderRadius: "12px",
+                                  border: "2px solid",
+                                  borderColor: isSel ? d.activeBorder : "#e2e8f0",
+                                  bgcolor: isSel ? d.activeBg : "#ffffff",
+                                  cursor: isManuPillai ? "pointer" : "not-allowed",
+                                  transition: "all 0.15s ease",
+                                  boxShadow: isSel ? `0 4px 12px ${d.color}20` : "none",
+                                  "&:hover": { borderColor: isSel ? d.activeBorder : "#cbd5e1" },
+                                }}
+                              >
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.6 }}>
+                                  <IconD size={18} color={d.color} />
+                                  <Typography sx={{ fontWeight: 800, fontSize: "0.88rem", color: isSel ? d.color : "#0f172a" }}>
+                                    {d.title}
+                                  </Typography>
+                                </Box>
+                                <Typography sx={{ fontSize: "0.72rem", color: "#64748b", lineHeight: 1.35 }}>
+                                  {d.desc}
+                                </Typography>
+                              </Box>
+                            </Grid>
+                          );
+                        })}
+                      </Grid>
 
+                      {/* Winner Vendor & Financial Amount Fields */}
                       <Grid container spacing={2}>
                         <Grid item xs={12} sm={6}>
                           <TextField
                             select
                             fullWidth
                             size="small"
-                            label="Decision *"
-                            disabled={!isShaliniArun || (selectedPR.first_approval?.decision === "Approved" && !isEditingHod)}
-                            value={hodForm.decision}
-                            onChange={(e) => setHodForm({ ...hodForm, decision: e.target.value })}
+                            label="Selected Winner Vendor *"
+                            disabled={!isManuPillai}
+                            value={gmForm.selected_quote_no}
+                            onChange={(e) => {
+                              const qNo = e.target.value;
+                              const found = quotesList.find((q) => q.quotation_no === qNo);
+                              setGmForm({
+                                ...gmForm,
+                                selected_quote_no: qNo,
+                                selected_vendor: found?.vendor_name || "",
+                                final_approved_amount: found?.total_amount || gmForm.final_approved_amount,
+                              });
+                            }}
                           >
-                            <MenuItem value="Approved">Approved</MenuItem>
-                            <MenuItem value="Rejected">Rejected</MenuItem>
-                            <MenuItem value="Returned">Returned for Clarification</MenuItem>
+                            {quotesList
+                              .filter((q) => q.vendor_name)
+                              .map((q) => (
+                                <MenuItem key={q.quotation_no} value={q.quotation_no}>
+                                  {q.vendor_name} (₹{Number(q.total_amount).toLocaleString("en-IN")})
+                                </MenuItem>
+                              ))}
                           </TextField>
                         </Grid>
 
@@ -3318,225 +5020,90 @@ export default function ProcurementManagement() {
                             fullWidth
                             size="small"
                             type="number"
-                            label="Approved Amount (₹) *"
-                            disabled={!isShaliniArun || (selectedPR.first_approval?.decision === "Approved" && !isEditingHod)}
-                            value={hodForm.approved_amount}
-                            onChange={(e) => setHodForm({ ...hodForm, approved_amount: e.target.value })}
+                            label="Final Approved Amount (₹) *"
+                            disabled={!isManuPillai}
+                            value={gmForm.final_approved_amount}
+                            onChange={(e) => setGmForm({ ...gmForm, final_approved_amount: e.target.value })}
+                            InputProps={{
+                              startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                            }}
                           />
                         </Grid>
 
                         <Grid item xs={12}>
+                          <Box sx={{ mb: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <Typography sx={{ fontSize: "0.78rem", fontWeight: 750, color: "#334155" }}>
+                              Management Remarks Presets
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: "flex", gap: 0.6, flexWrap: "wrap", mb: 1.5 }}>
+                            {[
+                              "Approved for immediate PO generation",
+                              "Negotiated payment terms: 30 days credit",
+                              "Authorized under IT CapEx quota",
+                            ].map((tag, tIdx) => (
+                              <Chip
+                                key={tIdx}
+                                size="small"
+                                label={`+ ${tag}`}
+                                onClick={() => {
+                                  if (!isManuPillai) return;
+                                  const cur = gmForm.remarks ? `${gmForm.remarks}. ${tag}` : tag;
+                                  setGmForm({ ...gmForm, remarks: cur });
+                                }}
+                                sx={{ height: 22, fontSize: "0.68rem", fontWeight: 650, cursor: "pointer", bgcolor: "#f8fafc", border: "1px solid #e2e8f0" }}
+                              />
+                            ))}
+                          </Box>
                           <TextField
                             fullWidth
                             multiline
-                            rows={2}
+                            rows={2.5}
                             size="small"
-                            label="HOD Remarks"
-                            placeholder="Add approval remarks or conditions..."
-                            disabled={!isShaliniArun || (selectedPR.first_approval?.decision === "Approved" && !isEditingHod)}
-                            value={hodForm.remarks}
-                            onChange={(e) => setHodForm({ ...hodForm, remarks: e.target.value })}
+                            label="Management Remarks & PO Instructions"
+                            placeholder="Provide commercial terms, vendor instructions, or delivery guidelines for Purchase Order generation..."
+                            disabled={!isManuPillai}
+                            value={gmForm.remarks}
+                            onChange={(e) => setGmForm({ ...gmForm, remarks: e.target.value })}
                           />
                         </Grid>
                       </Grid>
 
-                      {selectedPR.first_approval?.decision === "Approved" && !isEditingHod ? (
-                        <Box sx={{ mt: 2, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
-                          <Chip
-                            icon={<CheckCircle2 size={16} />}
-                            label={`Decision Approved by ${selectedPR.first_approval?.approver_name || "Approver"} (₹${Number(selectedPR.first_approval?.approved_amount || 0).toLocaleString("en-IN")})`}
-                            color="success"
-                            sx={{ fontWeight: 700, fontSize: "0.8rem" }}
-                          />
-                          {isShaliniArun && (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => setIsEditingHod(true)}
-                              sx={{ textTransform: "none", fontSize: "0.75rem", borderColor: "#cbd5e1", color: "#475569" }}
-                            >
-                              Edit Decision
-                            </Button>
-                          )}
-                        </Box>
-                      ) : isShaliniArun ? (
-                        <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}>
-                          {isEditingHod && (
-                            <Button
-                              variant="outlined"
-                              onClick={() => setIsEditingHod(false)}
-                              disabled={submitting}
-                              sx={{ textTransform: "none", fontSize: "0.8rem", color: "#64748b", borderColor: "#cbd5e1" }}
-                            >
-                              Cancel
-                            </Button>
-                          )}
+                      {/* Action Submission Row */}
+                      <Box sx={{ mt: 2.5, pt: 2, borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
+                        <Typography sx={{ fontSize: "0.74rem", color: "#64748b" }}>
+                          * Only <b>Manu Pillai</b> (General Manager) or Administrators have final sign-off authority.
+                        </Typography>
+
+                        {isManuPillai && (
                           <Button
                             variant="contained"
-                            onClick={handleSubmitHodApproval}
+                            onClick={handleSubmitGmApproval}
                             disabled={submitting}
-                            sx={{ bgcolor: "#4f46e5", textTransform: "none", fontWeight: 650, "&:hover": { bgcolor: "#4338ca" } }}
+                            startIcon={<ShieldCheck size={18} />}
+                            sx={{
+                              background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
+                              textTransform: "none",
+                              fontWeight: 750,
+                              px: 3.5,
+                              py: 1.1,
+                              borderRadius: "10px",
+                              boxShadow: "0 4px 14px rgba(16, 185, 129, 0.3)",
+                              "&:hover": { background: "linear-gradient(135deg, #047857 0%, #065f46 100%)" },
+                            }}
                           >
-                            {isEditingHod ? "Update HOD Decision" : "Submit HOD Decision"}
+                            {submitting ? "Finalizing Award..." : "Confirm GM Selection & Authorize PO"}
                           </Button>
-                        </Box>
-                      ) : (
-                        <Typography sx={{ fontSize: "0.75rem", color: "#94a3b8", mt: 1.5, fontStyle: "italic" }}>
-                          * Only Shalini Arun or Administrators have permission to approve Stage 4.
-                        </Typography>
-                      )}
-                    </Paper>
-                  </Grid>
-
-                  {/* Tier 2: GM Approval & Winner Quote Selection (Manu Pillai) - ONLY shown to General Manager */}
-                  {showStage5 && (
-                    <Grid item xs={12} md={6}>
-                      <Paper
-                        elevation={0}
-                        sx={{
-                          p: 2.5,
-                          borderRadius: "10px",
-                          border: "1px solid",
-                          borderColor: selectedPR.final_approval?.decision === "Approved" ? "#10b981" : "#e2e8f0",
-                          bgcolor: "#fff",
-                        }}
-                      >
-                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <ShieldCheck size={20} color="#059669" />
-                            <Typography sx={{ fontSize: "0.95rem", fontWeight: 750, color: "#1e293b" }}>
-                              Stage 5: General Manager Approval
-                            </Typography>
-                          </Box>
-                          <Chip
-                            size="small"
-                            label={selectedPR.final_approval?.decision || "Pending"}
-                            color={selectedPR.final_approval?.decision === "Approved" ? "success" : "default"}
-                            sx={{ fontWeight: 700 }}
-                          />
-                        </Box>
-
-                        <Typography sx={{ fontSize: "0.8rem", color: "#64748b", mb: 2 }}>
-                          Final Management Approver: <b>Manu Pillai</b> (or Administrator)
-                        </Typography>
-
-                        <Grid container spacing={2}>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              select
-                              fullWidth
-                              size="small"
-                              label="GM Decision *"
-                              disabled={!isManuPillai || selectedPR.final_approval?.decision === "Approved"}
-                              value={gmForm.decision}
-                              onChange={(e) => setGmForm({ ...gmForm, decision: e.target.value })}
-                            >
-                              <MenuItem value="Approved">Approved</MenuItem>
-                              <MenuItem value="Rejected">Rejected</MenuItem>
-                              <MenuItem value="Returned">Returned</MenuItem>
-                            </TextField>
-                          </Grid>
-
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              select
-                              fullWidth
-                              size="small"
-                              label="Selected Winner Vendor *"
-                              disabled={!isManuPillai || selectedPR.final_approval?.decision === "Approved"}
-                              value={gmForm.selected_quote_no}
-                              onChange={(e) => {
-                                const qNo = e.target.value;
-                                const found = quotesList.find((q) => q.quotation_no === qNo);
-                                setGmForm({
-                                  ...gmForm,
-                                  selected_quote_no: qNo,
-                                  selected_vendor: found?.vendor_name || "",
-                                  final_approved_amount: found?.total_amount || gmForm.final_approved_amount,
-                                });
-                              }}
-                            >
-                              {quotesList
-                                .filter((q) => q.vendor_name)
-                                .map((q) => (
-                                  <MenuItem key={q.quotation_no} value={q.quotation_no}>
-                                    {q.vendor_name} (₹{q.total_amount})
-                                  </MenuItem>
-                                ))}
-                            </TextField>
-                          </Grid>
-
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              fullWidth
-                              size="small"
-                              type="number"
-                              label="Final Approved ₹ *"
-                              disabled={!isManuPillai || selectedPR.final_approval?.decision === "Approved"}
-                              value={gmForm.final_approved_amount}
-                              onChange={(e) => setGmForm({ ...gmForm, final_approved_amount: e.target.value })}
-                            />
-                          </Grid>
-
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              fullWidth
-                              size="small"
-                              label="Approver Name"
-                              value={selectedPR.final_approval?.approver_name || "Manu Pillai"}
-                              disabled
-                            />
-                          </Grid>
-
-                          <Grid item xs={12}>
-                            <TextField
-                              fullWidth
-                              multiline
-                              rows={2}
-                              size="small"
-                              label="Management Remarks"
-                              placeholder="Why this vendor was chosen, negotiated pricing terms..."
-                              disabled={!isManuPillai || selectedPR.final_approval?.decision === "Approved"}
-                              value={gmForm.remarks}
-                              onChange={(e) => setGmForm({ ...gmForm, remarks: e.target.value })}
-                            />
-                          </Grid>
-                        </Grid>
-
-                        {selectedPR.final_approval?.decision === "Approved" ? (
-                          <Box sx={{ mt: 2, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
-                            <Chip
-                              icon={<CheckCircle2 size={16} />}
-                              label={`Management Approved (₹${Number(selectedPR.final_approval?.final_approved_amount || 0).toLocaleString("en-IN")}) • Winner: ${selectedPR.final_approval?.selected_vendor || "N/A"}`}
-                              color="success"
-                              sx={{ fontWeight: 750, fontSize: "0.8rem" }}
-                            />
-                          </Box>
-                        ) : isManuPillai ? (
-                          <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
-                            <Button
-                              variant="contained"
-                              onClick={handleSubmitGmApproval}
-                              disabled={submitting}
-                              sx={{ bgcolor: "#059669", textTransform: "none", fontWeight: 650, "&:hover": { bgcolor: "#047857" } }}
-                            >
-                              Confirm GM Selection &amp; Approve
-                            </Button>
-                          </Box>
-                        ) : (
-                          <Typography sx={{ fontSize: "0.75rem", color: "#94a3b8", mt: 1.5, fontStyle: "italic" }}>
-                            * Only Manu Pillai or Administrators have permission to approve Stage 5.
-                          </Typography>
                         )}
-                      </Paper>
-                    </Grid>
+                      </Box>
+                    </Box>
                   )}
-                </Grid>
+                </Paper>
               </Box>
             )}
 
-            {/* ── TAB 3: PO & GRN RECEIVING ── */}
-            {workflowTab === 3 && (
+            {/* ── TAB 4: PO & GRN RECEIVING ── */}
+            {workflowTab === 4 && (
               <Box>
                 <Grid container spacing={3}>
                   {/* Purchase Order (PO) */}
@@ -3757,8 +5324,8 @@ export default function ProcurementManagement() {
               </Box>
             )}
 
-            {/* ── TAB 4: TAX INVOICE & ACCOUNTS 3-WAY MATCHING ── */}
-            {workflowTab === 4 && (
+            {/* ── TAB 5: TAX INVOICE & ACCOUNTS 3-WAY MATCHING ── */}
+            {workflowTab === 5 && (
               <Box>
                 <Grid container spacing={3}>
                   <Grid item xs={12} md={7}>
@@ -4070,8 +5637,8 @@ export default function ProcurementManagement() {
               </Box>
             )}
 
-            {/* ── TAB 5: PAYMENT & AUTOMATED ASSET BRIDGE ── */}
-            {workflowTab === 5 && (
+            {/* ── TAB 6: PAYMENT & AUTOMATED ASSET BRIDGE ── */}
+            {workflowTab === 6 && (
               <Box>
                 <Grid container spacing={3}>
                   {/* Payment Recording */}
@@ -4347,8 +5914,8 @@ export default function ProcurementManagement() {
               </Box>
             )}
 
-            {/* ── TAB 6: WORKFLOW AUDIT TRAIL ── */}
-            {workflowTab === 6 && (
+            {/* ── TAB 7: WORKFLOW AUDIT TRAIL ── */}
+            {workflowTab === 7 && (
               <Box>
                 <Typography sx={{ fontSize: "1rem", fontWeight: 750, color: "#1e293b", mb: 2 }}>
                   Immutable Procurement Audit Trail &amp; History

@@ -121,7 +121,19 @@ function uppercaseDeep(obj) {
   if (typeof obj === "object" && !(obj instanceof Date)) {
     const res = {};
     for (const key of Object.keys(obj)) {
-      if (key === "_id" || key === "createdAt" || key === "updatedAt" || key === "__v" || key.endsWith("Date") || key.endsWith("Time") || key.endsWith("Dt") || key === "date" || key.toLowerCase().includes("attachment")) {
+      if (
+        key === "_id" ||
+        key === "createdAt" ||
+        key === "updatedAt" ||
+        key === "__v" ||
+        key.endsWith("Date") ||
+        key.endsWith("Time") ||
+        key.endsWith("Dt") ||
+        key === "date" ||
+        key.toLowerCase().includes("attachment") ||
+        key.toLowerCase().includes("email") ||
+        key === "poFormatStyle"
+      ) {
         res[key] = obj[key];
       } else {
         res[key] = uppercaseDeep(obj[key]);
@@ -873,6 +885,9 @@ router.get("/tyre-procurement", authMiddleware, async (req, res) => {
       query.$or = [
         { prNumber: regex },
         { poNumber: regex },
+        { companyKey: regex },
+        { companyName: regex },
+        { "stage1.companyName": regex },
         { "stage1.preparedBy": regex },
         { "stage2.selectedSupplierL1": regex },
         { "stage4.supplierName": regex },
@@ -963,13 +978,22 @@ router.post("/tyre-suppliers", authMiddleware, async (req, res) => {
 router.post("/tyre-procurement", authMiddleware, async (req, res) => {
   try {
     let payload = normalizeTyreEnums(uppercaseDeep(req.body));
-    const { prNumber } = payload;
-    if (!prNumber?.trim()) {
-      return res.status(400).json({ success: false, message: "PR Number is required" });
+    let prNumber = payload.prNumber?.trim();
+    if (!prNumber) {
+      const autoNum = await generateNextTyreNumbers(payload.stage1?.prDate);
+      prNumber = autoNum.prNumber;
+      payload.prNumber = prNumber;
+      if (!payload.poNumber?.trim()) {
+        payload.poNumber = autoNum.poNumber;
+      }
     }
-    const existing = await TyreProcurementSop.findOne({ prNumber: prNumber.trim() });
+    const existing = await TyreProcurementSop.findOne({ prNumber: prNumber });
     if (existing) {
-      return res.status(400).json({ success: false, message: "PR Number already exists" });
+      const autoNum = await generateNextTyreNumbers(payload.stage1?.prDate);
+      payload.prNumber = autoNum.prNumber;
+      if (!payload.poNumber?.trim()) {
+        payload.poNumber = autoNum.poNumber;
+      }
     }
     payload.status = deriveStatus(payload);
     const doc = new TyreProcurementSop(payload);

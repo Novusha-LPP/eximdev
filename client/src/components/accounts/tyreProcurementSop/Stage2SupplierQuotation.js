@@ -1,3 +1,4 @@
+import { getCompanyProfile } from "./companyProfiles";
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { Add, Delete } from "@mui/icons-material";
@@ -6,6 +7,7 @@ import "../../../styles/enterprise-sop.scss";
 function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange }) {
   const [savedSuppliers, setSavedSuppliers] = useState([]);
   const [savedProducts, setSavedProducts] = useState([]);
+  const compProfile = getCompanyProfile(globalData?.companyKey || globalData?.companyName);
 
   useEffect(() => {
     // Fetch saved suppliers list from backend API
@@ -782,7 +784,57 @@ const DEFAULT_TERMS = [
               ].map(([label, field, type, options]) => (
                 <tr key={field}>
                   <td style={{ fontWeight: 600 }}>
-                    {label}
+                    {field === "deliveryLocation" ? (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px" }}>
+                        <span>{label}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const loc = globalData?.stage1?.deliveryLocation || compProfile.defaultDeliveryLocation;
+                            suppliers.forEach((_, sIdx) => updateSupplierField(sIdx, "deliveryLocation", loc));
+                          }}
+                          style={{
+                            fontSize: "9px",
+                            fontWeight: 700,
+                            color: "#0284c7",
+                            background: "#e0f2fe",
+                            border: "1px solid #bae6fd",
+                            borderRadius: "3px",
+                            padding: "1px 5px",
+                            cursor: "pointer",
+                          }}
+                          title="Apply company delivery location to all quotations"
+                        >
+                          Use {compProfile.id} Location
+                        </button>
+                      </div>
+                    ) : field === "deliveryContact" ? (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px" }}>
+                        <span>{label}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const ctc = globalData?.stage1?.deliveryContact || compProfile.defaultDeliveryContact;
+                            suppliers.forEach((_, sIdx) => updateSupplierField(sIdx, "deliveryContact", ctc));
+                          }}
+                          style={{
+                            fontSize: "9px",
+                            fontWeight: 700,
+                            color: "#0284c7",
+                            background: "#e0f2fe",
+                            border: "1px solid #bae6fd",
+                            borderRadius: "3px",
+                            padding: "1px 5px",
+                            cursor: "pointer",
+                          }}
+                          title="Apply company delivery contact to all quotations"
+                        >
+                          Use {compProfile.id} Contact
+                        </button>
+                      </div>
+                    ) : (
+                      label
+                    )}
                     {type === "datalist" && (
                       <datalist id={`datalist-${field}`}>
                         {options.map((opt, oIdx) => (

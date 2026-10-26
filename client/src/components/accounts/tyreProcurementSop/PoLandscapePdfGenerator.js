@@ -1,9 +1,10 @@
-import React, { useRef, useState } from "react";
-import { Button, CircularProgress, IconButton, Tooltip } from "@mui/material";
+import React, { useRef, useState, useEffect } from "react";
+import { Button, CircularProgress, IconButton, Tooltip, Box } from "@mui/material";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { SR_LOGO_BASE64 } from "./srLogoBase64";
+import { COMPANY_PROFILES, getCompanyProfile, COMPANY_OPTIONS } from "./companyProfiles";
 
 const fmtPoDate = (d) => {
   if (!d) return "-";
@@ -86,6 +87,37 @@ function PoLandscapePdfGenerator({
   const [activeVendorIndex, setActiveVendorIndex] = useState(0);
   const pdfRef = useRef(null);
 
+  // Active Company Selection
+  const initialCompany = globalData?.companyKey || globalData?.stage1?.companyKey || globalData?.companyName || "SURAVIO";
+  const [selectedCompanyKey, setSelectedCompanyKey] = useState(() => {
+    const prof = getCompanyProfile(initialCompany);
+    return prof.id || "SURAVIO";
+  });
+
+  // Active Format: "standard" (plain white with logo) | "letterhead" (official letterhead frame, logo suppressed) | "plain" (pre-printed paper)
+  const [poFormatStyle, setPoFormatStyle] = useState(() => {
+    if (globalData?.poFormatStyle) return globalData.poFormatStyle;
+    const prof = getCompanyProfile(initialCompany);
+    return prof.defaultPoFormatStyle || "standard";
+  });
+
+  // Synchronize when globalData updates
+  useEffect(() => {
+    if (globalData?.companyKey) {
+      setSelectedCompanyKey(globalData.companyKey);
+    } else if (globalData?.companyName) {
+      setSelectedCompanyKey(getCompanyProfile(globalData.companyName).id);
+    }
+    if (globalData?.poFormatStyle) {
+      setPoFormatStyle(globalData.poFormatStyle);
+    }
+  }, [globalData?.companyKey, globalData?.companyName, globalData?.poFormatStyle]);
+
+  // Resolve Company Profile
+  const activeProfile = getCompanyProfile(selectedCompanyKey || globalData?.companyKey || globalData?.companyName);
+  const isLetterhead = poFormatStyle === "letterhead" && Boolean(activeProfile.letterheadBase64);
+  const isPlain = poFormatStyle === "plain";
+
   // Common Identifiers
   const prNumber = globalData?.prNumber || globalData?.stage1?.prNumber || "-";
   const rawPoNumber = globalData?.poNumber || globalData?.stage3?.poNumber || globalData?.stage2?.poNumber || "-";
@@ -95,14 +127,15 @@ function PoLandscapePdfGenerator({
   const checkedByName = globalData?.stage1?.hodValidation?.validatedBy || "-";
   const approvedByName = globalData?.stage3?.signOff?.financeManagerName || globalData?.stage3?.decision?.approvedBy || "-";
 
-  // Company / Buyer Details
-  const buyerName = globalData?.companyName || globalData?.buyerName || "S R CONTAINER CARRIERS";
-  const buyerAddress1 = globalData?.companyAddress || globalData?.buyerAddress || "A/206, WALL STREET II,";
-  const buyerAddress2 = globalData?.buyerAddress2 || "OPP. ORIENT CLUB, ELLISBRIDGE,";
-  const buyerCityState = globalData?.buyerCityState || "AHMEDABAD - 380006, Gujarat";
-  const buyerGstin = globalData?.companyGstin || globalData?.gstin || "24ANGPR7652E1ZV";
-  const buyerStateCode = globalData?.buyerStateCode || "State: Gujarat, Code: 24";
-  const buyerEmail = globalData?.companyEmail || "purchase@surajgroupofcompanies.com";
+  // Company / Buyer Details (Dynamic based on selected Company Profile)
+  const buyerName = globalData?.buyerName || globalData?.companyName || activeProfile.buyerName;
+  const buyerAddress1 = globalData?.companyAddress || globalData?.buyerAddress || activeProfile.buyerAddress1;
+  const buyerAddress2 = activeProfile.buyerAddress2 || "";
+  const buyerCityState = activeProfile.buyerCityState || "";
+  const buyerGstin = globalData?.companyGstin || globalData?.gstin || activeProfile.buyerGstin;
+  const buyerStateCode = activeProfile.buyerStateCode || "State: Gujarat, Code: 24";
+  const buyerEmail = globalData?.companyEmail || activeProfile.buyerEmail;
+  const buyerPhone = globalData?.companyPhone || activeProfile.buyerPhone || "";
 
   // Items / Products List
   const rawItems = globalData?.stage1?.itemsRequired || globalData?.stage1?.items || [];
@@ -148,7 +181,7 @@ function PoLandscapePdfGenerator({
     }];
   } else if (stage2Selected && stage2Selected.length > 0) {
     awardedSuppliers = stage2Selected.map((sel) => {
-      const sName = (sel.selectedSupplier || sel.supplierName || "")?.trim();
+      const sName = (sel.selectedSupplier || "").trim();
       const full =
         stage2Suppliers.find(
           (s) =>
@@ -160,78 +193,69 @@ function PoLandscapePdfGenerator({
         stage2Suppliers[0] ||
         {};
 
-      const resolvedSupplierName = sName || full.supplierName || full.supplierNameInBank || "-";
-
       return {
-        supplierName: resolvedSupplierName,
+        supplierName: sName || full.supplierName || full.supplierNameInBank || "-",
         totalOrderValue: Number(sel.totalOrderValue) || full.totalOrderValue || 0,
         priceQuoted: Number(sel.priceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
-        reasonForSelection: sel.reasonForSelection || "",
+        reasonForSelection: sel.reasonForSelection || full.reasonForSelection || "",
         poNumber: sel.poNumber || globalData?.poNumber || rawPoNumber,
         ...full,
         ...sel,
-        supplierName: resolvedSupplierName,
+        supplierName: sName || full.supplierName || full.supplierNameInBank || "-",
       };
     });
   } else if (stage2Suppliers.length > 0) {
-    awardedSuppliers = stage2Suppliers;
-  } else if (globalData?.stage2?.selectedSupplierL1) {
-    const l1Name = globalData.stage2.selectedSupplierL1;
-    const full =
-      stage2Suppliers.find(
-        (s) =>
-          (l1Name && s.supplierName && s.supplierName.trim().toUpperCase() === String(l1Name).trim().toUpperCase())
-      ) || {};
-    awardedSuppliers = [{
-      supplierName: l1Name,
-      totalOrderValue: Number(globalData.stage2.totalOrderValue) || full.totalOrderValue || 0,
-      priceQuoted: Number(globalData.stage2.l1PriceQuoted) || full.unitPriceNew || full.priceQuoted || 0,
-      poNumber: globalData.poNumber || rawPoNumber,
+    const validSuppliers = stage2Suppliers.filter((s) => s.supplierName && !s.supplierName.toUpperCase().startsWith("SUPPLIER "));
+    const chosenList = validSuppliers.length > 0 ? validSuppliers : [stage2Suppliers[0]];
+
+    awardedSuppliers = chosenList.map((full) => ({
+      supplierName: full.supplierName || full.supplierNameInBank || "-",
+      totalOrderValue: Number(full.totalOrderValue) || 0,
+      priceQuoted: Number(full.unitPriceNew || full.priceQuoted) || 0,
+      reasonForSelection: full.reasonForSelection || "",
+      poNumber: full.poNumber || globalData?.poNumber || rawPoNumber,
       ...full,
-    }];
-  } else {
+    }));
+  }
+
+  if (awardedSuppliers.length === 0) {
     awardedSuppliers = [{
       supplierName: "-",
       totalOrderValue: 0,
-      poNumber: rawPoNumber,
+      priceQuoted: 0,
+      poNumber: globalData?.poNumber || rawPoNumber,
     }];
   }
 
   const currentVendor = awardedSuppliers[activeVendorIndex] || awardedSuppliers[0] || {};
-  const vendorName =
-    (currentVendor.supplierName && currentVendor.supplierName !== "-")
-      ? currentVendor.supplierName
-      : currentVendor.supplierNameInBank ||
-      currentVendor.selectedSupplier ||
-      (targetSupplier?.supplierName && targetSupplier.supplierName !== "-" ? targetSupplier.supplierName : targetSupplier?.selectedSupplier) ||
-      globalData?.stage2?.selectedSupplierL1 ||
-      "-";
 
-  const vendorAddress =
+  const vendorName =
+    currentVendor.supplierName ||
+    currentVendor.supplierNameInBank ||
+    targetSupplier?.supplierName ||
+    "-";
+
+  const rawVendorAddress =
     currentVendor.supplierAddress ||
     currentVendor.address ||
-    currentVendor.vendorAddress ||
     targetSupplier?.supplierAddress ||
     targetSupplier?.address ||
     "-";
+  const vendorAddress = cleanDeliveryAddress(rawVendorAddress);
 
   const vendorGst =
     currentVendor.gstNumber ||
-    currentVendor.gstin ||
-    currentVendor.vendorGst ||
+    currentVendor.gstNo ||
+    currentVendor.gst ||
     targetSupplier?.gstNumber ||
-    targetSupplier?.gstin ||
     "-";
 
   const vendorPhone =
     currentVendor.phoneNumber ||
     currentVendor.phone ||
-    currentVendor.mobile ||
     currentVendor.contactNumber ||
-    currentVendor.contactPersonPhone ||
+    currentVendor.mobile ||
     targetSupplier?.phoneNumber ||
-    targetSupplier?.phone ||
-    targetSupplier?.mobile ||
     "-";
 
   const vendorBank =
@@ -243,7 +267,6 @@ function PoLandscapePdfGenerator({
     currentVendor.bankAccountNo ||
     currentVendor.accountNumber ||
     targetSupplier?.bankAccountNo ||
-    targetSupplier?.accountNumber ||
     "-";
 
   const vendorIfsc =
@@ -277,12 +300,14 @@ function PoLandscapePdfGenerator({
     rawPoNumber ||
     "-";
 
+  // Delivery Location & Contact with fallback to Company Profile defaults
   const rawDeliveryLocation =
     currentVendor.deliveryLocation ||
     globalData?.stage2?.deliveryLocation ||
     globalData?.stage1?.deliveryLocation ||
     globalData?.stage1?.departmentLocation ||
     globalData?.stage1?.deliveryLocationSite ||
+    activeProfile.defaultDeliveryLocation ||
     buyerAddress1 ||
     "-";
   const finalDeliveryLocation = cleanDeliveryAddress(rawDeliveryLocation);
@@ -290,7 +315,10 @@ function PoLandscapePdfGenerator({
   const deliveryContactNo =
     currentVendor.deliveryContact ||
     globalData?.stage2?.deliveryContact ||
+    globalData?.stage1?.deliveryContact ||
+    globalData?.stage1?.deliveryContactPerson ||
     globalData?.stage1?.requesterPhone ||
+    activeProfile.defaultDeliveryContact ||
     "-";
 
   const isGstFreightIncluded = Boolean(
@@ -350,33 +378,28 @@ function PoLandscapePdfGenerator({
   const itemsList = rawItems.length > 0 ? rawItems : [];
 
   const computedItems = itemsList.map((item, idx) => {
-    let itemQty = 0;
-    if (rawItems.length <= 1) {
-      itemQty = vendorAllocatedTotalQty;
-    } else {
-      const rawItemQty = Number(item.qty || item.quantityRequested || item.quantity || 1);
-      const ratio = prTotalQuantity > 0 ? rawItemQty / prTotalQuantity : 1 / rawItems.length;
-      itemQty = Math.round(vendorAllocatedTotalQty * ratio) || rawItemQty;
+    const rawQty = Number(item.qty || item.quantityRequested || item.quantity || 0);
+    const itemQty =
+      itemsList.length === 1 && vendorAllocatedTotalQty > 0
+        ? vendorAllocatedTotalQty
+        : rawQty > 0
+        ? rawQty
+        : 1;
+
+    let itemRate = 0;
+    if (vendorUnitPrice > 0) {
+      itemRate = vendorUnitPrice;
+    } else if (item.estUnitCost) {
+      itemRate = Number(item.estUnitCost);
+    } else if (vendorTotalOrderValue > 0 && vendorAllocatedTotalQty > 0) {
+      itemRate = vendorTotalOrderValue / vendorAllocatedTotalQty;
     }
 
-    const itemRate = Number(
-      vendorUnitPrice ||
-      item.rate ||
-      item.estUnitCost ||
-      item.unitPrice ||
-      (vendorAllocatedTotalQty ? Math.round(vendorTotalOrderValue / vendorAllocatedTotalQty) : 0)
-    );
     const itemBase = itemQty * itemRate;
-
-    let itemGst = 0;
-    if (currentVendor.gstAmount !== undefined && currentVendor.gstAmount !== null && Number(currentVendor.gstAmount) > 0) {
-      itemGst = rawItems.length > 1 ? Math.round(Number(currentVendor.gstAmount) / rawItems.length) : Number(currentVendor.gstAmount);
-    } else if (currentVendor.gstRate) {
-      const rateVal = parseFloat(String(currentVendor.gstRate).replace("%", "")) || 0;
-      itemGst = Math.round((itemBase * rateVal) / 100);
-    } else if (item.gstAmount) {
-      itemGst = Number(item.gstAmount) || 0;
-    }
+    const gstRateVal = currentVendor.gstRate
+      ? Number(String(currentVendor.gstRate).replace(/%/g, ''))
+      : 0;
+    const itemGst = (itemBase * gstRateVal) / 100;
 
     calculatedSubTotal += itemBase;
     calculatedTotalGst += itemGst;
@@ -423,10 +446,10 @@ function PoLandscapePdfGenerator({
           scale: 2,
           useCORS: true,
           logging: false,
-          backgroundColor: "#ffffff",
+          backgroundColor: isLetterhead ? null : "#ffffff",
         });
 
-        const imgData = canvas.toDataURL("image/jpeg", 0.82);
+        const imgData = canvas.toDataURL("image/jpeg", 0.90);
         const pdf = new jsPDF("portrait", "pt", "a4");
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -434,7 +457,12 @@ function PoLandscapePdfGenerator({
         const imgWidth = pdfWidth - 30;
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-        pdf.addImage(imgData, "JPEG", 15, 15, imgWidth, Math.min(imgHeight, pdfHeight - 30), undefined, "FAST");
+        if (isLetterhead) {
+          pdf.addImage(imgData, "JPEG", 10, 10, pdfWidth - 20, pdfHeight - 20, undefined, "FAST");
+        } else {
+          pdf.addImage(imgData, "JPEG", 15, 15, imgWidth, Math.min(imgHeight, pdfHeight - 30), undefined, "FAST");
+        }
+
         const suppNameClean = (awardedSuppliers[0].supplierName || "Supplier").replace(/[^a-zA-Z0-9_-]/g, "_");
         pdf.save(`Purchase_Order_${suppNameClean}_${poClean}.pdf`);
       } else {
@@ -450,10 +478,10 @@ function PoLandscapePdfGenerator({
             scale: 2,
             useCORS: true,
             logging: false,
-            backgroundColor: "#ffffff",
+            backgroundColor: isLetterhead ? null : "#ffffff",
           });
 
-          const imgData = canvas.toDataURL("image/jpeg", 0.82);
+          const imgData = canvas.toDataURL("image/jpeg", 0.90);
           const imgWidth = pdfWidth - 30;
           const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
@@ -461,7 +489,11 @@ function PoLandscapePdfGenerator({
             pdf.addPage();
           }
 
-          pdf.addImage(imgData, "JPEG", 15, 15, imgWidth, Math.min(imgHeight, pdfHeight - 30), undefined, "FAST");
+          if (isLetterhead) {
+            pdf.addImage(imgData, "JPEG", 10, 10, pdfWidth - 20, pdfHeight - 20, undefined, "FAST");
+          } else {
+            pdf.addImage(imgData, "JPEG", 15, 15, imgWidth, Math.min(imgHeight, pdfHeight - 30), undefined, "FAST");
+          }
         }
 
         pdf.save(`Combined_Purchase_Orders_${poClean}.pdf`);
@@ -483,23 +515,24 @@ function PoLandscapePdfGenerator({
       : `DOWNLOAD PO PDF (${awardedSuppliers.length})`);
 
   // Shared Border and Navy Blue Color Palette
-  const NAVY = "#0f3b6c";
+  const NAVY = activeProfile.themeColor || "#0f3b6c";
   const BORDER_STYLE = `1px solid ${NAVY}`;
   const HEADER_BG = "#f0f4f8";
+  const CELL_BG = isLetterhead ? "rgba(255, 255, 255, 0.95)" : "#ffffff";
 
   return (
     <>
       {iconOnly ? (
-        <Tooltip title={`Download Purchase Order PDF (${awardedSuppliers.length} PO${awardedSuppliers.length > 1 ? "s" : ""})`}>
+        <Tooltip title={tooltipTitle || `Download Purchase Order PDF (${awardedSuppliers.length} PO${awardedSuppliers.length > 1 ? "s" : ""})`}>
           <span>
             <IconButton
               size="small"
               onClick={handleGeneratePdf}
               disabled={downloading}
               sx={{
-                color: "#0f3b6c",
-                bgcolor: "#f0f4f8",
-                "&:hover": { bgcolor: "#e2e8f0" },
+                color: customColor || "#0f3b6c",
+                bgcolor: customBgColor || "#f0f4f8",
+                "&:hover": { bgcolor: customHoverBg || "#e2e8f0" },
               }}
             >
               {downloading ? <CircularProgress size={16} sx={{ color: "#0f3b6c" }} /> : <PictureAsPdfIcon sx={{ fontSize: 16 }} />}
@@ -507,20 +540,80 @@ function PoLandscapePdfGenerator({
           </span>
         </Tooltip>
       ) : (
-        <Button
-          variant="contained"
-          startIcon={downloading ? <CircularProgress size={18} color="inherit" /> : <PictureAsPdfIcon />}
-          onClick={handleGeneratePdf}
-          disabled={downloading}
-          size={size}
-          sx={{
-            fontWeight: "bold",
-            backgroundColor: "#0f3b6c",
-            "&:hover": { backgroundColor: "#092545" },
-          }}
-        >
-          {labelText}
-        </Button>
+        <Box sx={{ display: "inline-flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+          {/* Company Quick Selector Dropdown */}
+          <select
+            value={selectedCompanyKey}
+            onChange={(e) => {
+              const newKey = e.target.value;
+              setSelectedCompanyKey(newKey);
+              const prof = getCompanyProfile(newKey);
+              if (prof.defaultFormat) setPoFormatStyle(prof.defaultFormat);
+            }}
+            disabled={downloading}
+            style={{
+              fontSize: "11px",
+              fontWeight: 700,
+              padding: "4px 8px",
+              borderRadius: "4px",
+              border: "1.5px solid #cbd5e1",
+              backgroundColor: "#ffffff",
+              color: "#0f3b6c",
+              cursor: "pointer",
+              height: "32px",
+              maxWidth: "200px",
+            }}
+            title="Select Purchasing Company"
+          >
+            {COMPANY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+
+          {/* PO Format Selector */}
+          <select
+            value={poFormatStyle}
+            onChange={(e) => setPoFormatStyle(e.target.value)}
+            disabled={downloading}
+            style={{
+              fontSize: "11px",
+              fontWeight: 600,
+              padding: "4px 8px",
+              borderRadius: "4px",
+              border: "1.5px solid #cbd5e1",
+              backgroundColor: "#ffffff",
+              color: "#334155",
+              cursor: "pointer",
+              height: "32px",
+            }}
+            title="PO Format Style"
+          >
+            <option value="letterhead">📜 Letterhead PO</option>
+            <option value="standard">📄 Standard PO (with Logo)</option>
+            <option value="plain">🖨️ Plain (Pre-Printed)</option>
+          </select>
+
+          <Button
+            variant="contained"
+            startIcon={downloading ? <CircularProgress size={18} color="inherit" /> : <PictureAsPdfIcon />}
+            onClick={handleGeneratePdf}
+            disabled={downloading}
+            size={size}
+            sx={{
+              fontWeight: "bold",
+              backgroundColor: customBgColor || NAVY,
+              color: customColor || "#ffffff",
+              fontSize: "12px",
+              textTransform: "none",
+              height: "32px",
+              "&:hover": { backgroundColor: customHoverBg || "#092545" },
+            }}
+          >
+            {labelText}
+          </Button>
+        </Box>
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
@@ -532,45 +625,72 @@ function PoLandscapePdfGenerator({
           display: "none",
           width: "780px",
           minWidth: "780px",
-          backgroundColor: "#ffffff",
+          minHeight: isLetterhead ? "1100px" : "auto",
+          backgroundColor: isLetterhead ? "transparent" : "#ffffff",
+          backgroundImage: isLetterhead ? `url("${activeProfile.letterheadBase64}")` : "none",
+          backgroundSize: "100% 100%",
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "center top",
           color: "#000000",
           fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif",
           fontSize: "11px",
-          padding: "24px 28px",
+          padding: isLetterhead ? "106px 28px 86px 28px" : "24px 28px",
           boxSizing: "border-box",
-          border: "2px solid #000000",
+          border: isLetterhead || isPlain ? "none" : "2px solid #000000",
           textAlign: "left",
+          position: "relative",
         }}
       >
-        {/* Header: Logo (Left) & PURCHASE ORDER Navy Bar (Right) */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-          <div>
-            <img
-              src={SR_LOGO_BASE64}
-              alt="SR Container Carriers - Delivering Prosperity..."
-              style={{ height: "54px", maxWidth: "220px", width: "auto", display: "block", objectFit: "contain" }}
-            />
+        {/* Header: If letterhead is used, the letterhead ALREADY has the logo and header -> remove the logo! */}
+        {isLetterhead || isPlain ? (
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: "14px" }}>
+            <div
+              style={{
+                backgroundColor: NAVY,
+                color: "#ffffff",
+                fontWeight: 800,
+                fontSize: "17px",
+                letterSpacing: "1px",
+                textAlign: "center",
+                padding: "6px 36px",
+                borderRadius: "2px",
+                textTransform: "uppercase",
+                minWidth: "260px",
+              }}
+            >
+              PURCHASE ORDER
+            </div>
           </div>
-          <div
-            style={{
-              backgroundColor: NAVY,
-              color: "#ffffff",
-              fontWeight: 800,
-              fontSize: "18px",
-              letterSpacing: "1px",
-              textAlign: "center",
-              padding: "8px 36px",
-              borderRadius: "2px",
-              textTransform: "uppercase",
-              minWidth: "300px",
-            }}
-          >
-            PURCHASE ORDER
+        ) : (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <div>
+              <img
+                src={activeProfile.logoBase64 || SR_LOGO_BASE64}
+                alt={buyerName}
+                style={{ height: "54px", maxWidth: "220px", width: "auto", display: "block", objectFit: "contain" }}
+              />
+            </div>
+            <div
+              style={{
+                backgroundColor: NAVY,
+                color: "#ffffff",
+                fontWeight: 800,
+                fontSize: "18px",
+                letterSpacing: "1px",
+                textAlign: "center",
+                padding: "8px 36px",
+                borderRadius: "2px",
+                textTransform: "uppercase",
+                minWidth: "300px",
+              }}
+            >
+              PURCHASE ORDER
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 1. BUYER (BILL TO) & VENDOR Box */}
-        <table style={{ width: "100%", borderCollapse: "collapse", border: BORDER_STYLE, marginBottom: "8px", fontSize: "11px", tableLayout: "fixed", textAlign: "left" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", border: BORDER_STYLE, marginBottom: "8px", fontSize: "11px", tableLayout: "fixed", textAlign: "left", backgroundColor: CELL_BG }}>
           <thead>
             <tr>
               <th
@@ -609,11 +729,12 @@ function PoLandscapePdfGenerator({
               <td style={{ width: "50%", borderRight: BORDER_STYLE, padding: "8px 10px", verticalAlign: "top", fontSize: "10.5px", lineHeight: "1.45", textAlign: "left", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal", boxSizing: "border-box" }}>
                 <div style={{ fontWeight: 800, color: "#000000", fontSize: "11.5px", textAlign: "left" }}>{buyerName}</div>
                 <div style={{ textAlign: "left" }}>{buyerAddress1}</div>
-                <div style={{ textAlign: "left" }}>{buyerAddress2}</div>
-                <div style={{ textAlign: "left" }}>{buyerCityState}</div>
+                {buyerAddress2 && <div style={{ textAlign: "left" }}>{buyerAddress2}</div>}
+                {buyerCityState && <div style={{ textAlign: "left" }}>{buyerCityState}</div>}
                 <div style={{ textAlign: "left" }}><strong>GSTIN:</strong> {buyerGstin}</div>
                 <div style={{ textAlign: "left" }}>{buyerStateCode}</div>
                 <div style={{ textAlign: "left" }}><strong>Email:</strong> {buyerEmail}</div>
+                {buyerPhone && <div style={{ textAlign: "left" }}><strong>Phone:</strong> {buyerPhone}</div>}
               </td>
               <td style={{ width: "50%", padding: "8px 10px", verticalAlign: "top", fontSize: "10.5px", lineHeight: "1.45", textAlign: "left", wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "normal", boxSizing: "border-box" }}>
                 <div style={{ fontWeight: 800, color: "#000000", fontSize: "11.5px", textAlign: "left" }}>{vendorName}</div>
@@ -626,7 +747,7 @@ function PoLandscapePdfGenerator({
         </table>
 
         {/* 2. SHIP TO & PURCHASE ORDER DETAILS Box */}
-        <table style={{ width: "100%", borderCollapse: "collapse", border: BORDER_STYLE, marginBottom: "10px", fontSize: "11px", tableLayout: "fixed", textAlign: "left" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", border: BORDER_STYLE, marginBottom: "10px", fontSize: "11px", tableLayout: "fixed", textAlign: "left", backgroundColor: CELL_BG }}>
           <thead>
             <tr>
               <th
@@ -709,7 +830,7 @@ function PoLandscapePdfGenerator({
         </table>
 
         {/* 3. Items Table */}
-        <table style={{ width: "100%", borderCollapse: "collapse", border: BORDER_STYLE, marginBottom: "8px", fontSize: "11px" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", border: BORDER_STYLE, marginBottom: "8px", fontSize: "11px", backgroundColor: CELL_BG }}>
           <thead>
             <tr style={{ backgroundColor: NAVY, color: "#ffffff", fontWeight: 700 }}>
               <th style={{ width: "6%", padding: "6px 4px", borderRight: "1px solid #ffffff", textAlign: "center" }}>Sr.</th>
@@ -765,7 +886,7 @@ function PoLandscapePdfGenerator({
               </tr>
             )}
 
-            {/* TOTAL Row with Navy Blue Total Cell */}
+            {/* TOTAL Row */}
             <tr>
               <td colSpan="3" style={{ borderRight: BORDER_STYLE, padding: "6px 8px", textAlign: "right", fontWeight: 800, fontSize: "11.5px" }}>
                 TOTAL
@@ -810,14 +931,14 @@ function PoLandscapePdfGenerator({
             padding: "6px 10px",
             marginBottom: "10px",
             fontSize: "11px",
-            backgroundColor: "#ffffff",
+            backgroundColor: CELL_BG,
           }}
         >
           <strong>Amount in Words:</strong> {amountInWordsText}
         </div>
 
         {/* 5. TERMS AND CONDITIONS Box */}
-        <div style={{ border: BORDER_STYLE, marginBottom: "14px" }}>
+        <div style={{ border: BORDER_STYLE, marginBottom: "14px", backgroundColor: CELL_BG }}>
           <div
             style={{
               backgroundColor: NAVY,
@@ -851,7 +972,7 @@ function PoLandscapePdfGenerator({
         </div>
 
         {/* 6. Captured Dates & Signatures Block */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "0 4px", fontSize: "10.5px", lineHeight: "1.5" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "0 4px", fontSize: "10.5px", lineHeight: "1.5", backgroundColor: isLetterhead ? "rgba(255, 255, 255, 0.9)" : "transparent", borderRadius: "2px" }}>
           <div style={{ width: "32%" }}>
             <div style={{ fontWeight: 800, color: NAVY, textDecoration: "underline", marginBottom: "2px" }}>
               Prepared By:

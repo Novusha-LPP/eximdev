@@ -841,12 +841,10 @@ export default function CRMKanbanBoard() {
 
   const handleConfirmDuplicate = async () => {
     if (!duplicateService) return;
-    if (!duplicateTactics || duplicateTactics.length === 0) {
-      message.warning('Please select at least one sales tactic for the duplicated deal.');
-      return;
-    }
     setUpdating(true);
     try {
+      const selectedTactics = Array.isArray(duplicateTactics) ? duplicateTactics : [];
+      const hasT29 = selectedTactics.includes('T29');
       await axios.post(
         `${process.env.REACT_APP_API_STRING}/crm/opportunities/${duplicatingOpp._id}/duplicate`,
         {
@@ -855,8 +853,8 @@ export default function CRMKanbanBoard() {
           value: duplicateValue,
           expectedCloseDate: duplicateCloseDate,
           stage: duplicatingOpp.stage,
-          tactic_ids: duplicateTactics,
-          partner_source_id: duplicatePartner
+          tactic_ids: selectedTactics,
+          partner_source_id: hasT29 ? duplicatePartner : null
         },
         getHeaders()
       );
@@ -1549,7 +1547,7 @@ export default function CRMKanbanBoard() {
                       </td>
                       {/* Reason for Loss */}
                       <td style={{ padding: '16px' }}>
-                        {deal.stage === 'lost' || deal.closeReason ? (
+                        {deal.stage === 'lost' && deal.closeReason ? (
                           <span style={{
                             display: 'inline-block',
                             background: '#fee2e2',
@@ -1560,7 +1558,7 @@ export default function CRMKanbanBoard() {
                             fontSize: '0.75rem',
                             fontWeight: 700
                           }}>
-                            {deal.closeReason || 'Not Specified'}
+                            {deal.closeReason}
                           </span>
                         ) : (
                           <span style={{ color: '#94a3b8' }}>—</span>
@@ -1969,7 +1967,7 @@ export default function CRMKanbanBoard() {
                             </span>
                           )}
                           {/* Reason for Loss Badge if Lost */}
-                          {(opp.stage === 'lost' || opp.closeReason) && (
+                          {opp.stage === 'lost' && opp.closeReason && (
                             <span style={{
                               fontSize: '0.65rem',
                               background: '#fee2e2',
@@ -1982,7 +1980,7 @@ export default function CRMKanbanBoard() {
                               alignItems: 'center',
                               gap: '3px'
                             }}>
-                              ❌ Loss Reason: {opp.closeReason || 'Not specified'}
+                              ❌ Loss Reason: {opp.closeReason}
                             </span>
                           )}
                         </div>
@@ -2409,6 +2407,7 @@ export default function CRMKanbanBoard() {
                 selectedPartner={duplicatePartner}
                 onPartnerChange={setDuplicatePartner}
                 service={duplicateService}
+                required={false}
               />
             </div>
 

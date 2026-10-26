@@ -333,8 +333,10 @@ const ChargeSchema = new mongoose.Schema({
 });
 
 ChargeSchema.pre("save", function (next) {
-  const hasActivePR = this.payment_request_no && this.payment_request_status !== 'Rejected';
-  const hasActivePB = this.purchase_book_no && this.purchase_book_status !== 'Rejected';
+  const isPrRejected = String(this.payment_request_status || '').toLowerCase() === 'rejected';
+  const isPbRejected = String(this.purchase_book_status || '').toLowerCase() === 'rejected';
+  const hasActivePR = Boolean(this.payment_request_no && !isPrRejected);
+  const hasActivePB = Boolean(this.purchase_book_no && !isPbRejected);
   const isLocked = hasActivePR || hasActivePB;
 
   if (!isLocked) {

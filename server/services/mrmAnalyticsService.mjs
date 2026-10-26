@@ -11,8 +11,8 @@ import AttendanceRecord from '../model/attendance/AttendanceRecord.js';
 import EmployeeKPI from '../model/hr/employeeKPIModel.mjs';
 import { isFeatureEnabled } from '../config/featureFlags.mjs';
 
-import { getKarmaPriorityPoints } from '../utils/karmaPointsUtil.mjs';
-export { getKarmaPriorityPoints };
+import { getKarmaPriorityPoints, isPointDelayedOrOverdue } from '../utils/karmaPointsUtil.mjs';
+export { getKarmaPriorityPoints, isPointDelayedOrOverdue };
 
 /**
  * Resolves the clean, authoritative list of active Department HODs across the organization.
@@ -1074,11 +1074,14 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
                 const pts = getKarmaPriorityPoints(pt.priority);
                 const isTargetMonth = compDate 
                     ? (compDate.getMonth() + 1 === monthNum && compDate.getFullYear() === yearNum)
-                    : true;
+                    : false;
                 if (pt.status === 'Green') {
                     if (isTargetMonth) greenPts += pts;
                 } else if (pt.status !== 'Yellow' && pt.status !== 'Orange') {
-                    redPts += pts;
+                    const wasCreatedBeforeMonthEnd = !pt.creation_date || new Date(pt.creation_date) <= monthEndDate;
+                    if (wasCreatedBeforeMonthEnd && isPointDelayedOrOverdue(pt, monthEndDate)) {
+                        redPts += pts;
+                    }
                 }
             });
             const memberKarmaPts = greenPts - redPts;
@@ -1476,21 +1479,24 @@ export const calculateMemberCompositeScores = async ({ department, hodId, month,
             const pts = getKarmaPriorityPoints(pt.priority);
             const isTargetMonth = compDate 
                 ? (compDate.getMonth() + 1 === monthNum && compDate.getFullYear() === yearNum)
-                : true;
+                : false;
 
             if (pt.status === 'Green') {
                 if (isTargetMonth) greenPts += pts;
             } else if (pt.status === 'Yellow' || pt.status === 'Orange') {
                 inProgressPts += pts;
             } else {
-                redPts += pts;
+                const wasCreatedBeforeMonthEnd = !pt.creation_date || new Date(pt.creation_date) <= monthEndDate;
+                if (wasCreatedBeforeMonthEnd && isPointDelayedOrOverdue(pt, monthEndDate)) {
+                    redPts += pts;
+                }
             }
         });
 
         const karmaPoints = greenPts - redPts;
-        const totalKarmaTasksPts = greenPts + redPts + inProgressPts;
-        const karmaNorm = totalKarmaTasksPts > 0 
-            ? Math.min(100, Math.max(0, Math.round((greenPts / totalKarmaTasksPts) * 100)))
+        const evaluatedTasksPts = greenPts + redPts;
+        const karmaNorm = evaluatedTasksPts > 0 
+            ? Math.min(100, Math.max(0, Math.round((greenPts / evaluatedTasksPts) * 100)))
             : 100;
 
         // Weight

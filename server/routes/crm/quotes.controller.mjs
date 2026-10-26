@@ -416,7 +416,7 @@ router.post('/', async (req, res) => {
       billToAddress,
       shipToAddress,
       companyTemplate: companyTemplate || 'standard',
-      tradeType: tradeType || 'import',
+      tradeType: tradeType || '',
       createdById: creatorId,
       businessVertical: finalVertical
     });
@@ -596,7 +596,7 @@ router.put('/:id', async (req, res) => {
     if (req.body.billToAddress !== undefined) quote.billToAddress = req.body.billToAddress;
     if (req.body.shipToAddress !== undefined) quote.shipToAddress = req.body.shipToAddress;
     if (req.body.companyTemplate !== undefined) quote.companyTemplate = req.body.companyTemplate || 'standard';
-    if (req.body.tradeType !== undefined) quote.tradeType = ['import', 'export'].includes(req.body.tradeType) ? req.body.tradeType : 'import';
+    if (req.body.tradeType !== undefined) quote.tradeType = req.body.tradeType || '';
 
     await quote.save();
 
@@ -912,14 +912,17 @@ router.post('/:id/convert-to-opportunity', async (req, res) => {
 
     await newOpportunity.save();
 
-    // Attach tactics to converted opportunity (Rule R1)
-    await attachTacticsToDeal({
-      dealId: newOpportunity._id,
-      tactic_ids: req.body.tactic_ids || req.body.tactics || ['T01'],
-      partner_source_id: req.body.partner_source_id,
-      userId: currentUserId,
-      dealStatusWhenAdded: newOpportunity.stage || 'opportunity'
-    });
+    // Attach tactics to converted opportunity if provided
+    const quoteTactics = req.body.tactic_ids || req.body.tactics;
+    if (quoteTactics && (Array.isArray(quoteTactics) ? quoteTactics.length > 0 : quoteTactics)) {
+      await attachTacticsToDeal({
+        dealId: newOpportunity._id,
+        tactic_ids: Array.isArray(quoteTactics) ? quoteTactics : [quoteTactics],
+        partner_source_id: req.body.partner_source_id,
+        userId: currentUserId,
+        dealStatusWhenAdded: newOpportunity.stage || 'opportunity'
+      });
+    }
 
     quote.opportunityId = newOpportunity._id;
 

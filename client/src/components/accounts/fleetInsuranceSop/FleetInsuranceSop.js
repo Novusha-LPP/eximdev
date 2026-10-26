@@ -88,6 +88,17 @@ function FleetInsuranceSop({ mode: propMode }) {
 
   const handleRenew = useCallback((proposal) => {
     const id = proposal?._id || proposal;
+    if (proposal && typeof proposal === "object") {
+      const isRenewed = Boolean(
+        (String(proposal.renewed).toUpperCase() === "YES" || proposal.renewalStatus === "Renewed") &&
+        proposal.paymentUtr && String(proposal.paymentUtr).trim().length > 0 &&
+        proposal.financialApprovalStatus !== "Rejected"
+      );
+      if (!isRenewed && id) {
+        navigate(`/fleet-insurance/edit/${id}`);
+        return;
+      }
+    }
     if (id) {
       navigate(`/fleet-insurance/renew/${id}`);
     } else {

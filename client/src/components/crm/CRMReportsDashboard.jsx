@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { BarChart2, Download, Table, TrendingUp, AlertTriangle, ChevronDown, ChevronRight, PieChart, Phone, Mail, Calendar, FileText, CheckCircle2, MinusCircle, XCircle, Trophy, ShieldAlert, Award } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { message } from 'antd';
+import { BarChart2, Download, Table, TrendingUp, AlertTriangle, ChevronDown, ChevronRight, PieChart, Phone, Mail, Calendar, FileText, CheckCircle2, MinusCircle, XCircle, Trophy, ShieldAlert, Award, FileSpreadsheet } from 'lucide-react';
 import FilterBar from './components/FilterBar';
 import TacticsReportTab from './components/TacticsReportTab';
 import { LOST_REASONS } from './crmConstants';
@@ -29,6 +31,7 @@ export default function CRMReportsDashboard() {
   const [selectedVertical, setSelectedVertical] = useState('all');
   const [users, setUsers] = useState([]);
   const [selectedOwner, setSelectedOwner] = useState('all');
+  const [exportingAll, setExportingAll] = useState(false);
 
   const uniqueVerticals = [...new Set(teams.map(t => t.businessVertical).filter(Boolean))];
 
@@ -400,19 +403,117 @@ export default function CRMReportsDashboard() {
   }, [activeTab]);
 
   const handleExportCSV = () => {
+    if (activeTab === 'leaderboard') {
+      if (!leaderboardData) return;
+      if (leaderboardView === 'team') {
+        const teams = leaderboardData.teamRankings || [];
+        let csv = 'Rank,Team Name,Deals Won,Total Deals,Win Rate (%),Total Pipeline (INR),Won Revenue (INR)\n';
+        teams.forEach(t => {
+          csv += `"${t.rank || ''}","${(t.name || '').replace(/"/g, '""')}","${t.dealsWon || 0}","${t.totalDeals || 0}","${t.winRate || 0}%","${t.totalPipeline || 0}","${t.wonRevenue || 0}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.setAttribute("download", `crm_team_leaderboard_${leaderboardPeriod}_${new Date().toISOString().substring(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+        return;
+      } else {
+        const reps = leaderboardData.individualRankings || [];
+        let csv = 'Rank,Sales Representative,Team,Deals Won,Total Pipeline Deals,Win Rate (%),Total Pipeline (INR),Won Revenue (INR)\n';
+        reps.forEach(r => {
+          csv += `"${r.rank || ''}","${(r.name || '').replace(/"/g, '""')}","${(r.teamName || '').replace(/"/g, '""')}","${r.dealsWon || 0}","${r.totalDeals || 0}","${r.winRate || 0}%","${r.totalPipeline || 0}","${r.wonRevenue || 0}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.setAttribute("download", `crm_rep_leaderboard_${leaderboardPeriod}_${new Date().toISOString().substring(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+        return;
+      }
+    }
+
+    if (activeTab === 'lost_report') {
+      const dataToExport = (lostReportData && lostReportData.length > 0) ? lostReportData : [];
+      if (!dataToExport.length) return;
+      let csv = 'Deal / Lead Name,Company,Owner,Team,Vertical,Stage Reached,Lost Reason,Competitor,Deal Value (INR),Lost Date,Remarks / Notes\n';
+      dataToExport.forEach(r => {
+        csv += `"${(r.name || '').replace(/"/g, '""')}","${(r.company || '').replace(/"/g, '""')}","${(r.owner || '').replace(/"/g, '""')}","${(r.team || '').replace(/"/g, '""')}","${(r.businessVertical || '').replace(/"/g, '""')}","${(r.stageBeforeLoss || '').replace(/"/g, '""')}","${(r.lostReason || '').replace(/"/g, '""')}","${(r.competitor || '').replace(/"/g, '""')}","${r.dealValue || 0}","${r.lostDate ? new Date(r.lostDate).toLocaleDateString('en-IN') : 'N/A'}","${(r.lostNotes || '').replace(/"/g, '""')}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.setAttribute("download", `crm_detailed_lost_report_${new Date().toISOString().substring(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      return;
+    }
+
+    if (activeTab === 'stagnation') {
+      if (!stagnationData) return;
+      let csv = 'Record Type,Name / Deal Name,Company / Account,Assigned Owner,Days Idle / Stagnant,Status / Stage,Value (INR)\n';
+      (stagnationData.stagnantLeads || []).forEach(lead => {
+        const owner = lead.ownerId ? `${lead.ownerId.first_name || ''} ${lead.ownerId.last_name || ''}`.trim() || lead.ownerId.username : 'Unassigned';
+        csv += `"Lead","${(lead.name || '').replace(/"/g, '""')}","${(lead.company || 'N/A').replace(/"/g, '""')}","${owner.replace(/"/g, '""')}","${lead.daysIdle || 0}","${(lead.status || 'N/A').replace(/"/g, '""')}","0"\n`;
+      });
+      (stagnationData.stagnantDeals || []).forEach(deal => {
+        const owner = deal.ownerId ? `${deal.ownerId.first_name || ''} ${deal.ownerId.last_name || ''}`.trim() || deal.ownerId.username : 'Unassigned';
+        const compName = typeof deal.accountId === 'object' ? (deal.accountId?.name || 'N/A') : (deal.accountId || 'N/A');
+        csv += `"Deal","${(deal.name || '').replace(/"/g, '""')}","${compName.replace(/"/g, '""')}","${owner.replace(/"/g, '""')}","${deal.daysInStage || 0}","${(deal.stage || '').toUpperCase()}","${deal.value || 0}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.setAttribute("download", `crm_stagnation_report_${new Date().toISOString().substring(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      return;
+    }
+
+    if (activeTab === 'reps_overview') {
+      if (!repsData || repsData.length === 0) return;
+      let csv = 'Representative Name,Username,Teams,Role,Total Leads,Active Deals,Active Pipeline (INR),Closed Won (MTD) (INR),Pending Tasks\n';
+      repsData.forEach(r => {
+        csv += `"${(r.name || '').replace(/"/g, '""')}","${(r.username ? '@' + r.username : '').replace(/"/g, '""')}","${((r.teams || []).join(', ')).replace(/"/g, '""')}","${(r.role || 'N/A').replace(/"/g, '""')}","${r.totalLeads || 0}","${r.totalDeals || 0}","${r.pipelineValue || 0}","${r.wonValue || 0}","${r.pendingTasks || 0}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.setAttribute("download", `crm_reps_overview_${new Date().toISOString().substring(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      return;
+    }
+
     if (!reportData) return;
 
     let csvContent = "data:text/csv;charset=utf-8,";
 
     if (activeTab === 'month') {
       csvContent += "Stage Name,Deals Count,Total Value (INR),Weighted Value (INR)\n";
-      reportData.performanceData.forEach(row => {
-        csvContent += `${row.stage.toUpperCase()},${row.count},${row.value},${row.weightedValue}\n`;
+      (reportData.performanceData || []).forEach(row => {
+        csvContent += `${(row.stage || '').toUpperCase()},${row.count || 0},${row.value || 0},${row.weightedValue || 0}\n`;
       });
     } else {
       csvContent += "Week Name,Deals Count,Total Value (INR)\n";
-      reportData.weekWise.forEach(row => {
-        csvContent += `${row.name},${row.count},${row.value}\n`;
+      (reportData.weekWise || []).forEach(row => {
+        csvContent += `${row.name || ''},${row.count || 0},${row.value || 0}\n`;
       });
     }
 
@@ -484,6 +585,254 @@ export default function CRMReportsDashboard() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleExportAllReportsExcel = async () => {
+    setExportingAll(true);
+    message.loading({ content: 'Generating unified Excel report workbook with all sheets...', key: 'export_all_reports', duration: 0 });
+
+    try {
+      const baseParams = {};
+      if (filters?.startDate && filters?.endDate) {
+        baseParams.startDate = filters.startDate;
+        baseParams.endDate = filters.endDate;
+      } else if (filters?.month) {
+        baseParams.period = filters.month;
+      }
+      if (selectedTeam && selectedTeam !== 'all') baseParams.teamId = selectedTeam;
+      if (selectedVertical && selectedVertical !== 'all') baseParams.businessVertical = selectedVertical;
+      if (selectedOwner && selectedOwner !== 'all') baseParams.ownerId = selectedOwner;
+
+      const [perfRes, stageAnalysisRes, actRes, stagRes, lostRes, leaderRes, repsRes] = await Promise.all([
+        reportData
+          ? Promise.resolve({ data: reportData })
+          : axios.get(`${process.env.REACT_APP_API_STRING}/crm/reports/performance`, { params: baseParams, withCredentials: true }).catch(() => ({ data: {} })),
+        axios.get(`${process.env.REACT_APP_API_STRING}/crm/reports/stage-analysis`, { params: { ...baseParams, stage: 'all' }, withCredentials: true }).catch(() => ({ data: {} })),
+        axios.get(`${process.env.REACT_APP_API_STRING}/crm/reports/activity-report`, { params: { ...baseParams, type: 'all' }, withCredentials: true }).catch(() => ({ data: {} })),
+        axios.get(`${process.env.REACT_APP_API_STRING}/crm/reports/stagnation`, { params: { teamId: baseParams.teamId, ownerId: baseParams.ownerId }, withCredentials: true }).catch(() => ({ data: {} })),
+        axios.get(`${process.env.REACT_APP_API_STRING}/crm/reports/lost-leads-detailed`, { params: baseParams, withCredentials: true }).catch(() => ({ data: {} })),
+        axios.get(`${process.env.REACT_APP_API_STRING}/crm/reports/leaderboard`, { params: { periodType: leaderboardPeriod, businessVertical: baseParams.businessVertical }, withCredentials: true }).catch(() => ({ data: {} })),
+        axios.get(`${process.env.REACT_APP_API_STRING}/crm/reports/reps-overview`, { withCredentials: true }).catch(() => ({ data: {} }))
+      ]);
+
+      const perf = perfRes.data || {};
+      const stageAnalysis = stageAnalysisRes.data || {};
+      const acts = actRes.data?.activities || [];
+      const stagnation = stagRes.data || {};
+      const lost = (lostRes.data?.data && Array.isArray(lostRes.data.data) && lostRes.data.data.length > 0)
+        ? lostRes.data.data
+        : (lostReportData || []);
+      const leaderboard = (leaderRes.data && (leaderRes.data.individualRankings || leaderRes.data.teamRankings))
+        ? leaderRes.data
+        : (leaderboardData || {});
+      const reps = (repsRes.data?.representatives && repsRes.data.representatives.length > 0)
+        ? repsRes.data.representatives
+        : (repsData || []);
+
+      // 1. Stage Summary
+      const sheet1Rows = (perf.performanceData || []).map(row => ({
+        'Stage': (row.stage || '').toUpperCase(),
+        'Deals Count': row.count || 0,
+        'Total Value (₹)': row.value || 0,
+        'Weighted Value (₹)': row.weightedValue || 0,
+        'Average Probability (%)': row.avgProbability || 0
+      }));
+      if (sheet1Rows.length > 0 && perf.summary) {
+        sheet1Rows.push({
+          'Stage': 'TOTAL SUMMARY',
+          'Deals Count': perf.summary.totalDeals || 0,
+          'Total Value (₹)': perf.summary.totalValue || 0,
+          'Weighted Value (₹)': perf.summary.weightedPipelineValue || 0,
+          'Average Probability (%)': '-'
+        });
+      }
+
+      // 2. Week Breakdown
+      const sheet2Rows = (perf.weekWise || []).map(row => ({
+        'Week Name': row.name || '',
+        'Deals Count': row.count || 0,
+        'Total Value (₹)': row.value || 0
+      }));
+
+      // 3. Deals Analysis (All deals)
+      const sheet3Rows = (stageAnalysis.deals || []).map(deal => {
+        const contact = deal.primaryContactId ? `${deal.primaryContactId.firstName} ${deal.primaryContactId.lastName || ''}`.trim() : 'N/A';
+        const assigned = deal.ownerId ? `${deal.ownerId.first_name || ''} ${deal.ownerId.last_name || ''}`.trim() || deal.ownerId.username : 'Unassigned';
+        const entryDate = deal.stageEntryDate ? new Date(deal.stageEntryDate).toLocaleDateString('en-IN') : 'N/A';
+        const companyName = typeof deal.accountId === 'object' ? (deal.accountId?.name || 'N/A') : (deal.accountId || 'N/A');
+
+        return {
+          'Deal Name': deal.name || '',
+          'Company Name': companyName,
+          'Stage': (deal.stage || '').toUpperCase(),
+          'Contact Person': contact,
+          'Source': deal.source || 'N/A',
+          'Crate Size': deal.crateSize || 'N/A',
+          'Deal Value (₹)': deal.value || 0,
+          'Probability (%)': deal.probability || 0,
+          'Weighted Value (₹)': deal.weightedValue || 0,
+          'Stage Entry Date': entryDate,
+          'Days in Stage': deal.daysInStage || 0,
+          'Assigned To': assigned,
+          'Status': deal.carry_forward ? 'Carried Forward' : 'Active',
+          'Lost Reason': deal.stage === 'lost' ? (deal.closeReason || 'N/A') : 'N/A'
+        };
+      });
+
+      // 4. Activity Report
+      const sheet4Rows = acts.map(act => {
+        const date = act.activityDate ? new Date(act.activityDate).toLocaleDateString('en-IN') : 'N/A';
+        const recordedBy = act.userId ? `${act.userId.first_name || ''} ${act.userId.last_name || ''}`.trim() || act.userId.username : 'Unknown';
+
+        return {
+          'Date': date,
+          'Activity Type': (act.type || 'N/A').toUpperCase(),
+          'Subject': act.subject || '',
+          'Description': act.description || '',
+          'Related Record Type': act.relatedTo?.model || 'N/A',
+          'Related Record Name': act.relatedName || 'N/A',
+          'Outcome': (act.outcome || 'N/A').toUpperCase(),
+          'Recorded By': recordedBy
+        };
+      });
+
+      // 5. Stagnation (2+ Days)
+      const sheet5Rows = [];
+      (stagnation.stagnantLeads || []).forEach(lead => {
+        const owner = lead.ownerId ? `${lead.ownerId.first_name || ''} ${lead.ownerId.last_name || ''}`.trim() || lead.ownerId.username : 'Unassigned';
+        sheet5Rows.push({
+          'Record Type': 'Lead',
+          'Name / Deal Name': lead.name || '',
+          'Company / Account': lead.company || 'N/A',
+          'Assigned Owner': owner,
+          'Days Idle / Stagnant': lead.daysIdle || 0,
+          'Status / Stage': lead.status || 'N/A',
+          'Value (₹)': 0
+        });
+      });
+      (stagnation.stagnantDeals || []).forEach(deal => {
+        const owner = deal.ownerId ? `${deal.ownerId.first_name || ''} ${deal.ownerId.last_name || ''}`.trim() || deal.ownerId.username : 'Unassigned';
+        const compName = typeof deal.accountId === 'object' ? (deal.accountId?.name || 'N/A') : (deal.accountId || 'N/A');
+        sheet5Rows.push({
+          'Record Type': 'Deal',
+          'Name / Deal Name': deal.name || '',
+          'Company / Account': compName,
+          'Assigned Owner': owner,
+          'Days Idle / Stagnant': deal.daysInStage || 0,
+          'Status / Stage': (deal.stage || '').toUpperCase(),
+          'Value (₹)': deal.value || 0
+        });
+      });
+
+      // 6. Detailed Lost Report
+      const sheet6Rows = lost.map(item => {
+        const compName = item.company || (typeof item.accountId === 'object' ? item.accountId?.name : item.accountId) || 'N/A';
+        const owner = item.owner || (item.ownerId ? `${item.ownerId.first_name || ''} ${item.ownerId.last_name || ''}`.trim() || item.ownerId.username : 'Unassigned');
+        const team = item.team || 'N/A';
+        const vertical = item.businessVertical || 'N/A';
+        const stageReached = (item.stageBeforeLoss || item.stage || 'N/A').toUpperCase();
+        const reason = item.lostReason || item.closeReason || 'N/A';
+        const competitor = item.competitor || 'N/A';
+        const value = Number(item.dealValue !== undefined ? item.dealValue : (item.value || 0));
+        const rawDate = item.lostDate || item.closedAt || item.updatedAt;
+        const lostDate = rawDate ? new Date(rawDate).toLocaleDateString('en-IN') : 'N/A';
+        const notes = item.lostNotes || item.lostRemarks || item.closeNotes || item.description || '';
+
+        return {
+          'Deal / Lead Name': item.name || '',
+          'Company': compName,
+          'Owner': owner,
+          'Team': team,
+          'Vertical': vertical,
+          'Stage Reached': stageReached,
+          'Lost Reason': reason,
+          'Competitor': competitor,
+          'Deal Value (₹)': value,
+          'Lost Date': lostDate,
+          'Remarks / Notes': notes
+        };
+      });
+
+      // 7. Leaderboard (Sales Representatives)
+      const sheet7Rows = (leaderboard.individualRankings || []).map(rep => ({
+        'Rank': rep.rank || 0,
+        'Sales Representative': rep.name || rep.username || 'Unknown',
+        'Team': rep.teamName || 'Unassigned',
+        'Deals Won': rep.dealsWon || 0,
+        'Total Pipeline Deals': rep.totalDeals || 0,
+        'Win Rate (%)': `${rep.winRate || 0}%`,
+        'Total Pipeline Value (₹)': Number(rep.totalPipeline || 0),
+        'Won Revenue (₹)': Number(rep.wonRevenue || 0)
+      }));
+
+      // 7b. Team Leaderboard
+      const sheetTeamLeaderboardRows = (leaderboard.teamRankings || []).map(team => ({
+        'Rank': team.rank || 0,
+        'Team Name': team.name || 'Unknown',
+        'Deals Won': team.dealsWon || 0,
+        'Total Deals': team.totalDeals || 0,
+        'Win Rate (%)': `${team.winRate || 0}%`,
+        'Total Pipeline Value (₹)': Number(team.totalPipeline || 0),
+        'Won Revenue (₹)': Number(team.wonRevenue || 0)
+      }));
+
+      // 8. Representatives Overview
+      const sheet8Rows = reps.map(rep => ({
+        'Representative Name': rep.name || '',
+        'Username': rep.username ? `@${rep.username}` : '',
+        'Teams': (rep.teams || []).join(', ') || 'None',
+        'Role': rep.role || 'N/A',
+        'Total Leads': rep.totalLeads || 0,
+        'Active Deals': rep.totalDeals || 0,
+        'Active Pipeline (₹)': rep.pipelineValue || 0,
+        'Closed Won (MTD) (₹)': rep.wonValue || 0,
+        'Pending Tasks': rep.pendingTasks || 0
+      }));
+
+      // Build Workbook
+      const wb = XLSX.utils.book_new();
+
+      const appendSheetSafe = (rows, sheetName, defaultPlaceholder) => {
+        const data = rows && rows.length > 0 ? rows : [{ 'Status': defaultPlaceholder || 'No records available for selected filters.' }];
+        const ws = XLSX.utils.json_to_sheet(data);
+        if (rows && rows.length > 0) {
+          const keys = Object.keys(rows[0]);
+          ws['!cols'] = keys.map(k => {
+            let maxLen = k.length;
+            for (let i = 0; i < Math.min(rows.length, 50); i++) {
+              const val = rows[i][k];
+              const len = val ? String(val).length : 0;
+              if (len > maxLen) maxLen = len;
+            }
+            return { wch: Math.min(Math.max(maxLen + 3, 12), 45) };
+          });
+        }
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      };
+
+      appendSheetSafe(sheet1Rows, "Stage Summary", "No stage summary data");
+      appendSheetSafe(sheet2Rows, "Week Breakdown", "No week-wise data");
+      appendSheetSafe(sheet3Rows, "Deals Analysis", "No deal records");
+      appendSheetSafe(sheet4Rows, "Activity Report", "No activity logs");
+      appendSheetSafe(sheet5Rows, "Stagnation", "No stagnant records");
+      appendSheetSafe(sheet6Rows, "Detailed Lost Deals", "No lost deals recorded");
+      appendSheetSafe(sheet7Rows, "Leaderboard", "No leaderboard data");
+      if (sheetTeamLeaderboardRows.length > 0) {
+        appendSheetSafe(sheetTeamLeaderboardRows, "Team Leaderboard", "No team leaderboard data");
+      }
+      appendSheetSafe(sheet8Rows, "Reps Overview", "No representatives data");
+
+      const dateStr = new Date().toISOString().substring(0, 10);
+      const filename = `CRM_All_Reports_${dateStr}.xlsx`;
+      XLSX.writeFile(wb, filename);
+
+      message.success({ content: `All reports exported successfully to ${filename}!`, key: 'export_all_reports' });
+    } catch (err) {
+      console.error('Failed to export all reports to Excel:', err);
+      message.error({ content: `Failed to export all reports: ${err.message}`, key: 'export_all_reports' });
+    } finally {
+      setExportingAll(false);
+    }
   };
 
   const toggleStageExpand = (stageId) => {
@@ -855,45 +1204,67 @@ export default function CRMReportsDashboard() {
                 </button>
               </div>
 
-              {activeTab === 'stage_analysis' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                {/* Master Button: Download All Reports in Single Multi-Sheet Excel */}
                 <button
-                  onClick={handleExportAnalysis}
-                  disabled={!analysisData || !analysisData.deals || analysisData.deals.length === 0}
+                  onClick={handleExportAllReportsExcel}
+                  disabled={exportingAll}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px',
-                    fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer', transition: 'all 0.2s', opacity: (!analysisData || !analysisData.deals || analysisData.deals.length === 0) ? 0.5 : 1
+                    display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px',
+                    background: 'linear-gradient(135deg, #107c41 0%, #059669 100%)',
+                    color: '#ffffff', border: 'none', borderRadius: '10px',
+                    fontSize: '0.85rem', fontWeight: 700, cursor: exportingAll ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(16, 124, 65, 0.25)',
+                    opacity: exportingAll ? 0.7 : 1
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#ffffff'; }}
+                  onMouseEnter={e => { if (!exportingAll) e.currentTarget.style.filter = 'brightness(1.08)'; }}
+                  onMouseLeave={e => { if (!exportingAll) e.currentTarget.style.filter = 'none'; }}
+                  title="Export all CRM reports together into a single Excel (.xlsx) workbook with multiple sheets"
                 >
-                  <Download size={16} /> Export Analysis CSV
+                  <FileSpreadsheet size={16} /> {exportingAll ? 'Exporting All Sheets...' : 'Download All Reports (Excel)'}
                 </button>
-              ) : activeTab === 'activity' ? (
-                <button
-                  onClick={handleExportActivityCSV}
-                  disabled={!activityData || !activityData.activities || activityData.activities.length === 0}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px',
-                    fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer', transition: 'all 0.2s', opacity: (!activityData || !activityData.activities || activityData.activities.length === 0) ? 0.5 : 1
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#ffffff'; }}
-                >
-                  <Download size={16} /> Export Activity CSV
-                </button>
-              ) : activeTab === 'tactics' ? null : (
-                <button
-                  onClick={handleExportCSV}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px',
-                    fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer', transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#ffffff'; }}
-                >
-                  <Download size={16} /> Export CSV
-                </button>
-              )}
+
+                {/* Tab-specific CSV export */}
+                {activeTab === 'stage_analysis' ? (
+                  <button
+                    onClick={handleExportAnalysis}
+                    disabled={!analysisData || !analysisData.deals || analysisData.deals.length === 0}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px',
+                      fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer', transition: 'all 0.2s', opacity: (!analysisData || !analysisData.deals || analysisData.deals.length === 0) ? 0.5 : 1
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#ffffff'; }}
+                  >
+                    <Download size={16} /> Export Analysis CSV
+                  </button>
+                ) : activeTab === 'activity' ? (
+                  <button
+                    onClick={handleExportActivityCSV}
+                    disabled={!activityData || !activityData.activities || activityData.activities.length === 0}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px',
+                      fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer', transition: 'all 0.2s', opacity: (!activityData || !activityData.activities || activityData.activities.length === 0) ? 0.5 : 1
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#ffffff'; }}
+                  >
+                    <Download size={16} /> Export Activity CSV
+                  </button>
+                ) : activeTab === 'tactics' ? null : (
+                  <button
+                    onClick={handleExportCSV}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px',
+                      fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer', transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#ffffff'; }}
+                  >
+                    <Download size={16} /> Export CSV
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Tab Content */}

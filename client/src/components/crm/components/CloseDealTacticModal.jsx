@@ -102,48 +102,35 @@ export default function CloseDealTacticModal({
       }
     }
 
-    // 2. Validate tactics
+    // 2. Validate tactics (outcomes & notes are optional)
     let tacticsToSubmit = [];
 
     if (dealTactics.length === 0) {
-      // Deal had 0 tactics: tactics are optional
+      // Deal had 0 tactics: optional
       if (selectedNewTactics.length > 0) {
-        // Only validate if user chose to add tactics
         for (const code of selectedNewTactics) {
           const item = tacticResults[code];
-          if (!item?.result) {
-            message.error(`Please select an outcome ('Worked', 'Did not work', or 'Not used') for ${code}.`);
-            return;
+          if (item?.result) {
+            tacticsToSubmit.push({
+              tactic_code: code,
+              result: item.result,
+              result_note: (item.result_note || '').trim() || (item.result === 'not_used' ? 'Not used' : '')
+            });
           }
-          if (item.result !== 'not_used' && (!item?.result_note || !item.result_note.trim())) {
-            message.error(`Please provide a one-line reason note for ${code}.`);
-            return;
-          }
+        }
+      }
+    } else {
+      // Existing tactics: record outcomes if provided, but never block closing
+      for (const dt of dealTactics) {
+        const item = tacticResults[dt.tactic_code];
+        if (item?.result) {
           tacticsToSubmit.push({
-            tactic_code: code,
+            tactic_id: dt.tactic_id?._id || dt.tactic_id,
+            tactic_code: dt.tactic_code,
             result: item.result,
             result_note: (item.result_note || '').trim() || (item.result === 'not_used' ? 'Not used' : '')
           });
         }
-      }
-    } else {
-      // Existing tactics: verify all have result and note
-      for (const dt of dealTactics) {
-        const item = tacticResults[dt.tactic_code];
-        if (!item?.result) {
-          message.error(`Please select an outcome for ${dt.tactic_code} (${dt.tactic_id?.name || ''}).`);
-          return;
-        }
-        if (item.result !== 'not_used' && (!item?.result_note || !item.result_note.trim())) {
-          message.error(`Please provide a one-line reason note for ${dt.tactic_code} (${dt.tactic_id?.name || ''}).`);
-          return;
-        }
-        tacticsToSubmit.push({
-          tactic_id: dt.tactic_id?._id || dt.tactic_id,
-          tactic_code: dt.tactic_code,
-          result: item.result,
-          result_note: (item.result_note || '').trim() || (item.result === 'not_used' ? 'Not used' : '')
-        });
       }
     }
 

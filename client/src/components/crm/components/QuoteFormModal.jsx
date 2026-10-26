@@ -96,7 +96,7 @@ export default function QuoteFormModal({
     companyId: '',
     templateId: '',
     templateColumns: [],
-    tradeType: 'import',
+    tradeType: '',
     companyTemplate: 'standard',
     placeOfSupply: 'Gujarat (24)',
     billToAddress: '',
@@ -181,7 +181,7 @@ export default function QuoteFormModal({
               companyId: compId,
               templateId: tempId,
               templateColumns: quoteToEdit.templateColumns?.length > 0 ? quoteToEdit.templateColumns : (tempList.find(t => t._id === tempId)?.customColumns || []),
-              tradeType: quoteToEdit.tradeType || 'import',
+              tradeType: quoteToEdit.tradeType || '',
               companyTemplate: quoteToEdit.companyTemplate || 'standard',
               placeOfSupply: quoteToEdit.placeOfSupply || 'Gujarat (24)',
               billToAddress: quoteToEdit.billToAddress || '',
@@ -274,7 +274,7 @@ export default function QuoteFormModal({
             const selectedCnt = contsRes.data.find(c => c._id === cntId);
             setContactSearch(selectedCnt ? `${selectedCnt.firstName} ${selectedCnt.lastName || ''}`.trim() : (initialContactName || ''));
 
-            const initialTradeType = /export/i.test(initialOpportunityName || initialTitle || '') ? 'export' : 'import';
+            const initialTradeType = /export/i.test(initialOpportunityName || initialTitle || '') ? 'export' : (/import/i.test(initialOpportunityName || initialTitle || '') ? 'import' : '');
 
             setFormData({
               title: initialTitle || '',
@@ -291,8 +291,8 @@ export default function QuoteFormModal({
               billToAddress: selectedAcc ? (selectedAcc.address || '') : '',
               shipToAddress: selectedAcc ? (selectedAcc.address || '') : '',
               lineItems: defaultTemp?.defaultLineItems && defaultTemp.defaultLineItems.length > 0
-                ? defaultTemp.defaultLineItems.map(i => ({ productName: i.productName || '', hsnSac: i.hsnSac || '392310', quantity: i.quantity || 1, unitPrice: i.unitPrice || 0, discount: i.discount || 0, tax: i.tax || 18, lineTotal: (i.quantity || 1) * (i.unitPrice || 0), customFields: i.customFields || {} }))
-                : getChargeTemplate(initialTradeType).map(item => ({ ...item, customFields: {} })),
+                ? defaultTemp.defaultLineItems.map(i => ({ productName: i.productName || '', hsnSac: i.hsnSac || '996713', quantity: i.quantity || 1, unitPrice: i.unitPrice || 0, discount: i.discount || 0, tax: i.tax ?? 18, lineTotal: ((i.quantity || 1) * (i.unitPrice || 0)) - (i.discount || 0), customFields: i.customFields || {} }))
+                : [{ productName: '', hsnSac: '996713', quantity: 1, unitPrice: 0, discount: 0, tax: 18, lineTotal: 0, customFields: {} }],
               terms: {
                 validFrom: today.toISOString().substring(0, 10),
                 validUntil: nextMonth.toISOString().substring(0, 10),
@@ -392,36 +392,10 @@ export default function QuoteFormModal({
   };
 
   const handleTradeTypeChange = (nextType) => {
-    setFormData(prev => {
-      // Check if current lines perfectly match any of the default templates
-      const currentLinesStr = JSON.stringify(prev.lineItems.map(i => i.productName));
-      const importLinesStr = JSON.stringify(getChargeTemplate('import').map(i => i.productName));
-      const exportLinesStr = JSON.stringify(getChargeTemplate('export').map(i => i.productName));
-      const frImportLinesStr = JSON.stringify(getChargeTemplate('freight_import').map(i => i.productName));
-      const frExportLinesStr = JSON.stringify(getChargeTemplate('freight_export').map(i => i.productName));
-      const transportLinesStr = JSON.stringify(getChargeTemplate('transport').map(i => i.productName));
-      const pfpLinesStr = JSON.stringify(getChargeTemplate('pfp').map(i => i.productName));
-      const softwareElockLinesStr = JSON.stringify(getChargeTemplate('software_elock').map(i => i.productName));
-      const isDefault = currentLinesStr === importLinesStr || currentLinesStr === exportLinesStr || currentLinesStr === frImportLinesStr || currentLinesStr === frExportLinesStr || currentLinesStr === transportLinesStr || currentLinesStr === pfpLinesStr || currentLinesStr === softwareElockLinesStr;
-      
-      const shouldReplace = !quoteToEdit && (isDefault || prev.lineItems.length === 0);
-
-      const defaultPaymentTerms = nextType === 'pfp' ? '100% Advance' : 'Net 30';
-      const defaultNotes = nextType === 'pfp' ? 'Looking forward for your business.' : '';
-
-      return {
-        ...prev,
-        tradeType: nextType,
-        terms: {
-          ...prev.terms,
-          paymentTerms: (!prev.terms?.paymentTerms || prev.terms?.paymentTerms === 'Net 30' || prev.terms?.paymentTerms === '100% Advance') ? defaultPaymentTerms : prev.terms.paymentTerms,
-          notes: (!prev.terms?.notes || prev.terms?.notes === 'Looking forward for your business.') ? defaultNotes : prev.terms.notes
-        },
-        lineItems: shouldReplace 
-          ? getChargeTemplate(nextType).map(item => ({ ...item, lineTotal: (item.quantity || 1) * (item.unitPrice || 0), customFields: {} }))
-          : prev.lineItems
-      };
-    });
+    setFormData(prev => ({
+      ...prev,
+      tradeType: nextType
+    }));
   };
 
   // Handle line item update
@@ -509,7 +483,7 @@ export default function QuoteFormModal({
         // Create new
         const res = await axios.post(
           `${process.env.REACT_APP_API_STRING}/crm/quotes`,
-          { ...formData, tradeType: formData.tradeType || 'import' },
+          { ...formData, tradeType: formData.tradeType || '' },
           getHeaders()
         );
         message.success('Quotation created successfully');
@@ -676,7 +650,7 @@ export default function QuoteFormModal({
                   <option value="">-- Select Quotation Template --</option>
                   {quotationTemplates.map(temp => (
                     <option key={temp._id} value={temp._id}>
-                      {temp.templateName} ({temp.customColumns?.length || 0} custom cols) {temp.isDefault ? '[DEFAULT]' : ''}
+                      {temp.templateName} ({temp.customColumns?.length || 0} custom cols){temp.teamName || temp.teamId?.name ? ` [Team: ${temp.teamName || temp.teamId?.name}]` : ''} {temp.isDefault ? '[DEFAULT]' : ''}
                     </option>
                   ))}
                 </select>
@@ -712,19 +686,13 @@ export default function QuoteFormModal({
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>QUOTE TYPE</label>
-                <select
-                  value={formData.tradeType || 'import'}
+                <input
+                  type="text"
+                  value={formData.tradeType || ''}
                   onChange={e => handleTradeTypeChange(e.target.value)}
+                  placeholder="e.g. Customs Clearance, Freight, Transport..."
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', background: '#fff' }}
-                >
-                  <option value="import">Customs Clearance - Import</option>
-                  <option value="export">Customs Clearance - Export</option>
-                  <option value="freight_import">Freight Forwarding - Import</option>
-                  <option value="freight_export">Freight Forwarding - Export</option>
-                  <option value="transport">Transportation (SRCC)</option>
-                  <option value="pfp">Plastic Crates (Paramount)</option>
-                  <option value="software_elock">Software & E-Lock Services</option>
-                </select>
+                />
               </div>
             </div>
 

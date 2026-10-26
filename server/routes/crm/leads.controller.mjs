@@ -492,7 +492,10 @@ router.post('/:id/convert', async (req, res) => {
     const account = new Account({
       name: lead.company,
       ownerId: lead.ownerId,
-      businessVertical: lead.businessVertical
+      businessVertical: lead.businessVertical,
+      billingAddress: lead.billingAddress,
+      shippingAddress: lead.shippingAddress,
+      gstDetails: lead.gstDetails
     });
     await account.save();
 
@@ -580,15 +583,17 @@ router.post('/:id/convert', async (req, res) => {
     });
     await opportunity.save();
 
-    // Attach tactics to converted opportunity (Rule R1)
-    const leadTactics = req.body.tactic_ids || req.body.tactics || ['T02']; // Default to T02 Problem-Solution Chain if not specified
-    await attachTacticsToDeal({
-      dealId: opportunity._id,
-      tactic_ids: Array.isArray(leadTactics) ? leadTactics : [leadTactics],
-      partner_source_id: req.body.partner_source_id,
-      userId: oppOwnerId,
-      dealStatusWhenAdded: opportunity.stage || 'lead'
-    });
+    // Attach tactics to converted opportunity if provided
+    const leadTactics = req.body.tactic_ids || req.body.tactics;
+    if (leadTactics && (Array.isArray(leadTactics) ? leadTactics.length > 0 : leadTactics)) {
+      await attachTacticsToDeal({
+        dealId: opportunity._id,
+        tactic_ids: Array.isArray(leadTactics) ? leadTactics : [leadTactics],
+        partner_source_id: req.body.partner_source_id,
+        userId: oppOwnerId,
+        dealStatusWhenAdded: opportunity.stage || 'lead'
+      });
+    }
 
     // 4. Mark lead as converted
 

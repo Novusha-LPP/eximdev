@@ -46,13 +46,7 @@ export async function validateDealCreation({ tactic_ids = [], partner_source_id 
   }
 
   const hasT29 = tactics.some(t => t.code === T29_CODE);
-  if (hasT29) {
-    if (!partner_source_id) {
-      return {
-        valid: false,
-        message: 'Partner source is mandatory when T29 (Strategic Affiliates / Partners) is selected.'
-      };
-    }
+  if (hasT29 && partner_source_id) {
     const partnerExists = await Partner.exists({ _id: partner_source_id, is_active: true });
     if (!partnerExists) {
       return {
@@ -60,11 +54,6 @@ export async function validateDealCreation({ tactic_ids = [], partner_source_id 
         message: 'Selected Partner source is invalid or inactive.'
       };
     }
-  } else if (partner_source_id) {
-    return {
-      valid: false,
-      message: 'Partner source can only be selected when T29 is used.'
-    };
   }
 
   return {
@@ -147,72 +136,14 @@ export async function attachTacticsToDeal({
 }
 
 /**
- * Validates deal close transition to 'won' or 'lost' (Rule R3, Rule R4).
- * Every attached tactic must have a non-null result and non-empty result_note.
+ * Validates deal close transition to 'won' or 'lost'.
+ * Sales tactics and their outcomes are optional.
  */
 export async function validateDealCloseTransition({
   dealId,
   targetStage,
   tacticResults = []
 }) {
-  if (!isFeatureEnabled('SALES_TACTICS_ENABLED')) {
-    return { valid: true };
-  }
-
-  if (targetStage !== 'won' && targetStage !== 'lost') {
-    return { valid: true };
-  }
-
-  const deal = await Opportunity.findById(dealId).lean();
-  if (!deal) {
-    return { valid: false, message: 'Deal not found.' };
-  }
-
-  // Fetch all deal tactics
-  let dealTactics = await DealTactic.find({ deal_id: dealId }).populate('tactic_id').lean();
-
-  // If deal has 0 tactics attached and none supplied, closing without tactics is allowed
-  if (dealTactics.length === 0) {
-    const suppliedResults = Array.isArray(tacticResults) ? tacticResults : [];
-    if (suppliedResults.length === 0) {
-      return { valid: true };
-    }
-  }
-
-  // Build a lookup map of supplied results
-  const suppliedMap = new Map();
-  if (Array.isArray(tacticResults)) {
-    tacticResults.forEach(r => {
-      if (r.tactic_id) suppliedMap.set(r.tactic_id.toString(), r);
-      if (r.tactic_code) suppliedMap.set(r.tactic_code.toString().toUpperCase(), r);
-    });
-  }
-
-  const missingTactics = [];
-
-  for (const dt of dealTactics) {
-    const tacticCode = dt.tactic_code || dt.tactic_id?.code || 'Unknown';
-    const tacticName = dt.tactic_id?.name || tacticCode;
-    const supplied = suppliedMap.get(dt.tactic_id?._id?.toString()) || suppliedMap.get(tacticCode);
-
-    const effectiveResult = supplied?.result !== undefined ? supplied.result : dt.result;
-    const effectiveNote = supplied?.result_note !== undefined ? (supplied.result_note || '').trim() : (dt.result_note || '').trim();
-
-    if (!effectiveResult || !VALID_RESULTS.includes(effectiveResult)) {
-      missingTactics.push(`${tacticCode} (${tacticName}) - missing result ('Worked', 'Did not work', or 'Not used')`);
-    } else if (effectiveResult !== 'not_used' && !effectiveNote) {
-      missingTactics.push(`${tacticCode} (${tacticName}) - missing result note`);
-    }
-  }
-
-  if (missingTactics.length > 0) {
-    return {
-      valid: false,
-      message: `Cannot close deal. The following tactics require outcomes and notes:\n${missingTactics.join('\n')}`,
-      missingTactics
-    };
-  }
-
   return { valid: true };
 }
 

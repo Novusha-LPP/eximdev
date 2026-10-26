@@ -1,7 +1,7 @@
 import express from "express";
 import { isDeepStrictEqual } from "node:util";
 import XLSX from "xlsx";
-import TyreProcurementSop from "../../model/accounts/tyreProcurementSop.mjs";
+import TyreProcurementSop, { statusEnum } from "../../model/accounts/tyreProcurementSop.mjs";
 import UserModel from "../../model/userModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import logger from "../../logger.js";
@@ -96,9 +96,18 @@ function areStagesEqual(existingStage, payloadStage) {
 function assertTyreSignOffLocks(existing, payload, user) {
   if (canOverrideSignOffLock(user)) return null;
   const locked = completedTyreStages(existing);
-  if (locked.stage6Done || ["GRN Done", "GRN Completed", "Closed"].includes(existing.status)) {
-    return "This Site GRN is completed and can only be edited by an admin or Ajay Kumavat.";
+  const existingCredit = getPrCreditInfo(existing?.toObject ? existing.toObject() : existing);
+  const payloadCredit = getPrCreditInfo(payload);
+  const isCredit = Boolean(existingCredit?.isCredit || payloadCredit?.isCredit);
+
+  // Credit PRs complete Site GRN before UTR is entered.
+  // Never hard-block credit PRs with the Site GRN completed lock so users can enter UTR and edit the PR.
+  if (!isCredit) {
+    if (locked.stage6Done || ["GRN Done", "GRN Completed", "Closed"].includes(existing.status)) {
+      return "This Site GRN is completed and can only be edited by an admin or Ajay Kumavat.";
+    }
   }
+
   for (const stage of [1, 2, 3, 5]) {
     const existingStage = existing[`stage${stage}`];
     const payloadStage = payload[`stage${stage}`];
@@ -823,6 +832,23 @@ router.get("/tyre-procurement/next-grn-number", authMiddleware, async (req, res)
   }
 });
 
+// Filter options endpoint for Tyre Procurement SOP
+router.get("/tyre-procurement/filter-options", authMiddleware, async (req, res) => {
+  try {
+    const docs = await TyreProcurementSop.find({}).select("stage1.preparedBy stage2.selectedSupplierL1 stage2.selectedSuppliers.selectedSupplier status createdAt").lean();
+    const preparers = [...new Set(docs.map(d => d.stage1?.preparedBy).filter(Boolean))].sort();
+    const suppliers = [...new Set(docs.flatMap(d => [
+      d.stage2?.selectedSupplierL1,
+      ...(d.stage2?.selectedSuppliers || []).map(s => s?.selectedSupplier)
+    ]).filter(Boolean))].sort();
+    const years = [...new Set(docs.map(d => d.createdAt ? new Date(d.createdAt).getFullYear() : null).filter(Boolean))].sort((a, b) => b - a);
+    res.json({ success: true, preparers, suppliers, years, statuses: statusEnum });
+  } catch (err) {
+    logger.error("Error fetching tyre filter options:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // List Tyre PRs
 router.get("/tyre-procurement", authMiddleware, async (req, res) => {
   try {
@@ -835,65 +861,278 @@ router.get("/tyre-procurement", authMiddleware, async (req, res) => {
       }
     }
 
-    const { search, stageTab, page = 1, limit = 50 } = req.query;
-    const query = {};
+    const {
+      search,
+      stageTab,
+      page = 1,
+      limit = 50,
+      prNumber,
+      poNumber,
+      preparedBy,
+      supplier,
+      totalValue,
+      status,
+      date,
+      month,
+      year,
+      startDate,
+      endDate
+    } = req.query;
 
-    if (stageTab !== undefined && stageTab !== null) {
+    const andConditions = [];
+
+    // Stage Tab & Status filter
+    if (status && status !== "ALL" && status !== "") {
+      andConditions.push({ status: status });
+    } else if (stageTab !== undefined && stageTab !== null) {
       switch (stageTab) {
         case "0":
-          query.status = { $nin: ["GRN Done", "Closed", "GRN Completed"] };
+          if (status !== "ALL") {
+            andConditions.push({ status: { $nin: ["GRN Done", "Closed", "GRN Completed"] } });
+          }
           break;
         case "1":
-          query.status = "Draft";
+          andConditions.push({ status: "Draft" });
           break;
         case "2":
-          query.status = { $in: ["PR Raised", "Preparing for Quotation", "HoD Validated"] };
+          andConditions.push({ status: { $in: ["PR Raised", "Preparing for Quotation", "HoD Validated"] } });
           break;
         case "3":
-          query.status = { $in: ["Quotation Received", "Quotation Updated"] };
+          andConditions.push({ status: { $in: ["Quotation Received", "Quotation Updated"] } });
           break;
         case "4":
-          query.status = {
-            $in: [
-              "Finance Approved",
-              "Dispatched / Site GRN Ready",
-              "GRN Ready",
-              "GRN Received",
-              "Order Placed",
-              "Dispatched",
-              "GRN Done",
-              "GRN Completed",
-            ],
-          };
+          andConditions.push({
+            status: {
+              $in: [
+                "Finance Approved",
+                "Dispatched / Site GRN Ready",
+                "GRN Ready",
+                "GRN Received",
+                "Order Placed",
+                "Dispatched",
+                "GRN Done",
+                "GRN Completed",
+              ],
+            },
+          });
           break;
         case "5":
-          query.status = { $in: ["Payment Done", "Order Placed", "Dispatched"] };
+          andConditions.push({ status: { $in: ["Payment Done", "Order Placed", "Dispatched"] } });
           break;
         case "6":
-          query.status = { $in: ["Dispatched / Site GRN Ready", "GRN Ready", "GRN Received"] };
+          andConditions.push({ status: { $in: ["Dispatched / Site GRN Ready", "GRN Ready", "GRN Received"] } });
           break;
         case "7":
-          query.status = { $in: ["GRN Done", "Closed", "GRN Completed"] };
+          andConditions.push({ status: { $in: ["GRN Done", "Closed", "GRN Completed"] } });
           break;
         default:
           break;
       }
     }
 
-    if (search) {
-      const regex = new RegExp(search, "i");
-      query.$or = [
+    // 1. PR Number
+    if (prNumber && prNumber.trim()) {
+      const escaped = prNumber.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      andConditions.push({ prNumber: new RegExp(escaped, "i") });
+    }
+
+    // 2. PO Number
+    if (poNumber && poNumber.trim()) {
+      const escaped = poNumber.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const poRegex = new RegExp(escaped, "i");
+      andConditions.push({
+        $or: [
+          { poNumber: poRegex },
+          { "stage2.selectedSuppliers.poNumber": poRegex }
+        ]
+      });
+    }
+
+    // 3. Prepared By
+    if (preparedBy && preparedBy.trim() && preparedBy !== "ALL") {
+      const escaped = preparedBy.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      andConditions.push({ "stage1.preparedBy": new RegExp(`^${escaped}$`, "i") });
+    }
+
+    // 4. L1 Supplier
+    if (supplier && supplier.trim() && supplier !== "ALL") {
+      const escaped = supplier.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const supRegex = new RegExp(escaped, "i");
+      andConditions.push({
+        $or: [
+          { "stage2.selectedSupplierL1": supRegex },
+          { "stage2.selectedSuppliers.selectedSupplier": supRegex },
+          { "stage2.suppliers.supplierName": supRegex }
+        ]
+      });
+    }
+
+    // 5. Total Value
+    if (totalValue && String(totalValue).trim()) {
+      const valStr = String(totalValue).trim();
+      if (valStr.includes("-")) {
+        const parts = valStr.split("-");
+        const min = parseFloat(parts[0].replace(/[^0-9.]/g, ""));
+        const max = parseFloat(parts[1].replace(/[^0-9.]/g, ""));
+        const cond = {};
+        if (!isNaN(min)) cond.$gte = min;
+        if (!isNaN(max)) cond.$lte = max;
+        if (Object.keys(cond).length > 0) {
+          andConditions.push({
+            $or: [
+              { "stage2.totalOrderValue": cond },
+              { "stage2.selectedSuppliers.totalOrderValue": cond }
+            ]
+          });
+        }
+      } else if (valStr.startsWith(">")) {
+        const min = parseFloat(valStr.slice(1).replace(/[^0-9.]/g, ""));
+        if (!isNaN(min)) {
+          andConditions.push({
+            $or: [
+              { "stage2.totalOrderValue": { $gte: min } },
+              { "stage2.selectedSuppliers.totalOrderValue": { $gte: min } }
+            ]
+          });
+        }
+      } else if (valStr.startsWith("<")) {
+        const max = parseFloat(valStr.slice(1).replace(/[^0-9.]/g, ""));
+        if (!isNaN(max)) {
+          andConditions.push({
+            $or: [
+              { "stage2.totalOrderValue": { $lte: max } },
+              { "stage2.selectedSuppliers.totalOrderValue": { $lte: max } }
+            ]
+          });
+        }
+      } else {
+        const num = parseFloat(valStr.replace(/[^0-9.]/g, ""));
+        if (!isNaN(num)) {
+          andConditions.push({
+            $or: [
+              { "stage2.totalOrderValue": { $gte: num * 0.9, $lte: num * 1.1 } },
+              { "stage2.selectedSuppliers.totalOrderValue": { $gte: num * 0.9, $lte: num * 1.1 } }
+            ]
+          });
+        }
+      }
+    }
+
+    // 6. Date / Month / Year wise search on createdAt
+    if (date && date.trim()) {
+      const dateParts = date.trim().split("-").map(Number);
+      if (dateParts.length === 3 && dateParts.every(n => !isNaN(n))) {
+        const [y, m, d] = dateParts;
+        const startOfDay = new Date(y, m - 1, d, 0, 0, 0, 0);
+        const endOfDay = new Date(y, m - 1, d, 23, 59, 59, 999);
+        andConditions.push({ createdAt: { $gte: startOfDay, $lte: endOfDay } });
+      }
+    } else if (startDate || endDate) {
+      const dateCond = {};
+      if (startDate) {
+        const parts = startDate.trim().split("-").map(Number);
+        if (parts.length === 3 && parts.every(n => !isNaN(n))) {
+          dateCond.$gte = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
+        }
+      }
+      if (endDate) {
+        const parts = endDate.trim().split("-").map(Number);
+        if (parts.length === 3 && parts.every(n => !isNaN(n))) {
+          dateCond.$lte = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+        }
+      }
+      if (Object.keys(dateCond).length > 0) {
+        andConditions.push({ createdAt: dateCond });
+      }
+    } else if (year || month) {
+      if (year && month) {
+        const y = parseInt(year, 10);
+        const m = parseInt(month, 10);
+        const startOfMonth = new Date(y, m - 1, 1, 0, 0, 0, 0);
+        const endOfMonth = new Date(y, m, 0, 23, 59, 59, 999);
+        andConditions.push({ createdAt: { $gte: startOfMonth, $lte: endOfMonth } });
+      } else if (year) {
+        const y = parseInt(year, 10);
+        const startOfYear = new Date(y, 0, 1, 0, 0, 0, 0);
+        const endOfYear = new Date(y, 11, 31, 23, 59, 59, 999);
+        andConditions.push({ createdAt: { $gte: startOfYear, $lte: endOfYear } });
+      } else if (month) {
+        const m = parseInt(month, 10);
+        andConditions.push({
+          $expr: { $eq: [{ $month: "$createdAt" }, m] }
+        });
+      }
+    }
+
+    // 7. General search with date / month / year smart detection
+    if (search && search.trim()) {
+      const s = search.trim();
+      const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(escaped, "i");
+
+      const orClauses = [
         { prNumber: regex },
         { poNumber: regex },
+        { "stage2.selectedSuppliers.poNumber": regex },
         { companyKey: regex },
         { companyName: regex },
         { "stage1.companyName": regex },
         { "stage1.preparedBy": regex },
         { "stage2.selectedSupplierL1": regex },
+        { "stage2.selectedSuppliers.selectedSupplier": regex },
         { "stage4.supplierName": regex },
         { "stage6.supplierName": regex },
+        { status: regex }
       ];
+
+      const monthMap = {
+        jan: 1, january: 1,
+        feb: 2, february: 2,
+        mar: 3, march: 3,
+        apr: 4, april: 4,
+        may: 5,
+        jun: 6, june: 6,
+        jul: 7, july: 7,
+        aug: 8, august: 8,
+        sep: 9, september: 9,
+        oct: 10, october: 10,
+        nov: 11, november: 11,
+        dec: 12, december: 12
+      };
+      const cleanLower = s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (monthMap[cleanLower]) {
+        orClauses.push({ $expr: { $eq: [{ $month: "$createdAt" }, monthMap[cleanLower]] } });
+      }
+
+      if (/^(20\d\d)$/.test(s)) {
+        const y = parseInt(s, 10);
+        orClauses.push({
+          createdAt: {
+            $gte: new Date(y, 0, 1, 0, 0, 0, 0),
+            $lte: new Date(y, 11, 31, 23, 59, 59, 999)
+          }
+        });
+      }
+
+      const dmyMatch = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+      if (dmyMatch) {
+        const day = parseInt(dmyMatch[1], 10);
+        const mo = parseInt(dmyMatch[2], 10);
+        const yr = parseInt(dmyMatch[3], 10);
+        if (day >= 1 && day <= 31 && mo >= 1 && mo <= 12) {
+          orClauses.push({
+            createdAt: {
+              $gte: new Date(yr, mo - 1, day, 0, 0, 0, 0),
+              $lte: new Date(yr, mo - 1, day, 23, 59, 59, 999)
+            }
+          });
+        }
+      }
+
+      andConditions.push({ $or: orClauses });
     }
+
+    const query = andConditions.length > 0 ? { $and: andConditions } : {};
 
     const skip = (Number(page) - 1) * Number(limit);
 

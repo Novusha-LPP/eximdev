@@ -1154,6 +1154,9 @@ router.put('/:id', async (req, res) => {
         }
         opportunity.closeReason = req.body.closeReason;
         opportunity.closeNotes = req.body.closeNotes || '';
+      } else if (stage && stage !== 'lost') {
+        opportunity.closeReason = undefined;
+        opportunity.closeNotes = '';
       }
 
       // Validate tactic outcomes when moving to terminal stages (Rules R3, R4)
@@ -1203,8 +1206,13 @@ router.put('/:id', async (req, res) => {
     const { newRemark, closeReason, closeNotes, plannedVisits, createdBy: _stripCreatedBy, ...otherDataToAssign } = otherData;
     Object.assign(opportunity, otherDataToAssign);
     opportunity.lastActivityAt = new Date();
-    if (closeReason) opportunity.closeReason = closeReason;
-    if (closeNotes !== undefined) opportunity.closeNotes = closeNotes;
+    if (opportunity.stage === 'lost') {
+      if (closeReason) opportunity.closeReason = closeReason;
+      if (closeNotes !== undefined) opportunity.closeNotes = closeNotes;
+    } else {
+      opportunity.closeReason = undefined;
+      opportunity.closeNotes = '';
+    }
 
     // Sync companyType and garudaTeamMemberName back to Lead if this opportunity was converted from a lead
     if (opportunity.convertedFromLead) {
@@ -1303,6 +1311,9 @@ router.patch('/:id/stage', async (req, res) => {
       opp.closeNotes = closeNotes || '';
       if (req.body.competitor) opp.competitor = req.body.competitor;
       opp.lostStageBeforeLoss = req.body.lostFromStage || opp.stage || 'lead';
+    } else {
+      opp.closeReason = undefined;
+      opp.closeNotes = '';
     }
 
     // Validate tactic outcomes when moving to terminal stages (Rules R3, R4)
@@ -1389,11 +1400,14 @@ router.patch('/:id/close', async (req, res) => {
     opp.stageHistory.push({ stage: status, enteredAt: new Date() });
 
     opp.stage = status;
-    opp.closeReason = closeReason;
-    opp.closeNotes = closeNotes || '';
     if (status === 'lost') {
+      opp.closeReason = closeReason;
+      opp.closeNotes = closeNotes || '';
       if (req.body.competitor) opp.competitor = req.body.competitor;
       opp.lostStageBeforeLoss = req.body.lostFromStage || opp.stageHistory[opp.stageHistory.length - 2]?.stage || 'lead';
+    } else {
+      opp.closeReason = undefined;
+      opp.closeNotes = '';
     }
     opp.probability = status === 'won' ? 100 : 0;
     opp.forecastCategory = 'closed';

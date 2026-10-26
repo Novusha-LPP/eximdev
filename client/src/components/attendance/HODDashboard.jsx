@@ -7,6 +7,7 @@ import {
   FiAlertTriangle, FiCheckSquare
 } from 'react-icons/fi';
 import attendanceAPI from '../../api/attendance/attendance.api';
+import { itHelpdeskAPI } from '../../api/itHelpdeskAPI';
 import { API_BASE_URL } from './utils/constants';
 import { formatDate } from './utils/helpers';
 import toast from 'react-hot-toast';
@@ -42,6 +43,7 @@ const HODDashboard = () => {
   const [pendingTab, setPendingTab] = useState('leaves');
   const [todayTab, setTodayTab] = useState('absent');
   const [exceptionsOpen, setExceptionsOpen] = useState(false);
+  const [pendingProcurements, setPendingProcurements] = useState([]);
   const exceptionsRef = useRef(null);
 
   useEffect(() => { fetchData(); }, []);
@@ -60,12 +62,14 @@ const HODDashboard = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [res, personalRes] = await Promise.all([
+      const [res, personalRes, procRes] = await Promise.all([
         attendanceAPI.getHODDashboard(),
-        attendanceAPI.getTodayStatus().catch(() => null)
+        attendanceAPI.getTodayStatus().catch(() => null),
+        itHelpdeskAPI.procurement.getAll({ stage: 4, limit: 10 }).catch(() => null),
       ]);
       setData(res?.data || { summary: {}, absent: [], late: [], pendingLeaves: [], pendingRegularization: [], teamCalendar: [] });
       if (personalRes) setPersonal(personalRes);
+      if (procRes?.data) setPendingProcurements(Array.isArray(procRes.data) ? procRes.data : []);
     } catch {
       toast.error('Failed to load dashboard');
       setData({ summary: {}, absent: [], late: [], pendingLeaves: [], pendingRegularization: [], teamCalendar: [] });
@@ -165,7 +169,8 @@ const HODDashboard = () => {
 
   const { summary = {}, pendingLeaves = [], pendingRegularization = [], teamCalendar = [], late = [], absent = [], halfDay = [], regularizationCountByEmployee = {} } = data || {};
   const leaveCount = pendingLeaves.length, regCount = pendingRegularization.length;
-  const totalPending = leaveCount + regCount;
+  const procCount = pendingProcurements.length;
+  const totalPending = leaveCount + regCount + procCount;
   const exceptionsVal = (summary.earlyOut ?? 0) + (summary.halfDay ?? 0);
 
   const STATS = [
@@ -278,6 +283,17 @@ const HODDashboard = () => {
                 📝 Regularizations
                 {regCount > 0 && <span className="hod-tab-badge hod-tab-badge-purple">{regCount}</span>}
               </button>
+              <button
+                className={`hod-ptab ${pendingTab === 'procurement' ? 'active' : ''}`}
+                onClick={() => setPendingTab('procurement')}
+              >
+                🛒 IT Quotes (Stage 4)
+                {procCount > 0 && (
+                  <span className="hod-tab-badge" style={{ background: '#7c3aed', color: '#fff' }}>
+                    {procCount}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
 
@@ -372,6 +388,67 @@ const HODDashboard = () => {
                     </button>
                   </div>
                 )}
+              </div>
+            )
+          )}
+
+          {/* IT Procurement Stage 4 Quotations tab */}
+          {pendingTab === 'procurement' && (
+            procCount === 0 ? (
+              <div className="hod-empty"><div className="hod-empty-icon">✨</div><span>No pending quotation approvals</span></div>
+            ) : (
+              <div className="hod-pending-list">
+                {pendingProcurements.map((req, i) => (
+                  <div key={i} className="hod-pending-row">
+                    <div className="hod-pending-top">
+                      <div className="hod-pending-av" style={{ background: '#ede9fe', color: '#7c3aed', fontWeight: 750 }}>
+                        PR
+                      </div>
+                      <div className="hod-pending-info">
+                        <div className="hod-pending-name">
+                          {req.pr_number}: {req.item_details?.item_name || 'IT Asset'} · {req.requested_by?.name || 'IT Dept'} ({req.branch || 'Head Office'})
+                        </div>
+                        <div className="hod-pending-meta">
+                          <span className="hod-meta-main">
+                            Stage 4: HOD / Admin Approval · Est. Budget: <strong>₹{Number(req.item_details?.estimated_budget || 0).toLocaleString('en-IN')}</strong> · {req.quotations?.length || 3} Quotes Evaluated
+                          </span>
+                          {req.it_evaluation?.recommended_vendor && (
+                            <span className="hod-meta-stage" style={{ background: '#e0e7ff', color: '#4338ca' }}>
+                              Recommended: {req.it_evaluation.recommended_vendor}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="hod-pending-leave-type" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}>
+                        Stage 4 Sign-Off
+                      </span>
+                    </div>
+                    {req.item_details?.justification && (
+                      <div className="hod-pending-reason">"{req.item_details.justification}"</div>
+                    )}
+                    <div className="hod-pending-acts">
+                      <button
+                        className="hod-btn"
+                        style={{
+                          background: '#7c3aed',
+                          color: '#fff',
+                          border: 'none',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '6px 14px',
+                          fontSize: 12,
+                          borderRadius: 6,
+                          fontWeight: 650,
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => navigate(`/it-helpdesk/procurement?stage=4&id=${req._id}`)}
+                      >
+                        <FiCheckCircle size={13} /> Review Quotes &amp; Approve
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )
           )}

@@ -142,4 +142,4 @@ companySchema.pre('save', function (next) {
 // Add unique index on company_name_lower to prevent case-insensitive duplicates
 companySchema.index({ company_name_lower: 1 }, { unique: true });
 
-export default mongoose.model('Company', companySchema);
+export default mongoose.models.Company || mongoose.model('Company', companySchema);

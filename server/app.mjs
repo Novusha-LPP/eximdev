@@ -308,6 +308,8 @@ import inventoryRoutes from "./routes/it-helpdesk/inventoryRoutes.mjs";
 import userRoutes from "./routes/it-helpdesk/userRoutes.mjs";
 import itNotificationRoutes from "./routes/it-helpdesk/notificationRoutes.mjs";
 import itReportsExportRoutes from "./routes/it-helpdesk/itReportsExportRoutes.mjs";
+import unifiedAssetRoutes from "./routes/it-helpdesk/unifiedAssetRoutes.mjs";
+import procurementRoutes from "./routes/it-helpdesk/procurementRoutes.mjs";
 
 import employeeKPIRoutes from "./routes/hr/employeeKPIRoutes.mjs";
 import profileCompletionRoutes from "./routes/hr/profileCompletionRoutes.mjs";
@@ -801,6 +803,8 @@ app.use("/api/it-helpdesk/inventory", inventoryRoutes);
 app.use("/api/it-helpdesk/users", userRoutes);
 app.use("/api/it-helpdesk/notifications", itNotificationRoutes);
 app.use("/api/it-helpdesk/reports", itReportsExportRoutes);
+app.use("/api/it-helpdesk/unified-assets", unifiedAssetRoutes);
+app.use("/api/it-helpdesk/procurement", procurementRoutes);
 
 app.use(employeeKPIRoutes);
 app.use(profileCompletionRoutes);

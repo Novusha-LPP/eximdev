@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Suraj Group | IT Service & Asset Management</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 rx=%2722%27 fill=%27%23e96b2c%27/%3E%3Ctext x=%2750%27 y=%2770%27 font-size=%2770%27 text-anchor=%27middle%27 fill=%27white%27 font-family=%27Arial%27 font-weight=%27700%27%3ES%3C/text%3E%3C/svg%3E">
+<style>
+:root{--nav:#101827;--nav2:#172236;--bg:#f5f7fb;--card:#fff;--line:#e4e9f2;--text:#172033;--muted:#6b7280;--primary:#5b45e8;--primary2:#4733cf;--green:#0aa36c;--amber:#e59a00;--red:#df3b4c;--blue:#2e73df;--cyan:#1597a6;--shadow:0 4px 18px rgba(20,32,56,.07);--radius:12px}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+button,input,select,textarea{font:inherit}button{cursor:pointer}.app{display:flex;min-height:100vh}
+.sidebar{width:245px;background:linear-gradient(180deg,var(--nav),#0b1220);color:#dce5f7;position:fixed;inset:0 auto 0 0;z-index:10;padding:18px 12px;overflow:auto}
+.brand{display:flex;gap:10px;align-items:center;padding:5px 8px 22px}.logo{width:38px;height:38px;border-radius:10px;background:#fff;display:grid;place-items:center;color:#ef6b21;font-weight:900}.brand b{font-size:15px}.brand small{display:block;color:#8ea0bd;font-size:10px;margin-top:2px}
+.nav-title{font-size:10px;color:#70819f;text-transform:uppercase;letter-spacing:.1em;padding:12px 10px 6px}.nav button{width:100%;border:0;background:none;color:#b9c7dc;text-align:left;padding:10px 12px;border-radius:8px;margin:2px 0;display:flex;gap:10px;align-items:center}.nav button:hover,.nav button.active{background:#202d44;color:#fff}.nav i{width:18px;text-align:center;font-style:normal}
+.main{margin-left:245px;width:calc(100% - 245px)}.topbar{height:62px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 25px;position:sticky;top:0;z-index:5}.crumb{color:var(--muted);font-size:12px}.top-actions{display:flex;gap:10px;align-items:center}.select,.input{border:1px solid #d9dfeb;background:#fff;border-radius:8px;padding:8px 10px;outline:none}.select:focus,.input:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px #eeeafe}.page{padding:22px 25px 45px}.pagehead{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}.pagehead h1{font-size:21px;margin:0 0 4px}.pagehead p{margin:0;color:var(--muted);font-size:12px}.actions{display:flex;gap:8px}.btn{border:1px solid #d9dfeb;background:#fff;border-radius:8px;padding:9px 13px;color:#344054}.btn:hover{background:#f7f8fb}.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}.btn.primary:hover{background:var(--primary2)}.btn.danger{color:var(--red);border-color:#f2c5cb}.btn.green{background:#e9faf3;color:#087b54;border-color:#bcebd8}
+.grid{display:grid;gap:14px}.stats{grid-template-columns:repeat(5,1fr)}.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:15px 16px;box-shadow:var(--shadow)}.stat .n{font-size:24px;font-weight:750;margin-top:7px}.stat small{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em}.stat .trend{font-size:11px;margin-top:5px;color:var(--green)}
+.cards2{grid-template-columns:1.4fr 1fr}.cards3{grid-template-columns:repeat(3,1fr)}.card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:17px}.card h3{font-size:14px;margin:0 0 13px}.card .sub{color:var(--muted);font-size:11px}
+.toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin-bottom:13px}.toolbar .search{flex:1;min-width:240px}
+table{width:100%;border-collapse:collapse}.table-wrap{background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:auto;box-shadow:var(--shadow)}th,td{padding:11px 12px;border-bottom:1px solid #edf0f5;text-align:left;white-space:nowrap;font-size:12px}th{font-size:10px;color:#718096;text-transform:uppercase;letter-spacing:.04em;background:#fafbfc}tr:hover td{background:#fbfcff}td.wrap{white-space:normal}.tag{display:inline-flex;align-items:center;padding:4px 7px;border-radius:999px;font-size:10px;font-weight:650}.tag.green{background:#e9faf3;color:#087b54}.tag.red{background:#ffedf0;color:#b42332}.tag.amber{background:#fff6df;color:#9a6500}.tag.blue{background:#edf4ff;color:#245db4}.tag.gray{background:#f0f2f5;color:#596273}.tag.purple{background:#f0edff;color:#5a45c9}
+.kpis{display:flex;gap:8px;flex-wrap:wrap}.kpi{flex:1;min-width:130px;background:#f8f9fc;border:1px solid var(--line);border-radius:9px;padding:10px}.kpi b{display:block;font-size:18px}.kpi span{font-size:10px;color:var(--muted)}
+.progress{height:7px;background:#edf0f5;border-radius:20px;overflow:hidden}.progress i{display:block;height:100%;background:var(--primary);border-radius:20px}
+.pipeline{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}.stage{border:1px solid var(--line);background:#fafbfc;border-radius:9px;padding:11px;text-align:center}.stage b{display:block;font-size:15px}.stage span{font-size:9px;color:var(--muted)}
+.alertbox{border-left:4px solid var(--amber);background:#fff8e7;padding:11px;border-radius:8px;font-size:12px}.empty{padding:28px;text-align:center;color:var(--muted)}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}.modal.show{display:flex}.modalbox{width:min(900px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:14px;box-shadow:0 25px 70px #0004}.modalhead{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.modalhead h2{margin:0;font-size:17px}.close{border:0;background:#f1f3f7;border-radius:50%;width:30px;height:30px}.modalbody{padding:20px}.formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.field label{display:block;font-size:10px;color:#667085;text-transform:uppercase;font-weight:700;margin-bottom:5px}.field input,.field select,.field textarea{width:100%;border:1px solid #d9dfeb;border-radius:8px;padding:9px}.field textarea{min-height:75px;resize:vertical}.full{grid-column:1/-1}.modalfoot{padding:13px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+.timeline{position:relative;margin-left:8px}.event{display:flex;gap:12px;padding:0 0 15px}.dot{width:10px;height:10px;border-radius:50%;background:var(--primary);margin-top:4px;flex:none}.event b{font-size:12px}.event small{display:block;color:var(--muted);margin-top:2px}
+.toast{position:fixed;right:25px;bottom:25px;background:#172033;color:#fff;padding:12px 15px;border-radius:9px;box-shadow:0 10px 35px #0003;display:none;z-index:100}.toast.show{display:block}
+.chart{height:180px;display:flex;align-items:end;gap:10px;padding:10px 5px 0}.bar{flex:1;background:linear-gradient(#6f5af0,#a69bf8);border-radius:6px 6px 2px 2px;min-height:10px;position:relative}.bar span{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--muted)}
+.badge-count{background:#e8e5ff;color:#5541c8;border-radius:10px;padding:2px 6px;font-size:9px;margin-left:auto}
+.detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.detail{background:#f8f9fc;border:1px solid var(--line);padding:10px;border-radius:8px}.detail label{font-size:9px;color:var(--muted);display:block}.detail b{font-size:12px}
+@media(max-width:1000px){.sidebar{width:70px}.sidebar .brand div,.sidebar .nav-title,.sidebar .nav button span,.sidebar .badge-count{display:none}.main{margin-left:70px;width:calc(100% - 70px)}.stats{grid-template-columns:repeat(2,1fr)}.cards2,.cards3{grid-template-columns:1fr}.pipeline{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:650px){.topbar{padding:0 12px}.page{padding:15px 12px}.formgrid{grid-template-columns:1fr}.full{grid-column:auto}.stats{grid-template-columns:1fr}.pipeline{grid-template-columns:repeat(2,1fr)}}
+
+/* ===== ENTERPRISE UI REFRESH ===== */
+:root{
+  --nav:#102334;--nav2:#0c1b29;--bg:#f3f5f7;--card:#ffffff;--line:#dfe4ea;
+  --text:#17212b;--muted:#66727e;--primary:#0b5a8f;--primary2:#08466f;
+  --accent:#e46b25;--green:#16845b;--amber:#a86b00;--red:#bd3544;--blue:#1769aa;
+  --shadow:0 1px 3px rgba(16,35,52,.06),0 6px 18px rgba(16,35,52,.045);--radius:7px
+}
+*{scrollbar-width:thin;scrollbar-color:#c7ced6 transparent}
+body{font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif;background:#f3f5f7;color:var(--text);font-size:13px;letter-spacing:.005em}
+.sidebar{width:236px;background:var(--nav);padding:0 10px 18px;border-right:1px solid #20384b;box-shadow:4px 0 18px rgba(8,20,32,.08)}
+.brand{height:72px;padding:0 10px 0 8px;border-bottom:1px solid #284052;margin-bottom:12px;gap:11px}
+.logo{width:36px;height:36px;border-radius:6px;background:#fff;color:var(--accent);font-size:19px;border:1px solid #e7eaee}
+.brand b{font-size:14px;letter-spacing:.03em;color:#fff}.brand small{color:#9eb0bf;font-size:9px;letter-spacing:.03em}
+.nav-title{color:#7890a3;font-size:9px;font-weight:700;letter-spacing:.12em;padding:14px 10px 6px}
+.nav button{color:#b9c7d3;padding:9px 10px;border-radius:6px;margin:1px 0;gap:10px;font-size:12px;border-left:3px solid transparent}
+.nav button:hover{background:#173047;color:#fff}.nav button.active{background:#18364c;color:#fff;border-left-color:var(--accent);font-weight:600}
+.nav i{width:17px;height:17px;display:grid;place-items:center;border-radius:4px;background:#173047;color:#a9bdcc;font-size:10px}
+.nav button.active i{background:#234a65;color:#fff}
+.main{margin-left:236px;width:calc(100% - 236px)}
+.topbar{height:58px;padding:0 24px;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 1px 4px rgba(0,0,0,.025)}
+.crumb{font-size:11px;color:#71808c}.top-actions{gap:7px}
+.select,.input{border:1px solid #ccd4dc;border-radius:6px;padding:8px 10px;color:#263442;background:#fff;box-shadow:none}
+.select:focus,.input:focus,textarea:focus,.field select:focus,.field input:focus{border-color:#7ea9c5;box-shadow:0 0 0 2px rgba(11,90,143,.09);outline:none}
+.page{padding:21px 24px 42px}.pagehead{margin-bottom:16px}.pagehead h1{font-size:20px;font-weight:650;letter-spacing:-.01em;color:#152532}.pagehead p{font-size:11px;color:#72808c}
+.actions{gap:7px}.btn{border:1px solid #cfd6de;background:#fff;border-radius:6px;padding:8px 12px;font-size:12px;color:#344452;box-shadow:none}.btn:hover{background:#f7f9fa;border-color:#b9c5cf}.btn.primary{background:#0b5a8f;border-color:#0b5a8f;color:#fff}.btn.primary:hover{background:#08466f}.btn.green{background:#eef8f3;color:#166b4e;border-color:#c8e7d9}
+.grid{gap:12px}.stats{grid-template-columns:repeat(5,1fr)}.stat{border:1px solid var(--line);border-radius:7px;padding:14px 15px;box-shadow:var(--shadow);position:relative;overflow:hidden}.stat:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#d8e0e7}.stat .n{font-size:22px;font-weight:650;color:#1b2a36}.stat small{font-size:9px;color:#71808c;letter-spacing:.08em}.stat .trend{font-size:10px}
+.card{border:1px solid var(--line);border-radius:7px;box-shadow:var(--shadow);padding:16px}.card h3{font-size:13px;font-weight:650;color:#243442;margin-bottom:11px}.card .sub{font-size:10.5px;color:#74818d}
+.toolbar{border:1px solid var(--line);border-radius:7px;box-shadow:var(--shadow);padding:10px;margin-bottom:11px;background:#fff}.toolbar .search{min-width:260px}
+.table-wrap{border:1px solid var(--line);border-radius:7px;box-shadow:var(--shadow)}th{background:#f7f8fa;color:#697783;font-size:9px;font-weight:700;letter-spacing:.07em}th,td{padding:10px 11px;font-size:11.5px}td{color:#354451}tr:hover td{background:#fafcfd}
+.tag{border-radius:4px;padding:3px 6px;font-size:9px;font-weight:650}.tag.green{background:#edf8f3;color:#126a4d}.tag.red{background:#fff0f1;color:#a72c3b}.tag.amber{background:#fff7e6;color:#936000}.tag.blue{background:#edf5fb;color:#155b8f}.tag.gray{background:#f0f2f4;color:#5f6c77}.tag.purple{background:#eef2f6;color:#38566c}
+.kpi{background:#f8fafb;border:1px solid #e2e7ec;border-radius:6px;padding:9px}.kpi b{font-size:16px;font-weight:650;color:#22313d}.kpi span{font-size:9px;color:#74818c}
+.progress{height:6px;background:#e8edf1}.progress i{background:#0b5a8f}
+.pipeline{grid-template-columns:repeat(6,1fr);gap:6px}.stage{border:1px solid #dce2e7;background:#f9fafb;border-radius:6px;padding:10px 7px;min-height:58px}.stage b{font-size:14px;color:#31556c}.stage span{font-size:8.5px;line-height:1.25;color:#697783}
+.detail-grid{gap:8px}.detail{background:#f8fafb;border:1px solid #e1e6eb;border-radius:6px;padding:9px}.detail label{font-size:8.5px;color:#75828d;text-transform:uppercase;letter-spacing:.04em}.detail b{font-size:11px;color:#293946}
+.alertbox{border-left:3px solid var(--accent);background:#fffaf6;padding:10px;border-radius:5px;font-size:11px}
+.modal{background:rgba(16,29,40,.48);backdrop-filter:blur(2px)}.modalbox{border:1px solid #d9e0e6;border-radius:9px;box-shadow:0 24px 70px rgba(10,25,40,.22)}.modalhead{padding:14px 18px;background:#fbfcfd;border-bottom:1px solid var(--line)}.modalhead h2{font-size:15px;color:#1d2d39}.close{background:#eef1f4;color:#4e5c67}.modalbody{padding:18px}.field label{font-size:9px;color:#687783;letter-spacing:.045em}.field input,.field select,.field textarea{border:1px solid #cfd7de;border-radius:6px;padding:8px;font-size:12px;background:#fff}.field textarea{min-height:70px}.modalfoot{padding:12px 18px;background:#fbfcfd;border-top:1px solid var(--line)}
+.toast{right:22px;bottom:22px;background:#172a38;border:1px solid #294354;border-radius:6px;font-size:12px}
+.chart .bar{background:#6b93ad;border-radius:3px 3px 1px 1px}
+.badge-count{background:#edf3f7;color:#31566e;border-radius:8px}
+/* professional form sections */
+#requestModal .modalbody>.card{box-shadow:none;border-radius:6px;border-left:3px solid #dbe5eb;padding:14px;background:#fff}
+#requestModal .modalbody>.card h3{font-size:12px;text-transform:none;margin-bottom:12px}
+#procurementModal .pipeline .stage{min-height:52px}
+#procurementModal .pipeline .stage:nth-child(-n+3){border-color:#b9dccd;background:#f4faf7}
+#procurementModal .pipeline .stage:nth-child(4){border-color:#e8cf9b;background:#fffaf0}
+/* avoid oversized AI-style rounded UI */
+button,.card,.stat,.table-wrap,.toolbar,.modalbox,.field input,.field select,.field textarea{transition:border-color .15s ease,box-shadow .15s ease,background .15s ease}
+@media(max-width:1000px){.sidebar{width:68px}.sidebar .brand div,.sidebar .nav-title,.sidebar .nav button span,.sidebar .badge-count{display:none}.brand{justify-content:center}.main{margin-left:68px;width:calc(100% - 68px)}.stats{grid-template-columns:repeat(2,1fr)}.cards2,.cards3{grid-template-columns:1fr}.pipeline{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:650px){.topbar{padding:0 12px}.page{padding:15px 12px}.formgrid{grid-template-columns:1fr}.full{grid-column:auto}.stats{grid-template-columns:1fr}.pipeline{grid-template-columns:repeat(2,1fr)}}
+
+</style>
+
+<style id="enterprise-theme">
+:root{
+ --nav:#122033;--nav-deep:#0c1624;--nav-hover:#1c3048;
+ --bg:#f3f6f9;--card:#ffffff;--line:#dfe5ec;--line2:#edf1f5;
+ --text:#172235;--muted:#667085;--primary:#e96b2c;--primary-dark:#c9551d;
+ --navy:#17324d;--blue:#2f6fed;--teal:#0f8b8d;--green:#16845b;
+ --amber:#c98512;--red:#c53d4c;--shadow:0 2px 10px rgba(16,35,55,.055);--radius:10px
+}
+html{background:var(--bg);scroll-behavior:smooth}
+body{font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:13px;letter-spacing:.005em}
+/* Corporate shell */
+.sidebar{width:250px;background:linear-gradient(180deg,#122033 0%,#0d1928 100%);padding:0 12px 18px;box-shadow:3px 0 18px rgba(12,24,38,.08)}
+.brand{height:72px;padding:0 10px;border-bottom:1px solid rgba(255,255,255,.09);margin-bottom:12px}
+.logo{width:40px;height:40px;border-radius:9px;background:#fff;color:var(--primary);border:1px solid #e8edf2;box-shadow:0 2px 8px rgba(0,0,0,.12);font-size:17px}
+.brand b{font-size:14px;letter-spacing:.06em}.brand small{font-size:9px;color:#9aacc1;letter-spacing:.04em}
+.nav-title{font-size:9px;color:#71869e;padding:14px 10px 6px;font-weight:700;letter-spacing:.12em}
+.nav button{position:relative;color:#aebdd0;padding:9px 11px;border-radius:7px;margin:2px 0;font-size:12px;transition:.16s ease}
+.nav button:hover{background:rgba(255,255,255,.055);color:#fff}.nav button.active{background:#203650;color:#fff;box-shadow:inset 3px 0 0 var(--primary)}
+.nav button.active:after{content:"";position:absolute;right:10px;width:5px;height:5px;border-radius:50%;background:#f08a50}
+.nav i{font-size:14px;color:#8ea2b9}.nav button.active i{color:#fff}
+.main{margin-left:250px;width:calc(100% - 250px)}
+.topbar{height:64px;padding:0 28px;background:rgba(255,255,255,.96);border-bottom:1px solid var(--line);box-shadow:0 1px 5px rgba(15,30,45,.035)}
+.crumb{font-size:11px;color:#7b8796}.crumb:before{content:""}
+.top-actions{gap:8px}.top-actions:before{content:"";height:22px;border-left:1px solid var(--line);margin-right:4px;order:3}
+.top-actions .select{order:1}.top-actions .btn:first-of-type{order:2}.top-actions .btn.primary{order:4}
+.page{padding:24px 28px 48px;max-width:1680px;margin:auto}
+.pagehead{margin-bottom:20px}.pagehead h1{font-size:22px;line-height:1.2;font-weight:700;color:#142238;letter-spacing:-.02em}.pagehead p{font-size:12px;color:#778395;margin-top:6px}
+.actions{gap:7px}
+.btn{border:1px solid #d4dce6;background:#fff;border-radius:7px;padding:8px 12px;color:#344054;font-weight:600;font-size:11px;box-shadow:0 1px 1px rgba(16,24,40,.02);transition:.15s ease}
+.btn:hover{background:#f8fafc;border-color:#bcc8d6;transform:translateY(-1px)}
+.btn.primary{background:var(--primary);border-color:var(--primary);box-shadow:0 2px 6px rgba(233,107,44,.22);color:#fff}.btn.primary:hover{background:var(--primary-dark);border-color:var(--primary-dark)}
+.btn.green{background:#edf8f3;color:#176b4d;border-color:#c7e9d9}.btn.danger{background:#fff5f5}
+.input,.select{border:1px solid #d4dce6;border-radius:7px;padding:8px 10px;color:#27364a;background:#fff;box-shadow:inset 0 1px 2px rgba(16,24,40,.015);font-size:11px}
+.input::placeholder{color:#98a2b3}.input:focus,.select:focus,textarea:focus{border-color:#ef8b5d;box-shadow:0 0 0 3px rgba(233,107,44,.10)}
+/* Dashboard cards */
+.grid{gap:14px}.stat,.card,.table-wrap,.toolbar{border:1px solid var(--line);box-shadow:var(--shadow);border-radius:10px}
+.stat{position:relative;padding:15px 17px;overflow:hidden}.stat:before{content:"";position:absolute;left:0;top:0;width:100%;height:3px;background:#b9c4d0}.stats .stat:nth-child(1):before{background:var(--navy)}.stats .stat:nth-child(2):before{background:var(--blue)}.stats .stat:nth-child(3):before{background:var(--amber)}.stats .stat:nth-child(4):before{background:var(--red)}.stats .stat:nth-child(5):before{background:var(--primary)}
+.stat .n{font-size:25px;color:#17263a;letter-spacing:-.03em}.stat small{font-size:9px;font-weight:700;color:#788699}.stat .trend{font-size:10px;color:#667085;margin-top:6px}
+.card{padding:17px}.card h3{font-size:13px;color:#26374b;font-weight:700}.card .sub{font-size:10px}
+.pipeline{gap:7px}.stage{background:#f8fafc;border:1px solid #e4e9ef;border-radius:8px;padding:12px 8px;position:relative}.stage b{font-size:18px;color:#1e3650}.stage span{font-size:9px;color:#718096;font-weight:600}.stage:not(:last-child):after{color:#a6b1be}
+.alertbox{background:#f8fafc;border:1px solid #e3e8ee;border-left:3px solid var(--primary);border-radius:7px;color:#526173;font-size:11px;line-height:1.55}
+.event{border-bottom:1px solid var(--line2);padding:10px 0}.event:last-of-type{border-bottom:0}.event b{font-size:11px}.event small{font-size:10px;color:#7b8794}
+/* Toolbars / tables */
+.toolbar{padding:10px;background:#fff}.toolbar .btn{font-size:10px}.table-wrap{overflow:hidden;background:#fff}table{font-size:11px}th{height:38px;padding:9px 12px;background:#f7f9fb;color:#657386;font-size:9px;font-weight:700;border-bottom:1px solid #dfe5ec}td{padding:10px 12px;font-size:11px;border-bottom:1px solid #edf1f5;color:#445266}tbody tr:hover td{background:#fbfcfd}td b{color:#1d3148;font-weight:650}
+.tag{border-radius:999px;padding:4px 8px;font-size:9px;font-weight:700;border:1px solid transparent}.tag.blue{background:#edf4ff;color:#2b61b8;border-color:#d8e6ff}.tag.green{background:#edf8f3;color:#18734f;border-color:#ccebdd}.tag.amber{background:#fff7e8;color:#98670d;border-color:#f3dfb0}.tag.red{background:#fff0f1;color:#b22f3d;border-color:#f0c8cd}.tag.gray{background:#f2f4f7;color:#687587;border-color:#e1e5ea}
+.badge-count{background:#eef2f6;color:#59697b;border-radius:10px;padding:2px 6px;font-size:9px;margin-left:3px}
+/* Forms and modals */
+.modal{background:rgba(12,24,38,.48);backdrop-filter:blur(2px)}.modalbox{border:1px solid #d9e0e8;border-radius:12px;box-shadow:0 18px 50px rgba(12,24,38,.22);overflow:hidden}.modalhead{background:#172c43;color:#fff;padding:15px 18px;border-bottom:3px solid var(--primary)}.modalhead h2{font-size:14px}.close{color:#d7e1ec;border:1px solid rgba(255,255,255,.12);border-radius:6px;background:rgba(255,255,255,.06)}.modalbody{background:#fff}.modalfoot{background:#f8fafc;border-top:1px solid var(--line);padding:12px 18px}.field label{font-size:9px;color:#637286;font-weight:700;text-transform:uppercase;letter-spacing:.05em}.field input,.field select,.field textarea{border:1px solid #d4dce6;border-radius:7px;background:#fff;color:#26364a;padding:9px 10px;font-size:11px}.field textarea{min-height:90px}
+.detail-grid .detail{background:#f8fafc;border:1px solid #e5eaf0;border-radius:7px;padding:10px}.detail label{font-size:9px;color:#7a8796;text-transform:uppercase}.detail b{font-size:11px;color:#26384d}
+/* Alerts / analytics */
+.progress{height:7px;background:#e8edf2;border-radius:8px;overflow:hidden}.progress i{display:block;height:100%;background:linear-gradient(90deg,#2f6fed,#4b8af5);border-radius:8px}.kpi b{font-size:18px;color:#1c334c}.kpi span{font-size:9px;color:#7a8796}
+/* Scrollbars */
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:#eef2f6}::-webkit-scrollbar-thumb{background:#c5ced9;border-radius:10px}::-webkit-scrollbar-thumb:hover{background:#aeb9c6}
+/* Responsive enterprise layout */
+@media(max-width:1100px){.sidebar{width:215px}.main{margin-left:215px;width:calc(100% - 215px)}.stats{grid-template-columns:repeat(3,1fr)}.cards2,.cards3{grid-template-columns:1fr}.page{padding:20px}}
+@media(max-width:760px){.sidebar{width:64px;padding:0 7px}.brand div:not(.logo),.nav-title,.nav button span{display:none}.brand{justify-content:center;padding:0;height:64px}.nav button{justify-content:center}.nav i{font-size:16px}.main{margin-left:64px;width:calc(100% - 64px)}.topbar{padding:0 14px}.page{padding:16px}.stats{grid-template-columns:1fr 1fr}.pagehead{gap:12px;flex-wrap:wrap}.top-actions .select{display:none}}
+</style>
+<style id="pro-ui">
+/* ===== PRO UI LAYER ===== */
+:root{--r:12px;--ease:cubic-bezier(.2,.8,.2,1);--glass:rgba(255,255,255,.82);--ring:0 0 0 3px rgba(233,107,44,.18);--sh2:0 10px 30px rgba(16,35,55,.12);--grad:linear-gradient(135deg,#e96b2c,#f49a52)}
+html[data-theme=dark]{--bg:#0b1320;--card:#121d2e;--line:#22324a;--line2:#1b2a40;--text:#e6edf7;--muted:#92a3bb;--glass:rgba(14,24,40,.82);--shadow:0 2px 14px rgba(0,0,0,.35);color-scheme:dark}
+html[data-theme=dark] body,html[data-theme=dark] html{background:var(--bg);color:var(--text)}
+html[data-theme=dark] :is(.card,.stat,.toolbar,.table-wrap,.modalbox,.kpi,.stage,.detail,.alertbox,.dd,.cmd){background:var(--card)!important;border-color:var(--line)!important;color:var(--text)}
+html[data-theme=dark] :is(.modalhead,.modalfoot,th){background:#0f1928!important;color:#9db0c9!important}
+html[data-theme=dark] :is(td,.card h3,.pagehead h1,.stat .n,.kpi b,.stage b,.detail b,td b,.event b){color:var(--text)!important}
+html[data-theme=dark] :is(.input,.select,.field input,.field select,.field textarea,.btn:not(.primary)){background:#0e1829!important;border-color:#2a3d58!important;color:var(--text)!important}
+html[data-theme=dark] .topbar{background:var(--glass)!important;border-color:var(--line)}
+html[data-theme=dark] tbody tr:hover td{background:#16243a!important}
+html[data-theme=dark] .tag{filter:brightness(1.15) saturate(1.1)}
+body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-feature-settings:"cv11","ss01"}
+:focus-visible{outline:2px solid #e96b2c;outline-offset:2px;border-radius:6px}
+::selection{background:#e96b2c;color:#fff}
+#progressbar{position:fixed;top:0;left:0;height:3px;width:0;background:var(--grad);z-index:200;transition:width .35s var(--ease)}
+/* sidebar */
+.sidebar{background:radial-gradient(120% 60% at 0 0,#1b3550 0,#101c2e 45%,#0a1420 100%)!important;transition:width .25s var(--ease)}
+.brand .logo{background:var(--grad);color:#fff;border:0;box-shadow:0 6px 18px rgba(233,107,44,.45)}
+.nav button{overflow:hidden;transition:background .2s,color .2s,padding .2s var(--ease)}
+.nav button:hover{padding-left:15px}
+.nav button i{width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,.06);display:grid;place-items:center;font-size:13px;flex:none}
+.nav button.active i{background:var(--grad);color:#fff;box-shadow:0 4px 10px rgba(233,107,44,.4)}
+.nav button .badge-count{background:#e96b2c;color:#fff;font-weight:700}
+.side-foot{margin:18px 4px 0;padding:12px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);color:#9fb2c8;font-size:11px;line-height:1.5}
+.side-foot b{color:#fff;display:block;font-size:12px}
+.side-foot .bar{height:5px;border-radius:9px;background:rgba(255,255,255,.1);margin-top:8px;overflow:hidden}.side-foot .bar i{display:block;height:100%;width:86%;background:var(--grad)}
+body.mini .sidebar{width:68px}body.mini .main{margin-left:68px;width:calc(100% - 68px)}
+body.mini :is(.brand div:not(.logo),.nav-title,.nav button span,.badge-count,.side-foot){display:none}
+body.mini .nav button{justify-content:center;padding:9px 0}
+/* topbar */
+.topbar{background:var(--glass)!important;backdrop-filter:blur(14px) saturate(1.4);gap:14px}
+.top-left{display:flex;align-items:center;gap:12px;min-width:0}
+.icon-btn{width:36px;height:36px;border-radius:9px;border:1px solid var(--line);background:transparent;display:grid;place-items:center;position:relative;color:inherit;font-size:15px;transition:.2s var(--ease)}
+.icon-btn:hover{background:rgba(233,107,44,.1);border-color:#e96b2c;transform:translateY(-1px)}
+.icon-btn .dot{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:9px;background:#c53d4c;color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center;border:2px solid var(--card);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(197,61,76,.5)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.crumb{font-weight:600;font-size:12px}.crumb span{opacity:.55;font-weight:400}
+.searchbox{display:flex;align-items:center;gap:8px;min-width:230px;padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:rgba(127,140,160,.07);color:var(--muted);cursor:text;font-size:12px;transition:.2s}
+.searchbox:hover{border-color:#e96b2c;box-shadow:var(--ring)}
+kbd{font:600 10px/1 ui-monospace,Menlo,monospace;padding:3px 5px;border-radius:5px;border:1px solid var(--line);border-bottom-width:2px;background:var(--card);margin-left:auto;color:var(--muted)}
+.clock{font-size:11px;color:var(--muted);text-align:right;line-height:1.3;font-variant-numeric:tabular-nums}.clock b{display:block;color:var(--text);font-size:12px}
+.avatar{display:flex;align-items:center;gap:9px;padding:3px 10px 3px 3px;border-radius:30px;border:1px solid var(--line);cursor:pointer;background:transparent;color:inherit}
+.avatar em{width:30px;height:30px;border-radius:50%;background:var(--grad);color:#fff;display:grid;place-items:center;font:700 11px Inter,sans-serif;font-style:normal}
+.avatar span{font-size:11px;font-weight:600;line-height:1.2;text-align:left}.avatar small{display:block;color:var(--muted);font-weight:400;font-size:9px}
+.dd{position:absolute;right:0;top:46px;width:340px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh2);display:none;z-index:60;overflow:hidden;animation:pop .22s var(--ease)}
+.dd.show{display:block}.dd h4{margin:0;padding:13px 15px;font-size:12px;display:flex;justify-content:space-between;border-bottom:1px solid var(--line)}
+.dd h4 a{color:#e96b2c;font-weight:600;cursor:pointer;font-size:11px}
+.dd .it{display:flex;gap:10px;padding:11px 15px;border-bottom:1px solid var(--line2);font-size:11px;cursor:pointer;transition:.15s}.dd .it:hover{background:rgba(233,107,44,.07)}
+.dd .it.read{opacity:.5}.dd .it b{display:block;font-size:12px}.dd .it small{color:var(--muted)}
+.dd .it .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none;font-size:13px}
+.ic.r{background:#ffe9ec;color:#c53d4c}.ic.a{background:#fff3da;color:#b57a00}.ic.b{background:#e6efff;color:#2f6fed}.ic.g{background:#e3f6ed;color:#16845b}
+/* page */
+.page:not([hidden]){animation:rise .38s var(--ease)}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.pagehead{padding-bottom:16px;border-bottom:1px dashed var(--line);margin-bottom:20px}
+.pagehead h1{font-size:24px!important;background:linear-gradient(90deg,var(--text),#e96b2c 220%);-webkit-background-clip:text;background-clip:text;color:transparent!important}
+.hero{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:22px 26px;margin-bottom:18px;border-radius:16px;color:#fff;background:radial-gradient(90% 140% at 100% 0,rgba(233,107,44,.55),transparent 55%),linear-gradient(120deg,#12304a,#0e2238);box-shadow:var(--sh2);position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;inset:auto -40px -70px auto;width:240px;height:240px;border-radius:50%;border:34px solid rgba(255,255,255,.05)}
+.hero h2{margin:0 0 6px;font-size:20px}.hero p{margin:0;color:#b8c8da;font-size:12px;max-width:520px;line-height:1.6}
+.hero .qa{display:flex;gap:8px;flex-wrap:wrap;position:relative;z-index:1}
+.hero .btn{background:rgba(255,255,255,.1)!important;border-color:rgba(255,255,255,.22)!important;color:#fff!important;backdrop-filter:blur(6px)}
+.hero .btn:hover{background:rgba(255,255,255,.2)!important}
+/* stats */
+.stat{transition:transform .25s var(--ease),box-shadow .25s;cursor:default}
+.stat:hover{transform:translateY(-3px);box-shadow:var(--sh2)}
+.stat:after{content:"";position:absolute;right:-18px;top:-18px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(233,107,44,.14),transparent 70%)}
+.stat .n{font-variant-numeric:tabular-nums}
+.stat .spark{position:absolute;right:12px;bottom:10px;width:64px;height:22px;opacity:.85}
+.card{transition:box-shadow .25s,border-color .25s}.card:hover{box-shadow:var(--sh2)}
+.card h3{display:flex;align-items:center;gap:8px}.card h3:before{content:"";width:4px;height:14px;border-radius:3px;background:var(--grad)}
+/* buttons */
+.btn{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:6px;transition:.2s var(--ease)}
+.btn.primary{background:var(--grad)!important;border:0!important;box-shadow:0 6px 16px rgba(233,107,44,.32)}
+.btn.primary:hover{box-shadow:0 10px 22px rgba(233,107,44,.42);filter:brightness(1.05)}
+.btn:active{transform:scale(.97)}
+.rip{position:absolute;border-radius:50%;background:rgba(255,255,255,.5);transform:scale(0);animation:rp .6s linear;pointer-events:none}
+@keyframes rp{to{transform:scale(4);opacity:0}}
+/* tags */
+.tag:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:5px}
+.tag.red:before{animation:pulse 1.8s infinite}
+/* tables */
+.table-wrap{max-height:68vh;overflow:auto}
+thead th{position:sticky;top:0;z-index:2;cursor:pointer;user-select:none;transition:.15s}
+thead th:hover{color:#e96b2c}
+thead th.asc:after{content:" ▲";font-size:8px}thead th.desc:after{content:" ▼";font-size:8px}
+tbody tr{transition:background .15s}tbody tr:nth-child(even) td{background:rgba(127,140,160,.045)}
+tbody tr td:first-child{border-left:3px solid transparent}tbody tr:hover td:first-child{border-left-color:#e96b2c}
+.tfoot{display:flex;justify-content:space-between;padding:10px 14px;font-size:11px;color:var(--muted);border-top:1px solid var(--line);position:sticky;left:0}
+.days{display:inline-flex;align-items:center;gap:7px;font-weight:700}.days i{width:44px;height:5px;border-radius:5px;background:rgba(127,140,160,.25);overflow:hidden}.days i b{display:block;height:100%}
+.nores td{text-align:center!important;padding:34px!important;color:var(--muted)}
+/* pipeline stepper */
+.pipeline .stage{transition:.2s var(--ease)}.pipeline .stage:hover{transform:translateY(-2px);border-color:#e96b2c}
+.stage.done{background:linear-gradient(180deg,#eefaf4,#e2f5eb)!important;border-color:#a9dcc3!important}.stage.done b{color:#16845b!important}
+.stage.active{background:linear-gradient(180deg,#fff4ea,#ffe9d6)!important;border-color:#f1a574!important;box-shadow:0 0 0 3px rgba(233,107,44,.15);animation:pulse 2.2s infinite}.stage.active b{color:#e96b2c!important}
+html[data-theme=dark] .stage.done{background:#10301f!important}html[data-theme=dark] .stage.active{background:#3a2315!important}
+/* timeline */
+.event .dot{box-shadow:0 0 0 4px rgba(127,140,160,.15)}
+/* modals */
+.modal{opacity:0;pointer-events:none;display:flex!important;transition:opacity .2s}.modal.show{opacity:1;pointer-events:auto}
+.modal .modalbox{transform:translateY(24px) scale(.97);transition:transform .3s var(--ease)}.modal.show .modalbox{transform:none}
+.modalhead{position:sticky;top:0;z-index:3}.modalfoot{position:sticky;bottom:0;z-index:3}
+.field input:hover,.field select:hover,.field textarea:hover{border-color:#b9c6d6}
+.field.bad input,.field.bad select,.field.bad textarea{border-color:#c53d4c!important;box-shadow:0 0 0 3px rgba(197,61,76,.14);animation:shake .35s}
+.field.bad:after{content:"This field is required";color:#c53d4c;font-size:10px;margin-top:4px;display:block}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+@keyframes pop{from{opacity:0;transform:translateY(-8px) scale(.97)}to{opacity:1;transform:none}}
+/* toast */
+.toast{display:flex!important;align-items:center;gap:10px;opacity:0;transform:translateY(20px);pointer-events:none;transition:.3s var(--ease);border-left:4px solid #16845b;padding:12px 16px;min-width:240px;overflow:hidden}
+.toast.show{opacity:1;transform:none}.toast.err{border-left-color:#c53d4c}.toast.info{border-left-color:#2f6fed}
+.toast:after{content:"";position:absolute;left:0;bottom:0;height:2px;background:#e96b2c;width:100%;transform-origin:left}.toast.show:after{animation:tl 2.6s linear forwards}
+@keyframes tl{to{transform:scaleX(0)}}
+/* command palette */
+.cmdwrap{position:fixed;inset:0;background:rgba(8,16,28,.55);backdrop-filter:blur(4px);z-index:300;display:none;align-items:flex-start;justify-content:center;padding-top:14vh}
+.cmdwrap.show{display:flex}
+.cmd{width:min(560px,92vw);background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.35);overflow:hidden;animation:pop .22s var(--ease)}
+.cmd input{width:100%;border:0;border-bottom:1px solid var(--line);padding:16px 18px;font-size:15px;outline:0;background:transparent;color:inherit}
+.cmd ul{list-style:none;margin:0;padding:6px;max-height:340px;overflow:auto}
+.cmd li{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:9px;cursor:pointer;font-size:12px}
+.cmd li small{margin-left:auto;color:var(--muted);font-size:10px}.cmd li.sel{background:rgba(233,107,44,.13)}
+.cmd .hint{padding:8px 14px;font-size:10px;color:var(--muted);border-top:1px solid var(--line);display:flex;gap:14px}
+/* donut + charts */
+.donutwrap{display:flex;align-items:center;gap:16px;margin-top:6px}.donutwrap svg{flex:none}
+.legend{font-size:11px;display:grid;gap:6px}.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:7px}
+.chart .bar{background:var(--grad)!important;border-radius:6px 6px 2px 2px!important;transition:height .8s var(--ease),filter .2s;transform-origin:bottom}
+.chart .bar:hover{filter:brightness(1.12)}
+.chart .bar:before{content:attr(data-v);position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;opacity:0;transition:.2s}.chart .bar:hover:before{opacity:1}
+.progress i{transition:width 1s var(--ease)}
+#totop{position:fixed;right:22px;bottom:78px;opacity:0;pointer-events:none;transition:.25s;z-index:40;background:var(--card);box-shadow:var(--sh2)}#totop.show{opacity:1;pointer-events:auto}
+@media(max-width:900px){.searchbox,.clock,.avatar span{display:none}.hero{flex-direction:column;align-items:flex-start}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media print{.sidebar,.topbar,.toolbar,.actions,.btn,#totop,.toast{display:none!important}.main{margin:0;width:100%}.page[hidden]{display:none}.card,.stat,.table-wrap{box-shadow:none;break-inside:avoid}}
+
+</style>
+
+<style id="inventory-enhancements">
+.analytics-bars{display:grid;gap:13px;margin-top:16px}.analytics-bars>div{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:11px}.analytics-bars span{color:var(--muted)}.analytics-bars b{font-size:11px}.analytics-bars i,.branch-chart i{height:8px;display:block;background:#edf1f5;border-radius:20px;overflow:hidden;grid-column:1/-1}.analytics-bars em,.branch-chart em{display:block;height:100%;border-radius:20px}.branch-chart{display:grid;gap:10px;margin-top:14px}.branch-chart>div{display:grid;grid-template-columns:120px 1fr 22px;gap:8px;align-items:center;font-size:10px}.branch-chart i{grid-column:auto}.branch-chart em{background:linear-gradient(90deg,#e96b2c,#f5a06f)}.branch-chart b{text-align:right}.doc-list{display:grid;gap:6px;margin-top:12px}.doc-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-size:11px}.doc-item small{color:var(--muted)}#inventoryTable th{white-space:normal}#inventoryTable td:nth-child(9){white-space:normal;min-width:190px}.field.bad input,.field.bad select{border-color:var(--red)!important}.analytics-row{margin-top:2px}
+@media(max-width:900px){.branch-chart>div{grid-template-columns:105px 1fr 22px}.analytics-row{grid-template-columns:1fr}}
+</style>
+
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="brand"><div class="logo">S</div><div><b>SURAJ IT</b><small>IT Service Management</small></div></div>
+  <div class="nav">
+    <div class="nav-title">Operations</div>
+    <button class="active" onclick="showPage('dashboard',this)"><i>⌂</i><span>Dashboard</span></button>
+    <button onclick="showPage('tickets',this)"><i>♧</i><span>Helpdesk & Tickets</span></button>
+    <button onclick="showPage('assets',this)"><i>▣</i><span>Asset Management</span></button>
+    <button onclick="showPage('inventory',this)"><i>▤</i><span>Inventory & Spares</span></button>
+    <button onclick="showPage('procurement',this)"><i>◈</i><span>Procurement & Approvals</span></button>
+    <div class="nav-title">Contracts & Compliance</div>
+    <button onclick="showPage('vendors',this)"><i>♙</i><span>Vendors & AMC</span></button>
+    <button onclick="showPage('licenses',this)"><i>◇</i><span>Software Licenses</span></button>
+    <button onclick="showPage('domains',this)"><i>◎</i><span>Domains & SSL</span></button>
+    <button onclick="showPage('warranty',this)"><i>◷</i><span>Warranty & Expiry</span></button>
+    <div class="nav-title">Governance</div>
+    <button onclick="showPage('reports',this)"><i>▥</i><span>Reports & Analytics</span></button>
+    <button onclick="showPage('audit',this)"><i>◉</i><span>Audit Logs</span></button>
+    <button onclick="showPage('notifications',this)"><i>♢</i><span>Notifications</span></button>
+    <button onclick="showPage('settings',this)"><i>⚙</i><span>Master Data / Settings</span></button>
+  </div>
+</aside>
+
+<main class="main">
+<header class="topbar"><div class="crumb" id="crumb">IT Helpdesk / Dashboard</div><div class="top-actions"><select class="select" id="branchFilter" aria-label="Filter by branch" onchange="filterBranch(this.value)"><option value="All Branches">All Branches</option><option>Head Office</option><option>Ahmedabad</option><option>Khadoyar RABS</option><option>SRCC Khodiyar</option><option>SRCC Maintenance</option><option>SEA</option><option>AIR</option></select><button class="btn" onclick="toast('Data refreshed')">↻ Refresh</button><button class="btn primary" onclick="openModal('ticketModal')">＋ Raise Ticket</button></div></header>
+
+<section class="page" id="page-dashboard">
+<div class="pagehead"><div><h1>IT Operations Dashboard</h1><p>Assets, support, procurement, licenses, contracts and infrastructure in one place.</p></div><div class="actions"><button class="btn" onclick="openModal('assetModal')">＋ New Asset</button><button class="btn" onclick="openModal('requestModal')">＋ Purchase Request</button></div></div>
+<div class="grid stats">
+ <div class="stat"><small>Total IT Assets</small><div class="n" id="dashTotalAssets">86</div><div class="trend">Old + new inventory</div></div>
+ <div class="stat"><small>Open Tickets</small><div class="n">7</div><div class="trend">3 high priority</div></div>
+ <div class="stat"><small>Warranty / AMC Due</small><div class="n">6</div><div class="trend" style="color:var(--amber)">2 due within 30 days</div></div>
+ <div class="stat"><small>License / Domain Due</small><div class="n">4</div><div class="trend" style="color:var(--red)">1 critical</div></div>
+ <div class="stat"><small>Purchase Requests</small><div class="n">5</div><div class="trend">2 awaiting approval</div></div>
+</div>
+<br>
+<div class="grid cards2">
+ <div class="card"><h3>Asset & Procurement Lifecycle</h3><div class="pipeline" style="grid-template-columns:repeat(7,1fr)">
+  <div class="stage"><b>5</b><span>Request</span></div><div class="stage"><b>4</b><span>3 Quotes</span></div><div class="stage"><b>2</b><span>IT Eval</span></div><div class="stage" style="border-color:#d8b4fe;background:#faf5ff"><b style="color:#7c3aed">1</b><span style="color:#6b21a8;font-weight:700">Stage 4: HOD</span></div><div class="stage" style="border-color:#86efac;background:#f0fdf4"><b style="color:#059669">1</b><span style="color:#047857;font-weight:700">Stage 5: GM</span></div><div class="stage"><b>1</b><span>Accounts</span></div><div class="stage"><b>8</b><span>Received</span></div>
+ </div><br><div class="alertbox"><b>Recommended workflow:</b> Purchase Request → 3 Vendor Quotations → IT Technical Verification → <b>Stage 4: HOD Approval</b> → <b>Stage 5: GM Winner Selection</b> → Accounts PO &amp; Verification → Goods Received → Asset Registration → Handover.</div></div>
+ <div class="card"><h3>Upcoming Critical Items</h3>
+   <div class="event"><div class="dot" style="background:var(--red)"></div><div><b>SSL Certificate — alvision.in</b><small>Expires in 14 days · Critical</small></div></div>
+   <div class="event"><div class="dot" style="background:var(--amber)"></div><div><b>Fortinet AMC</b><small>Expires in 27 days · Renewal required</small></div></div>
+   <div class="event"><div class="dot" style="background:var(--blue)"></div><div><b>Microsoft 365 Subscription</b><small>Review billing / seats in 45 days</small></div></div>
+   <button class="btn" onclick="showPage('warranty')">View all expiry items →</button>
+ </div>
+</div><br>
+<div class="grid cards3">
+ <div class="card"><h3>Ticket SLA</h3><div class="kpis"><div class="kpi"><b>92%</b><span>Within SLA</span></div><div class="kpi"><b>2.4h</b><span>Avg response</span></div></div><br><div class="progress"><i style="width:92%"></i></div></div>
+ <div class="card"><h3>Asset Distribution</h3><div class="kpis"><div class="kpi"><b>51</b><span>Computers</span></div><div class="kpi"><b>15</b><span>Network</span></div><div class="kpi"><b>20</b><span>Other</span></div></div></div>
+ <div class="card"><h3>Security & Monitoring</h3><div class="kpis"><div class="kpi"><b>80</b><span>Endpoints</span></div><div class="kpi"><b>1</b><span>Server</span></div><div class="kpi"><b>3</b><span>ISPs</span></div></div><br><span class="tag green">Monitoring Healthy</span></div>
+</div>
+<br>
+<div class="grid cards2 analytics-row">
+ <div class="card"><h3>Asset Condition Overview</h3><p class="sub">Illustrative current inventory distribution — update counts with live system data.</p><div class="analytics-bars"><div><span>Good / Working</span><b>68%</b><i><em style="width:68%;background:#16845b"></em></i></div><div><span>Fair / Needs Review</span><b>18%</b><i><em style="width:18%;background:#2f6fed"></em></i></div><div><span>Under Repair</span><b>8%</b><i><em style="width:8%;background:#c98512"></em></i></div><div><span>Damaged / Obsolete</span><b>6%</b><i><em style="width:6%;background:#c53d4c"></em></i></div></div></div>
+ <div class="card"><h3>Inventory by Branch</h3><p class="sub">Branch-wise view for asset allocation and planning.</p><div class="branch-chart"><div><span>Head Office</span><i><em style="width:82%"></em></i><b>32</b></div><div><span>Ahmedabad</span><i><em style="width:64%"></em></i><b>25</b></div><div><span>Khadoyar RABS</span><i><em style="width:36%"></em></i><b>14</b></div><div><span>SRCC Khodiyar</span><i><em style="width:24%"></em></i><b>9</b></div><div><span>SRCC Maintenance</span><i><em style="width:16%"></em></i><b>6</b></div></div></div>
+</div>
+</section>
+
+<section class="page" id="page-assets" hidden>
+<div class="pagehead"><div><h1>Asset Management</h1><p>Full lifecycle from purchase to retirement — with technical specifications, ownership and history.</p></div><button class="btn primary" onclick="openModal('assetModal')">＋ Register New Asset</button></div>
+<div class="grid stats"><div class="stat"><small>Total</small><div class="n">86</div></div><div class="stat"><small>Assigned</small><div class="n">63</div></div><div class="stat"><small>Available</small><div class="n">12</div></div><div class="stat"><small>Repair</small><div class="n">3</div></div><div class="stat"><small>Retired/Lost</small><div class="n">8</div></div></div><br>
+<div class="toolbar"><input class="input search" id="assetSearch" oninput="filterTable('assetTable',this.value)" placeholder="Search asset tag, serial, user, model..."><select class="select"><option>All Categories</option><option>Computer</option><option>Laptop</option><option>Network Device</option><option>Printer</option><option>UPS</option><option>Mobile</option><option>CCTV</option></select><select class="select"><option>All Status</option><option>Assigned</option><option>Available</option><option>Repair</option><option>Retired</option></select><button class="btn" onclick="toast('Export prepared')">⇩ Export Excel</button></div>
+<div class="table-wrap"><table id="assetTable"><thead><tr><th>Asset Tag</th><th>Category</th><th>Brand / Model</th><th>Serial No.</th><th>Assigned To</th><th>Location</th><th>Branch</th><th>Status</th><th>Warranty</th><th>Actions</th></tr></thead><tbody>
+<tr><td><b>AST-2026-001</b></td><td>Laptop</td><td>Acer Aspire 5</td><td>NXA12345</td><td>Vikas Chandra</td><td>IT / 1F</td><td>Head Office</td><td><span class="tag blue">Assigned</span></td><td>14-Sep-2027</td><td><button class="btn" onclick="viewAsset('AST-2026-001')">View</button> <button class="btn" onclick="openModal('assetModal')">Edit</button></td></tr>
+<tr><td><b>AST-2026-002</b></td><td>Network Device</td><td>CP Plus NVR</td><td>CPNVR00122</td><td>IT</td><td>Server Room</td><td>Ahmedabad</td><td><span class="tag green">Active</span></td><td>25-Sep-2027</td><td><button class="btn" onclick="viewAsset('AST-2026-002')">View</button></td></tr>
+<tr><td><b>AST-2026-003</b></td><td>Network Device</td><td>FortiGate 80F</td><td>FG80F-XXXX</td><td>IT</td><td>Server Room</td><td>Khadoyar RABS</td><td><span class="tag green">Active</span></td><td>AMC 27 days</td><td><button class="btn" onclick="viewAsset('AST-2026-003')">View</button></td></tr>
+<tr><td><b>AST-2026-004</b></td><td>UPS</td><td>APC 1.1KVA</td><td>UPS-00231</td><td>—</td><td>Server Room</td><td>SRCC Maintenance</td><td><span class="tag amber">Repair</span></td><td>Expired</td><td><button class="btn" onclick="viewAsset('AST-2026-004')">View</button></td></tr>
+</tbody></table></div>
+</section>
+
+<section class="page" id="page-inventory" hidden>
+<div class="pagehead"><div><h1>Inventory & Spares</h1><p>Central inventory register for legacy assets, newly purchased stock, spares, assigned users, branch allocation and supporting documents.</p></div><div class="actions"><button class="btn" onclick="document.getElementById('inventoryDocs').click()">⇧ Upload Documents</button><button class="btn primary" onclick="openModal('inventoryModal')">＋ Add Inventory Record</button></div></div>
+<div class="grid stats"><div class="stat"><small>Inventory Records</small><div class="n" id="invRecordCount">5</div><div class="trend">Old + new items</div></div><div class="stat"><small>Old Inventory</small><div class="n" id="oldInventoryCount">3</div><div class="trend">Existing assets in use</div></div><div class="stat"><small>New Inventory</small><div class="n" id="newInventoryCount">2</div><div class="trend">Recent purchases / stock</div></div><div class="stat"><small>Under Repair</small><div class="n">1</div><div class="trend" style="color:var(--amber)">Review required</div></div><div class="stat"><small>Documents Attached</small><div class="n" id="docCount">0</div><div class="trend">Selected in this browser session</div></div></div><br>
+<div class="toolbar"><input class="input search" id="inventorySearch" placeholder="Search asset tag, item, serial, employee, model..." oninput="filterTable('inventoryTable',this.value)"><select class="select" id="inventoryTypeFilter" onchange="filterInventory()"><option value="">All Inventory Types</option><option>Old Inventory</option><option>New Inventory</option><option>Spare Stock</option></select><select class="select" id="inventoryCategoryFilter" onchange="filterInventory()"><option value="">All Categories</option><option>Computer / Desktop</option><option>Laptop</option><option>Monitor</option><option>Printer</option><option>Server</option><option>Network Device</option><option>Mobile Device</option><option>RAM</option><option>SSD</option><option>Cable</option><option>Other</option></select><select class="select" id="inventoryStatusFilter" onchange="filterInventory()"><option value="">All Statuses</option><option>In Use</option><option>Available</option><option>Assigned</option><option>Under Repair</option><option>Damaged</option><option>Retired / Obsolete</option><option>Returned</option></select><button class="btn" onclick="exportInventory()">⇩ Export CSV</button></div>
+<div class="table-wrap"><table id="inventoryTable"><thead><tr><th>Asset Tag / SKU</th><th>Inventory Type</th><th>Category</th><th>Brand / Model</th><th>Serial Number</th><th>Assigned To</th><th>Department</th><th>Branch / Location</th><th>Technical Summary</th><th>Status</th><th>Condition</th><th>Warranty End</th><th>Documents</th></tr></thead><tbody id="inventoryBody">
+<tr data-branch="Head Office"><td><b>SURAJ-PC-001</b></td><td>Old Inventory</td><td>Computer / Desktop</td><td>Dell / OptiPlex</td><td>OLD-PC-001</td><td>Accounts User</td><td>Accounts</td><td>Head Office · 1st Floor</td><td>Core i5 · 8 GB RAM · 512 GB SSD · Windows 11 Pro</td><td><span class="tag blue">In Use</span></td><td>Good</td><td>Not recorded</td><td>—</td></tr>
+<tr data-branch="Ahmedabad"><td><b>SURAJ-LAP-001</b></td><td>Old Inventory</td><td>Laptop</td><td>Dell / Latitude</td><td>OLD-LAP-001</td><td>IT Pool</td><td>IT</td><td>Ahmedabad · IT Store</td><td>Core i5 · 16 GB RAM · 512 GB NVMe SSD · Windows 11 Pro</td><td><span class="tag green">Available</span></td><td>Good</td><td>Not recorded</td><td>—</td></tr>
+<tr data-branch="Khadoyar RABS"><td><b>SURAJ-MON-001</b></td><td>Old Inventory</td><td>Monitor</td><td>HP / LED Monitor</td><td>OLD-MON-001</td><td>Accounts User</td><td>Accounts</td><td>Khadoyar RABS</td><td>24-inch · Full HD</td><td><span class="tag blue">Assigned</span></td><td>Fair</td><td>Not recorded</td><td>—</td></tr>
+<tr data-branch="SRCC Khodiyar"><td><b>SURAJ-NET-001</b></td><td>New Inventory</td><td>Network Device</td><td>TP-Link / Managed Switch</td><td>NEW-NET-001</td><td>IT Team</td><td>IT</td><td>SRCC Khodiyar · Rack</td><td>24 ports · Managed · Gigabit</td><td><span class="tag green">In Use</span></td><td>Good</td><td>DD-MM-YYYY</td><td>—</td></tr>
+<tr data-branch="SRCC Maintenance"><td><b>SP-SSD-001</b></td><td>Spare Stock</td><td>SSD</td><td>Kingston / NVMe</td><td>SSD-STOCK-001</td><td>—</td><td>IT</td><td>SRCC Maintenance · IT Store</td><td>512 GB NVMe SSD · Qty 12</td><td><span class="tag green">Available</span></td><td>New</td><td>—</td><td>—</td></tr>
+</tbody></table></div>
+<br><div class="grid cards2"><div class="card"><h3>Inventory Documents</h3><p class="sub">Attach invoices, purchase orders, delivery challans, warranty certificates, handover forms, repair reports, disposal approvals and inventory spreadsheets.</p><input type="file" id="inventoryDocs" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png" onchange="handleInventoryDocs(this.files)"><div id="inventoryDocList" class="doc-list"><span class="sub">No documents selected yet.</span></div><p class="sub">Prototype note: files are selected in this page only; persistent shared storage requires backend/API integration.</p></div><div class="card"><h3>Inventory Data Standard</h3><div class="detail-grid"><div class="detail"><label>Mandatory</label><b>Asset tag, type, category, brand, model, serial</b></div><div class="detail"><label>Assignment</label><b>Employee, department, branch, location</b></div><div class="detail"><label>Technical details</label><b>CPU, RAM, storage, OS, hostname, MAC/IP</b></div><div class="detail"><label>Lifecycle</label><b>Status, condition, warranty and history</b></div><div class="detail"><label>Unique records</label><b>Unique asset tag and serial where available</b></div><div class="detail"><label>Audit trail</label><b>Created/updated by and date in production</b></div></div></div></div>
+</section>
+
+<section class="page" id="page-procurement" hidden>
+<div class="pagehead"><div><h1>Procurement, Quotation & Approval</h1><p>Do not create an asset only after buying. Keep the complete commercial and approval trail first.</p></div><button class="btn primary" onclick="openModal('requestModal')">＋ New Purchase Request</button></div>
+<div class="grid stats"><div class="stat"><small>Draft Requests</small><div class="n">1</div></div><div class="stat"><small>Quotation Pending</small><div class="n">2</div></div><div class="stat"><small>IT Approval</small><div class="n">1</div></div><div class="stat"><small>Management</small><div class="n">2</div></div><div class="stat"><small>Accounts Payment</small><div class="n">1</div></div></div><br>
+<div class="card"><h3>Complete procurement lifecycle</h3><p class="sub">Every purchase must retain the request, all quotations, approvals, selected quotation/vendor, PO, receipt/GRN, tax invoice, accounts verification, payment proof and final asset registration.</p><br><div class="pipeline"><div class="stage"><b>1</b><span>Purchase Request</span></div><div class="stage"><b>2</b><span>3 Quotations</span></div><div class="stage"><b>3</b><span>IT Technical Evaluation</span></div><div class="stage"><b>4</b><span>HOD / Admin Approval</span></div><div class="stage"><b>5</b><span>GM + Select Quote</span></div><div class="stage"><b>6</b><span>PO / Order</span></div><div class="stage"><b>7</b><span>Receive / GRN</span></div><div class="stage"><b>8</b><span>Tax Invoice</span></div><div class="stage"><b>9</b><span>Accounts Verification</span></div><div class="stage"><b>10</b><span>Payment + UTR</span></div><div class="stage"><b>11</b><span>Asset Registration</span></div><div class="stage"><b>12</b><span>Assignment</span></div></div></div><br>
+<div class="toolbar"><input class="input search" placeholder="Search PR, item, vendor, PO, invoice..." oninput="filterTable('procurementTable',this.value)"><select class="select"><option>All Status</option><option>Quotation Pending</option><option>Approval Pending</option><option>PO Created</option><option>Received</option><option>Accounts Pending</option><option>Payment Completed</option></select><button class="btn" onclick="toast('Procurement filters cleared')">Clear Filters</button></div>
+<div class="table-wrap"><table id="procurementTable"><thead><tr><th>Request ID</th><th>Requested By</th><th>Item / Qty</th><th>Vendor</th><th>Selected Quote</th><th>Approved ₹</th><th>Approval</th><th>PO / GRN</th><th>Accounts</th><th>Asset</th><th>Next Action</th></tr></thead><tbody>
+<tr><td><b>PR-2026-015</b></td><td>Vikas / IT</td><td>Monitor ×1</td><td>—</td><td>3 pending</td><td>₹2,000</td><td><span class="tag amber">HOD / GM Pending</span></td><td><span class="tag gray">Not created</span></td><td><span class="tag gray">Not started</span></td><td><span class="tag gray">Not registered</span></td><td><button class="btn primary" onclick="openModal('procurementModal')">Open Workflow</button></td></tr>
+<tr><td><b>PR-2026-014</b></td><td>IT Department</td><td>Managed PoE Switch ×4</td><td>ABC Network</td><td>QTN-003</td><td>₹1,18,500</td><td><span class="tag green">GM Approved</span></td><td><span class="tag blue">PO-2026-041 / GRN Pending</span></td><td><span class="tag gray">Not started</span></td><td><span class="tag gray">Not registered</span></td><td><button class="btn primary" onclick="openModal('procurementModal')">Open Workflow</button></td></tr>
+<tr><td><b>PR-2026-013</b></td><td>IT / HR</td><td>New PC ×1</td><td>Tech Vendor</td><td>QTN-002</td><td>₹65,000</td><td><span class="tag green">GM Approved</span></td><td><span class="tag green">PO + GRN Complete</span></td><td><span class="tag amber">Invoice Verified / Payment Pending</span></td><td><span class="tag blue">Asset Draft</span></td><td><button class="btn primary" onclick="openModal('procurementModal')">Open Workflow</button></td></tr>
+</tbody></table></div>
+</section>
+
+<section class="page" id="page-licenses" hidden>
+<div class="pagehead"><div><h1>Software License Management</h1><p>Track product, publisher, seats, billing, renewal, assigned users, proof of purchase and expiry alerts.</p></div><button class="btn primary" onclick="openModal('licenseModal')">＋ Register License</button></div>
+<div class="grid stats"><div class="stat"><small>Total Licenses</small><div class="n">18</div></div><div class="stat"><small>Active</small><div class="n">15</div></div><div class="stat"><small>Expiring ≤30d</small><div class="n">1</div></div><div class="stat"><small>Expired</small><div class="n">1</div></div><div class="stat"><small>Annual Spend</small><div class="n">₹4.8L</div></div></div><br>
+<div class="table-wrap"><table><thead><tr><th>License</th><th>Publisher</th><th>Type</th><th>Seats</th><th>Assigned / Used</th><th>Start</th><th>Expiry / Renewal</th><th>Cost</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+<tr><td>Microsoft 365 Business Basic</td><td>Microsoft</td><td>Subscription</td><td>80</td><td>78 / 80</td><td>01-Apr-2026</td><td>31-Mar-2027</td><td>₹1,39,200/yr</td><td><span class="tag green">Active</span></td><td><button class="btn" onclick="viewLicense()">View</button></td></tr>
+<tr><td>Bitdefender GravityZone</td><td>Bitdefender</td><td>Subscription</td><td>81</td><td>80 / 81</td><td>15-Jun-2026</td><td>14-Jun-2029</td><td>₹—</td><td><span class="tag green">Active</span></td><td><button class="btn" onclick="viewLicense()">View</button></td></tr>
+<tr><td>Adobe Acrobat</td><td>Adobe</td><td>Subscription</td><td>5</td><td>5 / 5</td><td>10-Nov-2025</td><td>09-Nov-2026</td><td>₹—</td><td><span class="tag amber">Due soon</span></td><td><button class="btn" onclick="openModal('licenseModal')">Renew</button></td></tr>
+</tbody></table></div>
+</section>
+
+<section class="page" id="page-domains" hidden>
+<div class="pagehead"><div><h1>Domains, DNS & SSL Management</h1><p>Separate domain expiry, DNS ownership, registrar, SSL certificate and renewal responsibilities from software licenses.</p></div><button class="btn primary" onclick="openModal('domainModal')">＋ Add Domain / SSL</button></div>
+<div class="grid stats"><div class="stat"><small>Domains</small><div class="n">6</div></div><div class="stat"><small>SSL Certificates</small><div class="n">8</div></div><div class="stat"><small>Due ≤30d</small><div class="n">1</div></div><div class="stat"><small>DNS Providers</small><div class="n">3</div></div><div class="stat"><small>Auto Renewal</small><div class="n">4</div></div></div><br>
+<div class="alertbox"><b>Domain record must include:</b> Domain name, registrar, registrant/company, registration date, expiry date, auto-renewal, DNS provider, nameservers, hosting/server, SSL issuer, SSL expiry, certificate location, responsible owner, renewal cost, invoice/proof, and escalation contacts.</div><br>
+<div class="table-wrap"><table><thead><tr><th>Domain / Certificate</th><th>Registrar / Issuer</th><th>DNS / Hosting</th><th>Registered</th><th>Domain Expiry</th><th>SSL Expiry</th><th>Auto Renew</th><th>Owner</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+<tr><td><b>alvision.in</b></td><td>GoDaddy / Let's Encrypt</td><td>Cloudflare / VPS</td><td>12-Oct-2021</td><td>12-Oct-2026</td><td>19-Oct-2026</td><td>Yes</td><td>IT</td><td><span class="tag red">Critical</span></td><td><button class="btn primary" onclick="viewDomain()">Open</button></td></tr>
+<tr><td><b>surajforwarders.com</b></td><td>Registrar / DigiCert</td><td>Cloudflare / Hosting</td><td>03-Feb-2024</td><td>03-Feb-2027</td><td>20-Dec-2026</td><td>Yes</td><td>IT</td><td><span class="tag green">Safe</span></td><td><button class="btn" onclick="viewDomain()">Open</button></td></tr>
+</tbody></table></div>
+</section>
+
+<section class="page" id="page-warranty" hidden>
+<div class="pagehead"><div><h1>Warranty, AMC & Expiry Notifications</h1><p>One queue for hardware warranty, AMC contracts, licenses, domains, SSL and subscriptions.</p></div><button class="btn" onclick="toast('Notification rules opened')">⚙ Alert Rules</button></div>
+<div class="grid stats"><div class="stat"><small>Total Alerts</small><div class="n">11</div></div><div class="stat"><small>Due ≤30d</small><div class="n">2</div></div><div class="stat"><small>Overdue</small><div class="n">1</div></div><div class="stat"><small>Upcoming Safe</small><div class="n">8</div></div><div class="stat"><small>Notifications Sent</small><div class="n">27</div></div></div><br>
+<div class="table-wrap"><table><thead><tr><th>Alert Type</th><th>Asset / Contract / Subject</th><th>Vendor</th><th>Start</th><th>Expiry</th><th>Days</th><th>Responsible</th><th>Escalation</th><th>Status</th><th>Action</th></tr></thead><tbody>
+<tr><td>Domain</td><td>alvision.in</td><td>GoDaddy</td><td>12-Oct-2021</td><td>12-Oct-2026</td><td style="color:var(--red)">7</td><td>IT</td><td>IT Manager → Management</td><td><span class="tag red">Critical</span></td><td><button class="btn" onclick="openModal('renewalModal')">Renew</button></td></tr>
+<tr><td>SSL</td><td>alvision.in SSL</td><td>Let's Encrypt</td><td>20-Jul-2026</td><td>19-Oct-2026</td><td style="color:var(--red)">14</td><td>IT</td><td>IT Manager</td><td><span class="tag red">Critical</span></td><td><button class="btn" onclick="openModal('renewalModal')">Action</button></td></tr>
+<tr><td>AMC</td><td>FortiGate 80F</td><td>Fortinet Partner</td><td>01-Nov-2025</td><td>01-Nov-2026</td><td>27</td><td>IT</td><td>Management</td><td><span class="tag amber">Due Soon</span></td><td><button class="btn" onclick="openModal('renewalModal')">Renewal</button></td></tr>
+</tbody></table></div>
+</section>
+
+<section class="page" id="page-vendors" hidden>
+<div class="pagehead"><div><h1>Vendors & AMC Contracts</h1><p>Supplier master, contracts, SLA, contacts, quotations, invoices and renewal history.</p></div><button class="btn primary" onclick="openModal('vendorModal')">＋ Add Vendor</button></div>
+<div class="table-wrap"><table><thead><tr><th>Vendor</th><th>Category</th><th>Contact</th><th>AMC / Contract</th><th>SLA</th><th>Start</th><th>End</th><th>Spend</th><th>Status</th><th>Action</th></tr></thead><tbody>
+<tr><td>Fortinet Partner</td><td>Firewall</td><td>support@vendor.in</td><td>FG-2026-AMC</td><td>4h</td><td>01-Nov-2025</td><td>01-Nov-2026</td><td>₹—</td><td><span class="tag amber">Renew Soon</span></td><td><button class="btn" onclick="openModal('vendorModal')">View</button></td></tr>
+<tr><td>CP Plus / Service Partner</td><td>CCTV</td><td>service@cpplus.in</td><td>CCTV-AMC-04</td><td>24h</td><td>01-Jan-2026</td><td>31-Dec-2026</td><td>₹—</td><td><span class="tag green">Active</span></td><td><button class="btn" onclick="openModal('vendorModal')">View</button></td></tr>
+</tbody></table></div>
+</section>
+
+<section class="page" id="page-tickets" hidden>
+<div class="pagehead"><div><h1>Helpdesk & Tickets</h1><p>Request, assignment, SLA, troubleshooting, resolution, user confirmation and closure.</p></div><button class="btn primary" onclick="openModal('ticketModal')">＋ Raise Ticket</button></div>
+<div class="toolbar"><input class="input search" placeholder="Search ticket, requester, asset, issue..."><select class="select"><option>All Priority</option><option>High</option><option>Medium</option><option>Low</option></select><select class="select"><option>All Status</option><option>New</option><option>Assigned</option><option>In Progress</option><option>Pending</option><option>Closed</option></select></div>
+<div class="table-wrap"><table><thead><tr><th>Ticket ID</th><th>Requester</th><th>Subject</th><th>Category</th><th>Priority</th><th>Assigned</th><th>SLA</th><th>Status</th><th>Action</th></tr></thead><tbody>
+<tr><td>TK-20261005-0001</td><td>Parthiv Jadav</td><td>Internet intermittent</td><td>Network</td><td><span class="tag red">High</span></td><td>Vikas</td><td>4h</td><td><span class="tag blue">In Progress</span></td><td><button class="btn" onclick="openModal('ticketModal')">Open</button></td></tr>
+<tr><td>TK-20261003-0005</td><td>Aftab Belim</td><td>Printer sharing</td><td>Hardware</td><td><span class="tag amber">Medium</span></td><td>IT</td><td>8h</td><td><span class="tag green">Closed</span></td><td><button class="btn" onclick="openModal('ticketModal')">View</button></td></tr>
+</tbody></table></div>
+</section>
+
+<section class="page" id="page-reports" hidden>
+<div class="pagehead"><div><h1>Reports & Analytics</h1><p>Operational, asset, procurement, license, expiry and audit reporting.</p></div><button class="btn primary" onclick="toast('Report export started')">⇩ Export Report</button></div>
+<div class="grid cards2"><div class="card"><h3>Tickets by Month</h3><div class="chart"><div class="bar" style="height:38%"><span>May</span></div><div class="bar" style="height:54%"><span>Jun</span></div><div class="bar" style="height:47%"><span>Jul</span></div><div class="bar" style="height:68%"><span>Aug</span></div><div class="bar" style="height:52%"><span>Sep</span></div><div class="bar" style="height:76%"><span>Oct</span></div></div></div>
+<div class="card"><h3>Management KPIs</h3><div class="kpis"><div class="kpi"><b>86</b><span>Assets</span></div><div class="kpi"><b>92%</b><span>SLA</span></div><div class="kpi"><b>₹4.8L</b><span>License Spend</span></div><div class="kpi"><b>₹2.1L</b><span>Procurement Open</span></div></div><br><button class="btn" onclick="toast('Asset register report generated')">Asset Register</button> <button class="btn" onclick="toast('Expiry report generated')">Expiry Report</button></div></div>
+</section>
+
+<section class="page" id="page-audit" hidden>
+<div class="pagehead"><div><h1>Audit Logs & Trail</h1><p>Real-time system activity, change logs and access/security monitoring.</p></div><div class="actions"><button class="btn">Date Filters</button><button class="btn primary" onclick="toast('Audit Excel export prepared')">⇩ Export Excel</button></div></div>
+<div class="grid stats"><div class="stat"><small>Total Log Entries</small><div class="n">99</div></div><div class="stat"><small>Create Actions</small><div class="n">24</div></div><div class="stat"><small>Update Actions</small><div class="n">63</div></div><div class="stat"><small>Delete Actions</small><div class="n">2</div></div><div class="stat"><small>Login / Security</small><div class="n">10</div></div></div><br>
+<div class="toolbar"><input class="input search" placeholder="Search by user, action, module, details, IP..."><select class="select"><option>All Modules</option><option>Helpdesk</option><option>Assets</option><option>Procurement</option><option>Licenses</option><option>Settings</option></select><select class="select"><option>All Actions</option><option>Create</option><option>Update</option><option>Delete</option><option>Login</option></select><button class="btn">Clear Filters</button></div>
+<div class="table-wrap"><table><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Module</th><th>Details</th><th>IP / Device</th><th>Actions</th></tr></thead><tbody>
+<tr><td>05-Oct-2026 12:27</td><td>Vikas Chandra</td><td><span class="tag blue">UPDATE</span></td><td>Helpdesk</td><td>Ticket TK-20261005-0001 updated</td><td>192.168.1.51 / Chrome</td><td><button class="btn" onclick="openModal('auditModal')">◉</button></td></tr>
+<tr><td>05-Oct-2026 12:23</td><td>Parthiv Jadav</td><td><span class="tag green">CREATE</span></td><td>Helpdesk</td><td>Ticket TK-20261005-0001 created</td><td>192.168.1.72 / Chrome</td><td><button class="btn" onclick="openModal('auditModal')">◉</button></td></tr>
+</tbody></table></div>
+</section>
+
+<section class="page" id="page-notifications" hidden>
+<div class="pagehead"><div><h1>Notifications & Escalations</h1><p>Configure email, Teams/Telegram and dashboard alerts for operational deadlines.</p></div><button class="btn primary" onclick="openModal('notificationModal')">＋ Alert Rule</button></div>
+<div class="table-wrap"><table><thead><tr><th>Rule</th><th>Trigger</th><th>Recipients</th><th>Channels</th><th>Schedule</th><th>Escalation</th><th>Status</th><th>Action</th></tr></thead><tbody>
+<tr><td>Domain Expiry</td><td>60 / 30 / 15 / 7 / 1 days</td><td>IT + Management</td><td>Email + Dashboard</td><td>Daily 09:00</td><td>IT → Manager → Management</td><td><span class="tag green">Enabled</span></td><td><button class="btn" onclick="openModal('notificationModal')">Edit</button></td></tr>
+<tr><td>Warranty / AMC</td><td>90 / 30 / 7 days</td><td>IT</td><td>Email</td><td>Daily 09:00</td><td>IT → Manager</td><td><span class="tag green">Enabled</span></td><td><button class="btn" onclick="openModal('notificationModal')">Edit</button></td></tr>
+<tr><td>Ticket SLA Breach</td><td>80% / 100%</td><td>IT Team</td><td>Dashboard + Email</td><td>Real time</td><td>Agent → IT Manager</td><td><span class="tag green">Enabled</span></td><td><button class="btn" onclick="openModal('notificationModal')">Edit</button></td></tr>
+</tbody></table></div>
+</section>
+
+<section class="page" id="page-settings" hidden>
+<div class="pagehead"><div><h1>Master Data & Settings</h1><p>Keep dropdowns standardized so reports remain reliable.</p></div></div>
+<div class="grid cards3">
+<div class="card"><h3>Asset Masters</h3><p class="sub">Category, sub-category, manufacturer, model, status, condition, location, department, cost center, depreciation class.</p><button class="btn" onclick="toast('Asset master opened')">Manage</button></div>
+<div class="card"><h3>People & Organization</h3><p class="sub">Employee, department, HOD, manager, approver, cost center, branch, user email, mobile.</p><button class="btn" onclick="toast('People master opened')">Manage</button></div>
+<div class="card"><h3>Commercial Masters</h3><p class="sub">Vendor, tax/GST, payment terms, PO series, approval matrix, budget head, account code.</p><button class="btn" onclick="toast('Commercial master opened')">Manage</button></div>
+</div>
+</section>
+</main></div>
+
+<!-- MODALS -->
+<div class="modal" id="assetModal"><div class="modalbox"><div class="modalhead"><h2>Register / Edit Asset — Complete ITAM Record</h2><button class="close" onclick="closeModal('assetModal')">×</button></div><div class="modalbody"><div class="formgrid">
+<div class="field"><label>Asset Tag *</label><input value="AST-2026-005"></div><div class="field"><label>Asset Type *</label><select><option>Computer</option><option>Laptop</option><option>Network Device</option><option>Printer</option><option>UPS</option><option>Mobile</option><option>CCTV</option></select></div>
+<div class="field"><label>Brand / Manufacturer *</label><input placeholder="Dell / HP / Lenovo / Fortinet..."></div><div class="field"><label>Model *</label><input placeholder="Exact model number"></div>
+<div class="field"><label>Serial Number *</label><input placeholder="Manufacturer serial"></div><div class="field"><label>Inventory / Barcode / QR</label><input placeholder="QR / barcode ID"></div>
+<div class="field"><label>Purchase Request / PO</label><input placeholder="PR-2026-014 / PO-..."></div><div class="field"><label>Invoice No. / Invoice Date</label><input placeholder="INV-... / DD-MM-YYYY"></div>
+<div class="field"><label>Purchase Cost (₹)</label><input type="number"></div><div class="field"><label>Vendor</label><input placeholder="Vendor name"></div>
+<div class="field"><label>Purchase Date</label><input type="date"></div><div class="field"><label>Warranty Start / End</label><input placeholder="Start — End"></div>
+<div class="field"><label>Assigned To</label><input placeholder="Employee / IT / Department"></div><div class="field"><label>Branch *</label><select><option>Head Office</option><option>Ahmedabad</option><option>Khadoyar RABS</option><option>SRCC Khodiyar</option><option>SRCC Maintenance</option><option>SEA</option><option>AIR</option></select></div><div class="field"><label>Location / Floor / Room</label><input placeholder="1st Floor / Server Room / IT Store"></div>
+<div class="field"><label>Status</label><select><option>Available</option><option>Assigned</option><option>In Repair</option><option>Retired</option><option>Lost</option> </select></div><div class="field"><label>Condition</label><select><option>New</option><option>Good</option><option>Used</option><option>Damaged</option></select></div>
+<div class="field"><label>GRN / Receipt No.</label><input placeholder="GRN-2026-0001"></div><div class="field"><label>Tax Invoice No.</label><input placeholder="INV-2026-0001"></div>
+<div class="field"><label>Warranty / AMC Contract</label><input placeholder="Contract / warranty reference"></div><div class="field"><label>Payment Status</label><select><option>Paid</option><option>Pending</option><option>Partial</option></select></div>
+<div class="field full"><label>Procurement Document Trail</label><textarea placeholder="PR → selected quotation → PO → GRN → tax invoice → payment UTR. Keep document references linked to this asset."></textarea></div>
+<div class="field"><label>Processor / CPU</label><input placeholder="Intel Core i5 / Ryzen"></div><div class="field"><label>RAM</label><input placeholder="8 GB / 16 GB DDR4"></div><div class="field"><label>Storage Type & Capacity</label><input placeholder="512 GB NVMe SSD / 1 TB HDD"></div><div class="field"><label>Operating System</label><input placeholder="Windows 11 Pro / Ubuntu"></div><div class="field"><label>Hostname</label><input placeholder="ACC-PC-01"></div><div class="field"><label>MAC Address / IP Address</label><input placeholder="MAC / management IP"></div><div class="field full"><label>Technical Specifications / Configuration</label><textarea placeholder="CPU cores, OS version, display size, printer type, network ports, firmware, RAID, server role, etc."></textarea></div>
+<div class="field full"><label>Lifecycle / Notes</label><textarea placeholder="Installation, repairs, upgrades, transfers, disposal and other history."></textarea></div>
+</div></div><div class="modalfoot"><button class="btn" onclick="closeModal('assetModal')">Cancel</button><button class="btn primary" onclick="save('Asset saved successfully')">Save Asset</button></div></div></div>
+
+<div class="modal" id="requestModal"><div class="modalbox"><div class="modalhead"><h2>Purchase Request — Complete Procurement Workflow</h2><button class="close" onclick="closeModal('requestModal')">×</button></div><div class="modalbody">
+<div class="card"><h3>1. Request Details</h3><div class="formgrid">
+<div class="field"><label>Request ID</label><input value="PR-2026-015" readonly></div><div class="field"><label>Request Date</label><input type="date" value="2026-10-05"></div>
+<div class="field"><label>Requested By *</label><input value="Vikas / IT Engineer"></div><div class="field"><label>Department / Cost Center *</label><input value="Accounts"></div>
+<div class="field"><label>Required By</label><input type="date" value="2026-10-28"></div><div class="field"><label>Priority</label><select><option>Normal</option><option>High</option><option>Urgent</option></select></div>
+<div class="field"><label>Item / Requirement *</label><input value="Monitor"></div><div class="field"><label>Quantity *</label><input type="number" value="1"></div>
+<div class="field"><label>Estimated Budget (₹)</label><input type="number" value="2000"></div><div class="field"><label>Budget Head / Cost Code</label><input value="IT CapEx / Accounts"></div>
+<div class="field full"><label>Business / Technical Justification *</label><textarea>Old asset damaged. Replacement required for Accounts department.</textarea></div>
+</div></div><br>
+<div class="card"><h3>2. Quotations — IT Engineer Uploads All Available Quotations</h3><div class="formgrid">
+<div class="field"><label>Quotation 1 — Vendor *</label><input placeholder="Vendor name" list="vendor-list"></div><div class="field"><label>Quotation 1 — File *</label><input type="file"></div><div class="field"><label>Quotation 1 — Total ₹</label><input type="number" placeholder="Total ₹"></div>
+<div class="field"><label>Quotation 2 — Vendor</label><input placeholder="Vendor name" list="vendor-list"></div><div class="field"><label>Quotation 2 — File</label><input type="file"></div><div class="field"><label>Quotation 2 — Total ₹</label><input type="number" placeholder="Total ₹"></div>
+<div class="field"><label>Quotation 3 — Vendor</label><input placeholder="Vendor name" list="vendor-list"></div><div class="field"><label>Quotation 3 — File</label><input type="file"></div><div class="field"><label>Quotation 3 — Total ₹</label><input type="number" placeholder="Total ₹"></div>
+<datalist id="vendor-list">
+  <option value="ARMEE INFOTECH LIMITED">VND-IT-001 · Hardware & Networking</option>
+  <option value="SILICON COMPUTERS">VND-IT-004 · Workstations & Peripherals</option>
+  <option value="NETCORE SOLUTIONS">VND-IT-002 · Cloud & Network AMC</option>
+  <option value="DELL DIRECT ENTERPRISE">VND-IT-003 · OEM Direct Supplier</option>
+</datalist>
+</div></div><br>
+<div class="card"><h3>3. IT Technical Evaluation</h3><div class="formgrid">
+<div class="field"><label>Technical Decision</label><select><option>Pending</option><option>Approved</option><option>Rejected</option><option>Clarification Required</option></select></div><div class="field"><label>Evaluated By</label><input value="Vikas / IT Engineer"></div>
+<div class="field"><label>Recommended Vendor</label><select><option>Select after quotation comparison</option><option>Quotation 1 Vendor</option><option>Quotation 2 Vendor</option><option>Quotation 3 Vendor</option></select></div><div class="field"><label>Recommended Quotation</label><select><option>Select quotation</option><option>Quotation 1</option><option>Quotation 2</option><option>Quotation 3</option></select></div>
+<div class="field full"><label>Technical Evaluation Remarks</label><textarea placeholder="Specification compliance, compatibility, warranty, delivery, service support..."></textarea></div>
+</div></div><br>
+<div class="card"><h3>4. HOD / Admin Approval</h3><div class="formgrid">
+<div class="field"><label>HOD / Admin Decision</label><select><option>Pending</option><option>Approved</option><option>Rejected</option><option>Returned for Clarification</option></select></div><div class="field"><label>Approver</label><input placeholder="HOD / HR Admin"></div>
+<div class="field"><label>Approval Date</label><input type="date"></div><div class="field"><label>Approved Amount ₹</label><input type="number"></div><div class="field full"><label>Approval Remarks</label><textarea></textarea></div>
+</div></div><br>
+<div class="card"><h3>5. General Manager Approval — Final Quotation Selection</h3><div class="formgrid">
+<div class="field"><label>GM Decision</label><select><option>Pending</option><option>Approved</option><option>Rejected</option><option>Returned</option></select></div><div class="field"><label>GM / Management Approver</label><input placeholder="General Manager"></div>
+<div class="field"><label>Selected Vendor *</label><select><option>Not selected</option><option>Quotation 1 Vendor</option><option>Quotation 2 Vendor</option><option>Quotation 3 Vendor</option></select></div><div class="field"><label>Selected Quotation *</label><select><option>Not selected</option><option>Quotation 1</option><option>Quotation 2</option><option>Quotation 3</option></select></div>
+<div class="field"><label>Final Approved Amount ₹</label><input type="number"></div><div class="field"><label>Approval Date</label><input type="date"></div><div class="field full"><label>Management Remarks</label><textarea placeholder="Why this quotation/vendor was selected, negotiated amount, conditions..."></textarea></div>
+</div></div><br>
+<div class="card"><h3>6. Purchase Order & Receiving</h3><div class="formgrid">
+<div class="field"><label>PO Number</label><input placeholder="PO-2026-0001"></div><div class="field"><label>PO Date</label><input type="date"></div><div class="field"><label>PO Amount ₹</label><input type="number"></div><div class="field"><label>PO Attachment</label><input type="file"></div>
+<div class="field"><label>Expected Delivery</label><input type="date"></div><div class="field"><label>GRN / Receipt No.</label><input></div><div class="field"><label>Received Date</label><input type="date"></div><div class="field"><label>Received Quantity</label><input type="number"></div>
+<div class="field"><label>Serial Number / Asset Identifier</label><input></div><div class="field"><label>Delivery Challan</label><input type="file"></div><div class="field"><label>Receipt Status</label><select><option>Not Ordered</option><option>Ordered</option><option>Partially Received</option><option>Received</option><option>Rejected</option></select></div><div class="field"><label>Inspection Result</label><select><option>Pending</option><option>Accepted</option><option>Rejected</option></select></div>
+</div></div><br>
+<div class="card"><h3>7. Tax Invoice & Accounts Verification</h3><div class="formgrid">
+<div class="field"><label>Vendor (from Vendor Management)</label><input list="vendor-list" placeholder="Select Vendor" id="invVendor" onchange="const gsts={'ARMEE INFOTECH LIMITED':'24AAECB4165A1Z9','SILICON COMPUTERS':'24AQGPC4463R1ZI','NETCORE SOLUTIONS':'24AAACN1234A1Z1','DELL DIRECT ENTERPRISE':'24AABCD5678B1Z2'};if(gsts[this.value])document.getElementById('invGst').value=gsts[this.value];"></div>
+<div class="field"><label>Vendor GSTIN</label><input id="invGst" placeholder="Auto-filled from Vendor Management"></div>
+<div class="field"><label>Tax Invoice No.</label><input></div><div class="field"><label>Invoice Date</label><input type="date"></div><div class="field"><label>Total Invoice ₹</label><input type="number"></div>
+<div class="field"><label>Tax Invoice File</label><input type="file"></div><div class="field"><label>Invoice Verification</label><select><option>Pending</option><option>Verified</option><option>Mismatch</option><option>Rejected</option></select></div>
+<div class="field"><label>PO Verified</label><select><option>Pending</option><option>Yes</option><option>No</option></select></div><div class="field"><label>GRN Verified</label><select><option>Pending</option><option>Yes</option><option>No</option></select></div>
+<div class="field"><label>Accounts Verified By</label><input placeholder="Accounts Manager / Accounts Executive"></div><div class="field"><label>Accounts Verification Date</label><input type="date"></div><div class="field full"><label>Accounts Remarks</label><textarea placeholder="PO + GRN + Invoice matching, GST verification, amount check, discrepancies..."></textarea></div>
+</div></div><br>
+<div class="card"><h3>8. Payment & Closure</h3><div class="formgrid">
+<div class="field"><label>Payment Approval</label><select><option>Pending</option><option>Approved for Payment</option><option>Hold</option><option>Rejected</option></select></div><div class="field"><label>Accounts Manager</label><input></div><div class="field"><label>Payment Date</label><input type="date"></div><div class="field"><label>Paid Amount ₹</label><input type="number"></div>
+<div class="field"><label>Payment Mode</label><select><option>Bank Transfer</option><option>NEFT</option><option>RTGS</option><option>IMPS</option><option>Cheque</option><option>Card</option></select></div><div class="field"><label>UTR / Transaction Reference</label><input></div><div class="field"><label>Payment Proof</label><input type="file"></div><div class="field"><label>Payment Status</label><select><option>Pending</option><option>Processed</option><option>Failed</option><option>On Hold</option></select></div>
+<div class="field full"><label>Final Closure Remarks</label><textarea placeholder="Payment completed, asset registered, documents archived..."></textarea></div>
+</div></div><br>
+<div class="card"><h3>9. Final Asset Registration</h3><div class="formgrid">
+<div class="field"><label>Asset Tag</label><input placeholder="AST-2026-XXX"></div><div class="field"><label>Asset Type</label><select><option>Computer</option><option>Laptop</option><option>Monitor</option><option>Network Device</option><option>Printer</option><option>Other</option></select></div>
+<div class="field"><label>Brand / Model</label><input></div><div class="field"><label>Serial Number</label><input></div><div class="field"><label>Purchase Cost ₹</label><input type="number"></div><div class="field"><label>Warranty End</label><input type="date"></div>
+<div class="field"><label>Assigned To</label><input placeholder="Employee / Department"></div><div class="field"><label>Location</label><input placeholder="Ahmedabad / 1F / Accounts"></div><div class="field"><label>Asset Status</label><select><option>Draft</option><option>Ready for Deployment</option><option>Active</option><option>Assigned</option></select></div>
+</div></div>
+</div><div class="modalfoot"><button class="btn" onclick="closeModal('requestModal')">Close</button><button class="btn" onclick="save('Purchase request saved as draft')">Save Draft</button><button class="btn primary" onclick="save('Purchase request submitted — approval workflow started')">Submit Request</button></div></div></div>
+
+<div class="modal" id="procurementModal"><div class="modalbox"><div class="modalhead"><h2>PR-2026-015 — Procurement Tracking</h2><button class="close" onclick="closeModal('procurementModal')">×</button></div><div class="modalbody">
+<div class="kpis"><div class="kpi"><b>PR-2026-015</b><span>Request ID</span></div><div class="kpi"><b>₹2,000</b><span>Estimated Budget</span></div><div class="kpi"><b>3</b><span>Quotations</span></div><div class="kpi"><b>Approval Pending</b><span>Current Stage</span></div></div><br>
+<div class="card"><h3>Workflow Status</h3><div class="pipeline"><div class="stage"><b>✓</b><span>Request</span></div><div class="stage"><b>✓</b><span>Quotations</span></div><div class="stage"><b>✓</b><span>IT Evaluation</span></div><div class="stage"><b>●</b><span>Stage 4: HOD</span></div><div class="stage"><b>○</b><span>Stage 5: GM</span></div><div class="stage"><b>○</b><span>PO</span></div><div class="stage"><b>○</b><span>GRN</span></div><div class="stage"><b>○</b><span>Invoice</span></div><div class="stage"><b>○</b><span>Accounts</span></div><div class="stage"><b>○</b><span>Payment</span></div><div class="stage"><b>○</b><span>Asset</span></div><div class="stage"><b>○</b><span>Assignment</span></div></div></div><br>
+<div class="detail-grid"><div class="detail"><label>Recommended Vendor</label><b>Awaiting GM</b></div><div class="detail"><label>Selected Quotation</label><b>Awaiting GM</b></div><div class="detail"><label>Approved Amount</label><b>Awaiting approval</b></div><div class="detail"><label>PO</label><b>Not created</b></div><div class="detail"><label>Invoice</label><b>Not received</b></div><div class="detail"><label>Payment</label><b>Pending</b></div></div><br>
+<div class="card"><h3>Quotation Comparison</h3><div class="table-wrap"><table><thead><tr><th>Quotation</th><th>Vendor</th><th>Total ₹</th><th>Warranty</th><th>Delivery</th><th>IT Recommendation</th><th>GM Selection</th></tr></thead><tbody><tr><td>QTN-001</td><td>Vendor A</td><td>2,200</td><td>1 Year</td><td>3 Days</td><td><span class="tag amber">Not Recommended</span></td><td>Pending</td></tr><tr><td>QTN-002</td><td>Vendor B</td><td>2,000</td><td>3 Years</td><td>5 Days</td><td><span class="tag green">Recommended</span></td><td>Pending</td></tr><tr><td>QTN-003</td><td>Vendor C</td><td>2,150</td><td>2 Years</td><td>2 Days</td><td><span class="tag blue">Technically Compliant</span></td><td>Pending</td></tr></tbody></table></div></div>
+</div><div class="modalfoot"><button class="btn" onclick="closeModal('procurementModal')">Close</button><button class="btn primary" onclick="openModal('requestModal');closeModal('procurementModal')">Edit Full Workflow</button></div></div></div>
+
+<div class="modal" id="licenseModal"><div class="modalbox"><div class="modalhead"><h2>Software License — Complete Record</h2><button class="close" onclick="closeModal('licenseModal')">×</button></div><div class="modalbody"><div class="formgrid">
+<div class="field"><label>License Name *</label><input placeholder="Microsoft 365 Business Standard"></div><div class="field"><label>License Key / Code</label><input placeholder="XXXX-XXXX-XXXX"></div>
+<div class="field"><label>Software Product *</label><input placeholder="Microsoft Office / Adobe / Antivirus"></div><div class="field"><label>Publisher / Vendor *</label><input placeholder="Microsoft / Adobe / Bitdefender"></div>
+<div class="field"><label>License Type *</label><select><option>Subscription</option><option>Per User</option><option>Per Device</option><option>Enterprise</option><option>OEM</option><option>Trial</option></select></div><div class="field"><label>Expiry / Renewal Date *</label><input type="date"></div>
+<div class="field"><label>Seats Purchased</label><input type="number"></div><div class="field"><label>Seats Assigned / Used</label><input type="number"></div>
+<div class="field"><label>Annual / One-time Cost (₹)</label><input type="number"></div><div class="field"><label>Billing Cycle</label><select><option>Monthly</option><option>Annual</option><option>3 Years</option><option>One-time</option></select></div>
+<div class="field"><label>Assigned User / Email</label><input placeholder="user@company.in or All Users"></div><div class="field"><label>Auto Renewal</label><select><option>Yes</option><option>No</option><option>Unknown</option></select></div>
+<div class="field"><label>Invoice / Purchase Proof</label><input type="file"></div><div class="field"><label>Contract / Agreement</label><input type="file"></div>
+<div class="field full"><label>Renewal Notes / Vendor Portal</label><textarea placeholder="Renewal URL, account owner, billing contact, PO, payment method, escalation..."></textarea></div>
+</div></div><div class="modalfoot"><button class="btn">Cancel</button><button class="btn primary" onclick="save('License record saved and expiry alerts enabled')">Create / Save License</button></div></div></div>
+
+<div class="modal" id="domainModal"><div class="modalbox"><div class="modalhead"><h2>Domain / DNS / SSL Record</h2><button class="close" onclick="closeModal('domainModal')">×</button></div><div class="modalbody"><div class="formgrid">
+<div class="field"><label>Domain Name *</label><input placeholder="example.in"></div><div class="field"><label>Registrar *</label><input placeholder="GoDaddy / Namecheap / Registrar"></div>
+<div class="field"><label>Registrant / Company</label><input placeholder="Legal company name"></div><div class="field"><label>Registrar Account Owner</label><input placeholder="IT / email"></div>
+<div class="field"><label>Registration Date</label><input type="date"></div><div class="field"><label>Domain Expiry Date *</label><input type="date"></div>
+<div class="field"><label>Auto Renewal</label><select><option>Yes</option><option>No</option><option>Unknown</option></select></div><div class="field"><label>Renewal Cost (₹)</label><input type="number"></div>
+<div class="field"><label>DNS Provider</label><input placeholder="Cloudflare / Registrar"></div><div class="field"><label>Nameservers</label><input placeholder="ns1..., ns2..."></div>
+<div class="field"><label>Hosting / Server</label><input placeholder="VPS / cPanel / Windows / AWS"></div><div class="field"><label>Public IP / Endpoint</label><input placeholder="x.x.x.x"></div>
+<div class="field"><label>SSL Issuer</label><input placeholder="Let's Encrypt / DigiCert"></div><div class="field"><label>SSL Expiry</label><input type="date"></div>
+<div class="field"><label>SSL Auto Renewal</label><select><option>Yes</option><option>No</option><option>Manual</option></select></div><div class="field"><label>Responsible Person</label><input placeholder="IT owner"></div>
+<div class="field full"><label>DNS / SSL Notes</label><textarea placeholder="Certificate location, DNS records, renewal procedure, emergency contact, credentials location (never store passwords here)..."></textarea></div>
+</div></div><div class="modalfoot"><button class="btn" onclick="closeModal('domainModal')">Cancel</button><button class="btn primary" onclick="save('Domain / SSL record saved')">Save Record</button></div></div></div>
+
+<div class="modal" id="inventoryModal"><div class="modalbox"><div class="modalhead"><h2>Add Inventory Record — Old / New / Spares</h2><button class="close" onclick="closeModal('inventoryModal')">×</button></div><div class="modalbody"><div class="formgrid">
+<div class="field"><label>Asset Tag / SKU *</label><input id="invTag" placeholder="SURAJ-PC-001 / SP-SSD-001" required></div><div class="field"><label>Inventory Type *</label><select id="invType"><option>Old Inventory</option><option>New Inventory</option><option>Spare Stock</option><option>Retired / Obsolete</option><option>Returned</option></select></div>
+<div class="field"><label>Category *</label><select id="invCategory"><option>Computer / Desktop</option><option>Laptop</option><option>Monitor</option><option>Printer</option><option>Server</option><option>Network Device</option><option>Mobile Device</option><option>Software License</option><option>RAM</option><option>SSD</option><option>Cable</option><option>Adapter</option><option>Other</option></select></div><div class="field"><label>Brand *</label><input id="invBrand" placeholder="Dell / HP / Lenovo / Fortinet" required></div>
+<div class="field"><label>Model / Specification *</label><input id="invModel" placeholder="Exact model / capacity" required></div><div class="field"><label>Serial Number</label><input id="invSerial" placeholder="Manufacturer serial number"></div>
+<div class="field"><label>Processor / CPU</label><input id="invCPU" placeholder="Intel Core i5"></div><div class="field"><label>RAM</label><input id="invRAM" placeholder="8 GB / 16 GB"></div><div class="field"><label>Storage Type / Capacity</label><input id="invStorage" placeholder="512 GB NVMe SSD"></div><div class="field"><label>Operating System</label><input id="invOS" placeholder="Windows 11 Pro"></div>
+<div class="field"><label>Hostname / MAC / IP</label><input id="invNetwork" placeholder="Hostname, MAC or IP"></div><div class="field"><label>Assigned To</label><input id="invAssigned" placeholder="Employee name / IT pool"></div>
+<div class="field"><label>Department</label><input id="invDepartment" placeholder="Accounts / Import / Export / IT"></div><div class="field"><label>Branch *</label><select id="invBranch"><option>Head Office</option><option>Ahmedabad</option><option>Khadoyar RABS</option><option>SRCC Khodiyar</option><option>SRCC Maintenance</option><option>SEA</option><option>AIR</option></select></div>
+<div class="field"><label>Location / Floor / Rack</label><input id="invLocation" placeholder="1st Floor / Server Room / IT Store"></div><div class="field"><label>Status *</label><select id="invStatus"><option>In Use</option><option>Available</option><option>Assigned</option><option>Under Repair</option><option>Under Maintenance</option><option>Damaged</option><option>Lost</option><option>Retired / Obsolete</option><option>Returned</option></select></div>
+<div class="field"><label>Condition</label><select id="invCondition"><option>Good</option><option>New</option><option>Fair</option><option>Damaged</option><option>Non-Functional</option></select></div><div class="field"><label>Quantity (for spares)</label><input id="invQty" type="number" min="0" value="1"></div>
+<div class="field"><label>Purchase Date</label><input id="invPurchaseDate" type="date"></div><div class="field"><label>Warranty Start Date</label><input id="invWarrantyStart" type="date"></div><div class="field"><label>Warranty End Date</label><input id="invWarrantyEnd" type="date"></div><div class="field"><label>Vendor / Invoice / PO</label><input id="invVendor" placeholder="Vendor and document references"></div>
+<div class="field full"><label>Attach Supporting Documents</label><input id="invModalFiles" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png"></div><div class="field full"><label>Remarks / Repair / Transfer History</label><textarea id="invRemarks" placeholder="Assignment history, repair notes, upgrades, handover or disposal notes"></textarea></div>
+</div></div><div class="modalfoot"><button class="btn" onclick="closeModal('inventoryModal')">Cancel</button><button class="btn primary" onclick="addInventoryRecord()">Save Inventory Record</button></div></div></div>
+
+<div class="modal" id="vendorModal"><div class="modalbox"><div class="modalhead"><h2>Vendor / AMC Contract</h2><button class="close" onclick="closeModal('vendorModal')">×</button></div><div class="modalbody"><div class="formgrid">
+<div class="field"><label>Vendor Name *</label><input></div><div class="field"><label>Category</label><select><option>Hardware</option><option>Network</option><option>CCTV</option><option>Software</option><option>ISP</option><option>AMC</option></select></div>
+<div class="field"><label>Primary Contact</label><input></div><div class="field"><label>Email / Phone</label><input></div>
+<div class="field"><label>Contract / AMC No.</label><input></div><div class="field"><label>Start Date</label><input type="date"></div>
+<div class="field"><label>End Date</label><input type="date"></div><div class="field"><label>Renewal Cost ₹</label><input type="number"></div>
+<div class="field"><label>SLA</label><input placeholder="4h / 8h / 24h"></div><div class="field"><label>Payment Terms</label><input placeholder="30 days / advance"></div>
+<div class="field full"><label>Scope / SLA / Escalation</label><textarea placeholder="Covered assets, response time, resolution time, exclusions, escalation contacts..."></textarea></div>
+</div></div><div class="modalfoot"><button class="btn" onclick="closeModal('vendorModal')">Cancel</button><button class="btn primary" onclick="save('Vendor / AMC saved')">Save Vendor</button></div></div></div>
+
+<div class="modal" id="ticketModal"><div class="modalbox"><div class="modalhead"><h2>Helpdesk Ticket</h2><button class="close" onclick="closeModal('ticketModal')">×</button></div><div class="modalbody"><div class="formgrid">
+<div class="field"><label>Requester *</label><input placeholder="Employee"></div><div class="field"><label>Employee Email</label><input placeholder="user@company.in"></div>
+<div class="field"><label>Category</label><select><option>Network</option><option>Hardware</option><option>Software</option><option>Access</option><option>Security</option><option>Other</option></select></div><div class="field"><label>Priority</label><select><option>High</option><option>Medium</option><option>Low</option></select></div>
+<div class="field full"><label>Subject *</label><input placeholder="Short problem statement"></div><div class="field full"><label>Description</label><textarea placeholder="Issue, symptoms, error code, troubleshooting already performed..."></textarea></div>
+<div class="field"><label>Linked Asset</label><input placeholder="AST-2026-001"></div><div class="field"><label>Assigned To</label><input placeholder="IT Engineer"></div>
+<div class="field"><label>Status</label><select><option>New</option><option>Assigned</option><option>In Progress</option><option>Pending</option><option>Resolved</option><option>Closed</option></select></div><div class="field"><label>SLA Due</label><input type="datetime-local"></div>
+<div class="field full"><label>Resolution / Root Cause</label><textarea></textarea></div>
+</div></div><div class="modalfoot"><button class="btn" onclick="closeModal('ticketModal')">Cancel</button><button class="btn primary" onclick="save('Ticket saved')">Save Ticket</button></div></div></div>
+
+<div class="modal" id="renewalModal"><div class="modalbox"><div class="modalhead"><h2>Renewal Action</h2><button class="close" onclick="closeModal('renewalModal')">×</button></div><div class="modalbody"><div class="formgrid"><div class="field"><label>Renewal Type</label><select><option>Domain</option><option>SSL</option><option>AMC</option><option>License</option><option>Warranty</option></select></div><div class="field"><label>Target</label><input placeholder="alvision.in / FortiGate 80F"></div><div class="field"><label>Renewal Date</label><input type="date"></div><div class="field"><label>Expected Cost ₹</label><input type="number"></div><div class="field"><label>Approval Status</label><select><option>Required</option><option>Approved</option><option>Rejected</option></select></div><div class="field"><label>Payment Status</label><select><option>Pending</option><option>PO Created</option><option>Paid</option></select></div><div class="field full"><label>Action Notes</label><textarea placeholder="Quotation, vendor, PO, payment reference, renewal confirmation..."></textarea></div></div></div><div class="modalfoot"><button class="btn" onclick="closeModal('renewalModal')">Cancel</button><button class="btn primary" onclick="save('Renewal task created')">Create Renewal Task</button></div></div></div>
+
+<div class="modal" id="notificationModal"><div class="modalbox"><div class="modalhead"><h2>Notification Rule</h2><button class="close" onclick="closeModal('notificationModal')">×</button></div><div class="modalbody"><div class="formgrid"><div class="field"><label>Rule Name</label><input value="Expiry Reminder"></div><div class="field"><label>Module</label><select><option>Domain</option><option>SSL</option><option>Warranty</option><option>AMC</option><option>License</option><option>Ticket SLA</option></select></div><div class="field"><label>Reminder Days</label><input value="90,60,30,15,7,1"></div><div class="field"><label>Schedule</label><input value="Daily 09:00"></div><div class="field"><label>Recipients</label><input placeholder="IT, IT Manager, Management"></div><div class="field"><label>Channels</label><select><option>Email + Dashboard</option><option>Email + Telegram</option><option>Email + Teams</option></select></div><div class="field full"><label>Escalation Matrix</label><textarea placeholder="Example: IT owner → IT Manager after 24h → Management after 48h"></textarea></div></div></div><div class="modalfoot"><button class="btn" onclick="closeModal('notificationModal')">Cancel</button><button class="btn primary" onclick="save('Alert rule saved')">Save Rule</button></div></div></div>
+
+<div class="modal" id="auditModal"><div class="modalbox"><div class="modalhead"><h2>Audit Event Details</h2><button class="close" onclick="closeModal('auditModal')">×</button></div><div class="modalbody"><div class="detail-grid"><div class="detail"><label>User</label><b>Vikas Chandra</b></div><div class="detail"><label>Action</label><b>UPDATE</b></div><div class="detail"><label>Module</label><b>Helpdesk</b></div><div class="detail"><label>Timestamp</label><b>05-Oct-2026 12:27</b></div><div class="detail"><label>IP</label><b>192.168.1.51</b></div><div class="detail"><label>Device</label><b>Chrome / Windows</b></div></div><br><div class="card"><h3>Change Details</h3><p>Ticket status changed from <b>Assigned</b> to <b>In Progress</b>. Assignment changed to IT Engineer. All changes should be immutable in production.</p></div></div></div></div>
+
+<div class="toast" id="toast"></div>
+<script>
+const pages=['dashboard','assets','inventory','procurement','licenses','domains','warranty','vendors','tickets','reports','audit','notifications','settings'];
+function showPage(name,el){
+ pages.forEach(p=>{const x=document.getElementById('page-'+p); if(x)x.hidden=p!==name});
+ document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active')); if(el)el.classList.add('active');
+ const labels={dashboard:'Dashboard',assets:'Asset Management',inventory:'Inventory & Spares',procurement:'Procurement & Approvals',licenses:'Software Licenses',domains:'Domains & SSL',warranty:'Warranty & Expiry',vendors:'Vendors & AMC',tickets:'Helpdesk & Tickets',reports:'Reports & Analytics',audit:'Audit Logs',notifications:'Notifications',settings:'Master Data / Settings'};
+ document.getElementById('crumb').textContent='IT Helpdesk / '+labels[name];
+ window.scrollTo(0,0);
+}
+function openModal(id){document.getElementById(id).classList.add('show')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('show')}));
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+function save(msg){document.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show'));toast(msg)}
+function filterTable(id,q){q=q.toLowerCase();document.querySelectorAll('#'+id+' tbody tr').forEach(r=>r.style.display=r.innerText.toLowerCase().includes(q)?'':'none')}
+function viewAsset(id){openModal('assetModal');toast('Loaded '+id+' — production version should fetch full asset history')}
+function viewLicense(){openModal('licenseModal')}
+function viewDomain(){openModal('domainModal')}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show'))});
+</script>
+<script id="pro-js">
+(function(){
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+const labels={dashboard:'Dashboard',assets:'Asset Management',inventory:'Inventory & Spares',procurement:'Procurement & Approvals',licenses:'Software Licenses',domains:'Domains & SSL',warranty:'Warranty & Expiry',vendors:'Vendors & AMC',tickets:'Helpdesk & Tickets',reports:'Reports & Analytics',audit:'Audit Logs',notifications:'Notifications',settings:'Master Data / Settings'};
+/* theme */
+const setTheme=t=>{document.documentElement.dataset.theme=t;store.set('suraj-theme',t);const b=$('#themeBtn');if(b)b.textContent=t==='dark'?'☀':'☾'};
+/* toast (typed) */
+let tt;window.toast=function(msg,type){const t=$('#toast');t.className='toast '+(type||'');t.textContent=(type==='err'?'⚠  ':type==='info'?'ℹ  ':'✓  ')+msg;void t.offsetWidth;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2700)};
+/* modal helpers */
+const lock=()=>document.body.style.overflow=$('.modal.show')?'hidden':'';
+const _o=window.openModal,_c=window.closeModal;
+window.openModal=id=>{_o(id);lock();setTimeout(()=>{const f=$('#'+id+' input:not([readonly]),#'+id+' textarea');f&&f.focus({preventScroll:true})},120)};
+window.closeModal=id=>{_c(id);lock()};
+window.save=function(msg){const m=$('.modal.show');if(m){let bad=0;$$('.field',m).forEach(f=>{f.classList.remove('bad');const l=$('label',f),i=$('input:not([type=file]),select,textarea',f);if(l&&i&&l.textContent.includes('*')&&!i.value.trim()&&!/draft/i.test(msg)){f.classList.add('bad');bad++}});
+ if(bad){toast(bad+' required field'+(bad>1?'s':'')+' missing — highlighted in red','err');$('.field.bad',m).scrollIntoView({block:'center',behavior:'smooth'});return}
+ m.classList.remove('show')}lock();toast(msg);bump(1)};
+document.addEventListener('click',e=>{const b=e.target.closest('.modalfoot .btn:not(.primary),.close');if(b){const m=b.closest('.modal');m&&m.classList.remove('show');lock()}
+ const bt=e.target.closest('.btn');if(bt){const r=document.createElement('span'),s=Math.max(bt.offsetWidth,bt.offsetHeight),p=bt.getBoundingClientRect();r.className='rip';r.style.cssText=`width:${s}px;height:${s}px;left:${e.clientX-p.left-s/2}px;top:${e.clientY-p.top-s/2}px`;bt.appendChild(r);setTimeout(()=>r.remove(),600)}
+ if(!e.target.closest('.dd,#bellBtn,#userBtn'))$$('.dd').forEach(d=>d.classList.remove('show'))});
+/* navigation */
+const _s=window.showPage;
+window.showPage=function(name,el){_s(name,el);$$('.nav button').forEach(b=>b.classList.toggle('active',(b.getAttribute('onclick')||'').includes("'"+name+"'")));
+ $('#crumb').innerHTML='IT Helpdesk <span>/</span> '+labels[name];history.replaceState(null,'','#'+name);store.set('suraj-page',name);
+ const pb=$('#progressbar');pb.style.width='70%';setTimeout(()=>{pb.style.width='100%';setTimeout(()=>pb.style.width='0',250)},220);animate($('#page-'+name))};
+/* animated counters + progress bars */
+function animate(root){$$('.stat .n',root).forEach(n=>{const raw=n.textContent.trim(),m=raw.match(/[\d,.]+/);if(!m)return;const to=parseFloat(m[0].replace(/,/g,'')),pre=raw.slice(0,m.index),suf=raw.slice(m.index+m[0].length),dec=(m[0].split('.')[1]||'').length;let t0=null;const step=t=>{t0=t0||t;const p=Math.min((t-t0)/700,1),v=to*(1-Math.pow(1-p,3));n.textContent=pre+(dec?v.toFixed(dec):Math.round(v).toLocaleString('en-IN'))+suf;p<1&&requestAnimationFrame(step)};requestAnimationFrame(step)});
+ $$('.progress i',root).forEach(i=>{const w=i.style.width;i.style.width='0';setTimeout(()=>i.style.width=w,60)});$$('.chart .bar',root).forEach(b=>{const h=b.style.height;b.dataset.v=h;b.style.height='4%';setTimeout(()=>b.style.height=h,80)})}
+/* table power-ups */
+function csv(tbl,name){const rows=$$('tr',tbl).filter(r=>r.style.display!=='none').map(r=>$$('th,td',r).slice(0,-1).map(c=>'"'+c.innerText.replace(/"/g,'""').trim()+'"').join(','));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.join('\n')],{type:'text/csv'}));a.download=name+'-'+new Date().toISOString().slice(0,10)+'.csv';a.click();toast('Exported '+(rows.length-1)+' rows to CSV')}
+function foot(tbl){const w=tbl.closest('.table-wrap');if(!w)return;let f=w.nextElementSibling;if(!f||!f.classList.contains('tfoot')){f=document.createElement('div');f.className='tfoot';w.after(f)}const rows=$$('tbody tr:not(.nores)',tbl),v=rows.filter(r=>r.style.display!=='none').length;f.innerHTML=`<span>Showing <b>${v}</b> of ${rows.length} records</span><span>Click a column header to sort</span>`;let nr=$('.nores',tbl);if(!v&&!nr){nr=tbl.tBodies[0].insertRow();nr.className='nores';nr.innerHTML=`<td colspan="20">🔍 No matching records — adjust search or filters.</td>`}else if(v&&nr)nr.remove()}
+function applyFilters(page){const tbl=$('table',page);if(!tbl)return;const q=($('.search',page)||{value:''}).value.toLowerCase(),sel=$$('.toolbar select',page).map(s=>s.selectedIndex>0?s.value.toLowerCase():'').filter(Boolean);$$('tbody tr:not(.nores)',tbl).forEach(r=>{const t=r.innerText.toLowerCase();r.style.display=t.includes(q)&&sel.every(s=>t.includes(s))?'':'none'});foot(tbl)}
+function enhanceTables(){$$('.page').forEach(pg=>{const tbl=$('table',pg);if(!tbl)return;if(pg.id==='page-inventory')return;
+ $$('.toolbar .search,.toolbar select',pg).forEach(c=>{c.removeAttribute('oninput');c.addEventListener('input',()=>applyFilters(pg));c.addEventListener('change',()=>applyFilters(pg))});
+ $$('.toolbar .btn',pg).forEach(b=>{if(/clear/i.test(b.textContent))b.addEventListener('click',()=>{$$('.toolbar input,.toolbar select',pg).forEach(c=>c.tagName==='SELECT'?c.selectedIndex=0:c.value='');applyFilters(pg)})});
+ $$('thead th',tbl).forEach((th,i)=>{if(/action/i.test(th.textContent))return;th.addEventListener('click',()=>{const d=th.classList.contains('asc')?-1:1;$$('th',tbl).forEach(x=>x.classList.remove('asc','desc'));th.classList.add(d>0?'asc':'desc');const tb=tbl.tBodies[0],rs=$$('tr:not(.nores)',tb);const val=r=>{const t=r.cells[i].innerText.replace(/[₹,]/g,'').trim(),n=parseFloat(t);return isNaN(n)?t.toLowerCase():n};rs.sort((a,b)=>{const x=val(a),y=val(b);return(x>y?1:x<y?-1:0)*d}).forEach(r=>tb.appendChild(r))})});foot(tbl)});
+ $$('.btn').forEach(b=>{if(/export/i.test(b.textContent)){b.removeAttribute('onclick');b.addEventListener('click',()=>{const pg=b.closest('.page'),t=$('table',pg);t?csv(t,pg.id.replace('page-','')):toast('Nothing to export on this page','info')})}});
+ /* days-left bars */
+ $$('#page-warranty tbody tr').forEach(r=>{const c=r.cells[5],n=parseInt(c.textContent);if(isNaN(n))return;const col=n<=15?'#c53d4c':n<=30?'#c98512':'#16845b';c.innerHTML=`<span class="days" style="color:${col}">${n}d<i><b style="width:${Math.max(6,100-n*1.1)}%;background:${col}"></b></i></span>`})}
+/* pipelines: done/active/todo */
+function stepper(){$$('.pipeline').forEach(p=>$$('.stage',p).forEach(s=>{const t=$('b',s).textContent.trim();s.classList.toggle('done',t==='✓');s.classList.toggle('active',t==='●')}))}
+/* dashboard additions */
+function dashboard(){const pg=$('#page-dashboard'),h=$('.pagehead',pg);if($('.hero',pg))return;const hr=new Date().getHours(),g=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
+ const hero=document.createElement('div');hero.className='hero';hero.innerHTML=`<div><h2>${g}, Vikas 👋</h2><p>7 tickets are open and 2 critical renewals need attention this week — alvision.in domain and SSL expire first.</p></div><div class="qa"><button class="btn" onclick="openModal('ticketModal')">＋ Ticket</button><button class="btn" onclick="openModal('assetModal')">＋ Asset</button><button class="btn" onclick="openModal('requestModal')">＋ Purchase</button><button class="btn" onclick="showPage('warranty')">View expiries</button></div>`;h.before(hero);
+ const sp=(pts,c)=>{const w=64,hh=22,mx=Math.max(...pts),mn=Math.min(...pts),xy=pts.map((v,i)=>[i*w/(pts.length-1),hh-2-(v-mn)/((mx-mn)||1)*(hh-4)]);return`<svg class="spark" viewBox="0 0 64 22"><polyline fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="${xy.map(p=>p.join(',')).join(' ')}"/></svg>`};
+ const data=[[3,5,4,7,6,9],[9,7,8,6,7,7],[2,3,3,4,5,6],[1,1,2,2,3,4],[2,3,2,4,4,5]],cols=['#17324d','#2f6fed','#c98512','#c53d4c','#e96b2c'];$$('.stats .stat',pg).forEach((s,i)=>s.insertAdjacentHTML('beforeend',sp(data[i],cols[i])));
+ const dc=$$('.cards3 .card',pg)[1],vals=[51,15,20],cl=['#e96b2c','#2f6fed','#0f8b8d'],nm=['Computers','Network','Other'],tot=86,C=2*Math.PI*38;let off=0;
+ const arcs=vals.map((v,i)=>{const l=v/tot*C,a=`<circle r="38" cx="50" cy="50" fill="none" stroke="${cl[i]}" stroke-width="14" stroke-dasharray="${l} ${C-l}" stroke-dashoffset="${-off}" transform="rotate(-90 50 50)"/>`;off+=l;return a}).join('');
+ dc.innerHTML=`<h3>Asset Distribution</h3><div class="donutwrap"><svg width="110" height="110" viewBox="0 0 100 100"><circle r="38" cx="50" cy="50" fill="none" stroke="rgba(127,140,160,.18)" stroke-width="14"/>${arcs}<text x="50" y="48" text-anchor="middle" font-size="17" font-weight="700" fill="currentColor">86</text><text x="50" y="61" text-anchor="middle" font-size="7" fill="#8795a8">ASSETS</text></svg><div class="legend">${vals.map((v,i)=>`<div><i style="background:${cl[i]}"></i>${nm[i]} <b>${v}</b></div>`).join('')}</div></div>`}
+/* header controls, sidebar footer, notifications, palette */
+function chrome(){const tb=$('.topbar'),cr=$('#crumb'),ta=$('.top-actions');
+ const left=document.createElement('div');left.className='top-left';left.innerHTML=`<button class="icon-btn" id="menuBtn" title="Collapse sidebar">☰</button>`;cr.before(left);left.append(cr);
+ const sb=document.createElement('div');sb.className='searchbox';sb.innerHTML='🔍 Search anything… <kbd>Ctrl K</kbd>';sb.onclick=openCmd;ta.prepend(sb);
+ ta.insertAdjacentHTML('beforeend',`<div class="clock" id="clock"></div><button class="icon-btn" id="themeBtn" title="Toggle theme">☾</button><div style="position:relative"><button class="icon-btn" id="bellBtn" title="Notifications">🔔<span class="dot" id="bellN">5</span></button><div class="dd" id="bellDD"><h4>Notifications <a id="markAll">Mark all read</a></h4>
+ <div class="it" data-p="domains"><div class="ic r">◎</div><div><b>alvision.in domain expires in 7 days</b><small>Renew now · Critical</small></div></div><div class="it" data-p="domains"><div class="ic r">🔒</div><div><b>SSL certificate expiring in 14 days</b><small>alvision.in · Let's Encrypt</small></div></div><div class="it" data-p="vendors"><div class="ic a">⚠</div><div><b>Fortinet AMC due in 27 days</b><small>Renewal approval required</small></div></div><div class="it" data-p="procurement"><div class="ic b">◈</div><div><b>PR-2026-015 awaiting HOD approval</b><small>Monitor ×1 · ₹2,000</small></div></div><div class="it" data-p="tickets"><div class="ic g">♧</div><div><b>TK-20261005-0001 assigned to you</b><small>Internet intermittent · High</small></div></div></div></div>
+ <button class="avatar" id="userBtn"><em>VC</em><span>Vikas Chandra<small>IT Engineer</small></span></button>`);
+ $('.nav').insertAdjacentHTML('afterend',`<div class="side-foot"><b>System status: Operational</b>Last backup 02:00 · v2.4 prototype<div class="bar"><i></i></div></div>`);
+ document.body.insertAdjacentHTML('afterbegin','<div id="progressbar"></div>');document.body.insertAdjacentHTML('beforeend','<button class="icon-btn" id="totop" title="Back to top">↑</button>');
+ $('#menuBtn').onclick=()=>{document.body.classList.toggle('mini');store.set('suraj-mini',document.body.classList.contains('mini')?1:0)};
+ $('#themeBtn').onclick=()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');
+ $('#bellBtn').onclick=()=>$('#bellDD').classList.toggle('show');$('#userBtn').onclick=()=>toast('Signed in as vikas@surajgroup.in · Role: IT Admin','info');
+ $('#markAll').onclick=()=>{$$('#bellDD .it').forEach(i=>i.classList.add('read'));$('#bellN').style.display='none'};
+ $$('#bellDD .it').forEach(i=>i.onclick=()=>{i.classList.add('read');$('#bellDD').classList.remove('show');showPage(i.dataset.p)});
+ const tk=()=>{const d=new Date();$('#clock').innerHTML=`<b>${d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</b>${d.toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'})}`};tk();setInterval(tk,30000);
+ const tp=$('#totop');addEventListener('scroll',()=>tp.classList.toggle('show',scrollY>400));tp.onclick=()=>scrollTo({top:0,behavior:'smooth'});
+ $$('.nav button').forEach(b=>{const m=(b.getAttribute('onclick')||'').match(/'(\w+)'/);if(m&&m[1]==='tickets')b.insertAdjacentHTML('beforeend','<em class="badge-count">7</em>');if(m&&m[1]==='warranty')b.insertAdjacentHTML('beforeend','<em class="badge-count">3</em>')})}
+function bump(){}
+/* command palette */
+const cmds=[...Object.entries(labels).map(([k,v])=>({t:'Go to '+v,s:'Page',f:()=>showPage(k)})),{t:'Raise ticket',s:'Action',f:()=>openModal('ticketModal')},{t:'Register asset',s:'Action',f:()=>openModal('assetModal')},{t:'New purchase request',s:'Action',f:()=>openModal('requestModal')},{t:'Add stock item',s:'Action',f:()=>openModal('inventoryModal')},{t:'Register license',s:'Action',f:()=>openModal('licenseModal')},{t:'Add domain / SSL',s:'Action',f:()=>openModal('domainModal')},{t:'Add vendor / AMC',s:'Action',f:()=>openModal('vendorModal')},{t:'Toggle dark mode',s:'Theme',f:()=>$('#themeBtn').click()}];
+let sel=0,list=[];
+function render(q=''){list=cmds.filter(c=>c.t.toLowerCase().includes(q.toLowerCase()));sel=0;$('#cmdList').innerHTML=list.map((c,i)=>`<li class="${i?'':'sel'}" data-i="${i}">${c.t}<small>${c.s}</small></li>`).join('')||'<li>No results</li>'}
+function openCmd(){$('#cmdWrap').classList.add('show');const i=$('#cmdIn');i.value='';render();i.focus()}
+function runCmd(i){const c=list[i];if(!c)return;$('#cmdWrap').classList.remove('show');c.f()}
+function palette(){document.body.insertAdjacentHTML('beforeend','<div class="cmdwrap" id="cmdWrap"><div class="cmd"><input id="cmdIn" placeholder="Type a page or action…" autocomplete="off"><ul id="cmdList"></ul><div class="hint"><span>↑↓ navigate</span><span>↵ select</span><span>Esc close</span></div></div></div>');
+ $('#cmdIn').addEventListener('input',e=>render(e.target.value));$('#cmdList').addEventListener('click',e=>{const l=e.target.closest('li');l&&runCmd(+l.dataset.i)});$('#cmdWrap').addEventListener('click',e=>{if(e.target.id==='cmdWrap')e.target.classList.remove('show')});
+ $('#cmdIn').addEventListener('keydown',e=>{const li=$$('#cmdList li');if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();sel=(sel+(e.key==='ArrowDown'?1:-1)+li.length)%li.length;li.forEach((x,i)=>x.classList.toggle('sel',i===sel));li[sel].scrollIntoView({block:'nearest'})}if(e.key==='Enter')runCmd(sel);if(e.key==='Escape')$('#cmdWrap').classList.remove('show')});
+ addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openCmd()}if(e.key==='Escape')lock()})}
+
+/* Inventory prototype: client-side record creation, branch filtering and document listing. Production persistence needs an authenticated backend. */
+function filterBranch(branch){
+ document.querySelectorAll('#assetTable tbody tr, #inventoryTable tbody tr').forEach(r=>{const idx=r.closest('table').id==='assetTable'?6:7;const cell=r.cells[idx];const rowBranch=(r.dataset.branch||(cell?cell.innerText:'' )).trim();r.style.display=(branch==='All Branches'||rowBranch.toLowerCase().includes(branch.toLowerCase()))?'':'none'});
+ const invSearch=document.getElementById('inventorySearch');if(invSearch)filterInventory();
+}
+function filterInventory(){const q=(document.getElementById('inventorySearch')?.value||'').toLowerCase(),type=document.getElementById('inventoryTypeFilter')?.value||'',cat=document.getElementById('inventoryCategoryFilter')?.value||'',status=document.getElementById('inventoryStatusFilter')?.value||'',branch=document.getElementById('branchFilter')?.value||'All Branches';document.querySelectorAll('#inventoryTable tbody tr').forEach(r=>{const t=r.innerText.toLowerCase(),ok=t.includes(q)&&(!type||r.cells[1].innerText.includes(type))&&(!cat||r.cells[2].innerText.includes(cat))&&(!status||r.cells[9].innerText.includes(status))&&(branch==='All Branches'||(r.dataset.branch||r.cells[7].innerText).toLowerCase().includes(branch.toLowerCase()));r.style.display=ok?'':'none'});}
+function handleInventoryDocs(files){const list=document.getElementById('inventoryDocList');if(!files||!files.length)return;list.innerHTML='';[...files].forEach(f=>{const d=document.createElement('div');d.className='doc-item';d.innerHTML=`<span>📄 ${escapeHtml(f.name)} <small>(${(f.size/1024).toFixed(1)} KB)</small></span><span class="tag blue">Selected</span>`;list.appendChild(d)});document.getElementById('docCount').textContent=String(files.length);toast(files.length+' document(s) selected. Backend upload is not configured.','info')}
+function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function addInventoryRecord(){const ids=['invTag','invType','invCategory','invBrand','invModel','invSerial','invAssigned','invDepartment','invBranch','invLocation','invStatus','invCondition','invCPU','invRAM','invStorage','invOS','invNetwork','invQty','invWarrantyEnd'];const v=id=>document.getElementById(id)?.value.trim()||'';const required=['invTag','invBrand','invModel'];for(const id of required){const el=document.getElementById(id);if(!el.value.trim()){el.focus();toast('Please complete Asset Tag/SKU, Brand and Model.','err');return}}const tag=v('invTag');if([...document.querySelectorAll('#inventoryTable tbody tr')].some(r=>r.cells[0].innerText.trim().toLowerCase()===tag.toLowerCase())){toast('Duplicate Asset Tag / SKU. Please use a unique identifier.','err');return}const tr=document.createElement('tr');tr.dataset.branch=v('invBranch');const category=v('invCategory'),spec=[v('invCPU'),v('invRAM')+' RAM',v('invStorage'),v('invOS'),v('invNetwork')].filter(x=>x.trim()&&x!=='RAM').join(' · ')||'—';const status=v('invStatus');const tagClass=/repair|damaged|obsolete|lost/i.test(status)?'amber':/available|in use/i.test(status)?'green':'blue';const cells=[`<b>${escapeHtml(tag)}</b>`,v('invType'),category,`${v('invBrand')} / ${v('invModel')}`,v('invSerial')||'—',v('invAssigned')||'—',v('invDepartment')||'—',`${v('invBranch')} · ${v('invLocation')||'Location not set'}`,spec,`<span class="tag ${tagClass}">${escapeHtml(status)}</span>`,v('invCondition'),v('invWarrantyEnd')||'Not recorded',document.getElementById('invModalFiles').files.length?document.getElementById('invModalFiles').files.length+' selected':'—'];cells.forEach((x,i)=>{const td=document.createElement('td');td.innerHTML=x;tr.appendChild(td)});document.getElementById('inventoryBody').prepend(tr);const rows=[...document.querySelectorAll('#inventoryTable tbody tr')];document.getElementById('invRecordCount').textContent=rows.length;document.getElementById('oldInventoryCount').textContent=rows.filter(r=>r.cells[1].innerText==='Old Inventory').length;document.getElementById('newInventoryCount').textContent=rows.filter(r=>r.cells[1].innerText==='New Inventory').length;document.getElementById('inventoryModal').classList.remove('show');document.body.style.overflow='';filterInventory();toast('Inventory record added to this page. Save/API integration is required for shared persistence.','info');}
+function exportInventory(){const rows=[...document.querySelectorAll('#inventoryTable tr')].filter(r=>r.style.display!=='none');const csv=rows.map(r=>[...r.cells].map(c=>'"'+c.innerText.replace(/"/g,'""').trim()+'"').join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));a.download='suraj-inventory-'+new Date().toISOString().slice(0,10)+'.csv';a.click();URL.revokeObjectURL(a.href);toast('Inventory CSV exported')}
+
+/* init */
+setTheme(store.get('suraj-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'));
+chrome();palette();dashboard();enhanceTables();stepper();if(store.get('suraj-mini')==='1')document.body.classList.add('mini');
+const start=(location.hash||'').slice(1)||store.get('suraj-page')||'dashboard';showPage(labels[start]?start:'dashboard');
+})();
+
+</script>
+</body>
+</html>

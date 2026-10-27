@@ -17,6 +17,40 @@ const getHeaders = () => {
   };
 };
 
+export const formatAddressObj = (addr) => {
+  if (!addr) return '';
+  if (typeof addr === 'string') return addr.trim();
+  if (typeof addr === 'object') {
+    const lines = [];
+    if (addr.attention && addr.attention.trim()) {
+      lines.push(addr.attention.trim());
+    }
+    const streetParts = [
+      addr.addressLine1 && addr.addressLine1.trim(),
+      addr.addressLine2 && addr.addressLine2.trim()
+    ].filter(Boolean);
+    if (streetParts.length > 0) {
+      lines.push(streetParts.join(', '));
+    }
+    const cityStatePin = [
+      addr.city && addr.city.trim(),
+      addr.state && addr.state.trim(),
+      addr.pincode && addr.pincode.trim()
+    ].filter(Boolean).join(', ');
+    if (cityStatePin) {
+      lines.push(cityStatePin);
+    }
+    if (addr.country && addr.country.trim()) {
+      lines.push(addr.country.trim());
+    }
+    if (addr.phone && addr.phone.trim()) {
+      lines.push(`Ph: ${addr.phone.trim()}`);
+    }
+    return lines.join('\n');
+  }
+  return '';
+};
+
 export default function QuoteFormModal({
   isOpen,
   onClose,
@@ -29,7 +63,11 @@ export default function QuoteFormModal({
   initialTitle,
   initialCompany,
   initialEmail,
-  initialContactName
+  initialContactName,
+  initialOpportunity,
+  initialBillToAddress,
+  initialShipToAddress,
+  initialPlaceOfSupply
 }) {
   const getChargeTemplate = (selectedType = 'import') => {
     const templates = {
@@ -254,7 +292,7 @@ export default function QuoteFormModal({
             }
 
             // Attempt auto-matching for opportunity if not explicitly set
-            let oppId = initialOpportunityId || '';
+            let oppId = initialOpportunityId || (initialOpportunity?._id || '');
             if (!oppId && accId) {
               const accountOpps = (oppsRes.data || []).filter(o => {
                 const id = typeof o.accountId === 'object' ? o.accountId?._id : o.accountId;
@@ -265,16 +303,55 @@ export default function QuoteFormModal({
               }
             }
 
-            const selectedAcc = accsRes.data.find(a => a._id === accId);
+            const selectedOpp = (oppsRes.data || []).find(o => o._id === oppId) || initialOpportunity;
+            if (!accId && selectedOpp) {
+              accId = typeof selectedOpp.accountId === 'object' ? selectedOpp.accountId?._id : selectedOpp.accountId;
+            }
+
+            const selectedAcc = (accsRes.data || []).find(a => a._id === accId) || (selectedOpp?.accountId && typeof selectedOpp.accountId === 'object' ? selectedOpp.accountId : null);
             setAccountSearch(selectedAcc ? selectedAcc.name : (initialCompany || ''));
 
-            const selectedOpp = oppsRes.data.find(o => o._id === oppId);
             setOpportunitySearch(selectedOpp ? selectedOpp.name : (initialOpportunityName || ''));
 
-            const selectedCnt = contsRes.data.find(c => c._id === cntId);
+            const selectedCnt = (contsRes.data || []).find(c => c._id === cntId);
             setContactSearch(selectedCnt ? `${selectedCnt.firstName} ${selectedCnt.lastName || ''}`.trim() : (initialContactName || ''));
 
             const initialTradeType = /export/i.test(initialOpportunityName || initialTitle || '') ? 'export' : (/import/i.test(initialOpportunityName || initialTitle || '') ? 'import' : '');
+
+            const oppAccount = (selectedOpp?.accountId && typeof selectedOpp.accountId === 'object') ? selectedOpp.accountId : null;
+            const initOppAccount = (initialOpportunity?.accountId && typeof initialOpportunity.accountId === 'object') ? initialOpportunity.accountId : null;
+            const oppConvertedLead = (selectedOpp?.convertedFromLead && typeof selectedOpp.convertedFromLead === 'object') ? selectedOpp.convertedFromLead : null;
+            const initOppConvertedLead = (initialOpportunity?.convertedFromLead && typeof initialOpportunity.convertedFromLead === 'object') ? initialOpportunity.convertedFromLead : null;
+
+            const billAddressVal = initialBillToAddress ||
+              formatAddressObj(selectedAcc?.billingAddress) ||
+              formatAddressObj(initOppAccount?.billingAddress) ||
+              formatAddressObj(oppAccount?.billingAddress) ||
+              formatAddressObj(selectedOpp?.billingAddress) ||
+              formatAddressObj(initOppConvertedLead?.billingAddress) ||
+              formatAddressObj(oppConvertedLead?.billingAddress) ||
+              selectedAcc?.address ||
+              '';
+
+            const shipAddressVal = initialShipToAddress ||
+              formatAddressObj(selectedAcc?.shippingAddress) ||
+              formatAddressObj(initOppAccount?.shippingAddress) ||
+              formatAddressObj(oppAccount?.shippingAddress) ||
+              formatAddressObj(selectedOpp?.shippingAddress) ||
+              formatAddressObj(initOppConvertedLead?.shippingAddress) ||
+              formatAddressObj(oppConvertedLead?.shippingAddress) ||
+              billAddressVal ||
+              '';
+
+            const placeOfSupplyVal = initialPlaceOfSupply ||
+              selectedAcc?.gstDetails?.placeOfSupply ||
+              initOppAccount?.gstDetails?.placeOfSupply ||
+              oppAccount?.gstDetails?.placeOfSupply ||
+              initOppConvertedLead?.gstDetails?.placeOfSupply ||
+              oppConvertedLead?.gstDetails?.placeOfSupply ||
+              selectedOpp?.placeOfSupply ||
+              selectedOpp?.gstDetails?.placeOfSupply ||
+              'Gujarat (24)';
 
             setFormData({
               title: initialTitle || '',
@@ -287,9 +364,9 @@ export default function QuoteFormModal({
               templateColumns: defaultCols,
               tradeType: initialTradeType,
               companyTemplate: 'standard',
-              placeOfSupply: 'Gujarat (24)',
-              billToAddress: selectedAcc ? (selectedAcc.address || '') : '',
-              shipToAddress: selectedAcc ? (selectedAcc.address || '') : '',
+              placeOfSupply: placeOfSupplyVal,
+              billToAddress: billAddressVal,
+              shipToAddress: shipAddressVal,
               lineItems: defaultTemp?.defaultLineItems && defaultTemp.defaultLineItems.length > 0
                 ? defaultTemp.defaultLineItems.map(i => ({ productName: i.productName || '', hsnSac: i.hsnSac || '996713', quantity: i.quantity || 1, unitPrice: i.unitPrice || 0, discount: i.discount || 0, tax: i.tax ?? 18, lineTotal: ((i.quantity || 1) * (i.unitPrice || 0)) - (i.discount || 0), customFields: i.customFields || {} }))
                 : [{ productName: '', hsnSac: '996713', quantity: 1, unitPrice: 0, discount: 0, tax: 18, lineTotal: 0, customFields: {} }],
@@ -313,7 +390,7 @@ export default function QuoteFormModal({
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, quoteToEdit, initialAccountId, initialOpportunityId, initialContactId, initialCompany, initialEmail, initialContactName, initialOpportunityName]);
+  }, [isOpen, quoteToEdit, initialAccountId, initialOpportunityId, initialContactId, initialCompany, initialEmail, initialContactName, initialOpportunityName, initialOpportunity, initialBillToAddress, initialShipToAddress, initialPlaceOfSupply]);
 
   const handleQuotationTemplateChange = (tempId) => {
     const selectedTemp = quotationTemplates.find(t => t._id === tempId);
@@ -751,13 +828,18 @@ export default function QuoteFormModal({
                             const newOppId = newAccountOpps.length > 0 ? newAccountOpps[0]._id : '';
                             const newOppName = newAccountOpps.length > 0 ? newAccountOpps[0].name : '';
 
+                            const billAddr = formatAddressObj(a.billingAddress) || a.address || '';
+                            const shipAddr = formatAddressObj(a.shippingAddress) || billAddr || a.address || '';
+                            const pos = a.gstDetails?.placeOfSupply || formData.placeOfSupply;
+
                             setFormData(prev => ({
                               ...prev,
                               accountId: a._id,
                               contactId: newCntId,
                               opportunityId: newOppId,
-                              billToAddress: a.address || '',
-                              shipToAddress: a.address || ''
+                              billToAddress: billAddr,
+                              shipToAddress: shipAddr,
+                              placeOfSupply: pos || prev.placeOfSupply
                             }));
                             setAccountSearch(a.name);
                             setContactSearch(newCntName);
@@ -834,7 +916,58 @@ export default function QuoteFormModal({
                               autoTemplate = 'paramount';
                             }
 
-                            setFormData(prev => ({ ...prev, opportunityId: o._id, companyTemplate: autoTemplate }));
+                            const linkedAccId = typeof o.accountId === 'object' ? o.accountId?._id : o.accountId;
+                            const linkedAcc = accounts.find(a => a._id === linkedAccId) || (typeof o.accountId === 'object' ? o.accountId : null);
+
+                            const billAddr = formatAddressObj(linkedAcc?.billingAddress) ||
+                              formatAddressObj(o.billingAddress) ||
+                              formatAddressObj(o.convertedFromLead?.billingAddress) ||
+                              linkedAcc?.address ||
+                              formData.billToAddress;
+
+                            const shipAddr = formatAddressObj(linkedAcc?.shippingAddress) ||
+                              billAddr ||
+                              formatAddressObj(o.shippingAddress) ||
+                              formatAddressObj(o.convertedFromLead?.shippingAddress) ||
+                              linkedAcc?.address ||
+                              formData.shipToAddress;
+
+                            const pos = linkedAcc?.gstDetails?.placeOfSupply ||
+                              o.placeOfSupply ||
+                              o.gstDetails?.placeOfSupply ||
+                              o.convertedFromLead?.gstDetails?.placeOfSupply ||
+                              formData.placeOfSupply;
+
+                            let autoContactId = formData.contactId;
+                            let autoContactName = contactSearch;
+                            if (linkedAccId && (!autoContactId || formData.accountId !== linkedAccId)) {
+                              const linkedContacts = contacts.filter(c => {
+                                const cid = typeof c.accountId === 'object' ? c.accountId?._id : c.accountId;
+                                return cid === linkedAccId;
+                              });
+                              const primaryCnt = linkedContacts.find(c => c.isPrimary) || linkedContacts[0];
+                              if (primaryCnt) {
+                                autoContactId = primaryCnt._id;
+                                autoContactName = `${primaryCnt.firstName} ${primaryCnt.lastName || ''}`.trim();
+                              }
+                            }
+
+                            setFormData(prev => ({
+                              ...prev,
+                              opportunityId: o._id,
+                              accountId: linkedAccId || prev.accountId,
+                              contactId: autoContactId,
+                              companyTemplate: autoTemplate,
+                              billToAddress: billAddr,
+                              shipToAddress: shipAddr,
+                              placeOfSupply: pos
+                            }));
+                            if (linkedAcc?.name) {
+                              setAccountSearch(linkedAcc.name);
+                            }
+                            if (autoContactName) {
+                              setContactSearch(autoContactName);
+                            }
                             setOpportunitySearch(o.name);
                             setIsOpportunityDropdownOpen(false);
                           }}

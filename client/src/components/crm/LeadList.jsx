@@ -73,8 +73,14 @@ export default function LeadList() {
   const [viewScope, setViewScope] = useState('my_teams');
   const [selectedSource, setSelectedSource] = useState('');
   const [selectedService, setSelectedService] = useState('');
-  const [selectedLeadForDuplicate, setSelectedLeadForDuplicate] = useState(null);
   const [selectedLeadForEdit, setSelectedLeadForEdit] = useState(null);
+  // Duplicate into Pipeline State
+  const [duplicatePipelineLead, setDuplicatePipelineLead] = useState(null);
+  const [duplicateDealName, setDuplicateDealName] = useState('');
+  const [duplicateDealService, setDuplicateDealService] = useState('');
+  const [duplicateDealValue, setDuplicateDealValue] = useState(0);
+  const [duplicateDealCloseDate, setDuplicateDealCloseDate] = useState('');
+  const [isDuplicatingToPipeline, setIsDuplicatingToPipeline] = useState(false);
   const [selectedLeadForRefer, setSelectedLeadForRefer] = useState(null);
   const [targetReferTeamId, setTargetReferTeamId] = useState('');
   const [targetReferUserId, setTargetReferUserId] = useState('');
@@ -346,17 +352,54 @@ export default function LeadList() {
     }
   };
 
+  const handleOpenDuplicateToPipeline = (lead) => {
+    setDuplicatePipelineLead(lead);
+    setDuplicateDealName(`${lead.company || `${lead.firstName} ${lead.lastName || ''}`.trim()} - Deal`);
+    setDuplicateDealService(lead.interestedServices && lead.interestedServices.length > 0 ? lead.interestedServices[0] : (ALLOWED_SERVICES[0] || ''));
+    setDuplicateDealValue(lead.monthlyRevenue || lead.monthlyVolume || 0);
+    const in30Days = new Date();
+    in30Days.setDate(in30Days.getDate() + 30);
+    setDuplicateDealCloseDate(in30Days.toISOString().substring(0, 10));
+  };
+
+  const handleConfirmDuplicateToPipeline = async () => {
+    if (!duplicatePipelineLead) return;
+    if (!duplicateDealService) {
+      return message.error('Please select a service for the pipeline deal');
+    }
+    setIsDuplicatingToPipeline(true);
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/crm/leads/${duplicatePipelineLead._id}/duplicate-to-pipeline`,
+        {
+          name: duplicateDealName,
+          service: duplicateDealService,
+          services: [duplicateDealService],
+          value: duplicateDealValue,
+          expectedCloseDate: duplicateDealCloseDate
+        },
+        getHeaders()
+      );
+      message.success(res.data?.message || 'Deal duplicated into pipeline successfully!');
+      setDuplicatePipelineLead(null);
+      fetchLeads();
+    } catch (err) {
+      console.error('Failed to duplicate to pipeline:', err);
+      message.error(err.response?.data?.message || 'Failed to duplicate deal into pipeline');
+    } finally {
+      setIsDuplicatingToPipeline(false);
+    }
+  };
+
   return (
     <div style={{ background: '#fff', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
       <LeadFormModal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
-          setSelectedLeadForDuplicate(null);
           setSelectedLeadForEdit(null);
         }}
         onRefresh={fetchLeads}
-        leadToDuplicate={selectedLeadForDuplicate}
         leadToEdit={selectedLeadForEdit}
       />
 
@@ -690,10 +733,8 @@ export default function LeadList() {
                         Refer
                       </button>
                       <button
-                        onClick={() => {
-                          setSelectedLeadForDuplicate(lead);
-                          setIsModalOpen(true);
-                        }}
+                        onClick={() => handleOpenDuplicateToPipeline(lead)}
+                        title="Duplicate into Sales Pipeline (does not duplicate in Lead Management)"
                         style={{ background: '#eef2ff', color: '#4f46e5', padding: '4px 10px', border: '1px solid #c7d2fe', borderRadius: '5px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
                       >
                         Duplicate
@@ -825,6 +866,109 @@ export default function LeadList() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate to Pipeline Modal */}
+      {duplicatePipelineLead && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 99999, padding: '20px 14px'
+        }}>
+          <div style={{
+            background: '#ffffff', width: '100%', maxWidth: '480px',
+            borderRadius: '14px', padding: '20px 24px', border: '1px solid #e2e8f0',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            animation: 'modalSlideIn 0.25s ease-out'
+          }}>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', color: '#1e293b', fontWeight: 700 }}>
+              Duplicate Deal into Pipeline
+            </h3>
+            <p style={{ margin: '0 0 16px 0', fontSize: '0.8rem', color: '#64748b' }}>
+              Create a new deal for <strong>{duplicatePipelineLead.company}</strong> in the sales pipeline under a different service. This will not duplicate the lead in Lead Management.
+            </p>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', marginBottom: '4px', color: '#475569', fontWeight: 600, fontSize: '0.8rem' }}>
+                Pipeline Deal Name *
+              </label>
+              <input
+                type="text"
+                value={duplicateDealName}
+                onChange={e => setDuplicateDealName(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.85rem', outline: 'none' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', marginBottom: '4px', color: '#475569', fontWeight: 600, fontSize: '0.8rem' }}>
+                Select Service *
+              </label>
+              <select
+                value={duplicateDealService}
+                onChange={e => setDuplicateDealService(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.85rem', outline: 'none', background: '#fff' }}
+              >
+                <option value="">-- Select Service --</option>
+                {ALLOWED_SERVICES.map(s => (
+                  <option key={s} value={s}>{formatServiceName(s)}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '4px', color: '#475569', fontWeight: 600, fontSize: '0.8rem' }}>
+                  Deal Value (₹)
+                </label>
+                <input
+                  type="number"
+                  value={duplicateDealValue}
+                  onChange={e => setDuplicateDealValue(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.85rem', outline: 'none' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '4px', color: '#475569', fontWeight: 600, fontSize: '0.8rem' }}>
+                  Expected Close Date
+                </label>
+                <input
+                  type="date"
+                  value={duplicateDealCloseDate}
+                  onChange={e => setDuplicateDealCloseDate(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.85rem', outline: 'none' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+              <button
+                type="button"
+                onClick={() => setDuplicatePipelineLead(null)}
+                style={{ padding: '7px 16px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#475569', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.825rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDuplicateToPipeline}
+                disabled={isDuplicatingToPipeline || !duplicateDealService}
+                style={{
+                  padding: '7px 16px',
+                  background: isDuplicatingToPipeline || !duplicateDealService ? '#94a3b8' : '#4f46e5',
+                  color: '#ffffff', border: 'none', borderRadius: '8px',
+                  cursor: isDuplicatingToPipeline || !duplicateDealService ? 'not-allowed' : 'pointer',
+                  fontWeight: 600, fontSize: '0.825rem'
+                }}
+              >
+                {isDuplicatingToPipeline ? 'Duplicating...' : 'Duplicate in Pipeline'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -364,7 +364,8 @@ router.get('/', async (req, res) => {
           Object.assign(legacyFilter, legacyStageCheck);
         }
         const wonLostLegacy = await Opportunity.find(legacyFilter)
-          .populate('accountId', 'name')
+          .populate('accountId', 'name billingAddress shippingAddress gstDetails address')
+          .populate('convertedFromLead', 'billingAddress shippingAddress gstDetails company')
           .populate('ownerId', 'username first_name last_name')
           .populate('createdBy', 'username first_name last_name')
           .populate('referredFromTeamId', 'nameCode teamName name')
@@ -388,7 +389,8 @@ router.get('/', async (req, res) => {
       } else {
         query.stage = stage;
         opportunities = await Opportunity.find(query)
-          .populate('accountId', 'name')
+          .populate('accountId', 'name billingAddress shippingAddress gstDetails address')
+          .populate('convertedFromLead', 'billingAddress shippingAddress gstDetails company')
           .populate('ownerId', 'username first_name last_name')
           .populate('createdBy', 'username first_name last_name')
           .populate('referredFromTeamId', 'nameCode teamName name')
@@ -404,7 +406,8 @@ router.get('/', async (req, res) => {
         Object.assign(query, dateQuery);
       }
       opportunities = await Opportunity.find(query)
-        .populate('accountId', 'name')
+        .populate('accountId', 'name billingAddress shippingAddress gstDetails address')
+        .populate('convertedFromLead', 'billingAddress shippingAddress gstDetails company')
         .populate('ownerId', 'username first_name last_name')
         .populate('createdBy', 'username first_name last_name')
         .populate('referredFromTeamId', 'nameCode teamName name')
@@ -418,7 +421,8 @@ router.get('/', async (req, res) => {
       if (wonLostStart && wonLostEnd) {
         const pipelineQuery = { ...query, stage: { $nin: ['won', 'lost'] } };
         const pipelineResults = await Opportunity.find(pipelineQuery)
-          .populate('accountId', 'name')
+          .populate('accountId', 'name billingAddress shippingAddress gstDetails address')
+          .populate('convertedFromLead', 'billingAddress shippingAddress gstDetails company')
           .populate('ownerId', 'username first_name last_name')
           .populate('createdBy', 'username first_name last_name')
           .populate('referredFromTeamId', 'nameCode teamName name')
@@ -434,7 +438,8 @@ router.get('/', async (req, res) => {
           'stageHistory.stage': { $in: ['won', 'lost'] },
           'stageHistory.enteredAt': { $gte: wonLostStart, $lte: wonLostEnd }
         })
-          .populate('accountId', 'name')
+          .populate('accountId', 'name billingAddress shippingAddress gstDetails address')
+          .populate('convertedFromLead', 'billingAddress shippingAddress gstDetails company')
           .populate('ownerId', 'username first_name last_name')
           .populate('createdBy', 'username first_name last_name')
           .populate('referredFromTeamId', 'nameCode teamName name')
@@ -618,7 +623,8 @@ router.get('/board', async (req, res) => {
     if (source) pipelineQuery.source = source;
 
     const pipelineOpps = await Opportunity.find(pipelineQuery)
-      .populate('accountId', 'name')
+      .populate('accountId', 'name billingAddress shippingAddress gstDetails address')
+      .populate('convertedFromLead', 'billingAddress shippingAddress gstDetails company')
       .populate('ownerId', 'username first_name last_name')
       .populate('createdBy', 'username first_name last_name')
       .populate('referredFromTeamId', 'nameCode teamName name')
@@ -637,7 +643,8 @@ router.get('/board', async (req, res) => {
         'stageHistory.stage': { $in: ['won', 'lost'] },
         'stageHistory.enteredAt': { $gte: wonLostStart, $lte: wonLostEnd }
       })
-        .populate('accountId', 'name')
+        .populate('accountId', 'name billingAddress shippingAddress gstDetails address')
+        .populate('convertedFromLead', 'billingAddress shippingAddress gstDetails company')
         .populate('ownerId', 'username first_name last_name')
         .populate('createdBy', 'username first_name last_name')
         .populate('referredFromTeamId', 'nameCode teamName name')
@@ -658,7 +665,8 @@ router.get('/board', async (req, res) => {
         Object.assign(legacyWonLostFilter, legacyStageCheck);
       }
       const wonLostLegacy = await Opportunity.find(legacyWonLostFilter)
-        .populate('accountId', 'name')
+        .populate('accountId', 'name billingAddress shippingAddress gstDetails address')
+        .populate('convertedFromLead', 'billingAddress shippingAddress gstDetails company')
         .populate('ownerId', 'username first_name last_name')
         .populate('createdBy', 'username first_name last_name')
         .populate('referredFromTeamId', 'nameCode teamName name')
@@ -685,7 +693,8 @@ router.get('/board', async (req, res) => {
     } else {
       // All months requested: fetch all won/lost deals without date filtering
       filteredWonLost = await Opportunity.find(wonLostQuery)
-        .populate('accountId', 'name')
+        .populate('accountId', 'name billingAddress shippingAddress gstDetails address')
+        .populate('convertedFromLead', 'billingAddress shippingAddress gstDetails company')
         .populate('ownerId', 'username first_name last_name')
         .populate('createdBy', 'username first_name last_name')
         .populate('referredFromTeamId', 'nameCode teamName name')
@@ -900,7 +909,8 @@ router.get('/planned-visits', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const opp = await Opportunity.findOne({ _id: req.params.id })
-      .populate('accountId', 'name')
+      .populate('accountId', 'name billingAddress shippingAddress gstDetails address')
+      .populate('convertedFromLead', 'billingAddress shippingAddress gstDetails company')
       .populate('primaryContactId')
       .populate('ownerId', 'username first_name last_name')
       .populate('createdBy', 'username first_name last_name')

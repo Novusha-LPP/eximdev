@@ -6,7 +6,7 @@ import { message, Modal } from 'antd';
 import GarudaTeamMemberInput from './GarudaTeamMemberInput';
 import { UserContext } from '../../../contexts/UserContext';
 import ActivityTimeline from './ActivityTimeline';
-import QuoteFormModal from './QuoteFormModal';
+import QuoteFormModal, { formatAddressObj } from './QuoteFormModal';
 import QuoteDetailPanel from './QuoteDetailPanel';
 import EmailQuoteModal from './EmailQuoteModal';
 import { generateQuotePDF } from '../utils/pdfGenerator';
@@ -2578,12 +2578,40 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
         }}
         quoteToEdit={quoteToEdit}
         initialTitle={quoteToEdit ? quoteToEdit.title : `${opportunity.name} - Quote`}
-        initialAccountId={typeof opportunity.accountId === 'object' ? opportunity.accountId?._id : opportunity.accountId}
-        initialCompany={typeof opportunity.accountId === 'object' ? opportunity.accountId?.name : ''}
-        initialContactId={typeof opportunity.primaryContactId === 'object' ? opportunity.primaryContactId?._id : opportunity.primaryContactId}
-        initialContactName={typeof opportunity.primaryContactId === 'object' ? `${opportunity.primaryContactId?.firstName || ''} ${opportunity.primaryContactId?.lastName || ''}`.trim() : ''}
+        initialAccountId={typeof (formData.accountId || opportunity.accountId) === 'object' ? (formData.accountId || opportunity.accountId)?._id : (formData.accountId || opportunity.accountId)}
+        initialCompany={typeof (formData.accountId || opportunity.accountId) === 'object' ? (formData.accountId || opportunity.accountId)?.name : ''}
+        initialContactId={typeof (formData.primaryContactId || opportunity.primaryContactId) === 'object' ? (formData.primaryContactId || opportunity.primaryContactId)?._id : (formData.primaryContactId || opportunity.primaryContactId)}
+        initialContactName={typeof (formData.primaryContactId || opportunity.primaryContactId) === 'object' ? `${(formData.primaryContactId || opportunity.primaryContactId)?.firstName || ''} ${(formData.primaryContactId || opportunity.primaryContactId)?.lastName || ''}`.trim() : ''}
         initialOpportunityId={opportunity._id}
-        initialOpportunityName={opportunity.name}
+        initialOpportunityName={formData.name || opportunity.name}
+        initialOpportunity={formData._id ? formData : opportunity}
+        initialBillToAddress={
+          formatAddressObj(formData?.accountId?.billingAddress) ||
+          formatAddressObj(opportunity?.accountId?.billingAddress) ||
+          formatAddressObj(formData?.convertedFromLead?.billingAddress) ||
+          formatAddressObj(opportunity?.convertedFromLead?.billingAddress) ||
+          formatAddressObj(formData?.billingAddress) ||
+          formatAddressObj(opportunity?.billingAddress) ||
+          ''
+        }
+        initialShipToAddress={
+          formatAddressObj(formData?.accountId?.shippingAddress) ||
+          formatAddressObj(opportunity?.accountId?.shippingAddress) ||
+          formatAddressObj(formData?.convertedFromLead?.shippingAddress) ||
+          formatAddressObj(opportunity?.convertedFromLead?.shippingAddress) ||
+          formatAddressObj(formData?.shippingAddress) ||
+          formatAddressObj(opportunity?.shippingAddress) ||
+          ''
+        }
+        initialPlaceOfSupply={
+          formData?.accountId?.gstDetails?.placeOfSupply ||
+          opportunity?.accountId?.gstDetails?.placeOfSupply ||
+          formData?.convertedFromLead?.gstDetails?.placeOfSupply ||
+          opportunity?.convertedFromLead?.gstDetails?.placeOfSupply ||
+          formData?.placeOfSupply ||
+          opportunity?.placeOfSupply ||
+          ''
+        }
         onRefresh={refreshOpportunityAndQuotes}
       />
       <PricingRequestFormModal

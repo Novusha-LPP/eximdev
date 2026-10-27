@@ -19,7 +19,7 @@ This test suite covers functional testing across all 4 sub-modules of Customer R
 - **Component / Sub-Module:** Lead & Inquiry Management / CRM Kanban & Grid Filters
 - **Severity:** High (Data Fragmentation & Filtering Inaccuracy)
 - **Priority:** High
-- **Status:** Open
+- **Status:** Resolved
 - **Environment:** Staging / Production (`client` SPA + `server` CRM APIs)
 - **Summary:** Searching for a single port/location (e.g., "Mundra", "Nhava Sheva") returns multiple fragmented and unstandardized location entries in the filter dropdown.
 - **Description:** 
@@ -55,7 +55,7 @@ This test suite covers functional testing across all 4 sub-modules of Customer R
 - **Component / Sub-Module:** Lead & Inquiry Management / Lead Conversion Flow
 - **Severity:** Critical (Blocks core business workflow: Lead -> Account / Contact / Opportunity conversion)
 - **Priority:** High
-- **Status:** Open
+- **Status:** Resolved
 - **Environment:** Staging / Development / Production (`server` Node ESM / Express + Mongoose)
 - **API Endpoint:** `POST /api/crm/leads/:id/convert`
 - **Summary:** Converting a lead assigned to "Novusha" business vertical fails with HTTP 500 Internal Server Error due to missing `'Novusha'` in the `Account` and `Contact` Mongoose schema enum.
@@ -96,7 +96,7 @@ This test suite covers functional testing across all 4 sub-modules of Customer R
 - **Component / Sub-Module:** Lead & Inquiry Management / Lead Table Grid (`LeadList.jsx`)
 - **Severity:** Medium (Data Disconnect / Reporting Inconsistency)
 - **Priority:** High
-- **Status:** Open
+- **Status:** Resolved
 - **Environment:** Staging / Production (`client` SPA + `server` CRM APIs)
 - **Summary:** In the Lead Management table, the "Reason for Loss" column displays a blank dash (`—`) for converted leads even when their converted Opportunities/Deals are marked as "Lost" with recorded loss reasons.
 - **Description:** 
@@ -133,7 +133,7 @@ This test suite covers functional testing across all 4 sub-modules of Customer R
 - **Component / Sub-Module:** Customer Interaction History / Activity Calendar (`ActivityCalendar.jsx`)
 - **Severity:** High (UI Inconsistency & Schedule Misleading)
 - **Priority:** High
-- **Status:** Open
+- **Status:** Resolved
 - **Environment:** Staging / Production (`client` SPA `ActivityCalendar.jsx`)
 - **Summary:** Adding a task, activity, or planned visit for a single day causes it to render duplicated on both the scheduled day and the following day (e.g. shows on both 23rd and 24th, or 9th and 10th).
 - **Description:** 
@@ -171,6 +171,138 @@ This test suite covers functional testing across all 4 sub-modules of Customer R
 ### 3. Quotation & Proposal Tracking
 <!-- Log bugs related to Quotation & Proposal Tracking -->
 
+#### CRM-BUG-005: Overlapping Header Text, Corrupted Currency Glyphs, and Number Spacing Glitches in Quotation PDF Layout
+- **Issue Key:** CRM-BUG-005
+- **Issue Type:** Bug / Defect
+- **Component / Sub-Module:** CRM / Quotation & Proposal Tracking (`pdfGenerator.js` / Quotation Preview & PDF Generation)
+- **Severity:** High (Client-Facing Document Defect & Layout Degradation)
+- **Priority:** High
+- **Status:** Open
+- **Reported Date:** 2026-09-25
+- **Environment:** Staging / Development / Production (`client` SPA + jsPDF / `jspdf-autotable` / HTML Canvas PDF renderer)
+- **Summary:** In the CRM Quotation PDF export and preview, company address lines in the header overlap each other, table headers contain spelling mistakes (`peices`) and corrupted currency symbols (`Rate ( \` )`), and summary totals render with abnormal digit spacing (`8, 0 2, 7 3 4`).
+- **Description:** 
+  When generating, previewing, or downloading a PDF quotation from CRM (e.g., Quotation Quote `# QT-2026-00023`), multiple visual layout, text overlapping, and character rendering defects occur across the document:
+
+  1. **Company Header Address Overlapping:**
+     - The multi-line company address and contact information (`Address line 1`, `Address line 2`, `Ph / Email`, `Postal Code / City`) beneath the company logo/name are rendered at fixed or improperly calculated vertical Y-coordinates.
+     - Consequently, the second line of text (`Cupiditate uxor labere...`) overlaps directly on top of the phone and email row (`Ph: 9658741230 | Email: ...`), making both lines illegible.
+
+  2. **Table Header Encoding & Spelling Defects:**
+     - **Currency Symbol Distortion:** Column headers for rate and total render as `"Rate ( \` )"` and `"Total ( \` )"` instead of proper Indian Rupee (`₹` / `Rs.`) or currency denomination due to missing Unicode font glyph support or incorrect fallback in standard jsPDF fonts (`helvetica`).
+     - **Spelling Typo:** Column header for piece quantity is misspelled as `"quantity in peices"` (should be `"Quantity in Pieces"` / `"Qty (Pcs)"`).
+
+  3. **Summary / Totals Abnormal Digit Spacing (Kerning Glitch):**
+     - In the bottom-right summary calculation block, the monetary figures are displayed with excessive spacing between digits and punctuation:
+       - `Subtotal:      \` 8, 0 2, 7 3 4` (instead of `₹ 8,02,734` or `Rs. 8,02,734.00`)
+       - `Discount:    - \` 5, 3 2, 5 5 1`
+       - `Tax (GST):   + \` 1 2, 5 6, 6 7 5`
+       - `Total Amount:  \` 1 5, 2 6, 8 5 8`
+     - This occurs due to custom letter-spacing / character kerning rules or font splitting across individual numerical glyphs during PDF rendering.
+
+- **Steps to Reproduce:**
+  1. Navigate to **CRM** -> **Quotations** (`/crm/quotes`) or open a Deal detail modal with an attached quotation.
+  2. Select an existing quotation with multiple line items, volume, container size, discount, and GST details (e.g. `QT-2026-00023`).
+  3. Click **Download PDF** or open the **PDF Preview** modal.
+  4. Inspect the generated PDF layout:
+     - Check the company address section below the top header title.
+     - Check the Line Items table column headers (`Rate`, `Total`, `quantity in peices`).
+     - Check the right-side Subtotal, Discount, Tax, and Total Amount summary block.
+
+- **Expected Result:**
+  - Company address lines should wrap dynamically with proper vertical line-height (no overlapping text).
+  - Column headers should use correct spelling (`Quantity in Pieces` / `Qty (Pcs)`) and clean currency labels (e.g., `Rate (₹)` / `Rate (INR)` / `Rate (Rs.)`).
+  - Monetary values in the summary block should render formatted with standard Indian currency numbering without wide gaps between digits (e.g., `₹ 8,02,734.00` / `₹ 15,26,858.00`).
+
+- **Actual Result:**
+  - Company address text lines collision/overlap rendering them unreadable.
+  - Column header has typo (`quantity in peices`) and broken currency symbols (`Rate ( \` )`).
+  - Total numbers are spread out with wide whitespace gaps between every character (`1 5, 2 6, 8 5 8`).
+
+- **Impact:**
+  - **High**: Quotations are customer-facing legal and commercial documents sent to external clients and prospective buyers. Layout overlapping and corrupted numbers damage corporate brand credibility and can cause commercial disputes regarding quote validity.
+
+- **Root Cause Analysis:**
+  1. **Address Overlap:** Fixed hardcoded Y-offset increments (e.g., `y + 4`) without accounting for `doc.splitTextToSize()` wrapped line count.
+  2. **Corrupted Rupee Symbol:** Standard jsPDF core fonts (`helvetica`, `times`, `courier`) do not support Unicode `₹` (U+20B9). When passed raw Unicode, it falls back to an invalid backtick/apostrophe or accent glyph.
+  3. **Character Spacing Glitch:** `letter-spacing` or `charSpace` property set erroneously in jsPDF/HTML-to-canvas options, or monospaced font mapping splitting digits with artificial character offsets.
+  4. **Typo:** Hardcoded string `"quantity in peices"` in table column definition.
+
+- **Suggested Resolution / Fix:**
+  1. In `client/src/components/crm/utils/pdfGenerator.js`:
+     - Calculate dynamic Y-coordinates using `lines.length * lineHeight` for multi-line address blocks.
+     - Replace unsupported Unicode `₹` symbol with standard `Rs.` or `INR` in standard fonts, or embed a UTF-8 compliant font (e.g., Roboto / Noto Sans).
+     - Fix typo `"quantity in peices"` to `"Qty (Pieces)"` or `"Quantity (Pcs)"`.
+     - Reset `doc.setCharSpace(0)` and ensure standard `toLocaleString('en-IN')` string output for all totals.
+
+#### CRM-BUG-006: Missing Client-Side and Server-Side Input Validation in Company Entity Profile Form (Phone, Pincode, PAN, GSTIN, Email, Website, IFSC)
+- **Issue Key:** CRM-BUG-006
+- **Issue Type:** Bug / Defect
+- **Component / Sub-Module:** CRM / Quotation & Proposal Tracking / Company Entity Profile (`QuotationTemplatesManager.jsx`, `QuotationCompany.mjs`, `quotationCompanies.controller.mjs`)
+- **Severity:** High (Data Integrity Degradation & Corrupted Business Records)
+- **Priority:** High
+- **Status:** Open
+- **Reported Date:** 2026-09-30
+- **Environment:** Staging / Development / Production (`client` SPA + `server` Express / Mongoose)
+- **API Endpoint:** `POST /api/crm/quotation-companies` & `PUT /api/crm/quotation-companies/:id`
+- **Summary:** The "Add New Company Entity" / "Edit Company Profile" modal in Quotation Template Settings does not perform validation on critical input fields (Phone No., Pincode, PAN Number, GSTIN, Email, Website, IFSC Code), allowing invalid and arbitrary data to be saved to the database.
+- **Description:**
+  When adding or editing a company profile entity for quotations via the "Add New Company Entity" modal in CRM Quotation Template Manager, only `companyForm.name` is validated prior to submission. All other mandatory business identification and contact fields lack format, character type, and length validations:
+
+  1. **Phone Number (`companyForm.phone`):**
+     - Accepts arbitrary string lengths and letters (e.g., `"abcdef"`, `"123"`). No 10-digit or valid international dialing format check.
+  2. **Pincode (`companyForm.address.pincode`):**
+     - Accepts non-numeric characters and arbitrary lengths (e.g., `"abc"`, `"123456789"`). Does not enforce standard 6-digit Indian Postal PIN code format (`^[1-9][0-9]{5}$`).
+  3. **PAN Number (`companyForm.pan`):**
+     - Accepts arbitrary strings without checking standard 10-character alphanumeric PAN structure (`[A-Z]{5}[0-9]{4}[A-Z]{1}`) and does not auto-uppercase input.
+  4. **GSTIN / Tax No (`companyForm.gstin`):**
+     - Accepts random text of any length without validating standard 15-character GSTIN structure (`^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$`).
+  5. **Email (`companyForm.email`):**
+     - Uses standard `<input type="email">` within a `<div>` modal with a manual `onClick` handler instead of an HTML `<form>`. Consequently, browser email format verification never executes, allowing invalid emails (e.g., `"user@"`, `"notanemail"`) to be saved.
+  6. **Website (`companyForm.website`):**
+     - Accepts invalid URL structures without regex/domain verification.
+  7. **Bank IFSC Code (`companyForm.bankDetails.ifscCode`):**
+     - Accepts non-standard values without enforcing the 11-character Indian Financial System Code format (`^[A-Z]{4}0[A-Z0-9]{6}$`).
+
+- **Steps to Reproduce:**
+  1. Navigate to **CRM** -> **Settings / Quotation Templates** (`/crm/quotations/settings` or Template Manager).
+  2. Switch to the **Company Profiles & Entities** tab.
+  3. Click **+ Add Company Entity**.
+  4. Enter a valid Company Name (e.g., `"Test Logistics Ltd"`).
+  5. In **PAN NO**, enter `"invalid123"`.
+  6. In **PINCODE**, enter `"abc"`.
+  7. In **PHONE**, enter `"123"`.
+  8. In **EMAIL**, enter `"not-an-email"`.
+  9. In **WEBSITE**, enter `"invalidwebsite"`.
+  10. In **IFSC CODE**, enter `"badifsc"`.
+  11. Click **Save Company Profile**.
+- **Expected Result:**
+  - Form should display inline field errors or alert notifications blocking submission when inputs fail valid format criteria:
+    - PAN must follow `^[A-Z]{5}[0-9]{4}[A-Z]{1}$`.
+    - Pincode must be a 6-digit numeric string.
+    - Phone must be a valid 10-digit number / international format.
+    - Email must follow valid RFC email pattern.
+    - Website must be a valid URL/domain format.
+    - IFSC must follow `^[A-Z]{4}0[A-Z0-9]{6}$`.
+  - Backend controller (`quotationCompanies.controller.mjs`) and Mongoose model (`QuotationCompany.mjs`) should also validate field formats before persisting to DB.
+- **Actual Result:**
+  - Save succeeds immediately with `message.success('Company profile created successfully')`.
+  - Database stores corrupted and invalid identification, tax, and banking details.
+- **Impact:**
+  - High. Corrupted company tax and contact information directly impacts official PDF quotation documents sent to clients, leading to non-compliant tax invoices, failed payments, and damaged professional credibility.
+- **Root Cause Analysis:**
+  1. In `QuotationTemplatesManager.jsx`, `handleSaveCompany` only checks `!companyForm.name.trim()`.
+  2. The modal is implemented with regular `div` buttons rather than a form with controlled field validators or Yup / Formik validation schema.
+  3. Backend Mongoose schema `QuotationCompany.mjs` defines all fields as generic unvalidated `String` types with no regex matchers or pre-save sanitizers.
+- **Suggested Resolution / Fix:**
+  1. Add frontend regex validators and sanitizers in `QuotationTemplatesManager.jsx`:
+     - PAN: Auto-uppercase on change + regex `^[A-Z]{5}[0-9]{4}[A-Z]{1}$`.
+     - Pincode: Digits only, max 6 characters (`/^\d{6}$/`).
+     - Phone: Digits and standard phone formatting (`/^[0-9+\s\-()]{10,15}$/`).
+     - Email: Regex check (`/^[^\s@]+@[^\s@]+\.[^\s@]+$/`).
+     - Website: URL / domain regex check.
+     - IFSC: Auto-uppercase + regex `^[A-Z]{4}0[A-Z0-9]{6}$`.
+  2. Add backend validation in `QuotationCompany.mjs` Mongoose schema and `quotationCompanies.controller.mjs`.
 
 ---
 
@@ -185,9 +317,10 @@ This test suite covers functional testing across all 4 sub-modules of Customer R
 
 | Bug ID | Sub-Module | Description | Severity | Priority | Status | Reported Date |
 | --- | --- | --- | --- | --- | --- | --- |
-| **CRM-BUG-001** | Lead & Inquiry / Filters | Duplicate & unstandardized location filter values (Mundra, Nhava Sheva) | High | High | Open | 2026-09-23 |
-| **CRM-BUG-002** | Lead Conversion | HTTP 500 on converting "Novusha" lead due to missing enum in Account/Contact schema | Critical | High | Open | 2026-09-23 |
-| **CRM-BUG-003** | Lead Management Grid | Converted leads with lost deals show empty (`—`) in Reason for Loss column | Medium | High | Open | 2026-09-23 |
-| **CRM-BUG-004** | Activity Calendar | Tasks, activities & visits duplicate across consecutive days (today & tomorrow) | High | High | Open | 2026-09-23 |
-
+| **CRM-BUG-001** | Lead & Inquiry / Filters | Duplicate & unstandardized location filter values (Mundra, Nhava Sheva) | High | High | Resolved | 2026-09-23 |
+| **CRM-BUG-002** | Lead Conversion | HTTP 500 on converting "Novusha" lead due to missing enum in Account/Contact schema | Critical | High | Resolved | 2026-09-23 |
+| **CRM-BUG-003** | Lead Management Grid | Converted leads with lost deals show empty (`—`) in Reason for Loss column | Medium | High | Resolved | 2026-09-23 |
+| **CRM-BUG-004** | Activity Calendar | Tasks, activities & visits duplicate across consecutive days (today & tomorrow) | High | High | Resolved | 2026-09-23 |
+| **CRM-BUG-005** | Quotation & Proposal Tracking | Overlapping header text, corrupted currency glyphs (`\``) & digit spacing glitches in PDF | High | High | Open | 2026-09-25 |
+| **CRM-BUG-006** | Quotation / Company Entities | Missing client and server validation for Phone, Pincode, PAN, GSTIN, Email, Website, IFSC | High | High | Open | 2026-09-30 |
 

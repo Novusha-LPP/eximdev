@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { Card, Table, Typography, Space, Input, Tag, Spin, Empty, Select, Button, Row, Col, Modal, Divider } from 'antd';
-import { SearchOutlined, TrophyOutlined, TeamOutlined, FilterOutlined, ArrowLeftOutlined, QuestionCircleOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import moment from 'moment';
+import { SearchOutlined, TrophyOutlined, TeamOutlined, FilterOutlined, ArrowLeftOutlined, QuestionCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 const { Option } = Select;

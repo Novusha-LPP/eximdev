@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
     Box, Typography, Chip, Button, Collapse, Table, TableHead, 
     TableRow, TableCell, TableBody, TableFooter, Paper, Tooltip, Dialog, 
@@ -13,8 +13,23 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
-import RecurringBlockerBadge from './RecurringBlockerBadge';
 import { approveSegmentsRollup } from '../../services/mrmService';
+
+const toDisplayName = (name) => String(name || '')
+    .toLowerCase()
+    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+
+const toBlockerLabel = (raw) => {
+    const text = String(raw || '').trim();
+    if (!text) return 'Active blocker reported';
+    const issues = text.split('|').map((part) => {
+        const trimmed = part.trim();
+        const splitAt = trimmed.indexOf(':');
+        const detail = splitAt === -1 ? trimmed : trimmed.slice(splitAt + 1).trim();
+        return detail || trimmed;
+    }).filter(Boolean);
+    return issues.join(' · ') || 'Active blocker reported';
+};
 
 /**
  * Section 2: Sub-Team KPI Performance Segments
@@ -39,6 +54,14 @@ const SegmentRollupView = ({
     const [openApproveDialog, setOpenApproveDialog] = useState(false);
     const [approvalSuccess, setApprovalSuccess] = useState('');
     const [toastMessage, setToastMessage] = useState('');
+    const [hideBlockerTip, setHideBlockerTip] = useState(false);
+    const blockerScrollTimer = useRef(null);
+
+    const pauseBlockerTips = () => {
+        setHideBlockerTip(true);
+        clearTimeout(blockerScrollTimer.current);
+        blockerScrollTimer.current = setTimeout(() => setHideBlockerTip(false), 300);
+    };
 
     const toggleExpand = (subTeam) => {
         setExpandedSegments(prev => ({
@@ -377,7 +400,6 @@ const SegmentRollupView = ({
                         const isGeneralTeam = segment.sub_team === 'General';
                         const teamDisplayName = isGeneralTeam ? `${department || 'Department'} Team` : `${segment.sub_team} Sub-Team`;
                         const activeBlockerMembers = members.filter(m => m.has_blockers);
-                        const primaryBlocker = activeBlockerMembers[0];
 
                         return (
                             <Paper
@@ -513,24 +535,76 @@ const SegmentRollupView = ({
                                         p: 1.4, 
                                         bgcolor: segment.flags?.has_blockers ? '#fffbeb' : '#f8fafc', 
                                         borderRadius: '8px', 
-                                        border: `1px solid ${segment.flags?.has_blockers ? '#fde68a' : '#e2e8f0'}` 
+                                        border: `1px solid ${segment.flags?.has_blockers ? '#fde68a' : '#e2e8f0'}`,
+                                        minHeight: 0,
+                                        overflow: 'hidden'
                                     }}>
                                         <Typography variant="caption" fontWeight={700} color={segment.flags?.has_blockers ? '#92400e' : '#475569'} sx={{ textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.6 }}>
                                             <ReportProblemOutlinedIcon sx={{ fontSize: 16, color: segment.flags?.has_blockers ? '#b45309' : '#64748b' }} /> Operational Roadblocks
                                         </Typography>
                                         {segment.flags?.has_blockers ? (
-                                            <Box>
-                                                <Typography variant="body2" fontWeight={700} color="#92400e" fontSize="12px" lineHeight={1.3}>
-                                                    "{primaryBlocker?.blockers_summary || 'Active blocker reported'}"
-                                                </Typography>
-                                                <Box display="flex" alignItems="center" gap={1} mt={0.8} flexWrap="wrap">
-                                                    {primaryBlocker?.blockers_recurrence_key && (
-                                                        <RecurringBlockerBadge blocker={primaryBlocker.blockers_summary} consecutiveCount={2} />
-                                                    )}
-                                                    <Typography variant="caption" color="#78350f" fontSize="11px">
-                                                        By: {activeBlockerMembers.map(m => m.name).join(', ')}
+                                            <Box
+                                                display="flex"
+                                                flexDirection="column"
+                                                mt={0.2}
+                                                onScroll={pauseBlockerTips}
+                                                sx={{
+                                                    maxHeight: 120,
+                                                    overflowX: 'hidden',
+                                                    overflowY: 'auto',
+                                                    pr: 0.5,
+                                                    scrollbarWidth: 'thin',
+                                                    scrollbarColor: '#d6d3d1 transparent',
+                                                    '&::-webkit-scrollbar': { width: 8 },
+                                                    '&::-webkit-scrollbar-track': { background: 'transparent' },
+                                                    '&::-webkit-scrollbar-thumb': {
+                                                        backgroundColor: '#d6d3d1',
+                                                        borderRadius: 8,
+                                                        border: '2px solid transparent',
+                                                        backgroundClip: 'padding-box'
+                                                    },
+                                                    '&::-webkit-scrollbar-thumb:hover': { backgroundColor: '#a8a29e' }
+                                                }}
+                                            >
+                                                {activeBlockerMembers.length > 0 ? activeBlockerMembers.map((m) => {
+                                                    const issueLabel = toBlockerLabel(m.blockers_summary);
+                                                    return (
+                                                        <Box
+                                                            key={m.userId || m.name}
+                                                            display="flex"
+                                                            alignItems="center"
+                                                            gap={1}
+                                                            sx={{
+                                                                minHeight: 28,
+                                                                minWidth: 0,
+                                                                flexShrink: 0,
+                                                                overflow: 'hidden',
+                                                                borderTop: '1px solid #fde68a',
+                                                                '&:first-of-type': { borderTop: 'none' },
+                                                                py: 0.45
+                                                            }}
+                                                        >
+                                                            <Tooltip title={toDisplayName(m.name)} arrow placement="top" enterDelay={400} open={hideBlockerTip ? false : undefined}>
+                                                                <Box sx={{ width: '38%', minWidth: 0, overflow: 'hidden' }}>
+                                                                    <Typography noWrap sx={{ fontSize: '12.5px', fontWeight: 650, color: '#44403c', lineHeight: 1.3 }}>
+                                                                        {toDisplayName(m.name)}
+                                                                    </Typography>
+                                                                </Box>
+                                                            </Tooltip>
+                                                            <Tooltip title={m.blockers_summary || issueLabel} arrow placement="top" enterDelay={400} open={hideBlockerTip ? false : undefined}>
+                                                                <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                                                                    <Typography noWrap sx={{ fontSize: '12.5px', fontWeight: 500, color: '#78716c', lineHeight: 1.3 }}>
+                                                                        {issueLabel}
+                                                                    </Typography>
+                                                                </Box>
+                                                            </Tooltip>
+                                                        </Box>
+                                                    );
+                                                }) : (
+                                                    <Typography variant="body2" fontWeight={700} color="#92400e" fontSize="12px">
+                                                        Active blocker reported
                                                     </Typography>
-                                                </Box>
+                                                )}
                                             </Box>
                                         ) : (
                                             <Box display="flex" alignItems="center" gap={0.8} mt={0.5}>
@@ -768,14 +842,9 @@ const SegmentRollupView = ({
                                                         {/* Blockers */}
                                                         <TableCell sx={{ py: 1.2, maxWidth: 220 }}>
                                                             {m.has_blockers ? (
-                                                                <Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
-                                                                    <Typography variant="caption" color="#b91c1c" fontWeight={600} fontSize="11px">
-                                                                        {m.blockers_summary}
-                                                                    </Typography>
-                                                                    {m.blockers_recurrence_key && (
-                                                                        <RecurringBlockerBadge blocker={m.blockers_summary} consecutiveCount={2} />
-                                                                    )}
-                                                                </Box>
+                                                                <Typography variant="caption" color="#b91c1c" fontWeight={600} fontSize="11px">
+                                                                    {m.blockers_summary}
+                                                                </Typography>
                                                             ) : (
                                                                 <Typography variant="caption" color="#64748b">
                                                                     — None

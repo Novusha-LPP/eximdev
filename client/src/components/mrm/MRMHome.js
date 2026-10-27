@@ -46,6 +46,129 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import MemberWeightConfigModal from './MemberWeightConfigModal';
 import '../../styles/mrm.scss';
 
+const renderUserDropdownInput = (params) => {
+    const label = String(params.inputProps?.value || '').trim();
+    return (
+        <TextField
+            {...params}
+            variant="standard"
+            placeholder="Select..."
+            InputProps={{
+                ...params.InputProps,
+                disableUnderline: true,
+                startAdornment: label ? (
+                    <span className="user-dropdown-label">{label}</span>
+                ) : null,
+                onMouseDown: (event) => {
+                    params.InputProps.onMouseDown?.(event);
+                    if (event.defaultPrevented) return;
+                    if (event.target.closest?.('.MuiAutocomplete-endAdornment')) return;
+                    const input = event.currentTarget.querySelector('input');
+                    if (input && document.activeElement !== input) {
+                        event.preventDefault();
+                        input.focus();
+                    }
+                },
+            }}
+        />
+    );
+};
+
+const userDropdownSx = {
+    width: '100%',
+    '& .MuiFormControl-root': { width: '100%' },
+    '& .MuiInputBase-root': {
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        boxSizing: 'border-box',
+        padding: '3px 2px 3px 8px !important',
+        minHeight: '32px',
+        borderRadius: '6px',
+        background: '#f8fafc',
+        border: '1px solid #e2e8f0',
+        color: '#0f172a',
+    },
+    '& .MuiInputBase-root.Mui-focused': {
+        background: '#ffffff',
+        borderColor: '#86efac',
+        boxShadow: '0 0 0 2px rgba(16, 185, 129, 0.15)',
+    },
+    '& .user-dropdown-label': {
+        flex: '1 1 auto',
+        minWidth: 0,
+        fontSize: '0.75rem',
+        lineHeight: 1.35,
+        fontWeight: 400,
+        textTransform: 'uppercase',
+        whiteSpace: 'normal',
+        wordBreak: 'break-word',
+        color: '#0f172a',
+        padding: '2px 0',
+    },
+    '& .MuiAutocomplete-input': {
+        flex: '1 1 auto',
+        width: '100% !important',
+        minWidth: '0 !important',
+        padding: '2px 0 !important',
+        fontSize: '0.75rem !important',
+        lineHeight: '1.35 !important',
+        color: '#0f172a !important',
+        textTransform: 'uppercase',
+    },
+    '& .user-dropdown-label + .MuiAutocomplete-input': {
+        position: 'absolute',
+        width: '1px !important',
+        minWidth: '0 !important',
+        height: '1px',
+        padding: '0 !important',
+        margin: 0,
+        opacity: 0,
+        overflow: 'hidden',
+    },
+    '& .Mui-focused .user-dropdown-label': { display: 'none' },
+    '& .Mui-focused .MuiAutocomplete-input': {
+        position: 'static',
+        width: '100% !important',
+        height: 'auto',
+        opacity: '1 !important',
+        overflow: 'visible',
+        pointerEvents: 'auto',
+    },
+    '& .MuiAutocomplete-endAdornment': {
+        position: 'static !important',
+        transform: 'none !important',
+        top: 'auto !important',
+        right: 'auto !important',
+        display: 'inline-flex',
+        alignItems: 'center',
+        alignSelf: 'center',
+        flex: '0 0 auto',
+        marginLeft: '2px',
+    },
+    '& .MuiAutocomplete-popupIndicator, & .MuiAutocomplete-clearIndicator': { padding: '2px' },
+    '& .MuiSvgIcon-root': { fontSize: '1rem', color: '#64748b' },
+};
+
+const userDropdownSlotProps = {
+    paper: {
+        sx: {
+            minWidth: '220px',
+            '& .MuiAutocomplete-option': {
+                fontSize: '0.75rem',
+                minHeight: '32px',
+                paddingTop: '6px',
+                paddingBottom: '6px',
+                textTransform: 'uppercase',
+                fontWeight: 400,
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
+                lineHeight: 1.35,
+            },
+        },
+    },
+};
+
 const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDeleteDialog, handleInsertItem, autoResizeTextarea, mrmUsers, isLocked, openBaselineDialog, handleStatusChange, hasTileAnomaly, canReorder = true }) => {
     const controls = useDragControls();
     const rowRef = useRef(null);
@@ -292,14 +415,35 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                     <option value="Year">Year</option>
                 </select>
             </td>
-            <td onClick={e => !isLocked && e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: isLocked ? 'default' : 'text' }}>
-                <textarea
-                    value={item.responsibility || ''}
-                    onChange={e => handleFieldChange(item._id, 'responsibility', e.target.value, e)}
-                    onFocus={autoResizeTextarea}
-                    onInput={autoResizeTextarea}
+            <td style={{ cursor: isLocked ? 'default' : 'pointer' }}>
+                <Autocomplete
+                    size="small"
                     disabled={isLocked}
-                    rows={1}
+                    forcePopupIcon
+                    openOnFocus
+                    options={
+                        item.responsibility && !mrmUsers.some(u => u.username === item.responsibility)
+                            ? [{ username: item.responsibility, first_name: item.responsibility, last_name: '' }, ...mrmUsers]
+                            : mrmUsers
+                    }
+                    getOptionLabel={(option) => {
+                        if (!option) return '';
+                        if (typeof option === 'string') return option;
+                        return `${option.first_name || ''} ${option.last_name || ''}`.trim() || option.username || '';
+                    }}
+                    isOptionEqualToValue={(option, value) => option?.username === value?.username}
+                    value={
+                        mrmUsers.find(u => u.username === item.responsibility)
+                        || (item.responsibility
+                            ? { username: item.responsibility, first_name: item.responsibility, last_name: '' }
+                            : null)
+                    }
+                    onChange={(e, newValue) => {
+                        handleFieldChange(item._id, 'responsibility', newValue?.username || '');
+                    }}
+                    slotProps={userDropdownSlotProps}
+                    renderInput={renderUserDropdownInput}
+                    sx={userDropdownSx}
                 />
             </td>
             <td onClick={e => !isLocked && e.currentTarget.querySelector('textarea')?.focus()} style={{ cursor: isLocked ? 'default' : 'text' }}>
@@ -336,6 +480,8 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                 <Autocomplete
                     size="small"
                     disabled={isLocked}
+                    forcePopupIcon
+                    openOnFocus
                     options={mrmUsers}
                     getOptionLabel={(option) => {
                         if (typeof option === 'string') return option;
@@ -352,23 +498,9 @@ const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDelete
                         }
                     }}
                     freeSolo
-                    renderInput={(params) => (
-                        <TextField
-                            {...params}
-                            variant="standard"
-                            placeholder="Select..."
-                            InputProps={{
-                                ...params.InputProps,
-                                disableUnderline: true,
-                                style: { fontSize: '0.8rem', padding: '2px 4px' }
-                            }}
-                        />
-                    )}
-                    sx={{
-                        width: '100%',
-                        '& .MuiAutocomplete-input': { padding: '2px 4px !important', fontSize: '0.75rem' },
-                        '& .MuiInputBase-root': { padding: '0 !important' }
-                    }}
+                    slotProps={userDropdownSlotProps}
+                    renderInput={renderUserDropdownInput}
+                    sx={userDropdownSx}
                 />
             </td>
             <td onClick={e => !isLocked && e.currentTarget.querySelector('input')?.focus()} style={{ cursor: isLocked ? 'default' : 'pointer' }}>
@@ -1015,6 +1147,8 @@ const MRMHome = () => {
         try {
             const targetUserId = selectedUserId || user?._id;
             const monthStr = String(selectedMonth).padStart(2, '0');
+            const presenterUser = mrmUsers.find(u => String(u._id) === String(targetUserId)) || user;
+            const presetResponsibility = presenterUser?.username || '';
 
             // 1. Create Tile Header Row
             const tileData = {
@@ -1038,7 +1172,7 @@ const MRMHome = () => {
                     actual: '',
                     optimizationDirection: 'Higher',
                     toleranceBand: 5,
-                    responsibility: user?.first_name || 'HOD',
+                    responsibility: presetResponsibility,
                     monitoringFrequency: 'Month'
                 },
                 {
@@ -1049,7 +1183,7 @@ const MRMHome = () => {
                     actual: '',
                     optimizationDirection: 'Lower',
                     toleranceBand: 10,
-                    responsibility: user?.first_name || 'HOD',
+                    responsibility: presetResponsibility,
                     monitoringFrequency: 'Month'
                 },
                 {
@@ -1060,7 +1194,7 @@ const MRMHome = () => {
                     actual: '',
                     optimizationDirection: 'Higher',
                     toleranceBand: 5,
-                    responsibility: user?.first_name || 'HOD',
+                    responsibility: presetResponsibility,
                     monitoringFrequency: 'Month'
                 },
                 {
@@ -1071,7 +1205,7 @@ const MRMHome = () => {
                     actual: '',
                     optimizationDirection: 'Lower',
                     toleranceBand: 0,
-                    responsibility: user?.first_name || 'HOD',
+                    responsibility: presetResponsibility,
                     monitoringFrequency: 'Month'
                 }
             ];
@@ -2602,11 +2736,11 @@ const MRMHome = () => {
                                                     <th style={{ width: '320px', minWidth: '280px' }}>Objective</th>
                                                     <th style={{ width: '120px', minWidth: '110px' }}>Target</th>
                                                     <th style={{ width: '95px', minWidth: '90px' }}>Freq.</th>
-                                                    <th style={{ width: '110px', minWidth: '100px' }}>Resp.</th>
+                                                    <th style={{ width: '168px', minWidth: '168px' }}>Resp.</th>
                                                     <th style={{ width: '85px', minWidth: '80px' }}>Act.</th>
                                                     <th style={{ width: '85px', minWidth: '80px' }}>Plan</th>
                                                     <th style={{ width: '340px', minWidth: '300px' }}>Action Plan</th>
-                                                    <th style={{ width: '160px', minWidth: '150px' }}>Act. Resp.</th>
+                                                    <th style={{ width: '168px', minWidth: '168px' }}>Act. Resp.</th>
                                                     <th style={{ width: '135px', minWidth: '130px' }}>Target Date</th>
                                                     <th style={{ width: '120px', minWidth: '110px' }}>Status</th>
                                                     <th style={{ width: '300px', minWidth: '260px' }}>Remarks</th>
@@ -2715,11 +2849,11 @@ const MRMHome = () => {
                                             <th style={{ width: '320px', minWidth: '280px' }} title="Objective">Objective</th>
                                             <th style={{ width: '120px', minWidth: '110px' }} title="Target">Target</th>
                                             <th style={{ width: '95px', minWidth: '90px' }} title="Monitoring Frequency">Monitoring<br />Freq.</th>
-                                            <th style={{ width: '110px', minWidth: '100px' }} title="Responsibility">Resp.</th>
+                                            <th style={{ width: '168px', minWidth: '168px' }} title="Responsibility">Resp.</th>
                                             <th style={{ width: '85px', minWidth: '80px' }} title={`Actual (${prevMonthName} ${prevYearVal})`}>Act.<br />({prevMonthName.substring(0, 3)}-{getYearShort(prevYearVal)})</th>
                                             <th style={{ width: '85px', minWidth: '80px' }} title={`Plan (${currentMonthName} ${selectedYear})`}>Plan<br />({currentMonthName.substring(0, 3)}-{getYearShort(selectedYear)})</th>
                                             <th style={{ width: '340px', minWidth: '300px' }} title="Action Plan">Action<br />Plan</th>
-                                            <th style={{ width: '160px', minWidth: '150px' }} title="Action Responsibility">Act.<br />Resp.</th>
+                                            <th style={{ width: '168px', minWidth: '168px' }} title="Action Responsibility">Act.<br />Resp.</th>
                                             <th style={{ width: '135px', minWidth: '130px' }} title="Target Date">Target<br />Date</th>
                                             <th style={{ width: '120px', minWidth: '110px' }} title="Status">Status</th>
                                             <th style={{ width: '300px', minWidth: '260px' }} title="Remarks">Remarks</th>

@@ -55,6 +55,7 @@ import {
   FilterList,
   RestartAlt,
   CalendarMonth,
+  Inventory,
 } from "@mui/icons-material";
 import { toast } from "react-hot-toast";
 import PoLandscapePdfGenerator from "./PoLandscapePdfGenerator";
@@ -108,6 +109,89 @@ const stageTabsList = [
   { label: "5. Order & Dispatch", value: "5" },
   { label: "6. Site GRN", value: "6" },
   { label: "7. Completed", value: "7" },
+];
+
+const stageMetricsConfig = [
+  {
+    value: "0",
+    label: "All PRs",
+    shortLabel: "Total PRs",
+    fullLabel: "All PRs",
+    color: "#2563eb",
+    bgLight: "rgba(37, 99, 235, 0.1)",
+    bgGradient: "linear-gradient(135deg, #ffffff 0%, #eff6ff 100%)",
+    icon: Assignment,
+  },
+  {
+    value: "1",
+    label: "1. Purchase Request",
+    shortLabel: "1. Purchase Req",
+    fullLabel: "1. Purchase Request",
+    color: "#4f46e5",
+    bgLight: "rgba(79, 70, 229, 0.1)",
+    bgGradient: "linear-gradient(135deg, #ffffff 0%, #eef2ff 100%)",
+    icon: Description,
+  },
+  {
+    value: "2",
+    label: "2. Supplier Quotation",
+    shortLabel: "2. Supplier Quote",
+    fullLabel: "2. Supplier Quotation",
+    color: "#d97706",
+    bgLight: "rgba(217, 119, 6, 0.1)",
+    bgGradient: "linear-gradient(135deg, #ffffff 0%, #fffbe6 100%)",
+    icon: MonetizationOn,
+  },
+  {
+    value: "3",
+    label: "3. Finance Approval",
+    shortLabel: "3. Finance Appr",
+    fullLabel: "3. Finance Approval",
+    color: "#7c3aed",
+    bgLight: "rgba(124, 58, 237, 0.1)",
+    bgGradient: "linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%)",
+    icon: AssignmentTurnedIn,
+  },
+  {
+    value: "4",
+    label: "4. Payment & UTR",
+    shortLabel: "4. Payment & UTR",
+    fullLabel: "4. Payment & UTR",
+    color: "#dc2626",
+    bgLight: "rgba(220, 38, 38, 0.1)",
+    bgGradient: "linear-gradient(135deg, #ffffff 0%, #fef2f2 100%)",
+    icon: ReceiptLong,
+  },
+  {
+    value: "5",
+    label: "5. Order & Dispatch",
+    shortLabel: "5. Order & Disp",
+    fullLabel: "5. Order & Dispatch",
+    color: "#0284c7",
+    bgLight: "rgba(2, 132, 199, 0.1)",
+    bgGradient: "linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)",
+    icon: LocalShipping,
+  },
+  {
+    value: "6",
+    label: "6. Site GRN",
+    shortLabel: "6. Site GRN",
+    fullLabel: "6. Site GRN",
+    color: "#ea580c",
+    bgLight: "rgba(234, 88, 12, 0.1)",
+    bgGradient: "linear-gradient(135deg, #ffffff 0%, #fff7ed 100%)",
+    icon: Inventory,
+  },
+  {
+    value: "7",
+    label: "7. Completed",
+    shortLabel: "7. Completed",
+    fullLabel: "7. Completed",
+    color: "#16a34a",
+    bgLight: "rgba(22, 163, 74, 0.1)",
+    bgGradient: "linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)",
+    icon: CheckCircle,
+  },
 ];
 
 const parseCreditDays = (terms) => {
@@ -967,12 +1051,6 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
     setPage(0);
   };
 
-  // Compute status metrics for visual KPI bar
-  const totalCount = total;
-  const pendingQuotationCount = data.filter((d) => d.status === "PR Raised" || d.status === "Preparing for Quotation").length;
-  const paymentDoneCount = data.filter((d) => d.status === "Payment Done" || d.status === "Order Placed").length;
-  const grnCompletedCount = data.filter((d) => d.status === "GRN Done" || d.status === "Closed").length;
-
   const getStatusChipProps = (status, row) => {
     const ci = row?.creditInfo || (row ? getPrCreditInfo(row) : null);
     if (stageTab === "4" && ci?.isCredit && !ci?.isPaid) {
@@ -1082,113 +1160,133 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
 
   return (
     <Box sx={{ width: "100%" }}>
-      {/* Top Operational Metrics Header Cards */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 1.8,
-              borderRadius: "8px",
-              border: "1px solid #e2e8f0",
-              background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
-              display: "flex",
-              alignItems: "center",
-              gap: 2,
-            }}
-          >
-            <Avatar sx={{ bgcolor: "rgba(37, 99, 235, 0.1)", color: "#2563eb", width: 44, height: 44 }}>
-              <Assignment sx={{ fontSize: 22 }} />
-            </Avatar>
-            <Box>
-              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Total PRs
-              </Typography>
-              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
-                {totalCount}
-              </Typography>
-            </Box>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 1.8,
-              borderRadius: "8px",
-              border: "1px solid #e2e8f0",
-              background: "linear-gradient(135deg, #ffffff 0%, #fffbe6 100%)",
-              display: "flex",
-              alignItems: "center",
-              gap: 2,
-            }}
-          >
-            <Avatar sx={{ bgcolor: "rgba(217, 119, 6, 0.1)", color: "#d97706", width: 44, height: 44 }}>
-              <MonetizationOn sx={{ fontSize: 22 }} />
-            </Avatar>
-            <Box>
-              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                In Quotation / Review
-              </Typography>
-              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
-                {pendingQuotationCount}
-              </Typography>
-            </Box>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 1.8,
-              borderRadius: "8px",
-              border: "1px solid #e2e8f0",
-              background: "linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)",
-              display: "flex",
-              alignItems: "center",
-              gap: 2,
-            }}
-          >
-            <Avatar sx={{ bgcolor: "rgba(2, 132, 199, 0.1)", color: "#0284c7", width: 44, height: 44 }}>
-              <LocalShipping sx={{ fontSize: 22 }} />
-            </Avatar>
-            <Box>
-              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Payment & Order Active
-              </Typography>
-              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
-                {paymentDoneCount}
-              </Typography>
-            </Box>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 1.8,
-              borderRadius: "8px",
-              border: "1px solid #e2e8f0",
-              background: "linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)",
-              display: "flex",
-              alignItems: "center",
-              gap: 2,
-            }}
-          >
-            <Avatar sx={{ bgcolor: "rgba(22, 163, 74, 0.1)", color: "#16a34a", width: 44, height: 44 }}>
-              <CheckCircle sx={{ fontSize: 22 }} />
-            </Avatar>
-            <Box>
-              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                GRN Completed
-              </Typography>
-              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
-                {grnCompletedCount}
-              </Typography>
-            </Box>
-          </Paper>
-        </Grid>
-      </Grid>
+      {/* Top Operational Metrics Header Cards - Compact Stage KPI Grid */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "repeat(2, 1fr)",
+            sm: "repeat(4, 1fr)",
+            md: "repeat(4, 1fr)",
+            lg: "repeat(8, 1fr)",
+          },
+          gap: 1,
+          mb: 1.8,
+        }}
+      >
+        {stageMetricsConfig.map((item) => {
+          if (!isTabVisible(item.fullLabel, item.value)) return null;
+          const count =
+            item.value === "0"
+              ? allRecords.length > 0
+                ? allRecords.length
+                : total || data.length
+              : getTabCount(item.value);
+          const isSelected = stageTab === item.value;
+          const IconComponent = item.icon;
+
+          return (
+            <Tooltip
+              key={item.value}
+              title={`${item.fullLabel}: ${count} PR(s) — Click to view`}
+              placement="top"
+              arrow
+            >
+              <Paper
+                elevation={0}
+                onClick={() => {
+                  setStageTab(item.value);
+                  setPage(0);
+                }}
+                sx={{
+                  py: 0.8,
+                  px: 1.1,
+                  borderRadius: "8px",
+                  border: "1px solid",
+                  borderColor: isSelected ? item.color : "#e2e8f0",
+                  background: isSelected
+                    ? item.bgGradient
+                    : "linear-gradient(135deg, #ffffff 0%, #fcfcfd 100%)",
+                  boxShadow: isSelected
+                    ? `0 2px 8px ${item.color}25`
+                    : "0 1px 2px rgba(0,0,0,0.02)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  cursor: "pointer",
+                  transition: "all 0.18s ease-in-out",
+                  position: "relative",
+                  overflow: "hidden",
+                  minHeight: 48,
+                  "&:hover": {
+                    borderColor: item.color,
+                    transform: "translateY(-1px)",
+                    boxShadow: "0 3px 10px rgba(0,0,0,0.06)",
+                    "& .metric-avatar": {
+                      transform: "scale(1.06)",
+                    },
+                  },
+                  "&::after": isSelected
+                    ? {
+                        content: '""',
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: "2.5px",
+                        backgroundColor: item.color,
+                        borderRadius: "0 0 8px 8px",
+                      }
+                    : {},
+                }}
+              >
+                <Avatar
+                  className="metric-avatar"
+                  sx={{
+                    bgcolor: item.bgLight,
+                    color: item.color,
+                    width: 30,
+                    height: 30,
+                    borderRadius: "6px",
+                    transition: "transform 0.18s ease",
+                    flexShrink: 0,
+                  }}
+                >
+                  <IconComponent sx={{ fontSize: 17 }} />
+                </Avatar>
+                <Box sx={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
+                  <Typography
+                    sx={{
+                      color: isSelected ? item.color : "#64748b",
+                      fontWeight: 700,
+                      fontSize: "9.5px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.3px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      lineHeight: 1.15,
+                    }}
+                  >
+                    {item.shortLabel}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontWeight: 800,
+                      color: isSelected ? item.color : "#0f172a",
+                      fontSize: "17px",
+                      lineHeight: 1.1,
+                      mt: 0.2,
+                    }}
+                  >
+                    {count}
+                  </Typography>
+                </Box>
+              </Paper>
+            </Tooltip>
+          );
+        })}
+      </Box>
 
       {/* Main Surface Card */}
       <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: "8px", border: "1px solid #e2e8f0" }}>

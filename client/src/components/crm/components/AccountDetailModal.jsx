@@ -6,7 +6,7 @@ import {
   IndianRupee, Activity, Building, Copy, Check, FileText
 } from 'lucide-react';
 import ActivityTimeline from './ActivityTimeline';
-import QuoteFormModal from './QuoteFormModal';
+import QuoteFormModal, { formatAddressObj } from './QuoteFormModal';
 import PricingRequestFormModal from './PricingRequestFormModal';
 
 const SkeletonRow = () => (
@@ -824,8 +824,12 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
         onClose={() => setIsQuoteModalOpen(false)}
         initialTitle={`${account.name} - Rate Proposal`}
         initialAccountId={account._id}
+        initialCompany={account.name}
         initialContactId={contacts?.[0]?._id || ''}
         initialOpportunityId={opportunities?.[0]?._id || ''}
+        initialBillToAddress={formatAddressObj(account.billingAddress) || account.address || ''}
+        initialShipToAddress={formatAddressObj(account.shippingAddress) || formatAddressObj(account.billingAddress) || account.address || ''}
+        initialPlaceOfSupply={account.gstDetails?.placeOfSupply || ''}
         onRefresh={onRefresh}
       />
       <PricingRequestFormModal

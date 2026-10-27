@@ -419,6 +419,16 @@ router.put('/:id', async (req, res) => {
     if (req.body.garudaTeamMemberName !== undefined && updatedLead.convertedTo?.opportunityId) {
       await Opportunity.findByIdAndUpdate(updatedLead.convertedTo.opportunityId, { garudaTeamMemberName: req.body.garudaTeamMemberName });
     }
+    const targetAccountId = updatedLead.convertedTo?.accountId || (await Account.findOne({ name: updatedLead.company }).select('_id'))?._id;
+    if (targetAccountId) {
+      const accUpdates = {};
+      if (req.body.billingAddress !== undefined) accUpdates.billingAddress = req.body.billingAddress;
+      if (req.body.shippingAddress !== undefined) accUpdates.shippingAddress = req.body.shippingAddress;
+      if (req.body.gstDetails !== undefined) accUpdates.gstDetails = req.body.gstDetails;
+      if (Object.keys(accUpdates).length > 0) {
+        await Account.findByIdAndUpdate(targetAccountId, accUpdates);
+      }
+    }
     res.json(updatedLead);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -618,6 +628,162 @@ router.post('/:id/convert', async (req, res) => {
       message: error.message || 'Failed to convert lead',
       code: 'CONVERSION_FAILED'
     });
+  }
+});
+
+// POST /api/crm/leads/:id/duplicate-to-pipeline
+// Duplicates the deal directly into the sales pipeline without creating a duplicate lead
+router.post('/:id/duplicate-to-pipeline', async (req, res) => {
+  try {
+    const lead = await Lead.findById(req.params.id);
+    if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
+
+    const userId = req.user?._id || req.user?.id || req.headers['user-id'];
+    const { name, service, services, value, expectedCloseDate, stage } = req.body;
+    const dealServices = services || (service ? [service] : (lead.interestedServices || []));
+
+    // If lead is not yet converted, convert it first to establish Account + Contact + Opportunity
+    if (lead.status !== 'converted') {
+      // 1. Create Account
+      const account = new Account({
+        name: lead.company,
+        ownerId: lead.ownerId,
+        businessVertical: lead.businessVertical,
+        billingAddress: lead.billingAddress,
+        shippingAddress: lead.shippingAddress,
+        gstDetails: lead.gstDetails
+      });
+      await account.save();
+
+      // 2. Create Contact
+      const contact = new Contact({
+        accountId: account._id,
+        ownerId: lead.ownerId,
+        firstName: lead.firstName,
+        lastName: lead.lastName,
+        email: lead.email,
+        phone: lead.phone,
+        isPrimary: true,
+        convertedFromLead: lead._id,
+        businessVertical: lead.businessVertical
+      });
+      await contact.save();
+
+      // 3. Create Opportunity in pipeline
+      const oppOwnerId = lead.ownerId || userId;
+      let bv = lead.businessVertical || 'Paramount';
+
+      const opportunity = new Opportunity({
+        accountId: account._id,
+        primaryContactId: contact._id,
+        name: name || `${lead.company} - Deal`,
+        stage: stage || 'lead',
+        services: dealServices,
+        value: value !== undefined ? Number(value) : (Number(lead.monthlyRevenue) || 0),
+        expectedCloseDate: expectedCloseDate ? new Date(expectedCloseDate) : undefined,
+        ownerId: oppOwnerId,
+        createdBy: userId,
+        convertedFromLead: lead._id,
+        location: lead.location,
+        hsnCode: lead.hsnCode,
+        lastActivityAt: new Date(),
+        probability: 10,
+        stageHistory: [{ stage: stage || 'lead', enteredAt: new Date() }],
+        source: lead.source,
+        crateSize: lead.crateSize,
+        shipper: lead.shipper,
+        stuffing: lead.stuffing,
+        shippingLine: lead.shippingLine,
+        shipmentType: lead.shipmentType,
+        pol: lead.pol,
+        pod: lead.pod,
+        containerType: lead.containerType,
+        containerWeight: lead.containerWeight,
+        containerVolume: lead.containerVolume,
+        paymentTerm: lead.paymentTerm,
+        detentionFreeDays: lead.detentionFreeDays,
+        transitTime: lead.transitTime,
+        currentFreightIndications: lead.currentFreightIndications,
+        referralSourceName: lead.referralSourceName,
+        monthlyVolume: lead.monthlyVolume,
+        monthlyRevenue: lead.monthlyRevenue,
+        companyType: lead.companyType,
+        garudaTeamMemberName: lead.garudaTeamMemberName,
+        businessVertical: bv
+      });
+      await opportunity.save();
+
+      // Mark lead as converted
+      lead.status = 'converted';
+      lead.convertedAt = new Date();
+      lead.convertedTo = {
+        accountId: account._id,
+        contactId: contact._id,
+        opportunityId: opportunity._id
+      };
+      await lead.save();
+
+      return res.status(201).json({
+        success: true,
+        message: 'Lead converted and deal added to pipeline successfully!',
+        data: { lead, opportunity }
+      });
+    }
+
+    // Lead is already converted: duplicate into pipeline for the existing account
+    let targetAccountId = lead.convertedTo?.accountId;
+    let targetContactId = lead.convertedTo?.contactId;
+    let existingOpp = null;
+
+    if (lead.convertedTo?.opportunityId) {
+      existingOpp = await Opportunity.findById(lead.convertedTo.opportunityId);
+    }
+    if (!existingOpp) {
+      existingOpp = await Opportunity.findOne({ convertedFromLead: lead._id });
+    }
+
+    if (existingOpp) {
+      if (!targetAccountId) targetAccountId = existingOpp.accountId;
+      if (!targetContactId) targetContactId = existingOpp.primaryContactId;
+    }
+
+    if (!targetAccountId) {
+      const acc = await Account.findOne({ name: lead.company });
+      if (acc) targetAccountId = acc._id;
+    }
+
+    const oppOwnerId = existingOpp?.ownerId || lead.ownerId || userId;
+
+    const duplicatedDeal = new Opportunity({
+      accountId: targetAccountId,
+      primaryContactId: targetContactId,
+      ownerId: oppOwnerId,
+      createdBy: userId,
+      name: name || `${lead.company} - Deal (${dealServices[0] || 'Copy'})`,
+      value: value !== undefined ? Number(value) : (existingOpp?.value || Number(lead.monthlyRevenue) || 0),
+      stage: stage || 'lead',
+      services: dealServices,
+      expectedCloseDate: expectedCloseDate ? new Date(expectedCloseDate) : (existingOpp?.expectedCloseDate || undefined),
+      probability: 10,
+      source: existingOpp?.source || lead.source,
+      convertedFromLead: lead._id,
+      location: existingOpp?.location || lead.location,
+      hsnCode: existingOpp?.hsnCode || lead.hsnCode,
+      businessVertical: existingOpp?.businessVertical || lead.businessVertical || 'Paramount',
+      lastActivityAt: new Date(),
+      stageHistory: [{ stage: stage || 'lead', enteredAt: new Date() }]
+    });
+
+    await duplicatedDeal.save();
+
+    return res.status(201).json({
+      success: true,
+      message: 'Deal duplicated into pipeline successfully!',
+      data: { opportunity: duplicatedDeal }
+    });
+  } catch (error) {
+    console.error('Error duplicating lead to pipeline:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Failed to duplicate to pipeline' });
   }
 });
 

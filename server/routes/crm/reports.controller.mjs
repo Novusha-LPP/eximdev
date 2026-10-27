@@ -1156,43 +1156,82 @@ router.get('/stagnation', async (req, res) => {
     // We will query for any leads/deals that have no activity for at least the MINIMUM stagnant days across all users (or just use 1 day as a baseline to pull potential candidates, then filter exactly in JS).
     const baselineDaysAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000); // Pulling all records idle for at least 1 day
 
-    // Stagnant Leads (must be idle for both lastActivityAt and updatedAt)
+    // Stagnant Leads: Only leads which are converted should be considered
     const leadQuery = {
       ...query,
-      status: { $nin: ['converted', 'lost', 'rejected', 'cancelled'] },
-      updatedAt: { $lt: baselineDaysAgo },
-      $or: [
-        { lastActivityAt: { $exists: false } },
-        { lastActivityAt: { $lt: baselineDaysAgo } }
-      ]
+      status: 'converted'
     };
 
     const stagnantLeadsRaw = await Lead.find(leadQuery)
       .populate('ownerId', 'username first_name last_name email')
+      .populate('convertedTo.opportunityId')
       .sort({ updatedAt: 1 })
       .lean();
 
     const stagnantLeads = [];
-    stagnantLeadsRaw.forEach(lead => {
-      const lastActivityTime = lead.lastActivityAt ? new Date(lead.lastActivityAt).getTime() : 0;
-      const updatedTime = lead.updatedAt ? new Date(lead.updatedAt).getTime() : 0;
-      const mostRecentTime = Math.max(lastActivityTime, updatedTime);
-      if (!mostRecentTime) return;
+    const stagnantLeadOppIds = new Set();
+
+    for (const lead of stagnantLeadsRaw) {
+      let opp = lead.convertedTo?.opportunityId;
+      if (!opp || typeof opp !== 'object') {
+        opp = await Opportunity.findOne({
+          convertedFromLead: lead._id,
+          stage: { $nin: ['won', 'lost'] }
+        }).lean();
+      } else if (['won', 'lost'].includes(opp.stage)) {
+        continue;
+      }
+
+      if (!opp) continue;
+
+      let mostRecentTime = Math.max(
+        opp.lastActivityAt ? new Date(opp.lastActivityAt).getTime() : 0,
+        opp.updatedAt ? new Date(opp.updatedAt).getTime() : 0,
+        lead.convertedAt ? new Date(lead.convertedAt).getTime() : 0
+      );
+
+      if (Array.isArray(opp.stageHistory) && opp.stageHistory.length > 0) {
+        const lastStage = opp.stageHistory[opp.stageHistory.length - 1];
+        if (lastStage?.enteredAt) {
+          mostRecentTime = Math.max(mostRecentTime, new Date(lastStage.enteredAt).getTime());
+        }
+      }
+
+      if (Array.isArray(opp.remarks) && opp.remarks.length > 0) {
+        const lastRemark = opp.remarks[opp.remarks.length - 1];
+        if (lastRemark?.createdAt) {
+          mostRecentTime = Math.max(mostRecentTime, new Date(lastRemark.createdAt).getTime());
+        }
+      }
+
+      if (Array.isArray(opp.plannedVisits) && opp.plannedVisits.length > 0) {
+        opp.plannedVisits.forEach(v => {
+          if (v.completedAt) mostRecentTime = Math.max(mostRecentTime, new Date(v.completedAt).getTime());
+          if (v.createdAt) mostRecentTime = Math.max(mostRecentTime, new Date(v.createdAt).getTime());
+        });
+      }
+
+      if (!mostRecentTime) continue;
 
       const daysIdle = Math.floor((Date.now() - mostRecentTime) / (1000 * 60 * 60 * 24));
-      const ownerIdStr = lead.ownerId?._id?.toString() || '';
+      const ownerIdStr = (opp.ownerId?._id || opp.ownerId || lead.ownerId?._id || lead.ownerId)?.toString() || '';
       const threshold = ownerStagnantMap[ownerIdStr] || 2;
-      
+
       if (daysIdle >= threshold) {
+        const oppIdStr = (opp._id || opp.id)?.toString();
+        if (oppIdStr) stagnantLeadOppIds.add(oppIdStr);
+
         stagnantLeads.push({
           ...lead,
           type: 'Lead',
           name: `${lead.firstName || ''} ${lead.lastName || ''} (${lead.company || ''})`.trim(),
           daysIdle,
-          lastActivityDate: new Date(mostRecentTime)
+          lastActivityDate: new Date(mostRecentTime),
+          opportunityId: opp._id,
+          stage: opp.stage
         });
       }
-    });
+    }
 
     // Stagnant Opportunities / Deals (must be idle for both lastActivityAt and updatedAt)
     const oppQuery = {
@@ -1249,6 +1288,8 @@ router.get('/stagnation', async (req, res) => {
       const threshold = ownerStagnantMap[ownerIdStr] || 2;
       
       if (daysIdle >= threshold) {
+        if (stagnantLeadOppIds.has(opp._id.toString())) return;
+
         stagnantDeals.push({
           ...opp,
           type: 'Opportunity',

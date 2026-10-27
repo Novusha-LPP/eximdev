@@ -31,10 +31,7 @@ import {
     DeleteOutlined,
     EditOutlined,
     SearchOutlined,
-    UserAddOutlined,
-    KeyOutlined,
-    AppstoreOutlined,
-    EnvironmentOutlined
+    UserAddOutlined
 } from "@ant-design/icons";
 import { UserContext } from "../../contexts/UserContext";
 import AssignModule from "../home/AssignModule";

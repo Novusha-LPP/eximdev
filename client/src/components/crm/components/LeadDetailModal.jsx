@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Edit2, User, FileText, IndianRupee, Trash2, CheckSquare } from 'lucide-react';
 import ActivityTimeline from './ActivityTimeline';
-import QuoteFormModal from './QuoteFormModal';
+import QuoteFormModal, { formatAddressObj } from './QuoteFormModal';
 import PricingRequestFormModal from './PricingRequestFormModal';
 import TaskFormModal from './TaskFormModal';
 import { formatServiceName } from '../crmConstants';
@@ -377,6 +377,9 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
         initialCompany={lead.company}
         initialEmail={lead.email}
         initialContactName={`${lead.firstName} ${lead.lastName || ''}`.trim()}
+        initialBillToAddress={formatAddressObj(lead.billingAddress)}
+        initialShipToAddress={formatAddressObj(lead.shippingAddress) || formatAddressObj(lead.billingAddress)}
+        initialPlaceOfSupply={lead.gstDetails?.placeOfSupply || ''}
         onRefresh={onRefresh}
       />
       <PricingRequestFormModal

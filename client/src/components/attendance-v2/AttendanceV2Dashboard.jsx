@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FiClock, FiCalendar, FiFileText, FiAlertTriangle, FiCheckCircle,
+  FiClock, FiCalendar, FiFileText, FiAlertTriangle, FiCheckCircle, FiUsers,
   FiRefreshCw, FiAward, FiActivity, FiUserCheck, FiDatabase,
   FiBriefcase, FiLayers, FiShield, FiPlus, FiArrowLeft, FiChevronLeft, FiHome
 } from "react-icons/fi";
@@ -14,6 +14,7 @@ import AttendanceV2Leaves from "./AttendanceV2Leaves";
 import AttendanceV2Corrections from "./AttendanceV2Corrections";
 import AttendanceV2Approvals from "./AttendanceV2Approvals";
 import AttendanceV2IntegrationAdmin from "./AttendanceV2IntegrationAdmin";
+import AttendanceV2Employees from "./AttendanceV2Employees";
 import "./AttendanceV2.css";
 
 const AttendanceV2Dashboard = () => {
@@ -224,6 +225,7 @@ const AttendanceV2Dashboard = () => {
                 {activeTab === "corrections" && "Regularization"}
                 {activeTab === "approvals" && "Approvals Inbox"}
                 {activeTab === "admin" && "Integration Control"}
+                {activeTab === "employees" && "Employee Management"}
               </span>
             </>
           )}
@@ -390,6 +392,16 @@ const AttendanceV2Dashboard = () => {
           </button>
         )}
 
+        {isManagerOrAdmin && (
+          <button
+            className={`att-v2-tab-btn ${activeTab === "employees" ? "active" : ""}`}
+            onClick={() => switchTab("employees")}
+          >
+            <FiUsers size={16} />
+            <span>Employees</span>
+          </button>
+        )}
+
         {isAdmin && (
           <button
             className={`att-v2-tab-btn ${activeTab === "integration" ? "active" : ""}`}
@@ -530,6 +542,11 @@ const AttendanceV2Dashboard = () => {
 
       {/* TAB 5: APPROVALS */}
       {activeTab === "approvals" && isManagerOrAdmin && <AttendanceV2Approvals onBack={handleBack} />}
+
+      {/* TAB: EMPLOYEES DIRECTORY & CONTROL */}
+      {activeTab === "employees" && isManagerOrAdmin && (
+        <AttendanceV2Employees onBack={handleBack} currentUser={user} />
+      )}
 
       {/* TAB 6: ADMIN HRMS INTEGRATION */}
       {activeTab === "integration" && isAdmin && <AttendanceV2IntegrationAdmin onBack={handleBack} />}

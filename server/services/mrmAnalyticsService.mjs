@@ -99,8 +99,8 @@ export const getDepartmentFilterRegex = (dept) => {
     if (/^software(\s+development)?$/i.test(clean)) {
         return /^(software|software\s+development)$/i;
     }
-    if (/^(sales\s*(&|and)?\s*marketing|marketing)$/i.test(clean)) {
-        return /^(sales\s*(&|and)?\s*marketing|marketing)$/i;
+    if (/^(sales\s*(&|and)?\s*marketing|marketing|sales\s+executive)$/i.test(clean)) {
+        return /^(sales\s*(&|and)?\s*marketing|marketing|sales\s+executive)$/i;
     }
     if (/^f[ie]{2}ld$/i.test(clean)) {
         return /^f[ie]{2}ld$/i;

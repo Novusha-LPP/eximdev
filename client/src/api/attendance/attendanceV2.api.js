@@ -218,6 +218,22 @@ const attendanceV2API = {
     const res = await apiClient.get('/attendance/v2/integration/events-log');
     return res.data;
   },
+
+  /**
+   * Mark attendance (PRESENT/ABSENT/HALF_DAY) on behalf of an employee (Admin/HOD)
+   */
+  markAttendanceAdmin: async (payload) => {
+    const res = await apiClient.post('/attendance/v2/admin/mark-attendance', payload);
+    return res.data;
+  },
+
+  /**
+   * Update employee details (department, designation, etc.)
+   */
+  updateEmployee: async (userId, data) => {
+    const res = await apiClient.put(`/attendance/v2/employees/${userId}`, data);
+    return res.data;
+  },
 };
 
 export default attendanceV2API;

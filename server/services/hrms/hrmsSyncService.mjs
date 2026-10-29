@@ -418,6 +418,11 @@ class HrmsSyncService {
    * Start recurring background polling for worker 1.
    */
   startBackgroundSync(intervalMs = 60000) {
+    if (process.env.DISABLE_HRMS_SYNC === 'true') {
+      console.log('⏸️ [HRMS Sync] Background events poller disabled via DISABLE_HRMS_SYNC=true');
+      return;
+    }
+
     if (this.pollIntervalTimer) {
       clearInterval(this.pollIntervalTimer);
     }

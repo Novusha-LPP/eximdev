@@ -43,27 +43,32 @@ const isAuthorizedApprover = (reqUser) => {
 // USER & DASHBOARD OVERVIEW ROUTES
 // ==========================================
 
-// Get users who have MRM module assigned or are presenters/HODs/Admins
+// Get users who have MRM module assigned
 router.get('/api/mrm/users', authMiddleware, async (req, res) => {
     try {
         const trueHods = await getTrueHodUsers();
-        const trueHodIds = trueHods.map(h => h._id);
-        const distinctMetadataUsers = await MRMMetadata.distinct('userId');
         const users = await UserModel.find(
             {
                 isActive: { $ne: false },
                 $or: [
-                    { _id: { $in: trueHodIds } },
                     { modules: 'MRM' },
-                    { role: { $regex: /^(head_of_department|admin|hod)$/i } },
-                    { _id: { $in: distinctMetadataUsers } }
+                    { modules: 'mrm' },
+                    { modules: { $in: ['MRM', 'mrm'] } },
+                    { modules: { $regex: /^\s*mrm\s*$/i } }
                 ]
             },
-            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1, department: 1, designation: 1 }
+            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1, department: 1, designation: 1, modules: 1 }
         ).lean();
 
-        // Format clean display name and filter out any blank user records
+        // Format clean display name and filter out any blank user records or users without MRM module
         const validUsers = users
+            .filter(u => {
+                if (!u.modules) return false;
+                if (Array.isArray(u.modules)) {
+                    return u.modules.some(m => typeof m === 'string' && m.trim().toLowerCase() === 'mrm');
+                }
+                return typeof u.modules === 'string' && u.modules.trim().toLowerCase() === 'mrm';
+            })
             .map(u => {
                 const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
                 const displayName = fullName || u.username || '';
@@ -99,8 +104,18 @@ router.get('/api/mrm/dashboard', authMiddleware, async (req, res) => {
         const trueHods = await getTrueHodUsers();
         const trueHodIds = trueHods.map(h => h._id);
 
-        // Determine user filter: Approvers see all true HODs + any admins with MRM; HODs see their team + self
-        let userQuery = { isActive: { $ne: false } };
+        const mrmModuleConditions = [
+            { modules: 'MRM' },
+            { modules: 'mrm' },
+            { modules: { $in: ['MRM', 'mrm'] } },
+            { modules: { $regex: /^\s*mrm\s*$/i } }
+        ];
+
+        // Determine user filter: Approvers see all true HODs with MRM assigned; HODs see their team + self with MRM assigned
+        let userQuery = {
+            isActive: { $ne: false },
+            $or: mrmModuleConditions
+        };
 
         if (!isApprover && requestingRole !== 'admin') {
             const orConditions = [{ _id: req.user._id }];
@@ -110,15 +125,21 @@ router.get('/api/mrm/dashboard', authMiddleware, async (req, res) => {
             if (req.user.department) {
                 orConditions.push({ department: req.user.department });
             }
-            userQuery.$or = orConditions;
+            userQuery = {
+                isActive: { $ne: false },
+                $and: [
+                    { $or: orConditions },
+                    { $or: mrmModuleConditions }
+                ]
+            };
         } else {
-            // For Executive Approvers (Suraj Rajan / Admin): Show only true reporting departmental HODs
+            // For Executive Approvers (Suraj Rajan / Admin): Show only true reporting departmental HODs who have MRM assigned
             userQuery._id = { $in: trueHodIds };
         }
 
         const mrmUsers = await UserModel.find(
             userQuery,
-            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1, department: 1, designation: 1 }
+            { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1, department: 1, designation: 1, modules: 1 }
         ).sort({ first_name: 1 });
 
         const allMetadata = await MRMMetadata.find({ month, year });

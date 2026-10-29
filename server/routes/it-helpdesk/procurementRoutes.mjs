@@ -1068,6 +1068,16 @@ router.post("/:id/quotations", validateId, async (req, res) => {
       return res.status(400).json({ success: false, message: "Quotations array is required" });
     }
 
+    // Enforce mandatory quotation file upload for every submitted quotation
+    for (const q of quotations) {
+      if (!q.file_url || !String(q.file_url).trim()) {
+        return res.status(400).json({
+          success: false,
+          message: `Quotation document file is mandatory for ${q.vendor_name ? `"${q.vendor_name}"` : (q.quotation_no || "quotation")}. Please upload the quotation file.`,
+        });
+      }
+    }
+
     item.quotations = quotations.map((q) => ({
       quotation_no: q.quotation_no || "",
       vendor_id: q.vendor_id || null,
@@ -1120,6 +1130,22 @@ router.post("/:id/it-evaluate", validateId, async (req, res) => {
     const { decision, recommended_vendor, recommended_quote_no, remarks } = req.body;
     if (!decision) {
       return res.status(400).json({ success: false, message: "Evaluation decision is required" });
+    }
+
+    // When approving, ensure the recommended quotation has an uploaded file
+    if (decision === "Approved") {
+      const quotesToCheck = Array.isArray(req.body.quotations) && req.body.quotations.length > 0
+        ? req.body.quotations
+        : item.quotations;
+      if (recommended_quote_no) {
+        const recQuote = (quotesToCheck || []).find((q) => q.quotation_no === recommended_quote_no);
+        if (recQuote && (!recQuote.file_url || !String(recQuote.file_url).trim())) {
+          return res.status(400).json({
+            success: false,
+            message: `Quotation document file is mandatory for recommended vendor ${recQuote.vendor_name ? `"${recQuote.vendor_name}"` : recommended_quote_no}. Please upload document before approving.`,
+          });
+        }
+      }
     }
 
     item.it_evaluation = {

@@ -816,9 +816,10 @@ export default function ProcurementManagement() {
       else if (data.current_stage === 3) setWorkflowTab(1); // IT Eval
       else if (data.current_stage === 4) setWorkflowTab(2); // Stage 4: HOD Approval
       else if (data.current_stage === 5) setWorkflowTab(3); // Stage 5: GM Approval
-      else if (data.current_stage <= 7) setWorkflowTab(4); // PO & GRN
-      else if (data.current_stage <= 9) setWorkflowTab(5); // Invoicing
-      else if (data.current_stage >= 10) setWorkflowTab(6); // Payment & Asset Bridge
+      else if (data.current_stage === 6) setWorkflowTab(4); // Stage 6: PO Generation
+      else if (data.current_stage === 7) setWorkflowTab(5); // Stage 7: GRN Inspection
+      else if (data.current_stage <= 9) setWorkflowTab(6); // Stage 8 & 9: Invoicing
+      else if (data.current_stage >= 10) setWorkflowTab(7); // Stage 10+: Payment & Asset Bridge
 
       setWorkflowModalOpen(true);
     } catch (err) {
@@ -884,17 +885,35 @@ export default function ProcurementManagement() {
     setSubmitting(true);
     try {
       const activeQuoteNo = itEvalForm.recommended_quote_no || selectedPR?.it_evaluation?.recommended_quote_no;
-      const cleanQuotes = quotesList
-        .filter((q) => q.vendor_name || q.total_amount)
-        .map((q) => ({
-          ...q,
-          is_recommended_by_it: Boolean(activeQuoteNo && q.quotation_no === activeQuoteNo),
-        }));
-      if (cleanQuotes.length === 0) {
-        toast.error("Please provide at least 1 vendor quote");
+      const quotesWithData = quotesList.filter((q) => q.vendor_name?.trim() || q.total_amount || q.file_url);
+
+      if (quotesWithData.length === 0) {
+        toast.error("Please provide at least 1 vendor quotation with an uploaded quotation document file.");
         setSubmitting(false);
         return;
       }
+
+      // Enforce mandatory vendor name and mandatory quotation file upload for every quotation entered
+      for (let i = 0; i < quotesWithData.length; i++) {
+        const q = quotesWithData[i];
+        const quoteName = q.vendor_name?.trim() ? `"${q.vendor_name.trim()}"` : (q.quotation_no || `Quotation ${i + 1}`);
+        if (!q.vendor_name?.trim()) {
+          toast.error(`Please provide vendor name for ${q.quotation_no || `Quotation ${i + 1}`}`);
+          setSubmitting(false);
+          return;
+        }
+        if (!q.file_url || !q.file_url.trim()) {
+          toast.error(`Quotation file is mandatory! Please upload the quotation document for ${quoteName}.`);
+          setSubmitting(false);
+          return;
+        }
+      }
+
+      const cleanQuotes = quotesWithData.map((q) => ({
+        ...q,
+        is_recommended_by_it: Boolean(activeQuoteNo && q.quotation_no === activeQuoteNo),
+      }));
+
       const res = await itHelpdeskAPI.procurement.uploadQuotations(selectedPR._id, {
         quotations: cleanQuotes,
         comparison_notes: "Vendor quotations updated in workflow",
@@ -938,7 +957,7 @@ export default function ProcurementManagement() {
     const decision = itEvalForm.decision || "Approved";
     const activeQuoteNo = itEvalForm.recommended_quote_no;
 
-    // Validate if Approving: Ensure at least one quotation with vendor exists and a recommended quote is picked
+    // Validate if Approving: Ensure at least one quotation with vendor exists, a recommended quote is picked, and files are attached
     const hasVendorQuotes = (quotesList || []).some((q) => q.vendor_name && q.vendor_name.trim());
     if (decision === "Approved") {
       if (!hasVendorQuotes) {
@@ -947,6 +966,20 @@ export default function ProcurementManagement() {
       }
       if (!activeQuoteNo) {
         toast.error("Please select a Recommended Quote / Vendor before submitting IT technical evaluation.");
+        return;
+      }
+
+      // Mandatory check: recommended quote must have a file uploaded!
+      const recQuote = (quotesList || []).find((q) => q.quotation_no === activeQuoteNo);
+      if (!recQuote?.file_url) {
+        toast.error(`Quotation file is mandatory for recommended vendor "${recQuote?.vendor_name || activeQuoteNo}". Please upload the document file before approving.`);
+        return;
+      }
+
+      // Also ensure any provided quotation has its file uploaded
+      const enteredWithoutFile = (quotesList || []).filter((q) => (q.vendor_name?.trim() || q.total_amount) && !q.file_url);
+      if (enteredWithoutFile.length > 0) {
+        toast.error(`Quotation file is mandatory for "${enteredWithoutFile[0].vendor_name || enteredWithoutFile[0].quotation_no}". Please upload document.`);
         return;
       }
     }
@@ -1091,6 +1124,7 @@ export default function ProcurementManagement() {
       setSelectedPR(res.data);
       fetchStats();
       fetchRequests();
+      setWorkflowTab(5); // Advance to Stage 7: Receiving & GRN
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to create PO");
     } finally {
@@ -1115,6 +1149,7 @@ export default function ProcurementManagement() {
       setSelectedPR(res.data);
       fetchStats();
       fetchRequests();
+      setWorkflowTab(6); // Advance to Stage 8 & 9: Invoicing
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to record GRN");
     } finally {
@@ -2912,10 +2947,21 @@ export default function ProcurementManagement() {
                 icon: ShieldCheck,
                 badge: selectedPR.final_approval?.decision ? selectedPR.final_approval.decision : (selectedPR.current_stage === 5 ? "Pending" : null),
               },
-              { id: 4, label: "5. PO & GRN Receiving", icon: Truck },
-              { id: 5, label: "6. Invoice & 3-Way Match", icon: Receipt },
-              { id: 6, label: "7. Payment & Asset Bridge", icon: CreditCard },
-              { id: 7, label: "8. Workflow Audit", icon: History },
+              {
+                id: 4,
+                label: "5. PO Generation",
+                icon: Receipt,
+                badge: selectedPR.purchase_order?.po_number ? "PO Issued" : null,
+              },
+              {
+                id: 5,
+                label: "6. GRN Inspection",
+                icon: Truck,
+                badge: selectedPR.grn_details?.grn_number ? "GRN Received" : null,
+              },
+              { id: 6, label: "7. Invoice & 3-Way Match", icon: FileCheck },
+              { id: 7, label: "8. Payment & Asset Bridge", icon: CreditCard },
+              { id: 8, label: "9. Workflow Audit", icon: History },
             ].map((tab) => {
               const isActive = workflowTab === tab.id;
               const IconComp = tab.icon;
@@ -3663,24 +3709,89 @@ export default function ProcurementManagement() {
                             />
                           </Box>
 
-                          {/* 2. Field: Quotation X — File */}
-                          <Box sx={{ mb: 2, p: 1.5, borderRadius: "8px", bgcolor: "#f8fafc", border: "1px dashed #cbd5e1" }}>
+                          {/* 2. Field: Quotation X — File (Mandatory) */}
+                          <Box
+                            sx={{
+                              mb: 2,
+                              p: 1.5,
+                              borderRadius: "8px",
+                              bgcolor: q.file_url
+                                ? "#f0fdf4"
+                                : (q.vendor_name || q.total_amount)
+                                ? "#fff7f7"
+                                : "#f8fafc",
+                              border: q.file_url
+                                ? "1px solid #86efac"
+                                : (q.vendor_name || q.total_amount)
+                                ? "1px dashed #ef4444"
+                                : "1px dashed #cbd5e1",
+                              transition: "all 0.2s ease-in-out",
+                            }}
+                          >
                             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.8 }}>
-                              <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: "#334155" }}>
-                                {`${quoteLabel} — File`}
-                              </Typography>
-                              {q.file_url ? (
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  startIcon={<Eye size={13} />}
-                                  onClick={() => openDocViewer(q.file_url, `${quoteLabel} - ${q.vendor_name || "Quotation File"}`)}
-                                  sx={{ textTransform: "none", fontSize: "0.72rem", py: 0.2, px: 0.9, height: 24 }}
-                                >
-                                  View
-                                </Button>
-                              ) : null}
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: "#334155" }}>
+                                  {`${quoteLabel} — File`}
+                                </Typography>
+                                <Typography component="span" sx={{ color: "#dc2626", fontWeight: 800, fontSize: "0.85rem" }}>
+                                  *
+                                </Typography>
+                              </Box>
+
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                                {q.file_url ? (
+                                  <>
+                                    <Chip
+                                      size="small"
+                                      label="Uploaded"
+                                      sx={{
+                                        height: 20,
+                                        fontSize: "0.65rem",
+                                        fontWeight: 700,
+                                        bgcolor: "#dcfce7",
+                                        color: "#15803d",
+                                        border: "1px solid #86efac",
+                                      }}
+                                    />
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      startIcon={<Eye size={13} />}
+                                      onClick={() => openDocViewer(q.file_url, `${quoteLabel} - ${q.vendor_name || "Quotation File"}`)}
+                                      sx={{ textTransform: "none", fontSize: "0.72rem", py: 0.2, px: 0.9, height: 24, borderRadius: "6px" }}
+                                    >
+                                      View
+                                    </Button>
+                                    <IconButton
+                                      size="small"
+                                      title="Remove file"
+                                      onClick={() => {
+                                        const updated = [...quotesList];
+                                        updated[qIdx].file_url = "";
+                                        setQuotesList(updated);
+                                      }}
+                                      sx={{ p: 0.3, color: "#94a3b8", "&:hover": { color: "#ef4444" } }}
+                                    >
+                                      <XCircle size={14} />
+                                    </IconButton>
+                                  </>
+                                ) : (
+                                  <Chip
+                                    size="small"
+                                    label="Mandatory *"
+                                    sx={{
+                                      height: 20,
+                                      fontSize: "0.65rem",
+                                      fontWeight: 700,
+                                      bgcolor: (q.vendor_name || q.total_amount) ? "#fee2e2" : "#f1f5f9",
+                                      color: (q.vendor_name || q.total_amount) ? "#b91c1c" : "#64748b",
+                                      border: (q.vendor_name || q.total_amount) ? "1px solid #fca5a5" : "1px solid #e2e8f0",
+                                    }}
+                                  />
+                                )}
+                              </Box>
                             </Box>
+
                             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                               <input
                                 id={`quote-file-input-${qIdx}`}
@@ -3715,17 +3826,34 @@ export default function ProcurementManagement() {
                                     },
                                   }}
                                 >
-                                  {q.file_url ? "Replace File" : "Choose File (PDF/Doc/Image)"}
+                                  {q.file_url ? "Replace File" : "Choose File (PDF/Doc/Image) *"}
                                 </Button>
                               </label>
                             </Box>
-                            {q.file_url && (
+
+                            {q.file_url ? (
                               <Typography
                                 noWrap
-                                sx={{ fontSize: "0.7rem", color: "#16a34a", mt: 0.5, fontWeight: 600 }}
+                                title={q.file_url.split("/").pop()}
+                                sx={{ fontSize: "0.7rem", color: "#16a34a", mt: 0.6, fontWeight: 600, display: "flex", alignItems: "center", gap: 0.5 }}
                               >
-                                ✓ Attached: {q.file_url.split("/").pop() || "Quotation Document"}
+                                <Check size={12} strokeWidth={3} /> Attached: {q.file_url.split("/").pop() || "Quotation Document"}
                               </Typography>
+                            ) : (
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.6 }}>
+                                <AlertCircle size={12} color={(q.vendor_name || q.total_amount) ? "#dc2626" : "#64748b"} />
+                                <Typography
+                                  sx={{
+                                    fontSize: "0.68rem",
+                                    color: (q.vendor_name || q.total_amount) ? "#dc2626" : "#64748b",
+                                    fontWeight: (q.vendor_name || q.total_amount) ? 650 : 500,
+                                  }}
+                                >
+                                  {(q.vendor_name || q.total_amount)
+                                    ? "Quotation file is mandatory for this vendor *"
+                                    : "Quotation document file is required *"}
+                                </Typography>
+                              </Box>
                             )}
                           </Box>
 
@@ -4298,16 +4426,184 @@ export default function ProcurementManagement() {
                     </Box>
 
                     <Chip
-                      icon={selectedPR.first_approval?.decision === "Approved" ? <CheckCircle2 size={15} /> : <Clock size={15} />}
-                      label={selectedPR.first_approval?.decision ? `Decision: ${selectedPR.first_approval.decision}` : "Pending Review"}
-                      color={selectedPR.first_approval?.decision === "Approved" ? "success" : "default"}
-                      sx={{ fontWeight: 800, px: 1, py: 2, fontSize: "0.82rem" }}
+                      icon={
+                        selectedPR.first_approval?.decision === "Approved" ? (
+                          <CheckCircle2 size={15} />
+                        ) : selectedPR.first_approval?.decision === "Rejected" ? (
+                          <XCircle size={15} />
+                        ) : selectedPR.first_approval?.decision === "Returned" ? (
+                          <RotateCcw size={15} />
+                        ) : (
+                          <Clock size={15} />
+                        )
+                      }
+                      label={
+                        selectedPR.first_approval?.decision === "Approved"
+                          ? "Approved by HOD"
+                          : selectedPR.first_approval?.decision === "Rejected"
+                          ? "Rejected by HOD"
+                          : selectedPR.first_approval?.decision === "Returned"
+                          ? "Returned by HOD"
+                          : "Pending from HOD"
+                      }
+                      color={
+                        selectedPR.first_approval?.decision === "Approved"
+                          ? "success"
+                          : selectedPR.first_approval?.decision === "Rejected"
+                          ? "error"
+                          : selectedPR.first_approval?.decision === "Returned"
+                          ? "warning"
+                          : "default"
+                      }
+                      sx={{
+                        fontWeight: 800,
+                        px: 1,
+                        py: 2,
+                        fontSize: "0.82rem",
+                        ...(selectedPR.first_approval?.decision
+                          ? {}
+                          : { bgcolor: "#ede9fe", color: "#6d28d9" }),
+                      }}
                     />
                   </Box>
 
-                  {/* Form Inputs / Decision Mode */}
-                  {selectedPR.first_approval?.decision === "Approved" && !isEditingHod ? (
-                    /* Official Verified Sign-Off Certificate */
+                  {/* Non-HOD / Non-Admin Users: Read-Only Status Display */}
+                  {!canApproveHOD ? (
+                    <Box>
+                      {selectedPR.first_approval?.decision === "Approved" ? (
+                        <Box
+                          sx={{
+                            p: 2.5,
+                            borderRadius: "14px",
+                            bgcolor: "#f0fdf4",
+                            border: "1.5px solid #86efac",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 2,
+                          }}
+                        >
+                          <Box sx={{ width: 44, height: 44, borderRadius: "50%", bgcolor: "#dcfce7", color: "#16a34a", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                            <ShieldCheck size={24} />
+                          </Box>
+                          <Box>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Typography sx={{ fontWeight: 850, fontSize: "0.95rem", color: "#14532d" }}>
+                                Approved by HOD
+                              </Typography>
+                              <Chip size="small" label="Level 1 Endorsed" sx={{ height: 18, fontSize: "0.65rem", fontWeight: 750, bgcolor: "#dcfce7", color: "#15803d" }} />
+                            </Box>
+                            <Typography sx={{ fontSize: "0.82rem", color: "#166534", mt: 0.3 }}>
+                              Endorsed by <b>{selectedPR.first_approval?.approver_name || selectedPR.designated_hod?.name || "Designated HOD"}</b> • Approved Cap: <b>₹{Number(selectedPR.first_approval?.approved_amount || 0).toLocaleString("en-IN")}</b>
+                            </Typography>
+                            {selectedPR.first_approval?.remarks && (
+                              <Typography sx={{ fontSize: "0.78rem", color: "#15803d", mt: 0.5, fontStyle: "italic" }}>
+                                "{selectedPR.first_approval.remarks}"
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      ) : selectedPR.first_approval?.decision === "Rejected" ? (
+                        <Box
+                          sx={{
+                            p: 2.5,
+                            borderRadius: "14px",
+                            bgcolor: "#fef2f2",
+                            border: "1.5px solid #fca5a5",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 2,
+                          }}
+                        >
+                          <Box sx={{ width: 44, height: 44, borderRadius: "50%", bgcolor: "#fee2e2", color: "#dc2626", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                            <XCircle size={24} />
+                          </Box>
+                          <Box>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Typography sx={{ fontWeight: 850, fontSize: "0.95rem", color: "#991b1b" }}>
+                                Rejected by HOD
+                              </Typography>
+                              <Chip size="small" label="Declined" color="error" sx={{ height: 18, fontSize: "0.65rem", fontWeight: 750 }} />
+                            </Box>
+                            <Typography sx={{ fontSize: "0.82rem", color: "#b91c1c", mt: 0.3 }}>
+                              Requirement declined by <b>{selectedPR.first_approval?.approver_name || selectedPR.designated_hod?.name || "Designated HOD"}</b>
+                            </Typography>
+                            {selectedPR.first_approval?.remarks && (
+                              <Typography sx={{ fontSize: "0.78rem", color: "#dc2626", mt: 0.5, fontStyle: "italic" }}>
+                                "{selectedPR.first_approval.remarks}"
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      ) : selectedPR.first_approval?.decision === "Returned" ? (
+                        <Box
+                          sx={{
+                            p: 2.5,
+                            borderRadius: "14px",
+                            bgcolor: "#fff7ed",
+                            border: "1.5px solid #fdba74",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 2,
+                          }}
+                        >
+                          <Box sx={{ width: 44, height: 44, borderRadius: "50%", bgcolor: "#ffedd5", color: "#ea580c", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                            <RotateCcw size={24} />
+                          </Box>
+                          <Box>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Typography sx={{ fontWeight: 850, fontSize: "0.95rem", color: "#9a3412" }}>
+                                Returned for Clarification by HOD
+                              </Typography>
+                              <Chip size="small" label="Clarification Required" color="warning" sx={{ height: 18, fontSize: "0.65rem", fontWeight: 750 }} />
+                            </Box>
+                            <Typography sx={{ fontSize: "0.82rem", color: "#c2410c", mt: 0.3 }}>
+                              Returned to IT Helpdesk by <b>{selectedPR.first_approval?.approver_name || selectedPR.designated_hod?.name || "Designated HOD"}</b>
+                            </Typography>
+                            {selectedPR.first_approval?.remarks && (
+                              <Typography sx={{ fontSize: "0.78rem", color: "#ea580c", mt: 0.5, fontStyle: "italic" }}>
+                                "{selectedPR.first_approval.remarks}"
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      ) : (
+                        <Box
+                          sx={{
+                            p: 2.5,
+                            borderRadius: "14px",
+                            bgcolor: "#f8fafc",
+                            border: "1.5px dashed #cbd5e1",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 2,
+                          }}
+                        >
+                          <Box sx={{ width: 44, height: 44, borderRadius: "50%", bgcolor: "#ede9fe", color: "#7c3aed", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                            <Clock size={24} />
+                          </Box>
+                          <Box>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Typography sx={{ fontWeight: 850, fontSize: "0.95rem", color: "#1e293b" }}>
+                                Pending from HOD
+                              </Typography>
+                              <Chip size="small" label="Awaiting Sign-Off" sx={{ height: 18, fontSize: "0.65rem", fontWeight: 750, bgcolor: "#ede9fe", color: "#6d28d9" }} />
+                            </Box>
+                            <Typography sx={{ fontSize: "0.82rem", color: "#64748b", mt: 0.3 }}>
+                              Awaiting Commercial & Technical Approval from designated reviewer{" "}
+                              <b style={{ color: "#0f172a" }}>
+                                {selectedPR.designated_hod?.name || selectedPR.first_approval?.approver_name || "Department HOD"}
+                              </b>{" "}
+                              ({selectedPR.department || "General"} Department).
+                            </Typography>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#94a3b8", mt: 0.5 }}>
+                              * Approval action on this stage is restricted to HOD and Administrators.
+                            </Typography>
+                          </Box>
+                        </Box>
+                      )}
+                    </Box>
+                  ) : selectedPR.first_approval?.decision === "Approved" && !isEditingHod ? (
+                    /* HOD / Admin: Official Verified Sign-Off Certificate */
                     <Box
                       sx={{
                         p: 2.5,
@@ -4340,18 +4636,17 @@ export default function ProcurementManagement() {
                         </Box>
                       </Box>
 
-                      {canApproveHOD && (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => setIsEditingHod(true)}
-                          sx={{ textTransform: "none", fontSize: "0.78rem", fontWeight: 700, borderColor: "#16a34a", color: "#16a34a", "&:hover": { bgcolor: "#dcfce7" } }}
-                        >
-                          Modify Decision
-                        </Button>
-                      )}
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => setIsEditingHod(true)}
+                        sx={{ textTransform: "none", fontSize: "0.78rem", fontWeight: 700, borderColor: "#16a34a", color: "#16a34a", "&:hover": { bgcolor: "#dcfce7" } }}
+                      >
+                        Modify Decision
+                      </Button>
                     </Box>
                   ) : (
+                    /* HOD / Admin: Interactive Approval Form */
                     <Box>
                       {/* Segmented Interactive Decision Cards */}
                       <Typography sx={{ fontSize: "0.82rem", fontWeight: 800, color: "#1e293b", mb: 1.2, textTransform: "uppercase", letterSpacing: "0.04em" }}>
@@ -4392,14 +4687,14 @@ export default function ProcurementManagement() {
                           return (
                             <Grid item xs={12} sm={4} key={d.val}>
                               <Box
-                                onClick={() => canApproveHOD && setHodForm({ ...hodForm, decision: d.val })}
+                                onClick={() => setHodForm({ ...hodForm, decision: d.val })}
                                 sx={{
                                   p: 1.8,
                                   borderRadius: "12px",
                                   border: "2px solid",
                                   borderColor: isSel ? d.activeBorder : "#e2e8f0",
                                   bgcolor: isSel ? d.activeBg : "#ffffff",
-                                  cursor: canApproveHOD ? "pointer" : "not-allowed",
+                                  cursor: "pointer",
                                   transition: "all 0.15s ease",
                                   boxShadow: isSel ? `0 4px 12px ${d.color}20` : "none",
                                   "&:hover": { borderColor: isSel ? d.activeBorder : "#cbd5e1" },
@@ -4433,7 +4728,7 @@ export default function ProcurementManagement() {
                                 <Chip
                                   size="small"
                                   label={`Match IT Pick: ₹${quoteTargetAmount.toLocaleString("en-IN")}`}
-                                  onClick={() => canApproveHOD && setHodForm({ ...hodForm, approved_amount: quoteTargetAmount })}
+                                  onClick={() => setHodForm({ ...hodForm, approved_amount: quoteTargetAmount })}
                                   sx={{ height: 20, fontSize: "0.68rem", fontWeight: 750, cursor: "pointer", bgcolor: "#eef2ff", color: "#4338ca" }}
                                 />
                               )}
@@ -4441,7 +4736,7 @@ export default function ProcurementManagement() {
                                 <Chip
                                   size="small"
                                   label={`Match PR Budget: ₹${prBudget.toLocaleString("en-IN")}`}
-                                  onClick={() => canApproveHOD && setHodForm({ ...hodForm, approved_amount: prBudget })}
+                                  onClick={() => setHodForm({ ...hodForm, approved_amount: prBudget })}
                                   sx={{ height: 20, fontSize: "0.68rem", fontWeight: 750, cursor: "pointer", bgcolor: "#f1f5f9", color: "#475569" }}
                                 />
                               )}
@@ -4451,7 +4746,6 @@ export default function ProcurementManagement() {
                             fullWidth
                             size="small"
                             type="number"
-                            disabled={!canApproveHOD}
                             value={hodForm.approved_amount}
                             onChange={(e) => setHodForm({ ...hodForm, approved_amount: e.target.value })}
                             InputProps={{
@@ -4477,7 +4771,6 @@ export default function ProcurementManagement() {
                                 size="small"
                                 label={`+ ${tag}`}
                                 onClick={() => {
-                                  if (!canApproveHOD) return;
                                   const cur = hodForm.remarks ? `${hodForm.remarks}. ${tag}` : tag;
                                   setHodForm({ ...hodForm, remarks: cur });
                                 }}
@@ -4495,7 +4788,6 @@ export default function ProcurementManagement() {
                             size="small"
                             label="HOD Commercial & Technical Remarks"
                             placeholder="Add approval conditions, justification notes, or vendor preferences for GM review..."
-                            disabled={!canApproveHOD}
                             value={hodForm.remarks}
                             onChange={(e) => setHodForm({ ...hodForm, remarks: e.target.value })}
                           />
@@ -4508,38 +4800,36 @@ export default function ProcurementManagement() {
                           * Only <b>{selectedPR.designated_hod?.name || selectedPR.first_approval?.approver_name || "Department HOD"}</b> or Administrators have sign-off authority.
                         </Typography>
 
-                        {canApproveHOD && (
-                          <Box sx={{ display: "flex", gap: 1.5 }}>
-                            {isEditingHod && (
-                              <Button
-                                variant="outlined"
-                                onClick={() => setIsEditingHod(false)}
-                                disabled={submitting}
-                                sx={{ textTransform: "none", fontSize: "0.82rem", color: "#64748b", borderColor: "#cbd5e1" }}
-                              >
-                                Cancel
-                              </Button>
-                            )}
+                        <Box sx={{ display: "flex", gap: 1.5 }}>
+                          {isEditingHod && (
                             <Button
-                              variant="contained"
-                              onClick={handleSubmitHodApproval}
+                              variant="outlined"
+                              onClick={() => setIsEditingHod(false)}
                               disabled={submitting}
-                              endIcon={<ArrowRight size={16} />}
-                              sx={{
-                                background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
-                                textTransform: "none",
-                                fontWeight: 750,
-                                px: 3,
-                                py: 1,
-                                borderRadius: "10px",
-                                boxShadow: "0 4px 14px rgba(79, 70, 229, 0.28)",
-                                "&:hover": { background: "linear-gradient(135deg, #4338ca 0%, #4f46e5 100%)" },
-                              }}
+                              sx={{ textTransform: "none", fontSize: "0.82rem", color: "#64748b", borderColor: "#cbd5e1" }}
                             >
-                              {submitting ? "Recording Decision..." : isEditingHod ? "Update HOD Decision" : "Submit HOD Endorsement & Route to GM"}
+                              Cancel
                             </Button>
-                          </Box>
-                        )}
+                          )}
+                          <Button
+                            variant="contained"
+                            onClick={handleSubmitHodApproval}
+                            disabled={submitting}
+                            endIcon={<ArrowRight size={16} />}
+                            sx={{
+                              background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
+                              textTransform: "none",
+                              fontWeight: 750,
+                              px: 3,
+                              py: 1,
+                              borderRadius: "10px",
+                              boxShadow: "0 4px 14px rgba(79, 70, 229, 0.28)",
+                              "&:hover": { background: "linear-gradient(135deg, #4338ca 0%, #4f46e5 100%)" },
+                            }}
+                          >
+                            {submitting ? "Recording Decision..." : isEditingHod ? "Update HOD Decision" : "Submit HOD Endorsement & Route to GM"}
+                          </Button>
+                        </Box>
                       </Box>
                     </Box>
                   )}
@@ -4878,15 +5168,180 @@ export default function ProcurementManagement() {
                     </Box>
 
                     <Chip
-                      icon={selectedPR.final_approval?.decision === "Approved" ? <CheckCircle2 size={15} /> : <Clock size={15} />}
-                      label={selectedPR.final_approval?.decision ? `Decision: ${selectedPR.final_approval.decision}` : "Pending GM Decision"}
-                      color={selectedPR.final_approval?.decision === "Approved" ? "success" : "default"}
-                      sx={{ fontWeight: 800, px: 1, py: 2, fontSize: "0.82rem" }}
+                      icon={
+                        selectedPR.final_approval?.decision === "Approved" ? (
+                          <CheckCircle2 size={15} />
+                        ) : selectedPR.final_approval?.decision === "Rejected" ? (
+                          <XCircle size={15} />
+                        ) : selectedPR.final_approval?.decision === "Returned" ? (
+                          <RotateCcw size={15} />
+                        ) : (
+                          <Clock size={15} />
+                        )
+                      }
+                      label={
+                        selectedPR.final_approval?.decision === "Approved"
+                          ? "Approved by GM"
+                          : selectedPR.final_approval?.decision === "Rejected"
+                          ? "Rejected by GM"
+                          : selectedPR.final_approval?.decision === "Returned"
+                          ? "Returned by GM"
+                          : "Pending from GM"
+                      }
+                      color={
+                        selectedPR.final_approval?.decision === "Approved"
+                          ? "success"
+                          : selectedPR.final_approval?.decision === "Rejected"
+                          ? "error"
+                          : selectedPR.final_approval?.decision === "Returned"
+                          ? "warning"
+                          : "default"
+                      }
+                      sx={{
+                        fontWeight: 800,
+                        px: 1,
+                        py: 2,
+                        fontSize: "0.82rem",
+                        ...(selectedPR.final_approval?.decision
+                          ? {}
+                          : { bgcolor: "#ecfdf5", color: "#047857" }),
+                      }}
                     />
                   </Box>
 
-                  {/* Decision Form vs Approved Seal */}
-                  {selectedPR.final_approval?.decision === "Approved" ? (
+                  {/* Non-GM / Non-Admin Users: Read-Only Status Display */}
+                  {!isManuPillai ? (
+                    <Box>
+                      {selectedPR.final_approval?.decision === "Approved" ? (
+                        <Box
+                          sx={{
+                            p: 2.5,
+                            borderRadius: "14px",
+                            bgcolor: "#f0fdf4",
+                            border: "1.5px solid #86efac",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 2,
+                          }}
+                        >
+                          <Box sx={{ width: 44, height: 44, borderRadius: "50%", bgcolor: "#dcfce7", color: "#16a34a", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                            <ShieldCheck size={26} />
+                          </Box>
+                          <Box>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Typography sx={{ fontWeight: 850, fontSize: "0.95rem", color: "#14532d" }}>
+                                Approved by GM
+                              </Typography>
+                              <Chip size="small" label="PO Authorized" color="success" sx={{ height: 18, fontSize: "0.65rem", fontWeight: 750 }} />
+                            </Box>
+                            <Typography sx={{ fontSize: "0.82rem", color: "#166534", mt: 0.3 }}>
+                              Winning Vendor: <b>{selectedPR.final_approval?.selected_vendor || "Awarded Vendor"}</b> • Final Approved Amount: <b>₹{Number(selectedPR.final_approval?.final_approved_amount || 0).toLocaleString("en-IN")}</b>
+                            </Typography>
+                            {selectedPR.final_approval?.remarks && (
+                              <Typography sx={{ fontSize: "0.78rem", color: "#15803d", mt: 0.4, fontStyle: "italic" }}>
+                                "{selectedPR.final_approval.remarks}"
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      ) : selectedPR.final_approval?.decision === "Rejected" ? (
+                        <Box
+                          sx={{
+                            p: 2.5,
+                            borderRadius: "14px",
+                            bgcolor: "#fef2f2",
+                            border: "1.5px solid #fca5a5",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 2,
+                          }}
+                        >
+                          <Box sx={{ width: 44, height: 44, borderRadius: "50%", bgcolor: "#fee2e2", color: "#dc2626", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                            <XCircle size={24} />
+                          </Box>
+                          <Box>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Typography sx={{ fontWeight: 850, fontSize: "0.95rem", color: "#991b1b" }}>
+                                Rejected by GM
+                              </Typography>
+                              <Chip size="small" label="Declined by Management" color="error" sx={{ height: 18, fontSize: "0.65rem", fontWeight: 750 }} />
+                            </Box>
+                            <Typography sx={{ fontSize: "0.82rem", color: "#b91c1c", mt: 0.3 }}>
+                              Purchase request declined by <b>Manu Pillai</b> (General Manager).
+                            </Typography>
+                            {selectedPR.final_approval?.remarks && (
+                              <Typography sx={{ fontSize: "0.78rem", color: "#dc2626", mt: 0.4, fontStyle: "italic" }}>
+                                "{selectedPR.final_approval.remarks}"
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      ) : selectedPR.final_approval?.decision === "Returned" ? (
+                        <Box
+                          sx={{
+                            p: 2.5,
+                            borderRadius: "14px",
+                            bgcolor: "#fff7ed",
+                            border: "1.5px solid #fdba74",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 2,
+                          }}
+                        >
+                          <Box sx={{ width: 44, height: 44, borderRadius: "50%", bgcolor: "#ffedd5", color: "#ea580c", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                            <RotateCcw size={24} />
+                          </Box>
+                          <Box>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Typography sx={{ fontWeight: 850, fontSize: "0.95rem", color: "#9a3412" }}>
+                                Returned by GM
+                              </Typography>
+                              <Chip size="small" label="Returned for Re-negotiation" color="warning" sx={{ height: 18, fontSize: "0.65rem", fontWeight: 750 }} />
+                            </Box>
+                            <Typography sx={{ fontSize: "0.82rem", color: "#c2410c", mt: 0.3 }}>
+                              Returned to HOD / IT Helpdesk for rate re-negotiation or additional technical details.
+                            </Typography>
+                            {selectedPR.final_approval?.remarks && (
+                              <Typography sx={{ fontSize: "0.78rem", color: "#ea580c", mt: 0.4, fontStyle: "italic" }}>
+                                "{selectedPR.final_approval.remarks}"
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      ) : (
+                        <Box
+                          sx={{
+                            p: 2.5,
+                            borderRadius: "14px",
+                            bgcolor: "#f8fafc",
+                            border: "1.5px dashed #cbd5e1",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 2,
+                          }}
+                        >
+                          <Box sx={{ width: 44, height: 44, borderRadius: "50%", bgcolor: "#ecfdf5", color: "#059669", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                            <Clock size={24} />
+                          </Box>
+                          <Box>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Typography sx={{ fontWeight: 850, fontSize: "0.95rem", color: "#1e293b" }}>
+                                Pending from GM
+                              </Typography>
+                              <Chip size="small" label="Awaiting Final Sign-Off" sx={{ height: 18, fontSize: "0.65rem", fontWeight: 750, bgcolor: "#ecfdf5", color: "#047857" }} />
+                            </Box>
+                            <Typography sx={{ fontSize: "0.82rem", color: "#64748b", mt: 0.3 }}>
+                              Awaiting final executive authorization and winner vendor selection from <b style={{ color: "#0f172a" }}>Manu Pillai</b> (General Manager).
+                            </Typography>
+                            <Typography sx={{ fontSize: "0.72rem", color: "#94a3b8", mt: 0.5 }}>
+                              * Final authorization on this stage is restricted to General Manager and Administrators.
+                            </Typography>
+                          </Box>
+                        </Box>
+                      )}
+                    </Box>
+                  ) : selectedPR.final_approval?.decision === "Approved" ? (
+                    /* GM / Admin: Official Approved Seal */
                     <Box
                       sx={{
                         p: 2.5,
@@ -4916,6 +5371,7 @@ export default function ProcurementManagement() {
                       </Box>
                     </Box>
                   ) : (
+                    /* GM / Admin: Interactive Decision Form */
                     <Box>
                       {/* Segmented Decision Tiles */}
                       <Typography sx={{ fontSize: "0.82rem", fontWeight: 800, color: "#1e293b", mb: 1.2, textTransform: "uppercase", letterSpacing: "0.04em" }}>
@@ -4956,14 +5412,14 @@ export default function ProcurementManagement() {
                           return (
                             <Grid item xs={12} sm={4} key={d.val}>
                               <Box
-                                onClick={() => isManuPillai && setGmForm({ ...gmForm, decision: d.val })}
+                                onClick={() => setGmForm({ ...gmForm, decision: d.val })}
                                 sx={{
                                   p: 1.8,
                                   borderRadius: "12px",
                                   border: "2px solid",
                                   borderColor: isSel ? d.activeBorder : "#e2e8f0",
                                   bgcolor: isSel ? d.activeBg : "#ffffff",
-                                  cursor: isManuPillai ? "pointer" : "not-allowed",
+                                  cursor: "pointer",
                                   transition: "all 0.15s ease",
                                   boxShadow: isSel ? `0 4px 12px ${d.color}20` : "none",
                                   "&:hover": { borderColor: isSel ? d.activeBorder : "#cbd5e1" },
@@ -4992,7 +5448,6 @@ export default function ProcurementManagement() {
                             fullWidth
                             size="small"
                             label="Selected Winner Vendor *"
-                            disabled={!isManuPillai}
                             value={gmForm.selected_quote_no}
                             onChange={(e) => {
                               const qNo = e.target.value;
@@ -5021,7 +5476,6 @@ export default function ProcurementManagement() {
                             size="small"
                             type="number"
                             label="Final Approved Amount (₹) *"
-                            disabled={!isManuPillai}
                             value={gmForm.final_approved_amount}
                             onChange={(e) => setGmForm({ ...gmForm, final_approved_amount: e.target.value })}
                             InputProps={{
@@ -5047,7 +5501,6 @@ export default function ProcurementManagement() {
                                 size="small"
                                 label={`+ ${tag}`}
                                 onClick={() => {
-                                  if (!isManuPillai) return;
                                   const cur = gmForm.remarks ? `${gmForm.remarks}. ${tag}` : tag;
                                   setGmForm({ ...gmForm, remarks: cur });
                                 }}
@@ -5062,7 +5515,6 @@ export default function ProcurementManagement() {
                             size="small"
                             label="Management Remarks & PO Instructions"
                             placeholder="Provide commercial terms, vendor instructions, or delivery guidelines for Purchase Order generation..."
-                            disabled={!isManuPillai}
                             value={gmForm.remarks}
                             onChange={(e) => setGmForm({ ...gmForm, remarks: e.target.value })}
                           />
@@ -5075,26 +5527,24 @@ export default function ProcurementManagement() {
                           * Only <b>Manu Pillai</b> (General Manager) or Administrators have final sign-off authority.
                         </Typography>
 
-                        {isManuPillai && (
-                          <Button
-                            variant="contained"
-                            onClick={handleSubmitGmApproval}
-                            disabled={submitting}
-                            startIcon={<ShieldCheck size={18} />}
-                            sx={{
-                              background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
-                              textTransform: "none",
-                              fontWeight: 750,
-                              px: 3.5,
-                              py: 1.1,
-                              borderRadius: "10px",
-                              boxShadow: "0 4px 14px rgba(16, 185, 129, 0.3)",
-                              "&:hover": { background: "linear-gradient(135deg, #047857 0%, #065f46 100%)" },
-                            }}
-                          >
-                            {submitting ? "Finalizing Award..." : "Confirm GM Selection & Authorize PO"}
-                          </Button>
-                        )}
+                        <Button
+                          variant="contained"
+                          onClick={handleSubmitGmApproval}
+                          disabled={submitting}
+                          startIcon={<ShieldCheck size={18} />}
+                          sx={{
+                            background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
+                            textTransform: "none",
+                            fontWeight: 750,
+                            px: 3.5,
+                            py: 1.1,
+                            borderRadius: "10px",
+                            boxShadow: "0 4px 14px rgba(16, 185, 129, 0.3)",
+                            "&:hover": { background: "linear-gradient(135deg, #047857 0%, #065f46 100%)" },
+                          }}
+                        >
+                          {submitting ? "Finalizing Award..." : "Confirm GM Selection & Authorize PO"}
+                        </Button>
                       </Box>
                     </Box>
                   )}
@@ -5102,230 +5552,314 @@ export default function ProcurementManagement() {
               </Box>
             )}
 
-            {/* ── TAB 4: PO & GRN RECEIVING ── */}
+            {/* ── TAB 4: STAGE 6: PURCHASE ORDER (PO) GENERATION ── */}
             {workflowTab === 4 && (
               <Box>
-                <Grid container spacing={3}>
-                  {/* Purchase Order (PO) */}
-                  <Grid item xs={12} md={6}>
-                    <Paper elevation={0} sx={{ p: 2.5, borderRadius: "10px", border: "1px solid #e2e8f0", bgcolor: "#fff" }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-                        <Receipt size={20} color="#4f46e5" />
-                        <Typography sx={{ fontSize: "0.95rem", fontWeight: 750, color: "#1e293b" }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 3,
+                    borderRadius: "14px",
+                    border: "1px solid #e2e8f0",
+                    bgcolor: "#fff",
+                    maxWidth: 900,
+                    mx: "auto",
+                  }}
+                >
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2.5, pb: 2, borderBottom: "1px solid #f1f5f9" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                      <Box sx={{ width: 42, height: 42, borderRadius: "10px", bgcolor: "#eef2ff", color: "#4f46e5", display: "grid", placeItems: "center" }}>
+                        <Receipt size={22} />
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: "1.02rem", fontWeight: 800, color: "#1e293b" }}>
                           Stage 6: Purchase Order (PO) Generation
                         </Typography>
-                      </Box>
-
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            label="PO Number *"
-                            value={poForm.po_number}
-                            onChange={(e) => setPoForm({ ...poForm, po_number: e.target.value })}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            type="date"
-                            label="PO Date"
-                            InputLabelProps={{ shrink: true }}
-                            value={poForm.po_date}
-                            onChange={(e) => setPoForm({ ...poForm, po_date: e.target.value })}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            type="number"
-                            label="PO Amount ₹"
-                            value={poForm.po_amount}
-                            onChange={(e) => setPoForm({ ...poForm, po_amount: e.target.value })}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            type="date"
-                            label="Expected Delivery"
-                            InputLabelProps={{ shrink: true }}
-                            value={poForm.expected_delivery}
-                            onChange={(e) => setPoForm({ ...poForm, expected_delivery: e.target.value })}
-                          />
-                        </Grid>
-
-                        <Grid item xs={12}>
-                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", p: 1.5, bgcolor: "#f8fafc", borderRadius: "8px", border: "1px dashed #cbd5e1" }}>
-                            {poForm.po_file_url ? (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                startIcon={<Eye size={14} />}
-                                onClick={() => openDocViewer(poForm.po_file_url, "Purchase Order Document")}
-                                sx={{ textTransform: "none" }}
-                              >
-                                View PO Document
-                              </Button>
-                            ) : (
-                              <Typography sx={{ fontSize: "0.8rem", color: "#64748b" }}>No PO attached</Typography>
-                            )}
-                            <label>
-                              <input
-                                type="file"
-                                hidden
-                                accept=".pdf,.docx,.doc,.jpg,.png"
-                                onChange={(e) => {
-                                  if (e.target.files?.[0]) {
-                                    handleUploadDoc(e.target.files[0], (url) => setPoForm({ ...poForm, po_file_url: url }));
-                                  }
-                                }}
-                              />
-                              <Button size="small" component="span" startIcon={<UploadCloud size={14} />} sx={{ textTransform: "none" }}>
-                                {poForm.po_file_url ? "Replace PO" : "Upload PO Document"}
-                              </Button>
-                            </label>
-                          </Box>
-                        </Grid>
-                      </Grid>
-
-                      <Box sx={{ mt: 2.5, display: "flex", justifyContent: "flex-end" }}>
-                        <Button
-                          variant="contained"
-                          onClick={handleSubmitPO}
-                          disabled={submitting}
-                          sx={{ bgcolor: "#4f46e5", textTransform: "none", fontWeight: 650 }}
-                        >
-                          Save &amp; Issue Purchase Order
-                        </Button>
-                      </Box>
-                    </Paper>
-                  </Grid>
-
-                  {/* Physical Receiving & GRN */}
-                  <Grid item xs={12} md={6}>
-                    <Paper elevation={0} sx={{ p: 2.5, borderRadius: "10px", border: "1px solid #e2e8f0", bgcolor: "#fff" }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-                        <Truck size={20} color="#059669" />
-                        <Typography sx={{ fontSize: "0.95rem", fontWeight: 750, color: "#1e293b" }}>
-                          Stage 7: Receiving &amp; GRN Inspection
+                        <Typography sx={{ fontSize: "0.78rem", color: "#64748b" }}>
+                          Generate official PO after GM executive authorization
                         </Typography>
                       </Box>
+                    </Box>
+                    {selectedPR.purchase_order?.po_number && (
+                      <Chip size="small" label={`PO Issued: ${selectedPR.purchase_order.po_number}`} color="primary" sx={{ fontWeight: 700 }} />
+                    )}
+                  </Box>
 
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            label="GRN Number"
-                            value={grnForm.grn_number}
-                            onChange={(e) => setGrnForm({ ...grnForm, grn_number: e.target.value })}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            type="date"
-                            label="Received Date"
-                            InputLabelProps={{ shrink: true }}
-                            value={grnForm.received_date}
-                            onChange={(e) => setGrnForm({ ...grnForm, received_date: e.target.value })}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            type="number"
-                            label="Received Quantity"
-                            value={grnForm.received_qty}
-                            onChange={(e) => setGrnForm({ ...grnForm, received_qty: e.target.value })}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            select
-                            fullWidth
-                            size="small"
-                            label="Inspection Status"
-                            value={grnForm.inspection_status}
-                            onChange={(e) => setGrnForm({ ...grnForm, inspection_status: e.target.value })}
-                          >
-                            <MenuItem value="Accepted">Accepted (Pass)</MenuItem>
-                            <MenuItem value="Pending">Pending</MenuItem>
-                            <MenuItem value="Rejected">Rejected</MenuItem>
-                          </TextField>
-                        </Grid>
+                  {/* Summary of awarded vendor if available */}
+                  {(selectedPR.final_approval?.selected_vendor || selectedPR.purchase_order?.po_number) && (
+                    <Box sx={{ mb: 2.5, p: 1.8, borderRadius: "10px", bgcolor: "#f8fafc", border: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+                      <Typography sx={{ fontSize: "0.82rem", color: "#334155" }}>
+                        Awarded Vendor: <b>{selectedPR.final_approval?.selected_vendor || "Approved Vendor"}</b>
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.82rem", color: "#059669", fontWeight: 750 }}>
+                        Approved Budget Cap: ₹{Number(selectedPR.final_approval?.final_approved_amount || selectedPR.first_approval?.approved_amount || 0).toLocaleString("en-IN")}
+                      </Typography>
+                    </Box>
+                  )}
 
-                        <Grid item xs={12}>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            label="Serial Numbers (Comma separated) *"
-                            placeholder="e.g. SN-998811, SN-998812"
-                            value={grnForm.serial_numbers_text}
-                            onChange={(e) => setGrnForm({ ...grnForm, serial_numbers_text: e.target.value })}
-                            helperText="Crucial for automatic asset registration in Unified Hub"
-                          />
-                        </Grid>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="PO Number *"
+                        value={poForm.po_number}
+                        onChange={(e) => setPoForm({ ...poForm, po_number: e.target.value })}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        type="date"
+                        label="PO Date"
+                        InputLabelProps={{ shrink: true }}
+                        value={poForm.po_date}
+                        onChange={(e) => setPoForm({ ...poForm, po_date: e.target.value })}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        type="number"
+                        label="PO Amount ₹"
+                        value={poForm.po_amount}
+                        onChange={(e) => setPoForm({ ...poForm, po_amount: e.target.value })}
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        type="date"
+                        label="Expected Delivery"
+                        InputLabelProps={{ shrink: true }}
+                        value={poForm.expected_delivery}
+                        onChange={(e) => setPoForm({ ...poForm, expected_delivery: e.target.value })}
+                      />
+                    </Grid>
 
-                        <Grid item xs={12}>
-                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", p: 1.5, bgcolor: "#f8fafc", borderRadius: "8px", border: "1px dashed #cbd5e1" }}>
-                            {grnForm.delivery_challan_url ? (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                startIcon={<Eye size={14} />}
-                                onClick={() => openDocViewer(grnForm.delivery_challan_url, "Delivery Challan")}
-                                sx={{ textTransform: "none" }}
-                              >
-                                View Delivery Challan
-                              </Button>
-                            ) : (
-                              <Typography sx={{ fontSize: "0.8rem", color: "#64748b" }}>No challan attached</Typography>
-                            )}
-                            <label>
-                              <input
-                                type="file"
-                                hidden
-                                accept=".pdf,.docx,.doc,.jpg,.png"
-                                onChange={(e) => {
-                                  if (e.target.files?.[0]) {
-                                    handleUploadDoc(e.target.files[0], (url) => setGrnForm({ ...grnForm, delivery_challan_url: url }));
-                                  }
-                                }}
-                              />
-                              <Button size="small" component="span" startIcon={<UploadCloud size={14} />} sx={{ textTransform: "none" }}>
-                                {grnForm.delivery_challan_url ? "Replace Challan" : "Upload Challan"}
-                              </Button>
-                            </label>
+                    <Grid item xs={12}>
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", p: 1.8, bgcolor: "#f8fafc", borderRadius: "10px", border: "1px dashed #cbd5e1" }}>
+                        {poForm.po_file_url ? (
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<Eye size={14} />}
+                              onClick={() => openDocViewer(poForm.po_file_url, "Purchase Order Document")}
+                              sx={{ textTransform: "none", fontSize: "0.78rem" }}
+                            >
+                              View PO Document
+                            </Button>
+                            <Typography sx={{ fontSize: "0.74rem", color: "#16a34a", fontWeight: 650 }}>
+                              ✓ Attached: {poForm.po_file_url.split("/").pop()}
+                            </Typography>
                           </Box>
-                        </Grid>
-                      </Grid>
-
-                      <Box sx={{ mt: 2.5, display: "flex", justifyContent: "flex-end" }}>
-                        <Button
-                          variant="contained"
-                          onClick={handleSubmitGRN}
-                          disabled={submitting}
-                          sx={{ bgcolor: "#059669", textTransform: "none", fontWeight: 650, "&:hover": { bgcolor: "#047857" } }}
-                        >
-                          Record Goods Receipt (GRN)
-                        </Button>
+                        ) : (
+                          <Typography sx={{ fontSize: "0.8rem", color: "#64748b" }}>No PO file attached</Typography>
+                        )}
+                        <label>
+                          <input
+                            type="file"
+                            hidden
+                            accept=".pdf,.docx,.doc,.jpg,.png"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) {
+                                handleUploadDoc(e.target.files[0], (url) => setPoForm({ ...poForm, po_file_url: url }));
+                              }
+                            }}
+                          />
+                          <Button size="small" component="span" variant={poForm.po_file_url ? "outlined" : "contained"} startIcon={<UploadCloud size={14} />} sx={{ textTransform: "none", bgcolor: poForm.po_file_url ? "transparent" : "#4f46e5" }}>
+                            {poForm.po_file_url ? "Replace PO File" : "Upload PO Document"}
+                          </Button>
+                        </label>
                       </Box>
-                    </Paper>
+                    </Grid>
                   </Grid>
-                </Grid>
+
+                  <Box sx={{ mt: 3, pt: 2, borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Typography sx={{ fontSize: "0.74rem", color: "#64748b" }}>
+                      * Official PO will be linked with incoming GRN inspection and vendor billing
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      onClick={handleSubmitPO}
+                      disabled={submitting}
+                      sx={{ bgcolor: "#4f46e5", textTransform: "none", fontWeight: 700, px: 3, py: 0.9, borderRadius: "8px" }}
+                    >
+                      {submitting ? "Saving PO..." : "Save & Issue Purchase Order"}
+                    </Button>
+                  </Box>
+                </Paper>
               </Box>
             )}
 
-            {/* ── TAB 5: TAX INVOICE & ACCOUNTS 3-WAY MATCHING ── */}
+            {/* ── TAB 5: STAGE 7: RECEIVING & GRN INSPECTION ── */}
             {workflowTab === 5 && (
+              <Box>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 3,
+                    borderRadius: "14px",
+                    border: "1px solid #e2e8f0",
+                    bgcolor: "#fff",
+                    maxWidth: 900,
+                    mx: "auto",
+                  }}
+                >
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2.5, pb: 2, borderBottom: "1px solid #f1f5f9" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                      <Box sx={{ width: 42, height: 42, borderRadius: "10px", bgcolor: "#ecfdf5", color: "#059669", display: "grid", placeItems: "center" }}>
+                        <Truck size={22} />
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: "1.02rem", fontWeight: 800, color: "#1e293b" }}>
+                          Stage 7: Receiving &amp; GRN Inspection
+                        </Typography>
+                        <Typography sx={{ fontSize: "0.78rem", color: "#64748b" }}>
+                          Physical material verification, serial number capture, and challan inspection
+                        </Typography>
+                      </Box>
+                    </Box>
+                    {selectedPR.grn_details?.grn_number && (
+                      <Chip size="small" label={`GRN: ${selectedPR.grn_details.grn_number}`} color="success" sx={{ fontWeight: 700 }} />
+                    )}
+                  </Box>
+
+                  {/* Reference to linked PO */}
+                  {selectedPR.purchase_order?.po_number && (
+                    <Box sx={{ mb: 2.5, p: 1.8, borderRadius: "10px", bgcolor: "#f8fafc", border: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+                      <Typography sx={{ fontSize: "0.82rem", color: "#334155" }}>
+                        Linked PO: <b>{selectedPR.purchase_order.po_number}</b> (PO Date: {selectedPR.purchase_order.po_date?.slice(0, 10) || "N/A"})
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.82rem", color: "#4f46e5", fontWeight: 700 }}>
+                        Ordered Quantity: {selectedPR.item_details?.quantity || 1} Units
+                      </Typography>
+                    </Box>
+                  )}
+
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="GRN Number"
+                        value={grnForm.grn_number}
+                        onChange={(e) => setGrnForm({ ...grnForm, grn_number: e.target.value })}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        type="date"
+                        label="Received Date"
+                        InputLabelProps={{ shrink: true }}
+                        value={grnForm.received_date}
+                        onChange={(e) => setGrnForm({ ...grnForm, received_date: e.target.value })}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        type="number"
+                        label="Received Quantity"
+                        value={grnForm.received_qty}
+                        onChange={(e) => setGrnForm({ ...grnForm, received_qty: e.target.value })}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        select
+                        fullWidth
+                        size="small"
+                        label="Inspection Status"
+                        value={grnForm.inspection_status}
+                        onChange={(e) => setGrnForm({ ...grnForm, inspection_status: e.target.value })}
+                      >
+                        <MenuItem value="Accepted">Accepted (Pass)</MenuItem>
+                        <MenuItem value="Pending">Pending</MenuItem>
+                        <MenuItem value="Rejected">Rejected</MenuItem>
+                      </TextField>
+                    </Grid>
+
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Serial Numbers (Comma separated) *"
+                        placeholder="e.g. SN-998811, SN-998812"
+                        value={grnForm.serial_numbers_text}
+                        onChange={(e) => setGrnForm({ ...grnForm, serial_numbers_text: e.target.value })}
+                        helperText="Crucial for automatic asset registration in Unified Hub"
+                      />
+                    </Grid>
+
+                    <Grid item xs={12}>
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", p: 1.8, bgcolor: "#f8fafc", borderRadius: "10px", border: "1px dashed #cbd5e1" }}>
+                        {grnForm.delivery_challan_url ? (
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<Eye size={14} />}
+                              onClick={() => openDocViewer(grnForm.delivery_challan_url, "Delivery Challan")}
+                              sx={{ textTransform: "none", fontSize: "0.78rem" }}
+                            >
+                              View Delivery Challan
+                            </Button>
+                            <Typography sx={{ fontSize: "0.74rem", color: "#16a34a", fontWeight: 650 }}>
+                              ✓ Attached: {grnForm.delivery_challan_url.split("/").pop()}
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Typography sx={{ fontSize: "0.8rem", color: "#64748b" }}>No challan attached</Typography>
+                        )}
+                        <label>
+                          <input
+                            type="file"
+                            hidden
+                            accept=".pdf,.docx,.doc,.jpg,.png"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) {
+                                handleUploadDoc(e.target.files[0], (url) => setGrnForm({ ...grnForm, delivery_challan_url: url }));
+                              }
+                            }}
+                          />
+                          <Button size="small" component="span" variant={grnForm.delivery_challan_url ? "outlined" : "contained"} startIcon={<UploadCloud size={14} />} sx={{ textTransform: "none", bgcolor: grnForm.delivery_challan_url ? "transparent" : "#059669" }}>
+                            {grnForm.delivery_challan_url ? "Replace Challan" : "Upload Challan"}
+                          </Button>
+                        </label>
+                      </Box>
+                    </Grid>
+                  </Grid>
+
+                  <Box sx={{ mt: 3, pt: 2, borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Typography sx={{ fontSize: "0.74rem", color: "#64748b" }}>
+                      * Serial numbers registered here will link to IT Asset Register upon handover
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      onClick={handleSubmitGRN}
+                      disabled={submitting}
+                      sx={{ bgcolor: "#059669", textTransform: "none", fontWeight: 700, px: 3, py: 0.9, borderRadius: "8px", "&:hover": { bgcolor: "#047857" } }}
+                    >
+                      {submitting ? "Saving GRN..." : "Record Goods Receipt (GRN)"}
+                    </Button>
+                  </Box>
+                </Paper>
+              </Box>
+            )}
+
+            {/* ── TAB 6: TAX INVOICE & ACCOUNTS 3-WAY MATCHING ── */}
+            {workflowTab === 6 && (
               <Box>
                 <Grid container spacing={3}>
                   <Grid item xs={12} md={7}>
@@ -5637,8 +6171,8 @@ export default function ProcurementManagement() {
               </Box>
             )}
 
-            {/* ── TAB 6: PAYMENT & AUTOMATED ASSET BRIDGE ── */}
-            {workflowTab === 6 && (
+            {/* ── TAB 7: PAYMENT & AUTOMATED ASSET BRIDGE ── */}
+            {workflowTab === 7 && (
               <Box>
                 <Grid container spacing={3}>
                   {/* Payment Recording */}
@@ -5914,8 +6448,8 @@ export default function ProcurementManagement() {
               </Box>
             )}
 
-            {/* ── TAB 7: WORKFLOW AUDIT TRAIL ── */}
-            {workflowTab === 7 && (
+            {/* ── TAB 8: WORKFLOW AUDIT TRAIL ── */}
+            {workflowTab === 8 && (
               <Box>
                 <Typography sx={{ fontSize: "1rem", fontWeight: 750, color: "#1e293b", mb: 2 }}>
                   Immutable Procurement Audit Trail &amp; History

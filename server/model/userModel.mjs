@@ -57,6 +57,10 @@ const userSchema = new Schema({
     type: [String],
     default: ["Attendance"],
   },
+  kpi_permissions: {
+    type: [String],
+    default: [],
+  },
   tyre_procurement_tabs: {
     type: [String],
     default: [],

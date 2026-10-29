@@ -101,16 +101,16 @@ const KPIAdminDashboard = () => {
                 const targets = metaData.productivity?.assigned_targets ?? 10;
                 const text = `Auto-calculated: ${completed} / ${targets} tasks completed (Score = (${completed}/${targets})*10 = ${autoScore})`;
                 const isOverridden = Math.abs(currentScore - autoScore) > 0.05;
-                return isOverridden 
-                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]` 
+                return isOverridden
+                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]`
                     : text;
             }
             case 'qualityScore': {
                 const autoScore = metaData.qualityScore ?? 10;
                 const text = `Auto-calculated: Based on overall KPI sheet percentage (Score = ${autoScore})`;
                 const isOverridden = Math.abs(currentScore - autoScore) > 0.05;
-                return isOverridden 
-                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]` 
+                return isOverridden
+                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]`
                     : text;
             }
             case 'attendanceScore': {
@@ -119,16 +119,16 @@ const KPIAdminDashboard = () => {
                 const working = metaData.attendance?.working_days ?? 0;
                 const text = `Auto-calculated: Present Days: ${present} / ${working} (Score = (${present}/${working})*10 = ${autoScore})`;
                 const isOverridden = Math.abs(currentScore - autoScore) > 0.05;
-                return isOverridden 
-                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]` 
+                return isOverridden
+                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]`
                     : text;
             }
             case 'sopComplianceScore': {
                 const autoScore = metaData.sopComplianceScore ?? 10;
                 const text = `Standard rating (Default: ${autoScore})`;
                 const isOverridden = Math.abs(currentScore - autoScore) > 0.05;
-                return isOverridden 
-                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]` 
+                return isOverridden
+                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]`
                     : text;
             }
             case 'openTaskScore': {
@@ -136,8 +136,8 @@ const KPIAdminDashboard = () => {
                 const openItems = metaData.open_tasks?.open_items ?? 0;
                 const text = `Auto-calculated: Pending items: ${openItems} (Score = Max(0, 10 - pending*1.0) = ${autoScore})`;
                 const isOverridden = Math.abs(currentScore - autoScore) > 0.05;
-                return isOverridden 
-                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]` 
+                return isOverridden
+                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]`
                     : text;
             }
             case 'businessLossScore': {
@@ -145,8 +145,8 @@ const KPIAdminDashboard = () => {
                 const incidents = metaData.business_loss?.incidents ?? 0;
                 const text = `Auto-calculated: Incidents: ${incidents} (Score = Max(0, 10 - incidents*1.0) = ${autoScore})`;
                 const isOverridden = Math.abs(currentScore - autoScore) > 0.05;
-                return isOverridden 
-                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]` 
+                return isOverridden
+                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]`
                     : text;
             }
             default:
@@ -169,7 +169,9 @@ const KPIAdminDashboard = () => {
         department: '',
         team: '',
         data: null,
-        loading: false
+        loading: false,
+        statusFilter: 'ALL',
+        searchQuery: ''
     });
 
     const departments = [
@@ -180,6 +182,8 @@ const KPIAdminDashboard = () => {
     const months = ['January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'];
 
+    const [cachedGlobalDetails, setCachedGlobalDetails] = useState(null);
+
     useEffect(() => {
         if (user && user.role === 'Admin') {
             fetchData();
@@ -188,17 +192,27 @@ const KPIAdminDashboard = () => {
 
     const fetchData = async () => {
         try {
-            // Fetch Stats
-            const statsRes = await axios.get(`${process.env.REACT_APP_API_STRING}/kpi/admin/stats?year=${year}&month=${month}`, { withCredentials: true });
+            let sheetsUrl = `${process.env.REACT_APP_API_STRING}/kpi/admin/all-sheets?year=${year}&month=${month}`;
+            if (department) sheetsUrl += `&department=${department}`;
+
+            const statsUrl = `${process.env.REACT_APP_API_STRING}/kpi/admin/stats?year=${year}&month=${month}`;
+            const subUrl = `${process.env.REACT_APP_API_STRING}/kpi/admin/submission-status?year=${year}&month=${month}${department ? `&department=${encodeURIComponent(department)}` : ''}`;
+
+            // Execute all 3 in parallel for maximum dashboard speed
+            const [statsRes, sheetsRes, subRes] = await Promise.all([
+                axios.get(statsUrl, { withCredentials: true }),
+                axios.get(sheetsUrl, { withCredentials: true }),
+                axios.get(subUrl, { withCredentials: true }).catch(err => {
+                    console.error("Prefetch error for submission status:", err);
+                    return null;
+                })
+            ]);
+
             setStats(statsRes.data);
-
-            // Fetch Sheets
-            let url = `${process.env.REACT_APP_API_STRING}/kpi/admin/all-sheets?year=${year}&month=${month}`;
-            if (department) url += `&department=${department}`;
-
-            const sheetsRes = await axios.get(url, { withCredentials: true });
             setSheets(sheetsRes.data);
-
+            if (subRes && subRes.data) {
+                setCachedGlobalDetails(subRes.data);
+            }
         } catch (error) {
             console.error("Error fetching admin data", error);
             showMessage("Failed to load dashboard data", "error");
@@ -277,21 +291,47 @@ const KPIAdminDashboard = () => {
     };
 
     const fetchSubmissionDetails = async (teamName = '', dept = '') => {
+        const isGlobal = !teamName && (!dept || dept === 'Global');
+
+        // If Global and we already have preloaded data, open IMMEDIATELY with 0ms delay!
+        if (isGlobal && cachedGlobalDetails) {
+            setDetailModal({
+                show: true,
+                team: '',
+                department: 'Global',
+                loading: false,
+                data: cachedGlobalDetails,
+                statusFilter: 'ALL',
+                searchQuery: ''
+            });
+
+            // Silently refresh in background to guarantee freshness
+            axios.get(`${process.env.REACT_APP_API_STRING}/kpi/admin/submission-status?year=${year}&month=${month}`, { withCredentials: true })
+                .then(res => {
+                    setCachedGlobalDetails(res.data);
+                    setDetailModal(prev => (prev.show && !prev.team ? { ...prev, data: res.data } : prev));
+                })
+                .catch(() => { });
+            return;
+        }
+
         try {
-            setDetailModal(prev => ({ 
-                ...prev, 
-                show: true, 
+            setDetailModal({
+                show: true,
                 team: teamName || '',
-                department: dept || (teamName ? '' : 'Global'), 
-                loading: true, 
-                data: null 
-            }));
-            
+                department: dept || (teamName ? '' : 'Global'),
+                loading: true,
+                data: null,
+                statusFilter: 'ALL',
+                searchQuery: ''
+            });
+
             let url = `${process.env.REACT_APP_API_STRING}/kpi/admin/submission-status?year=${year}&month=${month}`;
             if (teamName) url += `&team=${encodeURIComponent(teamName)}`;
             else if (dept) url += `&department=${encodeURIComponent(dept)}`;
 
             const res = await axios.get(url, { withCredentials: true });
+            if (isGlobal) setCachedGlobalDetails(res.data);
             setDetailModal(prev => ({ ...prev, data: res.data, loading: false }));
         } catch (err) {
             console.error("Error fetching submission details", err);
@@ -438,7 +478,7 @@ const KPIAdminDashboard = () => {
                 </div>
                 <div className="header-actions">
                     <button className="modern-btn secondary" onClick={() => fetchSubmissionDetails('')}>
-                        <Icons.Filter /> View All Non-Submitters
+                        <Icons.Filter /> View All Submitters
                     </button>
                     <button className="modern-btn secondary" onClick={() => navigate('/kpi')}>
                         <Icons.Back /> Back to My KPI
@@ -630,17 +670,17 @@ const KPIAdminDashboard = () => {
                                 </div>
                                 <div className="stat-content" style={{ width: '100%', minWidth: 0 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: 0 }}>
-                                        <h3 
-                                            style={{ 
-                                                fontSize: '1.05rem', 
-                                                fontWeight: 600, 
-                                                margin: 0, 
-                                                overflow: 'hidden', 
-                                                textOverflow: 'ellipsis', 
-                                                whiteSpace: 'nowrap', 
-                                                marginRight: '8px', 
-                                                color: '#1e293b' 
-                                            }} 
+                                        <h3
+                                            style={{
+                                                fontSize: '1.05rem',
+                                                fontWeight: 600,
+                                                margin: 0,
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                                marginRight: '8px',
+                                                color: '#1e293b'
+                                            }}
                                             title={stat._id}
                                         >
                                             {stat._id}
@@ -712,100 +752,94 @@ const KPIAdminDashboard = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <AnimatePresence>
-                                        {sheets.filter(sheet => {
-                                            if (!searchQuery.trim()) return true;
-                                            const q = searchQuery.toLowerCase();
-                                            const name = sheet.user ? `${sheet.user.first_name} ${sheet.user.last_name}`.toLowerCase() : '';
-                                            const dept = (sheet.department || '').toLowerCase();
-                                            const tmpl = (sheet.template_version?.name || '').toLowerCase();
-                                            const quadrant = (sheet.summary?.performance_quadrant || '').toLowerCase();
-                                            return name.includes(q) || dept.includes(q) || tmpl.includes(q) || quadrant.includes(q);
-                                        }).map((sheet, i) => (
-                                            <motion.tr
-                                                key={sheet._id}
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                transition={{ delay: i * 0.05 }}
-                                                style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
-                                                onClick={() => navigate(`/kpi/sheet/${sheet._id}`)}
-                                                whileHover={{ background: '#f8fafc' }}
-                                            >
-                                                <td style={{ paddingLeft: '24px' }}>
-                                                    <div style={{ fontWeight: 600, color: '#334155' }}>
-                                                        {sheet.user ? `${sheet.user.first_name} ${sheet.user.last_name}` : 'Unknown'}
-                                                    </div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{sheet.user?.email || ''}</div>
-                                                </td>
-                                                <td>
-                                                    <span style={{ background: '#eef2ff', color: '#4f46e5', padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500 }}>
-                                                        {sheet.department || '-'}
-                                                    </span>
-                                                </td>
-                                                <td style={{ color: '#64748b' }}>{sheet.template_version?.name || 'Unknown'}</td>
-                                                <td style={{ textAlign: 'center' }}>
-                                                    <span className={`status-badge ${sheet.status.toLowerCase()}`}>{sheet.status}</span>
-                                                </td>
-                                                <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
-                                                    {sheet.approval_history?.find(h => h.action === 'CHECK')?.date
-                                                        ? new Date(sheet.approval_history.find(h => h.action === 'CHECK').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
-                                                        : '-'}
-                                                </td>
-                                                <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
-                                                    {sheet.approval_history?.find(h => h.action === 'VERIFY')?.date
-                                                        ? new Date(sheet.approval_history.find(h => h.action === 'VERIFY').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
-                                                        : '-'}
-                                                </td>
-                                                <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
-                                                    {sheet.approval_history?.find(h => h.action === 'APPROVE')?.date
-                                                        ? new Date(sheet.approval_history.find(h => h.action === 'APPROVE').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
-                                                        : '-'}
-                                                </td>
-                                                <td style={{ textAlign: 'center', fontWeight: 600, color: '#334155' }}>
-                                                    {sheet.summary?.overall_percentage || 0}%
-                                                </td>
-                                                <td style={{ textAlign: 'center', fontWeight: 600, color: '#059669' }}>
-                                                    {sheet.summary?.average_complexity ? sheet.summary.average_complexity.toFixed(1) : '-'}
-                                                </td>
-                                                <td style={{ textAlign: 'center' }}>
-                                                    <span style={{
-                                                        padding: '2px 8px',
-                                                        borderRadius: '12px',
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: 600,
-                                                        background: sheet.summary?.performance_quadrant === 'Star' ? '#dcfce7' : sheet.summary?.performance_quadrant === 'Drainer' ? '#fee2e2' : sheet.summary?.performance_quadrant === 'Specialist' ? '#f3e8ff' : '#e0f2fe',
-                                                        color: sheet.summary?.performance_quadrant === 'Star' ? '#059669' : sheet.summary?.performance_quadrant === 'Drainer' ? '#dc2626' : sheet.summary?.performance_quadrant === 'Specialist' ? '#7c3aed' : '#2563eb'
-                                                    }}>
-                                                        {sheet.summary?.performance_quadrant || '-'}
-                                                    </span>
-                                                </td>
-                                                <td style={{ textAlign: 'right', paddingRight: '24px' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                    {sheets.filter(sheet => {
+                                        if (!searchQuery.trim()) return true;
+                                        const q = searchQuery.toLowerCase();
+                                        const name = sheet.user ? `${sheet.user.first_name} ${sheet.user.last_name}`.toLowerCase() : '';
+                                        const dept = (sheet.department || '').toLowerCase();
+                                        const tmpl = (sheet.template_version?.name || '').toLowerCase();
+                                        const quadrant = (sheet.summary?.performance_quadrant || '').toLowerCase();
+                                        return name.includes(q) || dept.includes(q) || tmpl.includes(q) || quadrant.includes(q);
+                                    }).map((sheet) => (
+                                        <tr
+                                            key={sheet._id}
+                                            style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                                            onClick={() => navigate(`/kpi/sheet/${sheet._id}`)}
+                                        >
+                                            <td style={{ paddingLeft: '24px' }}>
+                                                <div style={{ fontWeight: 600, color: '#334155' }}>
+                                                    {sheet.user ? `${sheet.user.first_name} ${sheet.user.last_name}` : 'Unknown'}
+                                                </div>
+                                                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{sheet.user?.email || ''}</div>
+                                            </td>
+                                            <td>
+                                                <span style={{ background: '#eef2ff', color: '#4f46e5', padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500 }}>
+                                                    {sheet.department || '-'}
+                                                </span>
+                                            </td>
+                                            <td style={{ color: '#64748b' }}>{sheet.template_version?.name || 'Unknown'}</td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <span className={`status-badge ${sheet.status.toLowerCase()}`}>{sheet.status}</span>
+                                            </td>
+                                            <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                                {sheet.approval_history?.find(h => h.action === 'CHECK')?.date
+                                                    ? new Date(sheet.approval_history.find(h => h.action === 'CHECK').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                                    : '-'}
+                                            </td>
+                                            <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                                {sheet.approval_history?.find(h => h.action === 'VERIFY')?.date
+                                                    ? new Date(sheet.approval_history.find(h => h.action === 'VERIFY').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                                    : '-'}
+                                            </td>
+                                            <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                                {sheet.approval_history?.find(h => h.action === 'APPROVE')?.date
+                                                    ? new Date(sheet.approval_history.find(h => h.action === 'APPROVE').date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                                    : '-'}
+                                            </td>
+                                            <td style={{ textAlign: 'center', fontWeight: 600, color: '#334155' }}>
+                                                {sheet.summary?.overall_percentage || 0}%
+                                            </td>
+                                            <td style={{ textAlign: 'center', fontWeight: 600, color: '#059669' }}>
+                                                {sheet.summary?.average_complexity ? sheet.summary.average_complexity.toFixed(1) : '-'}
+                                            </td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <span style={{
+                                                    padding: '2px 8px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 600,
+                                                    background: sheet.summary?.performance_quadrant === 'Star' ? '#dcfce7' : sheet.summary?.performance_quadrant === 'Drainer' ? '#fee2e2' : sheet.summary?.performance_quadrant === 'Specialist' ? '#f3e8ff' : '#e0f2fe',
+                                                    color: sheet.summary?.performance_quadrant === 'Star' ? '#059669' : sheet.summary?.performance_quadrant === 'Drainer' ? '#dc2626' : sheet.summary?.performance_quadrant === 'Specialist' ? '#7c3aed' : '#2563eb'
+                                                }}>
+                                                    {sheet.summary?.performance_quadrant || '-'}
+                                                </span>
+                                            </td>
+                                            <td style={{ textAlign: 'right', paddingRight: '24px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                                    <button
+                                                        className="modern-btn icon-only"
+                                                        title="View"
+                                                        onClick={(e) => { e.stopPropagation(); setViewDialog({ open: true, sheetId: sheet._id }); }}
+                                                    >
+                                                        <Icons.Eye />
+                                                    </button>
+                                                    {(sheet.status === 'SUBMITTED' || sheet.status === 'CHECKED' || sheet.status === 'VERIFIED') && (
                                                         <button
                                                             className="modern-btn icon-only"
-                                                            title="View"
-                                                            onClick={(e) => { e.stopPropagation(); setViewDialog({ open: true, sheetId: sheet._id }); }}
+                                                            style={{
+                                                                color: sheet.status === 'VERIFIED' ? '#22c55e' : sheet.status === 'CHECKED' ? '#0078d4' : '#f59e0b',
+                                                                background: sheet.status === 'VERIFIED' ? '#dcfce7' : sheet.status === 'CHECKED' ? '#e0f2fe' : '#fef3c7'
+                                                            }}
+                                                            title={sheet.status === 'SUBMITTED' ? 'Check' : sheet.status === 'CHECKED' ? 'Verify' : 'Approve'}
+                                                            onClick={(e) => handleAction(e, sheet)}
                                                         >
-                                                            <Icons.Eye />
+                                                            <Icons.Approve />
                                                         </button>
-                                                        {(sheet.status === 'SUBMITTED' || sheet.status === 'CHECKED' || sheet.status === 'VERIFIED') && (
-                                                            <button
-                                                                className="modern-btn icon-only"
-                                                                style={{
-                                                                    color: sheet.status === 'VERIFIED' ? '#22c55e' : sheet.status === 'CHECKED' ? '#0078d4' : '#f59e0b',
-                                                                    background: sheet.status === 'VERIFIED' ? '#dcfce7' : sheet.status === 'CHECKED' ? '#e0f2fe' : '#fef3c7'
-                                                                }}
-                                                                title={sheet.status === 'SUBMITTED' ? 'Check' : sheet.status === 'CHECKED' ? 'Verify' : 'Approve'}
-                                                                onClick={(e) => handleAction(e, sheet)}
-                                                            >
-                                                                <Icons.Approve />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </motion.tr>
-                                        ))}
-                                    </AnimatePresence>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
@@ -850,85 +884,197 @@ const KPIAdminDashboard = () => {
                                     <div style={{ textAlign: 'center', padding: '40px' }}>Loading...</div>
                                 ) : detailModal.data ? (
                                     <>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-                                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
+                                        {/* Status Filter Cards */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '20px' }}>
+                                            <div
+                                                onClick={() => setDetailModal(prev => ({ ...prev, statusFilter: 'ALL' }))}
+                                                style={{
+                                                    background: '#f8fafc',
+                                                    padding: '16px',
+                                                    borderRadius: '12px',
+                                                    textAlign: 'center',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease',
+                                                    border: (detailModal.statusFilter || 'ALL') === 'ALL' ? '2px solid #6366f1' : '1px solid #e2e8f0',
+                                                    boxShadow: (detailModal.statusFilter || 'ALL') === 'ALL' ? '0 4px 12px rgba(99, 102, 241, 0.15)' : 'none'
+                                                }}
+                                            >
                                                 <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1e293b' }}>{detailModal.data.stats.total}</div>
                                                 <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>TOTAL USERS</div>
                                             </div>
-                                            <div style={{ background: '#ecfdf5', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
+                                            <div
+                                                onClick={() => setDetailModal(prev => ({ ...prev, statusFilter: 'SUBMITTED' }))}
+                                                style={{
+                                                    background: '#ecfdf5',
+                                                    padding: '16px',
+                                                    borderRadius: '12px',
+                                                    textAlign: 'center',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease',
+                                                    border: detailModal.statusFilter === 'SUBMITTED' ? '2px solid #059669' : '1px solid #a7f3d0',
+                                                    boxShadow: detailModal.statusFilter === 'SUBMITTED' ? '0 4px 12px rgba(5, 150, 105, 0.15)' : 'none'
+                                                }}
+                                            >
                                                 <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#059669' }}>{detailModal.data.stats.submitted}</div>
                                                 <div style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600 }}>SUBMITTED</div>
                                             </div>
-                                            <div style={{ background: '#fef2f2', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
+                                            <div
+                                                onClick={() => setDetailModal(prev => ({ ...prev, statusFilter: 'PENDING' }))}
+                                                style={{
+                                                    background: '#fef2f2',
+                                                    padding: '16px',
+                                                    borderRadius: '12px',
+                                                    textAlign: 'center',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease',
+                                                    border: detailModal.statusFilter === 'PENDING' ? '2px solid #dc2626' : '1px solid #fecaca',
+                                                    boxShadow: detailModal.statusFilter === 'PENDING' ? '0 4px 12px rgba(220, 38, 38, 0.15)' : 'none'
+                                                }}
+                                            >
                                                 <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#dc2626' }}>{detailModal.data.stats.pending}</div>
-                                                <div style={{ fontSize: '0.75rem', color: '#dc2626', fontWeight: 600 }}>PENDING</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#dc2626', fontWeight: 600 }}>NON-SUBMITTERS</div>
                                             </div>
-                                            <div style={{ background: '#fff7ed', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
+                                            <div
+                                                onClick={() => setDetailModal(prev => ({ ...prev, statusFilter: 'LATE' }))}
+                                                style={{
+                                                    background: '#fff7ed',
+                                                    padding: '16px',
+                                                    borderRadius: '12px',
+                                                    textAlign: 'center',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease',
+                                                    border: detailModal.statusFilter === 'LATE' ? '2px solid #f59e0b' : '1px solid #fed7aa',
+                                                    boxShadow: detailModal.statusFilter === 'LATE' ? '0 4px 12px rgba(245, 158, 11, 0.15)' : 'none'
+                                                }}
+                                            >
                                                 <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b' }}>{detailModal.data.stats.late}</div>
                                                 <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 600 }}>LATE SUBMISSIONS</div>
                                             </div>
                                         </div>
 
-                                        <div style={{ marginBottom: '12px', padding: '12px', borderRadius: '8px', background: '#fefce8', border: '1px solid #fef08a', fontSize: '0.85rem', color: '#854d0e' }}>
-                                            <strong>Policy Deadline:</strong> {new Date(detailModal.data.deadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                        {/* Policy Deadline & Search Bar */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+                                            <div style={{ padding: '8px 14px', borderRadius: '8px', background: '#fefce8', border: '1px solid #fef08a', fontSize: '0.82rem', color: '#854d0e' }}>
+                                                <strong>Policy Deadline:</strong> {new Date(detailModal.data.deadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Filter by employee, email, dept..."
+                                                    value={detailModal.searchQuery || ''}
+                                                    onChange={(e) => setDetailModal(prev => ({ ...prev, searchQuery: e.target.value }))}
+                                                    style={{
+                                                        padding: '6px 12px',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid #e2e8f0',
+                                                        fontSize: '0.82rem',
+                                                        outline: 'none',
+                                                        minWidth: '220px'
+                                                    }}
+                                                />
+                                                {(detailModal.searchQuery || detailModal.statusFilter !== 'ALL') && (
+                                                    <button
+                                                        onClick={() => setDetailModal(prev => ({ ...prev, statusFilter: 'ALL', searchQuery: '' }))}
+                                                        style={{
+                                                            padding: '6px 10px',
+                                                            borderRadius: '6px',
+                                                            border: '1px solid #cbd5e1',
+                                                            background: '#f8fafc',
+                                                            color: '#64748b',
+                                                            fontSize: '0.78rem',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Reset Filter
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
 
-                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                            <thead>
-                                                <tr style={{ textAlign: 'left', borderBottom: '2px solid #f1f5f9' }}>
-                                                    <th style={{ padding: '12px 0', fontSize: '0.8rem', color: '#64748b' }}>EMPLOYEE</th>
-                                                    <th style={{ padding: '12px 0', fontSize: '0.8rem', color: '#64748b' }}>DEPARTMENT</th>
-                                                    <th style={{ padding: '12px 0', fontSize: '0.8rem', color: '#64748b' }}>STATUS</th>
-                                                    <th style={{ padding: '12px 0', fontSize: '0.8rem', color: '#64748b' }}>SUBMIT DATE</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {detailModal.data.users
-                                                    .sort((a, b) => (a.submitted === b.submitted) ? 0 : a.submitted ? 1 : -1)
-                                                    .map((u, i) => (
-                                                        <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
-                                                            <td style={{ padding: '12px 0' }}>
-                                                                <div style={{ fontWeight: 600, color: '#334155', fontSize: '0.9rem' }}>{u.name}</div>
-                                                                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{u.email}</div>
-                                                            </td>
-                                                            <td style={{ padding: '12px 0' }}>
-                                                                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{u.department}</span>
-                                                            </td>
-                                                            <td style={{ padding: '12px 0' }}>
-                                                                {u.submitted ? (
-                                                                    <span style={{
-                                                                        padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
-                                                                        background: '#dcfce7', color: '#059669'
-                                                                    }}>
-                                                                        SUBMITTED
-                                                                    </span>
-                                                                ) : (
-                                                                    <span style={{
-                                                                        padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
-                                                                        background: '#fee2e2', color: '#dc2626'
-                                                                    }}>
-                                                                        NON-SUBMITTER
-                                                                    </span>
-                                                                )}
-                                                            </td>
-                                                            <td style={{ padding: '12px 0' }}>
-                                                                {u.submissionDate ? (
-                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                                        <span style={{ fontSize: '0.8rem', color: '#1e293b' }}>
-                                                                            {new Date(u.submissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                                        </span>
-                                                                        {u.isLate && (
-                                                                            <span style={{ fontSize: '0.7rem', color: '#dc2626', fontWeight: 700 }}>
-                                                                                ⚠️ LATE SUBMISSION
+                                        {(() => {
+                                            const modalFilter = detailModal.statusFilter || 'ALL';
+                                            const query = (detailModal.searchQuery || '').toLowerCase().trim();
+                                            const displayedUsers = (detailModal.data.users || [])
+                                                .filter(u => {
+                                                    if (modalFilter === 'SUBMITTED') return u.submitted;
+                                                    if (modalFilter === 'PENDING') return !u.submitted;
+                                                    if (modalFilter === 'LATE') return u.isLate;
+                                                    return true;
+                                                })
+                                                .filter(u => {
+                                                    if (!query) return true;
+                                                    const name = (u.name || '').toLowerCase();
+                                                    const email = (u.email || '').toLowerCase();
+                                                    const dept = (u.department || '').toLowerCase();
+                                                    return name.includes(query) || email.includes(query) || dept.includes(query);
+                                                })
+                                                .sort((a, b) => (a.submitted === b.submitted) ? 0 : a.submitted ? 1 : -1);
+
+                                            return (
+                                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                    <thead>
+                                                        <tr style={{ textAlign: 'left', borderBottom: '2px solid #f1f5f9' }}>
+                                                            <th style={{ padding: '12px 0', fontSize: '0.8rem', color: '#64748b' }}>EMPLOYEE ({displayedUsers.length})</th>
+                                                            <th style={{ padding: '12px 0', fontSize: '0.8rem', color: '#64748b' }}>DEPARTMENT</th>
+                                                            <th style={{ padding: '12px 0', fontSize: '0.8rem', color: '#64748b' }}>STATUS</th>
+                                                            <th style={{ padding: '12px 0', fontSize: '0.8rem', color: '#64748b' }}>SUBMIT DATE</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {displayedUsers.length > 0 ? (
+                                                            displayedUsers.map((u, i) => (
+                                                                <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                                                    <td style={{ padding: '12px 0' }}>
+                                                                        <div style={{ fontWeight: 600, color: '#334155', fontSize: '0.9rem' }}>{u.name}</div>
+                                                                        <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{u.email}</div>
+                                                                    </td>
+                                                                    <td style={{ padding: '12px 0' }}>
+                                                                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{u.department}</span>
+                                                                    </td>
+                                                                    <td style={{ padding: '12px 0' }}>
+                                                                        {u.submitted ? (
+                                                                            <span style={{
+                                                                                padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
+                                                                                background: '#dcfce7', color: '#059669'
+                                                                            }}>
+                                                                                SUBMITTED
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span style={{
+                                                                                padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
+                                                                                background: '#fee2e2', color: '#dc2626'
+                                                                            }}>
+                                                                                NON-SUBMITTER
                                                                             </span>
                                                                         )}
-                                                                    </div>
-                                                                ) : '-'}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                            </tbody>
-                                        </table>
+                                                                    </td>
+                                                                    <td style={{ padding: '12px 0' }}>
+                                                                        {u.submissionDate ? (
+                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                                <span style={{ fontSize: '0.8rem', color: '#1e293b' }}>
+                                                                                    {new Date(u.submissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                                </span>
+                                                                                {u.isLate && (
+                                                                                    <span style={{ fontSize: '0.7rem', color: '#dc2626', fontWeight: 700 }}>
+                                                                                        ⚠️ LATE SUBMISSION
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        ) : '-'}
+                                                                    </td>
+                                                                </tr>
+                                                            ))
+                                                        ) : (
+                                                            <tr>
+                                                                <td colSpan={4} style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                                                                    No employees match the selected filter.
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            );
+                                        })()}
                                     </>
                                 ) : null}
                             </div>
@@ -959,7 +1105,7 @@ const KPIAdminDashboard = () => {
                                         <Typography variant="subtitle2" style={{ fontWeight: 700, color: '#4f46e5', marginBottom: '12px', textTransform: 'uppercase' }}>
                                             Parameter Scoring (Scale 0-10)
                                         </Typography>
-                                        
+
                                         {[
                                             { name: 'Quantity of Work (25% Weight)', key: 'quantityScore' },
                                             { name: 'Quality of Work (25% Weight)', key: 'qualityScore' },
@@ -1013,7 +1159,7 @@ const KPIAdminDashboard = () => {
                                                     KPI SCORE PREVIEW
                                                 </Typography>
                                                 <Divider />
-                                                
+
                                                 <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                     <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                         <Typography variant="caption" color="textSecondary">Quantity (25%):</Typography>
@@ -1113,10 +1259,10 @@ const KPIAdminDashboard = () => {
             </Dialog>
 
             {/* View Sheet Dialog */}
-            <Dialog 
-                open={viewDialog.open} 
-                onClose={() => setViewDialog({ open: false, sheetId: null })} 
-                fullWidth 
+            <Dialog
+                open={viewDialog.open}
+                onClose={() => setViewDialog({ open: false, sheetId: null })}
+                fullWidth
                 maxWidth="xl"
                 PaperProps={{
                     style: {
@@ -1125,15 +1271,15 @@ const KPIAdminDashboard = () => {
                     }
                 }}
             >
-                <DialogTitle style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
+                <DialogTitle style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
                     borderBottom: '1px solid #e2e8f0',
                     padding: '12px 24px'
                 }}>
                     <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#1e293b' }}>KPI Sheet Details</span>
-                    <Button 
+                    <Button
                         onClick={() => setViewDialog({ open: false, sheetId: null })}
                         style={{ minWidth: 'auto', padding: '4px', color: '#64748b' }}
                     >

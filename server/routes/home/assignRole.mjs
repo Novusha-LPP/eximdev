@@ -10,7 +10,7 @@ const router = express.Router();
 const isAdminRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '') === 'ADMIN';
 
 router.post("/api/assign-role", authMiddleware, async (req, res) => {
-  const { username, role } = req.body;
+  const { username, role, kpi_permissions } = req.body;
 
   if (!isAdminRole(req.user?.role)) {
     return res.status(403).send({ message: "Admin access required" });
@@ -23,22 +23,89 @@ router.post("/api/assign-role", authMiddleware, async (req, res) => {
       return res.status(404).send({ message: "User not found" });
     }
 
-    // Update the user's role
-    user.role = role;
+    // Update the user's role if provided
+    if (role) {
+      user.role = role;
+    }
+
+    // Update KPI permissions if provided
+    if (kpi_permissions !== undefined) {
+      const validPerms = ['assign', 'view', 'manage'];
+      const perms = Array.isArray(kpi_permissions)
+        ? kpi_permissions.map(p => String(p).toLowerCase()).filter(p => validPerms.includes(p))
+        : [];
+      user.kpi_permissions = perms;
+
+      // If user has any KPI permission, ensure "KPI" is present in user.modules
+      if (perms.length > 0) {
+        const userModules = user.modules || [];
+        const hasKpi = userModules.some(m => String(m).toLowerCase() === 'kpi');
+        if (!hasKpi) {
+          user.modules = [...userModules, 'KPI'];
+        }
+      }
+    }
+
     await user.save();
 
     // Return the updated user object
     res.status(200).send({
-      message: "User role assigned successfully",
+      message: "User role and permissions updated successfully",
       updatedUser: {
         username: user.username,
         role: user.role,
+        kpi_permissions: user.kpi_permissions || [],
         employee_photo: user.employee_photo || null,
         assigned_importer: user.assigned_importer || [],
       },
     });
   } catch (error) {
     console.error("Error assigning role:", error);
+    res.status(500).send({ message: "Internal Server Error" });
+  }
+});
+
+router.post("/api/kpi/user-permissions", authMiddleware, async (req, res) => {
+  const { username, kpi_permissions } = req.body;
+
+  if (!isAdminRole(req.user?.role)) {
+    return res.status(403).send({ message: "Admin access required" });
+  }
+  if (!username) {
+    return res.status(400).send({ message: "Username is required" });
+  }
+
+  try {
+    const user = await UserModel.findOne({ username });
+    if (!user) {
+      return res.status(404).send({ message: "User not found" });
+    }
+
+    const validPerms = ['assign', 'view', 'manage'];
+    const perms = Array.isArray(kpi_permissions)
+      ? kpi_permissions.map(p => String(p).toLowerCase()).filter(p => validPerms.includes(p))
+      : [];
+
+    user.kpi_permissions = perms;
+
+    // If any KPI permission is selected, ensure "KPI" is in user.modules
+    if (perms.length > 0) {
+      const userModules = user.modules || [];
+      const hasKpi = userModules.some(m => String(m).toLowerCase() === 'kpi');
+      if (!hasKpi) {
+        user.modules = [...userModules, 'KPI'];
+      }
+    }
+
+    await user.save();
+
+    res.status(200).send({
+      success: true,
+      message: "KPI permissions updated successfully",
+      kpi_permissions: user.kpi_permissions,
+    });
+  } catch (error) {
+    console.error("Error updating KPI permissions:", error);
     res.status(500).send({ message: "Internal Server Error" });
   }
 });
@@ -56,7 +123,7 @@ router.get("/api/users-by-role", async (req, res) => {
   try {
     const users = await UserModel.find(
       { role },
-      "username role employee_photo  assigned_importer_name"
+      "username role employee_photo assigned_importer_name kpi_permissions"
     );
 
     if (users.length === 0) {

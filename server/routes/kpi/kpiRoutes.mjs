@@ -20,6 +20,40 @@ const router = express.Router();
 // HELPER FUNCTIONS
 // ==========================================
 
+// Check whether a user is an assigned KPI submitter
+const isAssignedKpiUser = (user, allHodIdSet = new Set()) => {
+    if (!user || user.isActive === false) return false;
+
+    // Check modules: must have KPI module
+    const userModules = Array.isArray(user.modules)
+        ? user.modules.map(m => String(m).toLowerCase().trim())
+        : (typeof user.modules === 'string' ? [user.modules.toLowerCase().trim()] : []);
+
+    // Check kpi_permissions
+    const perms = Array.isArray(user.kpi_permissions)
+        ? user.kpi_permissions.map(p => String(p).toLowerCase().trim())
+        : [];
+
+    // Case 1: kpi_permissions are explicitly configured
+    if (perms.length > 0) {
+        return perms.includes('assign');
+    }
+
+    // Case 2: kpi_permissions not explicitly configured yet (legacy fallback)
+    if (!userModules.includes('kpi')) return false;
+
+    // HODs who have the MRM module assigned use MRM and are not individual KPI submitters
+    const uId = (user._id || '').toString();
+    const role = String(user.role || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+    const isHodRole = role === 'hod' || role === 'headofdepartment';
+    const isHod = user.isHod === true || isHodRole || (allHodIdSet && allHodIdSet.has(uId));
+    const hasMrm = userModules.includes('mrm');
+
+    if (isHod && hasMrm) return false;
+
+    return true;
+};
+
 const calculateKPIMetrics = (sheet) => {
     let totalValueScore = 0;
     let totalQuantity = 0;
@@ -42,12 +76,12 @@ const calculateKPIMetrics = (sheet) => {
 
     sheet.rows.forEach(row => {
         let rowSum = 0;
-        
+
         // Handle Map or Object
         let dailyValues = row.daily_values;
         if (dailyValues) {
             const keys = dailyValues instanceof Map ? Array.from(dailyValues.keys()) : Object.keys(dailyValues);
-            
+
             for (const d of keys) {
                 const dNum = Number(d);
                 if (isNaN(dNum)) continue;
@@ -66,7 +100,7 @@ const calculateKPIMetrics = (sheet) => {
                 rowSum += valNum;
             }
         }
-        
+
         row.total = rowSum;
         const rowWeight = Number(row.weight) || 3;
         totalValueScore += (rowSum * rowWeight);
@@ -100,7 +134,7 @@ const autoCalculateKPIScores = async (sheet) => {
     // 1. Attendance Metrics
     let present_days = 0;
     let working_days = 0;
-    
+
     try {
         const attMetrics = await calculateAttendanceMetrics({
             employeeId,
@@ -210,19 +244,19 @@ router.post("/api/kpi/template", verifyToken, auditMiddleware("KPI_Template"), a
             const isOwner = existing.owner.toString() === req.user._id.toString();
             const isAdmin = req.user.role === 'Admin';
             let isTeamHOD = false;
-            
+
             const isHodRole = (r) => {
                 const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
                 return normalized === 'hod' || normalized === 'headofdepartment';
             };
 
             if (!isOwner && !isAdmin && isHodRole(req.user.role)) {
-                const team = await TeamModel.findOne({ 
+                const team = await TeamModel.findOne({
                     $or: [
                         { hodId: req.user._id },
                         { 'members.userId': req.user._id }
                     ],
-                    'members.userId': existing.owner 
+                    'members.userId': existing.owner
                 });
                 if (team) isTeamHOD = true;
             }
@@ -284,7 +318,7 @@ router.get("/api/kpi/templates", verifyToken, async (req, res) => {
             // Admin sees all active templates
         } else if (isHOD) {
             // HOD sees their own templates OR templates from their team members
-            const teams = await TeamModel.find({ 
+            const teams = await TeamModel.find({
                 $or: [
                     { hodId: req.user._id },
                     { "members.userId": req.user._id }
@@ -301,13 +335,13 @@ router.get("/api/kpi/templates", verifyToken, async (req, res) => {
         }
 
         const templates = await KPITemplate.find(query).populate('owner', 'first_name last_name username').lean();
-        
+
         // Enrich with team info
         const teams = await TeamModel.find({ isActive: { $ne: false } }).lean();
         const enrichedTemplates = templates.map(tmpl => {
             const ownerId = tmpl.owner?._id?.toString();
-            const userTeam = teams.find(t => 
-                t.hodId?.toString() === ownerId || 
+            const userTeam = teams.find(t =>
+                t.hodId?.toString() === ownerId ||
                 t.members.some(m => m.userId?.toString() === ownerId)
             );
             return {
@@ -535,7 +569,6 @@ router.get("/api/kpi/admin/all-sheets", verifyToken, async (req, res) => {
             return res.status(403).json({ message: "Admin access required" });
         }
 
-        // console.log("GET /api/kpi/admin/all-sheets called", req.query);
         const { year, month, department } = req.query;
         let query = {};
         if (year) query.year = parseInt(year);
@@ -543,9 +576,11 @@ router.get("/api/kpi/admin/all-sheets", verifyToken, async (req, res) => {
         if (department) query.department = department; // Exact match for database array or string
 
         const sheets = await KPISheet.find(query)
+            .select('-rows -daily_values')
             .populate('user', 'first_name last_name email')
             .populate('template_version', 'name')
-            .sort({ year: -1, month: -1 });
+            .sort({ year: -1, month: -1 })
+            .lean();
 
         res.json(sheets);
     } catch (err) {
@@ -567,32 +602,61 @@ router.get("/api/kpi/admin/stats", verifyToken, async (req, res) => {
         const iYear = parseInt(year);
         const iMonth = parseInt(month);
 
-        // Fetch all active teams
-        const teams = await TeamModel.find({ isActive: { $ne: false } });
-        
+        // Fetch all teams, candidate users, and monthly sheets concurrently in parallel
+        const [teams, allActiveUsers, allMonthSheets] = await Promise.all([
+            TeamModel.find({ isActive: { $ne: false } }).lean(),
+            UserModel.find(
+                { isActive: { $ne: false } },
+                '_id modules kpi_permissions role isHod'
+            ).lean(),
+            KPISheet.find(
+                { year: iYear, month: iMonth },
+                'user status'
+            ).lean()
+        ]);
+
+        const allHodIdSet = new Set(teams.map(t => t.hodId?.toString()).filter(Boolean));
+        const assignedUserIds = new Set(
+            allActiveUsers.filter(u => isAssignedKpiUser(u, allHodIdSet)).map(u => u._id.toString())
+        );
+
+        const sheetMap = new Map();
+        for (const s of allMonthSheets) {
+            if (s.user) {
+                sheetMap.set(s.user.toString(), s.status);
+            }
+        }
+
         const stats = [];
 
         for (const team of teams) {
-            // Get all member IDs including HOD
-            const memberIds = team.members.map(m => m.userId.toString());
+            const memberIds = team.members ? team.members.map(m => m.userId.toString()) : [];
             if (team.hodId) memberIds.push(team.hodId.toString());
-            
-            const uniqueMemberIds = [...new Set(memberIds)];
 
-            // Find sheets for these users
-            const sheets = await KPISheet.find({
-                year: iYear,
-                month: iMonth,
-                user: { $in: uniqueMemberIds }
-            });
+            const uniqueMemberIds = [...new Set(memberIds)].filter(id => assignedUserIds.has(id));
+
+            let submitted = 0;
+            let approved = 0;
+            let rejected = 0;
+            let draft = 0;
+
+            for (const uId of uniqueMemberIds) {
+                const status = sheetMap.get(uId);
+                if (status) {
+                    if (["SUBMITTED", "CHECKED", "VERIFIED", "APPROVED"].includes(status)) submitted++;
+                    if (status === "APPROVED") approved++;
+                    if (status === "REJECTED") rejected++;
+                    if (status === "DRAFT") draft++;
+                }
+            }
 
             stats.push({
                 _id: team.name,
                 total: uniqueMemberIds.length,
-                submitted: sheets.filter(s => ["SUBMITTED", "CHECKED", "VERIFIED", "APPROVED"].includes(s.status)).length,
-                approved: sheets.filter(s => s.status === "APPROVED").length,
-                rejected: sheets.filter(s => s.status === "REJECTED").length,
-                draft: sheets.filter(s => s.status === "DRAFT").length
+                submitted,
+                approved,
+                rejected,
+                draft
             });
         }
 
@@ -620,15 +684,15 @@ router.get("/api/kpi/admin/submission-status", verifyToken, async (req, res) => 
 
         // If team is specified, get members of that team
         if (teamName) {
-            const team = await TeamModel.findOne({ name: teamName, isActive: { $ne: false } });
+            const team = await TeamModel.findOne({ name: teamName, isActive: { $ne: false } }).lean();
             if (team) {
-                targetUserIds = team.members.map(m => m.userId.toString());
+                targetUserIds = team.members ? team.members.map(m => m.userId.toString()) : [];
                 if (team.hodId) targetUserIds.push(team.hodId.toString());
                 targetUserIds = [...new Set(targetUserIds)];
             }
         }
 
-        // 1. Get users based on team, department, or all
+        // 1. Get candidate users based on team, department, or all
         let userQuery = { isActive: { $ne: false } };
         if (targetUserIds) {
             userQuery._id = { $in: targetUserIds };
@@ -636,46 +700,58 @@ router.get("/api/kpi/admin/submission-status", verifyToken, async (req, res) => 
             userQuery.department = department;
         }
 
-        const allUsers = await UserModel.find(userQuery, 'first_name last_name email department');
+        // Run team, user, and settings lookups in parallel
+        const [allTeams, candidateUsers, override] = await Promise.all([
+            TeamModel.find({ isActive: { $ne: false } }, 'hodId').lean(),
+            UserModel.find(
+                userQuery,
+                'first_name last_name email department modules kpi_permissions role isHod'
+            ).lean(),
+            KPISettings.findOne({ key: 'submission_deadline_override' }).lean()
+        ]);
+
+        const allHodIdSet = new Set(allTeams.map(t => t.hodId?.toString()).filter(Boolean));
+
+        // Filter: strictly only assigned KPI submitters
+        const allUsers = candidateUsers.filter(u => isAssignedKpiUser(u, allHodIdSet));
         const allUserIdsFound = allUsers.map(u => u._id);
 
-        // 2. Get all KPI sheets for these users in this month/year
-        const sheets = await KPISheet.find({
-            year: iYear,
-            month: iMonth,
-            user: { $in: allUserIdsFound }
-        }).populate('user', 'first_name last_name email');
+        // 2. Get all KPI sheets for these users in this month/year (lean & minimal fields)
+        const sheets = await KPISheet.find(
+            {
+                year: iYear,
+                month: iMonth,
+                user: { $in: allUserIdsFound }
+            },
+            'user status summary.submission_date'
+        ).lean();
 
-        // 3. Get deadline for this month
-        const getSubmissionDeadline = async (y, m) => {
-            let deadlineYear = y;
-            let deadlineMonth = m + 1; // Deadline is next month
-            if (deadlineMonth > 12) {
-                deadlineMonth = 1;
-                deadlineYear = y + 1;
+        const sheetMap = new Map();
+        for (const s of sheets) {
+            if (s.user) {
+                sheetMap.set(s.user.toString(), s);
             }
-            let deadline = new Date(deadlineYear, deadlineMonth - 1, 4);
-            while (deadline.getDay() === 0) {
-                deadline.setDate(deadline.getDate() - 1);
-            }
+        }
 
-            // Check override
-            const override = await KPISettings.findOne({ key: 'submission_deadline_override' });
-            if (override && override.value) {
-                const ov = override.value;
-                if (ov.year === y && ov.month === m && ov.deadline_date) {
-                    return new Date(ov.deadline_date);
-                }
-            }
-            return deadline;
-        };
-
-        const deadline = await getSubmissionDeadline(iYear, iMonth);
+        // 3. Compute deadline in memory
+        let deadlineYear = iYear;
+        let deadlineMonth = iMonth + 1;
+        if (deadlineMonth > 12) {
+            deadlineMonth = 1;
+            deadlineYear = iYear + 1;
+        }
+        let deadline = new Date(deadlineYear, deadlineMonth - 1, 4);
+        while (deadline.getDay() === 0) {
+            deadline.setDate(deadline.getDate() - 1);
+        }
+        if (override && override.value && override.value.year === iYear && override.value.month === iMonth && override.value.deadline_date) {
+            deadline = new Date(override.value.deadline_date);
+        }
         const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate(), 23, 59, 59);
 
         // 4. Map everything
         const userStatus = allUsers.map(user => {
-            const sheet = sheets.find(s => s.user._id.toString() === user._id.toString());
+            const sheet = sheetMap.get(user._id.toString());
             const submitted = sheet ? (['SUBMITTED', 'CHECKED', 'VERIFIED', 'APPROVED'].includes(sheet.status)) : false;
 
             let isLate = false;
@@ -690,7 +766,7 @@ router.get("/api/kpi/admin/submission-status", verifyToken, async (req, res) => 
 
             return {
                 userId: user._id,
-                name: `${user.first_name} ${user.last_name || ''}`,
+                name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
                 email: user.email,
                 department: user.department,
                 hasSheet: !!sheet,
@@ -752,7 +828,7 @@ router.get("/api/kpi/sheet/:id", verifyToken, async (req, res) => {
             status: 'Green'
         });
         const score = Math.max(0, 10 - redCount);
-        
+
         const openPointsSummary = {
             red: redCount,
             amber: amberCount,
@@ -831,7 +907,7 @@ router.get("/api/kpi/sheet", verifyToken, async (req, res) => {
                 status: 'Green'
             });
             const score = Math.max(0, 10 - redCount);
-            
+
             const openPointsSummary = {
                 red: redCount,
                 amber: amberCount,
@@ -1068,7 +1144,7 @@ router.put("/api/kpi/sheet/entry", verifyToken, auditMiddleware("KPI_Sheet"), as
         for (let [d, val] of Object.entries(dailyValuesObj)) {
             const dNum = Number(d);
             const dDate = new Date(currentYear, currentMonth, dNum);
-            
+
             // Skip Sundays (unless marked as working)
             if (dDate.getDay() === 0 && (!sheet.working_sundays || !sheet.working_sundays.includes(dNum))) continue;
             // Skip Holidays & Festivals
@@ -1114,7 +1190,7 @@ router.put("/api/kpi/sheet/entry", verifyToken, auditMiddleware("KPI_Sheet"), as
         console.error("PUT /api/kpi/sheet/entry ERROR:", err);
         try {
             fs.appendFileSync('/home/aiserver/eximdev/server/scratch/err_log.txt', new Date().toISOString() + '\\n' + (err.stack || err.toString()) + '\\n\\n');
-        } catch(e) {}
+        } catch (e) { }
         res.status(500).json({ message: "Server Error: " + (err.stack || err.toString()) });
     }
 });
@@ -1408,11 +1484,11 @@ router.post("/api/kpi/sheet/submit", verifyToken, async (req, res) => {
 
         // Update Summary if provided
         if (summary) {
-            sheet.summary = { 
-                ...sheet.summary, 
-                ...summary, 
+            sheet.summary = {
+                ...sheet.summary,
+                ...summary,
                 submission_date: new Date(),
-                is_submitted_on_time: todayDate <= deadlineDate 
+                is_submitted_on_time: todayDate <= deadlineDate
             };
         }
 
@@ -1596,7 +1672,7 @@ router.get("/api/kpi/hod/team-sheets", verifyToken, async (req, res) => {
                 memberIds.push(t.hodId.toString());
             });
             memberIds = [...new Set(memberIds)];
-            
+
             if (userId) {
                 if (!memberIds.includes(userId)) {
                     return res.status(403).json({ message: "User not in your team" });
@@ -1672,12 +1748,12 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
                 return normalized === 'hod' || normalized === 'headofdepartment';
             };
             if (isHodRole(req.user.role)) {
-                const team = await TeamModel.findOne({ 
+                const team = await TeamModel.findOne({
                     $or: [
                         { hodId: req.user._id },
                         { 'members.userId': req.user._id }
                     ],
-                    'members.userId': sheet.user 
+                    'members.userId': sheet.user
                 });
                 if (team) isTeamHOD = true;
             }
@@ -1703,9 +1779,9 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
             sheet.markModified('rows');
 
             // Check if scores are explicitly provided in request body
-            const hasExplicitScores = req.body.quantityScore !== undefined || 
-                                      req.body.qualityScore !== undefined ||
-                                      req.body.attendanceScore !== undefined;
+            const hasExplicitScores = req.body.quantityScore !== undefined ||
+                req.body.qualityScore !== undefined ||
+                req.body.attendanceScore !== undefined;
 
             const existingKpi = await EmployeeKPI.findOne({
                 employee: sheet.user,
@@ -2140,12 +2216,12 @@ router.delete("/api/kpi/template/:id", verifyToken, async (req, res) => {
         };
 
         if (!isOwner && !isAdmin && isHodRole(req.user.role)) {
-            const team = await TeamModel.findOne({ 
+            const team = await TeamModel.findOne({
                 $or: [
                     { hodId: req.user._id },
                     { 'members.userId': req.user._id }
                 ],
-                'members.userId': template.owner 
+                'members.userId': template.owner
             });
             if (team) isTeamHOD = true;
         }
@@ -2204,17 +2280,17 @@ router.get("/api/kpi/analytics/top-red-open-points", verifyToken, async (req, re
         const populatedRecords = [];
         for (const item of redPointsGrouped) {
             if (!item._id) continue;
-            
+
             const userDetails = await UserModel.findById(item._id)
                 .select('first_name last_name username department email employee_photo');
-            
+
             if (userDetails) {
                 // Also get Amber & Green counts for completeness
                 const amberCount = await OpenPoint.countDocuments({
                     responsible_person: item._id,
                     status: { $in: ['Yellow', 'Orange'] }
                 });
-                
+
                 const greenCount = await OpenPoint.countDocuments({
                     responsible_person: item._id,
                     status: 'Green'
@@ -2282,10 +2358,10 @@ router.get("/api/kpi/analytics/all-open-points", verifyToken, async (req, res) =
         const populatedRecords = [];
         for (const item of allCounts) {
             if (!item._id) continue;
-            
+
             const userDetails = await UserModel.findById(item._id)
                 .select('first_name last_name username department email employee_photo');
-            
+
             if (userDetails) {
                 const score = Math.max(0, 10 - item.redCount);
                 populatedRecords.push({
@@ -2346,12 +2422,12 @@ router.get("/api/kpi/analytics/non-submitters", verifyToken, async (req, res) =>
                 targetUserIds = [...new Set(targetUserIds)];
             }
         } else if (isHodRole(req.user.role)) {
-            const hodTeams = await TeamModel.find({ 
+            const hodTeams = await TeamModel.find({
                 $or: [
                     { hodId: req.user._id },
                     { "members.userId": req.user._id }
                 ],
-                isActive: { $ne: false } 
+                isActive: { $ne: false }
             });
             const memberIds = new Set([req.user._id.toString()]);
             hodTeams.forEach(t => {
@@ -2362,7 +2438,8 @@ router.get("/api/kpi/analytics/non-submitters", verifyToken, async (req, res) =>
             targetUserIds = Array.from(memberIds);
         }
 
-        let userQuery = { isActive: { $ne: false } };
+        // Strictly users with 'assign' permission
+        let userQuery = { isActive: { $ne: false }, kpi_permissions: { $in: ['assign', 'Assign'] } };
         if (targetUserIds) {
             userQuery._id = { $in: targetUserIds };
         } else if (department) {
@@ -2462,12 +2539,12 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
             }
         } else if (isHodRole(req.user.role)) {
             // Default HOD to their teams
-            const hodTeams = await TeamModel.find({ 
+            const hodTeams = await TeamModel.find({
                 $or: [
                     { hodId: req.user._id },
                     { "members.userId": req.user._id }
                 ],
-                isActive: { $ne: false } 
+                isActive: { $ne: false }
             });
             const memberIds = new Set([req.user._id.toString()]);
             hodTeams.forEach(t => {
@@ -2532,16 +2609,16 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
             // Find team for this user, prioritizing the filtered team if provided
             let userTeam = null;
             if (teamName) {
-                userTeam = allTeams.find(t => 
-                    t.name === teamName && 
+                userTeam = allTeams.find(t =>
+                    t.name === teamName &&
                     (t.hodId?.toString() === userId || t.members.some(m => m.userId.toString() === userId))
                 );
             }
-            
+
             // If not found in filtered team or no filter, find first team
             if (!userTeam) {
-                userTeam = allTeams.find(t => 
-                    t.hodId?.toString() === userId || 
+                userTeam = allTeams.find(t =>
+                    t.hodId?.toString() === userId ||
                     t.members.some(m => m.userId.toString() === userId)
                 );
             }
@@ -2592,9 +2669,9 @@ router.get("/api/kpi/analytics/blockers-losses", verifyToken, async (req, res) =
         const currentYear = parseInt(year);
         const currentMonth = parseInt(month);
 
-        let query = { 
-            year: currentYear, 
-            month: currentMonth, 
+        let query = {
+            year: currentYear,
+            month: currentMonth,
             status: { $in: ["SUBMITTED", "CHECKED", "VERIFIED", "APPROVED"] },
             $or: [
                 { "summary.blockers": { $ne: "" } },
@@ -2617,12 +2694,12 @@ router.get("/api/kpi/analytics/blockers-losses", verifyToken, async (req, res) =
                 targetUserIds = [...new Set(targetUserIds)];
             }
         } else if (isHodRole(req.user.role)) {
-            const hodTeams = await TeamModel.find({ 
+            const hodTeams = await TeamModel.find({
                 $or: [
                     { hodId: req.user._id },
                     { "members.userId": req.user._id }
                 ],
-                isActive: { $ne: false } 
+                isActive: { $ne: false }
             });
             const memberIds = new Set([req.user._id.toString()]);
             hodTeams.forEach(t => {
@@ -2650,8 +2727,8 @@ router.get("/api/kpi/analytics/blockers-losses", verifyToken, async (req, res) =
 
         sheets.forEach(sheet => {
             const userId = sheet.user?._id.toString();
-            let userTeam = allTeams.find(t => 
-                t.hodId?.toString() === userId || 
+            let userTeam = allTeams.find(t =>
+                t.hodId?.toString() === userId ||
                 t.members.some(m => m.userId.toString() === userId)
             );
 
@@ -2661,7 +2738,7 @@ router.get("/api/kpi/analytics/blockers-losses", verifyToken, async (req, res) =
             // Process Blocker Categories
             if (sheet.summary?.blockers) {
                 const individualBlockers = sheet.summary.blockers.split(' | ').filter(b => b && !b.toUpperCase().includes('NONE'));
-                
+
                 finalBlockers = individualBlockers.join(' | ');
 
                 individualBlockers.forEach(b => {
@@ -2800,7 +2877,7 @@ router.post("/api/kpi/settings/deadline", verifyToken, async (req, res) => {
 router.get("/api/kpi/announcements", verifyToken, async (req, res) => {
     try {
         const announcement = await KPISettings.findOne({ key: 'active_announcement' });
-        
+
         if (!announcement || !announcement.value) {
             return res.json({ hasAnnouncement: false });
         }

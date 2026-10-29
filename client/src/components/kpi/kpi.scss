@@ -1898,8 +1898,15 @@ table.kpi-table {
 }
 
 @keyframes modal-pop {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .close-btn:hover {
@@ -1938,7 +1945,7 @@ table.kpi-table {
   .dialog-field-section {
     position: relative;
     padding: 0;
-    
+
     label {
       font-weight: 700;
       color: #334155;
@@ -1952,16 +1959,18 @@ table.kpi-table {
       border-radius: 10px;
       background-color: #f8fafc;
       transition: all 0.2s ease;
-      
+
       &:hover {
         background-color: #f1f5f9;
+
         .MuiOutlinedInput-notchedOutline {
           border-color: #cbd5e1;
         }
       }
-      
+
       &.Mui-focused {
         background-color: #ffffff;
+
         .MuiOutlinedInput-notchedOutline {
           border-color: #0f172a;
           border-width: 2px;

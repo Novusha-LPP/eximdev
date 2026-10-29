@@ -421,18 +421,24 @@ router.get('/leave/applications', async (req, res) => {
  */
 router.post('/leave/apply', async (req, res) => {
   try {
-    const { leave_type_id, from_date, to_date, half_day_option, reason } = req.body;
+    const { leave_type_id, from_date, to_date, half_day_option, reason, user_id } = req.body;
     if (!leave_type_id || !from_date || !to_date) {
       return res.status(400).json({ message: 'leave_type_id, from_date, and to_date are required' });
     }
 
+    let targetUser = req.user;
+    if (user_id && (req.user.role === 'ADMIN' || req.user.role === 'HOD')) {
+      targetUser = await UserModel.findById(user_id);
+      if (!targetUser) return res.status(404).json({ message: 'Target user not found' });
+    }
+
     const application = await hrmsClient.applyLeave({
-      user: req.user,
+      user: targetUser,
       leaveTypeId: leave_type_id,
       fromDate: from_date,
       toDate: to_date,
       halfDayOption: half_day_option || 'NONE',
-      reason: reason || '',
+      reason: reason || (targetUser._id.toString() !== req.user._id.toString() ? `Applied by Admin (${req.user.username})` : ''),
     });
 
     res.status(201).json(application);
@@ -600,14 +606,224 @@ router.get('/reference-data', async (req, res) => {
 
 /**
  * GET /api/attendance/v2/employees
- * List of employees from integration feed.
+ * Merged list of employees from EXIM users and HRMS integration.
  */
 router.get('/employees', requireRole(['ADMIN', 'HOD']), async (req, res) => {
   try {
-    const emps = await hrmsClient.getIntegrationEmployees(req.query.refresh === 'true');
-    res.json(emps);
+    const forceRefresh = req.query.refresh === 'true';
+
+    // 1. Fetch active users from MongoDB
+    const localUsers = await UserModel.find(
+      { is_active: { $ne: false } },
+      'first_name middle_name last_name username email employee_code company department designation role is_active employee_photo createdAt'
+    ).lean();
+
+    // 2. Fetch HRMS integration employees
+    let hrmsEmps = [];
+    try {
+      hrmsEmps = await hrmsClient.getIntegrationEmployees(forceRefresh);
+    } catch (hrmsErr) {
+      console.warn('[Attendance V2] HRMS employees fetch warning:', hrmsErr.message);
+    }
+
+    // Index HRMS employees
+    const byExternalId = new Map();
+    const byCode = new Map();
+    const byEmail = new Map();
+    const byUsername = new Map();
+
+    for (const emp of hrmsEmps) {
+      if (emp.external_id) byExternalId.set(String(emp.external_id), emp);
+      if (emp.employee_code) byCode.set(String(emp.employee_code).toLowerCase().trim(), emp);
+      if (emp.email) byEmail.set(String(emp.email).toLowerCase().trim(), emp);
+      const u = String(emp.employee_code || '').toLowerCase().trim();
+      if (u) byUsername.set(u, emp);
+    }
+
+    const matchedHrmsIds = new Set();
+
+    const merged = localUsers.map((u) => {
+      const uId = String(u._id);
+      const code = String(u.employee_code || '').toLowerCase().trim();
+      const email = String(u.email || '').toLowerCase().trim();
+      const username = String(u.username || '').toLowerCase().trim();
+
+      const hMatch = byExternalId.get(uId) || byCode.get(code) || byEmail.get(email) || byUsername.get(username);
+      if (hMatch) {
+        matchedHrmsIds.add(hMatch.employment_id);
+      }
+
+      const fullName = [u.first_name, u.middle_name, u.last_name].filter(Boolean).join(' ').trim() || u.username;
+
+      return {
+        userId: uId,
+        employmentId: hMatch?.employment_id || null,
+        externalId: hMatch?.external_id || uId,
+        isHrmsLinked: Boolean(hMatch),
+        name: fullName,
+        firstName: u.first_name || hMatch?.first_name || '',
+        lastName: u.last_name || hMatch?.last_name || '',
+        username: u.username,
+        email: u.email || hMatch?.email || '',
+        employeeCode: u.employee_code || hMatch?.employee_code || u.username,
+        company: u.company || hMatch?.company?.name || 'SFPL',
+        department: u.department || hMatch?.department?.name || 'General',
+        designation: u.designation || hMatch?.designation?.name || 'Staff',
+        role: u.role || 'User',
+        employmentState: hMatch?.employment_state || 'ACTIVE',
+        hireDate: hMatch?.hire_date || u.createdAt,
+        photo: u.employee_photo || null,
+        mobile: hMatch?.mobile || '',
+        rawHrms: hMatch || null,
+      };
+    });
+
+    // Also include any HRMS-only employees who haven't been matched
+    for (const h of hrmsEmps) {
+      if (!matchedHrmsIds.has(h.employment_id)) {
+        merged.push({
+          userId: h.external_id || null,
+          employmentId: h.employment_id,
+          externalId: h.external_id,
+          isHrmsLinked: true,
+          name: `${h.first_name || ''} ${h.last_name || ''}`.trim() || h.employee_code,
+          firstName: h.first_name || '',
+          lastName: h.last_name || '',
+          username: h.employee_code,
+          email: h.email || '',
+          employeeCode: h.employee_code,
+          company: h.company?.name || 'SFPL',
+          department: h.department?.name || 'General',
+          designation: h.designation?.name || 'Staff',
+          role: h.role || 'User',
+          employmentState: h.employment_state || 'ACTIVE',
+          hireDate: h.hire_date,
+          photo: null,
+          mobile: h.mobile || '',
+          rawHrms: h,
+        });
+      }
+    }
+
+    res.json(merged);
   } catch (err) {
-    return handleHrmsError(res, err, 'Failed to fetch integration employees');
+    return handleHrmsError(res, err, 'Failed to fetch employees');
+  }
+});
+
+/**
+ * POST /api/attendance/v2/admin/mark-attendance
+ * Admin/HOD directly marks attendance (PRESENT, ABSENT, HALF_DAY) for an employee.
+ */
+router.post('/admin/mark-attendance', requireRole(['ADMIN', 'HOD']), async (req, res) => {
+  try {
+    const { user_id, work_date, status, punch_in, punch_out, reason } = req.body;
+    if (!user_id || !work_date || !status) {
+      return res.status(400).json({ message: 'user_id, work_date, and status are required' });
+    }
+
+    const targetUser = await UserModel.findById(user_id);
+    if (!targetUser) {
+      return res.status(404).json({ message: 'Target employee not found' });
+    }
+
+    const normStatus = String(status).toUpperCase();
+    let requestedPunchIn = null;
+    let requestedPunchOut = null;
+
+    if (normStatus === 'PRESENT' || normStatus === 'HALF_DAY') {
+      const inTime = punch_in || '09:30';
+      const outTime = punch_out || (normStatus === 'HALF_DAY' ? '13:30' : '18:30');
+      requestedPunchIn = `${work_date}T${inTime.length === 5 ? inTime + ':00' : inTime}+05:30`;
+      requestedPunchOut = `${work_date}T${outTime.length === 5 ? outTime + ':00' : outTime}+05:30`;
+    }
+
+    let hrmsResult = null;
+    try {
+      hrmsResult = await hrmsClient.requestCorrection({
+        user: targetUser,
+        workDate: work_date,
+        correctionType: normStatus === 'ABSENT' ? 'MARK_ABSENT' : 'MARK_PRESENT',
+        requestedPunchIn,
+        requestedPunchOut,
+        reason: reason || `Admin marked ${normStatus} (${req.user.username})`,
+      });
+
+      // Auto-approve as Admin if pending
+      if (hrmsResult && hrmsResult.id && hrmsResult.status !== 'APPROVED') {
+        try {
+          await hrmsClient.approveCorrection({
+            user: req.user,
+            correctionId: hrmsResult.id,
+            comments: 'Auto-approved by Administrator',
+          });
+        } catch (apprErr) {
+          console.warn('[Admin Mark Attendance] Correction auto-approve attempt:', apprErr.message);
+        }
+      }
+    } catch (hrmsErr) {
+      console.warn('[Admin Mark Attendance] HRMS submission warning:', hrmsErr.message);
+    }
+
+    // Update / upsert local MongoDB AttendanceRecord
+    try {
+      const AttendanceRecord = (await import('../../model/attendance/AttendanceRecord.js')).default;
+      const startOfDay = new Date(`${work_date}T00:00:00.000Z`);
+      await AttendanceRecord.findOneAndUpdate(
+        { userId: targetUser._id, date: startOfDay },
+        {
+          $set: {
+            status: normStatus === 'PRESENT' ? 'PRESENT' : normStatus === 'ABSENT' ? 'ABSENT' : 'HALF_DAY',
+            firstPunchIn: requestedPunchIn ? new Date(requestedPunchIn) : null,
+            lastPunchOut: requestedPunchOut ? new Date(requestedPunchOut) : null,
+            notes: reason || `Marked by ${req.user.username}`,
+          }
+        },
+        { upsert: true, new: true }
+      );
+    } catch (localErr) {
+      console.warn('[Admin Mark Attendance] Local MongoDB sync warning:', localErr.message);
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully marked ${normStatus} for ${targetUser.first_name || targetUser.username} on ${work_date}`,
+      hrmsResult,
+    });
+  } catch (err) {
+    return handleHrmsError(res, err, 'Failed to mark attendance for employee');
+  }
+});
+
+/**
+ * PUT /api/attendance/v2/employees/:userId
+ * Update employee placement / details and sync to HRMS.
+ */
+router.put('/employees/:userId', requireRole(['ADMIN', 'HOD']), async (req, res) => {
+  try {
+    const { department, designation, company, email, role } = req.body;
+    const updateData = {};
+    if (department) updateData.department = department;
+    if (designation) updateData.designation = designation;
+    if (company) updateData.company = company;
+    if (email) updateData.email = email;
+    if (role && req.user.role === 'ADMIN') updateData.role = role;
+
+    const user = await UserModel.findByIdAndUpdate(req.params.userId, { $set: updateData }, { new: true });
+    if (!user) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Push updated details to HRMS
+    try {
+      await hrmsSyncService.pushUserToHrms(user._id);
+    } catch (syncErr) {
+      console.warn('[Update Employee] HRMS sync warning:', syncErr.message);
+    }
+
+    res.json({ success: true, user });
+  } catch (err) {
+    return handleHrmsError(res, err, 'Failed to update employee');
   }
 });
 

@@ -431,6 +431,7 @@ function CompleteKYC() {
                     <MenuItem value="Information Technology">Information Technology</MenuItem>
                     <MenuItem value="Designing">Designing</MenuItem>
                     <MenuItem value="Sales & Marketing">Sales & Marketing</MenuItem>
+                    <MenuItem value="Sales Executive">Sales Executive</MenuItem>
                     <MenuItem value="HR Admin">HR Admin</MenuItem>
                   </TextField>
                 </Field>

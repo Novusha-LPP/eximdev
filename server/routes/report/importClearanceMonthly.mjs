@@ -71,6 +71,37 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
       },
       {
         $addFields: {
+          isTargetYear: {
+            $cond: [
+              { $eq: ["$year", year] },
+              1,
+              0,
+            ],
+          },
+        },
+      },
+      {
+        $sort: {
+          isTargetYear: -1,
+          updatedAt: -1,
+          _id: -1,
+        },
+      },
+      {
+        $group: {
+          _id: {
+            job_no: "$job_no",
+            branch_code: "$branch_code",
+            mode: "$mode",
+          },
+          doc: { $first: "$$ROOT" },
+        },
+      },
+      {
+        $replaceRoot: { newRoot: "$doc" },
+      },
+      {
+        $addFields: {
           containerNumbers: {
             $map: {
               input: { $ifNull: ["$container_nos", []] },

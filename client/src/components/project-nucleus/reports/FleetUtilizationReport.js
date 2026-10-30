@@ -1,32 +1,20 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
 import {
     ResponsiveContainer, ComposedChart, BarChart, Bar, Cell, Line, XAxis, YAxis,
-    CartesianGrid, Tooltip, Legend, Area, PieChart, Pie, ReferenceLine
+    CartesianGrid, Tooltip, Legend, PieChart, Pie
 } from 'recharts';
 import { getTransportDates, TRANSPORT_BASE, TRANSPORT_HEADERS } from './reports-helper';
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
 
 const MONTH_NAMES = [
-    { key: '4', name: 'Apr' }, { key: '5', name: 'May' }, { key: '6', name: 'Jun' },
-    { key: '7', name: 'Jul' }, { key: '8', name: 'Aug' }, { key: '9', name: 'Sep' },
-    { key: '10', name: 'Oct' }, { key: '11', name: 'Nov' }, { key: '12', name: 'Dec' },
-    { key: '1', name: 'Jan' }, { key: '2', name: 'Feb' }, { key: '3', name: 'Mar' }
+    { key: '4', name: 'Apr', label: 'APR' }, { key: '5', name: 'May', label: 'MAY' }, { key: '6', name: 'Jun', label: 'JUN' },
+    { key: '7', name: 'Jul', label: 'JUL' }, { key: '8', name: 'Aug', label: 'AUG' }, { key: '9', name: 'Sep', label: 'SEP' },
+    { key: '10', name: 'Oct', label: 'OCT' }, { key: '11', name: 'Nov', label: 'NOV' }, { key: '12', name: 'Dec', label: 'DEC' },
+    { key: '1', name: 'Jan', label: 'JAN' }, { key: '2', name: 'Feb', label: 'FEB' }, { key: '3', name: 'Mar', label: 'MAR' }
 ];
-
-const STATUS_COLORS = {
-    'Breakdown': { fill: '#ef4444', label: 'Breakdown' },
-    'Accident': { fill: '#dc2626', label: 'Accident' },
-    'Maintenance': { fill: '#0ea5e9', label: 'Maintenance' },
-    'Driver on Leave': { fill: '#f59e0b', label: 'Driver on Leave' },
-    'No Driver': { fill: '#d97706', label: 'No Driver' },
-    'Under detention': { fill: '#8b5cf6', label: 'Under Detention' },
-    'Under trip': { fill: '#10b981', label: 'Under Trip' },
-    'IDLE': { fill: '#94a3b8', label: 'Idle' },
-    'Others': { fill: '#64748b', label: 'Others' }
-};
 
 const UTIL_COLOR = (pct) => pct >= 90 ? '#10b981' : pct >= 80 ? '#f59e0b' : '#ef4444';
 
@@ -36,6 +24,135 @@ const KPI_COLOR = {
     accident: (pct) => pct <= 1 ? '#10b981' : pct <= 3 ? '#f59e0b' : '#ef4444',
     noDriver: (pct) => pct <= 2 ? '#10b981' : pct <= 5 ? '#f59e0b' : '#ef4444',
     driverOnLeave: (pct) => pct <= 5 ? '#10b981' : pct <= 10 ? '#f59e0b' : '#ef4444'
+};
+
+/** Monthly trip-count bands shared by the trend table, charts, vehicle modal and exports */
+const HEAT_BANDS = [
+    { key: 'high', label: 'High', range: '26+', bg: '#d1fae5', text: '#047857', solid: '#86efac', xlBg: 'FFD1FAE5', xlText: 'FF047857' },
+    { key: 'medium', label: 'Medium', range: '10–25', bg: '#fef3c7', text: '#b45309', solid: '#fcd34d', xlBg: 'FFFEF3C7', xlText: 'FFB45309' },
+    { key: 'low', label: 'Low', range: '1–9', bg: '#ffe4e6', text: '#be123c', solid: '#f43f5e', xlBg: 'FFFFE4E6', xlText: 'FFBE123C' },
+    { key: 'idle', label: 'Idle', range: '0', bg: '#f1f5f9', text: '#94a3b8', solid: '#94a3b8', xlBg: 'FFF1F5F9', xlText: 'FF94A3B8' }
+];
+const HEAT_BAND_MAP = Object.fromEntries(HEAT_BANDS.map(b => [b.key, b]));
+
+const getHeatBand = (value) => {
+    const v = Number(value) || 0;
+    if (v <= 0) return HEAT_BAND_MAP.idle;
+    if (v < 10) return HEAT_BAND_MAP.low;
+    if (v <= 25) return HEAT_BAND_MAP.medium;
+    return HEAT_BAND_MAP.high;
+};
+
+/** Earliest financial year the fleet-summary API has data for (used for "All Time") */
+const FIRST_SUMMARY_FY = 2023;
+
+const parseYmd = (s) => {
+    if (!s) return null;
+    const [y, m, d] = String(s).slice(0, 10).split('-').map(Number);
+    if (!y || !m) return null;
+    return new Date(y, m - 1, d || 1);
+};
+
+/**
+ * Turns the main Filter Period into vehicle-summary columns: one column per month,
+ * or one per financial year when the period is longer than 12 months.
+ * Each column lists the (financial year, month) parts it adds up.
+ */
+const buildPeriodColumns = (startDate, endDate, daily = false) => {
+    const today = new Date();
+    const start = parseYmd(startDate) || new Date(FIRST_SUMMARY_FY, 3, 1);
+    const end = parseYmd(endDate) || new Date(today.getFullYear(), today.getMonth(), 1);
+    if (start > end) return [];
+
+    if (daily) {
+        const days = [];
+        for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const monthName = MONTH_NAMES.find(x => x.key === String(d.getMonth() + 1)).name;
+            const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            days.push({
+                key: `d-${date}`,
+                date,
+                label: `${d.getDate()} ${monthName}`,
+                fullLabel: `${d.getDate()} ${monthName} ${d.getFullYear()}`,
+                parts: [],
+                future: d > today
+            });
+        }
+        return days;
+    }
+
+    const months = [];
+    let y = start.getFullYear();
+    let mo = start.getMonth() + 1;
+    while (y < end.getFullYear() || (y === end.getFullYear() && mo <= end.getMonth() + 1)) {
+        const monthKey = String(mo);
+        months.push({
+            fy: mo >= 4 ? y : y - 1,
+            year: y,
+            m: MONTH_NAMES.find(x => x.key === monthKey),
+            future: new Date(y, mo - 1, 1) > today
+        });
+        mo += 1;
+        if (mo > 12) { mo = 1; y += 1; }
+    }
+
+    if (months.length <= 12) {
+        return months.map(p => ({
+            key: `${p.year}-${p.m.key}`,
+            label: `${p.m.name} ${String(p.year).slice(-2)}`,
+            fullLabel: `${p.m.name} ${p.year}`,
+            parts: [p],
+            future: p.future
+        }));
+    }
+
+    const byFy = new Map();
+    months.forEach(p => {
+        if (!byFy.has(p.fy)) byFy.set(p.fy, []);
+        byFy.get(p.fy).push(p);
+    });
+    return [...byFy.entries()].map(([fy, parts]) => {
+        const label = `FY ${String(fy).slice(-2)}-${String(fy + 1).slice(-2)}`;
+        return { key: `fy-${fy}`, label, fullLabel: label, parts, future: parts.every(p => p.future) };
+    });
+};
+
+/** Day columns count as 1/30 of a month so their trips are projected to the monthly bands */
+const DAYS_PER_MONTH = 30;
+
+/** Months in a column that have already started (used for monthly averages) */
+const getColumnElapsed = (col) => (col.date ? 1 / DAYS_PER_MONTH : Math.max(1, col.parts.filter(p => !p.future).length));
+
+const extractSummaryRows = (payload) => {
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload.rows)) return payload.rows;
+    if (Array.isArray(payload.data)) return payload.data;
+    return [];
+};
+
+/** Outsourced trip count for one month from a fleet-summary payload, or null if the API didn't send it */
+const getOutsourcedFromPayload = (payload, m) => {
+    const keysToTry = [m.key, Number(m.key), String(m.key).padStart(2, '0'), m.name, m.name?.toLowerCase(), m.name?.toUpperCase(), m.label];
+    const sources = [
+        payload?.outsourced,
+        payload?.outsourcedMonths,
+        payload?.summary?.outsourced,
+        payload?.summary?.outsourcedMonths,
+        payload?.outsourcedRow?.months,
+        payload?.totals?.outsourced
+    ];
+    for (const src of sources) {
+        if (src && typeof src === 'object') {
+            for (const k of keysToTry) {
+                if (src[k] !== undefined && src[k] !== null && src[k] !== '') {
+                    const n = Number(src[k]);
+                    if (!isNaN(n)) return n;
+                }
+            }
+        }
+    }
+    return null;
 };
 
 // ─── Utility Functions ──────────────────────────────────────────────────────────
@@ -73,16 +190,15 @@ const getPrimaryCategory = (status) => {
 };
 
 const getCategoriesForVehicle = (v) => {
+    if (!v || !v.status) return 'Others';
     const cat = getPrimaryCategory(v.status);
     if (cat !== 'Others') return cat;
     if (Array.isArray(v.status)) {
         const nonIdle = v.status.find(s => String(s).toUpperCase() !== 'IDLE');
         return nonIdle ? String(nonIdle).trim() : 'Others';
     }
-    if (v.status) {
-        const cleaned = String(v.status).trim();
-        if (cleaned.toUpperCase() !== 'IDLE') return cleaned;
-    }
+    const cleaned = String(v.status).trim();
+    if (cleaned.toUpperCase() !== 'IDLE') return cleaned;
     return 'Others';
 };
 
@@ -121,7 +237,8 @@ const computeElapsedDays = (filterType, selectedYear, selectedMonth, selectedQua
             elapsedDays = 7;
         }
     } else if (filterType === 'month') {
-        const selMonth = parseInt(selectedMonth);
+        const parsedM = parseInt(selectedMonth);
+        const selMonth = !isNaN(parsedM) ? parsedM : todayMonth;
         totalDays = new Date(selYear, selMonth + 1, 0).getDate();
         if (selYear === todayYear && selMonth === todayMonth) elapsedDays = Math.max(1, todayDate);
         else if (selYear > todayYear || (selYear === todayYear && selMonth > todayMonth)) elapsedDays = 0;
@@ -234,34 +351,24 @@ const OwnPill = ({ ownHired }) => {
     return <span className="status-pill-v2" data-variant={isOwn ? 'success' : 'neutral'}>{isOwn ? 'Own' : 'Hired'}</span>;
 };
 
-/** Donut chart custom label */
-const DonutLabel = ({ viewBox, total }) => {
-    const { cx, cy } = viewBox;
+/** Compact tooltip for the trend-tab charts */
+const FsChartTooltip = ({ active, payload, label, suffix = '' }) => {
+    if (!active || !payload?.length) return null;
+    const title = label ?? payload[0]?.name;
     return (
-        <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central">
-            <tspan x={cx} dy="-8" style={{ fontSize: '28px', fontWeight: 900, fill: '#0f172a', fontFamily: "'SF Mono', 'Cascadia Code', monospace" }}>{total}</tspan>
-            <tspan x={cx} dy="22" style={{ fontSize: '11px', fontWeight: 700, fill: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Vehicles</tspan>
-        </text>
+        <div className="fleet-tooltip-v2" style={{ padding: '10px 14px', minWidth: 150 }}>
+            {title !== undefined && (
+                <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: 6, fontFamily: "'Outfit', sans-serif", fontSize: 13 }}>{title}</div>
+            )}
+            {payload.filter(p => p.value !== null && p.value !== undefined).map(p => (
+                <div key={p.dataKey || p.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#475569', marginTop: 3 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.payload?.fill || p.color, flexShrink: 0 }} />
+                    <span style={{ flex: 1 }}>{p.name}</span>
+                    <strong style={{ color: '#0f172a' }}>{p.dataKey === 'share' ? `${p.value}%` : `${p.value}${suffix}`}</strong>
+                </div>
+            ))}
+        </div>
     );
-};
-
-/** Tooltip for donut chart */
-const DonutTooltip = ({ active, payload }) => {
-    if (active && payload?.[0]) {
-        const d = payload[0];
-        return (
-            <div className="fleet-tooltip-v2">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: d.payload.fill, display: 'inline-block' }} />
-                    <span style={{ fontWeight: 700, color: '#1e293b' }}>{d.name}</span>
-                </div>
-                <div style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', marginTop: '4px', fontFamily: "'SF Mono', monospace" }}>
-                    {d.value} <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>vehicles</span>
-                </div>
-            </div>
-        );
-    }
-    return null;
 };
 
 // ─── CSS ────────────────────────────────────────────────────────────────────────
@@ -387,12 +494,153 @@ const STYLES = `
 .fleet-export-btn:hover { background: #10b981; color: #fff; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(16,185,129,0.25); }
 .fleet-export-btn:active { transform: translateY(0); }
 
+/* ── Trend tab: Vehicle Trip Summary ── */
+.fs-section { display: flex; flex-direction: column; gap: 18px; }
+.fs-section-head { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 14px; }
+.fs-title { margin: 0; font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: -0.01em; }
+.fs-subtitle { display: block; margin-top: 2px; font-size: 13px; color: #64748b; font-weight: 500; }
+.fs-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.fs-select { height: 36px; padding: 0 32px 0 12px; border-radius: 10px; border: 1px solid #dbe2ea; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center; appearance: none; -webkit-appearance: none; color: #1e293b; font-weight: 600; font-size: 13px; cursor: pointer; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+.fs-select:hover { border-color: #a5b4fc; }
+.fs-select:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+
+.fs-btn { height: 36px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 10px; font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s ease; background: #fff; }
+.fs-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.fs-btn-primary { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #fff; box-shadow: 0 4px 12px rgba(99,102,241,0.25); }
+.fs-btn-primary:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(99,102,241,0.32); }
+.fs-btn-excel { color: #047857; border-color: #a7f3d0; }
+.fs-btn-excel:hover { background: #ecfdf5; border-color: #10b981; }
+.fs-btn-pdf { color: #be123c; border-color: #fecdd3; }
+.fs-btn-pdf:hover { background: #fff1f2; border-color: #f43f5e; }
+.fs-btn-danger { background: #e11d48; color: #fff; height: 32px; }
+
+.fs-error { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 12px; background: #fff1f2; border: 1px solid #fecdd3; color: #9f1239; font-size: 13.5px; font-weight: 500; }
+
+.fs-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.fs-kpi { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 16px 18px 16px 20px; background: #fff; border: 1px solid #e8edf3; border-radius: 16px; box-shadow: 0 2px 10px rgba(15,23,42,0.03); overflow: hidden; }
+.fs-kpi::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; border-radius: 0 4px 4px 0; background: var(--fs-accent); }
+.fs-kpi-label { font-size: 11.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+.fs-kpi-value { font-family: 'Outfit', sans-serif; font-size: 26px; font-weight: 800; color: #0f172a; line-height: 1.15; }
+.fs-kpi-hint { font-size: 12px; color: #94a3b8; font-weight: 500; }
+
+.fs-card { background: #fff; border: 1px solid #e8edf3; border-radius: 18px; padding: 18px 20px; box-shadow: 0 2px 12px rgba(15,23,42,0.03); min-width: 0; }
+.fs-card-head { margin-bottom: 12px; }
+.fs-card-head h4 { margin: 0; font-family: 'Outfit', sans-serif; font-size: 15.5px; font-weight: 700; color: #0f172a; }
+.fs-card-head span { display: block; margin-top: 2px; font-size: 12.5px; color: #64748b; }
+.fs-chart-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 16px; }
+.fs-chart-wide { grid-column: 1 / -1; }
+@media (max-width: 1100px) { .fs-chart-grid { grid-template-columns: minmax(0, 1fr); } }
+.fs-empty { height: 100%; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 13px; font-weight: 500; }
+
+.fs-donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.fs-donut-value { font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 800; color: #0f172a; line-height: 1; }
+.fs-donut-label { margin-top: 4px; font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; }
+.fs-mix-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+.fs-mix-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 10px; border: 1px solid transparent; background: #f8fafc; cursor: pointer; text-align: left; font-size: 12.5px; transition: all 0.15s; }
+.fs-mix-item:hover { background: #f1f5f9; }
+.fs-mix-item[data-active="true"] { background: #eef2ff; border-color: #c7d2fe; }
+.fs-mix-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.fs-mix-name { font-weight: 700; color: #1e293b; }
+.fs-mix-range { color: #94a3b8; font-size: 11px; }
+.fs-mix-count { margin-left: auto; font-family: 'Outfit', sans-serif; font-weight: 800; color: #0f172a; }
+
+.fs-table-card { display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; }
+.fs-filter-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fs-search { position: relative; display: flex; align-items: center; color: #94a3b8; }
+.fs-search svg { position: absolute; left: 11px; pointer-events: none; }
+.fs-search input { height: 36px; width: 220px; padding: 0 30px 0 32px; border-radius: 10px; border: 1px solid #dbe2ea; font-size: 13px; font-weight: 500; color: #1e293b; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+.fs-search input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+.fs-search-clear { position: absolute; right: 8px; border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 12px; padding: 2px; }
+.fs-search-clear:hover { color: #475569; }
+
+.fs-chip-group { display: inline-flex; gap: 4px; padding: 3px; background: #f1f5f9; border-radius: 12px; flex-wrap: wrap; }
+.fs-chip { height: 30px; display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; border: none; border-radius: 9px; background: transparent; color: #475569; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.fs-chip:hover { color: #0f172a; background: rgba(255,255,255,0.6); }
+.fs-chip[data-active="true"] { background: var(--chip-bg, #fff); color: var(--chip-text, #0f172a); box-shadow: 0 1px 3px rgba(15,23,42,0.1); font-weight: 700; }
+.fs-chip-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--chip-dot); }
+.fs-chip-count { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: rgba(15,23,42,0.07); font-size: 11px; font-weight: 700; text-align: center; }
+.fs-link-btn { border: none; background: none; color: #4f46e5; font-weight: 600; font-size: 12.5px; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.fs-link-btn:hover { background: #eef2ff; }
+
+.fs-table-meta { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12.5px; color: #64748b; }
+.fs-table-meta strong { color: #0f172a; }
+.fs-meta-sep { margin: 0 8px; color: #cbd5e1; }
+.fs-legend { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.fs-legend-item { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: #475569; }
+.fs-legend-item em { font-style: normal; color: #94a3b8; font-weight: 500; }
+.fs-legend-swatch { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid; }
+
+/* Vehicle summary table (sticky header, first columns and footer) */
+.fleet-summary-scroll { max-height: min(620px, calc(100vh - 240px)); overflow: auto; border: 1px solid #e2e8f0; border-radius: 14px; position: relative; background: #fff; }
+.fleet-summary-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.fleet-summary-scroll::-webkit-scrollbar-track { background: #f8fafc; }
+.fleet-summary-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.fleet-summary-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+.fleet-summary-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12.5px; background: #fff; }
+.fleet-summary-table th { position: sticky; top: 0; z-index: 12; background: #f8fafc; color: #475569; border-bottom: 1px solid #e2e8f0; padding: 11px 6px; font-family: 'Outfit', sans-serif; font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; text-align: center; white-space: nowrap; user-select: none; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.fleet-summary-table th:hover { background: #eef2ff; color: #4338ca; }
+.fleet-summary-table th[data-sorted="true"] { color: #4338ca; background: #eef2ff; }
+.fleet-summary-table th[data-focus="true"] { background: #e0e7ff; color: #3730a3; }
+.fleet-summary-table td { padding: 7px 4px; text-align: center; border-bottom: 1px solid #f1f5f9; color: #334155; transition: background 0.12s; }
+.fleet-summary-table td[data-focus="true"] { background: #f5f7ff; }
+.fleet-summary-table tbody tr:hover td { background: #f8faff; }
+.fleet-summary-table tbody tr:hover td[data-focus="true"] { background: #eef2ff; }
+
+.fleet-summary-table .col-sr { position: sticky; left: 0; z-index: 5; width: 44px; min-width: 44px; max-width: 44px; background: #fff; color: #94a3b8; font-weight: 600; font-size: 12px; }
+.fleet-summary-table .col-vehicle { position: sticky; left: 44px; z-index: 5; width: 132px; min-width: 132px; text-align: left; padding-left: 12px; background: #fff; box-shadow: 1px 0 0 #e2e8f0, 4px 0 8px -4px rgba(15,23,42,0.08); }
+.fleet-summary-table th.col-sr, .fleet-summary-table th.col-vehicle { z-index: 16; background: #f8fafc; }
+.fleet-summary-table th.col-sr { cursor: default; }
+.fleet-summary-table .col-total { width: 72px; min-width: 72px; font-family: 'Outfit', sans-serif; font-weight: 800; color: #0f172a; font-size: 13px; border-left: 1px solid #e2e8f0; }
+
+.fs-vehicle-link { border: none; background: none; padding: 3px 8px; margin-left: -8px; border-radius: 7px; color: #4f46e5; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.01em; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
+.fs-vehicle-link:hover { background: #eef2ff; color: #3730a3; }
+.fs-heat { display: inline-block; min-width: 34px; padding: 3px 6px; border-radius: 7px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 12.5px; }
+.fs-heat-empty { color: #cbd5e1; font-weight: 500; }
+.fs-no-rows { padding: 40px 12px !important; color: #94a3b8; font-size: 13.5px; }
+.fs-no-rows div { margin-bottom: 6px; }
+
+.fleet-summary-table tfoot { position: sticky; bottom: 0; z-index: 11; }
+.fs-foot td { padding: 8px 4px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 12.5px; background: #f8fafc; color: #475569; border-bottom: 1px solid #e2e8f0; }
+.fs-foot:first-child td { border-top: 2px solid #cbd5e1; }
+.fs-foot td.col-vehicle { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; }
+.fs-foot td.col-sr, .fs-foot td.col-vehicle { z-index: 14; }
+.fs-foot[data-variant="total"] td { background: #eef2ff; color: #1e1b4b; font-weight: 800; }
+.fs-foot[data-variant="srcc"] td { background: #ecfdf5; color: #047857; }
+.fs-foot[data-variant="outsourced"] td { background: #fffbeb; color: #b45309; }
+
+/* Vehicle monthly trend modal */
+.fs-modal-backdrop { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(15,23,42,0.5); backdrop-filter: blur(6px); animation: fs-fade 0.15s ease-out; }
+.fs-modal { width: 100%; max-width: 820px; max-height: 92vh; overflow-y: auto; background: #fff; border-radius: 22px; box-shadow: 0 30px 60px -12px rgba(15,23,42,0.35); animation: fs-pop 0.2s cubic-bezier(0.16,1,0.3,1); }
+.fs-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 22px 24px 18px; background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 60%, #fff 100%); border-bottom: 1px solid #e8edf3; position: sticky; top: 0; z-index: 2; }
+.fs-modal-eyebrow { font-size: 11.5px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.07em; }
+.fs-modal-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 4px; font-family: 'Outfit', sans-serif; font-size: 26px; font-weight: 800; color: #0f172a; letter-spacing: 0.01em; }
+.fs-band-badge { font-family: 'Inter', sans-serif; font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; letter-spacing: 0.02em; }
+.fs-modal-sub { display: block; margin-top: 4px; font-size: 12.5px; color: #64748b; }
+.fs-modal-nav { display: flex; gap: 6px; }
+.fs-icon-btn { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; color: #475569; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+.fs-icon-btn:not(:disabled):hover { background: #eef2ff; border-color: #c7d2fe; color: #4338ca; }
+.fs-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.fs-modal-body { padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 14px; }
+.fs-modal-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 720px) { .fs-modal-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.fs-modal-kpi { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 14px; background: #f8fafc; border: 1px solid #eef2f7; }
+.fs-modal-kpi-value { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1.2; }
+.fs-month-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 720px) { .fs-month-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.fs-month-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border-radius: 12px; background: var(--tile-bg); border: 1px solid #eef2f7; border-top: 3px solid var(--tile-accent); }
+.fs-month-name { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+.fs-month-value { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; line-height: 1.2; }
+.fs-month-band { font-size: 10.5px; font-weight: 600; color: #94a3b8; }
+@keyframes fs-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fs-pop { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
 `;
 
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
 const FleetUtilizationReport = ({
-    filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay
+    filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay, selectedFinancialYear
 }) => {
     const isSingleDay = filterType === 'day' || (filterType === 'custom' && dateRange?.start && dateRange?.end && dateRange.start === dateRange.end);
 
@@ -402,11 +650,26 @@ const FleetUtilizationReport = ({
     const [activeTab, setActiveTab] = useState('dashboard');
 
     // Fleet Summary tab state
-    const [fleetSummaryData, setFleetSummaryData] = useState(null);
+    const [fleetSummaryByFy, setFleetSummaryByFy] = useState({});
     const [fleetSummaryLoading, setFleetSummaryLoading] = useState(false);
     const [fleetSummaryError, setFleetSummaryError] = useState(null);
     const [fleetSearchQuery, setFleetSearchQuery] = useState('');
     const [fleetSortConfig, setFleetSortConfig] = useState({ key: 'total', direction: 'desc' });
+    const [fleetBandFilter, setFleetBandFilter] = useState('all');
+    const [fleetMonthFilter, setFleetMonthFilter] = useState('all');
+    const [selectedVehicleTrend, setSelectedVehicleTrend] = useState(null);
+
+    // Vehicle-summary columns follow the main Filter Period (day columns for Day/Week, month or FY columns otherwise)
+    const isDailyPeriod = filterType === 'day' || filterType === 'week';
+    const periodColumns = useMemo(() => {
+        const { startDate, endDate } = getTransportDates(filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange);
+        return buildPeriodColumns(startDate, endDate, filterType === 'day' || filterType === 'week');
+    }, [filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange]);
+    const periodFysKey = useMemo(
+        () => [...new Set(periodColumns.flatMap(c => c.parts.map(p => p.fy)))].join(','),
+        [periodColumns]
+    );
+    const periodColumnsKey = periodColumns.map(c => c.key).join('|');
 
 
     // Previous month comparison data
@@ -603,21 +866,36 @@ const FleetUtilizationReport = ({
     }, [filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay]);
 
     // Fetch Fleet Summary (Trend tab)
+    // The API returns one financial year per call, so fetch every FY the period touches
+    const fetchFleetSummary = useCallback(async () => {
+        const fys = periodFysKey ? periodFysKey.split(',').map(Number) : [];
+        if (!fys.length) {
+            setFleetSummaryByFy({});
+            return;
+        }
+        setFleetSummaryLoading(true);
+        setFleetSummaryError(null);
+        try {
+            const results = await Promise.all(fys.map(fy => axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/fleet-summary`, {
+                params: { fyStartYear: fy, limit: 999999 },
+                headers: TRANSPORT_HEADERS,
+                withCredentials: true
+            })));
+            const byFy = {};
+            results.forEach((res, i) => { byFy[fys[i]] = res.data?.data || res.data || null; });
+            setFleetSummaryByFy(byFy);
+        } catch (e) {
+            setFleetSummaryError(e.message || "An error occurred");
+        } finally {
+            setFleetSummaryLoading(false);
+        }
+    }, [periodFysKey]);
+
     useEffect(() => {
-        if (activeTab !== 'fleet-summary' && activeTab !== 'trend') return;
-        const fetchFleetSummary = async () => {
-            setFleetSummaryLoading(true); setFleetSummaryError(null);
-            try {
-                const res = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/fleet-summary`, {
-                    params: { fyStartYear: selectedYear || 2026, limit: 999999 }, headers: TRANSPORT_HEADERS, withCredentials: true
-                });
-                if (res.data?.success) setFleetSummaryData(res.data.data);
-                else setFleetSummaryError("Failed to fetch fleet summary details");
-            } catch (e) { setFleetSummaryError(e.message || "An error occurred"); }
-            finally { setFleetSummaryLoading(false); }
-        };
-        fetchFleetSummary();
-    }, [selectedYear, activeTab]);
+        if (activeTab === 'fleet-summary' || activeTab === 'trend') {
+            fetchFleetSummary();
+        }
+    }, [activeTab, fetchFleetSummary]);
 
 
 
@@ -741,25 +1019,6 @@ const FleetUtilizationReport = ({
     const otherStatusList = useMemo(() => fleetStatusList.filter(v => ['Under trip', 'Under detention', 'Others'].includes(getPrimaryCategory(v.status))), [fleetStatusList]);
     const activeLRsList = useMemo(() => activeDispatch?.activeLRs || [], [activeDispatch]);
     const closedLRsList = useMemo(() => activeDispatch?.closedLRs || [], [activeDispatch]);
-
-    // ── Status Distribution (for Donut Chart) ───────────────────────────────────
-
-    const statusDistribution = useMemo(() => {
-        const counts = {};
-        fleetStatusList.forEach(v => {
-            let cat;
-            if (hasStatus(v.status, 'IDLE')) cat = 'IDLE';
-            else cat = getPrimaryCategory(v.status);
-            counts[cat] = (counts[cat] || 0) + 1;
-        });
-        return Object.entries(counts)
-            .map(([name, value]) => ({
-                name: STATUS_COLORS[name]?.label || name,
-                value,
-                fill: STATUS_COLORS[name]?.fill || '#64748b'
-            }))
-            .sort((a, b) => b.value - a.value);
-    }, [fleetStatusList]);
 
     // ── Metrics ─────────────────────────────────────────────────────────────────
 
@@ -1002,38 +1261,579 @@ const FleetUtilizationReport = ({
 
     // ── Fleet Summary Tab Computations ──────────────────────────────────────────
 
-    const filteredSummaryRows = useMemo(() => {
-        if (!fleetSummaryData?.rows) return [];
-        let result = [...fleetSummaryData.rows];
-        if (fleetSearchQuery) {
-            const q = fleetSearchQuery.toLowerCase().trim();
-            result = result.filter(r => String(r.vehicleNo || '').toLowerCase().includes(q));
+    const getVehicleNo = useCallback((row) => {
+        if (!row) return '—';
+        return row.vehicleNo || row.vehicle_no || row.vehicleNumber || row.truckNo || '—';
+    }, []);
+
+    const getVehicleMonthVal = useCallback((row, m) => {
+        if (!row) return 0;
+        const keys = [
+            m.key,
+            Number(m.key),
+            String(m.key).padStart(2, '0'),
+            m.name,
+            m.name ? m.name.toLowerCase() : '',
+            m.name ? m.name.toUpperCase() : '',
+            m.label
+        ];
+
+        if (row.months && typeof row.months === 'object' && !Array.isArray(row.months)) {
+            for (const k of keys) {
+                if (row.months[k] !== undefined && row.months[k] !== null && row.months[k] !== '') {
+                    const n = Number(row.months[k]);
+                    if (!isNaN(n)) return n;
+                }
+            }
         }
+
+        if (Array.isArray(row.months)) {
+            const valByFiscal = row.months[MONTH_NAMES.findIndex(x => x.key === m.key)];
+            if (valByFiscal !== undefined && valByFiscal !== null) {
+                return Number(valByFiscal) || 0;
+            }
+            const valByCal = row.months[Number(m.key) - 1];
+            if (valByCal !== undefined && valByCal !== null) {
+                return Number(valByCal) || 0;
+            }
+        }
+
+        for (const k of keys) {
+            if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
+                const n = Number(row[k]);
+                if (!isNaN(n)) return n;
+            }
+        }
+
+        return 0;
+    }, []);
+
+    /**
+     * One merged row per vehicle:
+     * - Day/Week: { vehicleNo, byDay: { 'yyyy-MM-dd': ownTrips } } built from the dashboard's dispatch data
+     * - otherwise: { vehicleNo, byFy: { [fyStartYear]: apiRow } } from the fleet-summary API
+     */
+    const rawSummaryRows = useMemo(() => {
+        const map = new Map();
+        if (isDailyPeriod) {
+            const ensure = (vehicleNo) => {
+                const key = normalizeVehicleNo(vehicleNo);
+                if (!key) return null;
+                if (!map.has(key)) map.set(key, { vehicleNo, byDay: {} });
+                return map.get(key);
+            };
+            fleetStatusList.forEach(v => ensure(v.vehicleNumber));
+            dispatches.forEach(d => {
+                const date = d.date ? d.date.slice(0, 10) : null;
+                if (!date) return;
+                deduplicateArray(d.closedLRs || [], getLRKey).forEach(lr => {
+                    if (String(lr.own_hired || '').toLowerCase().trim() !== 'own') return;
+                    const row = ensure(lr.vehicle_no);
+                    if (row) row.byDay[date] = (row.byDay[date] || 0) + 1;
+                });
+            });
+            return [...map.values()];
+        }
+        const fys = periodFysKey ? periodFysKey.split(',').map(Number) : [];
+        fys.forEach(fy => {
+            extractSummaryRows(fleetSummaryByFy[fy]).forEach(r => {
+                const vehicleNo = getVehicleNo(r);
+                const key = normalizeVehicleNo(vehicleNo) || vehicleNo;
+                if (!map.has(key)) map.set(key, { vehicleNo, byFy: {} });
+                map.get(key).byFy[fy] = r;
+            });
+        });
+        return [...map.values()];
+    }, [isDailyPeriod, fleetStatusList, dispatches, fleetSummaryByFy, periodFysKey, getVehicleNo]);
+
+    const getColumnVal = useCallback((row, col) => {
+        if (col.date) return row?.byDay?.[col.date] || 0;
+        return col.parts.reduce((sum, p) => sum + getVehicleMonthVal(row?.byFy?.[p.fy], p.m), 0);
+    }, [getVehicleMonthVal]);
+
+    const getVehicleTotal = useCallback((row) => (
+        periodColumns.reduce((sum, col) => sum + getColumnVal(row, col), 0)
+    ), [periodColumns, getColumnVal]);
+
+    const isFyColumns = periodColumns.some(c => c.key.startsWith('fy-'));
+    const periodLabel = periodColumns.length === 0
+        ? '—'
+        : periodColumns.length === 1
+            ? periodColumns[0].fullLabel
+            : `${periodColumns[0].fullLabel} – ${periodColumns[periodColumns.length - 1].fullLabel}`;
+
+    const periodUnit = isDailyPeriod ? 'day' : isFyColumns ? 'year' : 'month';
+    const periodAdjective = { day: 'Daily', month: 'Monthly', year: 'Yearly' }[periodUnit];
+
+    const periodElapsedMonths = useMemo(() => {
+        const elapsed = periodColumns.reduce((sum, c) => {
+            if (c.date) return sum + (c.future ? 0 : 1 / DAYS_PER_MONTH);
+            return sum + c.parts.filter(p => !p.future).length;
+        }, 0);
+        return Math.max(isDailyPeriod ? 1 / DAYS_PER_MONTH : 1, elapsed);
+    }, [periodColumns, isDailyPeriod]);
+
+    const focusColumn = useMemo(() => periodColumns.find(c => c.key === fleetMonthFilter) || null, [periodColumns, fleetMonthFilter]);
+
+    // Value used to place a vehicle in a High/Medium/Low/Idle band (average trips per month)
+    const getRowBandValue = useCallback((row) => {
+        if (focusColumn) return getColumnVal(row, focusColumn) / getColumnElapsed(focusColumn);
+        return getVehicleTotal(row) / periodElapsedMonths;
+    }, [focusColumn, getColumnVal, getVehicleTotal, periodElapsedMonths]);
+
+    const searchedSummaryRows = useMemo(() => {
+        const q = fleetSearchQuery.toLowerCase().trim();
+        if (!q) return rawSummaryRows;
+        return rawSummaryRows.filter(r => String(getVehicleNo(r)).toLowerCase().includes(q));
+    }, [rawSummaryRows, fleetSearchQuery, getVehicleNo]);
+
+    const fleetBandCounts = useMemo(() => {
+        const counts = { all: searchedSummaryRows.length, high: 0, medium: 0, low: 0, idle: 0 };
+        searchedSummaryRows.forEach(r => { counts[getHeatBand(getRowBandValue(r)).key] += 1; });
+        return counts;
+    }, [searchedSummaryRows, getRowBandValue]);
+
+    const filteredSummaryRows = useMemo(() => {
+        if (!searchedSummaryRows.length) return [];
+        const result = fleetBandFilter === 'all'
+            ? [...searchedSummaryRows]
+            : searchedSummaryRows.filter(r => getHeatBand(getRowBandValue(r)).key === fleetBandFilter);
         if (fleetSortConfig.key) {
             result.sort((a, b) => {
                 if (fleetSortConfig.key === 'vehicleNo') {
-                    return fleetSortConfig.direction === 'asc' ? (a.vehicleNo || '').localeCompare(b.vehicleNo || '') : (b.vehicleNo || '').localeCompare(a.vehicleNo || '');
+                    const av = getVehicleNo(a);
+                    const bv = getVehicleNo(b);
+                    return fleetSortConfig.direction === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
                 }
-                const av = parseFloat(a[fleetSortConfig.key]) || 0, bv = parseFloat(b[fleetSortConfig.key]) || 0;
+                if (fleetSortConfig.key === 'total') {
+                    const av = getVehicleTotal(a), bv = getVehicleTotal(b);
+                    return fleetSortConfig.direction === 'asc' ? av - bv : bv - av;
+                }
+                const col = periodColumns.find(c => c.key === fleetSortConfig.key);
+                const av = col ? getColumnVal(a, col) : 0;
+                const bv = col ? getColumnVal(b, col) : 0;
                 return fleetSortConfig.direction === 'asc' ? av - bv : bv - av;
             });
         }
         return result;
-    }, [fleetSummaryData, fleetSearchQuery, fleetSortConfig]);
+    }, [searchedSummaryRows, fleetBandFilter, getRowBandValue, fleetSortConfig, periodColumns, getVehicleNo, getVehicleTotal, getColumnVal]);
 
-    const avgOorVal = useMemo(() => {
-        if (!spreadsheetTotals) return null;
-        return parseFloat(spreadsheetTotals.oorPercent);
-    }, [spreadsheetTotals]);
+    const requestFleetSort = useCallback((key) => {
+        setFleetSortConfig(prev => {
+            let direction = 'desc';
+            if (prev.key === key && prev.direction === 'desc') {
+                direction = 'asc';
+            }
+            return { key, direction };
+        });
+    }, []);
 
-    const avgTripsVal = useMemo(() => {
-        if (dailyData.length === 0) return null;
-        const total = dailyData.reduce((acc, d) => acc + d.totalTrips, 0);
-        return parseFloat((total / dailyData.length).toFixed(1));
-    }, [dailyData]);
+    const sortIndicator = (key) => (fleetSortConfig.key === key ? (fleetSortConfig.direction === 'asc' ? ' ▲' : ' ▼') : '');
 
-    const requestFleetSort = (key) => {
-        setFleetSortConfig(prev => ({ key, direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc' }));
+    const handleFleetMonthFilter = useCallback((key) => {
+        setFleetMonthFilter(key);
+        setFleetSortConfig(key === 'all' ? { key: 'total', direction: 'desc' } : { key, direction: 'desc' });
+    }, []);
+
+    const hasFleetFilters = Boolean(fleetSearchQuery) || fleetBandFilter !== 'all' || fleetMonthFilter !== 'all';
+
+    const clearFleetFilters = useCallback(() => {
+        setFleetSearchQuery('');
+        setFleetBandFilter('all');
+        handleFleetMonthFilter('all');
+    }, [handleFleetMonthFilter]);
+
+    // A focused month may not exist once the main Filter Period changes
+    useEffect(() => {
+        handleFleetMonthFilter('all');
+    }, [periodColumnsKey, handleFleetMonthFilter]);
+
+    const fleetAggregates = useMemo(() => {
+        const rows = rawSummaryRows;
+        const pct = (part, whole) => (whole > 0 ? ((part / whole) * 100).toFixed(2) + '%' : '0.00%');
+
+        // Outsourced counts come from the API when present, else from the dashboard's daily data
+        const outsourcedForPart = (p) => {
+            const fromApi = getOutsourcedFromPayload(fleetSummaryByFy[p.fy], p.m);
+            if (fromApi !== null) return fromApi;
+            if (!Array.isArray(dailyData)) return 0;
+            return dailyData.reduce((count, d) => {
+                const dt = d.date ? new Date(d.date) : null;
+                if (dt && !isNaN(dt.getTime()) && dt.getFullYear() === p.year && String(dt.getMonth() + 1) === p.m.key) {
+                    return count + Number(d.outsourcedTotal || d.hiredTrips || 0);
+                }
+                return count;
+            }, 0);
+        };
+
+        const         srccMonths = {}, outsourcedMonths = {}, grandMonths = {}, srccUtilMonths = {}, outsourcedUtilMonths = {};
+        const hiredByDate = new Map((dailyData || []).map(d => [d.dateStr, Number(d.hiredTrips || 0)]));
+        periodColumns.forEach(col => {
+            srccMonths[col.key] = rows.reduce((sum, r) => sum + getColumnVal(r, col), 0);
+            outsourcedMonths[col.key] = col.date
+                ? (hiredByDate.get(col.date) || 0)
+                : col.parts.reduce((sum, p) => sum + outsourcedForPart(p), 0);
+            grandMonths[col.key] = srccMonths[col.key] + outsourcedMonths[col.key];
+            srccUtilMonths[col.key] = pct(srccMonths[col.key], grandMonths[col.key]);
+            outsourcedUtilMonths[col.key] = pct(outsourcedMonths[col.key], grandMonths[col.key]);
+        });
+        const srccTotal = Object.values(srccMonths).reduce((a, b) => a + b, 0);
+        const outsourcedTotal = Object.values(outsourcedMonths).reduce((a, b) => a + b, 0);
+        const grandTotal = srccTotal + outsourcedTotal;
+
+        return {
+            srccMonths, srccTotal,
+            outsourcedMonths, outsourcedTotal,
+            grandMonths, grandTotal,
+            srccUtilMonths, srccUtilTotal: pct(srccTotal, grandTotal),
+            outsourcedUtilMonths, outsourcedUtilTotal: pct(outsourcedTotal, grandTotal)
+        };
+    }, [rawSummaryRows, periodColumns, fleetSummaryByFy, dailyData, getColumnVal]);
+
+    const fleetSummaryKpis = useMemo(() => {
+        const totalVehicles = rawSummaryRows.length;
+        const srccTrips = fleetAggregates.srccTotal;
+        return {
+            totalVehicles,
+            activeVehicles: rawSummaryRows.filter(r => getVehicleTotal(r) > 0).length,
+            srccTrips,
+            outsourcedTrips: fleetAggregates.outsourcedTotal,
+            avgPerVehicleMonth: totalVehicles ? srccTrips / (totalVehicles * periodElapsedMonths) : 0
+        };
+    }, [rawSummaryRows, fleetAggregates, getVehicleTotal, periodElapsedMonths]);
+
+    const monthlyMixData = useMemo(() => {
+        if (!rawSummaryRows.length) return [];
+        return periodColumns.filter(c => !c.future).map(col => {
+            const srcc = fleetAggregates.srccMonths[col.key] || 0;
+            const outsourced = fleetAggregates.outsourcedMonths[col.key] || 0;
+            const total = srcc + outsourced;
+            return { month: col.label, srcc, outsourced, share: total > 0 ? Number(((srcc / total) * 100).toFixed(1)) : 0 };
+        });
+    }, [rawSummaryRows.length, periodColumns, fleetAggregates]);
+
+    const bandMixData = useMemo(() => (
+        HEAT_BANDS
+            .map(b => ({ key: b.key, name: b.label, value: fleetBandCounts[b.key], fill: b.solid }))
+            .filter(d => d.value > 0)
+    ), [fleetBandCounts]);
+
+    const topVehiclesData = useMemo(() => (
+        filteredSummaryRows
+            .map(row => ({ row, vehicle: getVehicleNo(row), trips: focusColumn ? getColumnVal(row, focusColumn) : getVehicleTotal(row), band: getRowBandValue(row) }))
+            .filter(d => d.trips > 0)
+            .sort((a, b) => b.trips - a.trips)
+            .slice(0, 10)
+            .map(({ band, ...d }) => ({ ...d, fill: getHeatBand(band).solid }))
+    ), [filteredSummaryRows, focusColumn, getVehicleNo, getColumnVal, getVehicleTotal, getRowBandValue]);
+
+    const fleetRankMap = useMemo(() => {
+        const map = new Map();
+        [...rawSummaryRows]
+            .sort((a, b) => getVehicleTotal(b) - getVehicleTotal(a))
+            .forEach((r, i) => map.set(r, i + 1));
+        return map;
+    }, [rawSummaryRows, getVehicleTotal]);
+
+    const selectedVehicleStats = useMemo(() => {
+        if (!selectedVehicleTrend) return null;
+        const row = selectedVehicleTrend;
+        const total = getVehicleTotal(row);
+        const fleetCount = rawSummaryRows.length || 1;
+        const chartData = periodColumns.map(col => {
+            const future = col.future;
+            const trips = getColumnVal(row, col);
+            return {
+                key: col.key,
+                month: col.label,
+                future,
+                trips: future && trips === 0 ? null : trips,
+                fleetAvg: future ? null : Number(((fleetAggregates.srccMonths[col.key] || 0) / fleetCount).toFixed(1)),
+                band: getHeatBand(trips / getColumnElapsed(col))
+            };
+        });
+        const elapsed = chartData.filter(d => !d.future);
+        const activeMonths = elapsed.filter(d => d.trips > 0).length;
+        const best = chartData.reduce((acc, d) => ((d.trips || 0) > (acc ? acc.trips : 0) ? d : acc), null);
+        const avg = total / periodElapsedMonths;
+        const fleetAvg = fleetSummaryKpis.avgPerVehicleMonth;
+        const index = filteredSummaryRows.indexOf(row);
+        return {
+            vehicleNo: getVehicleNo(row),
+            total,
+            chartData,
+            activeMonths,
+            elapsedColumns: elapsed.length,
+            idleMonths: elapsed.length - activeMonths,
+            best,
+            avg,
+            deltaPct: fleetAvg > 0 ? ((avg - fleetAvg) / fleetAvg) * 100 : null,
+            band: getHeatBand(avg),
+            rank: fleetRankMap.get(row) || '—',
+            fleetCount: rawSummaryRows.length,
+            shareOfFleet: fleetAggregates.srccTotal > 0 ? ((total / fleetAggregates.srccTotal) * 100).toFixed(1) : '0.0',
+            hasPrev: index > 0,
+            hasNext: index >= 0 && index < filteredSummaryRows.length - 1
+        };
+    }, [selectedVehicleTrend, rawSummaryRows.length, filteredSummaryRows, fleetAggregates, fleetSummaryKpis, fleetRankMap, periodColumns, periodElapsedMonths, getVehicleNo, getVehicleTotal, getColumnVal]);
+
+    const navigateVehicle = useCallback((dir) => {
+        const index = filteredSummaryRows.indexOf(selectedVehicleTrend);
+        const next = filteredSummaryRows[index + dir];
+        if (index >= 0 && next) setSelectedVehicleTrend(next);
+    }, [filteredSummaryRows, selectedVehicleTrend]);
+
+    useEffect(() => {
+        if (!selectedVehicleTrend) return undefined;
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') setSelectedVehicleTrend(null);
+            else if (e.key === 'ArrowLeft') navigateVehicle(-1);
+            else if (e.key === 'ArrowRight') navigateVehicle(1);
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [selectedVehicleTrend, navigateVehicle]);
+
+    const getCellHeatmapStyle = (value) => {
+        const band = getHeatBand(value);
+        if (band.key === 'idle') return { backgroundColor: '#ffffff', color: band.text, fontWeight: 500 };
+        return { backgroundColor: band.bg, color: band.text, fontWeight: 700 };
+    };
+
+    const exportFleetSummaryExcel = async () => {
+        if (!filteredSummaryRows.length) {
+            alert("No fleet summary data available to export.");
+            return;
+        }
+        try {
+            const ExcelJS = await import('exceljs');
+            const { saveAs } = await import('file-saver');
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = 'Exim Application';
+            const ws = workbook.addWorksheet('Vehicle Monthly Summary');
+
+            const fyLabel = periodLabel;
+
+            ws.addRow([`Vehicle Monthly Trip Summary (${fyLabel})`]);
+            ws.mergeCells(1, 1, 1, periodColumns.length + 3);
+            const titleRow = ws.getRow(1);
+            titleRow.height = 32;
+            titleRow.getCell(1).font = { name: 'Arial', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+            titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+            titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+            ws.addRow([]);
+
+            const headers = ['Sr. No', 'Vehicle No', ...periodColumns.map(m => m.label.toUpperCase()), 'TOTAL'];
+            ws.addRow(headers);
+            const headerRow = ws.getRow(3);
+            headerRow.height = 26;
+            headerRow.eachCell(cell => {
+                cell.font = { name: 'Arial', size: 10.5, bold: true, color: { argb: 'FF334155' } };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                    left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                    bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                    right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+                };
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            });
+
+            filteredSummaryRows.forEach((r, idx) => {
+                const rowValues = [
+                    idx + 1,
+                    getVehicleNo(r),
+                    ...periodColumns.map(m => getColumnVal(r, m)),
+                    getVehicleTotal(r)
+                ];
+                ws.addRow(rowValues);
+                const excelRow = ws.getRow(4 + idx);
+                excelRow.height = 22;
+
+                excelRow.eachCell((cell, colNum) => {
+                    cell.font = { name: 'Arial', size: 10, color: { argb: 'FF1E293B' } };
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                        right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                    };
+                    cell.alignment = { horizontal: colNum === 2 ? 'left' : 'center', vertical: 'middle' };
+
+                    if (colNum >= 3 && colNum <= periodColumns.length + 2) {
+                        const band = getHeatBand((Number(cell.value) || 0) / getColumnElapsed(periodColumns[colNum - 3]));
+                        cell.font = { name: 'Arial', size: 10, bold: band.key !== 'idle', color: { argb: band.xlText } };
+                        if (band.key !== 'idle') {
+                            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: band.xlBg } };
+                        }
+                    } else if (colNum === periodColumns.length + 3) {
+                        cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+                    }
+                });
+            });
+
+            const currentRIndex = 4 + filteredSummaryRows.length;
+            const summaryRowsDefs = [
+                {
+                    label: 'SRCC vehicles',
+                    values: periodColumns.map(m => fleetAggregates.srccMonths[m.key]),
+                    total: fleetAggregates.srccTotal,
+                    color: 'FF475569',
+                    bold: true
+                },
+                {
+                    label: 'Outsourced',
+                    values: periodColumns.map(m => fleetAggregates.outsourcedMonths[m.key]),
+                    total: fleetAggregates.outsourcedTotal,
+                    color: 'FF475569',
+                    bold: true
+                },
+                {
+                    label: 'TOTAL',
+                    values: periodColumns.map(m => fleetAggregates.grandMonths[m.key]),
+                    total: fleetAggregates.grandTotal,
+                    color: 'FF0F172A',
+                    bold: true
+                },
+                {
+                    label: 'SRCC Utilization',
+                    values: periodColumns.map(m => fleetAggregates.srccUtilMonths[m.key]),
+                    total: fleetAggregates.srccUtilTotal,
+                    color: 'FF16A34A',
+                    bold: true
+                },
+                {
+                    label: 'Outsourced Utilization',
+                    values: periodColumns.map(m => fleetAggregates.outsourcedUtilMonths[m.key]),
+                    total: fleetAggregates.outsourcedUtilTotal,
+                    color: 'FFEA580C',
+                    bold: true
+                }
+            ];
+
+            summaryRowsDefs.forEach((sRow, sIdx) => {
+                ws.addRow(['', sRow.label, ...sRow.values, sRow.total]);
+                const row = ws.getRow(currentRIndex + sIdx);
+                row.height = 24;
+                row.eachCell((cell, colNum) => {
+                    cell.font = { name: 'Arial', size: 10.5, bold: sRow.bold, color: { argb: sRow.color } };
+                    cell.border = {
+                        top: { style: sIdx === 0 ? 'medium' : 'thin', color: { argb: 'FFCBD5E1' } },
+                        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+                    };
+                    cell.alignment = { horizontal: colNum === 2 ? 'left' : 'center', vertical: 'middle' };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+                });
+            });
+
+            ws.columns.forEach((col, idx) => {
+                col.width = idx === 0 ? 8 : (idx === 1 ? 18 : 10);
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            saveAs(new Blob([buffer], { type: 'application/octet-stream' }), `Vehicle_Monthly_Trip_Summary_${fyLabel.replace(/\s+/g, '_')}.xlsx`);
+        } catch (error) {
+            console.error("Failed to export summary Excel:", error);
+            alert("An error occurred while exporting summary data to Excel.");
+        }
+    };
+
+    const exportFleetSummaryPdf = () => {
+        if (!filteredSummaryRows.length) {
+            alert("No fleet summary data available to export.");
+            return;
+        }
+        const fyLabel = periodLabel;
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            window.print();
+            return;
+        }
+
+        const rowsHtml = filteredSummaryRows.map((r, idx) => `
+            <tr>
+                <td style="text-align:center;font-weight:600;color:#64748b;padding:6px;">${idx + 1}</td>
+                <td style="text-align:left;font-weight:700;color:#2563eb;padding:6px 10px;">${getVehicleNo(r)}</td>
+                ${periodColumns.map(m => {
+            const val = getColumnVal(r, m);
+            const style = getCellHeatmapStyle(val / getColumnElapsed(m));
+            return `<td style="text-align:center;padding:6px;background-color:${style.backgroundColor};color:${style.color};font-weight:${style.fontWeight};">${val}</td>`;
+        }).join('')}
+                <td style="text-align:center;font-weight:800;color:#0f172a;padding:6px;">${getVehicleTotal(r)}</td>
+            </tr>
+        `).join('');
+
+        const summaryRowsHtml = `
+            <tr style="border-top:2px solid #cbd5e1;font-weight:700;color:#475569;">
+                <td></td><td style="text-align:left;padding:8px 10px;">SRCC vehicles</td>
+                ${periodColumns.map(m => `<td style="text-align:center;padding:8px 6px;">${fleetAggregates.srccMonths[m.key]}</td>`).join('')}
+                <td style="text-align:center;font-weight:800;color:#0f172a;">${fleetAggregates.srccTotal}</td>
+            </tr>
+            <tr style="font-weight:700;color:#475569;">
+                <td></td><td style="text-align:left;padding:8px 10px;">Outsourced</td>
+                ${periodColumns.map(m => `<td style="text-align:center;padding:8px 6px;">${fleetAggregates.outsourcedMonths[m.key]}</td>`).join('')}
+                <td style="text-align:center;font-weight:800;color:#0f172a;">${fleetAggregates.outsourcedTotal}</td>
+            </tr>
+            <tr style="font-weight:800;color:#0f172a;">
+                <td></td><td style="text-align:left;padding:8px 10px;">TOTAL</td>
+                ${periodColumns.map(m => `<td style="text-align:center;padding:8px 6px;">${fleetAggregates.grandMonths[m.key]}</td>`).join('')}
+                <td style="text-align:center;font-weight:900;">${fleetAggregates.grandTotal}</td>
+            </tr>
+            <tr style="font-weight:800;color:#16a34a;">
+                <td></td><td style="text-align:left;padding:8px 10px;">SRCC Utilization</td>
+                ${periodColumns.map(m => `<td style="text-align:center;padding:8px 6px;">${fleetAggregates.srccUtilMonths[m.key]}</td>`).join('')}
+                <td style="text-align:center;font-weight:900;">${fleetAggregates.srccUtilTotal}</td>
+            </tr>
+            <tr style="font-weight:800;color:#ea580c;">
+                <td></td><td style="text-align:left;padding:8px 10px;">Outsourced Utilization</td>
+                ${periodColumns.map(m => `<td style="text-align:center;padding:8px 6px;">${fleetAggregates.outsourcedUtilMonths[m.key]}</td>`).join('')}
+                <td style="text-align:center;font-weight:900;">${fleetAggregates.outsourcedUtilTotal}</td>
+            </tr>
+        `;
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Vehicle Monthly Trip Summary - ${fyLabel}</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
+                    h2 { margin: 0 0 16px 0; font-size: 18px; color: #0f172a; }
+                    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+                    th, td { border: 1px solid #cbd5e1; }
+                    th { background: #f1f5f9; padding: 8px 4px; font-weight: 700; text-align: center; font-size: 11px; }
+                    @media print {
+                        body { padding: 0; }
+                        @page { size: landscape; margin: 10mm; }
+                    }
+                </style>
+            </head>
+            <body>
+                <h2>Vehicle Monthly Trip Summary — ${fyLabel}</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:40px;">Sr.<br/>No</th>
+                            <th style="width:120px;text-align:left;padding-left:10px;">Vehicle No</th>
+                            ${periodColumns.map(m => `<th>${m.label.toUpperCase()}</th>`).join('')}
+                            <th style="width:60px;">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                        ${summaryRowsHtml}
+                    </tbody>
+                </table>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+            printWindow.print();
+        }, 400);
     };
 
     // ── Excel Export ────────────────────────────────────────────────────────────
@@ -1166,41 +1966,6 @@ const FleetUtilizationReport = ({
                     {extra && badgeBg && (
                         <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '8px', background: badgeBg, color: color, fontWeight: 700, fontSize: '12.5px', width: 'fit-content' }}>{extra}</div>
                     )}
-                </div>
-            </div>
-        );
-    };
-
-    const renderStatusDistribution = () => {
-        if (statusDistribution.length === 0) return null;
-        return (
-            <div className="fleet-chart-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'space-between' }}>
-                <div style={{ width: '100%' }}>
-                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🔵 Status Distribution</h3>
-                    <span className="sub">Current fleet status breakdown</span>
-                </div>
-                <div style={{ width: 280, height: 280, marginTop: '12px', position: 'relative' }}>
-                    <ResponsiveContainer>
-                        <PieChart>
-                            <Pie data={statusDistribution} cx="50%" cy="50%" innerRadius={72} outerRadius={110}
-                                paddingAngle={3} dataKey="value" nameKey="name" strokeWidth={0}>
-                                {statusDistribution.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                            </Pie>
-                            <Pie data={[{ value: 1 }]} cx="50%" cy="50%" innerRadius={0} outerRadius={0} dataKey="value">
-                                <DonutLabel viewBox={{ cx: 140, cy: 140 }} total={fleetStatusList.length} />
-                            </Pie>
-                            <Tooltip content={<DonutTooltip />} />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-                {/* Legend */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginTop: '16px' }}>
-                    {statusDistribution.map((d, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: '#475569', background: 'rgba(0,0,0,0.02)', padding: '4px 10px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.03)' }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: d.fill, display: 'inline-block' }} />
-                            {d.name} ({d.value})
-                        </div>
-                    ))}
                 </div>
             </div>
         );
@@ -1716,110 +2481,451 @@ const FleetUtilizationReport = ({
                         ].map((m, i) => <KpiCard key={i} {...m} />)}
                     </div>
 
-                    {/* Trend Charts */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
-                        {renderStatusDistribution()}
-                        {/* Utilization % Trend */}
-                        <div className="fleet-chart-card">
-                            <h3>📈 Fleet Utilization % Trend</h3>
-                            <span className="sub">Daily stock utilization percentage rate over time</span>
-                            <div style={{ width: '100%', height: 320, marginTop: '20px' }}>
-                                <ResponsiveContainer>
-                                    <ComposedChart data={dailyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                                        <defs>
-                                            <linearGradient id="colorUtilTrend" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.2} />
-                                                <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226,232,240,0.4)" />
-                                        <XAxis dataKey="dateStr" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                                        <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} domain={[0, 100]} tickFormatter={v => `${v}%`} />
-                                        <Tooltip contentStyle={{ backgroundColor: 'rgba(255,255,255,0.95)', border: '1px solid rgba(226,232,240,0.6)', borderRadius: '16px', boxShadow: '0 12px 40px rgba(0,0,0,0.08)', backdropFilter: 'blur(10px)' }} formatter={v => [`${v}%`, 'Utilization']} />
-                                        <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
-                                        <Area type="monotone" name="Utilization Rate" dataKey="utilPercent" stroke="#0ea5e9" strokeWidth={2} fill="url(#colorUtilTrend)" />
-                                        <Line type="monotone" name="7-Day Moving Avg (Trend)" dataKey="utilMovingAvg" stroke="#2563eb" strokeWidth={3} strokeDasharray="5 5" dot={false} activeDot={{ r: 6 }} />
-                                        {avgOorVal !== null && !isNaN(avgOorVal) && (
-                                            <ReferenceLine y={avgOorVal} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="3 3"
-                                                label={{ value: `Avg: ${avgOorVal}%`, fill: '#ef4444', fontSize: '10px', fontWeight: 700, position: 'insideTopRight' }} />
-                                        )}
-                                    </ComposedChart>
-                                </ResponsiveContainer>
+                    {/* ── Vehicle Trip Summary (Financial Year) ── */}
+                    <div className="fs-section">
+                        <div className="fs-section-head">
+                            <div>
+                                <h3 className="fs-title">Vehicle Trip Summary</h3>
+                                <span className="fs-subtitle">
+                                    {periodAdjective === 'Daily' ? 'Day-wise' : periodAdjective === 'Yearly' ? 'Year-wise' : 'Month-wise'} trips for every vehicle · {periodLabel}
+                                    {isDailyPeriod && ' · bands use trips per day × 30'}
+                                </span>
+                            </div>
+                            <div className="fs-actions">
+                                <button className="fs-btn fs-btn-primary" onClick={() => fetchFleetSummary()} disabled={fleetSummaryLoading}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: fleetSummaryLoading ? 'fleet-spin 0.8s linear infinite' : 'none' }}>
+                                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                                    </svg>
+                                    Refresh
+                                </button>
+                                <button className="fs-btn fs-btn-excel" onClick={exportFleetSummaryExcel}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                        <polyline points="14 2 14 8 20 8" />
+                                        <line x1="8" y1="13" x2="16" y2="13" />
+                                        <line x1="8" y1="17" x2="16" y2="17" />
+                                    </svg>
+                                    Excel
+                                </button>
+                                <button className="fs-btn fs-btn-pdf" onClick={exportFleetSummaryPdf}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                        <polyline points="14 2 14 8 20 8" />
+                                        <path d="M9 15h3a1.5 1.5 0 0 0 0-3H9v6" />
+                                    </svg>
+                                    PDF
+                                </button>
                             </div>
                         </div>
 
-                        {/* Total Trips Trend */}
-                        <div className="fleet-chart-card">
-                            <h3>📈 Total Trips Trend</h3>
-                            <span className="sub">Daily completed dispatches count trend</span>
-                            <div style={{ width: '100%', height: 320, marginTop: '20px' }}>
-                                <ResponsiveContainer>
-                                    <ComposedChart data={dailyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                                        <defs>
-                                            <linearGradient id="colorTripsTrend" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
-                                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226,232,240,0.4)" />
-                                        <XAxis dataKey="dateStr" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                                        <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false} />
-                                        <Tooltip contentStyle={{ backgroundColor: 'rgba(255,255,255,0.95)', border: '1px solid rgba(226,232,240,0.6)', borderRadius: '16px', boxShadow: '0 12px 40px rgba(0,0,0,0.08)', backdropFilter: 'blur(10px)' }} formatter={v => [v, 'Trips']} />
-                                        <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
-                                        <Area type="monotone" name="Trips Count" dataKey="totalTrips" stroke="#8b5cf6" strokeWidth={2} fill="url(#colorTripsTrend)" />
-                                        <Line type="monotone" name="7-Day Moving Avg (Trend)" dataKey="tripsMovingAvg" stroke="#6d28d9" strokeWidth={3} strokeDasharray="5 5" dot={false} activeDot={{ r: 6 }} />
-                                        {avgTripsVal !== null && !isNaN(avgTripsVal) && (
-                                            <ReferenceLine y={avgTripsVal} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="3 3"
-                                                label={{ value: `Avg: ${avgTripsVal}`, fill: '#ef4444', fontSize: '10px', fontWeight: 700, position: 'insideTopRight' }} />
-                                        )}
-                                    </ComposedChart>
-                                </ResponsiveContainer>
+                        {fleetSummaryError && !fleetSummaryLoading && (
+                            <div className="fs-error">
+                                <span>{fleetSummaryError}</span>
+                                <button className="fs-btn fs-btn-danger" onClick={() => fetchFleetSummary()}>Retry</button>
                             </div>
+                        )}
+
+                        {/* KPI strip */}
+                        <div className="fs-kpi-grid">
+                            {[
+                                { label: 'Active Vehicles', value: fleetSummaryKpis.activeVehicles, hint: `of ${fleetSummaryKpis.totalVehicles} vehicles in fleet`, color: '#4f46e5' },
+                                { label: 'SRCC Trips', value: fleetSummaryKpis.srccTrips.toLocaleString('en-IN'), hint: `${fleetSummaryKpis.outsourcedTrips.toLocaleString('en-IN')} outsourced trips`, color: '#0ea5e9' },
+                                { label: 'Avg Trips / Vehicle / Month', value: fleetSummaryKpis.avgPerVehicleMonth.toFixed(1), hint: isDailyPeriod ? 'projected from daily trips' : `across ${periodElapsedMonths} month${periodElapsedMonths === 1 ? '' : 's'}`, color: '#10b981' },
+                                { label: 'SRCC Share', value: fleetAggregates.srccUtilTotal, hint: 'of all trips (SRCC + outsourced)', color: '#7c3aed' }
+                            ].map(k => (
+                                <div key={k.label} className="fs-kpi" style={{ '--fs-accent': k.color }}>
+                                    <span className="fs-kpi-label">{k.label}</span>
+                                    <span className="fs-kpi-value">{k.value}</span>
+                                    <span className="fs-kpi-hint">{k.hint}</span>
+                                </div>
+                            ))}
                         </div>
 
-                    </div>
-
-                    {/* Fleet Summary Vehicle Table */}
-                    {fleetSummaryData && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                                <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '8px' }}>📋 Vehicle Monthly Trip Summary</div>
-                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                    <input type="text" placeholder="🔍 Search vehicle number..." value={fleetSearchQuery} onChange={e => setFleetSearchQuery(e.target.value)}
-                                        style={{ padding: '8px 16px', borderRadius: '12px', border: '1px solid rgba(226,232,240,0.8)', fontSize: '13.5px', fontWeight: 600, outline: 'none', width: '240px', background: 'rgba(255,255,255,0.8)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }} />
-                                    <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>
-                                        Showing <strong className="mono">{filteredSummaryRows.length}</strong> of <strong className="mono">{fleetSummaryData.rows?.length || 0}</strong> vehicles
-                                    </span>
+                        {/* Charts */}
+                        <div className="fs-chart-grid">
+                            <div className="fs-card fs-chart-wide">
+                                <div className="fs-card-head">
+                                    <h4>{periodAdjective} Trips: SRCC vs Outsourced</h4>
+                                    <span>Bars show trip counts; the line shows SRCC's share of all trips</span>
+                                </div>
+                                <div style={{ width: '100%', height: 280 }}>
+                                    {monthlyMixData.length > 0 ? (
+                                        <ResponsiveContainer>
+                                            <ComposedChart data={monthlyMixData} margin={{ top: 10, right: 0, left: -12, bottom: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                                                <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                                                <YAxis yAxisId="trips" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                                                <YAxis yAxisId="share" orientation="right" domain={[0, 100]} stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => `${v}%`} />
+                                                <Tooltip content={<FsChartTooltip />} cursor={{ fill: 'rgba(99,102,241,0.06)' }} />
+                                                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '8px' }} />
+                                                <Bar yAxisId="trips" dataKey="srcc" name="SRCC" stackId="trips" fill="#6366f1" maxBarSize={36} />
+                                                <Bar yAxisId="trips" dataKey="outsourced" name="Outsourced" stackId="trips" fill="#fde68a" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                                                <Line yAxisId="share" type="monotone" dataKey="share" name="SRCC Share %" stroke="#6ee7b7" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 0, fill: '#6ee7b7' }} activeDot={{ r: 5 }} />
+                                            </ComposedChart>
+                                        </ResponsiveContainer>
+                                    ) : (
+                                        <div className="fs-empty">No trip data for {periodLabel}</div>
+                                    )}
                                 </div>
                             </div>
-                            <div className="fleet-excel-wrap">
-                                <table className="fleet-excel">
-                                    <thead>
-                                        <tr>
-                                            <th onClick={() => requestFleetSort('vehicleNo')} style={{ cursor: 'pointer', userSelect: 'none' }}>
-                                                Vehicle No {fleetSortConfig.key === 'vehicleNo' ? (fleetSortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-                                            </th>
-                                            {MONTH_NAMES.map(m => <th key={m.key}>{m.name}</th>)}
-                                            <th onClick={() => requestFleetSort('total')} style={{ cursor: 'pointer', userSelect: 'none', background: 'rgba(220,252,231,0.2)' }}>
-                                                Total Trips {fleetSortConfig.key === 'total' ? (fleetSortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredSummaryRows.length > 0 ? filteredSummaryRows.map((row, i) => (
-                                            <tr key={i}>
-                                                <td className="mono" style={{ fontWeight: 700, color: '#0f172a', textAlign: 'left', paddingLeft: '20px' }}>{row.vehicleNo}</td>
-                                                {MONTH_NAMES.map(m => {
-                                                    const val = row.months?.[m.key] || 0;
-                                                    return <td key={m.key} className={`num ${val > 0 ? 'hl-b' : ''}`} style={{ fontWeight: val > 0 ? 700 : 500 }}>{val || '—'}</td>;
-                                                })}
-                                                <td className="num hl-g" style={{ fontWeight: 800, fontSize: '14px' }}>{row.total || 0}</td>
+
+                            <div className="fs-card">
+                                <div className="fs-card-head">
+                                    <h4>Performance Mix</h4>
+                                    <span>{focusColumn ? `Vehicles by trips in ${focusColumn.fullLabel}` : 'Vehicles by average monthly trips'} · click to filter</span>
+                                </div>
+                                {bandMixData.length > 0 ? (
+                                    <>
+                                        <div style={{ width: '100%', height: 200, position: 'relative' }}>
+                                            <ResponsiveContainer>
+                                                <PieChart>
+                                                    <Pie
+                                                        data={bandMixData} dataKey="value" nameKey="name"
+                                                        innerRadius={58} outerRadius={88} paddingAngle={2} strokeWidth={0}
+                                                        onClick={d => {
+                                                            const key = d?.payload?.key || d?.key;
+                                                            if (key) setFleetBandFilter(prev => (prev === key ? 'all' : key));
+                                                        }}
+                                                        style={{ cursor: 'pointer' }}
+                                                    >
+                                                        {bandMixData.map(entry => (
+                                                            <Cell key={entry.key} fill={entry.fill} opacity={fleetBandFilter === 'all' || fleetBandFilter === entry.key ? 1 : 0.3} />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip content={<FsChartTooltip suffix=" vehicles" />} />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                            <div className="fs-donut-center">
+                                                <span className="fs-donut-value">{fleetBandCounts.all}</span>
+                                                <span className="fs-donut-label">Vehicles</span>
+                                            </div>
+                                        </div>
+                                        <div className="fs-mix-legend">
+                                            {HEAT_BANDS.map(b => (
+                                                <button
+                                                    key={b.key}
+                                                    className="fs-mix-item"
+                                                    data-active={String(fleetBandFilter === b.key)}
+                                                    onClick={() => setFleetBandFilter(prev => (prev === b.key ? 'all' : b.key))}
+                                                >
+                                                    <span className="fs-mix-dot" style={{ background: b.solid }} />
+                                                    <span className="fs-mix-name">{b.label}</span>
+                                                    <span className="fs-mix-range">{b.range}</span>
+                                                    <span className="fs-mix-count">{fleetBandCounts[b.key]}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="fs-empty" style={{ height: 260 }}>No vehicles to show</div>
+                                )}
+                            </div>
+
+                            <div className="fs-card">
+                                <div className="fs-card-head">
+                                    <h4>Top 10 Vehicles</h4>
+                                    <span>{`Most trips in ${focusColumn ? focusColumn.fullLabel : periodLabel}`} · click a bar for details</span>
+                                </div>
+                                <div style={{ width: '100%', height: 300 }}>
+                                    {topVehiclesData.length > 0 ? (
+                                        <ResponsiveContainer>
+                                            <BarChart data={topVehiclesData} layout="vertical" margin={{ top: 4, right: 36, left: 4, bottom: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#eef2f7" />
+                                                <XAxis type="number" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                                                <YAxis type="category" dataKey="vehicle" width={104} stroke="#475569" fontSize={11.5} fontWeight={600} tickLine={false} axisLine={false} />
+                                                <Tooltip content={<FsChartTooltip suffix=" trips" />} cursor={{ fill: 'rgba(99,102,241,0.06)' }} />
+                                                <Bar
+                                                    dataKey="trips" name="Trips" radius={[0, 6, 6, 0]} maxBarSize={20}
+                                                    label={{ position: 'right', fontSize: 11, fill: '#334155', fontWeight: 700 }}
+                                                    onClick={d => {
+                                                        const row = d?.payload?.row || d?.row;
+                                                        if (row) setSelectedVehicleTrend(row);
+                                                    }}
+                                                    style={{ cursor: 'pointer' }}
+                                                >
+                                                    {topVehiclesData.map(entry => <Cell key={entry.vehicle} fill={entry.fill} />)}
+                                                </Bar>
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    ) : (
+                                        <div className="fs-empty">No trips recorded for the current filters</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Vehicle table */}
+                        <div className="fs-card fs-table-card">
+                            <div className="fs-filter-bar">
+                                <div className="fs-search">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="11" cy="11" r="7" />
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                    </svg>
+                                    <input
+                                        type="text"
+                                        placeholder="Search vehicle no."
+                                        value={fleetSearchQuery}
+                                        onChange={e => setFleetSearchQuery(e.target.value)}
+                                    />
+                                    {fleetSearchQuery && (
+                                        <button className="fs-search-clear" onClick={() => setFleetSearchQuery('')} aria-label="Clear search">✕</button>
+                                    )}
+                                </div>
+
+                                <div className="fs-chip-group" role="group" aria-label="Filter by performance">
+                                    <button className="fs-chip" data-active={String(fleetBandFilter === 'all')} onClick={() => setFleetBandFilter('all')}>
+                                        All <span className="fs-chip-count">{fleetBandCounts.all}</span>
+                                    </button>
+                                    {HEAT_BANDS.map(b => (
+                                        <button
+                                            key={b.key}
+                                            className="fs-chip"
+                                            data-active={String(fleetBandFilter === b.key)}
+                                            onClick={() => setFleetBandFilter(b.key)}
+                                            style={{ '--chip-bg': b.bg, '--chip-text': b.text, '--chip-dot': b.solid }}
+                                            title={`${b.label}: ${b.range} trips per month${focusColumn ? ` in ${focusColumn.fullLabel}` : ' on average'}`}
+                                        >
+                                            <span className="fs-chip-dot" />
+                                            {b.label}
+                                            <span className="fs-chip-count">{fleetBandCounts[b.key]}</span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {periodColumns.length > 1 && (
+                                    <select
+                                        className="fs-select"
+                                        value={fleetMonthFilter}
+                                        onChange={e => handleFleetMonthFilter(e.target.value)}
+                                        aria-label={`Focus ${periodUnit}`}
+                                    >
+                                        <option value="all">{`All ${periodUnit}s (average)`}</option>
+                                        {periodColumns.map(c => (
+                                            <option key={c.key} value={c.key} disabled={c.future}>{c.fullLabel}</option>
+                                        ))}
+                                    </select>
+                                )}
+
+                                {hasFleetFilters && (
+                                    <button className="fs-link-btn" onClick={clearFleetFilters}>Clear filters</button>
+                                )}
+                            </div>
+
+                            <div className="fs-table-meta">
+                                <span>
+                                    Showing <strong>{filteredSummaryRows.length}</strong> of <strong>{rawSummaryRows.length}</strong> vehicles
+                                    <span className="fs-meta-sep">·</span>
+                                    Bands based on {focusColumn ? `trips in ${focusColumn.fullLabel}` : 'average monthly trips'}
+                                </span>
+                                <span className="fs-legend">
+                                    {HEAT_BANDS.map(b => (
+                                        <span key={b.key} className="fs-legend-item">
+                                            <span className="fs-legend-swatch" style={{ background: b.bg, borderColor: b.solid }} />
+                                            {b.label} <em>{b.range}</em>
+                                        </span>
+                                    ))}
+                                </span>
+                            </div>
+
+                            {fleetSummaryLoading ? (
+                                <div className="fs-empty" style={{ height: 240, flexDirection: 'column', gap: '12px' }}>
+                                    <div className="fleet-spinner" style={{ width: '34px', height: '34px' }} />
+                                    <span>Loading vehicle trip summary...</span>
+                                </div>
+                            ) : (
+                                <div className="fleet-summary-scroll">
+                                    <table className="fleet-summary-table">
+                                        <thead>
+                                            <tr>
+                                                <th className="col-sr">#</th>
+                                                <th
+                                                    className="col-vehicle"
+                                                    data-sorted={String(fleetSortConfig.key === 'vehicleNo')}
+                                                    onClick={() => requestFleetSort('vehicleNo')}
+                                                    title="Sort by vehicle number"
+                                                >
+                                                    Vehicle No{sortIndicator('vehicleNo')}
+                                                </th>
+                                                {periodColumns.map(m => (
+                                                    <th
+                                                        key={m.key}
+                                                        data-sorted={String(fleetSortConfig.key === m.key)}
+                                                        data-focus={String(fleetMonthFilter === m.key)}
+                                                        onClick={() => requestFleetSort(m.key)}
+                                                        title={`Sort by ${m.fullLabel}`}
+                                                    >
+                                                        {m.label}{sortIndicator(m.key)}
+                                                    </th>
+                                                ))}
+                                                <th
+                                                    className="col-total"
+                                                    data-sorted={String(fleetSortConfig.key === 'total')}
+                                                    onClick={() => requestFleetSort('total')}
+                                                    title="Sort by total trips"
+                                                >
+                                                    Total{sortIndicator('total')}
+                                                </th>
                                             </tr>
-                                        )) : (
-                                            <tr><td colSpan="14" style={{ textAlign: 'center', color: '#94a3b8', padding: '40px' }}>No matching vehicles found</td></tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredSummaryRows.length > 0 ? (
+                                                filteredSummaryRows.map((row, i) => {
+                                                    const vehicleNo = getVehicleNo(row);
+                                                    return (
+                                                        <tr key={`${vehicleNo}-${i}`}>
+                                                            <td className="col-sr">{i + 1}</td>
+                                                            <td className="col-vehicle">
+                                                                <button className="fs-vehicle-link" onClick={() => setSelectedVehicleTrend(row)} title="View monthly trend">
+                                                                    {vehicleNo}
+                                                                </button>
+                                                            </td>
+                                                            {periodColumns.map(m => {
+                                                                const val = getColumnVal(row, m);
+                                                                const band = getHeatBand(val / getColumnElapsed(m));
+                                                                return (
+                                                                    <td key={m.key} data-focus={String(fleetMonthFilter === m.key)}>
+                                                                        {m.future && val === 0 ? (
+                                                                            <span className="fs-heat-empty">–</span>
+                                                                        ) : band.key === 'idle' ? (
+                                                                            <span className="fs-heat-empty">0</span>
+                                                                        ) : (
+                                                                            <span className="fs-heat" style={{ background: band.bg, color: band.text }}>{val}</span>
+                                                                        )}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                            <td className="col-total">{getVehicleTotal(row)}</td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan={periodColumns.length + 3} className="fs-no-rows">
+                                                        <div>No vehicles match the current filters</div>
+                                                        {hasFleetFilters && (
+                                                            <button className="fs-link-btn" onClick={clearFleetFilters}>Clear filters</button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+
+                                        {rawSummaryRows.length > 0 && (
+                                            <tfoot>
+                                                {[
+                                                    { label: 'SRCC Vehicles', months: fleetAggregates.srccMonths, total: fleetAggregates.srccTotal, variant: 'base' },
+                                                    { label: 'Outsourced', months: fleetAggregates.outsourcedMonths, total: fleetAggregates.outsourcedTotal, variant: 'base' },
+                                                    { label: 'Total Trips', months: fleetAggregates.grandMonths, total: fleetAggregates.grandTotal, variant: 'total' },
+                                                    { label: 'SRCC Utilization', months: fleetAggregates.srccUtilMonths, total: fleetAggregates.srccUtilTotal, variant: 'srcc' },
+                                                    { label: 'Outsourced Utilization', months: fleetAggregates.outsourcedUtilMonths, total: fleetAggregates.outsourcedUtilTotal, variant: 'outsourced' }
+                                                ].map(r => (
+                                                    <tr key={r.label} className="fs-foot" data-variant={r.variant}>
+                                                        <td className="col-sr" />
+                                                        <td className="col-vehicle">{r.label}</td>
+                                                        {periodColumns.map(m => (
+                                                            <td key={m.key} data-focus={String(fleetMonthFilter === m.key)}>{r.months[m.key]}</td>
+                                                        ))}
+                                                        <td className="col-total">{r.total}</td>
+                                                    </tr>
+                                                ))}
+                                            </tfoot>
                                         )}
-                                    </tbody>
-                                </table>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Vehicle Monthly Trend Modal */}
+                    {selectedVehicleStats && (
+                        <div className="fs-modal-backdrop" onClick={() => setSelectedVehicleTrend(null)}>
+                            <div className="fs-modal" role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
+                                <div className="fs-modal-head">
+                                    <div>
+                                        <span className="fs-modal-eyebrow">Vehicle Trip Trend · {periodLabel}</span>
+                                        <div className="fs-modal-title">
+                                            <span>{selectedVehicleStats.vehicleNo}</span>
+                                            <span className="fs-band-badge" style={{ background: selectedVehicleStats.band.bg, color: selectedVehicleStats.band.text }}>
+                                                {selectedVehicleStats.band.label} performer
+                                            </span>
+                                        </div>
+                                        <span className="fs-modal-sub">
+                                            Ranked #{selectedVehicleStats.rank} of {selectedVehicleStats.fleetCount} vehicles by total trips
+                                        </span>
+                                    </div>
+                                    <div className="fs-modal-nav">
+                                        <button className="fs-icon-btn" onClick={() => navigateVehicle(-1)} disabled={!selectedVehicleStats.hasPrev} title="Previous vehicle (←)" aria-label="Previous vehicle">‹</button>
+                                        <button className="fs-icon-btn" onClick={() => navigateVehicle(1)} disabled={!selectedVehicleStats.hasNext} title="Next vehicle (→)" aria-label="Next vehicle">›</button>
+                                        <button className="fs-icon-btn" onClick={() => setSelectedVehicleTrend(null)} title="Close (Esc)" aria-label="Close">✕</button>
+                                    </div>
+                                </div>
+
+                                <div className="fs-modal-body">
+                                    <div className="fs-modal-kpis">
+                                        {[
+                                            { label: 'Total Trips', value: selectedVehicleStats.total, hint: `${selectedVehicleStats.shareOfFleet}% of all SRCC trips` },
+                                            {
+                                                label: `Active ${periodAdjective === 'Daily' ? 'Days' : periodAdjective === 'Yearly' ? 'Years' : 'Months'}`,
+                                                value: `${selectedVehicleStats.activeMonths} / ${selectedVehicleStats.elapsedColumns}`,
+                                                hint: selectedVehicleStats.idleMonths > 0
+                                                    ? `${selectedVehicleStats.idleMonths} ${periodUnit}${selectedVehicleStats.idleMonths === 1 ? '' : 's'} with no trips`
+                                                    : `Active every ${periodUnit}`
+                                            },
+                                            {
+                                                label: 'Avg Trips / Month',
+                                                value: selectedVehicleStats.avg.toFixed(1),
+                                                hint: selectedVehicleStats.deltaPct === null
+                                                    ? 'No fleet average yet'
+                                                    : `${selectedVehicleStats.deltaPct >= 0 ? '▲' : '▼'} ${Math.abs(selectedVehicleStats.deltaPct).toFixed(0)}% vs fleet avg (${fleetSummaryKpis.avgPerVehicleMonth.toFixed(1)})`,
+                                                hintColor: selectedVehicleStats.deltaPct === null ? undefined : selectedVehicleStats.deltaPct >= 0 ? '#047857' : '#be123c'
+                                            },
+                                            { label: `Best ${periodUnit.charAt(0).toUpperCase()}${periodUnit.slice(1)}`, value: selectedVehicleStats.best ? selectedVehicleStats.best.month : '—', hint: selectedVehicleStats.best ? `${selectedVehicleStats.best.trips} trips` : 'No trips yet' }
+                                        ].map(k => (
+                                            <div key={k.label} className="fs-modal-kpi">
+                                                <span className="fs-kpi-label">{k.label}</span>
+                                                <span className="fs-modal-kpi-value">{k.value}</span>
+                                                <span className="fs-kpi-hint" style={k.hintColor ? { color: k.hintColor, fontWeight: 600 } : undefined}>{k.hint}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="fs-card-head" style={{ marginTop: '4px' }}>
+                                        <h4>{periodAdjective} Trips vs Fleet Average</h4>
+                                        <span>Bar colour shows the performance band for each {periodUnit}</span>
+                                    </div>
+                                    <div style={{ width: '100%', height: 240 }}>
+                                        <ResponsiveContainer>
+                                            <ComposedChart data={selectedVehicleStats.chartData} margin={{ top: 16, right: 8, left: -16, bottom: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                                                <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                                                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                                                <Tooltip content={<FsChartTooltip />} cursor={{ fill: 'rgba(99,102,241,0.06)' }} />
+                                                <Bar dataKey="trips" name="Trips" radius={[6, 6, 0, 0]} maxBarSize={30} label={{ position: 'top', fontSize: 10.5, fill: '#475569', fontWeight: 700 }}>
+                                                    {selectedVehicleStats.chartData.map(d => (
+                                                        <Cell key={d.key} fill={d.band.key === 'idle' ? '#e2e8f0' : d.band.solid} />
+                                                    ))}
+                                                </Bar>
+                                                <Line type="monotone" dataKey="fleetAvg" name="Fleet avg / vehicle" stroke="#6366f1" strokeWidth={2} strokeDasharray="5 4" dot={false} connectNulls={false} />
+                                            </ComposedChart>
+                                        </ResponsiveContainer>
+                                    </div>
+
+                                    <div className="fs-month-grid">
+                                        {selectedVehicleStats.chartData.map(d => (
+                                            <div
+                                                key={d.key}
+                                                className="fs-month-tile"
+                                                data-future={String(d.future)}
+                                                style={{ '--tile-accent': d.future ? '#e2e8f0' : d.band.solid, '--tile-bg': d.future || d.band.key === 'idle' ? '#f8fafc' : d.band.bg }}
+                                            >
+                                                <span className="fs-month-name">{d.month}</span>
+                                                <span className="fs-month-value" style={{ color: d.future ? '#cbd5e1' : d.band.text }}>{d.future ? '—' : d.trips}</span>
+                                                <span className="fs-month-band">{d.future ? 'Upcoming' : d.band.label}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}

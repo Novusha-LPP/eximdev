@@ -436,6 +436,21 @@ class HrmsClient {
   }
 
   /**
+   * Approve an attendance correction request directly.
+   */
+  async approveCorrection({ user, correctionId, comments = 'Approved by administrator' }) {
+    const session = await this.getEmployeeSession(user);
+    return await this.bearerRequest(`/v1/corrections/${encodeURIComponent(correctionId)}/approve`, session.access_token, {
+      method: 'POST',
+      body: {
+        action: 'APPROVE',
+        comments: comments || null,
+      },
+      userId: user._id,
+    });
+  }
+
+  /**
    * Get approvals inbox for managers/admins.
    */
   async getApprovalsInbox(user) {

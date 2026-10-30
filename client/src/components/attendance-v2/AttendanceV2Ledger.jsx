@@ -62,7 +62,7 @@ const getStatusCategory = (status) => {
   return 'default';
 };
 
-const AttendanceV2Ledger = ({ onRequestCorrection, onApplyLeave, defaultView = 'table', title, onBack }) => {
+const AttendanceV2Ledger = ({ onRequestCorrection, onApplyLeave, defaultView = 'table', title, onBack, targetUserId = null, employeeName = null }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [days, setDays] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -87,7 +87,11 @@ const AttendanceV2Ledger = ({ onRequestCorrection, onApplyLeave, defaultView = '
       const lastDay = new Date(year, month, 0).getDate();
       const toDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-      const res = await attendanceV2API.getDays({ from_date: fromDate, to_date: toDate });
+      const params = { from_date: fromDate, to_date: toDate };
+      if (targetUserId) {
+        params.user_id = targetUserId;
+      }
+      const res = await attendanceV2API.getDays(params);
       const rawList = Array.isArray(res)
         ? res
         : Array.isArray(res?.days)

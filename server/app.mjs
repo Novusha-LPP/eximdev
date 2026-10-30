@@ -850,6 +850,9 @@ app.use('/uploads/leaves', express.static(
 app.use('/uploads/it-helpdesk', express.static(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'it-helpdesk')
 ));
+app.use('/uploads/procurement', express.static(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'procurement')
+));
 app.use('/uploads/it-helpdesk', (req, res) => {
   const ext = path.extname(req.path).toLowerCase();
   const fallbackImg = path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'it-helpdesk', '1783326044383-564841636.png');

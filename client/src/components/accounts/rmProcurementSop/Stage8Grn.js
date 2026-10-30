@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Box,
   Grid,
@@ -25,6 +25,112 @@ function Stage8Grn({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => onChange({ [field]: value });
   const updateNested = (group, field, value) =>
     onChange({ [group]: { ...data[group], [field]: value } });
+
+  useEffect(() => {
+    let needsUpdate = false;
+    const updates = {};
+
+    if (!data.dateOfReceipt) {
+      updates.dateOfReceipt = new Date().toISOString().split("T")[0];
+      needsUpdate = true;
+    }
+
+    if (!data.grnNumber) {
+      const poPart = (globalData?.poNumber || "").replace(/^PO\//i, "") || "RM/01/26-27";
+      updates.grnNumber = `GRN/${poPart}`;
+      needsUpdate = true;
+    }
+
+    if (!data.supplierName) {
+      const sup =
+        globalData?.stage3?.selectedSupplierL1 ||
+        globalData?.stage3?.selectedSuppliers?.[0]?.selectedSupplier ||
+        globalData?.stage2?.selectedSupplierL1 ||
+        "";
+      if (sup) {
+        updates.supplierName = sup;
+        needsUpdate = true;
+      }
+    }
+
+    if (!data.supplierContactNo) {
+      const phone =
+        globalData?.stage3?.selectedSuppliers?.[0]?.phoneNumber ||
+        globalData?.stage2?.selectedSuppliers?.[0]?.phoneNumber ||
+        "";
+      if (phone) {
+        updates.supplierContactNo = phone;
+        needsUpdate = true;
+      }
+    }
+
+    const currentInspections = data.rmReceiptInspection || [];
+    if (currentInspections.length === 0) {
+      const stage1Items = globalData?.stage1?.itemsRequired || [];
+      updates.rmReceiptInspection = [
+        {
+          rmType: "Virgin HDPE Granule",
+          grade: "ICOL-180M50",
+          orderedQty: stage1Items[0]?.qty || "",
+          receivedQty: stage1Items[0]?.qty || "",
+          physicalCondition: "OK",
+          acceptedRejected: "Accepted",
+          batchLotNo: "",
+          documentsReceived: { coaTestCert: true, invoiceChallan: true, mfgWarranty: true },
+        },
+        {
+          rmType: "rHDPE Granule",
+          grade: "Blue / Grey",
+          orderedQty: stage1Items[1]?.qty || "",
+          receivedQty: stage1Items[1]?.qty || "",
+          physicalCondition: "OK",
+          acceptedRejected: "Accepted",
+          batchLotNo: "",
+          documentsReceived: { coaTestCert: true, invoiceChallan: true, mfgWarranty: true },
+        },
+        {
+          rmType: "Colour Masterbatch",
+          grade: "Blue / Grey",
+          orderedQty: stage1Items[2]?.qty || "",
+          receivedQty: stage1Items[2]?.qty || "",
+          physicalCondition: "OK",
+          acceptedRejected: "Accepted",
+          batchLotNo: "",
+          documentsReceived: { coaTestCert: true, invoiceChallan: true, mfgWarranty: true },
+        },
+        {
+          rmType: "UV Masterbatch",
+          grade: "Standard UV",
+          orderedQty: stage1Items[3]?.qty || "",
+          receivedQty: stage1Items[3]?.qty || "",
+          physicalCondition: "OK",
+          acceptedRejected: "Accepted",
+          batchLotNo: "",
+          documentsReceived: { coaTestCert: true, invoiceChallan: true, mfgWarranty: true },
+        },
+      ];
+      needsUpdate = true;
+    } else {
+      const hasEmpty = currentInspections.some(
+        (it) => !it.physicalCondition || !it.acceptedRejected
+      );
+      if (hasEmpty) {
+        updates.rmReceiptInspection = currentInspections.map((it) => ({
+          ...it,
+          physicalCondition: it.physicalCondition || "OK",
+          acceptedRejected: it.acceptedRejected || "Accepted",
+        }));
+        needsUpdate = true;
+      }
+    }
+
+    if (needsUpdate) {
+      onChange({
+        ...data,
+        ...updates,
+      });
+    }
+  }, [globalData?.poNumber, globalData?.prNumber, globalData?.stage3, globalData?.stage1]);
 
   const inspections = data.rmReceiptInspection || [];
   const getInitializedInspections = (targetIdx) => {

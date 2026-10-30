@@ -22,23 +22,30 @@ import "../../../styles/enterprise-sop.scss";
 
 const emptyPr = {
   companyKey: "SURAVIO",
-  companyName: "SURAVIO",
+  companyName: "SURAVIO CARGO CARRIERS PRIVATE LIMITED",
   poFormatStyle: "standard",
   prNumber: "",
   poNumber: "",
+  checkedBy: "MOHIT SINGH",
+  checkedByDesignation: "CEO",
   status: "Draft",
   stage1: {
     companyKey: "SURAVIO",
-    companyName: "SURAVIO",
+    companyName: "SURAVIO CARGO CARRIERS PRIVATE LIMITED",
     poFormatStyle: "standard",
     itemsRequired: [],
     routingChecklist: [],
+    checkedBy: "MOHIT SINGH",
+    checkedByDesignation: "CEO",
     hodValidation: {
       validatedBy: "MOHIT SINGH",
+      designation: "CEO",
     },
   },
   stage2: {
     suppliers: [{}, {}, {}],
+    checkedBy: "MOHIT SINGH",
+    checkedByDesignation: "CEO",
     routingChecklist: [],
   },
   stage3: {
@@ -437,7 +444,7 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
                 {isView ? "View Purchase Request" : prId ? "Edit Purchase Request" : "Create Purchase Request"}
               </Typography>
               <Chip
-                label={formData.companyName || "S R CONTAINER CARRIERS"}
+                label={formData.companyName || "SURAVIO CARGO CARRIERS PRIVATE LIMITED"}
                 size="small"
                 sx={{
                   fontWeight: 700,

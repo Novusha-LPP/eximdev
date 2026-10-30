@@ -79,10 +79,27 @@ function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
     }
 
     const val = typeof value === "string" ? value.toUpperCase() : value;
+    const currentUtr = field === "utrNumber" ? (val || "").trim() : (updated[index].utrNumber || "").trim();
+
+    let newIsPaid = updated[index].isPaid;
+
+    if (field === "utrNumber") {
+      // Auto-select Paid checkbox if UTR is entered; uncheck if cleared
+      newIsPaid = Boolean(val && val.trim());
+    } else if (field === "isPaid") {
+      // Do not allow selecting paid if no UTR is present
+      if (!currentUtr) {
+        newIsPaid = false;
+      } else {
+        newIsPaid = Boolean(value);
+      }
+    }
+
     updated[index] = {
       ...updated[index],
       [field]: val,
-      ...(field === "isPaid" && value && !updated[index].paymentDate ? { paymentDate: today } : {}),
+      isPaid: newIsPaid,
+      ...(newIsPaid && !updated[index].paymentDate ? { paymentDate: today } : {}),
     };
 
     const newAllPaid = updated.length > 0 && updated.every((sp) => sp.isPaid && sp.utrNumber?.trim());
@@ -92,8 +109,12 @@ function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
       supplierPayments: updated,
     });
 
-    if (newAllPaid && onGlobalChange) {
-      onGlobalChange("status", "Payment Done");
+    if (onGlobalChange) {
+      if (newAllPaid) {
+        onGlobalChange("status", "Payment Done");
+      } else if (globalData?.status === "Payment Done" || globalData?.status === "Paid") {
+        onGlobalChange("status", "Finance Approved");
+      }
     }
   };
 
@@ -283,9 +304,16 @@ function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
                       <td style={{ textAlign: "center" }}>
                         <input
                           type="checkbox"
-                          checked={Boolean(sp.isPaid)}
+                          checked={Boolean(sp.isPaid && sp.utrNumber?.trim())}
+                          disabled={!Boolean(sp.utrNumber?.trim())}
                           onChange={(e) => handleSupplierPaymentChange(idx, "isPaid", e.target.checked)}
-                          style={{ width: 15, height: 15, cursor: "pointer", accentColor: "#16a34a" }}
+                          title={!Boolean(sp.utrNumber?.trim()) ? "Enter UTR number first to mark as paid" : "Paid"}
+                          style={{
+                            width: 15,
+                            height: 15,
+                            cursor: Boolean(sp.utrNumber?.trim()) ? "pointer" : "not-allowed",
+                            accentColor: "#16a34a",
+                          }}
                         />
                       </td>
                       <td>

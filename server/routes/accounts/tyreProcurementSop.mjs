@@ -1,13 +1,218 @@
 import express from "express";
+import fs from "fs";
+import path from "path";
+import multer from "multer";
+import { fileURLToPath } from "url";
 import { isDeepStrictEqual } from "node:util";
 import XLSX from "xlsx";
-import TyreProcurementSop, { statusEnum } from "../../model/accounts/tyreProcurementSop.mjs";
+import TyreProcurementSop, { statusEnum, statusEnumMap } from "../../model/accounts/tyreProcurementSop.mjs";
 import UserModel from "../../model/userModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import logger from "../../logger.js";
 
 import TyreSupplierModel from "../../model/accounts/tyreSupplierModel.mjs";
 import ProcurementProductModel from "../../model/accounts/procurementProductModel.mjs";
+import ProcurementCompanyModel from "../../model/accounts/procurementCompanyModel.mjs";
+import ProcurementApproverModel from "../../model/accounts/procurementApproverModel.mjs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const procurementUploadDir = path.join(__dirname, "../../uploads/procurement");
+if (!fs.existsSync(procurementUploadDir)) {
+  fs.mkdirSync(procurementUploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, procurementUploadDir),
+  filename: (_req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `${unique}${path.extname(file.originalname)}`);
+  },
+});
+
+const uploadProcurementFiles = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB limit as approved
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || "").toLowerCase();
+    const allowed = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".jpg", ".jpeg", ".png", ".webp"];
+    if (allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Unsupported file type. Allowed: PDF, Word, Excel, Images (JPEG/PNG/WebP)"), false);
+    }
+  },
+});
+
+const COMPANY_SHORT_NAME_MAP = {
+  SURAVIO: "SRCC",
+  SRCC: "SRCC",
+  SURAJ: "SFPL",
+  SFPL: "SFPL",
+  NOVUSHA: "NCS",
+  NCS: "NCS",
+  ALLUVIUM: "AISPL",
+  AISPL: "AISPL",
+  PARAMOUNT: "PPPL",
+  PPPL: "PPPL",
+  RABS: "RABS",
+};
+
+export const resolveCompanyShortName = (input) => {
+  if (!input) return "SFPL";
+  const clean = String(input).trim().toUpperCase();
+  if (COMPANY_SHORT_NAME_MAP[clean]) return COMPANY_SHORT_NAME_MAP[clean];
+  if (clean.includes("SURAJ") || clean.includes("FORWARDER")) return "SFPL";
+  if (clean.includes("SURAVIO") || clean.includes("CONTAINER")) return "SRCC";
+  if (clean.includes("NOVUSHA")) return "NCS";
+  if (clean.includes("ALLUVIUM")) return "AISPL";
+  if (clean.includes("PARAMOUNT")) return "PPPL";
+  if (clean.includes("RABS")) return "RABS";
+  return clean.slice(0, 5);
+};
+
+export const DEFAULT_COMPANY_DIRECTORY = [
+  {
+    companyName: "SURAVIO CARGO CARRIERS PRIVATE LIMITED",
+    shortName: "SRCC",
+    companyKey: "SURAVIO",
+    addressBillTo: "205/A, WALL STREET 2, OPP. ORIENT CLUB, ELLIS BRIDGE, AHMEDABAD - 380006, GUJARAT",
+    addressShipTo: "SRCC MAINTENANCE CENTER C/o. SR CONTAINER CARRIERS NEW SANJHA CHULLA GARDEN RESTAURANT-2 NEXT TO ADANI SAHNTIGRAM, NR. KHODIYAR PETROL PUMP, KHORAJ.ICD Khodiyar, GANDHINAGAR-382501, GUJARAT",
+    pan: "ABTCS5804P",
+    gstin: "24ABTCS5804P1ZK",
+    email: "purchase@surajgroupofcompanies.com",
+    contactNumbers: "99980 27301 / 99243 01166",
+    departments: ["HO-AHMEDABAD", "MAINTENANCE CENTER", "OPERATION"],
+    branches: ["HO-AHMEDABAD", "MAINTENANCE CENTER", "OPERATION"],
+    settings: {
+      showDeliveryLocation: true,
+      showDeliveryContact: true,
+      showSectionC: true,
+      showSectionD: true,
+      responsibleTeam: "Maintenance & Workshop / Transport Team",
+      hodApproverName: "MOHIT SINGH",
+      hodApproverDesignation: "CEO",
+      defaultPoFormatStyle: "standard",
+      themeColor: "#163b65",
+    },
+  },
+  {
+    companyName: "SURAJ FORWARDERS PRIVATE LIMITED",
+    shortName: "SFPL",
+    companyKey: "SURAJ",
+    addressBillTo: "205/A, WALL STREET 2, OPP. ORIENT CLUB, ELLIS BRIDGE, AHMEDABAD - 380006, GUJARAT",
+    addressShipTo: "205/A, WALL STREET 2, OPP. ORIENT CLUB, ELLIS BRIDGE, AHMEDABAD - 380006, GUJARAT",
+    pan: "ABTCS5804P",
+    gstin: "24ABTCS5804P1ZK",
+    email: "purchase@surajgroupofcompanies.com",
+    contactNumbers: "99980 27301 / 99243 01166",
+    departments: ["HO-AHMEDABAD", "GANDHIDHAM", "MUNDRA", "RAJKOT", "SANAND", "KHODIYAR", "AIRPORT"],
+    branches: ["HO-AHMEDABAD", "GANDHIDHAM", "MUNDRA", "RAJKOT", "SANAND", "KHODIYAR", "AIRPORT"],
+    settings: {
+      showDeliveryLocation: true,
+      showDeliveryContact: true,
+      showSectionC: true,
+      showSectionD: true,
+      responsibleTeam: "Forwarding & Logistics Team",
+      hodApproverName: "RAJAN SHAH",
+      hodApproverDesignation: "DIRECTOR",
+      defaultPoFormatStyle: "letterhead",
+      themeColor: "#ea580c",
+    },
+  },
+  {
+    companyName: "NOVUSHA CONSULTING SERVICES INDIA LLP",
+    shortName: "NCS",
+    companyKey: "NOVUSHA",
+    addressBillTo: "306/A, WALL STREET 2, OPP. ORIENT CLUB, ELLIS BRIDGE, AHMEDABAD - 380006, GUJARAT",
+    addressShipTo: "306/A, WALL STREET 2, OPP. ORIENT CLUB, ELLIS BRIDGE, AHMEDABAD - 380006, GUJARAT",
+    pan: "AAWFN5984A",
+    gstin: "24AAWFN5984A1ZW",
+    email: "purchase@surajgroupofcompanies.com",
+    contactNumbers: "99980 27301 / 99243 01166",
+    departments: ["AHMEDABAD"],
+    branches: ["AHMEDABAD"],
+    settings: {
+      showDeliveryLocation: true,
+      showDeliveryContact: true,
+      showSectionC: false,
+      showSectionD: false,
+      responsibleTeam: "Consulting Operations",
+      hodApproverName: "HOD CONSULTING",
+      defaultPoFormatStyle: "letterhead",
+      themeColor: "#7c3aed",
+    },
+  },
+  {
+    companyName: "ALLUVIUM IOT SOLUTIONS PRIVATE LIMITED",
+    shortName: "AISPL",
+    companyKey: "ALLUVIUM",
+    addressBillTo: "306/A, WALL STREET 2, OPP. ORIENT CLUB, ELLIS BRIDGE, AHMEDABAD - 380006, GUJARAT",
+    addressShipTo: "306/A, WALL STREET 2, OPP. ORIENT CLUB, ELLIS BRIDGE, AHMEDABAD - 380006, GUJARAT",
+    pan: "AAQCA6155P",
+    gstin: "24AAQCA6155P1Z1",
+    email: "purchase@surajgroupofcompanies.com",
+    contactNumbers: "99980 27301 / 99243 01166",
+    departments: ["AHMEDABAD"],
+    branches: ["AHMEDABAD"],
+    settings: {
+      showDeliveryLocation: true,
+      showDeliveryContact: true,
+      showSectionC: false,
+      showSectionD: false,
+      responsibleTeam: "IoT Tech & Hardware Team",
+      hodApproverName: "TECH LEAD",
+      defaultPoFormatStyle: "standard",
+      themeColor: "#059669",
+    },
+  },
+  {
+    companyName: "PARAMOUNT PROPACK PRIVATE LIMITED",
+    shortName: "PPPL",
+    companyKey: "PARAMOUNT",
+    addressBillTo: "306/A, WALL STREET 2, OPP. ORIENT CLUB, ELLIS BRIDGE, AHMEDABAD - 380006, GUJARAT",
+    addressShipTo: "C-125-126-27, DHARTI APPOLO INDUSTRAIL PARK, KADI CHHATRAL ROAD, CHHATRAL, GARDHINAGAR-382729, GUJARAT",
+    pan: "AAHCP4599D",
+    gstin: "24AAHCP4599D1Z8",
+    email: "purchase@surajgroupofcompanies.com",
+    contactNumbers: "99980 27301 / 99243 01166",
+    departments: ["AHMEDABAD", "CHHATRAL"],
+    branches: ["AHMEDABAD", "CHHATRAL"],
+    settings: {
+      showDeliveryLocation: true,
+      showDeliveryContact: true,
+      showSectionC: true,
+      showSectionD: true,
+      responsibleTeam: "Plant & Production Team",
+      hodApproverName: "PLANT HEAD",
+      defaultPoFormatStyle: "letterhead",
+      themeColor: "#dc2626",
+    },
+  },
+  {
+    companyName: "RABS INDUSTRIES INDIA PRIVATE LIMITED",
+    shortName: "RABS",
+    companyKey: "RABS",
+    addressBillTo: "306/A, WALL STREET 2, OPP. ORIENT CLUB, ELLIS BRIDGE, AHMEDABAD - 380006, GUJARAT",
+    addressShipTo: "NEW BLOCK 1212, DHARTI APOLLO INDUSTRIAL PARK, KADI CHHATRAL ROAD, KALOL, CHHATRAL, GANDHINAGAR-382729, GUJARAT",
+    pan: "AANCR5691J",
+    gstin: "24AANCR5691J1ZS",
+    email: "purchase@surajgroupofcompanies.com",
+    contactNumbers: "99980 27301 / 99243 01166",
+    departments: ["AHMEDABAD", "CHHATRAL"],
+    branches: ["AHMEDABAD", "CHHATRAL"],
+    settings: {
+      showDeliveryLocation: true,
+      showDeliveryContact: true,
+      showSectionC: true,
+      showSectionD: true,
+      responsibleTeam: "Factory Operations Team",
+      hodApproverName: "WORKS MANAGER",
+      defaultPoFormatStyle: "letterhead",
+      themeColor: "#15803d",
+    },
+  },
+];
 
 const router = express.Router();
 
@@ -141,7 +346,8 @@ function uppercaseDeep(obj) {
         key === "date" ||
         key.toLowerCase().includes("attachment") ||
         key.toLowerCase().includes("email") ||
-        key === "poFormatStyle"
+        key === "poFormatStyle" ||
+        key === "status"
       ) {
         res[key] = obj[key];
       } else {
@@ -155,6 +361,11 @@ function uppercaseDeep(obj) {
 
 function normalizeTyreEnums(payload) {
   if (!payload || typeof payload !== "object") return payload;
+
+  if (payload.status) {
+    const upper = String(payload.status).trim().toUpperCase();
+    payload.status = statusEnumMap[upper] || payload.status;
+  }
 
   const approvalModeMap = {
     WHATSAPP: "WhatsApp",
@@ -310,6 +521,36 @@ async function saveProductsFromDoc(doc) {
   }
 }
 
+async function saveApproversFromDoc(doc) {
+  try {
+    const checkedByName = (
+      doc?.checkedBy ||
+      doc?.stage2?.checkedBy ||
+      doc?.stage1?.checkedBy ||
+      doc?.stage1?.hodValidation?.validatedBy ||
+      ""
+    ).trim().toUpperCase();
+
+    const checkedByDesig = (
+      doc?.checkedByDesignation ||
+      doc?.stage2?.checkedByDesignation ||
+      doc?.stage1?.checkedByDesignation ||
+      doc?.stage1?.hodValidation?.designation ||
+      ""
+    ).trim().toUpperCase();
+
+    if (checkedByName && checkedByDesig) {
+      await ProcurementApproverModel.findOneAndUpdate(
+        { name: checkedByName, designation: checkedByDesig },
+        { $set: { name: checkedByName, designation: checkedByDesig, role: "CHECKED_BY" } },
+        { upsert: true, new: true }
+      );
+    }
+  } catch (err) {
+    logger.error("Error auto-saving approver from Procurement doc:", err);
+  }
+}
+
 function parseCreditDays(terms) {
   if (!terms) return 0;
   const str = String(terms).toUpperCase();
@@ -409,22 +650,24 @@ function deriveStatus(doc) {
   const s2 = doc.stage2 || {};
   const s1 = doc.stage1 || {};
 
+  const currentStatusUpper = String(doc.status || "").trim().toUpperCase();
+
   // Check Stage 6 Approvals
   const s6Approvals = s6.approvals || [];
   const validApprovals = s6Approvals.filter((a) => a && (a.checked || a.status === "Done" || a.status === "DONE" || a.signature || a.date || a.name));
   const allGrnApprovalsDone = s6Approvals.length >= 3 && s6Approvals.every((a) => a && (a.checked || a.status === "Done" || a.status === "DONE" || a.signature || a.date));
 
-  if (doc.status === "Closed" || doc.status === "GRN Completed" || doc.status === "GRN Done" || allGrnApprovalsDone) {
+  if (currentStatusUpper === "CLOSED" || currentStatusUpper === "GRN COMPLETED" || currentStatusUpper === "GRN DONE" || allGrnApprovalsDone) {
     return "GRN Done";
   }
 
-  if (doc.status === "GRN Received" || doc.status === "GRN Ready" || validApprovals.length > 0 || s6.grnSeriesNo) {
+  if (currentStatusUpper === "GRN RECEIVED" || currentStatusUpper === "GRN READY" || validApprovals.length > 0 || s6.grnSeriesNo) {
     return "GRN Ready";
   }
 
   // Check Stage 5 Dispatch
   const isDispatchDone = Boolean(s5.dispatchDone) || Boolean(s5.isDispatchDone) || (s5.supplierDispatches || []).some((sd) => sd.dispatchDone || sd.isDispatchDone);
-  if (isDispatchDone || doc.status === "Order Placed" || doc.status === "Dispatched") {
+  if (isDispatchDone || currentStatusUpper === "ORDER PLACED" || currentStatusUpper === "DISPATCHED") {
     return "Order Placed";
   }
 
@@ -438,13 +681,13 @@ function deriveStatus(doc) {
           s4.paymentDetails?.paymentDate
         );
 
-  if (hasUtr || doc.status === "Payment Done") {
+  if (hasUtr || currentStatusUpper === "PAYMENT DONE") {
     return "Payment Done";
   }
 
   // Check Stage 3 Finance Approval
   const isFinanceApproved = s3.decision?.decision === "APPROVED" || Boolean(s3.signOff?.dateOfApproval);
-  if (isFinanceApproved || doc.status === "Finance Approved") {
+  if (isFinanceApproved || currentStatusUpper === "FINANCE APPROVED") {
     const creditInfo = getPrCreditInfo(doc);
     if (creditInfo.isCredit) {
       return "Dispatched / Site GRN Ready";
@@ -464,7 +707,7 @@ function deriveStatus(doc) {
     return "PR Raised";
   }
 
-  return doc.status || "Draft";
+  return statusEnumMap[currentStatusUpper] || "Draft";
 }
 
 function computeDoc(doc) {
@@ -497,6 +740,22 @@ function computeDoc(doc) {
 
   clone.status = deriveStatus(clone);
 
+  // Compute TAT in days: strictly counted from PR raised / created date to GRN update date
+  const prDate = clone.stage1?.prDate || clone.createdAt;
+  const grnDate =
+    clone.stage6?.grnDate ||
+    clone.stage6?.updatedAt ||
+    (clone.status === "GRN Done" || clone.status === "GRN Completed" || clone.status === "Closed"
+      ? clone.updatedAt
+      : null);
+
+  if (prDate && grnDate) {
+    const diffMs = new Date(grnDate).getTime() - new Date(prDate).getTime();
+    clone.tatDays = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+  } else {
+    clone.tatDays = null;
+  }
+
   return clone;
 }
 
@@ -511,9 +770,9 @@ function emptyRow(cols) {
 
 // Helper to generate next PR Number and PO Number
 // Formats:
-// PR: PR/{MONTH}/{SEQ}/{FINANCIAL_YEAR}  e.g. PR/SEP/01/26-27 (supports legacy TT/TYRE/...)
-// PO: PO/{MONTH}-{SEQ}/{FINANCIAL_YEAR}  e.g. PO/SEP-01/26-27 (supports legacy TYRE/...)
-async function generateNextTyreNumbers(dateInput) {
+// PR: PR/{CompanyShortName}/{Month}-{Seq}/{FY}  e.g. PR/SFPL/OCT-01/26-27 (supports legacy PR/...)
+// PO: PO/{CompanyShortName}/{Month}-{Seq}/{FY}  e.g. PO/SFPL/OCT-01/26-27 (supports legacy PO/...)
+async function generateNextTyreNumbers(dateInput, companyCode = "SFPL") {
   const d = dateInput ? new Date(dateInput) : new Date();
   const monthShort = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
   const m = d.getMonth();
@@ -527,9 +786,16 @@ async function generateNextTyreNumbers(dateInput) {
     endYear = d.getFullYear();
   }
   const fyCode = `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`;
+  const cleanShortName = resolveCompanyShortName(companyCode);
+  const escapedShort = cleanShortName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-  // Find all PRs for the month to get highest sequence
-  const prPattern = new RegExp(`^(?:PR|TT/TYRE)/${monthShort}/(\\d+)/${fyCode}$`, "i");
+  // If month is OCT, preserve backwards compatibility with October series
+  // From November onward (NOV, DEC, JAN, etc.), strictly scope to company-specific month series so each company series restarts at 01 every month
+  const isOctober = monthShort === "OCT";
+  const prPattern = isOctober
+    ? new RegExp(`^(?:PR/${escapedShort}/${monthShort}-|PR/${escapedShort}/${monthShort}/|PR/${monthShort}/|TT/TYRE/${monthShort}/)(\\d+)(?:/${fyCode})?$`, "i")
+    : new RegExp(`^(?:PR/${escapedShort}/${monthShort}-|PR/${escapedShort}/${monthShort}/)(\\d+)(?:/${fyCode})?$`, "i");
+
   const records = await TyreProcurementSop.find({ prNumber: { $regex: prPattern } }).select("prNumber").lean();
 
   let maxPrSeq = 0;
@@ -543,12 +809,19 @@ async function generateNextTyreNumbers(dateInput) {
     }
   });
 
-  // Also check all existing PO numbers across records and selectedSuppliers to ensure strictly continuous PO series
-  const poPattern = new RegExp(`^(?:PO|TYRE)/${monthShort}-(\\d+)/${fyCode}$`, "i");
-  const allDocs = await TyreProcurementSop.find({}).select("poNumber stage2.selectedSuppliers.poNumber").lean();
+  const poPattern = isOctober
+    ? new RegExp(`^(?:PO/${escapedShort}/${monthShort}-|PO/${escapedShort}/${monthShort}/|PO/${monthShort}-|TYRE/${monthShort}-)(\\d+)(?:/${fyCode})?$`, "i")
+    : new RegExp(`^(?:PO/${escapedShort}/${monthShort}-|PO/${escapedShort}/${monthShort}/)(\\d+)(?:/${fyCode})?$`, "i");
+
+  const poDocs = await TyreProcurementSop.find({
+    $or: [
+      { poNumber: { $regex: poPattern } },
+      { "stage2.selectedSuppliers.poNumber": { $regex: poPattern } },
+    ],
+  }).select("poNumber stage2.selectedSuppliers.poNumber").lean();
 
   let maxPoSeq = 0;
-  allDocs.forEach((doc) => {
+  poDocs.forEach((doc) => {
     if (doc.poNumber) {
       const mMatch = doc.poNumber.match(poPattern);
       if (mMatch && mMatch[1]) {
@@ -571,8 +844,8 @@ async function generateNextTyreNumbers(dateInput) {
   const nextPrSeq = String(maxPrSeq + 1).padStart(2, "0");
   const nextPoSeq = String(maxPoSeq + 1).padStart(2, "0");
 
-  const prNumber = `PR/${monthShort}/${nextPrSeq}/${fyCode}`;
-  const poNumber = `PO/${monthShort}-${nextPoSeq}/${fyCode}`;
+  const prNumber = `PR/${cleanShortName}/${monthShort}-${nextPrSeq}/${fyCode}`;
+  const poNumber = `PO/${cleanShortName}/${monthShort}-${nextPoSeq}/${fyCode}`;
 
   return {
     prNumber,
@@ -581,11 +854,12 @@ async function generateNextTyreNumbers(dateInput) {
     nextPoSeq: maxPoSeq + 1,
     monthShort,
     fyCode,
+    companyShortName: cleanShortName,
   };
 }
 
 // Helper to generate next sequential PO numbers for a list of suppliers
-async function generateSupplierPoNumbers(suppliers = [], dateInput, excludeDocId = null) {
+async function generateSupplierPoNumbers(suppliers = [], dateInput, excludeDocId = null, companyCode = "SFPL") {
   const d = dateInput ? new Date(dateInput) : new Date();
   const monthShort = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
   const m = d.getMonth();
@@ -599,9 +873,20 @@ async function generateSupplierPoNumbers(suppliers = [], dateInput, excludeDocId
     endYear = d.getFullYear();
   }
   const fyCode = `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`;
+  const cleanShortName = resolveCompanyShortName(companyCode);
+  const escapedShort = cleanShortName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-  const poPattern = new RegExp(`^(?:PO|TYRE)/${monthShort}-(\\d+)/${fyCode}$`, "i");
-  const query = {};
+  const isOctober = monthShort === "OCT";
+  const poPattern = isOctober
+    ? new RegExp(`^(?:PO/${escapedShort}/${monthShort}-|PO/${escapedShort}/${monthShort}/|PO/${monthShort}-|TYRE/${monthShort}-)(\\d+)(?:/${fyCode})?$`, "i")
+    : new RegExp(`^(?:PO/${escapedShort}/${monthShort}-|PO/${escapedShort}/${monthShort}/)(\\d+)(?:/${fyCode})?$`, "i");
+
+  const query = {
+    $or: [
+      { poNumber: { $regex: poPattern } },
+      { "stage2.selectedSuppliers.poNumber": { $regex: poPattern } },
+    ],
+  };
   if (excludeDocId) {
     query._id = { $ne: excludeDocId };
   }
@@ -637,11 +922,11 @@ async function generateSupplierPoNumbers(suppliers = [], dateInput, excludeDocId
     if (!supplierToPo[sName]) {
       currentSeq += 1;
       const seqStr = String(currentSeq).padStart(2, "0");
-      supplierToPo[sName] = `PO/${monthShort}-${seqStr}/${fyCode}`;
+      supplierToPo[sName] = `PO/${cleanShortName}/${monthShort}-${seqStr}/${fyCode}`;
     }
   });
 
-  return { supplierToPo, nextPoSeq: currentSeq + 1, monthShort, fyCode };
+  return { supplierToPo, nextPoSeq: currentSeq + 1, monthShort, fyCode, companyShortName: cleanShortName };
 }
 
 // Helper to generate next GRN Number
@@ -685,8 +970,8 @@ async function generateNextGrnNumber(dateInput) {
 // Endpoint to fetch next PR and PO numbers
 router.get("/tyre-procurement/next-numbers", authMiddleware, async (req, res) => {
   try {
-    const { date } = req.query;
-    const result = await generateNextTyreNumbers(date);
+    const { date, companyShortName } = req.query;
+    const result = await generateNextTyreNumbers(date, companyShortName);
     res.status(200).json({ success: true, ...result });
   } catch (error) {
     logger.error("Error generating Tyre PR/PO numbers:", error);
@@ -697,12 +982,325 @@ router.get("/tyre-procurement/next-numbers", authMiddleware, async (req, res) =>
 // Endpoint to generate PO numbers for multiple selected suppliers
 router.post("/tyre-procurement/next-po-numbers", authMiddleware, async (req, res) => {
   try {
-    const { suppliers = [], date, currentId } = req.body;
-    const result = await generateSupplierPoNumbers(suppliers, date, currentId);
+    const { suppliers = [], date, currentId, companyShortName } = req.body;
+    const result = await generateSupplierPoNumbers(suppliers, date, currentId, companyShortName);
     res.status(200).json({ success: true, ...result });
   } catch (error) {
     logger.error("Error generating supplier PO numbers:", error);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ─── Upload Attachments Endpoint (Doc, Excel, PDF, JPEG/PNG up to 10MB) ───
+router.post(
+  "/tyre-procurement/upload-attachment",
+  authMiddleware,
+  uploadProcurementFiles.array("files", 10),
+  async (req, res) => {
+    try {
+      const files = req.files || [];
+      const uploadedAttachments = files.map((f) => ({
+        fileName: f.originalname,
+        fileUrl: `/uploads/procurement/${f.filename}`,
+        fileType: f.mimetype || path.extname(f.originalname),
+        fileSize: f.size,
+        uploadedAt: new Date(),
+      }));
+      res.status(200).json({ success: true, attachments: uploadedAttachments });
+    } catch (err) {
+      logger.error("Error uploading procurement attachment:", err);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  }
+);
+
+// ─── Company Directory Master Endpoints ───
+
+// Fetch all companies from Company Directory (auto-seeds default 6 if empty)
+router.get("/tyre-procurement/company-directory", authMiddleware, async (req, res) => {
+  try {
+    let companies = await ProcurementCompanyModel.find({ isActive: true }).sort({ companyName: 1 }).lean();
+    if (!companies || companies.length === 0) {
+      // Auto-seed default companies
+      await ProcurementCompanyModel.insertMany(DEFAULT_COMPANY_DIRECTORY);
+      companies = await ProcurementCompanyModel.find({ isActive: true }).sort({ companyName: 1 }).lean();
+    }
+    res.status(200).json({ success: true, companies });
+  } catch (err) {
+    logger.error("Error fetching procurement company directory:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Save / Upsert single company
+router.post("/tyre-procurement/company-directory", authMiddleware, async (req, res) => {
+  try {
+    const payload = req.body || {};
+    if (!payload.companyName || !payload.companyName.trim()) {
+      return res.status(400).json({ success: false, message: "Company Name is required" });
+    }
+    const cleanName = payload.companyName.trim();
+    const shortName = (payload.shortName || resolveCompanyShortName(cleanName)).trim().toUpperCase();
+    const companyKey = (payload.companyKey || resolveCompanyShortName(cleanName)).trim().toUpperCase();
+
+    const updated = await ProcurementCompanyModel.findOneAndUpdate(
+      { companyName: cleanName },
+      {
+        $set: {
+          ...payload,
+          companyName: cleanName,
+          shortName,
+          companyKey,
+          email: payload.email?.trim() || "purchase@surajgroupofcompanies.com",
+          contactNumbers: payload.contactNumbers?.trim() || "99980 27301 / 99243 01166",
+        },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    res.status(200).json({ success: true, company: updated });
+  } catch (err) {
+    logger.error("Error saving procurement company:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Bulk import companies from JSON or parsed Excel
+router.post("/tyre-procurement/company-directory/bulk-import", authMiddleware, async (req, res) => {
+  try {
+    const rows = Array.isArray(req.body) ? req.body : req.body.companies || [];
+    if (!rows || rows.length === 0) {
+      return res.status(400).json({ success: false, message: "No company records provided for bulk import" });
+    }
+
+    const upsertPromises = rows.map((r) => {
+      const companyName = (r["Company Name"] || r.companyName || "").trim();
+      if (!companyName) return null;
+      const shortName = (r["Short Name"] || r.shortName || resolveCompanyShortName(companyName)).trim().toUpperCase();
+      const addressBillTo = (r["Bill To Address"] || r["Address - Bill To"] || r.addressBillTo || "").trim();
+      const addressShipTo = (r["Ship To Address"] || r["Address - Ship To"] || r.addressShipTo || "").trim();
+      const gstin = (r["GSTIN"] || r.gstin || "").trim().toUpperCase();
+      const pan = (r["PAN"] || r.pan || "").trim().toUpperCase();
+      const email = (r["Email ID"] || r.email || "purchase@surajgroupofcompanies.com").trim();
+      const contactNumbers = (r["Contact Numbers"] || r["Contact No"] || r.contactNumbers || "99980 27301 / 99243 01166").trim();
+
+      return ProcurementCompanyModel.findOneAndUpdate(
+        { companyName },
+        {
+          $set: {
+            companyName,
+            shortName,
+            companyKey: resolveCompanyShortName(companyName),
+            addressBillTo,
+            addressShipTo,
+            gstin,
+            pan,
+            email,
+            contactNumbers,
+            isActive: true,
+          },
+        },
+        { new: true, upsert: true }
+      );
+    }).filter(Boolean);
+
+    await Promise.all(upsertPromises);
+    const all = await ProcurementCompanyModel.find({ isActive: true }).sort({ companyName: 1 }).lean();
+    res.status(200).json({ success: true, count: upsertPromises.length, companies: all });
+  } catch (err) {
+    logger.error("Error bulk importing companies:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Bulk import departments / branches per company
+router.post("/tyre-procurement/company-directory/import-departments", authMiddleware, async (req, res) => {
+  try {
+    const rows = Array.isArray(req.body) ? req.body : req.body.departments || [];
+    if (!rows || rows.length === 0) {
+      return res.status(400).json({ success: false, message: "No department records provided" });
+    }
+
+    const companyDeptMap = {};
+    rows.forEach((r) => {
+      const company = (r["Company Name"] || r.companyName || "").trim();
+      const dept = (r["Department / Branch"] || r["Department"] || r["Branch"] || r.department || "").trim();
+      if (company && dept) {
+        if (!companyDeptMap[company]) companyDeptMap[company] = new Set();
+        companyDeptMap[company].add(dept);
+      }
+    });
+
+    for (const [companyName, deptSet] of Object.entries(companyDeptMap)) {
+      const depts = Array.from(deptSet);
+      await ProcurementCompanyModel.updateOne(
+        { companyName: new RegExp(`^${companyName}$`, "i") },
+        { $addToSet: { departments: { $each: depts }, branches: { $each: depts } } }
+      );
+    }
+
+    const all = await ProcurementCompanyModel.find({ isActive: true }).sort({ companyName: 1 }).lean();
+    res.status(200).json({ success: true, message: "Departments successfully updated", companies: all });
+  } catch (err) {
+    logger.error("Error importing departments:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Pulse Daily & Date Range Activity Endpoint ───
+router.get("/tyre-procurement/pulse", authMiddleware, async (req, res) => {
+  try {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const startDateStr = req.query.startDate || req.query.fromDate || req.query.date || todayStr;
+    const endDateStr = req.query.endDate || req.query.toDate || req.query.date || startDateStr;
+
+    const startOfDay = new Date(`${startDateStr}T00:00:00.000Z`);
+    const endOfDay = new Date(`${endDateStr}T23:59:59.999Z`);
+
+    // 1. PRs created or raised in date range
+    const prs = await TyreProcurementSop.find({
+      $or: [
+        { createdAt: { $gte: startOfDay, $lte: endOfDay } },
+        { "stage1.prDate": { $gte: startOfDay, $lte: endOfDay } },
+      ],
+    })
+      .select("prNumber poNumber companyName companyShortName stage1.preparedBy stage1.departmentLocation stage1.estimatedTotalCost status createdAt stage1.prDate")
+      .lean();
+
+    // 2. POs generated or approved in date range
+    const pos = await TyreProcurementSop.find({
+      $or: [
+        { "stage3.signOff.dateOfApproval": { $gte: startOfDay, $lte: endOfDay } },
+        { "stage2.poDate": { $gte: startOfDay, $lte: endOfDay } },
+        { "stage3.poDate": { $gte: startOfDay, $lte: endOfDay } },
+      ],
+    })
+      .select("prNumber poNumber companyName companyShortName stage2.selectedSupplierL1 stage2.selectedSuppliers status createdAt")
+      .lean();
+
+    // 3. GRNs recorded or updated in date range
+    const grns = await TyreProcurementSop.find({
+      $or: [
+        { "stage6.grnDate": { $gte: startOfDay, $lte: endOfDay } },
+        { "stage6.updatedAt": { $gte: startOfDay, $lte: endOfDay } },
+        { status: { $in: ["GRN Done", "GRN Completed", "Closed"] }, updatedAt: { $gte: startOfDay, $lte: endOfDay } },
+      ],
+    })
+      .select("prNumber poNumber companyName companyShortName stage6.supplierName stage6.invoiceNo stage6.acceptedQty status updatedAt stage6.grnDate")
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      isRange: startDateStr !== endDateStr,
+      counts: {
+        prCount: prs.length,
+        poCount: pos.length,
+        grnCount: grns.length,
+      },
+      prs,
+      pos,
+      grns,
+    });
+  } catch (err) {
+    logger.error("Error fetching procurement pulse data:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Comprehensive Excel Report Endpoint ───
+router.get("/tyre-procurement/excel-report", authMiddleware, async (req, res) => {
+  try {
+    const { month, year, companyKey, groupBy = "vendor" } = req.query;
+    const query = {};
+
+    if (companyKey && companyKey !== "ALL") {
+      const cleanKey = companyKey.toUpperCase();
+      query.$or = [{ companyKey: cleanKey }, { companyShortName: cleanKey }];
+    }
+
+    const allDocs = await TyreProcurementSop.find(query).sort({ createdAt: -1 }).lean();
+
+    // Filter by month/year if specified
+    const filteredDocs = allDocs.filter((doc) => {
+      const dt = new Date(doc.stage1?.prDate || doc.createdAt);
+      if (isNaN(dt.getTime())) return true;
+      if (year && year !== "ALL" && dt.getFullYear().toString() !== year.toString()) return false;
+      if (month && month !== "ALL") {
+        const mIdx = dt.getMonth() + 1;
+        if (mIdx.toString() !== month.toString()) return false;
+      }
+      return true;
+    });
+
+    // Compute groups
+    const vendorMap = {};
+    const productMap = {};
+    let totalBusinessVolume = 0;
+    let totalItemsQty = 0;
+
+    filteredDocs.forEach((doc) => {
+      const comp = computeDoc(doc);
+      const isCompleted = ["GRN Done", "GRN Completed", "Closed"].includes(comp.status);
+      const poVal = Number(comp.stage2?.selectedSupplierL1Amount || comp.stage3?.financeApprovedCost || comp.stage1?.estimatedTotalCost || 0);
+      if (isCompleted) {
+        totalBusinessVolume += poVal;
+      }
+
+      // Group by Vendor
+      const vendorName = (
+        comp.stage2?.selectedSupplierL1 ||
+        comp.stage2?.selectedSuppliers?.[0]?.selectedSupplier ||
+        comp.stage2?.selectedSuppliers?.[0]?.supplierName ||
+        "Pending Selection"
+      ).trim();
+
+      if (!vendorMap[vendorName]) {
+        vendorMap[vendorName] = { vendorName, poCount: 0, totalQty: 0, totalAmount: 0, records: [] };
+      }
+      vendorMap[vendorName].poCount += 1;
+      vendorMap[vendorName].totalAmount += poVal;
+      vendorMap[vendorName].records.push({
+        prNumber: comp.prNumber,
+        poNumber: comp.poNumber || "-",
+        company: comp.companyName,
+        status: comp.status,
+        amount: poVal,
+      });
+
+      // Group by Product
+      const items = comp.stage1?.itemsRequired || [];
+      items.forEach((item) => {
+        const prod = (item.productName || item.tyreType || "General Procurement").trim();
+        const qty = Number(item.qty) || 0;
+        const est = Number(item.estTotal) || 0;
+        totalItemsQty += qty;
+
+        if (!productMap[prod]) {
+          productMap[prod] = { productName: prod, totalQty: 0, totalEstimatedCost: 0, poCount: 0 };
+        }
+        productMap[prod].totalQty += qty;
+        productMap[prod].totalEstimatedCost += est;
+        productMap[prod].poCount += 1;
+      });
+    });
+
+    res.status(200).json({
+      success: true,
+      summary: {
+        totalPRs: filteredDocs.length,
+        totalBusinessVolume,
+        totalItemsQty,
+        vendorCount: Object.keys(vendorMap).length,
+        productCount: Object.keys(productMap).length,
+      },
+      byVendor: Object.values(vendorMap),
+      byProduct: Object.values(productMap),
+      records: filteredDocs.map((d) => computeDoc(d)),
+    });
+  } catch (err) {
+    logger.error("Error generating procurement excel report:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -740,6 +1338,70 @@ router.post("/procurement-products", authMiddleware, async (req, res) => {
     res.status(200).json({ success: true, product });
   } catch (err) {
     logger.error("Error saving procurement product:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+// Default seeded approvers including Transport & Management authorities
+const DEFAULT_APPROVERS = [
+  { name: "MOHIT SINGH", designation: "CEO", role: "CHECKED_BY" },
+  { name: "RAUF KHAN", designation: "HOD - MAINTENANCE & WORKSHOP", role: "CHECKED_BY" },
+  { name: "MAINTENANCE MANAGER", designation: "MAINTENANCE & WORKSHOP", role: "CHECKED_BY" },
+  { name: "FLEET MANAGER", designation: "FLEET & TRANSPORT OPERATIONS", role: "CHECKED_BY" },
+  { name: "RAJAN SHAH", designation: "DIRECTOR", role: "CHECKED_BY" },
+  { name: "CHIRAG SHAH", designation: "SR. MANAGER - ACCOUNTS", role: "APPROVED_BY" },
+  { name: "AFTAB BELIM", designation: "PURCHASE OFFICER", role: "PREPARED_BY" },
+  { name: "PUNIT SURAJ", designation: "MANAGING DIRECTOR", role: "CHECKED_BY" },
+  { name: "AJAY SHARMA", designation: "FINANCE CONTROLLER", role: "CHECKED_BY" },
+];
+
+// Fetch all saved procurement approvers (Name + Designation pairs)
+router.get("/procurement-approvers", authMiddleware, async (req, res) => {
+  try {
+    // Ensure all default approvers (including Transport & Workshop) are seeded into the database
+    for (const app of DEFAULT_APPROVERS) {
+      await ProcurementApproverModel.findOneAndUpdate(
+        { name: app.name.toUpperCase(), designation: app.designation.toUpperCase() },
+        { $setOnInsert: { name: app.name.toUpperCase(), designation: app.designation.toUpperCase(), role: app.role } },
+        { upsert: true }
+      );
+    }
+    const approvers = await ProcurementApproverModel.find().sort({ name: 1 }).lean();
+    res.status(200).json({ success: true, approvers });
+  } catch (err) {
+    logger.error("Error fetching procurement approvers:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Save or update a procurement approver (Name + Designation pair)
+router.post("/procurement-approvers", authMiddleware, async (req, res) => {
+  try {
+    const { name, designation, role = "CHECKED_BY" } = req.body;
+    if (!name || !name.trim() || !designation || !designation.trim()) {
+      return res.status(400).json({ success: false, message: "Name and designation are required" });
+    }
+    const cleanName = name.trim().toUpperCase();
+    const cleanDesignation = designation.trim().toUpperCase();
+
+    const approver = await ProcurementApproverModel.findOneAndUpdate(
+      { name: cleanName, designation: cleanDesignation },
+      { $set: { name: cleanName, designation: cleanDesignation, role } },
+      { upsert: true, new: true }
+    );
+    res.status(200).json({ success: true, approver });
+  } catch (err) {
+    logger.error("Error saving procurement approver:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Delete a procurement approver
+router.delete("/procurement-approvers/:id", authMiddleware, async (req, res) => {
+  try {
+    await ProcurementApproverModel.findByIdAndDelete(req.params.id);
+    res.status(200).json({ success: true, message: "Approver removed" });
+  } catch (err) {
+    logger.error("Error deleting procurement approver:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -875,11 +1537,33 @@ router.get("/tyre-procurement", authMiddleware, async (req, res) => {
       date,
       month,
       year,
-      startDate,
-      endDate
+      startDate: qStartDate,
+      endDate: qEndDate,
+      fromDate: qFromDate,
+      toDate: qToDate,
     } = req.query;
 
+    const startDate = qStartDate || qFromDate;
+    const endDate = qEndDate || qToDate;
+
     const andConditions = [];
+
+    // Filter by assigned companies for non-admin users
+    const isProcAdmin = req.user?.role === "Admin" || req.user?.tyre_procurement_admin;
+    const assignedComps = req.user?.assigned_procurement_companies || [];
+    if (!isProcAdmin && assignedComps.length > 0) {
+      const compRegexes = assignedComps.map((c) => new RegExp(c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+      andConditions.push({
+        $or: [
+          { companyKey: { $in: assignedComps } },
+          { "stage1.companyKey": { $in: assignedComps } },
+          ...compRegexes.map((r) => ({ companyName: r })),
+          ...compRegexes.map((r) => ({ "stage1.companyName": r })),
+          ...compRegexes.map((r) => ({ prNumber: r })),
+          ...compRegexes.map((r) => ({ poNumber: r })),
+        ],
+      });
+    }
 
     // Stage Tab & Status filter
     if (status && status !== "ALL" && status !== "") {
@@ -1018,14 +1702,19 @@ router.get("/tyre-procurement", authMiddleware, async (req, res) => {
       }
     }
 
-    // 6. Date / Month / Year wise search on createdAt
+    // 6. Date / Month / Year wise search on createdAt or stage1.prDate
     if (date && date.trim()) {
       const dateParts = date.trim().split("-").map(Number);
       if (dateParts.length === 3 && dateParts.every(n => !isNaN(n))) {
         const [y, m, d] = dateParts;
         const startOfDay = new Date(y, m - 1, d, 0, 0, 0, 0);
         const endOfDay = new Date(y, m - 1, d, 23, 59, 59, 999);
-        andConditions.push({ createdAt: { $gte: startOfDay, $lte: endOfDay } });
+        andConditions.push({
+          $or: [
+            { createdAt: { $gte: startOfDay, $lte: endOfDay } },
+            { "stage1.prDate": { $gte: startOfDay, $lte: endOfDay } },
+          ],
+        });
       }
     } else if (startDate || endDate) {
       const dateCond = {};
@@ -1042,7 +1731,12 @@ router.get("/tyre-procurement", authMiddleware, async (req, res) => {
         }
       }
       if (Object.keys(dateCond).length > 0) {
-        andConditions.push({ createdAt: dateCond });
+        andConditions.push({
+          $or: [
+            { createdAt: dateCond },
+            { "stage1.prDate": dateCond },
+          ],
+        });
       }
     } else if (year || month) {
       if (year && month) {
@@ -1217,28 +1911,41 @@ router.post("/tyre-suppliers", authMiddleware, async (req, res) => {
 router.post("/tyre-procurement", authMiddleware, async (req, res) => {
   try {
     let payload = normalizeTyreEnums(uppercaseDeep(req.body));
+    const compCode =
+      payload.companyShortName ||
+      payload.companyKey ||
+      payload.stage1?.companyKey ||
+      payload.stage1?.companyName ||
+      payload.companyName ||
+      "SFPL";
+
     let prNumber = payload.prNumber?.trim();
     if (!prNumber) {
-      const autoNum = await generateNextTyreNumbers(payload.stage1?.prDate);
+      const autoNum = await generateNextTyreNumbers(payload.stage1?.prDate, compCode);
       prNumber = autoNum.prNumber;
       payload.prNumber = prNumber;
       if (!payload.poNumber?.trim()) {
         payload.poNumber = autoNum.poNumber;
       }
     }
-    const existing = await TyreProcurementSop.findOne({ prNumber: prNumber });
-    if (existing) {
-      const autoNum = await generateNextTyreNumbers(payload.stage1?.prDate);
+
+    let attempts = 0;
+    while (attempts < 10) {
+      const existing = await TyreProcurementSop.findOne({ prNumber: payload.prNumber }).select("_id").lean();
+      if (!existing) break;
+      const autoNum = await generateNextTyreNumbers(payload.stage1?.prDate, compCode);
       payload.prNumber = autoNum.prNumber;
-      if (!payload.poNumber?.trim()) {
+      if (!payload.poNumber?.trim() || attempts > 0) {
         payload.poNumber = autoNum.poNumber;
       }
+      attempts++;
     }
     payload.status = deriveStatus(payload);
     const doc = new TyreProcurementSop(payload);
     await doc.save();
     await saveSuppliersFromDoc(doc);
     await saveProductsFromDoc(doc);
+    await saveApproversFromDoc(doc);
     res.status(201).json({ success: true, data: computeDoc(doc.toObject()) });
   } catch (error) {
     logger.error("Error creating Tyre Procurement SOP:", error);
@@ -1278,6 +1985,7 @@ router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
     ).lean();
     await saveSuppliersFromDoc(doc);
     await saveProductsFromDoc(doc);
+    await saveApproversFromDoc(doc);
     res.json({ success: true, data: computeDoc(doc) });
   } catch (error) {
     logger.error("Error updating Tyre Procurement SOP:", error);
@@ -1685,6 +2393,7 @@ router.get("/tyre-procurement/user-tabs/:username", authMiddleware, async (req, 
       success: true,
       allowed_tabs: user.tyre_procurement_tabs || [],
       tyre_procurement_admin: Boolean(user.tyre_procurement_admin),
+      assigned_companies: user.assigned_procurement_companies || [],
     });
   } catch (error) {
     logger.error("Error fetching user procurement tabs:", error);
@@ -1697,7 +2406,7 @@ router.post("/tyre-procurement/assign-user-tabs", authMiddleware, async (req, re
     if (!canManageTyreProcurementPermissions(req.user)) {
       return res.status(403).json({ success: false, error: "Only an admin can assign Tyre Procurement permissions" });
     }
-    const { username, allowed_tabs, tyre_procurement_admin } = req.body;
+    const { username, allowed_tabs, tyre_procurement_admin, assigned_companies } = req.body;
     const user = await UserModel.findOne({ username });
     if (!user) {
       return res.status(404).json({ success: false, error: "User not found" });
@@ -1706,12 +2415,16 @@ router.post("/tyre-procurement/assign-user-tabs", authMiddleware, async (req, re
     if (typeof tyre_procurement_admin === "boolean") {
       user.tyre_procurement_admin = tyre_procurement_admin;
     }
+    if (Array.isArray(assigned_companies)) {
+      user.assigned_procurement_companies = assigned_companies;
+    }
     await user.save();
     res.status(200).json({
       success: true,
       message: "Procurement tab permissions updated successfully",
       allowed_tabs: user.tyre_procurement_tabs,
       tyre_procurement_admin: Boolean(user.tyre_procurement_admin),
+      assigned_companies: user.assigned_procurement_companies || [],
     });
   } catch (error) {
     logger.error("Error assigning procurement tabs:", error);

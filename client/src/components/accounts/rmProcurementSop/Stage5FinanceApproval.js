@@ -233,31 +233,22 @@ function Stage5FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
             <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
               <TableCell>Step</TableCell>
               <TableCell>Action / Task</TableCell>
-              <TableCell>Responsible Person</TableCell>
               <TableCell>Date / Time</TableCell>
               <TableCell>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {[
-              ["Finance review checklist completed", "Finance Manager"],
-              ["Purchase APPROVED / REJECTED decision recorded", "Finance Manager"],
-              ["Forwarded to Accounting Team for payment processing", "Finance Manager"],
-            ].map(([task, person], idx) => (
+              "Finance review checklist completed",
+              "Purchase APPROVED / REJECTED decision recorded",
+              "Forwarded to Accounting Team for payment processing",
+            ].map((task, idx) => (
               <TableRow key={idx}>
                 <TableCell>{idx + 1}</TableCell>
                 <TableCell>
                   <TextField
                     value={actionLog[idx]?.actionTask || task}
                     onChange={(e) => updateActionLog(idx, "actionTask", e.target.value)}
-                    size="small"
-                    fullWidth
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    value={actionLog[idx]?.responsiblePerson || person}
-                    onChange={(e) => updateActionLog(idx, "responsiblePerson", e.target.value)}
                     size="small"
                     fullWidth
                   />

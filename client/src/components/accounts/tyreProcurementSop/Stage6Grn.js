@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   Box,
@@ -52,13 +52,152 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
   const selectedSuppliers = globalData?.stage2?.selectedSuppliers || [];
 
   let awardedSuppliers = stage2Suppliers.filter((s) =>
-    selectedSuppliers.some(
-      (sel) => sel.selectedSupplier === s.supplierName || sel.selectedSupplier === s._id
-    )
+    selectedSuppliers.some((sel) => {
+      const selName = (sel.selectedSupplier || "").trim().toUpperCase();
+      const sName = (s.supplierName || "").trim().toUpperCase();
+      return selName && (selName === sName || String(sel.selectedSupplier) === String(s._id));
+    })
   );
+
+  if (awardedSuppliers.length === 0 && selectedSuppliers.length > 0 && selectedSuppliers[0]?.selectedSupplier) {
+    awardedSuppliers = selectedSuppliers
+      .filter((sel) => sel.selectedSupplier && sel.selectedSupplier.trim())
+      .map((sel) => ({
+        supplierName: sel.selectedSupplier,
+        phoneNumber: sel.phoneNumber || "",
+        deliveryLocation: sel.deliveryLocation || "",
+        ...sel,
+      }));
+  }
+
   if (awardedSuppliers.length === 0) {
     awardedSuppliers = stage2Suppliers.length > 0 ? stage2Suppliers : [{ supplierName: "SUPPLIER 1" }];
   }
+
+  // Derive brand & specification from Stage 1 items and Stage 2 awarded supplier
+  const stage1Items = globalData?.stage1?.itemsRequired || globalData?.itemsRequired || [];
+  const primaryAwarded = awardedSuppliers[0] || {};
+  const fallbackBrand =
+    primaryAwarded.brand ||
+    primaryAwarded.tyreBrand ||
+    stage1Items[0]?.brandPreference ||
+    stage1Items[0]?.tyreBrand ||
+    "";
+  const fallbackSpec =
+    primaryAwarded.sizeSpecification ||
+    primaryAwarded.sizeSpec ||
+    stage1Items[0]?.sizeSpec ||
+    stage1Items[0]?.specification ||
+    "";
+
+  // Build item rows based on Stage 1 / Stage 2 PR items
+  const buildDefaultItemsReceived = () => {
+    const rows = [];
+    if (stage1Items.length > 0) {
+      stage1Items.forEach((reqItem) => {
+        const itemQty = Math.max(1, Math.min(50, Number(reqItem.qty) || 1));
+        const itemBrand = reqItem.brandPreference || reqItem.tyreBrand || fallbackBrand;
+        const itemSpec = reqItem.sizeSpec || reqItem.specification || fallbackSpec;
+        const itemType = reqItem.tyreType || reqItem.type || "New";
+
+        for (let i = 0; i < itemQty; i++) {
+          rows.push({
+            sNo: rows.length + 1,
+            tyreNumber: "",
+            tyreBrand: itemBrand,
+            sizeSpec: itemSpec,
+            type: normalizeType(itemType),
+            acceptedRejected: "Accepted",
+            remarks: "",
+          });
+        }
+      });
+    }
+
+    if (rows.length === 0) {
+      const allocatedQty = Number(primaryAwarded.allocatedQty || primaryAwarded.qtyAvailable) || 4;
+      const count = Math.max(1, Math.min(50, allocatedQty));
+      for (let i = 0; i < count; i++) {
+        rows.push({
+          sNo: i + 1,
+          tyreNumber: "",
+          tyreBrand: fallbackBrand,
+          sizeSpec: fallbackSpec,
+          type: "New",
+          acceptedRejected: "Accepted",
+          remarks: "",
+        });
+      }
+    }
+    return rows;
+  };
+
+  // Dynamic Items Received List
+  const itemsReceived =
+    data.itemsReceived && data.itemsReceived.length > 0
+      ? data.itemsReceived
+      : buildDefaultItemsReceived();
+
+  // Auto-fill effect for Site GRN items and quality conformance checks
+  useEffect(() => {
+    let needsUpdate = false;
+    const stageUpdates = {};
+
+    const currentItems = data.itemsReceived;
+    if (!currentItems || currentItems.length === 0) {
+      stageUpdates.itemsReceived = buildDefaultItemsReceived();
+      needsUpdate = true;
+    } else {
+      const hasEmptyFields = currentItems.some(
+        (it) => (!it.tyreBrand && fallbackBrand) || (!it.sizeSpec && fallbackSpec) || !it.acceptedRejected
+      );
+      if (hasEmptyFields) {
+        stageUpdates.itemsReceived = currentItems.map((it, idx) => {
+          const reqItem = stage1Items[idx] || stage1Items[0] || {};
+          return {
+            ...it,
+            tyreBrand: it.tyreBrand || reqItem.brandPreference || reqItem.tyreBrand || fallbackBrand,
+            sizeSpec: it.sizeSpec || reqItem.sizeSpec || reqItem.specification || fallbackSpec,
+            type: it.type || normalizeType(reqItem.tyreType || reqItem.type || "New"),
+            acceptedRejected: it.acceptedRejected || "Accepted",
+          };
+        });
+        needsUpdate = true;
+      }
+    }
+
+    // Auto-default Quality & Conformance Check to Yes if unselected
+    const qc = data.qualityConformanceCheck || {};
+    if (!qc.tyresVerified || !qc.tyreNumbersMatched || !qc.invoiceVerified || !qc.returnClauseReviewed) {
+      stageUpdates.qualityConformanceCheck = {
+        tyresVerified: qc.tyresVerified || "Yes",
+        tyreNumbersMatched: qc.tyreNumbersMatched || "Yes",
+        invoiceVerified: qc.invoiceVerified || "Yes",
+        returnClauseReviewed: qc.returnClauseReviewed || "Yes",
+      };
+      needsUpdate = true;
+    }
+
+    // Auto-fill Date of Receipt if empty
+    if (!data.dateOfReceipt) {
+      stageUpdates.dateOfReceipt = new Date().toISOString().split("T")[0];
+      needsUpdate = true;
+    }
+
+    // Auto-fill GRN Series No if empty
+    if (!data.grnSeriesNo) {
+      const poPart = (globalData?.poNumber || "").replace(/^PO\//, "") || "ITEM/01/26-27";
+      stageUpdates.grnSeriesNo = `GRN/${poPart}`;
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      onChange({
+        ...data,
+        ...stageUpdates,
+      });
+    }
+  }, [globalData?.stage1, globalData?.stage2, globalData?.poNumber, fallbackBrand, fallbackSpec]);
 
   // Per-supplier reference information list
   const referenceInfos = data.referenceInfos || [];
@@ -126,11 +265,6 @@ function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
     }
   };
 
-  // Dynamic Items Received List
-  const itemsReceived =
-    data.itemsReceived && data.itemsReceived.length > 0
-      ? data.itemsReceived
-      : Array.from({ length: 4 }).map((_, i) => ({ sNo: i + 1, type: "New" }));
 
   const updateItem = (idx, field, value) => {
     let val = value;

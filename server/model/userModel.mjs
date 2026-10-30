@@ -69,6 +69,10 @@ const userSchema = new Schema({
     type: Boolean,
     default: false,
   },
+  assigned_procurement_companies: {
+    type: [String],
+    default: [],
+  },
   fleet_insurance_tabs: {
     type: [String],
     default: [],

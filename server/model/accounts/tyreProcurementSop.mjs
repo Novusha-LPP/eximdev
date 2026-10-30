@@ -3,6 +3,9 @@ import auditPlugin from "../../plugins/auditPlugin.mjs";
 
 export const statusEnum = [
   "Draft",
+  "HoD Approval Pending",
+  "HoD Validated",
+  "Pending Purchase Action",
   "PR Raised",
   "Preparing for Quotation",
   "Quotation Received",
@@ -18,6 +21,24 @@ export const statusEnum = [
   "GRN Done",
   "Closed",
 ];
+
+export const statusEnumMap = statusEnum.reduce((acc, s) => {
+  acc[s.toUpperCase()] = s;
+  return acc;
+}, {
+  DRAFT: "Draft",
+});
+
+const attachmentSchema = new mongoose.Schema(
+  {
+    fileName: String,
+    fileUrl: String,
+    fileType: String,
+    fileSize: Number,
+    uploadedAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
 
 // ─── Stage 1 ───
 const tyreItemSchema = new mongoose.Schema(
@@ -50,12 +71,13 @@ const routingChecklistSchema = new mongoose.Schema(
 const stage1Schema = new mongoose.Schema(
   {
     companyKey: { type: String, default: "SRCC" },
+    companyShortName: { type: String, default: "SRCC" },
     companyName: { type: String, default: "S R CONTAINER CARRIERS" },
     buyerAddress: String,
     buyerGstin: String,
     buyerEmail: String,
     buyerPhone: String,
-    poFormatStyle: { type: String, default: "letterhead" },
+    poFormatStyle: { type: String, default: "standard" },
     prNumber: String,
     prDate: Date,
     preparedBy: String,
@@ -65,9 +87,11 @@ const stage1Schema = new mongoose.Schema(
     deliveryContactPerson: String,
     deliveryContactNumber: String,
     neededByDate: Date,
+    checkedBy: { type: String, default: "MOHIT SINGH" },
+    checkedByDesignation: { type: String, default: "CEO" },
     hodValidation: {
       validatedBy: { type: String, default: "MOHIT SINGH" },
-      designation: String,
+      designation: { type: String, default: "CEO" },
       approvalMode: { type: String, enum: ["WhatsApp", "Phone Call", "Email", "In-Person", "WHATSAPP", "PHONE CALL", "EMAIL", "IN-PERSON", ""], default: "" },
       dateTimeOfApproval: Date,
       hodSignature: String,
@@ -80,6 +104,8 @@ const stage1Schema = new mongoose.Schema(
     currentStockNew: { type: Number, default: 0 },
     currentStockUsedRemould: { type: Number, default: 0 },
     comments: String,
+    attachments: { type: [attachmentSchema], default: [] },
+    additionalInformation: { type: String, default: "" },
     routingChecklist: { type: [routingChecklistSchema], default: [] },
   },
   { _id: false }
@@ -147,6 +173,8 @@ const stage2Schema = new mongoose.Schema(
     poNumber: String,
     purchaseOfficerName: String,
     poDate: Date,
+    checkedBy: { type: String, default: "MOHIT SINGH" },
+    checkedByDesignation: { type: String, default: "CEO" },
     deliveryLocation: String,
     deliveryContactPerson: String,
     deliveryContactNumber: String,
@@ -384,12 +412,13 @@ const stage6Schema = new mongoose.Schema(
 const tyreProcurementSopSchema = new mongoose.Schema(
   {
     companyKey: { type: String, default: "SRCC" },
+    companyShortName: { type: String, default: "SRCC" },
     companyName: { type: String, default: "S R CONTAINER CARRIERS" },
     buyerAddress: String,
     buyerGstin: String,
     buyerEmail: String,
     buyerPhone: String,
-    poFormatStyle: { type: String, default: "letterhead" },
+    poFormatStyle: { type: String, default: "standard" },
     prNumber: {
       type: String,
       required: true,
@@ -397,9 +426,22 @@ const tyreProcurementSopSchema = new mongoose.Schema(
       trim: true,
     },
     poNumber: String,
+    checkedBy: { type: String, default: "MOHIT SINGH" },
+    checkedByDesignation: { type: String, default: "CEO" },
+    attachments: { type: [attachmentSchema], default: [] },
+    additionalInformation: { type: String, default: "" },
+    tatDays: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: statusEnum,
+      set: (val) => {
+        if (!val) return "Draft";
+        const upper = String(val).trim().toUpperCase();
+        return statusEnumMap[upper] || val;
+      },
+      enum: [
+        ...statusEnum,
+        ...statusEnum.map((s) => s.toUpperCase()),
+      ],
       default: "Draft",
     },
     stage1: { type: stage1Schema, default: () => ({}) },
@@ -411,6 +453,14 @@ const tyreProcurementSopSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+tyreProcurementSopSchema.pre("validate", function (next) {
+  if (this.status) {
+    const upper = String(this.status).trim().toUpperCase();
+    this.status = statusEnumMap[upper] || this.status;
+  }
+  next();
+});
 
 tyreProcurementSopSchema.plugin(auditPlugin, { documentType: "TyreProcurementSop" });
 

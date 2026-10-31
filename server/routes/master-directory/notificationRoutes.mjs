@@ -15,6 +15,7 @@ import {
   cancelActiveSync
 } from "../../services/notificationHarvestService.mjs";
 import logger from "../../logger.js";
+import requireLoginForWrite from "../../middleware/requireLoginForWrite.mjs";
 
 const router = express.Router();
 
@@ -231,7 +232,7 @@ router.get("/api/notifications/:section", async (req, res) => {
 });
 
 // Add manual notification
-router.post("/api/notifications/:section", async (req, res) => {
+router.post("/api/notifications/:section", requireLoginForWrite, async (req, res) => {
   try {
     const Model = getModelForSection(req.params.section);
     if (!Model) {
@@ -311,7 +312,7 @@ router.post("/api/notifications/:section", async (req, res) => {
 });
 
 // Update an existing notification
-router.put("/api/notifications/:section/:id", async (req, res) => {
+router.put("/api/notifications/:section/:id", requireLoginForWrite, async (req, res) => {
   try {
     const Model = getModelForSection(req.params.section);
     if (!Model) {
@@ -374,7 +375,7 @@ router.put("/api/notifications/:section/:id", async (req, res) => {
 });
 
 // Delete / Deactivate a notification
-router.delete("/api/notifications/:section/:id", async (req, res) => {
+router.delete("/api/notifications/:section/:id", requireLoginForWrite, async (req, res) => {
   try {
     const Model = getModelForSection(req.params.section);
     if (!Model) {
@@ -391,7 +392,7 @@ router.delete("/api/notifications/:section/:id", async (req, res) => {
 });
 
 // Resolve rate variance (accept latest, mark verified)
-router.post("/api/notifications/:section/resolve-variance/:id", async (req, res) => {
+router.post("/api/notifications/:section/resolve-variance/:id", requireLoginForWrite, async (req, res) => {
   try {
     const Model = getModelForSection(req.params.section);
     if (!Model) {

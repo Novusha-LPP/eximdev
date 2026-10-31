@@ -100,7 +100,7 @@ function AppbarComponent(props) {
           aria-label="open drawer"
           edge="start"
           onClick={() => props.setMobileOpen(!props.mobileOpen)}
-          sx={{ mr: 2, display: { lg: "none" } }}
+          sx={{ mr: { xs: 0.5, sm: 2 }, display: { lg: "none" } }}
         >
           <MenuIcon sx={{ color: "#000" }} />
         </IconButton>
@@ -111,28 +111,28 @@ function AppbarComponent(props) {
             aria-label="go back"
             edge="start"
             onClick={handleGoBack}
-            sx={{ mr: 1 }}
+            sx={{ mr: { xs: 0.5, sm: 1 } }}
           >
             <ArrowBackIcon sx={{ color: "#000" }} />
           </IconButton>
         )}
 
-        <div>
-          <img
+        <Box sx={{ flexShrink: 0, display: "flex" }}>
+          <Box
+            component="img"
             src={require("../../assets/images/logo.webp")}
             alt="logo"
-            height="50px"
             onClick={() => navigate("/")}
-            style={{ cursor: "pointer" }}
+            sx={{ height: { xs: 34, sm: 50 }, cursor: "pointer" }}
           />
-        </div>
+        </Box>
 
         <Box sx={{ flexGrow: 1 }} />
 
         {/* Global Branch & Category Filter */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mr: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 0.5, sm: 2 }, mr: { xs: 0, md: 3 }, minWidth: 0 }}>
           {/* Branch Selector */}
-          <FormControl size="small" variant="outlined" sx={{ minWidth: 150 }}>
+          <FormControl size="small" variant="outlined" sx={{ minWidth: { xs: 0, sm: 150 }, maxWidth: { xs: 130, sm: "none" } }}>
             <Select
               value={resolvedSelectedBranchGroup}
               onChange={(e) => setSelectedBranchGroup(e.target.value)}
@@ -178,7 +178,7 @@ function AppbarComponent(props) {
               height: "40px",
               "& .MuiToggleButton-root": {
                 border: "none",
-                px: 2,
+                px: { xs: 1, sm: 2 },
                 color: "#666",
                 "&.Mui-selected": {
                   bgcolor: "#f0f0f0",
@@ -196,7 +196,7 @@ function AppbarComponent(props) {
           </ToggleButtonGroup>
         </Box>
 
-        <Box sx={{ textAlign: "center", mt: 2 }}>
+        <Box sx={{ textAlign: "center", mt: 2, display: { xs: "none", md: "block" } }}>
           <Typography
             variant="body1"
             sx={{ fontWeight: "bold", color: "#000" }}

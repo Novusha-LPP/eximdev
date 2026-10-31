@@ -1,4 +1,5 @@
-import React, { useContext } from "react";
+import React, { useContext, useRef } from "react";
+import { snapshotJob, withLoadedBase } from "../../utils/staleSaveBase";
 import { useFormik } from "formik";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
@@ -84,6 +85,7 @@ const excelStyles = {
 function EditBillingSheet() {
   const params = useParams();
   const [data, setData] = React.useState(null);
+  const loadedJobRef = useRef(null); // job as loaded, sent back as __base on save
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
   const [fileSnackbar, setFileSnackbar] = React.useState({
@@ -158,7 +160,7 @@ function EditBillingSheet() {
 
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-do-billing/${jobId}`,
-          { ...values, dsr_queries: values.dsr_queries || [] },
+          withLoadedBase({ ...values, dsr_queries: values.dsr_queries || [] }, loadedJobRef.current),
 
           {
             headers: {
@@ -233,6 +235,7 @@ function EditBillingSheet() {
           `${process.env.REACT_APP_API_STRING}/get-job-by-id/${jobId}`
         );
         const jobData = res.data.job || {};
+        loadedJobRef.current = snapshotJob(jobData);
         setData(jobData);
 
         // Update formik values with the fetched data

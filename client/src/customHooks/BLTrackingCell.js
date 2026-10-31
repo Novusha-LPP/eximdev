@@ -8,6 +8,7 @@ import SeaCargoStatus from "./SeaCargoStatus";
 import AirCargoStatus from "./AirCargoStatus";
 import AirConsoleStatus from "./AirConsoleStatus";
 import { BranchContext } from "../contexts/BranchContext";
+import { getShippingLineTrackingUrl } from "../utils/shippingLineTracking";
 
 const BLTrackingCell = ({
   blNumber,
@@ -44,43 +45,6 @@ const BLTrackingCell = ({
 
   // Build shipping line URLs
   const containerFirst = containerNos?.[0]?.container_number || "";
-
-  const buildShippingLineUrls = (num) => ({
-    MSC: `https://www.msc.com/en/track-a-shipment`,
-    "M S C": `https://www.msc.com/en/track-a-shipment`,
-    "MSC LINE": `https://www.msc.com/en/track-a-shipment`,
-    "Maersk Line": `https://www.maersk.com/tracking/${num}`,
-    "CMA CGM AGENCIES INDIA PVT. LTD":
-      "https://www.cma-cgm.com/ebusiness/tracking/search",
-    "CMA CGM AGENCIES (INDIA) PVT. LTD":
-      "https://www.cma-cgm.com/ebusiness/tracking/search",
-    "Hapag-Lloyd": `https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html?blno=${num}`,
-    "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/ContainerTracking.aspx?&containerno=${containerFirst}&blNo=${num}`,
-    "ONE LINE":
-      "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
-    "Ocean Network Express (India) Private Limited":
-      "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
-    "OCEAN NETWORK EXPRESS PTE LTD":
-      "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
-    HMM: "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
-    HYUNDI:
-      "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
-    "Cosco Container Lines":
-      "https://elines.coscoshipping.com/ebusiness/cargotracking",
-    COSCO: "https://elines.coscoshipping.com/ebusiness/cargotracking",
-    "Unifeeder Agencies India Pvt Ltd": num
-      ? `https://www.unifeeder.cargoes.com/tracking?ID=${num.slice(
-          0,
-          3
-        )}%2F${num.slice(3, 6)}%2F${num.slice(6, 8)}%2F${num.slice(8)}`
-      : "#",
-    UNIFEEDER: num
-      ? `https://www.unifeeder.cargoes.com/tracking?ID=${num.slice(
-          0,
-          3
-        )}%2F${num.slice(3, 6)}%2F${num.slice(6, 8)}%2F${num.slice(8)}`
-      : "#",
-  });
 
   // Handle opening BL Status dialog
   const handleOpenAirCargoDialog = (event, mawbNumber, hawbNumber = "") => {
@@ -166,8 +130,8 @@ const BLTrackingCell = ({
   const renderNumberBlock = (num, label) => {
     if (!num) return null;
 
-    const urls = buildShippingLineUrls(num);
-    const url = urls[shippingLine] || "#";
+    // Shipping line tracking only applies to sea cargo
+    const url = mode === "AIR" ? "#" : getShippingLineTrackingUrl(shippingLine, num, containerFirst);
 
     return (
       <div style={{ marginBottom: "12px" }}>

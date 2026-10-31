@@ -646,8 +646,8 @@ function JobDetails() {
       });
 
       // Mark uploaded only for successful create/update actions.
-      if (setData) {
-        setData(prev => ({
+      if (setDataWithoutReset) {
+        setDataWithoutReset(prev => ({
           ...prev,
           imexcube_uploaded: true,
           imexcube_uploaded_at: new Date(),
@@ -734,6 +734,7 @@ function JobDetails() {
     canChangeClearance,
     resetOtherDetails,
     setData,
+    setDataWithoutReset,
     isCthDocsLoading,
     // schemeOptions,
   } = useFetchJobDetails(
@@ -1435,10 +1436,12 @@ function JobDetails() {
   };
 
   const handleQueriesChange = (updatedQueries) => {
-    setData((prev) => ({
+    // Update queries in place; reloading the whole form here used to discard unsaved edits
+    setDataWithoutReset((prev) => ({
       ...prev,
       dsr_queries: updatedQueries,
     }));
+    formik.setFieldValue("dsr_queries", updatedQueries);
   };
 
   const handleResolveQuery = (resolvedQuery, index) => {
@@ -2642,11 +2645,47 @@ function JobDetails() {
     formik.setFieldValue("misc_charges", updatedRows);
   };
 
+  // Stable props/elements so the header (React.memo) and the queries panel only re-render when
+  // their own data changes, not on every keystroke elsewhere on the page. Values are unchanged.
+  const headerData = useMemo(
+    () =>
+      data
+        ? {
+          ...data,
+          cif_amount: formik.values.cif_amount || data.cif_amount,
+          total_inv_value: formik.values.total_inv_value || data.total_inv_value
+        }
+        : data,
+    [data, formik.values.cif_amount, formik.values.total_inv_value]
+  );
+  const currencyCodes = useMemo(() => currencies.map(c => c.code), [currencies]);
+  const unitCodes = useMemo(() => unitOptions.map(u => u.code), [unitOptions]);
+  // Its handlers only call stable setters (setData, formik.setFieldValue), so reusing them is safe
+  const queriesPanel = useMemo(
+    () =>
+      data ? (
+        <QueriesComponent
+          queries={data.dsr_queries}
+          currentModule="Import DSR"
+          onQueriesChange={handleQueriesChange}
+          title="DSR Queries"
+          showResolveButton={true}
+          readOnlyReply={false}
+          onResolveQuery={handleResolveQuery}
+          userName={user?.username}
+        />
+      ) : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data?.dsr_queries, user?.username]
+  );
+
   return (
     <>
       {data !== null && (
         <form onSubmit={formik.handleSubmit}>
-          <Box sx={{ position: "fixed", top: 80, left: 80, zIndex: 999 }}>
+          {/* Below laptop width these buttons sit above the header instead of floating over it */}
+          <Box sx={{ display: { xs: "flex", md: "block" }, flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 1, mt: { xs: 1, md: 0 } }}>
+          <Box sx={{ position: { xs: "static", md: "fixed" }, top: 80, left: 80, zIndex: 999 }}>
             <Button
               variant="contained"
               startIcon={<ArrowBackIcon />}
@@ -2664,8 +2703,8 @@ function JobDetails() {
             </Button>
           </Box>
           {user?.role === "Admin" && (
-            <Box sx={{ position: "fixed", top: 80, right: 30, zIndex: 999, display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-              <Box sx={{ display: "flex", gap: 1 }}>
+            <Box sx={{ position: { xs: "static", md: "fixed" }, top: 80, right: 30, zIndex: 999, display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+              <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 1 }}>
                 <Button
                   variant="contained"
                   startIcon={imexcubeUploading ? null : <CloudUploadIcon />}
@@ -2720,35 +2759,23 @@ function JobDetails() {
               )}
             </Box>
           )}
+          </Box>
 
           {/* Importer info start*/}
-          <div style={{ marginTop: "70px" }}>
+          <Box sx={{ mt: { xs: 2, md: "70px" } }}>
             <JobDetailsStaticData
-              data={{
-                ...data,
-                cif_amount: formik.values.cif_amount || data.cif_amount,
-                total_inv_value: formik.values.total_inv_value || data.total_inv_value
-              }}
+              data={headerData}
               params={params}
               bl_no_ref={bl_no_ref}
               setSnackbar={setSnackbar}
               container_nos={formik.values.container_nos}
             // Passing be_no from formik
             />
-          </div>
+          </Box>
           {/* Importer info End*/}
 
           <div>
-            <QueriesComponent
-              queries={data.dsr_queries}
-              currentModule="Import DSR"
-              onQueriesChange={handleQueriesChange}
-              title="DSR Queries"
-              showResolveButton={true}
-              readOnlyReply={false}
-              onResolveQuery={handleResolveQuery}
-              userName={user?.username}
-            />
+            {queriesPanel}
           </div>
 
           <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2, bgcolor: "white", borderRadius: 1 }}>
@@ -4581,7 +4608,7 @@ function JobDetails() {
                                   <Autocomplete
                                     freeSolo
                                     size="small"
-                                    options={currencies.map(c => c.code)}
+                                    options={currencyCodes}
                                     value={row.inv_currency || ""}
                                     onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue)}
                                     onChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue || "")}
@@ -4624,7 +4651,7 @@ function JobDetails() {
                                       <Autocomplete
                                         freeSolo
                                         size="small"
-                                        options={currencies.map(c => c.code)}
+                                        options={currencyCodes}
                                         value={row.freight_currency || ""}
                                         onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue)}
                                         onChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue || "")}
@@ -4668,7 +4695,7 @@ function JobDetails() {
                                       <Autocomplete
                                         freeSolo
                                         size="small"
-                                        options={currencies.map(c => c.code)}
+                                        options={currencyCodes}
                                         value={row.insurance_currency || ""}
                                         onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue)}
                                         onChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue || "")}
@@ -4712,7 +4739,7 @@ function JobDetails() {
                                       <Autocomplete
                                         freeSolo
                                         size="small"
-                                        options={currencies.map(c => c.code)}
+                                        options={currencyCodes}
                                         value={row.misc_currency || row.other_charges_currency || ""}
                                         onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "misc_currency", newValue)}
                                         onChange={(event, newValue) => updateInvoiceRow(rowIndex, "misc_currency", newValue || "")}
@@ -4917,7 +4944,7 @@ function JobDetails() {
                               <Autocomplete
                                 freeSolo
                                 size="small"
-                                options={currencies.map(c => c.code)}
+                                options={currencyCodes}
                                 sx={compactInputSx}
                                 value={formik.values.other_charges_details?.[row.id]?.currency || ""}
                                 onInputChange={(event, newValue) => {
@@ -5218,7 +5245,7 @@ function JobDetails() {
                               <Autocomplete
                                 freeSolo
                                 size="small"
-                                options={currencies.map(c => c.code)}
+                                options={currencyCodes}
                                 sx={compactInputSx}
                                 value={row.currency || "USD"}
                                 onInputChange={(event, newValue) => updateMiscChargeRow(rowIndex, "currency", newValue)}
@@ -5685,7 +5712,7 @@ function JobDetails() {
                                     <Autocomplete
                                       size="small"
                                       freeSolo
-                                      options={unitOptions.map(u => u.code)}
+                                      options={unitCodes}
                                       value={row.unit || ""}
                                       onChange={(e, newValue) => updateDescriptionRow(rowIndex, "unit", newValue || "")}
                                       onInputChange={(e, newInputValue, reason) => {
@@ -5742,7 +5769,7 @@ function JobDetails() {
                                 <Autocomplete
                                   freeSolo
                                   size="small"
-                                  options={currencies.map(c => c.code)}
+                                  options={currencyCodes}
                                   value={row.amount_currency || "USD"}
                                   onInputChange={(event, newValue) => updateDescriptionRow(rowIndex, "amount_currency", newValue)}
                                   onChange={(event, newValue) => updateDescriptionRow(rowIndex, "amount_currency", newValue || "USD")}

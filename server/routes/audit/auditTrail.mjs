@@ -1,11 +1,23 @@
 
 import express from "express";
+import mongoose from "mongoose";
 import ExcelJS from "exceljs";
 import AuditTrailModel from "../../model/auditTrailModel.mjs";
 import UserModel from "../../model/userModel.mjs";
 import { getAllUserMappings, getUsernameById } from "../../utils/userIdManager.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 const router = express.Router();
+
+// Audit dates are IST. A bare yyyy-mm-dd filter means that whole IST calendar day, not UTC/server-local.
+const IST_OFFSET = "+05:30";
+const DAY_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const istStart = (v) => (DAY_ONLY.test(String(v)) ? new Date(`${v}T00:00:00.000${IST_OFFSET}`) : new Date(v));
+const istEnd = (v) => (DAY_ONLY.test(String(v)) ? new Date(`${v}T23:59:59.999${IST_OFFSET}`) : new Date(v));
+const IST_TZ = "Asia/Kolkata";
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // India has no DST, so a fixed offset is exact
+// yyyy-mm-dd of the IST calendar day containing the given instant
+const istDayKey = (d = new Date()) => new Date(new Date(d).getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);
+const addDaysToKey = (key, n) => new Date(Date.parse(`${key}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 
 // Lightweight in-memory cache for expensive audit aggregations
 const auditMemoryCache = new Map();
@@ -66,8 +78,8 @@ router.get("/api/audit-trail/user-logs/:userId", authMiddleware, async (req, res
     if (actionType) filter.action = actionType;
     if (fromDate || toDate) {
       filter.timestamp = {};
-      if (fromDate) filter.timestamp.$gte = new Date(fromDate);
-      if (toDate) filter.timestamp.$lte = new Date(toDate);
+      if (fromDate) filter.timestamp.$gte = istStart(fromDate);
+      if (toDate) filter.timestamp.$lte = istEnd(toDate);
     }
 
     const auditTrail = await AuditTrailModel.find(filter)
@@ -163,6 +175,118 @@ router.get("/api/audit-trail/all-users-with-activity", authMiddleware, async (re
   }
 });
 
+// Branch isolation shared by the job-centric audit endpoints
+function jobAuditScope(req) {
+  const scope = { documentType: "Job" };
+  if (req.user.role !== "Admin") {
+    if (req.user.branchId) scope.branchId = req.user.branchId;
+    else if (req.user.branch_code) scope.branch_code = req.user.branch_code;
+  } else {
+    if (req.query.branch_code) scope.branch_code = String(req.query.branch_code).toUpperCase();
+  }
+  return scope;
+}
+
+// Job index: one row per job (grouped by year), with activity totals
+router.get("/api/audit-trail/jobs", authMiddleware, async (req, res) => {
+  try {
+    const { year, search, latest, page = 1, limit = 25 } = req.query;
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 25));
+
+    const match = jobAuditScope(req);
+    let activeYear = year ? String(year) : "";
+    // latest=1 with no year: resolve the newest audited year here so the client needs only one request
+    if (!activeYear && (latest === "1" || latest === "true")) {
+      const known = await AuditTrailModel.distinct("year", { ...jobAuditScope(req), year: { $nin: [null, ""] } });
+      activeYear = known.sort().reverse()[0] || "";
+    }
+    if (activeYear) match.year = activeYear;
+    if (search && search.trim()) {
+      match.job_no = { $regex: search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+    }
+
+    const [result, years] = await Promise.all([
+      AuditTrailModel.aggregate([
+        { $match: match },
+        { $sort: { timestamp: -1, _id: -1 } },
+        {
+          $group: {
+            _id: { $ifNull: ["$documentId", { $concat: [{ $ifNull: ["$job_no", ""] }, "/", { $ifNull: ["$year", ""] }, "/", { $ifNull: ["$branch_code", ""] }] }] },
+            documentId: { $first: "$documentId" },
+            job_no: { $first: "$job_no" },
+            year: { $first: "$year" },
+            branch_code: { $first: "$branch_code" },
+            trade_type: { $first: "$trade_type" },
+            mode: { $first: "$mode" },
+            totalActions: { $sum: 1 },
+            totalChanges: { $sum: { $size: { $ifNull: ["$changes", []] } } },
+            lastActivity: { $first: "$timestamp" },
+            lastUser: { $first: "$username" },
+            firstActivity: { $last: "$timestamp" },
+            users: { $addToSet: "$username" },
+          },
+        },
+        { $sort: { lastActivity: -1 } },
+        { $facet: { rows: [{ $skip: (pageNum - 1) * limitNum }, { $limit: limitNum }], total: [{ $count: "n" }] } },
+      ]).allowDiskUse(true),
+      AuditTrailModel.distinct("year", { ...jobAuditScope(req), year: { $nin: [null, ""] } }),
+    ]);
+
+    const total = result[0]?.total[0]?.n || 0;
+    res.json({
+      jobs: result[0]?.rows || [],
+      year: activeYear,
+      years: years.sort().reverse(),
+      pagination: { currentPage: pageNum, totalPages: Math.ceil(total / limitNum), totalItems: total },
+    });
+  } catch (error) {
+    console.error("Error fetching job audit index:", error);
+    res.status(500).json({ message: "Error fetching job audit index", error: error.message });
+  }
+});
+
+// Full action history of ONE job (identified by its document id), newest first, never merged or collapsed
+router.get("/api/audit-trail/job-timeline", authMiddleware, async (req, res) => {
+  try {
+    const { documentId, job_no, year, username, action, page = 1, limit = 50 } = req.query;
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, Math.min(200, parseInt(limit) || 50));
+
+    const baseFilter = jobAuditScope(req);
+    if (documentId && mongoose.Types.ObjectId.isValid(documentId)) {
+      baseFilter.documentId = new mongoose.Types.ObjectId(documentId);
+    } else if (job_no && year) {
+      baseFilter.job_no = String(job_no);
+      baseFilter.year = String(year);
+    } else {
+      return res.status(400).json({ message: "documentId, or job_no and year, is required" });
+    }
+    const filter = { ...baseFilter };
+    if (username) filter.username = username;
+    if (action) filter.action = action;
+
+    const [entries, total, users] = await Promise.all([
+      AuditTrailModel.find(filter)
+        .sort({ timestamp: -1, _id: -1 })
+        .skip((pageNum - 1) * limitNum)
+        .limit(limitNum)
+        .lean(),
+      AuditTrailModel.countDocuments(filter),
+      AuditTrailModel.distinct("username", baseFilter),
+    ]);
+
+    res.json({
+      entries,
+      users,
+      pagination: { currentPage: pageNum, totalPages: Math.ceil(total / limitNum), totalItems: total },
+    });
+  } catch (error) {
+    console.error("Error fetching job timeline:", error);
+    res.status(500).json({ message: "Error fetching job timeline", error: error.message });
+  }
+});
+
 // Get audit trail for a specific job
 router.get("/api/audit-trail/job/:job_no/:year", authMiddleware, async (req, res) => {
   try {
@@ -229,8 +353,8 @@ router.get("/api/audit-trail/user/:username", authMiddleware, async (req, res) =
     // Date range filter
     if (fromDate || toDate) {
       filter.timestamp = {};
-      if (fromDate) filter.timestamp.$gte = new Date(fromDate);
-      if (toDate) filter.timestamp.$lte = new Date(toDate);
+      if (fromDate) filter.timestamp.$gte = istStart(fromDate);
+      if (toDate) filter.timestamp.$lte = istEnd(toDate);
     }
 
     const auditTrail = await AuditTrailModel.find(filter)
@@ -475,14 +599,10 @@ router.get("/api/audit-trail", authMiddleware, async (req, res) => {
     if (from || to) {
       filter.timestamp = {};
       if (from) {
-        const fromD = new Date(from);
-        fromD.setHours(0, 0, 0, 0);
-        filter.timestamp.$gte = fromD;
+        filter.timestamp.$gte = istStart(from);
       }
       if (to) {
-        const toD = new Date(to);
-        toD.setHours(23, 59, 59, 999);
-        filter.timestamp.$lte = toD;
+        filter.timestamp.$lte = istEnd(to);
       }
     } else if (search && search.trim() && allDates !== "true" && noDateFilter !== "true") {
       // Unbounded regex text search over 1.5M records triggers heavy Atlas scan: default to last 7 days if no dates specified
@@ -576,7 +696,7 @@ router.get("/api/audit-trail", authMiddleware, async (req, res) => {
 
 
 // Get audit trail statistics
-router.get("/api/audit-trail/stats", async (req, res) => {
+router.get("/api/audit-trail/stats", authMiddleware, async (req, res) => {
   try {
     const { fromDate, toDate, groupBy, username, allDates, noDateFilter } = req.query;
 
@@ -586,12 +706,10 @@ router.get("/api/audit-trail/stats", async (req, res) => {
 
     if (hasExplicitDates) {
       if (fromDate) {
-        start = new Date(fromDate);
-        start.setHours(0, 0, 0, 0);
+        start = istStart(fromDate);
       }
       if (toDate) {
-        end = new Date(toDate);
-        end.setHours(23, 59, 59, 999);
+        end = istEnd(toDate);
       }
       if (start && end && start > end) {
         return res.status(400).json({ message: "Invalid time range: fromDate must be before or equal to toDate" });
@@ -600,9 +718,9 @@ router.get("/api/audit-trail/stats", async (req, res) => {
       // Explicitly allow all historical stats
     } else {
       // Default to today to bound query to indexed range and prevent 1.5M full scan
-      const now = new Date();
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      const today = istDayKey();
+      start = istStart(today);
+      end = istEnd(today);
     }
 
     const dateFilter = {};
@@ -675,7 +793,7 @@ router.get("/api/audit-trail/stats", async (req, res) => {
         { $match: { timestamp: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } },
         {
           $group: {
-            _id: { $dateToString: { format: dateFormat, date: "$timestamp" } },
+            _id: { $dateToString: { format: dateFormat, date: "$timestamp", timezone: IST_TZ } },
             count: { $sum: 1 }
           }
         },
@@ -728,7 +846,7 @@ router.get("/api/audit-trail/stats", async (req, res) => {
         { $match: dateFilter },
         {
           $group: {
-            _id: { $dateToString: { format: dateFormat, date: "$timestamp" } },
+            _id: { $dateToString: { format: dateFormat, date: "$timestamp", timezone: IST_TZ } },
             count: { $sum: 1 }
           }
         },
@@ -767,7 +885,7 @@ router.get("/api/audit-trail/stats", async (req, res) => {
 });
 
 // Get field-level change history for a specific field in a job
-router.get("/api/audit-trail/field-history/:job_no/:year/:fieldPath", async (req, res) => {
+router.get("/api/audit-trail/field-history/:job_no/:year/:fieldPath", authMiddleware, async (req, res) => {
   try {
     const { job_no, year, fieldPath } = req.params;
     const { page = 1, limit = 20 } = req.query;
@@ -813,7 +931,7 @@ router.get("/api/audit-trail/field-history/:job_no/:year/:fieldPath", async (req
 });
 
 // Get all user mappings (for admin purposes)
-router.get("/api/audit/user-mappings", async (req, res) => {
+router.get("/api/audit/user-mappings", authMiddleware, async (req, res) => {
   try {
     const userMappings = await getAllUserMappings();
 
@@ -834,7 +952,7 @@ router.get("/api/audit/user-mappings", async (req, res) => {
 });
 
 // Get username by user ID
-router.get("/api/audit/user/:userId", async (req, res) => {
+router.get("/api/audit/user/:userId", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.params;
     const username = await getUsernameById(userId);
@@ -854,7 +972,7 @@ router.get("/api/audit/user/:userId", async (req, res) => {
 });
 
 // Get all users with activity statistics (for All Users page)
-router.get("/api/audit-trail/all-active-users", async (req, res) => {
+router.get("/api/audit-trail/all-active-users", authMiddleware, async (req, res) => {
   try {
     const {
       fromDate,
@@ -873,8 +991,8 @@ router.get("/api/audit-trail/all-active-users", async (req, res) => {
     // Date range filter: default to last 90 days if unbounded to prevent 1.5M scan
     if (fromDate || toDate) {
       filter.timestamp = {};
-      if (fromDate) filter.timestamp.$gte = new Date(fromDate);
-      if (toDate) filter.timestamp.$lte = new Date(toDate);
+      if (fromDate) filter.timestamp.$gte = istStart(fromDate);
+      if (toDate) filter.timestamp.$lte = istEnd(toDate);
     } else if (allDates === "true") {
       // allow full historical
     } else {
@@ -941,7 +1059,7 @@ router.get("/api/audit-trail/all-active-users", async (req, res) => {
 });
 
 // Get ALL system users (including those without audit activity)
-router.get("/api/audit-trail/all-system-users", async (req, res) => {
+router.get("/api/audit-trail/all-system-users", authMiddleware, async (req, res) => {
   try {
     const {
       limit = 20,
@@ -1120,7 +1238,7 @@ router.get("/api/audit-trail/all-system-users", async (req, res) => {
 });
 
 // Get top active users with flexible filtering and pagination
-router.get("/api/audit-trail/top-users", async (req, res) => {
+router.get("/api/audit-trail/top-users", authMiddleware, async (req, res) => {
   try {
     const {
       fromDate,
@@ -1139,8 +1257,8 @@ router.get("/api/audit-trail/top-users", async (req, res) => {
     // Date range filter: default to last 30 days if not specified to prevent full 1.5M scan
     if (fromDate || toDate) {
       filter.timestamp = {};
-      if (fromDate) filter.timestamp.$gte = new Date(fromDate);
-      if (toDate) filter.timestamp.$lte = new Date(toDate);
+      if (fromDate) filter.timestamp.$gte = istStart(fromDate);
+      if (toDate) filter.timestamp.$lte = istEnd(toDate);
     } else if (allDates === "true") {
       // unbounded
     } else {
@@ -1215,14 +1333,14 @@ router.get("/api/audit-trail/top-users", async (req, res) => {
 });
 
 // Get activity timeline for audit chart (day-wise for frontend line graph)
-router.get("/api/audit-trail/activity-timeline", async (req, res) => {
+router.get("/api/audit-trail/activity-timeline", authMiddleware, async (req, res) => {
   try {
     const { fromDate, toDate, username } = req.query;
     let dateFormat = "%Y-%m-%d";
     const dateFilter = {};
 
-    const start = fromDate ? new Date(fromDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const end = toDate ? new Date(toDate) : new Date();
+    const start = fromDate ? istStart(fromDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const end = toDate ? istEnd(toDate) : new Date();
     dateFilter.timestamp = { $gte: start, $lte: end };
 
     if (username && username.trim()) {
@@ -1241,7 +1359,7 @@ router.get("/api/audit-trail/activity-timeline", async (req, res) => {
       { $match: dateFilter },
       {
         $group: {
-          _id: { $dateToString: { format: dateFormat, date: "$timestamp" } },
+          _id: { $dateToString: { format: dateFormat, date: "$timestamp", timezone: IST_TZ } },
           actions: { $sum: 1 }
         }
       },
@@ -1250,12 +1368,11 @@ router.get("/api/audit-trail/activity-timeline", async (req, res) => {
 
     // Fill missing days with 0 actions for a continuous line graph
     let results = [];
-    let current = new Date(start);
+    // Walk IST calendar days so buckets line up with the IST-grouped aggregation above
     const activityMap = Object.fromEntries(dailyActivity.map(item => [item._id, item.actions]));
-    while (current <= end) {
-      const dateStr = current.toISOString().slice(0, 10);
+    const lastKey = istDayKey(end);
+    for (let dateStr = istDayKey(start); dateStr <= lastKey; dateStr = addDaysToKey(dateStr, 1)) {
       results.push({ date: dateStr, actions: activityMap[dateStr] || 0 });
-      current.setDate(current.getDate() + 1);
     }
 
     const responsePayload = { dailyActivity: results };
@@ -1297,6 +1414,10 @@ router.delete("/api/audit-trail", authMiddleware, async (req, res) => {
       filter.documentType = { $in: itHelpdeskTypes };
     }
 
+    if (req.user.role !== "Admin") return res.status(403).json({ message: "Only admins can clear audit logs" });
+    if (documentType === "Job") return res.status(403).json({ message: "Job audit entries cannot be deleted" });
+    if (!filter.documentType) filter.documentType = { $ne: "Job" };
+
     const result = await AuditTrailModel.deleteMany(filter);
     res.json({
       success: true,
@@ -1318,7 +1439,7 @@ router.get("/api/audit-trail/export", authMiddleware, async (req, res) => {
   try {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Audit Logs");
-    const filename = `Audit_Logs_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const filename = `Audit_Logs_${istDayKey()}.xlsx`;
 
     const documentTypeMap = {
       ITAsset: "Asset",
@@ -1366,8 +1487,8 @@ router.get("/api/audit-trail/export", authMiddleware, async (req, res) => {
     const to = req.query.toDate || req.query.endDate;
     if (from || to) {
       filter.timestamp = {};
-      if (from) filter.timestamp.$gte = new Date(from);
-      if (to) filter.timestamp.$lte = new Date(to);
+      if (from) filter.timestamp.$gte = istStart(from);
+      if (to) filter.timestamp.$lte = istEnd(to);
     }
     if (req.user && req.user.role !== "Admin") {
       if (req.user.branchId) filter.branchId = req.user.branchId;
@@ -1383,7 +1504,7 @@ router.get("/api/audit-trail/export", authMiddleware, async (req, res) => {
 
     worksheet.columns = [
       { header: "S.No", key: "srNo", width: 8 },
-      { header: "Timestamp", key: "timestamp", width: 22 },
+      { header: "Timestamp (IST)", key: "timestamp", width: 24 },
       { header: "User", key: "user", width: 22 },
       { header: "Action", key: "action", width: 16 },
       { header: "Module", key: "module", width: 18 },

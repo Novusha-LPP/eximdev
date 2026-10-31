@@ -617,7 +617,7 @@ function useJobColumns(
           }
 
           return (
-            <EditableDateCell cell={cell} onRowDataUpdate={handleRowDataUpdate} />
+            <EditableDateCell cell={cell} onRowDataUpdate={handleRowDataUpdate} compact showDoPlanningDate />
           );
         },
       },

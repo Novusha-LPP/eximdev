@@ -1,5 +1,6 @@
 import axios from "axios";
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useRef } from "react";
+import { snapshotJob, withLoadedBase } from "../../utils/staleSaveBase";
 import { useParams, useNavigate } from "react-router-dom";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
 import Snackbar from "@mui/material/Snackbar";
@@ -54,6 +55,7 @@ function ViewESanchitJob() {
   const [snackbar, setSnackbar] = useState(false);
   const [fileSnackbar, setFileSnackbar] = useState(false);
   const [data, setData] = useState({ cth_documents: [] });
+  const loadedJobRef = useRef(null); // job as loaded, sent back as __base on save
   const [selectedDocument, setSelectedDocument] = useState("");
   const [newDocumentName, setNewDocumentName] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
@@ -153,6 +155,7 @@ function ViewESanchitJob() {
           `${process.env.REACT_APP_API_STRING}/get-esanchit-job/${params.branch_code}/${params.mode}/${params.job_no}/${params.year}`
         );
         const jobData = res.data || { cth_documents: [] };
+        loadedJobRef.current = snapshotJob(res.data);
         setData(jobData);
 
 
@@ -207,7 +210,7 @@ function ViewESanchitJob() {
 
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/update-esanchit-job/${params.branch_code}/${params.trade_type}/${params.mode}/${params.job_no}/${params.year}`,
-          formattedData,
+          withLoadedBase(formattedData, loadedJobRef.current),
           { headers }
         );
 

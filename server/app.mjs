@@ -45,6 +45,9 @@ import http from "http";
 import { setupJobOverviewWebSocket } from "./setupJobOverviewWebSocket.mjs";
 import { setupAnalyticsWebSocket } from "./setupAnalyticsWebSocket.mjs";
 import { setupDgftWebSocket } from "./setupDgftWebSocket.mjs";
+import { setupJobUpdatesWebSocket } from "./setupJobUpdatesWebSocket.mjs";
+import { initJobChangeBus, onJobChange } from "./services/jobChangeBus.mjs";
+import { startRealtimeReconciliation } from "./services/jobStatusReconciliationService.mjs";
 
 import monthlyContainersRouter from "./routes/report/monthlyContainers.mjs";
 import monthlyClearanceRouter from "./routes/report/importClearanceMonthly.mjs";
@@ -185,8 +188,8 @@ import getAssignedImporter from "./routes/import-dsr/getAssignedImporter.mjs";
 import getImporterJobs from "./routes/import-dsr/getImporterJobs.mjs";
 import getImporterUsers from "./routes/import-dsr/getImporterUsers.mjs";
 import getJob from "./routes/import-dsr/getJob.mjs";
-import getJobList from "./routes/import-dsr/getJobList.mjs";
-import getJobTabCounts from "./routes/import-dsr/getJobTabCounts.mjs";
+import getJobList, { invalidateJobCache } from "./routes/import-dsr/getJobList.mjs";
+import getJobTabCounts, { invalidateJobTabCountsCache } from "./routes/import-dsr/getJobTabCounts.mjs";
 import getJobsOverview from "./routes/import-dsr/getJobsOverview.mjs";
 import getLastJobsDate from "./routes/import-dsr/getLastJobsDate.mjs";
 import importerListToAssignJobs from "./routes/import-dsr/importerListToAssignJobs.mjs";
@@ -884,6 +887,7 @@ const disableCluster = process.env.DISABLE_CLUSTER === "true";
 if (!disableCluster && cluster.isPrimary) {
   console.log(`🚀 Primary Process running. Detected ${os.availableParallelism()} CPUs. Forking ${numOfCPU} workers (capped)...`);
   let isShuttingDown = false;
+  initJobChangeBus();
   for (let i = 0; i < numOfCPU; i++) {
     cluster.fork();
   }
@@ -971,8 +975,34 @@ if (!disableCluster && cluster.isPrimary) {
         socketTimeoutMS: 45000,
       })
       .then(async () => {
+        // Job changes from any worker clear this worker's list caches (at most once a second)
+        initJobChangeBus();
+        const yearsToInvalidate = new Set();
+        let invalidateAllYears = false;
+        let invalidateTimer = null;
+        onJobChange((change) => {
+          if (change.years && change.years.length > 0) {
+            change.years.forEach((y) => yearsToInvalidate.add(y));
+          } else {
+            invalidateAllYears = true;
+          }
+          if (invalidateTimer) return;
+          invalidateTimer = setTimeout(() => {
+            invalidateTimer = null;
+            if (invalidateAllYears) {
+              invalidateJobCache();
+            } else {
+              yearsToInvalidate.forEach((y) => invalidateJobCache(y));
+            }
+            yearsToInvalidate.clear();
+            invalidateAllYears = false;
+            invalidateJobTabCountsCache();
+          }, 1000);
+        });
+
         // initialize cron jobs only on the first worker to avoid duplicates
         if (!cluster.worker || cluster.worker.id === 1) {
+          startRealtimeReconciliation();
           await fixCorruptAttendanceRecords();
           try {
             hrmsSyncService.startBackgroundSync(60000);
@@ -1080,11 +1110,14 @@ if (!disableCluster && cluster.isPrimary) {
         const wssOverview = setupJobOverviewWebSocket();
         const wssAnalytics = setupAnalyticsWebSocket();
         const wssDgft = setupDgftWebSocket();
+        const jobUpdates = setupJobUpdatesWebSocket();
 
         server.on('upgrade', (request, socket, head) => {
           const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
 
-          if (pathname === '/analytics') {
+          if (pathname.endsWith('/job-updates')) {
+            jobUpdates.handleUpgrade(request, socket, head);
+          } else if (pathname === '/analytics') {
             wssAnalytics.handleUpgrade(request, socket, head, (ws) => {
               wssAnalytics.emit('connection', ws, request);
             });

@@ -5,8 +5,22 @@ import { convertDateFormatForUI } from "../utils/convertDateFormatForUI";
 import { useNavigate } from "react-router-dom";
 import AWS from "aws-sdk";
 import toast from "react-hot-toast";
+import { mergeThreeWay, mergeListByKey, overlayByName, conflictFieldNames } from "../utils/jobMerge";
+import { subscribeToJobChanges, isJobLiveSyncEnabled } from "../utils/jobRealtime";
 
 let cachedGlobalDocs = null;
+
+// URL of the job shown on this page (same as the initial load)
+const getJobUrl = (params) => {
+  const yearValue = params.selected_year || params.year;
+  if (params.branch_code && params.trade_type) {
+    return `${process.env.REACT_APP_API_STRING}/get-job/${params.branch_code}/${params.trade_type}/${params.mode}/${yearValue}/${params.job_no}`;
+  }
+  return `${process.env.REACT_APP_API_STRING}/get-job/${params.mode}/${yearValue}/${params.job_no}`;
+};
+
+const regNoTypeOf = (job) =>
+  job?.sims_reg_no ? "sims" : job?.pims_reg_no ? "pims" : job?.nfmims_reg_no ? "nfmims" : "";
 
 const getFormattedDateForRates = (dateInput) => {
   if (!dateInput) dateInput = new Date();
@@ -169,6 +183,11 @@ function useFetchJobDetails(
   const [documents, setDocuments] = useState([]);
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [selectedDocument, setSelectedDocument] = useState(""); // State for dropdown selection
+
+  // Live sync: what the page last loaded from the server, used to merge other users' saves
+  const baseRef = useRef({ values: null, cthDocuments: null });
+  const skipDataEffectsRef = useRef(false);
+  const prevDataRef = useRef(null);
 
 
 
@@ -343,6 +362,9 @@ function useFetchJobDetails(
   }, []);
 
   useEffect(() => {
+    // A live merge has already applied this job's documents
+    if (skipDataEffectsRef.current) return;
+
     async function getCthDocs() {
       if (data?.cth_no) {
         setIsCthDocsLoading(true);
@@ -358,6 +380,7 @@ function useFetchJobDetails(
                 merged[idx] = { ...merged[idx], ...d };
               }
             });
+            baseRef.current.cthDocuments = merged;
             return merged;
           });
         }
@@ -420,6 +443,7 @@ function useFetchJobDetails(
               }
             }, []);
 
+            baseRef.current.cthDocuments = uniqueDocuments;
             return uniqueDocuments;
           });
         } catch (error) {
@@ -443,6 +467,7 @@ function useFetchJobDetails(
                   return acc;
                 }
               }, []);
+              baseRef.current.cthDocuments = uniqueDocuments;
               return uniqueDocuments;
             });
           }
@@ -450,6 +475,7 @@ function useFetchJobDetails(
           setIsCthDocsLoading(false);
         }
       } else if (data?.cth_documents && data.cth_documents.length > 0) {
+        baseRef.current.cthDocuments = data.cth_documents;
         setCthDocuments(data.cth_documents);
       }
     }
@@ -464,6 +490,9 @@ function useFetchJobDetails(
 
   // Formik
   const formik = useFormik({
+    // No validation rules are defined; validating on each change/blur only re-rendered the whole page
+    validateOnChange: false,
+    validateOnBlur: false,
     initialValues: {
       checkedDocs: [],
       container_nos: [],
@@ -623,6 +652,17 @@ function useFetchJobDetails(
         return;
       }
 
+      // Bring in what other users saved since this page loaded, keeping this user's own edits,
+      // so this save cannot overwrite their changes with stale values
+      let cthDocumentsToSave = cthDocuments;
+      let selectedDocumentsToSave = selectedDocuments;
+      const synced = await syncWithLatestJob(values);
+      if (synced) {
+        values = synced.values;
+        cthDocumentsToSave = synced.cthDocuments;
+        selectedDocumentsToSave = synced.selectedDocuments;
+      }
+
       // --- CTH / HS CODE VALIDATION ---
       if (values.description_details) {
         for (let i = 0; i < values.description_details.length; i++) {
@@ -645,7 +685,7 @@ function useFetchJobDetails(
         }
       }
       // Filter documents that are sent to e-Sanchit
-      const sentDocuments = cthDocuments.filter(
+      const sentDocuments = cthDocumentsToSave.filter(
         (doc) => doc.is_sent_to_esanchit === true
       );
 
@@ -668,7 +708,7 @@ function useFetchJobDetails(
         }
       }
 
-      const updatedCthDocuments = [...cthDocuments];
+      const updatedCthDocuments = [...cthDocumentsToSave];
 
       // Get user info from localStorage for audit trail
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
@@ -736,7 +776,7 @@ function useFetchJobDetails(
           {
             description_details: values.description_details,
             cth_documents: updatedCthDocuments,
-            documents: selectedDocuments,
+            documents: selectedDocumentsToSave,
             checkedDocs: values.checkedDocs,
             vessel_flight: values.vessel_flight,
             voyage_no: values.voyage_no,
@@ -958,9 +998,525 @@ function useFetchJobDetails(
     () => JSON.stringify(formik.values.invoice_details || []),
     [formik.values.invoice_details]
   );
+  // Map a job document from the API to form values (initial load and live merges)
+  const buildFormValuesFromJob = (data) => {
+    const container_nos = safeValue(data.container_nos, []).map((container) => ({
+      do_revalidation: safeValue(container.do_revalidation, []),
+      required_do_validity_upto: safeValue(container.required_do_validity_upto),
+      arrival_date: checked
+        ? safeValue(data.arrival_date)
+        : safeValue(container.arrival_date)
+          ? convertDateFormatForUI(container.arrival_date)
+          : "",
+      detention_from: safeValue(container.detention_from, ""),
+      container_number: safeValue(container.container_number),
+      size: safeValue(container.size, "20"),
+      seal_number: Array.isArray(container.seal_number) ? container.seal_number : (container.seal_number ? [container.seal_number] : []),
+      wire_seal: Array.isArray(container.wire_seal) ? container.wire_seal : (container.wire_seal ? [container.wire_seal] : []),
+      net_weight_as_per_PL_document: safeValue(container.net_weight_as_per_PL_document),
+      container_rail_out_date: safeValue(container.container_rail_out_date),
+      by_road_movement_date: safeValue(container.by_road_movement_date),
+      delivery_date: safeValue(container.delivery_date),
+      emptyContainerOffLoadDate: safeValue(container.emptyContainerOffLoadDate),
+      weighment_slip_images: safeValue(container.weighment_slip_images, []),
+      container_images: safeValue(container.container_images, []),
+      loose_material_photo: safeValue(container.loose_material_photo, []),
+      loose_material: safeValue(container.loose_material, []),
+      examination_videos: safeValue(container.examination_videos, []),
+      container_pre_damage_images: safeValue(container.container_pre_damage_images, []),
+      physical_weight: safeValue(container.physical_weight),
+      do_revalidation_date: safeValue(container.do_revalidation_date),
+      do_validity_upto_container_level: safeValue(container.do_validity_upto_container_level),
+      do_revalidation_upto_container_level: safeValue(container.do_revalidation_upto_container_level),
+      tare_weight: safeValue(container.tare_weight),
+      actual_weight:
+        container.physical_weight && container.tare_weight
+          ? (parseFloat(container.physical_weight) - parseFloat(container.tare_weight)).toFixed(2)
+          : safeValue(container.actual_weight),
+      net_weight: safeValue(container.net_weight),
+      container_gross_weight: safeValue(container.container_gross_weight),
+      weight_shortage:
+        container.physical_weight && container.tare_weight
+          ? (
+            parseFloat(container.physical_weight) -
+            parseFloat(container.tare_weight) -
+            (parseFloat(container.container_gross_weight) || 0)
+          ).toFixed(2)
+          : safeValue(container.weight_shortage),
+      weight_excess:
+        container.physical_weight && container.tare_weight
+          ? (
+            parseFloat(container.physical_weight) -
+            parseFloat(container.tare_weight) -
+            (parseFloat(container.container_gross_weight) || 0)
+          ).toFixed(2)
+          : safeValue(container.weight_excess),
+      transporter: safeValue(container.transporter),
+      transporter_date_time: safeValue(container.transporter_date_time),
+    }));
+
+
+    return {
+      container_nos,
+      checkedDocs: safeValue(data.checkedDocs, []),
+      is_obl_recieved: safeValue(data.is_obl_recieved, false),
+      document_received_date: safeValue(data.document_received_date),
+      arrival_date: safeValue(data.arrival_date),
+      vessel_flight: safeValue(data.vessel_flight, ""),
+      voyage_no: safeValue(data.voyage_no, ""),
+      vessel_berthing: safeValue(data.vessel_berthing)
+        ? new Date(data.vessel_berthing).toLocaleDateString("en-CA").split("/").reverse().join("-")
+        : "",
+      free_time: safeValue(data.free_time, 0),
+      status: safeValue(data.status),
+      detailed_status: safeValue(data.detailed_status, "ETA Date Pending"),
+      do_validity: safeValue(data.do_validity),
+      cth_no: safeValue(data.cth_no),
+      doPlanning: safeValue(data.doPlanning, false),
+      do_planning_date: safeValue(data.do_planning_date),
+      is_checklist_aprroved: safeValue(data.is_checklist_aprroved),
+      is_checklist_clicked: Boolean(safeValue(data.is_checklist_clicked, false)),
+      lockBankDetails: Boolean(safeValue(data.lockBankDetails, false)),
+      is_checklist_aprroved_date: safeValue(data.is_checklist_aprroved_date),
+      client_remark: safeValue(data.client_remark),
+      client_remark: safeValue(data.client_remark),
+      examinationPlanning: safeValue(data.examinationPlanning, false),
+      examination_planning_date: safeValue(data.examination_planning_date),
+      do_validity_upto_job_level: safeValue(data.do_validity_upto_job_level),
+      do_revalidation_upto_job_level: safeValue(data.do_revalidation_upto_job_level),
+      checklist: safeValue(data.checklist, []),
+      job_sticker_upload: safeValue(data.job_sticker_upload, []),
+      remarks: safeValue(data.remarks),
+      description: safeValue(data.description),
+      description_details:
+        Array.isArray(data.description_details) &&
+          data.description_details.length > 0
+          ? data.description_details.map((row) => ({
+              description: safeValue(row.description),
+              cth_no: safeValue(row.cth_no),
+              clearance_under: safeValue(row.clearance_under),
+              sr_no_invoice: safeValue(row.sr_no_invoice),
+              sr_no_lic: safeValue(row.sr_no_lic),
+              quantity: safeValue(row.quantity),
+              unit: safeValue(row.unit),
+              unit_price: safeValue(row.unit_price),
+              amount: safeValue(row.amount),
+              foc_item: safeValue(row.foc_item, "No"),
+              license_no: safeValue(row.license_no, ""),
+              license_date: safeValue(row.license_date, ""),
+              license_sr: safeValue(row.license_sr !== undefined && row.license_sr !== null ? row.license_sr : ""),
+              utilized_qty: safeValue(row.utilized_qty !== undefined && row.utilized_qty !== null ? row.utilized_qty : ""),
+              utilized_unit: safeValue(row.utilized_unit, ""),
+              utilized_amount: safeValue(row.utilized_amount !== undefined && row.utilized_amount !== null ? row.utilized_amount : ""),
+              amount_currency: safeValue(row.amount_currency, "USD"),
+              
+              exim_code: safeValue(row.exim_code, ""),
+              nfei_category: safeValue(row.nfei_category, ""),
+              reward_item: Boolean(safeValue(row.reward_item, false)),
+              str_code: safeValue(row.str_code, ""),
+              end_use: safeValue(row.end_use, ""),
+              district_of_origin: safeValue(row.district_of_origin, ""),
+              origin_state: safeValue(row.origin_state, ""),
+              pta_fta_code: safeValue(row.pta_fta_code, ""),
+              alternate_qty: safeValue(row.alternate_qty, ""),
+              sqc_qty: safeValue(row.sqc_qty, ""),
+              sqc_unit: safeValue(row.sqc_unit, ""),
+              material_code: safeValue(row.material_code, ""),
+              medicinal_plant: safeValue(row.medicinal_plant, ""),
+              formulation: safeValue(row.formulation, ""),
+              surface_material: safeValue(row.surface_material, ""),
+              lab_grown_diamond: safeValue(row.lab_grown_diamond, ""),
+              per: safeValue(row.per, "1"),
+              per_unit: safeValue(row.per_unit, ""),
+              
+              pmv_currency: safeValue(row.pmv_currency, "INR"),
+              pmv_calc_method: safeValue(row.pmv_calc_method, "%AGE"),
+              pmv_calc_val: safeValue(row.pmv_calc_val, ""),
+              pmv_unit: safeValue(row.pmv_unit, ""),
+              pmv_rate: safeValue(row.pmv_rate, ""),
+              total_pmv: safeValue(row.total_pmv, ""),
+              
+              igst_payment_status: safeValue(row.igst_payment_status, ""),
+              taxable_value_inr: safeValue(row.taxable_value_inr, ""),
+              taxable_value_manual: Boolean(safeValue(row.taxable_value_manual, false)),
+              igst_rate: safeValue(row.igst_rate, ""),
+              igst_amount_inr: safeValue(row.igst_amount_inr, ""),
+              igst_amount_manual: Boolean(safeValue(row.igst_amount_manual, false)),
+              comp_cess_percent: safeValue(row.comp_cess_percent, ""),
+              comp_cess_amount: safeValue(row.comp_cess_amount, ""),
+
+              bcd_notn: safeValue(row.bcd_notn, ""),
+              bcd_sr_no: safeValue(row.bcd_sr_no, ""),
+              bcd_rate: safeValue(row.bcd_rate, ""),
+              bcd_specific_rate: safeValue(row.bcd_specific_rate, ""),
+              bcd_unit: safeValue(row.bcd_unit, ""),
+              bcd_flag: safeValue(row.bcd_flag, ""),
+              bcd_amount: safeValue(row.bcd_amount, ""),
+
+              aidc_notn: safeValue(row.aidc_notn, ""),
+              aidc_sr_no: safeValue(row.aidc_sr_no, ""),
+              aidc_rate: safeValue(row.aidc_rate, ""),
+              aidc_specific_rate: safeValue(row.aidc_specific_rate, ""),
+              aidc_unit: safeValue(row.aidc_unit, ""),
+              aidc_amount: safeValue(row.aidc_amount, ""),
+
+              sw_surcharge_notn: safeValue(row.sw_surcharge_notn, ""),
+              sw_surcharge_sr_no: safeValue(row.sw_surcharge_sr_no, ""),
+              sw_surcharge_rate: safeValue(row.sw_surcharge_rate, "10.00"),
+              sw_surcharge_foc: safeValue(row.sw_surcharge_foc, "No"),
+              sw_surcharge_amount: safeValue(row.sw_surcharge_amount, ""),
+
+              igst_notn: safeValue(row.igst_notn, ""),
+              igst_sr_no: safeValue(row.igst_sr_no, ""),
+              igst_specific_rate: safeValue(row.igst_specific_rate, ""),
+              igst_unit: safeValue(row.igst_unit, ""),
+              igst_type: safeValue(row.igst_type, "C - Customs"),
+
+              igst_exc_notn: safeValue(row.igst_exc_notn, ""),
+              igst_exc_sr_no: safeValue(row.igst_exc_sr_no, ""),
+              igst_exc_rate: safeValue(row.igst_exc_rate, ""),
+              igst_exc_amount: safeValue(row.igst_exc_amount, ""),
+
+              comp_cess_notn: safeValue(row.comp_cess_notn, ""),
+              comp_cess_sr_no: safeValue(row.comp_cess_sr_no, ""),
+              comp_cess_specific_rate: safeValue(row.comp_cess_specific_rate, ""),
+              comp_cess_unit: safeValue(row.comp_cess_unit, ""),
+
+              comp_exc_notn: safeValue(row.comp_exc_notn, ""),
+              comp_exc_sr_no: safeValue(row.comp_exc_sr_no, ""),
+              comp_exc_rate: safeValue(row.comp_exc_rate, ""),
+              comp_exc_specific_rate: safeValue(row.comp_exc_specific_rate, ""),
+              comp_exc_amount: safeValue(row.comp_exc_amount, ""),
+
+              safeguard_notn: safeValue(row.safeguard_notn, ""),
+              safeguard_sr_no: safeValue(row.safeguard_sr_no, ""),
+              safeguard_rate: safeValue(row.safeguard_rate, ""),
+              safeguard_specific_rate: safeValue(row.safeguard_specific_rate, ""),
+              safeguard_amount: safeValue(row.safeguard_amount, ""),
+
+              sapta_notn: safeValue(row.sapta_notn, ""),
+              sapta_sr_no: safeValue(row.sapta_sr_no, ""),
+              sapta_rate: safeValue(row.sapta_rate, ""),
+              sapta_amount: safeValue(row.sapta_amount, ""),
+
+              standard_uqc_qty: safeValue(row.standard_uqc_qty, ""),
+              standard_uqc_unit: safeValue(row.standard_uqc_unit, ""),
+              total_duty_amount: safeValue(row.total_duty_amount, "")
+            }))
+          : [
+            {
+              description: safeValue(data.description),
+              cth_no: safeValue(data.cth_no),
+              clearance_under: safeValue(data.clearanceValue),
+              sr_no_invoice: safeValue(data.invoice_number),
+              sr_no_lic: "",
+              quantity: safeValue(data.no_of_pkgs),
+              unit: safeValue(data.unit),
+              unit_price: "",
+              amount: "",
+              foc_item: "No",
+              license_no: "",
+              license_date: "",
+              license_sr: "",
+              utilized_qty: "",
+              utilized_unit: "",
+              utilized_amount: "",
+              amount_currency: "USD",
+
+              exim_code: "",
+              nfei_category: "",
+              reward_item: false,
+              str_code: "",
+              end_use: "",
+              district_of_origin: "",
+              origin_state: "",
+              pta_fta_code: "",
+              alternate_qty: "",
+              sqc_qty: "",
+              sqc_unit: "",
+              material_code: "",
+              medicinal_plant: "",
+              formulation: "",
+              surface_material: "",
+              lab_grown_diamond: "",
+              per: "1",
+              per_unit: "",
+
+              pmv_currency: "INR",
+              pmv_calc_method: "%AGE",
+              pmv_calc_val: "",
+              pmv_unit: "",
+              pmv_rate: "",
+              total_pmv: "",
+
+              igst_payment_status: "",
+              taxable_value_inr: "",
+              taxable_value_manual: false,
+              igst_rate: "",
+              igst_amount_inr: "",
+              igst_amount_manual: false,
+              comp_cess_percent: "",
+              comp_cess_amount: "",
+
+              bcd_notn: "",
+              bcd_sr_no: "",
+              bcd_rate: "",
+              bcd_specific_rate: "",
+              bcd_unit: "",
+              bcd_flag: "",
+              bcd_amount: "",
+
+              aidc_notn: "",
+              aidc_sr_no: "",
+              aidc_rate: "",
+              aidc_specific_rate: "",
+              aidc_unit: "",
+              aidc_amount: "",
+
+              sw_surcharge_notn: "",
+              sw_surcharge_sr_no: "",
+              sw_surcharge_rate: "10.00",
+              sw_surcharge_foc: "No",
+              sw_surcharge_amount: "",
+
+              igst_notn: "",
+              igst_sr_no: "",
+              igst_specific_rate: "",
+              igst_unit: "",
+              igst_type: "C - Customs",
+
+              igst_exc_notn: "",
+              igst_exc_sr_no: "",
+              igst_exc_rate: "",
+              igst_exc_amount: "",
+
+              comp_cess_notn: "",
+              comp_cess_sr_no: "",
+              comp_cess_specific_rate: "",
+              comp_cess_unit: "",
+
+              comp_exc_notn: "",
+              comp_exc_sr_no: "",
+              comp_exc_rate: "",
+              comp_exc_specific_rate: "",
+              comp_exc_amount: "",
+
+              safeguard_notn: "",
+              safeguard_sr_no: "",
+              safeguard_rate: "",
+              safeguard_specific_rate: "",
+              safeguard_amount: "",
+
+              sapta_notn: "",
+              sapta_sr_no: "",
+              sapta_rate: "",
+              sapta_amount: "",
+
+              standard_uqc_qty: "",
+              standard_uqc_unit: "",
+              total_duty_amount: ""
+            },
+          ],
+      consignment_type: safeValue(data.consignment_type),
+      sims_reg_no: safeValue(data.sims_reg_no),
+      pims_reg_no: safeValue(data.pims_reg_no),
+      nfmims_reg_no: safeValue(data.nfmims_reg_no),
+      sims_date: safeValue(data.sims_date),
+      pims_date: safeValue(data.pims_date),
+      nfmims_date: safeValue(data.nfmims_date),
+      nfims_no: safeValue(data.nfims_no),
+      nfims_date: safeValue(data.nfims_date),
+      sims_no: safeValue(data.sims_no),
+      sims_date: safeValue(data.sims_date),
+      delivery_date: safeValue(data.delivery_date),
+      gateway_igm_date: safeValue(data.gateway_igm_date),
+      gateway_igm: safeValue(data.gateway_igm),
+      igm_date: safeValue(data.igm_date),
+      igm_no: safeValue(data.igm_no),
+      line_no: safeValue(data.line_no),
+      no_of_pkgs: safeValue(data.no_of_pkgs),
+      unit: safeValue(data.unit),
+      hss: safeValue(data.hss),
+      is_sent_to_submission: safeValue(data.is_sent_to_submission, false),
+      sent_to_submission_user_name: safeValue(data.sent_to_submission_user_name, ""),
+      sent_to_submission_date_time: safeValue(data.sent_to_submission_date_time, ""),
+      saller_name: safeValue(data.saller_name),
+      hss_address: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.category) : safeValue(data.hss_address),
+      hss_address_details: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.details) : safeValue(data.hss_address_details),
+      hss_branch_id: safeValue(data.hss_branch_id),
+      hss_city: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.city) : safeValue(data.hss_city),
+      hss_state: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.state) : safeValue(data.hss_state),
+      hss_ie_code_no: safeValue(data.hss_ie_code_no),
+      hss_postal_code: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.postal_code) : safeValue(data.hss_postal_code),
+      hss_country: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.country) : safeValue(data.hss_country),
+      hss_ad_code: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.ad_code) : safeValue(data.hss_ad_code),
+      adCode: safeValue(data.adCode),
+      bank_name: safeValue(data.bank_name),
+      firstCheck: safeValue(data.firstCheck),
+      priorityJob: safeValue(data.priorityJob, "Normal"),
+      emptyContainerOffLoadDate: safeValue(data.emptyContainerOffLoadDate),
+      job_net_weight: safeValue(data.job_net_weight),
+      payment_method: safeValue(data.payment_method, "Transaction"),
+      gross_weight: safeValue(data.gross_weight),
+      fta_Benefit_date_time: safeValue(data.fta_Benefit_date_time),
+      be_no: safeValue(data.be_no),
+      in_bond_be_no: safeValue(data.in_bond_be_no),
+      be_date: safeValue(data.be_date),
+      be_filing_type: safeValue(data.be_filing_type),
+      in_bond_be_date: safeValue(data.in_bond_be_date),
+      discharge_date: safeValue(data.discharge_date),
+      hawb_hbl_date: safeValue(data.hawb_hbl_date),
+      hawb_hbl_no: safeValue(data.hawb_hbl_no),
+      awb_bl_date: safeValue(data.awb_bl_date),
+      awb_bl_no: safeValue(data.awb_bl_no),
+      assessment_date: safeValue(data.assessment_date),
+      examination_date: safeValue(data.examination_date),
+      pcv_date: safeValue(data.pcv_date),
+      type_of_b_e: safeValue(data.type_of_b_e),
+      exBondValue: safeValue(data.exBondValue),
+      scheme: safeValue(data.scheme),
+      clearanceValue: safeValue(data.clearanceValue),
+      duty_paid_date: safeValue(data.duty_paid_date),
+      assessable_ammount: safeValue(data.assessable_ammount),
+      penalty_amount: safeValue(data.penalty_amount),
+      fine_amount: safeValue(data.fine_amount),
+      igst_ammount: safeValue(data.igst_ammount),
+      sws_ammount: safeValue(data.sws_ammount),
+      intrest_ammount: safeValue(data.intrest_ammount),
+      bcd_ammount: safeValue(data.bcd_ammount),
+      total_duty: safeValue(data.total_duty),
+      do_copies: safeValue(data.do_copies, []),
+      do_queries: safeValue(data.do_queries, []),
+      documentationQueries: safeValue(data.documentationQueries, []),
+      submissionQueries: safeValue(data.submissionQueries, []),
+      eSachitQueries: safeValue(data.eSachitQueries, []),
+      processed_be_attachment: safeValue(data.processed_be_attachment, []),
+      part_iii_duties: safeValue(data.part_iii_duties, []),
+      ooc_copies: safeValue(data.ooc_copies, []),
+      in_bond_ooc_copies: safeValue(data.in_bond_ooc_copies, []),
+      gate_pass_copies: safeValue(data.gate_pass_copies, []),
+      all_documents: safeValue(data.all_documents, []),
+      do_revalidation: safeValue(data.do_revalidation, false),
+      do_revalidation_date: safeValue(data.do_revalidation_date),
+      documentation_completed_date_time: safeValue(data.documentation_completed_date_time),
+      submission_completed_date_time: safeValue(data.submission_completed_date_time),
+      completed_operation_date: safeValue(data.completed_operation_date),
+      esanchit_completed_date_time: safeValue(data.esanchit_completed_date_time),
+      delivery_completed_date: safeValue(data.delivery_completed_date),
+      bill_document_sent_to_accounts: safeValue(data.bill_document_sent_to_accounts),
+      billing_confirmation_date: safeValue(data.billing_confirmation_date),
+      do_completed: safeValue(data.do_completed),
+      import_terms: safeValue(data.import_terms),
+      freight: safeValue(data.freight),
+      insurance: safeValue(data.insurance),
+      invoice_number: safeValue(data.invoice_number),
+      invoice_date: safeValue(data.invoice_date),
+      po_no: safeValue(data.po_no),
+      po_date: safeValue(data.po_date),
+      total_inv_value: safeValue(data.total_inv_value),
+      invoice_details:
+        Array.isArray(data.invoice_details) && data.invoice_details.length > 0
+          ? safeValue(data.invoice_details, []).map(inv => ({
+              ...inv,
+              po_no: inv.po_no || "",
+              po_date: inv.po_date || "",
+              po_details: inv.po_details && inv.po_details.length > 0
+                ? inv.po_details.map(p => ({ po_no: p.po_no || "", po_date: p.po_date || "" }))
+                : [{ po_no: inv.po_no || "", po_date: inv.po_date || "" }],
+              freight_currency: inv.freight_currency || inv.inv_currency || "",
+              insurance_currency: inv.insurance_currency || "INR",
+              misc_currency: inv.misc_currency || inv.other_charges_currency || "USD",
+              misc: inv.misc || inv.other_charges || "",
+              exchange_rate: inv.exchange_rate || "",
+              freight_exchange_rate: inv.freight_exchange_rate || "",
+              insurance_exchange_rate: inv.insurance_exchange_rate || "",
+              misc_exchange_rate: inv.misc_exchange_rate || inv.other_charges_exchange_rate || "",
+            }))
+          : [
+              {
+                invoice_number: safeValue(data.invoice_number),
+                invoice_date: safeValue(data.invoice_date),
+                po_no: safeValue(data.po_no),
+                po_date: safeValue(data.po_date),
+                po_details: [{ po_no: safeValue(data.po_no), po_date: safeValue(data.po_date) }],
+                total_inv_value: safeValue(data.total_inv_value),
+                inv_currency: safeValue(data.inv_currency),
+                toi: safeValue(data.import_terms) || "CIF",
+                freight: safeValue(data.freight),
+                insurance: safeValue(data.insurance),
+                freight_currency: safeValue(data.inv_currency),
+                insurance_currency: "INR",
+                misc_currency: "USD",
+                misc: "",
+                exchange_rate: safeValue(data.exrate),
+                freight_exchange_rate: safeValue(data.exrate),
+                insurance_exchange_rate: "1",
+                misc_exchange_rate: "1",
+              },
+            ],
+      bill_date: safeValue(data.bill_date),
+      bill_no: safeValue(data.bill_no),
+      cifValue: safeValue(data.cifValue),
+      cif_amount: safeValue(data.cif_amount),
+      exrate: safeValue(data.exrate),
+      out_of_charge: safeValue(data.out_of_charge),
+      checked: safeValue(data.checked, false),
+      type_of_Do: safeValue(data.type_of_Do),
+      obl_telex_bl: safeValue(data.obl_telex_bl),
+
+      dsr_queries: safeValue(data.dsr_queries, []),
+      other_charges_details: (() => {
+        const dbDetails = safeValue(data.other_charges_details, {});
+        
+        let fRate = 20;
+        if (dbDetails.freight?.rate !== undefined && dbDetails.freight?.rate !== null && dbDetails.freight?.rate !== "") {
+          const parsedRate = parseFloat(dbDetails.freight.rate);
+          if (!isNaN(parsedRate)) {
+            const amt = parseFloat(dbDetails.freight.amount) || 0;
+            if (parsedRate !== 0 || amt > 0) {
+              fRate = parsedRate;
+            }
+          }
+        }
+
+        let iRate = 1.125;
+        if (dbDetails.insurance?.rate !== undefined && dbDetails.insurance?.rate !== null && dbDetails.insurance?.rate !== "") {
+          const parsedRate = parseFloat(dbDetails.insurance.rate);
+          if (!isNaN(parsedRate)) {
+            const amt = parseFloat(dbDetails.insurance.amount) || 0;
+            if (parsedRate !== 0 || amt > 0) {
+              iRate = parsedRate;
+            }
+          }
+        }
+
+        return {
+          is_single_for_all: dbDetails.is_single_for_all !== undefined ? dbDetails.is_single_for_all : true,
+          miscellaneous: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.miscellaneous || {}) },
+          agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.agency || {}) },
+          discount: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.discount || {}) },
+          loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.loading || {}) },
+          freight: { currency: safeValue(data.inv_currency), exchange_rate: 1, amount: 0, remark: "", ...(dbDetails.freight || {}), rate: fRate },
+          insurance: { currency: "INR", exchange_rate: 1, amount: 0, remark: "", ...(dbDetails.insurance || {}), rate: iRate },
+          addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.addl_charge || {}) },
+          revenue_deposit: { rate: 0, on: "Assessable", ...(dbDetails.revenue_deposit || {}) },
+          landing_charge: { rate: 0, ...(dbDetails.landing_charge || {}) }
+        };
+      })(),
+      misc_charges: safeValue(data.misc_charges, []),
+    };
+  };
+
   // Update formik intial values when data is fetched from db
   useEffect(() => {
     if (data) {
+      if (skipDataEffectsRef.current) {
+        // A live merge already set the form values; only follow a registration type change
+        if (regNoTypeOf(prevDataRef.current) !== regNoTypeOf(data)) {
+          setSelectedRegNo(regNoTypeOf(data));
+        }
+        return;
+      }
       setSelectedRegNo(
         data.sims_reg_no
           ? "sims"
@@ -971,511 +1527,9 @@ function useFetchJobDetails(
               : ""
       );
 
-      const container_nos = safeValue(data.container_nos, []).map((container) => ({
-        do_revalidation: safeValue(container.do_revalidation, []),
-        required_do_validity_upto: safeValue(container.required_do_validity_upto),
-        arrival_date: checked
-          ? safeValue(data.arrival_date)
-          : safeValue(container.arrival_date)
-            ? convertDateFormatForUI(container.arrival_date)
-            : "",
-        detention_from: safeValue(container.detention_from, ""),
-        container_number: safeValue(container.container_number),
-        size: safeValue(container.size, "20"),
-        seal_number: Array.isArray(container.seal_number) ? container.seal_number : (container.seal_number ? [container.seal_number] : []),
-        wire_seal: Array.isArray(container.wire_seal) ? container.wire_seal : (container.wire_seal ? [container.wire_seal] : []),
-        net_weight_as_per_PL_document: safeValue(container.net_weight_as_per_PL_document),
-        container_rail_out_date: safeValue(container.container_rail_out_date),
-        by_road_movement_date: safeValue(container.by_road_movement_date),
-        delivery_date: safeValue(container.delivery_date),
-        emptyContainerOffLoadDate: safeValue(container.emptyContainerOffLoadDate),
-        weighment_slip_images: safeValue(container.weighment_slip_images, []),
-        container_images: safeValue(container.container_images, []),
-        loose_material_photo: safeValue(container.loose_material_photo, []),
-        loose_material: safeValue(container.loose_material, []),
-        examination_videos: safeValue(container.examination_videos, []),
-        container_pre_damage_images: safeValue(container.container_pre_damage_images, []),
-        physical_weight: safeValue(container.physical_weight),
-        do_revalidation_date: safeValue(container.do_revalidation_date),
-        do_validity_upto_container_level: safeValue(container.do_validity_upto_container_level),
-        do_revalidation_upto_container_level: safeValue(container.do_revalidation_upto_container_level),
-        tare_weight: safeValue(container.tare_weight),
-        actual_weight:
-          container.physical_weight && container.tare_weight
-            ? (parseFloat(container.physical_weight) - parseFloat(container.tare_weight)).toFixed(2)
-            : safeValue(container.actual_weight),
-        net_weight: safeValue(container.net_weight),
-        container_gross_weight: safeValue(container.container_gross_weight),
-        weight_shortage:
-          container.physical_weight && container.tare_weight
-            ? (
-              parseFloat(container.physical_weight) -
-              parseFloat(container.tare_weight) -
-              (parseFloat(container.container_gross_weight) || 0)
-            ).toFixed(2)
-            : safeValue(container.weight_shortage),
-        weight_excess:
-          container.physical_weight && container.tare_weight
-            ? (
-              parseFloat(container.physical_weight) -
-              parseFloat(container.tare_weight) -
-              (parseFloat(container.container_gross_weight) || 0)
-            ).toFixed(2)
-            : safeValue(container.weight_excess),
-        transporter: safeValue(container.transporter),
-        transporter_date_time: safeValue(container.transporter_date_time),
-      }));
-
-
-      formik.setValues({
-        container_nos,
-        checkedDocs: safeValue(data.checkedDocs, []),
-        is_obl_recieved: safeValue(data.is_obl_recieved, false),
-        document_received_date: safeValue(data.document_received_date),
-        arrival_date: safeValue(data.arrival_date),
-        vessel_flight: safeValue(data.vessel_flight, ""),
-        voyage_no: safeValue(data.voyage_no, ""),
-        vessel_berthing: safeValue(data.vessel_berthing)
-          ? new Date(data.vessel_berthing).toLocaleDateString("en-CA").split("/").reverse().join("-")
-          : "",
-        free_time: safeValue(data.free_time, 0),
-        status: safeValue(data.status),
-        detailed_status: safeValue(data.detailed_status, "ETA Date Pending"),
-        do_validity: safeValue(data.do_validity),
-        cth_no: safeValue(data.cth_no),
-        doPlanning: safeValue(data.doPlanning, false),
-        do_planning_date: safeValue(data.do_planning_date),
-        is_checklist_aprroved: safeValue(data.is_checklist_aprroved),
-        is_checklist_clicked: Boolean(safeValue(data.is_checklist_clicked, false)),
-        lockBankDetails: Boolean(safeValue(data.lockBankDetails, false)),
-        is_checklist_aprroved_date: safeValue(data.is_checklist_aprroved_date),
-        client_remark: safeValue(data.client_remark),
-        client_remark: safeValue(data.client_remark),
-        examinationPlanning: safeValue(data.examinationPlanning, false),
-        examination_planning_date: safeValue(data.examination_planning_date),
-        do_validity_upto_job_level: safeValue(data.do_validity_upto_job_level),
-        do_revalidation_upto_job_level: safeValue(data.do_revalidation_upto_job_level),
-        checklist: safeValue(data.checklist, []),
-        job_sticker_upload: safeValue(data.job_sticker_upload, []),
-        remarks: safeValue(data.remarks),
-        description: safeValue(data.description),
-        description_details:
-          Array.isArray(data.description_details) &&
-            data.description_details.length > 0
-            ? data.description_details.map((row) => ({
-                description: safeValue(row.description),
-                cth_no: safeValue(row.cth_no),
-                clearance_under: safeValue(row.clearance_under),
-                sr_no_invoice: safeValue(row.sr_no_invoice),
-                sr_no_lic: safeValue(row.sr_no_lic),
-                quantity: safeValue(row.quantity),
-                unit: safeValue(row.unit),
-                unit_price: safeValue(row.unit_price),
-                amount: safeValue(row.amount),
-                foc_item: safeValue(row.foc_item, "No"),
-                license_no: safeValue(row.license_no, ""),
-                license_date: safeValue(row.license_date, ""),
-                license_sr: safeValue(row.license_sr !== undefined && row.license_sr !== null ? row.license_sr : ""),
-                utilized_qty: safeValue(row.utilized_qty !== undefined && row.utilized_qty !== null ? row.utilized_qty : ""),
-                utilized_unit: safeValue(row.utilized_unit, ""),
-                utilized_amount: safeValue(row.utilized_amount !== undefined && row.utilized_amount !== null ? row.utilized_amount : ""),
-                amount_currency: safeValue(row.amount_currency, "USD"),
-                
-                exim_code: safeValue(row.exim_code, ""),
-                nfei_category: safeValue(row.nfei_category, ""),
-                reward_item: Boolean(safeValue(row.reward_item, false)),
-                str_code: safeValue(row.str_code, ""),
-                end_use: safeValue(row.end_use, ""),
-                district_of_origin: safeValue(row.district_of_origin, ""),
-                origin_state: safeValue(row.origin_state, ""),
-                pta_fta_code: safeValue(row.pta_fta_code, ""),
-                alternate_qty: safeValue(row.alternate_qty, ""),
-                sqc_qty: safeValue(row.sqc_qty, ""),
-                sqc_unit: safeValue(row.sqc_unit, ""),
-                material_code: safeValue(row.material_code, ""),
-                medicinal_plant: safeValue(row.medicinal_plant, ""),
-                formulation: safeValue(row.formulation, ""),
-                surface_material: safeValue(row.surface_material, ""),
-                lab_grown_diamond: safeValue(row.lab_grown_diamond, ""),
-                per: safeValue(row.per, "1"),
-                per_unit: safeValue(row.per_unit, ""),
-                
-                pmv_currency: safeValue(row.pmv_currency, "INR"),
-                pmv_calc_method: safeValue(row.pmv_calc_method, "%AGE"),
-                pmv_calc_val: safeValue(row.pmv_calc_val, ""),
-                pmv_unit: safeValue(row.pmv_unit, ""),
-                pmv_rate: safeValue(row.pmv_rate, ""),
-                total_pmv: safeValue(row.total_pmv, ""),
-                
-                igst_payment_status: safeValue(row.igst_payment_status, ""),
-                taxable_value_inr: safeValue(row.taxable_value_inr, ""),
-                taxable_value_manual: Boolean(safeValue(row.taxable_value_manual, false)),
-                igst_rate: safeValue(row.igst_rate, ""),
-                igst_amount_inr: safeValue(row.igst_amount_inr, ""),
-                igst_amount_manual: Boolean(safeValue(row.igst_amount_manual, false)),
-                comp_cess_percent: safeValue(row.comp_cess_percent, ""),
-                comp_cess_amount: safeValue(row.comp_cess_amount, ""),
-
-                bcd_notn: safeValue(row.bcd_notn, ""),
-                bcd_sr_no: safeValue(row.bcd_sr_no, ""),
-                bcd_rate: safeValue(row.bcd_rate, ""),
-                bcd_specific_rate: safeValue(row.bcd_specific_rate, ""),
-                bcd_unit: safeValue(row.bcd_unit, ""),
-                bcd_flag: safeValue(row.bcd_flag, ""),
-                bcd_amount: safeValue(row.bcd_amount, ""),
-
-                aidc_notn: safeValue(row.aidc_notn, ""),
-                aidc_sr_no: safeValue(row.aidc_sr_no, ""),
-                aidc_rate: safeValue(row.aidc_rate, ""),
-                aidc_specific_rate: safeValue(row.aidc_specific_rate, ""),
-                aidc_unit: safeValue(row.aidc_unit, ""),
-                aidc_amount: safeValue(row.aidc_amount, ""),
-
-                sw_surcharge_notn: safeValue(row.sw_surcharge_notn, ""),
-                sw_surcharge_sr_no: safeValue(row.sw_surcharge_sr_no, ""),
-                sw_surcharge_rate: safeValue(row.sw_surcharge_rate, "10.00"),
-                sw_surcharge_foc: safeValue(row.sw_surcharge_foc, "No"),
-                sw_surcharge_amount: safeValue(row.sw_surcharge_amount, ""),
-
-                igst_notn: safeValue(row.igst_notn, ""),
-                igst_sr_no: safeValue(row.igst_sr_no, ""),
-                igst_specific_rate: safeValue(row.igst_specific_rate, ""),
-                igst_unit: safeValue(row.igst_unit, ""),
-                igst_type: safeValue(row.igst_type, "C - Customs"),
-
-                igst_exc_notn: safeValue(row.igst_exc_notn, ""),
-                igst_exc_sr_no: safeValue(row.igst_exc_sr_no, ""),
-                igst_exc_rate: safeValue(row.igst_exc_rate, ""),
-                igst_exc_amount: safeValue(row.igst_exc_amount, ""),
-
-                comp_cess_notn: safeValue(row.comp_cess_notn, ""),
-                comp_cess_sr_no: safeValue(row.comp_cess_sr_no, ""),
-                comp_cess_specific_rate: safeValue(row.comp_cess_specific_rate, ""),
-                comp_cess_unit: safeValue(row.comp_cess_unit, ""),
-
-                comp_exc_notn: safeValue(row.comp_exc_notn, ""),
-                comp_exc_sr_no: safeValue(row.comp_exc_sr_no, ""),
-                comp_exc_rate: safeValue(row.comp_exc_rate, ""),
-                comp_exc_specific_rate: safeValue(row.comp_exc_specific_rate, ""),
-                comp_exc_amount: safeValue(row.comp_exc_amount, ""),
-
-                safeguard_notn: safeValue(row.safeguard_notn, ""),
-                safeguard_sr_no: safeValue(row.safeguard_sr_no, ""),
-                safeguard_rate: safeValue(row.safeguard_rate, ""),
-                safeguard_specific_rate: safeValue(row.safeguard_specific_rate, ""),
-                safeguard_amount: safeValue(row.safeguard_amount, ""),
-
-                sapta_notn: safeValue(row.sapta_notn, ""),
-                sapta_sr_no: safeValue(row.sapta_sr_no, ""),
-                sapta_rate: safeValue(row.sapta_rate, ""),
-                sapta_amount: safeValue(row.sapta_amount, ""),
-
-                standard_uqc_qty: safeValue(row.standard_uqc_qty, ""),
-                standard_uqc_unit: safeValue(row.standard_uqc_unit, ""),
-                total_duty_amount: safeValue(row.total_duty_amount, "")
-              }))
-            : [
-              {
-                description: safeValue(data.description),
-                cth_no: safeValue(data.cth_no),
-                clearance_under: safeValue(data.clearanceValue),
-                sr_no_invoice: safeValue(data.invoice_number),
-                sr_no_lic: "",
-                quantity: safeValue(data.no_of_pkgs),
-                unit: safeValue(data.unit),
-                unit_price: "",
-                amount: "",
-                foc_item: "No",
-                license_no: "",
-                license_date: "",
-                license_sr: "",
-                utilized_qty: "",
-                utilized_unit: "",
-                utilized_amount: "",
-                amount_currency: "USD",
-
-                exim_code: "",
-                nfei_category: "",
-                reward_item: false,
-                str_code: "",
-                end_use: "",
-                district_of_origin: "",
-                origin_state: "",
-                pta_fta_code: "",
-                alternate_qty: "",
-                sqc_qty: "",
-                sqc_unit: "",
-                material_code: "",
-                medicinal_plant: "",
-                formulation: "",
-                surface_material: "",
-                lab_grown_diamond: "",
-                per: "1",
-                per_unit: "",
-
-                pmv_currency: "INR",
-                pmv_calc_method: "%AGE",
-                pmv_calc_val: "",
-                pmv_unit: "",
-                pmv_rate: "",
-                total_pmv: "",
-
-                igst_payment_status: "",
-                taxable_value_inr: "",
-                taxable_value_manual: false,
-                igst_rate: "",
-                igst_amount_inr: "",
-                igst_amount_manual: false,
-                comp_cess_percent: "",
-                comp_cess_amount: "",
-
-                bcd_notn: "",
-                bcd_sr_no: "",
-                bcd_rate: "",
-                bcd_specific_rate: "",
-                bcd_unit: "",
-                bcd_flag: "",
-                bcd_amount: "",
-
-                aidc_notn: "",
-                aidc_sr_no: "",
-                aidc_rate: "",
-                aidc_specific_rate: "",
-                aidc_unit: "",
-                aidc_amount: "",
-
-                sw_surcharge_notn: "",
-                sw_surcharge_sr_no: "",
-                sw_surcharge_rate: "10.00",
-                sw_surcharge_foc: "No",
-                sw_surcharge_amount: "",
-
-                igst_notn: "",
-                igst_sr_no: "",
-                igst_specific_rate: "",
-                igst_unit: "",
-                igst_type: "C - Customs",
-
-                igst_exc_notn: "",
-                igst_exc_sr_no: "",
-                igst_exc_rate: "",
-                igst_exc_amount: "",
-
-                comp_cess_notn: "",
-                comp_cess_sr_no: "",
-                comp_cess_specific_rate: "",
-                comp_cess_unit: "",
-
-                comp_exc_notn: "",
-                comp_exc_sr_no: "",
-                comp_exc_rate: "",
-                comp_exc_specific_rate: "",
-                comp_exc_amount: "",
-
-                safeguard_notn: "",
-                safeguard_sr_no: "",
-                safeguard_rate: "",
-                safeguard_specific_rate: "",
-                safeguard_amount: "",
-
-                sapta_notn: "",
-                sapta_sr_no: "",
-                sapta_rate: "",
-                sapta_amount: "",
-
-                standard_uqc_qty: "",
-                standard_uqc_unit: "",
-                total_duty_amount: ""
-              },
-            ],
-        consignment_type: safeValue(data.consignment_type),
-        sims_reg_no: safeValue(data.sims_reg_no),
-        pims_reg_no: safeValue(data.pims_reg_no),
-        nfmims_reg_no: safeValue(data.nfmims_reg_no),
-        sims_date: safeValue(data.sims_date),
-        pims_date: safeValue(data.pims_date),
-        nfmims_date: safeValue(data.nfmims_date),
-        nfims_no: safeValue(data.nfims_no),
-        nfims_date: safeValue(data.nfims_date),
-        sims_no: safeValue(data.sims_no),
-        sims_date: safeValue(data.sims_date),
-        delivery_date: safeValue(data.delivery_date),
-        gateway_igm_date: safeValue(data.gateway_igm_date),
-        gateway_igm: safeValue(data.gateway_igm),
-        igm_date: safeValue(data.igm_date),
-        igm_no: safeValue(data.igm_no),
-        line_no: safeValue(data.line_no),
-        no_of_pkgs: safeValue(data.no_of_pkgs),
-        unit: safeValue(data.unit),
-        hss: safeValue(data.hss),
-        is_sent_to_submission: safeValue(data.is_sent_to_submission, false),
-        sent_to_submission_user_name: safeValue(data.sent_to_submission_user_name, ""),
-        sent_to_submission_date_time: safeValue(data.sent_to_submission_date_time, ""),
-        saller_name: safeValue(data.saller_name),
-        hss_address: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.category) : safeValue(data.hss_address),
-        hss_address_details: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.details) : safeValue(data.hss_address_details),
-        hss_branch_id: safeValue(data.hss_branch_id),
-        hss_city: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.city) : safeValue(data.hss_city),
-        hss_state: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.state) : safeValue(data.hss_state),
-        hss_ie_code_no: safeValue(data.hss_ie_code_no),
-        hss_postal_code: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.postal_code) : safeValue(data.hss_postal_code),
-        hss_country: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.country) : safeValue(data.hss_country),
-        hss_ad_code: data.hss_address && typeof data.hss_address === 'object' ? safeValue(data.hss_address.ad_code) : safeValue(data.hss_ad_code),
-        adCode: safeValue(data.adCode),
-        bank_name: safeValue(data.bank_name),
-        firstCheck: safeValue(data.firstCheck),
-        priorityJob: safeValue(data.priorityJob, "Normal"),
-        emptyContainerOffLoadDate: safeValue(data.emptyContainerOffLoadDate),
-        job_net_weight: safeValue(data.job_net_weight),
-        payment_method: safeValue(data.payment_method, "Transaction"),
-        gross_weight: safeValue(data.gross_weight),
-        fta_Benefit_date_time: safeValue(data.fta_Benefit_date_time),
-        be_no: safeValue(data.be_no),
-        in_bond_be_no: safeValue(data.in_bond_be_no),
-        be_date: safeValue(data.be_date),
-        be_filing_type: safeValue(data.be_filing_type),
-        in_bond_be_date: safeValue(data.in_bond_be_date),
-        discharge_date: safeValue(data.discharge_date),
-        hawb_hbl_date: safeValue(data.hawb_hbl_date),
-        hawb_hbl_no: safeValue(data.hawb_hbl_no),
-        awb_bl_date: safeValue(data.awb_bl_date),
-        awb_bl_no: safeValue(data.awb_bl_no),
-        assessment_date: safeValue(data.assessment_date),
-        examination_date: safeValue(data.examination_date),
-        pcv_date: safeValue(data.pcv_date),
-        type_of_b_e: safeValue(data.type_of_b_e),
-        exBondValue: safeValue(data.exBondValue),
-        scheme: safeValue(data.scheme),
-        clearanceValue: safeValue(data.clearanceValue),
-        duty_paid_date: safeValue(data.duty_paid_date),
-        assessable_ammount: safeValue(data.assessable_ammount),
-        penalty_amount: safeValue(data.penalty_amount),
-        fine_amount: safeValue(data.fine_amount),
-        igst_ammount: safeValue(data.igst_ammount),
-        sws_ammount: safeValue(data.sws_ammount),
-        intrest_ammount: safeValue(data.intrest_ammount),
-        bcd_ammount: safeValue(data.bcd_ammount),
-        total_duty: safeValue(data.total_duty),
-        do_copies: safeValue(data.do_copies, []),
-        do_queries: safeValue(data.do_queries, []),
-        documentationQueries: safeValue(data.documentationQueries, []),
-        submissionQueries: safeValue(data.submissionQueries, []),
-        eSachitQueries: safeValue(data.eSachitQueries, []),
-        processed_be_attachment: safeValue(data.processed_be_attachment, []),
-        part_iii_duties: safeValue(data.part_iii_duties, []),
-        ooc_copies: safeValue(data.ooc_copies, []),
-        in_bond_ooc_copies: safeValue(data.in_bond_ooc_copies, []),
-        gate_pass_copies: safeValue(data.gate_pass_copies, []),
-        all_documents: safeValue(data.all_documents, []),
-        do_revalidation: safeValue(data.do_revalidation, false),
-        do_revalidation_date: safeValue(data.do_revalidation_date),
-        documentation_completed_date_time: safeValue(data.documentation_completed_date_time),
-        submission_completed_date_time: safeValue(data.submission_completed_date_time),
-        completed_operation_date: safeValue(data.completed_operation_date),
-        esanchit_completed_date_time: safeValue(data.esanchit_completed_date_time),
-        delivery_completed_date: safeValue(data.delivery_completed_date),
-        bill_document_sent_to_accounts: safeValue(data.bill_document_sent_to_accounts),
-        billing_confirmation_date: safeValue(data.billing_confirmation_date),
-        do_completed: safeValue(data.do_completed),
-        import_terms: safeValue(data.import_terms),
-        freight: safeValue(data.freight),
-        insurance: safeValue(data.insurance),
-        invoice_number: safeValue(data.invoice_number),
-        invoice_date: safeValue(data.invoice_date),
-        po_no: safeValue(data.po_no),
-        po_date: safeValue(data.po_date),
-        total_inv_value: safeValue(data.total_inv_value),
-        invoice_details:
-          Array.isArray(data.invoice_details) && data.invoice_details.length > 0
-            ? safeValue(data.invoice_details, []).map(inv => ({
-                ...inv,
-                po_no: inv.po_no || "",
-                po_date: inv.po_date || "",
-                po_details: inv.po_details && inv.po_details.length > 0
-                  ? inv.po_details.map(p => ({ po_no: p.po_no || "", po_date: p.po_date || "" }))
-                  : [{ po_no: inv.po_no || "", po_date: inv.po_date || "" }],
-                freight_currency: inv.freight_currency || inv.inv_currency || "",
-                insurance_currency: inv.insurance_currency || "INR",
-                misc_currency: inv.misc_currency || inv.other_charges_currency || "USD",
-                misc: inv.misc || inv.other_charges || "",
-                exchange_rate: inv.exchange_rate || "",
-                freight_exchange_rate: inv.freight_exchange_rate || "",
-                insurance_exchange_rate: inv.insurance_exchange_rate || "",
-                misc_exchange_rate: inv.misc_exchange_rate || inv.other_charges_exchange_rate || "",
-              }))
-            : [
-                {
-                  invoice_number: safeValue(data.invoice_number),
-                  invoice_date: safeValue(data.invoice_date),
-                  po_no: safeValue(data.po_no),
-                  po_date: safeValue(data.po_date),
-                  po_details: [{ po_no: safeValue(data.po_no), po_date: safeValue(data.po_date) }],
-                  total_inv_value: safeValue(data.total_inv_value),
-                  inv_currency: safeValue(data.inv_currency),
-                  toi: safeValue(data.import_terms) || "CIF",
-                  freight: safeValue(data.freight),
-                  insurance: safeValue(data.insurance),
-                  freight_currency: safeValue(data.inv_currency),
-                  insurance_currency: "INR",
-                  misc_currency: "USD",
-                  misc: "",
-                  exchange_rate: safeValue(data.exrate),
-                  freight_exchange_rate: safeValue(data.exrate),
-                  insurance_exchange_rate: "1",
-                  misc_exchange_rate: "1",
-                },
-              ],
-        bill_date: safeValue(data.bill_date),
-        bill_no: safeValue(data.bill_no),
-        cifValue: safeValue(data.cifValue),
-        cif_amount: safeValue(data.cif_amount),
-        exrate: safeValue(data.exrate),
-        out_of_charge: safeValue(data.out_of_charge),
-        checked: safeValue(data.checked, false),
-        type_of_Do: safeValue(data.type_of_Do),
-        obl_telex_bl: safeValue(data.obl_telex_bl),
-
-        dsr_queries: safeValue(data.dsr_queries, []),
-        other_charges_details: (() => {
-          const dbDetails = safeValue(data.other_charges_details, {});
-          
-          let fRate = 20;
-          if (dbDetails.freight?.rate !== undefined && dbDetails.freight?.rate !== null && dbDetails.freight?.rate !== "") {
-            const parsedRate = parseFloat(dbDetails.freight.rate);
-            if (!isNaN(parsedRate)) {
-              const amt = parseFloat(dbDetails.freight.amount) || 0;
-              if (parsedRate !== 0 || amt > 0) {
-                fRate = parsedRate;
-              }
-            }
-          }
-
-          let iRate = 1.125;
-          if (dbDetails.insurance?.rate !== undefined && dbDetails.insurance?.rate !== null && dbDetails.insurance?.rate !== "") {
-            const parsedRate = parseFloat(dbDetails.insurance.rate);
-            if (!isNaN(parsedRate)) {
-              const amt = parseFloat(dbDetails.insurance.amount) || 0;
-              if (parsedRate !== 0 || amt > 0) {
-                iRate = parsedRate;
-              }
-            }
-          }
-
-          return {
-            is_single_for_all: dbDetails.is_single_for_all !== undefined ? dbDetails.is_single_for_all : true,
-            miscellaneous: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.miscellaneous || {}) },
-            agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.agency || {}) },
-            discount: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.discount || {}) },
-            loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.loading || {}) },
-            freight: { currency: safeValue(data.inv_currency), exchange_rate: 1, amount: 0, remark: "", ...(dbDetails.freight || {}), rate: fRate },
-            insurance: { currency: "INR", exchange_rate: 1, amount: 0, remark: "", ...(dbDetails.insurance || {}), rate: iRate },
-            addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.addl_charge || {}) },
-            revenue_deposit: { rate: 0, on: "Assessable", ...(dbDetails.revenue_deposit || {}) },
-            landing_charge: { rate: 0, ...(dbDetails.landing_charge || {}) }
-          };
-        })(),
-        misc_charges: safeValue(data.misc_charges, []),
-      });
+      const nextValues = buildFormValuesFromJob(data);
+      baseRef.current.values = nextValues;
+      formik.setValues(nextValues);
     }
     // eslint-disable-next-line
   }, [data]);
@@ -1985,6 +2039,125 @@ function useFetchJobDetails(
     );
   };
 
+  // Merge a newer copy of this job from the server into the page, keeping unsaved edits
+  const liveStateRef = useRef({});
+  liveStateRef.current = { values: formik.values, cthDocuments, selectedDocuments, data };
+
+  const mergeLatestJob = (latest, currentValues = liveStateRef.current.values) => {
+    const { cthDocuments: currentCth, selectedDocuments: currentDocs, data: currentData } = liveStateRef.current;
+    const conflicts = [];
+
+    const theirsValues = buildFormValuesFromJob(latest);
+    const values = baseRef.current.values
+      ? mergeThreeWay(baseRef.current.values, currentValues, theirsValues, "", conflicts)
+      : currentValues;
+
+    const baseCth = baseRef.current.cthDocuments || currentCth;
+    const theirsCth = overlayByName(baseCth, latest.cth_documents);
+    const keyOf = (doc) => doc?.document_name;
+    const mergedCth = mergeListByKey(baseCth, currentCth, theirsCth, keyOf, conflicts, "cth_documents:");
+    const mergedDocs = mergeListByKey(currentData?.documents, currentDocs, latest.documents, keyOf, conflicts, "documents:");
+
+    baseRef.current = { values: theirsValues, cthDocuments: theirsCth };
+    skipDataEffectsRef.current = true;
+    // Queries are shown from data; show the merged list so unsaved query edits stay visible
+    setData(Array.isArray(values?.dsr_queries) ? { ...latest, dsr_queries: values.dsr_queries } : latest);
+    formik.setValues(values, false);
+    setCthDocuments(mergedCth);
+    setSelectedDocuments(mergedDocs);
+
+    return { values, cthDocuments: mergedCth, selectedDocuments: mergedDocs, conflicts };
+  };
+  // Update page data without reloading the form (keeps unsaved edits)
+  const setDataWithoutReset = (updater) => {
+    setData((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      if (next !== prev) skipDataEffectsRef.current = true;
+      return next;
+    });
+  };
+
+  const mergeLatestJobRef = useRef(mergeLatestJob);
+  mergeLatestJobRef.current = mergeLatestJob;
+
+  // Used before saving; returns null (save as before) if the latest copy cannot be fetched
+  const syncWithLatestJob = async (currentValues) => {
+    if (!isJobLiveSyncEnabled() || !liveStateRef.current.data) return null;
+    try {
+      const response = await axios.get(getJobUrl(params));
+      const latest = response.data;
+      if (!latest || String(latest._id) !== String(liveStateRef.current.data._id)) return null;
+      return mergeLatestJobRef.current(latest, currentValues);
+    } catch (error) {
+      console.warn("Could not fetch latest job before saving:", error);
+      return null;
+    }
+  };
+
+  // After all data effects: remember this job and leave merge mode
+  useEffect(() => {
+    prevDataRef.current = data;
+    skipDataEffectsRef.current = false;
+  }, [data]);
+
+  // Real-time: when anyone saves this job, load it and merge it into the open page
+  const jobId = data?._id ? String(data._id) : null;
+  useEffect(() => {
+    if (!jobId) return undefined;
+    let cancelled = false;
+    let inFlight = false;
+    let pendingChange = null;
+    const myUsername = (() => {
+      try {
+        return JSON.parse(localStorage.getItem("exim_user") || "{}").username || null;
+      } catch {
+        return null;
+      }
+    })();
+
+    const refresh = async (change = null) => {
+      if (inFlight) {
+        pendingChange = change || pendingChange || {};
+        return;
+      }
+      inFlight = true;
+      try {
+        const response = await axios.get(getJobUrl(params));
+        const latest = response.data;
+        if (cancelled || !latest || String(latest._id) !== jobId) return;
+        const { conflicts } = mergeLatestJobRef.current(latest);
+        if (change?.by && change.by !== myUsername) {
+          const names = conflictFieldNames(conflicts);
+          if (names.length > 0) {
+            toast(`${change.by} updated this job. Your unsaved changes were kept for: ${names.join(", ")}`, { duration: 6000 });
+          } else {
+            toast(`${change.by} updated this job. Latest changes loaded.`, { duration: 3000 });
+          }
+        }
+      } catch (error) {
+        console.warn("Live job refresh failed:", error);
+      } finally {
+        inFlight = false;
+        if (pendingChange && !cancelled) {
+          const next = pendingChange;
+          pendingChange = null;
+          refresh(next);
+        }
+      }
+    };
+
+    const unsubscribe = subscribeToJobChanges({
+      jobIds: [jobId],
+      onChange: (change) => refresh(change),
+      onReconnect: () => refresh(),
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId]);
+
   return {
     data,
     detentionFrom,
@@ -2018,6 +2191,7 @@ function useFetchJobDetails(
     resetOtherDetails,
 
     setData,
+    setDataWithoutReset,
     isCthDocsLoading
   };
 }

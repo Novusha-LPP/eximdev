@@ -14,7 +14,10 @@ import ClientQuery from "../../model/clientQueryModel.mjs";
 import { invalidateJobTabCountsCache } from "./getJobTabCounts.mjs";
 import { recalculateContainersDetention } from "../../utils/detentionHelper.mjs";
 import { reconcileJobStatuses } from "../../services/jobStatusReconciliationService.mjs";
-import { getJobSortDate } from "../../utils/jobRanking.mjs";
+import { getJobSortDate, getJobStatusRank, STATUS_RANK_MAP } from "../../utils/jobRanking.mjs";
+import { publishJobChange } from "../../services/jobChangeBus.mjs";
+import { rankByBillingUrgency, compareByBillingUrgency } from "../../utils/billingPriority.mjs";
+import requireLoginForWrite from "../../middleware/requireLoginForWrite.mjs";
 
 const router = express.Router();
 
@@ -153,7 +156,7 @@ const criticalFields = `
   do_validity do_completed is_og_doc_recieved og_doc_recieved_date
   do_shipping_line_invoice port_of_reporting type_of_b_e consignment_type
   bill_date supplier_exporter cth_documents assessment_date duty_paid_date
-  pcv_date out_of_charge free_time loading_port RMS do_validity_upto_job_level 
+  pcv_date out_of_charge do_planning_date free_time loading_port RMS do_validity_upto_job_level 
   bill_amount processed_be_attachment ooc_copies gate_pass_copies fta_Benefit_date_time 
   origin_country hss saller_name adCode by_road_movement_date description 
   hss_address hss_address_details hss_branch_id hss_city hss_ie_code_no hss_postal_code hss_country hss_ad_code
@@ -396,8 +399,18 @@ router.get(
         do_completed_and_delivery_pending: "Do completed and Delivery pending",
       };
 
+      // "DO Planning" is not a job status: it lists jobs planned today (IST, same rule as the DO module),
+      // earliest planned time first
+      const isDoPlanningFilter = detailedStatus === "DO Planning";
+      if (isDoPlanningFilter) {
+        const todayIST = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+        }).format(new Date()); // YYYY-MM-DD
+        query.do_planning_date = { $regex: new RegExp(`^${todayIST}`) };
+      }
+
       const requestedDetailedStatus =
-        detailedStatus !== "all"
+        detailedStatus !== "all" && !isDoPlanningFilter
           ? statusMapping[detailedStatus.toLowerCase()] || statusMapping[detailedStatus] || detailedStatus
           : null;
 
@@ -421,12 +434,22 @@ router.get(
         query.$and.push(buildSearchQuery(searchTerm));
       }
 
+      // Job numbers with open client queries; looked up once per request and shared by the
+      // Pending Queries filter (step 7) and the unresolved count (step 11)
+      let openQueryJobNosPromise = null;
+      const getOpenQueryJobNos = () => {
+        if (!openQueryJobNosPromise) {
+          openQueryJobNosPromise = ClientQuery.distinct("job_no", {
+            module_type: "import",
+            $or: [{ status: "open" }, { seenByAdmin: false }],
+          });
+        }
+        return openQueryJobNosPromise;
+      };
+
       // 7) unresolvedOnly
       if (unresolvedOnly === "true") {
-        const openQueryJobNos = await ClientQuery.distinct("job_no", {
-          module_type: "import",
-          $or: [{ status: "open" }, { seenByAdmin: false }],
-        });
+        const openQueryJobNos = await getOpenQueryJobNos();
         query.$and = query.$and || [];
         query.$and.push({
           $or: [
@@ -453,10 +476,13 @@ router.get(
         limit,
         unresolvedOnly,
         branchId,
+        category,
         tradeType,
         mode,
         user: req.currentUser?.username || req.headers["x-username"] || null,
       });
+      // Totals are the same for every page of a filter: cache them without page/limit
+      const countsCacheKey = JSON.stringify({ ...JSON.parse(cacheKey), page: undefined, limit: undefined, kind: "counts" });
 
       if (!bypassCache) {
         const cached = getCache(cacheKey);
@@ -472,12 +498,24 @@ router.get(
       );
 
       // 10) Fast indexed parallel count + find
-      let findQuery = JobModel.find(query)
-        .select(selectedFieldsStr + " row_color status_rank status_sort_date detailed_status")
-        .sort({ status_rank: 1, status_sort_date: 1, _id: 1 })
-        .skip(parseInt(skip))
-        .limit(parseInt(limit))
-        .lean();
+      // Billing Confirmation is ordered by billing urgency (red, orange, white) like the Import DO billing
+      // sheet, which needs every matching job ranked before paging; the tab only holds jobs waiting for
+      // confirmation, so that list is small.
+      const isBillingConfirmation = statusLower === "billing_confirmation";
+      let findQuery = isBillingConfirmation
+        ? JobModel.find(query)
+            .select(selectedFieldsStr + " row_color status_rank status_sort_date detailed_status delivery_date")
+            .lean()
+        : JobModel.find(query)
+            .select(selectedFieldsStr + " row_color status_rank status_sort_date detailed_status")
+            .sort(
+              isDoPlanningFilter
+                ? { do_planning_date: 1, _id: 1 }
+                : { status_rank: 1, status_sort_date: 1, _id: 1 }
+            )
+            .skip(parseInt(skip))
+            .limit(parseInt(limit))
+            .lean();
 
       // Use index hint on broad status queries without selective filters to avoid heavy in-memory sort
       if (
@@ -490,10 +528,50 @@ router.get(
       }
 
 
-      const [totalCount, jobs] = await Promise.all([
-        JobModel.countDocuments(query),
+      // 11) Unresolved count for Pending status without extra client request
+      const countUnresolved = async () => {
+        try {
+          const openQueryJobNos = await getOpenQueryJobNos();
+          const unresCond = [
+            { dsr_queries: { $elemMatch: { select_module: "DSR", resolved: { $ne: true } } } },
+            { job_no: { $in: openQueryJobNos } },
+          ];
+          const unresQuery = { ...query };
+          if (unresQuery.$and) {
+            unresQuery.$and = [...unresQuery.$and, { $or: unresCond }];
+          } else {
+            unresQuery.$or = unresCond;
+          }
+          return await JobModel.countDocuments(unresQuery);
+        } catch (e) {
+          console.error("Error calculating unresolvedCount:", e);
+          return 0;
+        }
+      };
+
+      // Page, total and unresolved count run in parallel; totals are reused across pages
+      const cachedCounts = bypassCache ? null : getCache(countsCacheKey);
+      // With Pending Queries on, the list is already only the unresolved jobs, so the unresolved count
+      // equals the total and is not counted a second time
+      const unresolvedIsTotal = statusLower === "pending" && unresolvedOnly === "true";
+      const [totalCount, jobs, unresolvedCountRaw] = await Promise.all([
+        cachedCounts ? cachedCounts.total : JobModel.countDocuments(query),
         findQuery,
+        statusLower === "pending" && !unresolvedIsTotal ? (cachedCounts ? cachedCounts.unresolved : countUnresolved()) : 0,
       ]);
+      const unresolvedCount = unresolvedIsTotal ? totalCount : unresolvedCountRaw;
+      if (!bypassCache && !cachedCounts) {
+        setCache(countsCacheKey, { total: totalCount, unresolved: unresolvedCount });
+      }
+
+      if (isBillingConfirmation) {
+        const ranked = jobs
+          .map((job) => ({ job, ...rankByBillingUrgency(job) }))
+          .sort((a, b) => compareByBillingUrgency({ ...a, job_no: a.job.job_no }, { ...b, job_no: b.job.job_no }));
+        const pageJobs = ranked.slice(parseInt(skip), parseInt(skip) + parseInt(limit)).map((r) => r.job);
+        jobs.length = 0;
+        jobs.push(...pageJobs);
+      }
 
       // Ensure detailed_status and row_color are set consistently
       const detentionBulkOps = [];
@@ -546,35 +624,17 @@ router.get(
       });
 
       if (detentionBulkOps.length > 0) {
-        JobModel.bulkWrite(detentionBulkOps).catch((err) =>
-          console.error("Detention backfill error:", err)
-        );
+        JobModel.bulkWrite(detentionBulkOps)
+          .then(() =>
+            publishJobChange({
+              ids: detentionBulkOps.map((op) => op.updateOne.filter._id),
+              years: [year],
+              source: "backfill",
+            })
+          )
+          .catch((err) => console.error("Detention backfill error:", err));
       }
 
-
-      // 11) Calculate unresolvedCount for Pending status without extra client request
-      let unresolvedCount = 0;
-      if (statusLower === "pending") {
-        try {
-          const openQueryJobNos = await ClientQuery.distinct("job_no", {
-            module_type: "import",
-            $or: [{ status: "open" }, { seenByAdmin: false }],
-          });
-          const unresCond = [
-            { dsr_queries: { $elemMatch: { select_module: "DSR", resolved: { $ne: true } } } },
-            { job_no: { $in: openQueryJobNos } },
-          ];
-          const unresQuery = { ...query };
-          if (unresQuery.$and) {
-            unresQuery.$and = [...unresQuery.$and, { $or: unresCond }];
-          } else {
-            unresQuery.$or = unresCond;
-          }
-          unresolvedCount = await JobModel.countDocuments(unresQuery);
-        } catch (e) {
-          console.error("Error calculating unresolvedCount:", e);
-        }
-      }
 
       const responsePayload = {
         data: jobs,
@@ -630,7 +690,7 @@ const applyDotNotationToMerged = (merged, updateData) => {
   return merged;
 };
 
-router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
+router.patch("/api/jobs/:id", requireLoginForWrite, auditMiddleware("Job"), async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
@@ -826,6 +886,20 @@ router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
     console.error("Error fetching job for delivery note:", error);
     res.status(500).json({ message: "Server Error" });
   }
+});
+
+// ---------------- STATUS LEGEND (help for row order) ----------------
+// Built from the same ranking table the job list sorts by, so the help always matches the real order
+router.get("/api/jobs/status-legend", authMiddleware, (req, res) => {
+  const ranked = Object.entries(STATUS_RANK_MAP)
+    .map(([status, config]) => ({ status, rank: config.rank, dateField: config.field }))
+    .sort((a, b) => a.rank - b.rank);
+  res.json({
+    ranked,
+    // Statuses not in the table get this rank, so they are listed after all ranked ones
+    otherStatusesRank: getJobStatusRank(null),
+    sortOrder: ["status_rank", "status_sort_date", "_id"],
+  });
 });
 
 // ---------------- RECONCILE / SYNC STATUSES ----------------

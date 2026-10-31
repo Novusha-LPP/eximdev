@@ -17,6 +17,9 @@ import {
 } from "../../utils/getTableRowsClassname";
 import useFetchJobList from "../../customHooks/useFetchJobList";
 import { detailedStatusOptions } from "../../assets/data/detailedStatusOptions";
+import JobColorOrderHelp from "./JobColorOrderHelp";
+import { JobSearchBox, ImporterFilter } from "./JobListFilterInputs";
+
 import { UserContext } from "../../contexts/UserContext";
 import {
   MenuItem,
@@ -26,13 +29,12 @@ import {
   Pagination,
   Snackbar,
   Alert,
-  Autocomplete,
   Box,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
 import axios from "axios";
 import { MaterialReactTable, useMaterialReactTable } from "material-react-table";
 import { Dialog, DialogContent, DialogTitle, Button, Tooltip, DialogActions, Chip, CircularProgress } from "@mui/material";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import MyDocRequests from "../document-collection/MyDocRequests";
 import DownloadIcon from "@mui/icons-material/Download";
 import AssignmentIcon from "@mui/icons-material/Assignment";
@@ -45,6 +47,23 @@ import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext.js";
 import useDynamicICDs from "../../customHooks/useDynamicICDs";
+
+// Full/Shrink labels: shown on phones/tablets (own row) and very wide screens; icon-only in between (tooltips explain)
+const toggleLabelSx = { display: { xs: "inline", md: "none" }, "@media (min-width:1800px)": { display: "inline" } };
+
+// Extra "Select Status" choice: jobs whose DO Planning date is today, earliest planned time first
+const DO_PLANNING_FILTER = "DO Planning";
+const statusFilterOptions = (() => {
+  const at = detailedStatusOptions.findIndex((o) => o.value === "Do completed and Delivery pending");
+  const option = { id: "do-planning", name: "DO Planning (today)", value: DO_PLANNING_FILTER };
+  return at === -1
+    ? [...detailedStatusOptions, option]
+    : [...detailedStatusOptions.slice(0, at + 1), option, ...detailedStatusOptions.slice(at + 1)];
+})();
+
+// Table height on desktops: the space left on screen, but never shorter than the previous fixed
+// height, so short screens keep the old behaviour (scroll the page to see more of the table)
+const MIN_TABLE_HEIGHT = 690;
 
 // Subcomponent for Raise Query Dialog to isolate text input state and eliminate typing lag
 const RaiseQueryDialogContent = React.memo(({
@@ -316,7 +335,6 @@ function JobList(props) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [localInput, setLocalInput] = useState(searchQuery);
 
   // Clear state unless returning from details
   useEffect(() => {
@@ -327,7 +345,6 @@ function JobList(props) {
       setSelectedICD("all");
       setSelectedImporter("");
       setSelectedBeType("all");
-      setLocalInput("");
     }
     if (location.state && location.state.fromJobDetails) {
       window.history.replaceState({}, document.title);
@@ -350,7 +367,7 @@ function JobList(props) {
       }
 
       const params = new URLSearchParams();
-      if (detailedStatus && detailedStatus !== "all") {
+      if (detailedStatus && detailedStatus !== "all" && detailedStatus !== DO_PLANNING_FILTER) {
         params.append("detailedStatus", detailedStatus);
       }
       if (selectedBranch) {
@@ -402,6 +419,7 @@ function JobList(props) {
     () => [...getUniqueImporterNames(importers)],
     [importers, getUniqueImporterNames]
   );
+  const importerOptions = useMemo(() => importerNames.map((o) => o.label), [importerNames]);
 
   // Main jobs hook
   const {
@@ -438,6 +456,7 @@ function JobList(props) {
   }, [rows, fetchQueryStatusForJobs]);
 
   // Sort jobs list with active query priority at TOP (preserves server-provided sequence in place otherwise)
+  // Described in the colour/order help (JobColorOrderHelp.js): update it if this order changes
   const sortedRows = useMemo(() => {
     if (!rows || rows.length === 0) return [];
     return [...rows].sort((a, b) => {
@@ -899,11 +918,6 @@ function JobList(props) {
     handleRaiseQuerySubmit,
   ]);
 
-  // Sync local input -> searchQuery
-  useEffect(() => {
-    setSearchQuery(localInput);
-  }, [localInput, setSearchQuery]);
-
   // Debounce search query
   useEffect(() => {
     const t = setTimeout(() => {
@@ -1010,6 +1024,7 @@ function JobList(props) {
         if (updatedJob && updatedData.detailed_status) {
           if (
             detailedStatus !== "all" &&
+            detailedStatus !== DO_PLANNING_FILTER &&
             updatedJob.detailed_status !== detailedStatus
           ) {
             const filtered = updated.filter((j) => j._id !== jobId);
@@ -1071,13 +1086,6 @@ function JobList(props) {
     ]
   );
 
-  const handleSearchClick = () => {
-    // optional: force immediate debounce update or page reset
-    setSearchQuery(localInput);
-    // if you want to always go to page 1:
-    // fetchJobs(1, showUnresolvedOnly, true);
-  };
-
   // Years initialization
   useEffect(() => {
     async function getYears() {
@@ -1114,10 +1122,6 @@ function JobList(props) {
     (e) => setSelectedICD(e.target.value),
     [setSelectedICD]
   );
-  const handleImporterChange = useCallback(
-    (e, v) => setSelectedImporter(v),
-    [setSelectedImporter]
-  );
   const handleYearChange = useCallback(
     (e) => setSelectedYearState(e.target.value),
     [setSelectedYearState]
@@ -1132,29 +1136,29 @@ function JobList(props) {
     [setSelectedBeType]
   );
 
-  const handleLocalInputChange = useCallback((e) => {
-    setLocalInput(e.target.value);
-  }, []);
-
   const handleClearSearch = useCallback(() => {
-    setLocalInput("");
     setSearchQuery("");
   }, [setSearchQuery]);
 
   const renderTopToolbarCustomActions = useCallback(
     () => (
-      <div
-        style={{
+      // Filters wrap onto more lines on narrow screens instead of being pushed off-screen
+      <Box
+        sx={{
           display: "flex",
-          justifyContent: "space-between",
+          flexWrap: "wrap",
           alignItems: "center",
+          gap: 0.75,
           width: "100%",
+          minWidth: 0,
+          flex: { xs: "1 1 100%", sm: 1 },
+          py: 0.5,
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: { xs: "1 1 100%", md: "0 0 auto" }, mr: { md: 0.5 } }}>
           <Typography
             variant="body1"
-            sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
+            sx={{ fontWeight: "bold", fontSize: { xs: "1.2rem", md: "1.3rem", xl: "1.5rem" }, whiteSpace: "nowrap" }}
           >
             {props.status} Jobs: {total}
           </Typography>
@@ -1167,7 +1171,7 @@ function JobList(props) {
           label="ICD Code"
           value={selectedICD}
           onChange={handleICDChange}
-          sx={{ width: "135px", marginRight: "10px" }}
+          sx={{ flex: { xs: "1 1 calc(50% - 4px)", sm: "1 1 118px" }, maxWidth: { sm: 180 } }}
         >
           <MenuItem value="all">All ICDs</MenuItem>
           {dynamicICDs.map((icd, index) => (
@@ -1186,7 +1190,7 @@ function JobList(props) {
           label="Type of BE"
           value={selectedBeType}
           onChange={handleBeTypeChange}
-          sx={{ width: "135px", marginRight: "10px" }}
+          sx={{ flex: { xs: "1 1 calc(50% - 4px)", sm: "1 1 148px" }, maxWidth: { sm: 200 } }}
         >
           <MenuItem value="all">All BE Types</MenuItem>
           <MenuItem value="Home">Home</MenuItem>
@@ -1196,21 +1200,11 @@ function JobList(props) {
         </TextField>
 
 
-        <Autocomplete
-          sx={{ width: "220px", marginRight: "10px" }}
-          freeSolo
-          options={importerNames.map((o) => o.label)}
-          value={selectedImporter || ""}
-          onInputChange={handleImporterChange}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              fullWidth
-              label="Select Importer"
-            />
-          )}
+        <ImporterFilter
+          sx={{ flex: { xs: "1 1 100%", sm: "2 1 140px" } }}
+          options={importerOptions}
+          value={selectedImporter}
+          onCommit={setSelectedImporter}
         />
 
         {years.length > 0 && (
@@ -1219,7 +1213,7 @@ function JobList(props) {
             size="small"
             value={selectedYearState}
             onChange={handleYearChange}
-            sx={{ width: "90px", marginRight: "10px" }}
+            sx={{ flex: { xs: "1 1 calc(50% - 4px)", sm: "1 1 95px" }, maxWidth: { sm: 130 } }}
           >
             {years.map((y, i) => (
               <MenuItem key={`year-${y}-${i}`} value={y}>
@@ -1234,26 +1228,31 @@ function JobList(props) {
           size="small"
           value={selectedMode}
           onChange={(e) => setSelectedMode(e.target.value)}
-          sx={{ width: "110px", marginRight: "10px" }}
+          sx={{ flex: { xs: "1 1 calc(50% - 4px)", sm: "1 1 125px" }, maxWidth: { sm: 165 } }}
         >
           <MenuItem value="all">All Modes</MenuItem>
           <MenuItem value="SEA">SEA</MenuItem>
           <MenuItem value="AIR">AIR</MenuItem>
         </TextField>
 
-        <TextField
-          select
-          size="small"
-          value={detailedStatus}
-          onChange={handleDetailedStatusChange}
-          sx={{ width: "220px", marginRight: "10px" }}
-        >
-          {detailedStatusOptions.map((o, i) => (
-            <MenuItem key={`status-${o.id || o.value || i}`} value={o.value}>
-              {o.name}
-            </MenuItem>
-          ))}
-        </TextField>
+        {/* Status and its help icon wrap together, so the icon is never left alone on a line */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flex: { xs: "1 1 100%", sm: "1 1 205px" }, maxWidth: { sm: 315 } }}>
+          <TextField
+            select
+            size="small"
+            value={detailedStatus}
+            onChange={handleDetailedStatusChange}
+            sx={{ flex: 1, minWidth: 0 }}
+          >
+            {statusFilterOptions.map((o, i) => (
+              <MenuItem key={`status-${o.id || o.value || i}`} value={o.value}>
+                {o.name}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <JobColorOrderHelp />
+        </Box>
 
         {/* View Mode Toggle Switch */}
         <Box
@@ -1265,7 +1264,7 @@ function JobList(props) {
             p: "2px",
             borderRadius: "8px",
             border: "1px solid #cbd5e1",
-            marginRight: "10px",
+            flexShrink: 0,
           }}
         >
           <Tooltip title="Full Table View (Current UI)" arrow>
@@ -1289,7 +1288,7 @@ function JobList(props) {
               }}
             >
               <TableRowsIcon sx={{ fontSize: 16 }} />
-              Full
+              <Box component="span" sx={toggleLabelSx}>Full</Box>
             </button>
           </Tooltip>
           <Tooltip title="Shrink List View (Job No, IGM & Latest Date in Seq)" arrow>
@@ -1313,32 +1312,21 @@ function JobList(props) {
               }}
             >
               <ViewHeadlineIcon sx={{ fontSize: 16 }} />
-              Shrink
+              <Box component="span" sx={toggleLabelSx}>Shrink</Box>
             </button>
           </Tooltip>
         </Box>
 
-        {/* Simple search input (no typeahead/suggestions) */}
-        <TextField
-          value={localInput}
-          onChange={handleLocalInputChange}
-          placeholder="Search by Job No, Importer, or AWB/BL Number"
-          size="small"
-          variant="outlined"
-          sx={{ width: "250px", marginRight: "10px" }}
-          InputProps={{
-            endAdornment: (
-              <IconButton size="small" onClick={handleSearchClick}>
-                <SearchIcon fontSize="small" />
-              </IconButton>
-            ),
-          }}
-        />
+        {/* Search and Excel download wrap together */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flex: { xs: "1 1 100%", sm: "3 1 195px" } }}>
+          {/* Simple search input (no typeahead/suggestions) */}
+          <JobSearchBox value={searchQuery} onCommit={setSearchQuery} sx={{ flex: 1, minWidth: 0 }} />
 
-        <IconButton onClick={handleOpen}>
-          <DownloadIcon titleAccess="Download Excel" />
-        </IconButton>
-      </div>
+          <IconButton onClick={handleOpen}>
+            <DownloadIcon titleAccess="Download Excel" />
+          </IconButton>
+        </Box>
+      </Box>
     ),
     [
       props.status,
@@ -1353,8 +1341,9 @@ function JobList(props) {
       handleYearChange,
       detailedStatus,
       handleDetailedStatusChange,
-      localInput,
-      handleLocalInputChange,
+      importerOptions,
+      searchQuery,
+      setSearchQuery,
       handleOpen,
       selectedBeType, // dependency
       handleBeTypeChange, // dependency
@@ -1417,24 +1406,37 @@ function JobList(props) {
     toggleRowExpanded
   );
 
+  // On phones the pinned 250px Job No column would leave little room to scroll the rest of the row
+  const isNarrowScreen = useMediaQuery("(max-width:599.95px)", { noSsr: true });
+  // Desktop table height, measured so the list fills the screen (see effect below)
+  const [tableMaxHeight, setTableMaxHeight] = useState(null);
+
   const table = useMaterialReactTable({
     columns,
     data: sortedRows,
     enableColumnResizing: true,
+    // Columns stretch to fill spare width on wide screens (they never shrink below their set size)
+    layoutMode: "grid",
     enableColumnOrdering: true,
     enablePagination: false,
     enableBottomToolbar: false,
     enableDensityToggle: false,
     enableRowVirtualization: true,
-    rowVirtualizerOptions: { overscan: 8 },
-    initialState: { density: "compact", columnPinning: { left: ["job_no"] } },
+    // Rows are tall (often 200-400px): 2 extra rows above/below the screen keep scrolling smooth
+    rowVirtualizerOptions: { overscan: 2 },
+    // Re-render a cell only when its row data or the column definitions change (useJobColumns
+    // rebuilds columns whenever view mode, expanded rows or query status change), not on every scroll
+    memoMode: "cells",
+    initialState: { density: "compact", columnPinning: { left: isNarrowScreen ? [] : ["job_no"] } },
     enableGlobalFilter: false,
     enableGrouping: true,
     enableColumnFilters: false,
     enableColumnActions: false,
     enableStickyHeader: true,
     enablePinning: true,
-    muiTableContainerProps: { sx: { maxHeight: "690px", overflowY: "auto" } },
+    muiTableContainerProps: { sx: { maxHeight: { xs: "70vh", md: tableMaxHeight || "690px" }, overflowY: "auto" } },
+    // On phones the table's own buttons (columns, full screen) move to their own line under the filters
+    muiTopToolbarProps: { sx: { "& > .MuiBox-root": { flexWrap: { xs: "wrap", sm: "nowrap" } } } },
     muiTableBodyRowProps: ({ row }) => {
       const baseProps = getRowProps({ row });
       if (viewMode === "shrink") {
@@ -1473,6 +1475,46 @@ function JobList(props) {
     renderTopToolbarCustomActions: renderTopToolbarCustomActions,
   });
 
+  // Fill the screen: table height = visible page height minus what sits above and below it
+  // (header, filters, pagination). Re-measured when the window or the filter bar changes size.
+  useEffect(() => {
+    const container = table.refs.tableContainerRef.current;
+    if (!container) return undefined;
+    let scrollParent = container.parentElement;
+    while (scrollParent && !/(auto|scroll)/.test(getComputedStyle(scrollParent).overflowY)) {
+      scrollParent = scrollParent.parentElement;
+    }
+    const page = scrollParent || document.documentElement;
+
+    const update = () => {
+      const pageTop = scrollParent ? scrollParent.getBoundingClientRect().top : 0;
+      const box = container.getBoundingClientRect();
+      const topInPage = box.top - pageTop + page.scrollTop;
+      // Content below the table (pagination, paddings): gap from each element to its parent's bottom
+      let belowTable = 0;
+      let child = container;
+      for (let parent = container.parentElement; parent && parent !== page; parent = parent.parentElement) {
+        belowTable += parent.getBoundingClientRect().bottom - child.getBoundingClientRect().bottom;
+        child = parent;
+      }
+      belowTable += parseFloat(getComputedStyle(page).paddingBottom) + parseFloat(getComputedStyle(child).marginBottom);
+      const available = page.clientHeight - topInPage - belowTable;
+      setTableMaxHeight(`${Math.max(MIN_TABLE_HEIGHT, Math.floor(available))}px`);
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
+    // The page area resizes with the window (also on zoom); its height does not depend on the table
+    if (scrollParent) observer.observe(scrollParent);
+    if (table.refs.topToolbarRef.current) observer.observe(table.refs.topToolbarRef.current);
+    if (container.parentElement) observer.observe(container.parentElement.parentElement || container.parentElement);
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [table]);
+
   return (
     <div className="table-container">
       <MaterialReactTable table={table} />
@@ -1492,7 +1534,8 @@ function JobList(props) {
         open={open}
         handleClose={handleClose}
         status={props.status}
-        detailedStatus={detailedStatus}
+        // Excel export filters by job status, which "DO Planning" is not
+        detailedStatus={detailedStatus === DO_PLANNING_FILTER ? "all" : detailedStatus}
       />
 
       <Dialog

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import JobModel from "../../model/jobModel.mjs";
 import CthModel from "../CthUtil/CthUtil.mjs";
 import CustomerKycModel from "../../model/CustomerKyc/customerKycModel.mjs";
+import requireLoginForWrite from "../../middleware/requireLoginForWrite.mjs";
 
 const router = express.Router();
 
@@ -542,7 +543,7 @@ router.get(["/api/lookup/:hsCode/:jobNo/:year", "/api/lookup/:jobNo/:year"], asy
 /**
  * POST /api/store-calculator-data/:jobNo
  */
-router.post("/api/store-calculator-data/:jobNo", async (req, res) => {
+router.post("/api/store-calculator-data/:jobNo", requireLoginForWrite, async (req, res) => {
   try {
     const { jobNo } = req.params;
     const year = req.query.year;
@@ -587,7 +588,7 @@ router.post("/api/store-calculator-data/:jobNo", async (req, res) => {
 /**
  * PATCH /api/update-per-kg-cost
  */
-router.patch("/api/update-per-kg-cost", async (req, res) => {
+router.patch("/api/update-per-kg-cost", requireLoginForWrite, async (req, res) => {
   try {
     const { jobNo, perKgCost } = req.body;
     const year = req.query.year;
@@ -631,7 +632,7 @@ router.patch("/api/update-per-kg-cost", async (req, res) => {
 /**
  * PATCH /api/update-job-duty-weight/:jobNo
  */
-router.patch("/api/update-job-duty-weight/:jobNo", async (req, res) => {
+router.patch("/api/update-job-duty-weight/:jobNo", requireLoginForWrite, async (req, res) => {
   try {
     const { jobNo } = req.params;
     const { totalDuty, jobNetWeight } = req.body;

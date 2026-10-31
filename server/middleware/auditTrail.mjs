@@ -10,6 +10,8 @@ import jwt from "jsonwebtoken";
 export const auditMiddlewareWrapper = (documentType = "Unknown") => {
   return async (req, res, next) => {
     if (req.method === "GET") return next();
+    // Job writes are logged by the model-level auditPlugin, which diffs the exact before/after of each write
+    if (documentType === "Job") return next();
 
     let originalDocument = null;
     let documentId = null;
@@ -58,7 +60,12 @@ export const auditMiddlewareWrapper = (documentType = "Unknown") => {
       if (Model) {
         try {
           if (job_no && year && documentType === "Job") {
-            originalDocument = await Model.findOne({ job_no, year }).lean();
+            const jobQuery = { job_no, year };
+            const isSpecific = (v) => v && !["all", "undefined"].includes(String(v).toLowerCase());
+            if (isSpecific(req.params.branch_code)) jobQuery.branch_code = String(req.params.branch_code).toUpperCase();
+            if (isSpecific(req.params.trade_type)) jobQuery.trade_type = String(req.params.trade_type).toUpperCase();
+            if (isSpecific(req.params.mode)) jobQuery.mode = String(req.params.mode).toUpperCase();
+            originalDocument = await Model.findOne(jobQuery).lean();
           } else if (usernameParam && documentType === "User") {
             originalDocument = await Model.findOne({ username: usernameParam }).lean();
           } else if (id && mongoose.Types.ObjectId.isValid(id)) {

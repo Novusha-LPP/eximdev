@@ -319,7 +319,7 @@ const IgstModal = ({
               Accept: "application/json",
             },
             credentials: "include",
-            body: JSON.stringify({ cth_no: rowData.cth_no }),
+            body: JSON.stringify({ cth_no: rowData.cth_no, _id: rowData._id }),
           }
         );
 

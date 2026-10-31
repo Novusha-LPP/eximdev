@@ -71,7 +71,7 @@ function CustomTabPanel(props) {
       aria-labelledby={`simple-tab-${index}`}
       {...other}
     >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+      {value === index && <Box sx={{ p: { xs: 0.5, sm: 1 } }}>{children}</Box>}
     </div>
   );
 }
@@ -361,8 +361,17 @@ function JobTabs() {
   return (
     <Box sx={{ width: "100%" }}>
       {/* Header Tabs & Actions */}
-      <Box sx={{ borderBottom: 1, borderColor: "divider", display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-        <Tabs value={value} onChange={handleChange} aria-label="job type tabs" sx={{ '& .MuiTab-root': { fontWeight: 600 } }}>
+      {/* Tabs and actions wrap on narrow screens; tabs scroll sideways instead of collapsing */}
+      <Box sx={{ borderBottom: 1, borderColor: "divider", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 1, mb: 2 }}>
+        <Tabs
+          value={value}
+          onChange={handleChange}
+          aria-label="job type tabs"
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          sx={{ maxWidth: "100%", minWidth: 0, '& .MuiTab-root': { fontWeight: 600 } }}
+        >
           <Tab 
             label={
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -431,7 +440,7 @@ function JobTabs() {
           )}
         </Tabs>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: { xs: 1, sm: 2 }, py: { xs: 1, md: 0 } }}>
           <Box sx={{ position: "relative" }}>
             <Button
               variant="contained"

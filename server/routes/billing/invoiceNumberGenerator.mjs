@@ -4,6 +4,7 @@ import JobModel from '../../model/jobModel.mjs';
 import BillingCounterModel from '../../model/billingCounterModel.mjs';
 import BillModel from '../../model/billModel.mjs';
 import PaymentRequestModel from '../../model/paymentRequestModel.mjs';
+import requireLoginForWrite from "../../middleware/requireLoginForWrite.mjs";
 
 const router = express.Router();
 
@@ -107,7 +108,7 @@ router.get('/:jobId/:type', async (req, res) => {
 /**
  * Save / Update bill and sync charges back to Job
  */
-router.post('/save', async (req, res) => {
+router.post('/save', requireLoginForWrite, async (req, res) => {
     try {
         const { jobId, type, billNo, rows, editableFields, totals } = req.body;
         
@@ -316,7 +317,7 @@ router.post('/save', async (req, res) => {
 /**
  * Invalidate bills for a job, reset status to Pending, and log remark.
  */
-router.post('/invalidate', async (req, res) => {
+router.post('/invalidate', requireLoginForWrite, async (req, res) => {
     try {
         const { jobId, remark, type } = req.body;
         if (!jobId) {
@@ -370,7 +371,7 @@ router.post('/invalidate', async (req, res) => {
 /**
  * Endpoint to generate a unique invoice number for a job
  */
-router.post('/generate-invoice-number', async (req, res) => {
+router.post('/generate-invoice-number', requireLoginForWrite, async (req, res) => {
     const { jobId, type, firstName, lastName } = req.body;
 
     if (!jobId || !type) {

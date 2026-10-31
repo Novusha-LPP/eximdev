@@ -6,6 +6,7 @@ import { findChanges, logAuditTrail } from '../../services/auditTrailService.mjs
 import AuditTrailModel from '../../model/auditTrailModel.mjs';
 import PurchaseBookEntryModel from '../../model/purchaseBookEntryModel.mjs';
 import PaymentRequestModel from '../../model/paymentRequestModel.mjs';
+import requireLoginForWrite from "../../middleware/requireLoginForWrite.mjs";
 
 const escapeRegex = (str) => (str ? String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : "");
 
@@ -27,7 +28,7 @@ router.get('/charge-heads', async (req, res) => {
   }
 });
 
-router.post('/charge-heads', async (req, res) => {
+router.post('/charge-heads', requireLoginForWrite, async (req, res) => {
   try {
     const { name, category, sacHsn, isPurchaseBookMandatory } = req.body;
     
@@ -46,7 +47,7 @@ router.post('/charge-heads', async (req, res) => {
 });
 
 // Seed API (optional helper to initialize system charges)
-router.post('/charge-heads/seed', async (req, res) => {
+router.post('/charge-heads/seed', requireLoginForWrite, async (req, res) => {
   try {
     const defaultCharges = [
       { name: 'EDI CHARGES', category: 'Service Charge', isSystem: true },
@@ -76,7 +77,7 @@ router.post('/charge-heads/seed', async (req, res) => {
   }
 });
 
-router.put('/charge-heads/:id', async (req, res) => {
+router.put('/charge-heads/:id', requireLoginForWrite, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, category, sacHsn, isActive, isPurchaseBookMandatory } = req.body;
@@ -105,7 +106,7 @@ router.put('/charge-heads/:id', async (req, res) => {
   }
 });
 
-router.delete('/charge-heads/:id', async (req, res) => {
+router.delete('/charge-heads/:id', requireLoginForWrite, async (req, res) => {
   try {
     const { id } = req.params;
     const deleted = await ChargeHeadModel.findByIdAndDelete(id);
@@ -482,7 +483,7 @@ router.get('/charges/audit-trail/:id', verifyToken, async (req, res) => {
   }
 });
 
-router.post('/reject-purchase-entry', async (req, res) => {
+router.post('/reject-purchase-entry', requireLoginForWrite, async (req, res) => {
   try {
     const { requestNo: rawRequestNo, reason } = req.body;
     const requestNo = rawRequestNo?.trim();
@@ -551,7 +552,7 @@ router.post('/reject-purchase-entry', async (req, res) => {
   }
 });
 
-router.post('/reject-payment-request', async (req, res) => {
+router.post('/reject-payment-request', requireLoginForWrite, async (req, res) => {
   try {
     const { requestNo: rawRequestNo, reason } = req.body;
     const requestNo = rawRequestNo?.trim();

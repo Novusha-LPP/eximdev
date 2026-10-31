@@ -24,7 +24,7 @@ router.get("/api/get-job/:branch_code/:trade_type/:mode/:year/:jobNo", async (re
       return res.status(404).json({ message: "Job not found" });
     }
 
-    res.set("Cache-Control", "private, max-age=15");
+    res.set("Cache-Control", "no-store");
     res.json(job);
   } catch (error) {
     console.error(error);
@@ -46,7 +46,7 @@ router.get("/api/get-job/:mode/:year/:jobNo", async (req, res) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    res.set("Cache-Control", "private, max-age=15");
+    res.set("Cache-Control", "no-store");
     res.json(job);
   } catch (error) {
     console.error(error);

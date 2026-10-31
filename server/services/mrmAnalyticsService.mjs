@@ -1002,8 +1002,11 @@ export const calculateSegmentRollup = async ({ department, hodId, month, year })
                     hasBusinessLoss = true;
                 }
 
-                const blockerText = (summary.blockers || '').trim();
+                let blockerText = (summary.blockers || '').trim();
                 const blockerNTR = Boolean(summary.blockers_nothing_to_report);
+                if (summary.blockers_other && summary.blockers_other.trim()) {
+                    blockerText = blockerText ? blockerText.replace(/OTHERS:\s*Others/gi, `OTHERS: ${summary.blockers_other.trim()}`) : `OTHERS: ${summary.blockers_other.trim()}`;
+                }
                 if (!blockerNTR && blockerText && blockerText !== 'NONE: No blockers to select' && blockerText.toUpperCase() !== 'NONE') {
                     memberHasBlockers = true;
                     hasBlockers = true;
@@ -1759,7 +1762,10 @@ export const detectRecurringBlockers = async ({ department, month, year }) => {
     sheets.forEach(s => {
         const summary = s.summary || {};
         if (summary.blockers_nothing_to_report) return;
-        const blockerText = (summary.blockers || '').trim();
+        let blockerText = (summary.blockers || '').trim();
+        if (summary.blockers_other && summary.blockers_other.trim()) {
+            blockerText = blockerText ? blockerText.replace(/OTHERS:\s*Others/gi, `OTHERS: ${summary.blockers_other.trim()}`) : `OTHERS: ${summary.blockers_other.trim()}`;
+        }
         if (!blockerText || blockerText === 'NONE: No blockers to select' || blockerText.toUpperCase() === 'NONE') return;
 
         const key = (summary.blockers_recurrence_key || summary.blockers_root_cause || blockerText).trim().toLowerCase();

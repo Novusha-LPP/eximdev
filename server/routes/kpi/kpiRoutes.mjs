@@ -2675,6 +2675,7 @@ router.get("/api/kpi/analytics/blockers-losses", verifyToken, async (req, res) =
             status: { $in: ["SUBMITTED", "CHECKED", "VERIFIED", "APPROVED"] },
             $or: [
                 { "summary.blockers": { $ne: "" } },
+                { "summary.blockers_other": { $ne: "" } },
                 { "summary.business_loss": { $gt: 0 } }
             ]
         };
@@ -2736,21 +2737,51 @@ router.get("/api/kpi/analytics/blockers-losses", verifyToken, async (req, res) =
             let primaryBlockerCategory = "";
 
             // Process Blocker Categories
-            if (sheet.summary?.blockers) {
-                const individualBlockers = sheet.summary.blockers.split(' | ').filter(b => b && !b.toUpperCase().includes('NONE'));
+            const customOtherText = (sheet.summary?.blockers_other || '').trim();
+            const rawBlockers = (sheet.summary?.blockers || '')
+                .split(' | ')
+                .map(b => b.trim())
+                .filter(b => b && !b.toUpperCase().includes('NONE'));
 
+            let hasOtherInList = false;
+            const individualBlockers = rawBlockers.map(b => {
+                const isOther = b.toUpperCase() === 'OTHERS: OTHERS' || 
+                                b.toUpperCase() === 'OTHERS' || 
+                                b.toUpperCase() === 'OTHER' ||
+                                b.toUpperCase().startsWith('OTHERS:');
+                if (isOther) {
+                    hasOtherInList = true;
+                    if (customOtherText) {
+                        return `OTHERS: ${customOtherText}`;
+                    }
+                }
+                return b;
+            });
+
+            // If employee specified custom blocker text but OTHERS wasn't in list
+            if (customOtherText && !hasOtherInList) {
+                individualBlockers.push(`OTHERS: ${customOtherText}`);
+            }
+
+            if (individualBlockers.length > 0) {
                 finalBlockers = individualBlockers.join(' | ');
 
                 individualBlockers.forEach(b => {
-                    let category = "Others";
+                    let category = "OTHERS";
                     if (b.includes(":")) {
                         category = b.split(":")[0].trim();
+                    }
+                    if (category.toUpperCase() === "OTHERS" || category.toUpperCase() === "OTHER") {
+                        category = "OTHERS";
                     }
                     blockerStats[category] = (blockerStats[category] || 0) + 1;
                 });
 
                 if (finalBlockers && finalBlockers.includes(":")) {
                     primaryBlockerCategory = finalBlockers.split(":")[0].trim();
+                    if (primaryBlockerCategory.toUpperCase() === "OTHERS" || primaryBlockerCategory.toUpperCase() === "OTHER") {
+                        primaryBlockerCategory = "OTHERS";
+                    }
                 }
             }
 
@@ -2758,12 +2789,15 @@ router.get("/api/kpi/analytics/blockers-losses", verifyToken, async (req, res) =
             if (finalBlockers || sheet.summary?.business_loss > 0) {
                 reportData.push({
                     user: {
-                        name: `${sheet.user?.first_name} ${sheet.user?.last_name}`,
+                        name: `${sheet.user?.first_name || ''} ${sheet.user?.last_name || ''}`.trim() || sheet.user?.username || 'Unknown',
                         username: sheet.user?.username
                     },
                     team: userTeam ? userTeam.name : (sheet.department || 'N/A'),
                     blocker: finalBlockers,
                     blockerCategory: primaryBlockerCategory,
+                    blockersOther: customOtherText,
+                    blockersRootCause: sheet.summary?.blockers_root_cause || "",
+                    canHodSolve: sheet.summary?.can_hod_solve || "",
                     businessLoss: sheet.summary?.business_loss || 0,
                     lossCategory: sheet.summary?.root_cause || (sheet.summary?.business_loss > 0 ? "Others" : ""),
                     lossDescription: sheet.summary?.loss_description || sheet.summary?.root_cause_other || ""

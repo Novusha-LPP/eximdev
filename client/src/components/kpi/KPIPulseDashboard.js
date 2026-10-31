@@ -24,23 +24,23 @@ import './kpi.scss';
 
 // Quadrants definition (adjusted for cool tones)
 const QUADRANTS = {
-    Star:       { label: 'Star',       emoji: '★', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.2)', desc: 'High Volume + High Complexity',   action: 'Promote / Empower' },
-    Engine:     { label: 'Engine',     emoji: '⚙', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.2)', desc: 'High Volume + Low Complexity',    action: 'Automate / Standardise' },
-    Specialist: { label: 'Specialist', emoji: '◆', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.2)', desc: 'Low Volume + High Complexity',    action: 'Protect / Consult' },
-    Drainer:    { label: 'Drainer',    emoji: '▲', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.2)', desc: 'Low Volume + Low Complexity',     action: 'Retrain / Review' },
+    Star: { label: 'Star', emoji: '★', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.2)', desc: 'High Volume + High Complexity', action: 'Promote / Empower' },
+    Engine: { label: 'Engine', emoji: '⚙', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.2)', desc: 'High Volume + Low Complexity', action: 'Automate / Standardise' },
+    Specialist: { label: 'Specialist', emoji: '◆', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.2)', desc: 'Low Volume + High Complexity', action: 'Protect / Consult' },
+    Drainer: { label: 'Drainer', emoji: '▲', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.2)', desc: 'Low Volume + Low Complexity', action: 'Retrain / Review' },
 };
 
 const TAB_CONFIG = [
-    { key: 'overview',      label: 'Executive Overview',  icon: '📊' },
-    { key: 'matrix',        label: 'Performance Matrix',  icon: '📈' },
-    { key: 'teams',         label: 'Team Analytics',      icon: '👥' },
-    { key: 'blockers',      label: 'Blockers',            icon: '🚧' },
-    { key: 'losses',        label: 'Business Losses',     icon: '💸' },
-    { key: 'openpoints',    label: 'Open Points',         icon: '🚩' },
-    { key: 'nonsubmitters', label: 'Non Submitters',      icon: '⏳' },
+    { key: 'overview', label: 'Executive Overview', icon: '📊' },
+    { key: 'matrix', label: 'Performance Matrix', icon: '📈' },
+    { key: 'teams', label: 'Team Analytics', icon: '👥' },
+    { key: 'blockers', label: 'Blockers', icon: '🚧' },
+    { key: 'losses', label: 'Business Losses', icon: '💸' },
+    { key: 'openpoints', label: 'Open Points', icon: '🚩' },
+    { key: 'nonsubmitters', label: 'Non Submitters', icon: '⏳' },
 ];
 
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 const initials = (fn, ln) => `${(fn || '?')[0]}${(ln || '?')[0]}`.toUpperCase();
 const formatCurrency = (n) => `₹${(n || 0).toLocaleString('en-IN')}`;
@@ -131,6 +131,13 @@ const KPIPulseDashboard = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [opSearchQuery, setOpSearchQuery] = useState('');
     const [selectedSheetId, setSelectedSheetId] = useState(null);
+    const [blockerCategoryFilter, setBlockerCategoryFilter] = useState('ALL');
+    const [blockerSearchQuery, setBlockerSearchQuery] = useState('');
+
+    useEffect(() => {
+        setBlockerCategoryFilter('ALL');
+        setBlockerSearchQuery('');
+    }, [year, month, team, department]);
 
     // Drawer / Dialog states
     const [teamDrawer, setTeamDrawer] = useState({ open: false, teamData: null });
@@ -245,6 +252,59 @@ const KPIPulseDashboard = () => {
     const totalBlockers = reportData.stats?.blockerDistribution?.reduce((s, b) => s + b.count, 0) || 0;
     const avgScore = data.pulseData.length ? Math.round(data.pulseData.reduce((s, p) => s + (p.current?.total_value_score || 0), 0) / data.pulseData.length) : 0;
     const blockerChartData = useMemo(() => (reportData.stats?.blockerDistribution || []).map(b => ({ name: b.category, count: b.count })), [reportData]);
+    const blockerCategories = useMemo(() => reportData.stats?.blockerDistribution || [], [reportData.stats?.blockerDistribution]);
+
+    const filteredBlockerGroups = useMemo(() => {
+        if (!reportData.records) return [];
+        const q = blockerSearchQuery.trim().toLowerCase();
+        const groups = [];
+
+        reportData.records.filter(r => r.blocker).forEach((rec, recIdx) => {
+            const rawList = rec.blocker.split(' | ').filter(Boolean);
+            const parsedItems = rawList.map(b => {
+                let category = "OTHERS";
+                let detail = b;
+                if (b.includes(":")) {
+                    const parts = b.split(":");
+                    category = parts[0].trim();
+                    detail = parts.slice(1).join(":").trim();
+                }
+                if (category.toUpperCase() === "OTHERS" || category.toUpperCase() === "OTHER") {
+                    category = "OTHERS";
+                }
+                if (category === "OTHERS" && (detail.toLowerCase() === "others" || !detail) && rec.blockersOther) {
+                    detail = rec.blockersOther;
+                }
+                return { category, detail };
+            });
+
+            // Filter items based on category and search query
+            const matchingItems = parsedItems.filter(item => {
+                const matchesCategory = blockerCategoryFilter === 'ALL' || item.category.toUpperCase() === blockerCategoryFilter.toUpperCase();
+                const matchesSearch = !q || (
+                    item.detail.toLowerCase().includes(q) ||
+                    item.category.toLowerCase().includes(q) ||
+                    (rec.user?.name || '').toLowerCase().includes(q) ||
+                    (rec.team || '').toLowerCase().includes(q) ||
+                    (rec.blockersRootCause || '').toLowerCase().includes(q)
+                );
+                return matchesCategory && matchesSearch;
+            });
+
+            if (matchingItems.length > 0) {
+                groups.push({
+                    recIdx,
+                    user: rec.user,
+                    team: rec.team,
+                    rootCause: rec.blockersRootCause || '',
+                    canHodSolve: rec.canHodSolve || '',
+                    items: matchingItems
+                });
+            }
+        });
+
+        return groups;
+    }, [reportData.records, blockerCategoryFilter, blockerSearchQuery]);
 
     const opFiltered = useMemo(() => {
         if (!opSearchQuery.trim()) return allOpenPoints;
@@ -559,7 +619,7 @@ const KPIPulseDashboard = () => {
                                     {[
                                         { label: 'Personnel', value: dashboardStats.totalFiltered, subtext: `of ${data.stats.totalUsers} org-wide`, color: '#667eea' },
                                         { label: 'Avg Score', value: avgScore, subtext: 'Mean value score', color: '#3b82f6' },
-                                        { label: 'Business Loss', value: formatCurrency(totalLoss), subtext: `${reportData.records?.filter(r=>r.businessLoss>0).length || 0} cases`, color: '#ef4444' },
+                                        { label: 'Business Loss', value: formatCurrency(totalLoss), subtext: `${reportData.records?.filter(r => r.businessLoss > 0).length || 0} cases`, color: '#ef4444' },
                                         { label: 'Blockers', value: totalBlockers, subtext: `${reportData.stats?.blockerDistribution?.length || 0} categories`, color: '#f59e0b' },
                                         { label: 'Submitters', value: `${nonSubmitterData.stats?.submissionRate || 0}%`, subtext: `${nonSubmitterData.stats?.submitted || 0} of ${nonSubmitterData.stats?.total || 0}`, color: '#10b981' },
                                         { label: 'Non Submitters', value: nonSubmitterData.stats?.nonSubmitted || 0, subtext: 'Require follow-up', color: '#64748b' }
@@ -590,13 +650,13 @@ const KPIPulseDashboard = () => {
                                                         <span className="status-pill info">Avg {t.avgScore}</span>
                                                     </div>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                        {[{l:'Stars',c:QUADRANTS.Star.color,v:t.stars},{l:'Engines',c:QUADRANTS.Engine.color,v:t.engines},{l:'Specialists',c:QUADRANTS.Specialist.color,v:t.specialists},{l:'Drainers',c:QUADRANTS.Drainer.color,v:t.drainers}].map(item => (
+                                                        {[{ l: 'Stars', c: QUADRANTS.Star.color, v: t.stars }, { l: 'Engines', c: QUADRANTS.Engine.color, v: t.engines }, { l: 'Specialists', c: QUADRANTS.Specialist.color, v: t.specialists }, { l: 'Drainers', c: QUADRANTS.Drainer.color, v: t.drainers }].map(item => (
                                                             <div key={item.l} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.c }} />
                                                                 <span style={{ flex: 1, fontSize: '12px', color: '#475569' }}>{item.l}</span>
                                                                 <strong style={{ fontSize: '13px' }}>{item.v}</strong>
                                                                 <div style={{ width: 60, height: 4, background: '#f1f5f9', borderRadius: 2, overflow: 'hidden' }}>
-                                                                    <div style={{ width: t.memberCount ? `${(item.v/t.memberCount)*100}%` : '0%', height: '100%', background: item.c }} />
+                                                                    <div style={{ width: t.memberCount ? `${(item.v / t.memberCount) * 100}%` : '0%', height: '100%', background: item.c }} />
                                                                 </div>
                                                             </div>
                                                         ))}
@@ -680,7 +740,7 @@ const KPIPulseDashboard = () => {
                                             )}
                                         </div>
                                     </div>
-                                    
+
                                     <div className="analytics-graph-card" style={{ padding: '24px' }}>
                                         <div className="section-header">
                                             <div>
@@ -725,7 +785,7 @@ const KPIPulseDashboard = () => {
                                                 <span className="status-pill info">Avg {t.avgScore}</span>
                                             </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-                                                {[{l:'Stars',c:QUADRANTS.Star.color,v:t.stars},{l:'Engines',c:QUADRANTS.Engine.color,v:t.engines},{l:'Specialists',c:QUADRANTS.Specialist.color,v:t.specialists},{l:'Drainers',c:QUADRANTS.Drainer.color,v:t.drainers}].map(item => (
+                                                {[{ l: 'Stars', c: QUADRANTS.Star.color, v: t.stars }, { l: 'Engines', c: QUADRANTS.Engine.color, v: t.engines }, { l: 'Specialists', c: QUADRANTS.Specialist.color, v: t.specialists }, { l: 'Drainers', c: QUADRANTS.Drainer.color, v: t.drainers }].map(item => (
                                                     <div key={item.l} style={{ textAlign: 'center', padding: '8px', borderRadius: '8px', background: `${item.c}10`, border: `1px solid ${item.c}30` }}>
                                                         <div style={{ fontSize: '16px', fontWeight: 800, color: item.c }}>{item.v}</div>
                                                         <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginTop: '4px' }}>{item.l}</div>
@@ -816,7 +876,7 @@ const KPIPulseDashboard = () => {
                                         <div className="section-header">
                                             <div>
                                                 <h3>Blocker Distribution</h3>
-                                                <p>By category frequency</p>
+                                                <p>By category frequency (click bar to filter)</p>
                                             </div>
                                         </div>
                                         <div style={{ height: 320 }}>
@@ -827,43 +887,154 @@ const KPIPulseDashboard = () => {
                                                         <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
                                                         <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: '#94a3b8' }} width={120} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
                                                         <ReTooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: '13px' }} cursor={{ fill: '#f8fafc' }} />
-                                                        <Bar dataKey="count" fill="#f59e0b" radius={[0, 6, 6, 0]} barSize={24} />
+                                                        <Bar
+                                                            dataKey="count"
+                                                            fill="#f59e0b"
+                                                            radius={[0, 6, 6, 0]}
+                                                            barSize={24}
+                                                            style={{ cursor: 'pointer' }}
+                                                            onClick={(entry) => {
+                                                                if (entry && entry.name) {
+                                                                    setBlockerCategoryFilter(prev => prev.toUpperCase() === entry.name.toUpperCase() ? 'ALL' : entry.name);
+                                                                }
+                                                            }}
+                                                        />
                                                     </BarChart>
                                                 </ResponsiveContainer>
                                             ) : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>No blocker data.</div>}
                                         </div>
                                     </div>
-                                    
+
                                     <div className="analytics-graph-card">
                                         <div className="section-header">
                                             <div>
                                                 <h3>Highest Registered Blockers</h3>
-                                                <p>Ranked by report volume</p>
+                                                <p>Ranked by report volume (click card to filter)</p>
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                            {(reportData.stats?.blockerDistribution || []).slice(0, 6).map((stat, i) => (
-                                                <div key={i} style={{ padding: '16px', borderRadius: '12px', background: i === 0 ? '#fffbeb' : '#f8fafc', border: `1px solid ${i === 0 ? '#fde68a' : '#e2e8f0'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                    <div>
-                                                        <div style={{ fontSize: '11px', fontWeight: 700, color: i === 0 ? '#b45309' : '#94a3b8', textTransform: 'uppercase' }}>{i === 0 ? '🔥 Top Blocker' : `Rank #${i + 1}`}</div>
-                                                        <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>{stat.category}</div>
+                                            {(reportData.stats?.blockerDistribution || []).slice(0, 6).map((stat, i) => {
+                                                const isSelected = blockerCategoryFilter.toUpperCase() === stat.category.toUpperCase();
+                                                return (
+                                                    <div
+                                                        key={i}
+                                                        onClick={() => setBlockerCategoryFilter(prev => prev.toUpperCase() === stat.category.toUpperCase() ? 'ALL' : stat.category)}
+                                                        style={{
+                                                            padding: '16px',
+                                                            borderRadius: '12px',
+                                                            background: isSelected ? '#fef3c7' : (i === 0 ? '#fffbeb' : '#f8fafc'),
+                                                            border: `1px solid ${isSelected ? '#f59e0b' : (i === 0 ? '#fde68a' : '#e2e8f0')}`,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.15s ease',
+                                                            boxShadow: isSelected ? '0 0 0 2px rgba(245, 158, 11, 0.25)' : 'none'
+                                                        }}
+                                                        title={`Click to filter by ${stat.category}`}
+                                                    >
+                                                        <div>
+                                                            <div style={{ fontSize: '11px', fontWeight: 700, color: isSelected || i === 0 ? '#b45309' : '#94a3b8', textTransform: 'uppercase' }}>
+                                                                {isSelected ? '✓ Filter Active' : (i === 0 ? '🔥 Top Blocker' : `Rank #${i + 1}`)}
+                                                            </div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>{stat.category}</div>
+                                                        </div>
+                                                        <span className={`status-pill ${isSelected || i === 0 ? 'warning' : 'neutral'}`}>{stat.count} Reports</span>
                                                     </div>
-                                                    <span className={`status-pill ${i === 0 ? 'warning' : 'neutral'}`}>{stat.count} Reports</span>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="nucleus-table-wrapper">
-                                    <div style={{ padding: '24px' }}>
-                                        <div className="section-header" style={{ marginBottom: 0 }}>
+                                    <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9' }}>
+                                        <div className="section-header" style={{ marginBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                                             <div>
-                                                <h3>Blocker Detail Register</h3>
-                                                <p>Individual blocker case breakdown</p>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <h3 style={{ margin: 0 }}>Blocker Detail Register</h3>
+                                                    <span className="status-pill warning" style={{ fontSize: '11px' }}>
+                                                        {filteredBlockerGroups.reduce((acc, g) => acc + g.items.length, 0)} {filteredBlockerGroups.reduce((acc, g) => acc + g.items.length, 0) === 1 ? 'Case' : 'Cases'}
+                                                    </span>
+                                                </div>
+                                                <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
+                                                    Individual blocker case breakdown
+                                                    {blockerCategoryFilter !== 'ALL' && (
+                                                        <span> • Showing Category: <strong style={{ color: '#d97706' }}>{blockerCategoryFilter}</strong></span>
+                                                    )}
+                                                </p>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                                {/* Search Box */}
+                                                <TextField
+                                                    size="small"
+                                                    placeholder="Search personnel, blocker, root cause..."
+                                                    value={blockerSearchQuery}
+                                                    onChange={e => setBlockerSearchQuery(e.target.value)}
+                                                    InputProps={{
+                                                        startAdornment: (
+                                                            <InputAdornment position="start">
+                                                                <SearchOutlined style={{ fontSize: 18, color: '#94a3b8' }} />
+                                                            </InputAdornment>
+                                                        ),
+                                                        endAdornment: blockerSearchQuery ? (
+                                                            <InputAdornment position="end">
+                                                                <IconButton size="small" onClick={() => setBlockerSearchQuery('')}>
+                                                                    <CloseOutlined style={{ fontSize: 14 }} />
+                                                                </IconButton>
+                                                            </InputAdornment>
+                                                        ) : null
+                                                    }}
+                                                    sx={{
+                                                        minWidth: 260,
+                                                        '& .MuiOutlinedInput-root': { borderRadius: 2, background: '#fff', fontSize: '13px' }
+                                                    }}
+                                                />
+
+                                                {/* Blocker Category Filter */}
+                                                <TextField
+                                                    select
+                                                    size="small"
+                                                    value={blockerCategoryFilter}
+                                                    onChange={e => setBlockerCategoryFilter(e.target.value)}
+                                                    sx={{
+                                                        minWidth: 220,
+                                                        '& .MuiOutlinedInput-root': { borderRadius: 2, background: '#fff', fontWeight: 600, fontSize: '13px' }
+                                                    }}
+                                                >
+                                                    <MenuItem value="ALL">All Categories ({totalBlockers})</MenuItem>
+                                                    {blockerCategories.map(cat => (
+                                                        <MenuItem key={cat.category} value={cat.category}>
+                                                            {cat.category} ({cat.count})
+                                                        </MenuItem>
+                                                    ))}
+                                                </TextField>
+
+                                                {(blockerCategoryFilter !== 'ALL' || blockerSearchQuery) && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setBlockerCategoryFilter('ALL');
+                                                            setBlockerSearchQuery('');
+                                                        }}
+                                                        style={{
+                                                            padding: '6px 14px',
+                                                            borderRadius: '6px',
+                                                            border: '1px solid #cbd5e1',
+                                                            background: '#fff',
+                                                            color: '#475569',
+                                                            fontSize: '12px',
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Reset Filter
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
+
                                     <table className="nucleus-table">
                                         <thead>
                                             <tr>
@@ -874,32 +1045,65 @@ const KPIPulseDashboard = () => {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {reportData.records?.filter(r => r.blocker).length > 0 ? reportData.records.filter(r => r.blocker).flatMap((rec, i) => {
-                                                const individualBlockers = rec.blocker.split(' | ').filter(b => b);
-                                                return individualBlockers.map((b, idx) => {
-                                                    let category = "Others";
-                                                    let detail = b;
-                                                    if (b.includes(":")) {
-                                                        const parts = b.split(":");
-                                                        category = parts[0].trim();
-                                                        detail = parts.slice(1).join(":").trim();
-                                                    }
-                                                    return (
-                                                        <tr key={`${i}-${idx}`}>
+                                            {filteredBlockerGroups.length > 0 ? (
+                                                filteredBlockerGroups.flatMap(group =>
+                                                    group.items.map((item, idx) => (
+                                                        <tr key={`${group.recIdx}-${idx}`}>
                                                             {idx === 0 && (
                                                                 <>
-                                                                    <td rowSpan={individualBlockers.length} style={{ fontWeight: 700, color: '#0f172a', verticalAlign: 'middle' }}>{rec.user.name}</td>
-                                                                    <td rowSpan={individualBlockers.length} style={{ color: '#64748b', verticalAlign: 'middle' }}>{rec.team}</td>
+                                                                    <td rowSpan={group.items.length} style={{ fontWeight: 700, color: '#0f172a', verticalAlign: 'middle' }}>
+                                                                        {group.user?.name}
+                                                                    </td>
+                                                                    <td rowSpan={group.items.length} style={{ color: '#64748b', verticalAlign: 'middle' }}>
+                                                                        {group.team}
+                                                                    </td>
                                                                 </>
                                                             )}
                                                             <td style={{ color: '#334155', maxWidth: '400px', whiteSpace: 'normal', lineHeight: 1.5 }}>
-                                                                {detail}
+                                                                <div style={{ fontWeight: 600 }}>{item.detail}</div>
+                                                                {group.rootCause && (
+                                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                                                                        <span style={{ fontWeight: 600 }}>Root Cause:</span> {group.rootCause}
+                                                                    </div>
+                                                                )}
                                                             </td>
-                                                            <td><span className="status-pill warning">{category}</span></td>
+                                                            <td><span className="status-pill warning">{item.category}</span></td>
                                                         </tr>
-                                                    );
-                                                });
-                                            }) : <tr><td colSpan="4" style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No blockers registered.</td></tr>}
+                                                    ))
+                                                )
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan="4" style={{ textAlign: 'center', color: '#94a3b8', padding: '36px' }}>
+                                                        {blockerCategoryFilter !== 'ALL' || blockerSearchQuery ? (
+                                                            <div>
+                                                                <p style={{ margin: '0 0 10px', fontSize: '14px', color: '#64748b' }}>
+                                                                    No blockers found matching the selected filter criteria.
+                                                                </p>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setBlockerCategoryFilter('ALL');
+                                                                        setBlockerSearchQuery('');
+                                                                    }}
+                                                                    style={{
+                                                                        padding: '6px 16px',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #e2e8f0',
+                                                                        background: '#f8fafc',
+                                                                        color: '#334155',
+                                                                        fontSize: '12px',
+                                                                        fontWeight: 600,
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                >
+                                                                    Show All Blockers
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            'No blockers registered.'
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
@@ -922,12 +1126,12 @@ const KPIPulseDashboard = () => {
                                         </div>
                                         <div style={{ display: 'flex', gap: '32px' }}>
                                             <div style={{ textAlign: 'center' }}><div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>{reportData.records?.filter(r => r.businessLoss > 0).length || 0}</div><div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Loss Cases</div></div>
-                                            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>{formatCurrency(reportData.records?.filter(r=>r.businessLoss>0).length ? totalLoss / reportData.records.filter(r => r.businessLoss > 0).length : 0)}</div><div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Avg / Case</div></div>
+                                            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>{formatCurrency(reportData.records?.filter(r => r.businessLoss > 0).length ? totalLoss / reportData.records.filter(r => r.businessLoss > 0).length : 0)}</div><div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Avg / Case</div></div>
                                             <div style={{ textAlign: 'center' }}><div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>{formatCurrency(Math.max(...(reportData.records?.map(r => r.businessLoss) || [0])))}</div><div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Highest</div></div>
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div className="nucleus-table-wrapper">
                                     <div style={{ padding: '24px' }}>
                                         <div className="section-header" style={{ marginBottom: 0 }}>
@@ -987,7 +1191,7 @@ const KPIPulseDashboard = () => {
                                         </div>
                                     ))}
                                 </div>
-                                
+
                                 <div className="nucleus-table-wrapper">
                                     <div style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div className="section-header" style={{ marginBottom: 0 }}>
@@ -1031,8 +1235,8 @@ const KPIPulseDashboard = () => {
                                                     <td style={{ textAlign: 'center' }}><strong style={{ color: item.accountabilityScore >= 90 ? '#10b981' : item.accountabilityScore >= 60 ? '#f59e0b' : '#ef4444' }}>{item.accountabilityScore}%</strong></td>
                                                     <td style={{ textAlign: 'center' }}>
                                                         {item.accountabilityScore >= 90 ? <span className="status-pill success">On Track</span> :
-                                                         item.accountabilityScore >= 60 ? <span className="status-pill warning">At Risk</span> :
-                                                         <span className="status-pill error">Critical</span>}
+                                                            item.accountabilityScore >= 60 ? <span className="status-pill warning">At Risk</span> :
+                                                                <span className="status-pill error">Critical</span>}
                                                     </td>
                                                 </tr>
                                             )) : <tr><td colSpan="7" style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No records found.</td></tr>}
@@ -1143,7 +1347,7 @@ const KPIPulseDashboard = () => {
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
                                     {[
                                         { label: 'Red', count: userOpDialog.points.filter(p => p.status === 'Red').length, color: '#ef4444', border: '#fecaca' },
-                                        { label: 'Amber', count: userOpDialog.points.filter(p => ['Yellow','Orange'].includes(p.status)).length, color: '#f59e0b', border: '#fde68a' },
+                                        { label: 'Amber', count: userOpDialog.points.filter(p => ['Yellow', 'Orange'].includes(p.status)).length, color: '#f59e0b', border: '#fde68a' },
                                         { label: 'Green', count: userOpDialog.points.filter(p => p.status === 'Green').length, color: '#10b981', border: '#a7f3d0' }
                                     ].map(st => (
                                         <div key={st.label} style={{ textAlign: 'center', padding: '12px', borderRadius: '8px', background: '#fff', border: `1px solid ${st.border}` }}>
@@ -1158,7 +1362,7 @@ const KPIPulseDashboard = () => {
                                     <div style={{ padding: '48px 0', textAlign: 'center', color: '#94a3b8' }}>Loading open points...</div>
                                 ) : userOpDialog.points.length > 0 ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                        {userOpDialog.points.sort((a,b) => {
+                                        {userOpDialog.points.sort((a, b) => {
                                             const order = { Red: 0, Orange: 1, Yellow: 2, Green: 3 };
                                             return (order[a.status] ?? 4) - (order[b.status] ?? 4);
                                         }).map((pt, i) => {

@@ -43,6 +43,12 @@ function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
       ? selectedSuppliers.reduce((acc, s) => acc + (Number(s.totalOrderValue) || 0), 0)
       : globalData?.stage2?.totalOrderValue || data.totalPaymentAmount || 0;
 
+  const allReqItems = globalData?.stage1?.itemsRequired || [];
+  const totalCancelledAmount = allReqItems
+    .filter((it) => it.isCancelled)
+    .reduce((sum, it) => sum + (Number(it.estTotalCost) || (Number(it.qty || 1) * Number(it.estUnitCost || 0))), 0);
+  const netPayableAmount = Math.max(0, totalPaymentAmount - totalCancelledAmount);
+
   const supplierNamesStr =
     selectedSuppliers.length > 0
       ? selectedSuppliers.map((s) => s.selectedSupplier).filter(Boolean).join(", ")
@@ -185,14 +191,21 @@ function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
             />
           </Box>
           <Box>
-            <label className="sop-label">TOTAL PAYMENT AMOUNT (₹)</label>
+            <label className="sop-label">
+              {totalCancelledAmount > 0 ? "NET PAYABLE AMOUNT (₹)" : "TOTAL PAYMENT AMOUNT (₹)"}
+            </label>
             <input
               type="text"
               className="sop-input readonly"
               readOnly
               style={{ fontWeight: "bold", color: "#1e3a8a" }}
-              value={totalPaymentAmount ? `₹${totalPaymentAmount.toLocaleString("en-IN")}` : "₹0"}
+              value={netPayableAmount ? `₹${netPayableAmount.toLocaleString("en-IN")}` : "₹0"}
             />
+            {totalCancelledAmount > 0 && (
+              <Typography variant="caption" sx={{ color: "#dc2626", fontSize: "10px", fontWeight: 600, display: "block", mt: 0.3 }}>
+                (Original ₹{totalPaymentAmount.toLocaleString("en-IN")} - ₹{totalCancelledAmount.toLocaleString("en-IN")} cancelled)
+              </Typography>
+            )}
           </Box>
         </Box>
       </Box>
@@ -255,12 +268,13 @@ function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
             <thead>
               <tr>
                 <th>Supplier Name</th>
+                <th style={{ minWidth: 160 }}>Items</th>
                 <th>Name in Bank</th>
                 <th>Bank Name</th>
                 <th>Account No.</th>
                 <th>IFSC</th>
                 <th>Terms</th>
-                <th style={{ textAlign: "right", width: 110 }}>Amount (₹)</th>
+                <th style={{ textAlign: "right", width: 120 }}>Amount (₹)</th>
                 <th style={{ width: 70, textAlign: "center" }}>Paid?</th>
                 <th style={{ width: 100 }}>Method</th>
                 <th style={{ width: 140 }}>UTR / Ref No.</th>
@@ -280,10 +294,52 @@ function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
                   );
                   const supplierOrderVal = matchedSelected?.totalOrderValue || sup.totalOrderValue || 0;
 
+                  const supNameUpper = (sup.supplierName || "").toUpperCase();
+                  const supItems = allReqItems.filter((it) => {
+                    if (bankSuppliers.length === 1) return true;
+                    const itName = (it.productName || it.tyreType || "").toUpperCase();
+                    const quote = stage2Suppliers.find(
+                      (s) =>
+                        (s.supplierName || "").toUpperCase() === supNameUpper &&
+                        (s.selectedProduct || s.selectedTyreType || "").toUpperCase() === itName
+                    );
+                    return Boolean(quote);
+                  });
+                  const itemsToDisplay = supItems.length > 0 ? supItems : allReqItems;
+                  const supCancelledAmt = itemsToDisplay
+                    .filter((it) => it.isCancelled)
+                    .reduce((sum, it) => sum + (Number(it.estTotalCost) || (Number(it.qty || 1) * Number(it.estUnitCost || 0))), 0);
+                  const effectiveSupVal = Math.max(0, supplierOrderVal - supCancelledAmt);
+
                   return (
                     <tr key={idx}>
                       <td style={{ fontWeight: 600, color: "#1d4ed8" }}>
                         {sup.supplierName || `Supplier ${idx + 1}`}
+                      </td>
+                      <td style={{ minWidth: 160, fontSize: "11px" }}>
+                        {itemsToDisplay.map((it, itIdx) => (
+                          <div key={itIdx} style={{ marginBottom: "2px", lineHeight: "1.3" }}>
+                            <span style={{ textDecoration: it.isCancelled ? "line-through" : "none", color: it.isCancelled ? "#991b1b" : "#1e293b", fontWeight: 600 }}>
+                              {it.productName || it.tyreType || it.description || `Item ${itIdx + 1}`} ({it.qty || 1})
+                            </span>
+                            {it.isCancelled && (
+                              <span
+                                title={`Cancelled by ${it.cancelledBy || "User"}: ${it.cancellationReason || "Cancelled"}`}
+                                style={{
+                                  marginLeft: "4px",
+                                  fontSize: "9px",
+                                  fontWeight: 700,
+                                  color: "#dc2626",
+                                  backgroundColor: "#fee2e2",
+                                  padding: "1px 4px",
+                                  borderRadius: "3px",
+                                }}
+                              >
+                                CANCELLED
+                              </span>
+                            )}
+                          </div>
+                        ))}
                       </td>
                       <td>{sup.supplierNameInBank || sup.supplierName || "-"}</td>
                       <td>{sup.bankName || "-"}</td>
@@ -299,7 +355,12 @@ function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
                         />
                       </td>
                       <td style={{ textAlign: "right", fontWeight: 700, color: "#166534" }}>
-                        {supplierOrderVal > 0 ? `₹${Number(supplierOrderVal).toLocaleString("en-IN")}` : "-"}
+                        {effectiveSupVal > 0 ? `₹${Number(effectiveSupVal).toLocaleString("en-IN")}` : "-"}
+                        {supCancelledAmt > 0 && (
+                          <div style={{ fontSize: "10px", color: "#dc2626", fontWeight: 500 }}>
+                            (-₹{Number(supCancelledAmt).toLocaleString("en-IN")})
+                          </div>
+                        )}
                       </td>
                       <td style={{ textAlign: "center" }}>
                         <input

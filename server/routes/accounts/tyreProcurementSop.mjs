@@ -14,6 +14,7 @@ import TyreSupplierModel from "../../model/accounts/tyreSupplierModel.mjs";
 import ProcurementProductModel from "../../model/accounts/procurementProductModel.mjs";
 import ProcurementCompanyModel from "../../model/accounts/procurementCompanyModel.mjs";
 import ProcurementApproverModel from "../../model/accounts/procurementApproverModel.mjs";
+import ProcurementTyreCategoryModel, { DEFAULT_TYRE_CATEGORIES } from "../../model/accounts/procurementTyreCategoryModel.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -714,14 +715,23 @@ function computeDoc(doc) {
   if (!doc) return doc;
   const clone = JSON.parse(JSON.stringify(doc));
 
-  // Compute estTotal for Stage 1 items
+  // Compute estTotal for Stage 1 items (PR-7: exclude cancelled items from active total)
   let estTotalCost = 0;
+  let cancelledTotalCost = 0;
+  let activeItemsQty = 0;
   clone.stage1?.itemsRequired?.forEach((item) => {
     item.estTotal = (Number(item.qty) || 0) * (Number(item.estUnitCost) || 0);
-    estTotalCost += item.estTotal;
+    if (item.isCancelled) {
+      cancelledTotalCost += item.estTotal;
+    } else {
+      estTotalCost += item.estTotal;
+      activeItemsQty += Number(item.qty) || 0;
+    }
   });
   if (clone.stage1) {
     clone.stage1.estimatedTotalCost = estTotalCost;
+    clone.stage1.cancelledTotalCost = cancelledTotalCost;
+    clone.stage1.activeItemsQty = activeItemsQty;
     if (!clone.stage1.hodValidation) clone.stage1.hodValidation = {};
     if (!clone.stage1.hodValidation.validatedBy) {
       clone.stage1.hodValidation.validatedBy = "MOHIT SINGH";
@@ -1146,58 +1156,137 @@ router.post("/tyre-procurement/company-directory/import-departments", authMiddle
   }
 });
 
-// ─── Pulse Daily & Date Range Activity Endpoint ───
+// ─── Pulse Daily & Date Range Activity Endpoint (All Lifecycle Stages) ───
 router.get("/tyre-procurement/pulse", authMiddleware, async (req, res) => {
   try {
     const todayStr = new Date().toISOString().slice(0, 10);
-    const startDateStr = req.query.startDate || req.query.fromDate || req.query.date || todayStr;
+    const startDateStr = req.query.startDate || req.query.fromDate || req.query.date;
     const endDateStr = req.query.endDate || req.query.toDate || req.query.date || startDateStr;
+    const isAllTime = req.query.allTime === "true" || startDateStr === "ALL" || (!startDateStr && !req.query.date);
 
-    const startOfDay = new Date(`${startDateStr}T00:00:00.000Z`);
-    const endOfDay = new Date(`${endDateStr}T23:59:59.999Z`);
+    let dateQuery = {};
+    if (!isAllTime && startDateStr) {
+      const startOfDay = new Date(`${startDateStr}T00:00:00.000Z`);
+      const endOfDay = new Date(`${endDateStr || startDateStr}T23:59:59.999Z`);
+      dateQuery = {
+        $or: [
+          { createdAt: { $gte: startOfDay, $lte: endOfDay } },
+          { updatedAt: { $gte: startOfDay, $lte: endOfDay } },
+          { "stage1.prDate": { $gte: startOfDay, $lte: endOfDay } },
+          { "stage2.poDate": { $gte: startOfDay, $lte: endOfDay } },
+          { "stage3.poDate": { $gte: startOfDay, $lte: endOfDay } },
+          { "stage3.signOff.dateOfApproval": { $gte: startOfDay, $lte: endOfDay } },
+          { "stage4.paymentDetails.paymentDate": { $gte: startOfDay, $lte: endOfDay } },
+          { "stage5.dispatchDetails.dispatchDate": { $gte: startOfDay, $lte: endOfDay } },
+          { "stage6.grnDate": { $gte: startOfDay, $lte: endOfDay } },
+        ],
+      };
+    }
 
-    // 1. PRs created or raised in date range
-    const prs = await TyreProcurementSop.find({
-      $or: [
-        { createdAt: { $gte: startOfDay, $lte: endOfDay } },
-        { "stage1.prDate": { $gte: startOfDay, $lte: endOfDay } },
-      ],
-    })
-      .select("prNumber poNumber companyName companyShortName stage1.preparedBy stage1.departmentLocation stage1.estimatedTotalCost status createdAt stage1.prDate")
+    const allRecords = await TyreProcurementSop.find(dateQuery)
+      .sort({ createdAt: -1 })
       .lean();
 
-    // 2. POs generated or approved in date range
-    const pos = await TyreProcurementSop.find({
-      $or: [
-        { "stage3.signOff.dateOfApproval": { $gte: startOfDay, $lte: endOfDay } },
-        { "stage2.poDate": { $gte: startOfDay, $lte: endOfDay } },
-        { "stage3.poDate": { $gte: startOfDay, $lte: endOfDay } },
-      ],
-    })
-      .select("prNumber poNumber companyName companyShortName stage2.selectedSupplierL1 stage2.selectedSuppliers status createdAt")
-      .lean();
+    // Categorize into the 7 stages matching stageTabsList
+    const stage1 = [];
+    const stage2 = [];
+    const stage3 = [];
+    const stage4 = [];
+    const stage5 = [];
+    const stage6 = [];
+    const stage7 = [];
 
-    // 3. GRNs recorded or updated in date range
-    const grns = await TyreProcurementSop.find({
-      $or: [
-        { "stage6.grnDate": { $gte: startOfDay, $lte: endOfDay } },
-        { "stage6.updatedAt": { $gte: startOfDay, $lte: endOfDay } },
-        { status: { $in: ["GRN Done", "GRN Completed", "Closed"] }, updatedAt: { $gte: startOfDay, $lte: endOfDay } },
-      ],
-    })
-      .select("prNumber poNumber companyName companyShortName stage6.supplierName stage6.invoiceNo stage6.acceptedQty status updatedAt stage6.grnDate")
-      .lean();
+    allRecords.forEach((doc) => {
+      const status = doc.status || "Draft";
+      const ci = getPrCreditInfo(doc);
+      doc.creditInfo = ci;
+
+      // Calculate display helpers for clean rendering in Pulse
+      const selectedSuppliers = doc.stage2?.selectedSuppliers || [];
+      const supNames = selectedSuppliers.map((s) => s.selectedSupplier).filter(Boolean);
+      doc.displaySupplier = supNames.length > 0 ? supNames.join(", ") : (doc.stage2?.selectedSupplierL1 || "-");
+
+      const poNums = selectedSuppliers.map((s) => s.poNumber).filter(Boolean);
+      doc.displayPoNumber = poNums.length > 0 ? poNums.join(", ") : (doc.poNumber || doc.stage3?.poNumber || doc.stage2?.poNumber || "-");
+
+      let totalVal = 0;
+      if (selectedSuppliers.length > 0) {
+        totalVal = selectedSuppliers.reduce((sum, s) => sum + (Number(s.totalOrderValue) || 0), 0);
+      }
+      if (!totalVal) {
+        totalVal = Number(doc.stage2?.selectedSupplierL1Amount || doc.stage2?.totalOrderValue || doc.stage1?.estimatedTotalCost || 0);
+      }
+      doc.displayTotalValue = totalVal;
+
+      // Stage 1: Draft
+      if (status === "Draft" || !doc.status) {
+        stage1.push(doc);
+      }
+      // Stage 2: Supplier Quotation
+      else if (["PR Raised", "Preparing for Quotation", "HoD Validated"].includes(status)) {
+        stage2.push(doc);
+      }
+      // Stage 3: Finance Approval
+      else if (["Quotation Received", "Quotation Updated"].includes(status)) {
+        stage3.push(doc);
+      }
+      // Stage 4: Payment & UTR
+      else if (status === "Finance Approved" || status === "Finance Review" || (ci.isCredit && !ci.isPaid && ci.diffDays <= 7)) {
+        stage4.push(doc);
+      }
+      // Stage 5: Order & Dispatch
+      else if (["Payment Done", "Advance Paid", "Order Placed", "Dispatched"].includes(status)) {
+        stage5.push(doc);
+      }
+      // Stage 6: Site GRN
+      else if (["Dispatched / Site GRN Ready", "GRN Ready", "In Transit", "GRN Received"].includes(status)) {
+        stage6.push(doc);
+      }
+      // Stage 7: Completed
+      else if (["GRN Done", "GRN Completed", "Closed"].includes(status)) {
+        stage7.push(doc);
+      } else {
+        stage1.push(doc);
+      }
+    });
+
+    // Backward-compatible arrays
+    const prs = allRecords.filter((d) => d.status === "PR Raised" || d.status === "Draft" || (d.stage1?.prDate && !d.stage2?.poDate));
+    const pos = allRecords.filter((d) => d.poNumber || d.stage3?.poNumber || d.stage2?.poNumber || d.stage3?.signOff?.dateOfApproval);
+    const grns = allRecords.filter((d) => ["GRN Done", "GRN Completed", "Closed", "GRN Ready", "GRN Received"].includes(d.status));
 
     res.status(200).json({
       success: true,
-      startDate: startDateStr,
-      endDate: endDateStr,
-      isRange: startDateStr !== endDateStr,
+      startDate: startDateStr || "",
+      endDate: endDateStr || "",
+      isAllTime,
+      isRange: Boolean(startDateStr && endDateStr && startDateStr !== endDateStr),
       counts: {
+        total: allRecords.length,
+        stage0: allRecords.length,
+        stage1: stage1.length,
+        stage2: stage2.length,
+        stage3: stage3.length,
+        stage4: stage4.length,
+        stage5: stage5.length,
+        stage6: stage6.length,
+        stage7: stage7.length,
+        // legacy
         prCount: prs.length,
         poCount: pos.length,
         grnCount: grns.length,
       },
+      stages: {
+        "0": allRecords,
+        "1": stage1,
+        "2": stage2,
+        "3": stage3,
+        "4": stage4,
+        "5": stage5,
+        "6": stage6,
+        "7": stage7,
+      },
+      all: allRecords,
       prs,
       pos,
       grns,
@@ -1208,10 +1297,10 @@ router.get("/tyre-procurement/pulse", authMiddleware, async (req, res) => {
   }
 });
 
-// ─── Comprehensive Excel Report Endpoint ───
+// ─── Comprehensive Excel Report Endpoint (PR-1, PR-2, PR-3) ───
 router.get("/tyre-procurement/excel-report", authMiddleware, async (req, res) => {
   try {
-    const { month, year, companyKey, groupBy = "vendor" } = req.query;
+    const { month, year, companyKey, tyreCategory, groupBy = "vendor" } = req.query;
     const query = {};
 
     if (companyKey && companyKey !== "ALL") {
@@ -1221,14 +1310,33 @@ router.get("/tyre-procurement/excel-report", authMiddleware, async (req, res) =>
 
     const allDocs = await TyreProcurementSop.find(query).sort({ createdAt: -1 }).lean();
 
-    // Filter by month/year if specified
-    const filteredDocs = allDocs.filter((doc) => {
-      const dt = new Date(doc.stage1?.prDate || doc.createdAt);
+    // PR-1: Only GRN-completed data is tracked in this report
+    const grnCompletedDocs = allDocs.filter((doc) => {
+      const comp = computeDoc(doc);
+      const isCompleted =
+        ["GRN Done", "GRN Completed", "Closed"].includes(comp.status) ||
+        Boolean(doc.stage6?.grnSeriesNo) ||
+        (doc.stage6?.approvals?.length >= 3 && doc.stage6?.approvals?.every(isDone));
+      return isCompleted;
+    });
+
+    // Filter by month/year if specified (based on PR date or GRN update date)
+    const filteredDocs = grnCompletedDocs.filter((doc) => {
+      const dt = new Date(doc.stage6?.dateOfReceipt || doc.stage6?.grnDate || doc.stage1?.prDate || doc.createdAt);
       if (isNaN(dt.getTime())) return true;
       if (year && year !== "ALL" && dt.getFullYear().toString() !== year.toString()) return false;
       if (month && month !== "ALL") {
         const mIdx = dt.getMonth() + 1;
         if (mIdx.toString() !== month.toString()) return false;
+      }
+      // PR-2: Filter by Tyre Category if provided
+      if (tyreCategory && tyreCategory !== "ALL") {
+        const catClean = tyreCategory.trim().toUpperCase();
+        const items = doc.stage1?.itemsRequired || [];
+        const hasCat = items.some(
+          (it) => (it.tyreCategory || "").trim().toUpperCase() === catClean
+        );
+        if (!hasCat) return false;
       }
       return true;
     });
@@ -1239,15 +1347,17 @@ router.get("/tyre-procurement/excel-report", authMiddleware, async (req, res) =>
     let totalBusinessVolume = 0;
     let totalItemsQty = 0;
 
-    filteredDocs.forEach((doc) => {
+    const reportRecords = filteredDocs.map((doc) => {
       const comp = computeDoc(doc);
-      const isCompleted = ["GRN Done", "GRN Completed", "Closed"].includes(comp.status);
-      const poVal = Number(comp.stage2?.selectedSupplierL1Amount || comp.stage3?.financeApprovedCost || comp.stage1?.estimatedTotalCost || 0);
-      if (isCompleted) {
-        totalBusinessVolume += poVal;
-      }
+      const poVal = Number(
+        comp.stage2?.totalOrderValue ||
+        comp.stage2?.selectedSupplierL1Amount ||
+        comp.stage3?.financeApprovedCost ||
+        comp.stage1?.estimatedTotalCost ||
+        0
+      );
+      totalBusinessVolume += poVal;
 
-      // Group by Vendor
       const vendorName = (
         comp.stage2?.selectedSupplierL1 ||
         comp.stage2?.selectedSuppliers?.[0]?.selectedSupplier ||
@@ -1260,29 +1370,48 @@ router.get("/tyre-procurement/excel-report", authMiddleware, async (req, res) =>
       }
       vendorMap[vendorName].poCount += 1;
       vendorMap[vendorName].totalAmount += poVal;
-      vendorMap[vendorName].records.push({
-        prNumber: comp.prNumber,
-        poNumber: comp.poNumber || "-",
-        company: comp.companyName,
-        status: comp.status,
-        amount: poVal,
-      });
 
-      // Group by Product
+      // Group by Product & Tyre Category (PR-2)
       const items = comp.stage1?.itemsRequired || [];
+      const itemCategories = [];
+      let docQty = 0;
       items.forEach((item) => {
-        const prod = (item.productName || item.tyreType || "General Procurement").trim();
+        if (item.isCancelled) return;
+        const categoryLabel = (item.tyreCategory || item.productName || item.tyreType || "General Procurement").trim();
         const qty = Number(item.qty) || 0;
         const est = Number(item.estTotal) || 0;
         totalItemsQty += qty;
+        docQty += qty;
+        if (item.tyreCategory) itemCategories.push(item.tyreCategory.trim());
 
-        if (!productMap[prod]) {
-          productMap[prod] = { productName: prod, totalQty: 0, totalEstimatedCost: 0, poCount: 0 };
+        if (!productMap[categoryLabel]) {
+          productMap[categoryLabel] = { productName: categoryLabel, totalQty: 0, totalEstimatedCost: 0, poCount: 0 };
         }
-        productMap[prod].totalQty += qty;
-        productMap[prod].totalEstimatedCost += est;
-        productMap[prod].poCount += 1;
+        productMap[categoryLabel].totalQty += qty;
+        productMap[categoryLabel].totalEstimatedCost += est;
+        productMap[categoryLabel].poCount += 1;
       });
+
+      const uniqueCategories = Array.from(new Set(itemCategories)).join(", ") || "-";
+
+      // Report Record mapping (PR-1, PR-3: Short Code removed, Tyre Category & GRN details added)
+      return {
+        _id: comp._id,
+        prNumber: comp.prNumber,
+        prDate: comp.stage1?.prDate || comp.createdAt,
+        poNumber: comp.poNumber || comp.stage2?.poNumber || "-",
+        poDate: comp.stage2?.poDate || comp.stage3?.poDate || comp.stage3?.signOff?.dateOfApproval || "-",
+        grnNumber: comp.stage6?.grnSeriesNo || "-",
+        grnDate: comp.stage6?.dateOfReceipt || comp.stage6?.grnDate || comp.stage6?.updatedAt || "-",
+        tatDays: comp.tatDays !== null && comp.tatDays !== undefined ? comp.tatDays : "-",
+        vendorName,
+        tyreCategory: uniqueCategories,
+        totalQty: docQty || comp.stage1?.activeItemsQty || 0,
+        amount: poVal,
+        status: comp.status,
+        companyName: comp.companyName,
+        preparedBy: comp.stage1?.preparedBy || "-",
+      };
     });
 
     res.status(200).json({
@@ -1296,10 +1425,52 @@ router.get("/tyre-procurement/excel-report", authMiddleware, async (req, res) =>
       },
       byVendor: Object.values(vendorMap),
       byProduct: Object.values(productMap),
-      records: filteredDocs.map((d) => computeDoc(d)),
+      records: reportRecords,
     });
   } catch (err) {
     logger.error("Error generating procurement excel report:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Tyre Category Master Endpoints (PR-2) ───
+
+// Fetch all tyre categories (seed defaults if empty)
+router.get("/tyre-procurement/tyre-categories", authMiddleware, async (req, res) => {
+  try {
+    let categories = await ProcurementTyreCategoryModel.find({ isActive: true }).sort({ sortOrder: 1, categoryName: 1 }).lean();
+    if (categories.length === 0) {
+      const seedData = DEFAULT_TYRE_CATEGORIES.map((cat, idx) => ({
+        categoryName: cat,
+        sortOrder: idx + 1,
+        isActive: true,
+      }));
+      await ProcurementTyreCategoryModel.insertMany(seedData, { ordered: false }).catch(() => {});
+      categories = await ProcurementTyreCategoryModel.find({ isActive: true }).sort({ sortOrder: 1, categoryName: 1 }).lean();
+    }
+    res.status(200).json({ success: true, categories });
+  } catch (err) {
+    logger.error("Error fetching tyre categories:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Add or edit a tyre category in master
+router.post("/tyre-procurement/tyre-categories", authMiddleware, async (req, res) => {
+  try {
+    const { categoryName, description } = req.body;
+    if (!categoryName || !categoryName.trim()) {
+      return res.status(400).json({ success: false, message: "Category name is required" });
+    }
+    const cleanName = categoryName.trim();
+    const category = await ProcurementTyreCategoryModel.findOneAndUpdate(
+      { categoryName: cleanName },
+      { $set: { categoryName: cleanName, description: description || "", isActive: true } },
+      { upsert: true, new: true }
+    );
+    res.status(200).json({ success: true, category });
+  } catch (err) {
+    logger.error("Error saving tyre category:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -1907,7 +2078,7 @@ router.post("/tyre-suppliers", authMiddleware, async (req, res) => {
   }
 });
 
-// Create Tyre PR
+// Create Tyre PR (PR-4: Audit trail)
 router.post("/tyre-procurement", authMiddleware, async (req, res) => {
   try {
     let payload = normalizeTyreEnums(uppercaseDeep(req.body));
@@ -1941,6 +2112,27 @@ router.post("/tyre-procurement", authMiddleware, async (req, res) => {
       attempts++;
     }
     payload.status = deriveStatus(payload);
+
+    // PR-4: Record who created the record and when
+    const userName = [req.user?.first_name, req.user?.last_name].filter(Boolean).join(" ") || req.user?.username || "System";
+    payload.createdBy = req.user?.username || "";
+    payload.createdByName = userName;
+    payload.createdAt = new Date();
+    if (payload.stage1) {
+      payload.stage1.createdBy = req.user?.username || "";
+      payload.stage1.createdByName = userName;
+      payload.stage1.createdAt = new Date();
+    }
+    payload.auditTrail = [
+      {
+        action: "PR Created",
+        performedBy: req.user?.username || "System",
+        performedByName: userName,
+        timestamp: new Date(),
+        details: `PR ${payload.prNumber} created`,
+      },
+    ];
+
     const doc = new TyreProcurementSop(payload);
     await doc.save();
     await saveSuppliersFromDoc(doc);
@@ -1953,7 +2145,7 @@ router.post("/tyre-procurement", authMiddleware, async (req, res) => {
   }
 });
 
-// Update Tyre PR
+// Update Tyre PR (PR-4: Audit trail tracking)
 router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
   try {
     let payload = normalizeTyreEnums(uppercaseDeep(req.body));
@@ -1978,6 +2170,61 @@ router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
       }
     }
     payload.status = deriveStatus(payload);
+
+    // PR-4: Record who updated and maintain audit trail
+    const userName = [req.user?.first_name, req.user?.last_name].filter(Boolean).join(" ") || req.user?.username || "System";
+    payload.updatedBy = req.user?.username || "";
+    payload.updatedByName = userName;
+    payload.updatedAt = new Date();
+
+    const auditTrail = Array.isArray(existing.auditTrail) ? [...existing.auditTrail] : [];
+
+    // Check if PO was created or updated in this step
+    if (payload.stage2?.poNumber && !existing.stage2?.poNumber) {
+      payload.stage2.poCreatedBy = req.user?.username || "";
+      payload.stage2.poCreatedByName = userName;
+      payload.stage2.poCreatedAt = new Date();
+      auditTrail.push({
+        action: "PO Created",
+        performedBy: req.user?.username || "System",
+        performedByName: userName,
+        timestamp: new Date(),
+        details: `PO ${payload.stage2.poNumber} created with supplier ${payload.stage2?.selectedSupplierL1 || "-"}`,
+      });
+    }
+
+    // Check if GRN was completed in this step
+    if (payload.stage6?.grnSeriesNo && !existing.stage6?.grnSeriesNo) {
+      payload.stage6.grnCreatedBy = req.user?.username || "";
+      payload.stage6.grnCreatedByName = userName;
+      payload.stage6.grnCreatedAt = new Date();
+      auditTrail.push({
+        action: "GRN Completed",
+        performedBy: req.user?.username || "System",
+        performedByName: userName,
+        timestamp: new Date(),
+        details: `GRN ${payload.stage6.grnSeriesNo} completed`,
+      });
+    }
+
+    // PR-7: Check if any item was cancelled
+    const existingItems = existing.stage1?.itemsRequired || [];
+    const payloadItems = payload.stage1?.itemsRequired || [];
+    payloadItems.forEach((it, idx) => {
+      const prev = existingItems[idx];
+      if (it.isCancelled && (!prev || !prev.isCancelled)) {
+        auditTrail.push({
+          action: "Item Cancelled",
+          performedBy: req.user?.username || "System",
+          performedByName: userName,
+          timestamp: new Date(),
+          details: `Item #${idx + 1} (${it.productName || it.tyreCategory || "Item"}) cancelled. Reason: ${it.cancellationReason || "No reason given"}`,
+        });
+      }
+    });
+
+    payload.auditTrail = auditTrail;
+
     const doc = await TyreProcurementSop.findByIdAndUpdate(
       req.params.id,
       { $set: payload },

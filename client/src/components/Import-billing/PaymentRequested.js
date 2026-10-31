@@ -248,8 +248,8 @@ function PaymentRequested({ workMode = "Payment" }) {
             const bankFrom = prDetails.bankFrom || prDetails.bank || prDetails.payment_request_bank || c.payment_request_bank || c.bank || "-";
             const beneficiary = prDetails.paymentTo || prDetails.beneficiary || prDetails.payment_request_beneficiary || c.payment_request_beneficiary || c.beneficiary || "-";
 
-            const containerNos = job.container_nos && Array.isArray(job.container_nos) 
-              ? job.container_nos.map((cn) => cn.container_number).filter(Boolean).join(", ") 
+            const containerNos = job.container_nos && Array.isArray(job.container_nos)
+              ? job.container_nos.map((cn) => cn.container_number).filter(Boolean).join(", ")
               : "-";
 
             reqMap.set(reqNo, {
@@ -279,7 +279,7 @@ function PaymentRequested({ workMode = "Payment" }) {
       }
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
-      
+
       const colWidths = [
         { wch: 30 }, // IMPORTER
         { wch: 20 }, // BOE NO
@@ -390,7 +390,7 @@ function PaymentRequested({ workMode = "Payment" }) {
     }
 
     const endpoint = workMode === "Purchase Book" ? "approve-purchase-entry" : "approve-payment-request";
-    
+
     setIsApproving(true);
     try {
       const res = await axios.post(`${process.env.REACT_APP_API_STRING}/${endpoint}`, {
@@ -400,9 +400,10 @@ function PaymentRequested({ workMode = "Payment" }) {
       });
 
       if (res.data.success) {
-        await fetchPaymentRequestDetails(selectedPaymentRequest.requestNo);
         setOpenApprovalPopup(false);
-        // Refresh main table
+        setOpenDetailModal(false);
+        // Refresh main table retaining current date range filter (IR-1)
+        const { start, end } = calculateDates();
         fetchJobs(
           page,
           debouncedSearchQuery,
@@ -412,7 +413,9 @@ function PaymentRequested({ workMode = "Payment" }) {
           user?.username,
           selectedBranch,
           selectedCategory,
-          selectedTransactionType
+          selectedTransactionType,
+          start,
+          end
         );
       }
     } catch (err) {
@@ -442,6 +445,7 @@ function PaymentRequested({ workMode = "Payment" }) {
       setOpenRejectPopup(false);
       setOpenDetailModal(false);
       setRejectionReason("");
+      const { start, end } = calculateDates();
       fetchJobs(
         page,
         debouncedSearchQuery,
@@ -451,7 +455,9 @@ function PaymentRequested({ workMode = "Payment" }) {
         user?.username,
         selectedBranch,
         selectedCategory,
-        selectedTransactionType
+        selectedTransactionType,
+        start,
+        end
       );
     } catch (err) {
       console.error("Error rejecting payment request:", err);
@@ -628,9 +634,9 @@ function PaymentRequested({ workMode = "Payment" }) {
         header: "BE NO and BL NO",
         Cell: ({ cell }) => {
           const { be_no, be_date, awb_bl_no, charges, ie_code_no } = cell.row.original;
-          const hasCustomsDuty = charges && charges.some(c => 
+          const hasCustomsDuty = charges && charges.some(c =>
             c.chargeHead && (
-              c.chargeHead.toUpperCase() === "CUSTOMS DUTY" || 
+              c.chargeHead.toUpperCase() === "CUSTOMS DUTY" ||
               c.chargeHead.toUpperCase() === "CUSTOM DUTY" ||
               c.chargeHead.toUpperCase().includes("CUSTOMS DUTY")
             )
@@ -646,12 +652,12 @@ function PaymentRequested({ workMode = "Payment" }) {
                 )}
               </div>
               <div style={{ fontSize: "10px", color: "#666" }}>
-                 {be_date ? new Date(be_date).toLocaleDateString("en-GB") : "-"}
+                {be_date ? new Date(be_date).toLocaleDateString("en-GB") : "-"}
               </div>
-              <div style={{ 
-                fontSize: "11px", 
-                fontWeight: "bold", 
-                color: "#2e7d32", 
+              <div style={{
+                fontSize: "11px",
+                fontWeight: "bold",
+                color: "#2e7d32",
                 marginTop: "4px",
                 padding: "2px 4px",
                 backgroundColor: "#e8f5e9",
@@ -668,10 +674,10 @@ function PaymentRequested({ workMode = "Payment" }) {
                 )}
               </div>
               {hasCustomsDuty && (
-                <div style={{ 
-                  fontSize: "11px", 
-                  fontWeight: "bold", 
-                  color: "#d32f2f", 
+                <div style={{
+                  fontSize: "11px",
+                  fontWeight: "bold",
+                  color: "#d32f2f",
                   marginTop: "4px",
                   padding: "2px 4px",
                   backgroundColor: "#ffebee",
@@ -720,13 +726,13 @@ function PaymentRequested({ workMode = "Payment" }) {
                   <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Chip 
-                          label={no} 
-                          size="small" 
-                          color="primary" 
-                          variant="outlined" 
-                          onClick={() => handleViewPaymentRequest(no)} 
-                          sx={{ fontWeight: 'bold', height: '20px' }} 
+                        <Chip
+                          label={no}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          onClick={() => handleViewPaymentRequest(no)}
+                          sx={{ fontWeight: 'bold', height: '20px' }}
                         />
                         <IconButton size="small" onClick={(e) => handleCopy(e, no)} title="Copy No" sx={{ p: 0.2 }}>
                           <ContentCopyIcon sx={{ fontSize: '0.9rem' }} />
@@ -739,10 +745,10 @@ function PaymentRequested({ workMode = "Payment" }) {
                         <Chip label="APPROVED" size="small" color="success" variant="outlined" sx={{ fontSize: '0.55rem', height: '16px', fontWeight: '900', color: '#2e7d32', borderColor: '#2e7d32' }} />
                       )}
                       {receiptUrl && (
-                        <IconButton 
-                          size="small" 
-                          href={receiptUrl} 
-                          target="_blank" 
+                        <IconButton
+                          size="small"
+                          href={receiptUrl}
+                          target="_blank"
                           sx={{ p: 0, color: '#2e7d32' }}
                           title={workMode === "Payment" ? "View Payment Receipt" : "View Purchase Receipt"}
                         >
@@ -767,7 +773,7 @@ function PaymentRequested({ workMode = "Payment" }) {
           const dataField = workMode === "Payment" ? "payment_request_transaction_type" : "supplier_name";
           const isApprovedField = workMode === "Payment" ? "payment_request_is_approved" : "purchase_book_is_approved";
           const statusField = workMode === "Payment" ? "payment_request_status" : "purchase_book_status";
-          
+
           const reqGroups = charges.reduce((acc, c) => {
             if (c[filterField] && c[statusField] !== "Paid" && !c[isApprovedField]) {
               if (!acc[c[filterField]]) acc[c[filterField]] = [];
@@ -828,12 +834,12 @@ function PaymentRequested({ workMode = "Payment" }) {
                   <div>{entry.name}</div>
                   {entry.date && (
                     <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '2px' }}>
-                      {new Date(entry.date).toLocaleString('en-GB', { 
-                        day: '2-digit', 
-                        month: '2-digit', 
-                        year: 'numeric', 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
+                      {new Date(entry.date).toLocaleString('en-GB', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
                       })}
                     </div>
                   )}
@@ -858,7 +864,7 @@ function PaymentRequested({ workMode = "Payment" }) {
         <Typography variant="h6" sx={{ fontWeight: "bold" }}>{workMode === "Payment" ? "Payment Requested" : "Purchase Book Requested"}: {totalJobs}</Typography>
         <Autocomplete sx={{ width: "250px" }} options={importerNames.map(o => o.label)} value={selectedImporter || ""} onInputChange={(e, v) => { setSelectedImporter(v); setPage(1); }} renderInput={(params) => <TextField {...params} size="small" label="Select Importer" />} />
         <TextField select size="small" value={selectedYearState} onChange={(e) => setSelectedYearState(e.target.value)} sx={{ width: "100px" }}>{years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}</TextField>
-        
+
         {/* Date Filter */}
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#1a237e' }}>DATE:</Typography>
@@ -874,7 +880,7 @@ function PaymentRequested({ workMode = "Payment" }) {
             }}
             sx={{ width: '150px', '& .MuiOutlinedInput-root': { borderRadius: '20px' } }}
           />
-          
+
           <Button
             size="small"
             variant="outlined"
@@ -922,7 +928,7 @@ function PaymentRequested({ workMode = "Payment" }) {
             </Grid>
 
             <Divider sx={{ mb: 2 }} />
-            
+
             <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>CUSTOM RANGE</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField
@@ -950,11 +956,11 @@ function PaymentRequested({ workMode = "Payment" }) {
                 }}
               />
             </Box>
-            
+
             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-              <Button 
-                size="small" 
-                color="error" 
+              <Button
+                size="small"
+                color="error"
                 onClick={() => {
                   setStartDate("");
                   setEndDate("");
@@ -968,15 +974,15 @@ function PaymentRequested({ workMode = "Payment" }) {
             </Box>
           </Popover>
         </Box>
-        <TextField 
-          select 
-          size="small" 
-          label="Transaction Type" 
-          value={selectedTransactionType} 
+        <TextField
+          select
+          size="small"
+          label="Transaction Type"
+          value={selectedTransactionType}
           onChange={(e) => {
             setSelectedTransactionType(e.target.value);
             setPage(1);
-          }} 
+          }}
           sx={{ width: "180px" }}
         >
           {["All", "NEFT", "CHEQUE", "CASH", "IMPS", "RTGS", "ONLINE", "DEMAND DRAFT", "ODEX"].map(type => (
@@ -1098,7 +1104,9 @@ function PaymentRequested({ workMode = "Payment" }) {
                         <Typography variant="caption" fontWeight="bold">Supplier Inv No & Date</Typography>
                       </Grid>
                       <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
-                        <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.supplierInvNo || "-"} / {selectedPaymentRequest.supplierInvDate || "-"}</Typography>
+                        <Typography variant="body2" fontWeight="bold">
+                          {selectedPaymentRequest.purchaseBookInvoiceNo || selectedPaymentRequest.supplierInvNo || "-"} / {selectedPaymentRequest.supplierInvDate || "-"}
+                        </Typography>
                       </Grid>
 
                       <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
@@ -1127,8 +1135,8 @@ function PaymentRequested({ workMode = "Payment" }) {
                       </Grid>
                       <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
                         <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                          CGST: {selectedPaymentRequest.cgstAmt?.toLocaleString('en-IN') || 0} | 
-                          SGST: {selectedPaymentRequest.sgstAmt?.toLocaleString('en-IN') || 0} | 
+                          CGST: {selectedPaymentRequest.cgstAmt?.toLocaleString('en-IN') || 0} |
+                          SGST: {selectedPaymentRequest.sgstAmt?.toLocaleString('en-IN') || 0} |
                           IGST: {selectedPaymentRequest.igstAmt?.toLocaleString('en-IN') || 0}
                         </Typography>
                       </Grid>
@@ -1207,10 +1215,12 @@ function PaymentRequested({ workMode = "Payment" }) {
                   </Grid>
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">Against Bill</Typography>
+                    <Typography variant="caption" fontWeight="bold">Bill No / Against Bill</Typography>
                   </Grid>
                   <Grid item xs={8} sx={{ p: 1 }}>
-                    <Typography variant="body2">{selectedPaymentRequest.againstBill || "-"}</Typography>
+                    <Typography variant="body2" fontWeight="bold" color="primary">
+                      {selectedPaymentRequest.purchaseBookInvoiceNo || selectedPaymentRequest.supplierInvNo || selectedPaymentRequest.againstBill || "-"}
+                    </Typography>
                   </Grid>
                 </Grid>
               </Box>
@@ -1229,14 +1239,14 @@ function PaymentRequested({ workMode = "Payment" }) {
               {selectedPaymentRequest.paymentReceiptUrl && (
                 <Box sx={{ mb: 1.5, p: 1.5, border: '1px solid #2e7d32', backgroundColor: '#e8f5e9', borderRadius: '4px' }}>
                   <Typography variant="caption" fontWeight="bold" color="success.main" sx={{ display: 'block', mb: 1 }}>PAYMENT RECEIPT</Typography>
-                  <Button 
-                    variant="contained" 
-                    color="success" 
-                    size="small" 
+                  <Button
+                    variant="contained"
+                    color="success"
+                    size="small"
                     fullWidth
-                    startIcon={<OpenInNewIcon />} 
-                    href={selectedPaymentRequest.paymentReceiptUrl} 
-                    target="_blank" 
+                    startIcon={<OpenInNewIcon />}
+                    href={selectedPaymentRequest.paymentReceiptUrl}
+                    target="_blank"
                     sx={{ textTransform: 'none', py: 1, fontSize: '0.85rem', fontWeight: 'bold' }}
                   >
                     View Official Payment Receipt
@@ -1249,45 +1259,45 @@ function PaymentRequested({ workMode = "Payment" }) {
         </DialogContent>
         <DialogActions sx={{ p: 1, borderTop: '1px solid #ccc', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button 
+            <Button
               onClick={() => {
                 generatePurchaseBookPDF(selectedPaymentRequest, logo);
-              }} 
-              size="small" 
+              }}
+              size="small"
               variant="outlined"
             >
               Print
             </Button>
             <Button onClick={() => setOpenDetailModal(false)} size="small" variant="outlined">Close</Button>
           </Box>
-          
-          {!isModalLoading && selectedPaymentRequest && 
-            !selectedPaymentRequest.isApproved && 
-            !selectedPaymentRequest.isRejected && 
-            selectedPaymentRequest.status !== 'Rejected' && 
-            selectedPaymentRequest.status !== 'Approved' && 
+
+          {!isModalLoading && selectedPaymentRequest &&
+            !selectedPaymentRequest.isApproved &&
+            !selectedPaymentRequest.isRejected &&
+            selectedPaymentRequest.status !== 'Rejected' &&
+            selectedPaymentRequest.status !== 'Approved' &&
             selectedPaymentRequest.status !== 'Paid' && (
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button 
-                variant="contained" 
-                color="error" 
-                size="small" 
-                onClick={() => setOpenRejectPopup(true)}
-                sx={{ fontWeight: 'bold' }}
-              >
-                Reject Request
-              </Button>
-              <Button 
-                variant="contained" 
-                color="success" 
-                size="small" 
-                onClick={() => setOpenApprovalPopup(true)}
-                sx={{ fontWeight: 'bold' }}
-              >
-                Approve Request
-              </Button>
-            </Box>
-          )}
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="contained"
+                  color="error"
+                  size="small"
+                  onClick={() => setOpenRejectPopup(true)}
+                  sx={{ fontWeight: 'bold' }}
+                >
+                  Reject Request
+                </Button>
+                <Button
+                  variant="contained"
+                  color="success"
+                  size="small"
+                  onClick={() => setOpenApprovalPopup(true)}
+                  sx={{ fontWeight: 'bold' }}
+                >
+                  Approve Request
+                </Button>
+              </Box>
+            )}
         </DialogActions>
       </Dialog>
 
@@ -1327,11 +1337,11 @@ function PaymentRequested({ workMode = "Payment" }) {
         </DialogContent>
         <DialogActions sx={{ p: 1, borderTop: '1px solid #eee' }}>
           <Button onClick={() => setOpenRejectPopup(false)} size="small" disabled={isRejecting}>Cancel</Button>
-          <Button 
-            onClick={handleReject} 
-            variant="contained" 
-            color="error" 
-            size="small" 
+          <Button
+            onClick={handleReject}
+            variant="contained"
+            color="error"
+            size="small"
             disabled={isRejecting || !rejectionReason.trim()}
           >
             {isRejecting ? <CircularProgress size={20} color="inherit" /> : "Confirm Reject"}

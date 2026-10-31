@@ -1,9 +1,17 @@
-import React from "react";
+import React, { useState, useContext } from "react";
 import axios from "axios";
 import {
   Box,
   Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
+  Chip,
 } from "@mui/material";
+import { UserContext } from "../../../contexts/UserContext";
 
 const confirmationOptions = ["WhatsApp", "Email", "Call"];
 
@@ -17,11 +25,49 @@ const normalizeConfirmation = (val) => {
 };
 
 function Stage5OrderDispatch({ data, onChange, globalData, onGlobalChange }) {
+  const { user } = useContext(UserContext);
+  const [cancelItemIndex, setCancelItemIndex] = useState(null);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+
   const updateField = (field, value) => {
     onChange({
       ...data,
       [field]: typeof value === "string" ? value.toUpperCase() : value,
     });
+  };
+
+  const handleOpenCancelDialog = (idx) => {
+    setCancelItemIndex(idx);
+    setCancellationReason("");
+    setCancelDialogOpen(true);
+  };
+
+  const handleConfirmCancelItem = () => {
+    if (cancelItemIndex === null) return;
+    const items = [...(globalData?.stage1?.itemsRequired || [])];
+    if (!items[cancelItemIndex]) return;
+
+    const currentItem = items[cancelItemIndex];
+    const updatedItem = {
+      ...currentItem,
+      isCancelled: true,
+      cancelledAt: new Date().toISOString(),
+      cancelledBy: user?.username || user?.name || "User",
+      cancellationReason: cancellationReason.trim() || "Item cancelled post-payment",
+    };
+    items[cancelItemIndex] = updatedItem;
+
+    if (onGlobalChange) {
+      onGlobalChange("stage1", {
+        ...(globalData?.stage1 || {}),
+        itemsRequired: items,
+      });
+    }
+
+    setCancelDialogOpen(false);
+    setCancelItemIndex(null);
+    setCancellationReason("");
   };
 
   // Get awarded suppliers from Stage 2
@@ -440,7 +486,81 @@ function Stage5OrderDispatch({ data, onChange, globalData, onGlobalChange }) {
         </Box>
       </Box>
 
-      {/* ─── B. Remarks & Dispatch Done ─── */}
+      {/* ─── B. Ordered Items & Cancellation Management (PR-7) ─── */}
+      <Box className="sop-card" sx={{ mb: 1.5 }}>
+        <Typography className="sop-card-title" sx={{ mb: 0.5 }}>
+          Ordered Items & Cancellation Status
+        </Typography>
+        <Typography variant="body2" sx={{ color: "#64748b", mb: 1, fontSize: "11.5px" }}>
+          Cancel an individual product item post-payment (e.g. on supplier rejection or shortage). Other items in the same PO continue as normal.
+        </Typography>
+        <Box className="sop-table-container">
+          <table className="sop-table">
+            <thead>
+              <tr>
+                <th style={{ width: 45, textAlign: "center" }}>#</th>
+                <th>Product Description</th>
+                <th>Tyre Category</th>
+                <th style={{ textAlign: "right", width: 80 }}>Qty</th>
+                <th style={{ textAlign: "right", width: 110 }}>Est. Cost (₹)</th>
+                <th style={{ width: 110, textAlign: "center" }}>Status</th>
+                <th>Cancellation Details</th>
+                <th style={{ width: 120, textAlign: "center" }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(globalData?.stage1?.itemsRequired || []).map((item, idx) => {
+                const isCancelled = Boolean(item.isCancelled);
+                return (
+                  <tr key={idx} style={{ backgroundColor: isCancelled ? "#fef2f2" : "inherit" }}>
+                    <td style={{ textAlign: "center", fontWeight: 700 }}>{idx + 1}</td>
+                    <td style={{ fontWeight: 600, color: isCancelled ? "#991b1b" : "#1e293b", textDecoration: isCancelled ? "line-through" : "none" }}>
+                      {item.productName || item.tyreType || item.description || `Item ${idx + 1}`}
+                    </td>
+                    <td>{item.tyreCategory || "-"}</td>
+                    <td style={{ textAlign: "right" }}>{item.qty || item.quantity || 1}</td>
+                    <td style={{ textAlign: "right" }}>₹{Number(item.estTotalCost || item.estUnitCost || 0).toLocaleString("en-IN")}</td>
+                    <td style={{ textAlign: "center" }}>
+                      {isCancelled ? (
+                        <Chip label="CANCELLED" color="error" size="small" sx={{ fontWeight: 700, fontSize: "10px", height: 20 }} />
+                      ) : (
+                        <Chip label="ACTIVE" color="success" size="small" variant="outlined" sx={{ fontWeight: 600, fontSize: "10px", height: 20 }} />
+                      )}
+                    </td>
+                    <td style={{ fontSize: "11px", color: isCancelled ? "#991b1b" : "#64748b" }}>
+                      {isCancelled ? (
+                        <div>
+                          <strong>Reason:</strong> {item.cancellationReason || "No reason specified"}
+                          <br />
+                          <small>By: {item.cancelledBy || "User"} on {item.cancelledAt ? new Date(item.cancelledAt).toLocaleDateString("en-GB") : "-"}</small>
+                        </div>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {!isCancelled ? (
+                        <button
+                          type="button"
+                          className="sop-btn sop-btn-danger"
+                          style={{ padding: "3px 8px", fontSize: "11px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: 600 }}
+                          onClick={() => handleOpenCancelDialog(idx)}
+                        >
+                          Cancel Item
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: "11px", color: "#dc2626", fontWeight: 600 }}>Cancelled</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Box>
+      </Box>
+
+      {/* ─── C. Remarks & Dispatch Done ─── */}
       <Box className="sop-grid-2">
         <Box className="sop-card">
           <Typography className="sop-card-title" sx={{ mb: 0.8 }}>Remarks / Tracking Notes</Typography>
@@ -468,6 +588,50 @@ function Stage5OrderDispatch({ data, onChange, globalData, onGlobalChange }) {
           </Typography>
         </Box>
       </Box>
+
+      {/* Cancellation Reason Dialog */}
+      <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, color: "#dc2626", pb: 1 }}>
+          Confirm Item Cancellation
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ mb: 1.5, color: "#334155" }}>
+            Are you sure you want to cancel{" "}
+            <strong>
+              {cancelItemIndex !== null && globalData?.stage1?.itemsRequired?.[cancelItemIndex]?.productName
+                ? globalData.stage1.itemsRequired[cancelItemIndex].productName
+                : `Item #${(cancelItemIndex ?? 0) + 1}`}
+            </strong>
+            ? This item will be removed from the active PO total and flagged as cancelled. Other items in this PO will continue.
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            required
+            multiline
+            rows={3}
+            label="Cancellation Reason"
+            placeholder="Please enter the reason for cancelling this item (e.g., Supplier stockout, Payment rejected, Order amended)..."
+            value={cancellationReason}
+            onChange={(e) => setCancellationReason(e.target.value.toUpperCase())}
+            size="small"
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={() => setCancelDialogOpen(false)} sx={{ color: "#64748b" }}>
+            Close
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={!cancellationReason.trim()}
+            onClick={handleConfirmCancelItem}
+            sx={{ fontWeight: 700 }}
+          >
+            Confirm Cancellation
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

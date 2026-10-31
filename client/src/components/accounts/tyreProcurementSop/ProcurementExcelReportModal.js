@@ -46,10 +46,24 @@ export default function ProcurementExcelReportModal({ open, onClose, defaultMont
   const [selectedMonth, setSelectedMonth] = useState(defaultMonth || String(new Date().getMonth() + 1));
   const [selectedYear, setSelectedYear] = useState(defaultYear || String(new Date().getFullYear()));
   const [selectedCompany, setSelectedCompany] = useState("ALL");
+  const [selectedTyreCategory, setSelectedTyreCategory] = useState("ALL");
+  const [tyreCategories, setTyreCategories] = useState([]);
   const [groupBy, setGroupBy] = useState("vendor"); // "vendor" | "product" | "all"
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    // Fetch tyre categories master (PR-2)
+    axios
+      .get(`${process.env.REACT_APP_API_STRING}/tyre-procurement/tyre-categories`)
+      .then((res) => {
+        if (res.data?.categories) {
+          setTyreCategories(res.data.categories);
+        }
+      })
+      .catch((err) => console.error("Error fetching tyre categories:", err));
+  }, []);
 
   const [reportData, setReportData] = useState({
     summary: { totalPRs: 0, totalBusinessVolume: 0, totalItemsQty: 0, vendorCount: 0, productCount: 0 },
@@ -65,6 +79,7 @@ export default function ProcurementExcelReportModal({ open, onClose, defaultMont
         month: periodType === "month" ? selectedMonth : "ALL",
         year: periodType === "month" ? selectedYear : "ALL",
         companyKey: selectedCompany,
+        tyreCategory: selectedTyreCategory,
         groupBy,
       };
 
@@ -88,7 +103,7 @@ export default function ProcurementExcelReportModal({ open, onClose, defaultMont
     if (open) {
       fetchReport();
     }
-  }, [open, periodType, selectedMonth, selectedYear, selectedCompany, groupBy]);
+  }, [open, periodType, selectedMonth, selectedYear, selectedCompany, selectedTyreCategory, groupBy]);
 
   // Filtered views based on search
   const filteredVendors = (reportData.byVendor || []).filter((v) =>
@@ -159,25 +174,42 @@ export default function ProcurementExcelReportModal({ open, onClose, defaultMont
       const wsProduct = XLSX.utils.aoa_to_sheet(productRows);
       XLSX.utils.book_append_sheet(wb, wsProduct, "By Product Analysis");
 
-      // Sheet 4: Detailed Records Dump
-      const recordHeader = ["PR Number", "PO Number", "Company", "Short Code", "PR Date", "Prepared By", "Awarded Supplier", "Total Value (₹)", "Status", "TAT (Days)"];
+      // Sheet 4: Detailed Records Dump (PR-1, PR-3: Short Code removed, Tyre Category & GRN added)
+      const recordHeader = [
+        "PR Number",
+        "PR Date",
+        "PO Number",
+        "PO Date",
+        "GRN Number",
+        "GRN Date",
+        "TAT (Days)",
+        "Vendor Name",
+        "Tyre Category",
+        "Qty",
+        "Amount (₹)",
+        "Company",
+        "Status",
+      ];
       const recordRows = [
         recordHeader,
         ...reportData.records.map((r) => [
           r.prNumber || "",
+          r.prDate ? new Date(r.prDate).toLocaleDateString("en-GB") : "",
           r.poNumber || "-",
-          r.companyName || "",
-          r.companyShortName || "",
-          r.stage1?.prDate ? new Date(r.stage1.prDate).toLocaleDateString("en-GB") : "",
-          r.stage1?.preparedBy || "",
-          r.stage2?.selectedSupplierL1 || "-",
-          Number(r.stage2?.selectedSupplierL1Amount || r.stage1?.estimatedTotalCost || 0),
-          r.status || "Draft",
+          r.poDate && r.poDate !== "-" ? new Date(r.poDate).toLocaleDateString("en-GB") : "-",
+          r.grnNumber || "-",
+          r.grnDate && r.grnDate !== "-" ? new Date(r.grnDate).toLocaleDateString("en-GB") : "-",
           r.tatDays !== null && r.tatDays !== undefined ? r.tatDays : "-",
+          r.vendorName || "-",
+          r.tyreCategory || "-",
+          r.totalQty || 0,
+          Number(r.amount || 0),
+          r.companyName || "",
+          r.status || "GRN Completed",
         ]),
       ];
       const wsRecords = XLSX.utils.aoa_to_sheet(recordRows);
-      XLSX.utils.book_append_sheet(wb, wsRecords, "PR-PO-GRN Master Dump");
+      XLSX.utils.book_append_sheet(wb, wsRecords, "GRN Completed Master Dump");
 
       const periodLabel = periodType === "month" ? `M${selectedMonth}_${selectedYear}` : "All_Time";
       XLSX.writeFile(wb, `Alvision_Procurement_Report_${periodLabel}.xlsx`);
@@ -336,8 +368,30 @@ export default function ProcurementExcelReportModal({ open, onClose, defaultMont
               </TextField>
             </Grid>
 
+            {/* Tyre Category Filter (PR-2) */}
+            <Grid item xs={12} sm={6} md={periodType === "month" ? 2 : 3}>
+              <Typography sx={{ fontSize: "11px", fontWeight: 700, color: "#64748b", mb: 0.5 }}>
+                TYRE CATEGORY
+              </Typography>
+              <TextField
+                select
+                size="small"
+                fullWidth
+                value={selectedTyreCategory}
+                onChange={(e) => setSelectedTyreCategory(e.target.value)}
+                sx={{ "& .MuiOutlinedInput-root": { height: 36, fontSize: "12px", fontWeight: 600 } }}
+              >
+                <MenuItem value="ALL">All Categories</MenuItem>
+                {tyreCategories.map((c) => (
+                  <MenuItem key={c._id || c.categoryName} value={c.categoryName}>
+                    {c.categoryName}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+
             {/* Live Search */}
-            <Grid item xs={12} sm={6} md={periodType === "month" ? 3 : 5}>
+            <Grid item xs={12} sm={6} md={periodType === "month" ? 2.5 : 3}>
               <Typography sx={{ fontSize: "11px", fontWeight: 700, color: "#64748b", mb: 0.5 }}>
                 SEARCH IN REPORT
               </Typography>
@@ -504,47 +558,57 @@ export default function ProcurementExcelReportModal({ open, onClose, defaultMont
               <Table size="small" stickyHeader>
                 <TableHead sx={{ bgcolor: "#f1f5f9" }}>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 700, fontSize: "12px" }}>PR Number</TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: "12px" }}>PO Number</TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: "12px" }}>Company</TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: "12px" }}>Supplier</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: "12px" }}>Total Amount (₹)</TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: "12px" }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: "12px" }}>TAT (Days)</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: "11.5px" }}>PR No & Date</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: "11.5px" }}>PO No & Date</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: "11.5px" }}>GRN No & Date</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: "11.5px" }}>Vendor Name</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: "11.5px" }}>Tyre Category</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: "11.5px" }}>Qty</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: "11.5px" }}>Amount (₹)</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: "11.5px" }}>TAT (Days)</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {filteredRecords.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 3, color: "#64748b", fontSize: "12.5px" }}>
-                        No PR records found matching your filters.
+                      <TableCell colSpan={8} align="center" sx={{ py: 3, color: "#64748b", fontSize: "12.5px" }}>
+                        No GRN-completed records found matching your filters.
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredRecords.map((r, idx) => {
-                      const amt = Number(r.stage2?.selectedSupplierL1Amount || r.stage1?.estimatedTotalCost || 0);
+                      const amt = Number(r.amount || 0);
+                      const prDateFmt = r.prDate ? new Date(r.prDate).toLocaleDateString("en-GB") : "-";
+                      const poDateFmt = r.poDate && r.poDate !== "-" ? new Date(r.poDate).toLocaleDateString("en-GB") : "-";
+                      const grnDateFmt = r.grnDate && r.grnDate !== "-" ? new Date(r.grnDate).toLocaleDateString("en-GB") : "-";
                       return (
                         <TableRow key={r._id || idx} hover>
-                          <TableCell sx={{ fontWeight: 700, fontSize: "12px", color: "#2563eb" }}>
-                            {r.prNumber}
+                          <TableCell sx={{ fontSize: "11.5px" }}>
+                            <Typography sx={{ fontWeight: 700, fontSize: "12px", color: "#2563eb" }}>{r.prNumber}</Typography>
+                            <Typography sx={{ fontSize: "10.5px", color: "#64748b" }}>{prDateFmt}</Typography>
                           </TableCell>
-                          <TableCell sx={{ fontSize: "12px", color: "#7c3aed", fontWeight: 600 }}>
-                            {r.poNumber || "-"}
+                          <TableCell sx={{ fontSize: "11.5px" }}>
+                            <Typography sx={{ fontWeight: 600, fontSize: "12px", color: "#7c3aed" }}>{r.poNumber || "-"}</Typography>
+                            <Typography sx={{ fontSize: "10.5px", color: "#64748b" }}>{poDateFmt}</Typography>
                           </TableCell>
-                          <TableCell sx={{ fontSize: "12px" }}>
-                            {r.companyShortName || r.companyName || "-"}
+                          <TableCell sx={{ fontSize: "11.5px" }}>
+                            <Typography sx={{ fontWeight: 700, fontSize: "12px", color: "#047857" }}>{r.grnNumber || "-"}</Typography>
+                            <Typography sx={{ fontSize: "10.5px", color: "#64748b" }}>{grnDateFmt}</Typography>
                           </TableCell>
-                          <TableCell sx={{ fontSize: "12px" }}>
-                            {r.stage2?.selectedSupplierL1 || "-"}
+                          <TableCell sx={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+                            {r.vendorName || "-"}
                           </TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 700, fontSize: "12.5px", color: "#0f172a" }}>
+                          <TableCell sx={{ fontSize: "11.5px" }}>
+                            <Chip label={r.tyreCategory || "General"} size="small" sx={{ fontSize: "10px", fontWeight: 700, bgcolor: "#f1f5f9" }} />
+                          </TableCell>
+                          <TableCell align="center" sx={{ fontSize: "12px", fontWeight: 700, color: "#2563eb" }}>
+                            {r.totalQty || 0}
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 800, fontSize: "12.5px", color: "#0f172a" }}>
                             {amt.toLocaleString("en-IN", { style: "currency", currency: "INR" })}
                           </TableCell>
-                          <TableCell>
-                            <Chip label={r.status || "Draft"} size="small" sx={{ fontSize: "10.5px", fontWeight: 700 }} />
-                          </TableCell>
-                          <TableCell sx={{ fontSize: "12px", fontWeight: 600, color: r.tatDays ? "#047857" : "#94a3b8" }}>
-                            {r.tatDays !== null && r.tatDays !== undefined ? `${r.tatDays} days` : "-"}
+                          <TableCell align="center" sx={{ fontSize: "12px", fontWeight: 700, color: r.tatDays !== "-" ? "#047857" : "#94a3b8" }}>
+                            {r.tatDays !== null && r.tatDays !== undefined && r.tatDays !== "-" ? `${r.tatDays} days` : "-"}
                           </TableCell>
                         </TableRow>
                       );

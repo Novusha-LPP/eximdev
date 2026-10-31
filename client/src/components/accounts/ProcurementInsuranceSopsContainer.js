@@ -32,7 +32,7 @@ function TabPanel(props) {
       {...other}
       style={{ width: "100%", height: "100%" }}
     >
-      {value === index && <Box sx={{ pt: 2, height: "100%" }}>{children}</Box>}
+      {value === index && <Box sx={{ pt: 0, height: "100%" }}>{children}</Box>}
     </div>
   );
 }
@@ -335,7 +335,7 @@ export default function ProcurementInsuranceSopsContainer() {
       </Paper>
 
       {/* Main Tab Content Area */}
-      <Box sx={{ flexGrow: 1, backgroundColor: "#f8fafc", p: { xs: 1.5, md: 2.5 } }}>
+      <Box sx={{ flexGrow: 1, backgroundColor: "#f8fafc", px: { xs: 1.5, md: 2.5 }, pt: 1, pb: 2.5 }}>
         <TabPanel value={value} index={0}>
           <FleetInsuranceSop />
         </TabPanel>

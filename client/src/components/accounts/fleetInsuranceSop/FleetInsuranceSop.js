@@ -144,7 +144,7 @@ function FleetInsuranceSop({ mode: propMode }) {
   }, [navigate]);
 
   return (
-    <Box sx={{ p: 1 }}>
+    <Box sx={{ width: "100%" }}>
       {view === "list" && (
         <FleetInsuranceList
           onViewHistory={handleViewHistory}

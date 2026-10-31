@@ -249,9 +249,9 @@ const getPrCreditInfo = (doc) => {
     supplierPayments.length > 0
       ? supplierPayments.every((sp) => Boolean(sp.isPaid && sp.utrNumber?.trim()))
       : Boolean(
-          (s4.paymentDetails?.paymentReferenceUtr?.trim() || s4.paymentDetails?.paymentDate) &&
-          doc.status !== "Finance Approved"
-        );
+        (s4.paymentDetails?.paymentReferenceUtr?.trim() || s4.paymentDetails?.paymentDate) &&
+        doc.status !== "Finance Approved"
+      );
 
   const invDateStr =
     s6.referenceInfos?.[0]?.invoiceDate ||
@@ -262,10 +262,10 @@ const getPrCreditInfo = (doc) => {
   const baseDate = invDateStr
     ? new Date(invDateStr)
     : s3.signOff?.dateOfApproval
-    ? new Date(s3.signOff.dateOfApproval)
-    : doc.createdAt
-    ? new Date(doc.createdAt)
-    : new Date();
+      ? new Date(s3.signOff.dateOfApproval)
+      : doc.createdAt
+        ? new Date(doc.createdAt)
+        : new Date();
 
   const dueDate = new Date(baseDate.getTime() + maxCreditDays * 24 * 60 * 60 * 1000);
   const now = new Date();
@@ -716,23 +716,23 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           statuses: prev.statuses?.length
             ? prev.statuses
             : [
-                "Draft",
-                "PR Raised",
-                "Preparing for Quotation",
-                "HoD Validated",
-                "Quotation Received",
-                "Quotation Updated",
-                "Finance Approved",
-                "Payment Done",
-                "Order Placed",
-                "Dispatched",
-                "Dispatched / Site GRN Ready",
-                "GRN Ready",
-                "GRN Received",
-                "GRN Completed",
-                "GRN Done",
-                "Closed",
-              ],
+              "Draft",
+              "PR Raised",
+              "Preparing for Quotation",
+              "HoD Validated",
+              "Quotation Received",
+              "Quotation Updated",
+              "Finance Approved",
+              "Payment Done",
+              "Order Placed",
+              "Dispatched",
+              "Dispatched / Site GRN Ready",
+              "GRN Ready",
+              "GRN Received",
+              "GRN Completed",
+              "GRN Done",
+              "Closed",
+            ],
         };
       });
     }
@@ -1217,134 +1217,6 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
 
   return (
     <Box sx={{ width: "100%" }}>
-      {/* Top Operational Metrics Header Cards - Compact Stage KPI Grid */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "repeat(2, 1fr)",
-            sm: "repeat(4, 1fr)",
-            md: "repeat(4, 1fr)",
-            lg: "repeat(8, 1fr)",
-          },
-          gap: 1,
-          mb: 1.8,
-        }}
-      >
-        {stageMetricsConfig.map((item) => {
-          if (!isTabVisible(item.fullLabel, item.value)) return null;
-          const count =
-            item.value === "0"
-              ? allRecords.length > 0
-                ? allRecords.length
-                : total || data.length
-              : getTabCount(item.value);
-          const isSelected = stageTab === item.value;
-          const IconComponent = item.icon;
-
-          return (
-            <Tooltip
-              key={item.value}
-              title={`${item.fullLabel}: ${count} PR(s) — Click to view`}
-              placement="top"
-              arrow
-            >
-              <Paper
-                elevation={0}
-                onClick={() => {
-                  setStageTab(item.value);
-                  setPage(0);
-                }}
-                sx={{
-                  py: 0.8,
-                  px: 1.1,
-                  borderRadius: "8px",
-                  border: "1px solid",
-                  borderColor: isSelected ? item.color : "#e2e8f0",
-                  background: isSelected
-                    ? item.bgGradient
-                    : "linear-gradient(135deg, #ffffff 0%, #fcfcfd 100%)",
-                  boxShadow: isSelected
-                    ? `0 2px 8px ${item.color}25`
-                    : "0 1px 2px rgba(0,0,0,0.02)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  cursor: "pointer",
-                  transition: "all 0.18s ease-in-out",
-                  position: "relative",
-                  overflow: "hidden",
-                  minHeight: 48,
-                  "&:hover": {
-                    borderColor: item.color,
-                    transform: "translateY(-1px)",
-                    boxShadow: "0 3px 10px rgba(0,0,0,0.06)",
-                    "& .metric-avatar": {
-                      transform: "scale(1.06)",
-                    },
-                  },
-                  "&::after": isSelected
-                    ? {
-                        content: '""',
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: "2.5px",
-                        backgroundColor: item.color,
-                        borderRadius: "0 0 8px 8px",
-                      }
-                    : {},
-                }}
-              >
-                <Avatar
-                  className="metric-avatar"
-                  sx={{
-                    bgcolor: item.bgLight,
-                    color: item.color,
-                    width: 30,
-                    height: 30,
-                    borderRadius: "6px",
-                    transition: "transform 0.18s ease",
-                    flexShrink: 0,
-                  }}
-                >
-                  <IconComponent sx={{ fontSize: 17 }} />
-                </Avatar>
-                <Box sx={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
-                  <Typography
-                    sx={{
-                      color: isSelected ? item.color : "#64748b",
-                      fontWeight: 700,
-                      fontSize: "9.5px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.3px",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      lineHeight: 1.15,
-                    }}
-                  >
-                    {item.shortLabel}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontWeight: 800,
-                      color: isSelected ? item.color : "#0f172a",
-                      fontSize: "17px",
-                      lineHeight: 1.1,
-                      mt: 0.2,
-                    }}
-                  >
-                    {count}
-                  </Typography>
-                </Box>
-              </Paper>
-            </Tooltip>
-          );
-        })}
-      </Box>
-
       {/* Main Surface Card */}
       <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: "8px", border: "1px solid #e2e8f0" }}>
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 2 }}>
@@ -2197,28 +2069,28 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                                 (cKey === "SURAVIO" || cKey === "SRCC"
                                   ? "Suravio Cargo Carriers"
                                   : cKey === "SURAJ"
-                                  ? "Suraj Forwarders"
-                                  : cKey === "NOVUSHA"
-                                  ? "Novusha Consulting"
-                                  : cKey === "ALLUVIUM"
-                                  ? "Alluvium IoT Solutions"
-                                  : cKey === "PARAMOUNT"
-                                  ? "Paramount Propack"
-                                  : cKey === "RABS"
-                                  ? "RABS Industries"
-                                  : cKey);
+                                    ? "Suraj Forwarders"
+                                    : cKey === "NOVUSHA"
+                                      ? "Novusha Consulting"
+                                      : cKey === "ALLUVIUM"
+                                        ? "Alluvium IoT Solutions"
+                                        : cKey === "PARAMOUNT"
+                                          ? "Paramount Propack"
+                                          : cKey === "RABS"
+                                            ? "RABS Industries"
+                                            : cKey);
                               const badgeTheme =
                                 cKey === "NOVUSHA"
                                   ? { bg: "#f3e8ff", color: "#6b21a8", border: "#d8b4fe" }
                                   : cKey === "ALLUVIUM"
-                                  ? { bg: "#ecfdf5", color: "#047857", border: "#a7f3d0" }
-                                  : cKey === "SURAJ"
-                                  ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" }
-                                  : cKey === "PARAMOUNT"
-                                  ? { bg: "#fef2f2", color: "#991b1b", border: "#fecaca" }
-                                  : cKey === "RABS"
-                                  ? { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" }
-                                  : { bg: "#e0f2fe", color: "#0369a1", border: "#7dd3fc" };
+                                    ? { bg: "#ecfdf5", color: "#047857", border: "#a7f3d0" }
+                                    : cKey === "SURAJ"
+                                      ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" }
+                                      : cKey === "PARAMOUNT"
+                                        ? { bg: "#fef2f2", color: "#991b1b", border: "#fecaca" }
+                                        : cKey === "RABS"
+                                          ? { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" }
+                                          : { bg: "#e0f2fe", color: "#0369a1", border: "#7dd3fc" };
                               return (
                                 <Box
                                   sx={{
@@ -2559,8 +2431,8 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                               const hasInvoices = invoiceDocs.length > 0;
                               const invTooltip = hasInvoices
                                 ? (invoiceDocs.length === 1
-                                    ? `View / Download Invoice (${invoiceDocs[0].invoiceNumber ? "Inv #" + invoiceDocs[0].invoiceNumber : invoiceDocs[0].fileName || "Document"})`
-                                    : `View Invoice Documents (${invoiceDocs.length} Available)`)
+                                  ? `View / Download Invoice (${invoiceDocs[0].invoiceNumber ? "Inv #" + invoiceDocs[0].invoiceNumber : invoiceDocs[0].fileName || "Document"})`
+                                  : `View Invoice Documents (${invoiceDocs.length} Available)`)
                                 : "No Invoice Document uploaded yet (Stage 6 Site GRN)";
 
                               return (
@@ -2682,11 +2554,11 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                   const sups = quickApprovalRow.stage2?.selectedSuppliers?.length > 0
                     ? quickApprovalRow.stage2.selectedSuppliers
                     : [{
-                        selectedSupplier: quickApprovalRow.stage2?.selectedSupplierL1 || "-",
-                        priceQuoted: quickApprovalRow.stage2?.l1PriceQuoted || 0,
-                        totalOrderValue: quickApprovalRow.stage2?.totalOrderValue || 0,
-                        poNumber: quickApprovalRow.poNumber || "-",
-                      }];
+                      selectedSupplier: quickApprovalRow.stage2?.selectedSupplierL1 || "-",
+                      priceQuoted: quickApprovalRow.stage2?.l1PriceQuoted || 0,
+                      totalOrderValue: quickApprovalRow.stage2?.totalOrderValue || 0,
+                      poNumber: quickApprovalRow.poNumber || "-",
+                    }];
                   return (
                     <Box sx={{ mt: 1.5, borderTop: "1px solid #f1f5f9", pt: 1.5 }}>
                       <Typography sx={{ fontSize: "12px", fontWeight: 700, color: "#334155", mb: 1 }}>

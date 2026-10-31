@@ -10,6 +10,9 @@
  *   A user is an HOD when role is HOD / Head_of_Department, isHod is true,
  *   or they are hodId on a team. Admin wins if someone is both.
  *   Users with no KPI module and no kpi_permissions are left unchanged.
+ *   Inactive users (isActive: false) are left unchanged. Deleting a user in
+ *   this app sets isActive to false, so those accounts are skipped too.
+ *   Documents that also carry isDeleted, deleted, or deletedAt are skipped.
  *
  * Usage (from server/):
  *   node migrations/backfill_kpi_permissions_hod_admin.mjs --dry-run
@@ -71,6 +74,15 @@ const displayName = (user) => {
     return name || user.username || String(user._id);
 };
 
+// Delete in this app deactivates the user (isActive: false). Also skip any
+// document that was marked deleted with a separate flag.
+const isInactiveOrDeleted = (user) => {
+    if (user.isActive === false) return true;
+    if (user.isDeleted === true || user.deleted === true) return true;
+    if (user.deletedAt) return true;
+    return false;
+};
+
 async function run() {
     const uri = getMongoUri();
     if (!uri) {
@@ -93,10 +105,11 @@ async function run() {
 
         const users = await UserModel.find(
             {},
-            'username first_name last_name role isHod modules kpi_permissions isActive'
+            'username first_name last_name role isHod modules kpi_permissions isActive isDeleted deleted deletedAt'
         ).lean();
 
         const changes = [];
+        const skippedInactive = [];
 
         for (const user of users) {
             const id = user._id.toString();
@@ -115,28 +128,35 @@ async function run() {
 
             if (samePerms(current, next)) continue;
 
+            if (isInactiveOrDeleted(user)) {
+                skippedInactive.push(user.username || displayName(user));
+                continue;
+            }
+
             changes.push({
                 _id: user._id,
                 username: user.username,
                 name: displayName(user),
                 role: user.role || '',
-                isActive: user.isActive !== false,
                 reason,
                 from: current,
                 to: next,
             });
         }
 
+        if (skippedInactive.length > 0) {
+            console.log(`Skipped ${skippedInactive.length} inactive or deleted user(s): ${skippedInactive.join(', ')}`);
+        }
+
         if (changes.length === 0) {
-            console.log('No users need an update. HODs already have view and admins already have manage, with no leftover assign.');
+            console.log('No active users need an update. HODs already have view and admins already have manage, with no leftover assign.');
             return;
         }
 
         console.log(`${changes.length} user(s) will be updated:\n`);
         for (const change of changes) {
-            const inactive = change.isActive ? '' : ' [inactive]';
             console.log(
-                `  ${change.reason.padEnd(5)} ${change.username || change.name}${inactive}` +
+                `  ${change.reason.padEnd(5)} ${change.username || change.name}` +
                 `  role=${change.role || '-'}  [${change.from.join(', ') || 'empty'}] -> [${change.to.join(', ')}]`
             );
         }

@@ -160,11 +160,20 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
 
+  const yearsList = React.useMemo(() => {
+    const cur = new Date().getFullYear();
+    const list = [];
+    for (let y = cur - 2; y <= cur + 2; y++) {
+      list.push(y);
+    }
+    return list;
+  }, []);
+
   const [page, setPage] = useState(() => (savedFleetFilters?.page !== undefined ? savedFleetFilters.page : 0));
   const [rowsPerPage, setRowsPerPage] = useState(() => savedFleetFilters?.rowsPerPage || 10);
   const [search, setSearch] = useState(() => savedFleetFilters?.search || "");
-  const [month, setMonth] = useState(() => (savedFleetFilters?.month !== undefined ? savedFleetFilters.month : String(currentMonth)));
-  const [year, setYear] = useState(() => (savedFleetFilters?.year !== undefined ? savedFleetFilters.year : String(currentYear)));
+  const [month, setMonth] = useState(() => (savedFleetFilters?.month !== undefined ? savedFleetFilters.month : ""));
+  const [year, setYear] = useState(() => (savedFleetFilters?.year !== undefined ? savedFleetFilters.year : ""));
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
@@ -201,20 +210,20 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
   const activeFiltersCount = React.useMemo(() => {
     let count = 0;
     if (search && search.trim()) count++;
-    if (month && month !== String(currentMonth)) count++;
-    if (year && year !== String(currentYear)) count++;
+    if (month && month !== "") count++;
+    if (year && year !== "") count++;
     if (filters) {
       Object.values(filters).forEach(val => {
         if (val && String(val).trim()) count++;
       });
     }
     return count;
-  }, [search, month, year, filters, currentMonth, currentYear]);
+  }, [search, month, year, filters]);
 
   const hasActiveFilters = Boolean(
     search.trim() ||
-    (month !== "" && month !== String(currentMonth)) ||
-    (year !== "" && year !== String(currentYear)) ||
+    (month && month !== "") ||
+    (year && year !== "") ||
     Object.values(filters).some(v => Boolean(v && String(v).trim()))
   );
 
@@ -551,7 +560,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
   const getContextualRowDetails = (row, filterMonth, filterYear) => {
     const pDateStr = row.policyToDate;
     const nDateStr = row.newPolicyToDate || row.newExpiryDate;
-    const rDateStr = row.renewalDate || row.renewedDate || row.paymentDate;
+    const rDateStr = row.renewalDate || row.renewedDate || row.paymentDate || row.prDate;
 
     const pDate = pDateStr ? new Date(pDateStr) : null;
     const nDate = nDateStr ? new Date(nDateStr) : null;
@@ -599,7 +608,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
     // 1-Month Before Expiry Rule:
     // If active expiry date is within 30 days from now or past due, it is due for upcoming renewal
     // so the "Renewed" status must be removed.
-    const activeExpiry = pDate || nDate;
+    const activeExpiry = (nDate && !isNaN(nDate.getTime())) ? nDate : pDate;
     let isWithinOneMonthOfExpiry = false;
     if (activeExpiry) {
       const exp = new Date(activeExpiry);
@@ -670,7 +679,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
     // Default or matching old policy cycle (e.g. August 2026):
     // Renewal Date and TAT should ONLY display if NEW VALID FROM * is available for that year!
     return {
-      displayExpiry: pDate || nDate,
+      displayExpiry: (nDate && !isNaN(nDate.getTime())) ? nDate : (pDate || null),
       displayRenewalDate: isOldRenewed ? (rDate || row.renewalDate || row.renewedDate || null) : null,
       tat: isOldRenewed ? rowTat : null,
       isRenewed: isOldRenewed,
@@ -1018,7 +1027,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
 
         {mainTab === 0 && (
           <Grid container spacing={1.5} alignItems="center">
-            <Grid item xs={12} sm={6} md={5}>
+            <Grid item xs={12} sm={6} md={3.5}>
               <TextField
                 placeholder="Search by Reg No, Owner, Insurer..."
                 value={search}
@@ -1053,8 +1062,28 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
               <TextField
                 select
                 value={month}
-                onChange={(e) => setMonth(e.target.value)}
+                onChange={(e) => {
+                  setMonth(e.target.value);
+                  setPage(0);
+                }}
                 fullWidth
+                SelectProps={{
+                  displayEmpty: true,
+                  renderValue: (selected) => {
+                    if (!selected) {
+                      return <span style={{ color: "#64748b" }}>All Months</span>;
+                    }
+                    const monthNames = [
+                      "", "January", "February", "March", "April", "May", "June",
+                      "July", "August", "September", "October", "November", "December"
+                    ];
+                    return (
+                      <span style={{ color: "#0f172a", fontWeight: 600 }}>
+                        {monthNames[parseInt(selected, 10)] || selected}
+                      </span>
+                    );
+                  },
+                }}
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: "6px",
@@ -1075,17 +1104,39 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                 <MenuItem value="7" sx={{ fontSize: "13px" }}>July</MenuItem>
                 <MenuItem value="8" sx={{ fontSize: "13px" }}>August</MenuItem>
                 <MenuItem value="9" sx={{ fontSize: "13px" }}>September</MenuItem>
-                <MenuItem value="10" sx={{ fontSize: "13px" }}>October</MenuItem>
-                <MenuItem value="11" sx={{ fontSize: "13px" }}>November</MenuItem>
-                <MenuItem value="12" sx={{ fontSize: "13px" }}>December</MenuItem>
+                <MenuItem value="10" sx={{ fontSize: "13px" }}>
+                  October {currentMonth === 10 ? "(Current)" : ""}
+                </MenuItem>
+                <MenuItem value="11" sx={{ fontSize: "13px" }}>
+                  November {currentMonth === 11 ? "(Current)" : ""}
+                </MenuItem>
+                <MenuItem value="12" sx={{ fontSize: "13px" }}>
+                  December {currentMonth === 12 ? "(Current)" : ""}
+                </MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={6} sm={3} md={2.5}>
+            <Grid item xs={6} sm={3} md={2}>
               <TextField
                 select
                 value={year}
-                onChange={(e) => setYear(e.target.value)}
+                onChange={(e) => {
+                  setYear(e.target.value);
+                  setPage(0);
+                }}
                 fullWidth
+                SelectProps={{
+                  displayEmpty: true,
+                  renderValue: (selected) => {
+                    if (!selected) {
+                      return <span style={{ color: "#64748b" }}>All Years</span>;
+                    }
+                    return (
+                      <span style={{ color: "#0f172a", fontWeight: 600 }}>
+                        {selected}
+                      </span>
+                    );
+                  },
+                }}
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: "6px",
@@ -1097,13 +1148,55 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                 }}
               >
                 <MenuItem value="" sx={{ fontSize: "13px" }}>All Years</MenuItem>
-                <MenuItem value="2024" sx={{ fontSize: "13px" }}>2024</MenuItem>
-                <MenuItem value="2025" sx={{ fontSize: "13px" }}>2025</MenuItem>
-                <MenuItem value="2026" sx={{ fontSize: "13px" }}>2026</MenuItem>
-                <MenuItem value="2027" sx={{ fontSize: "13px" }}>2027</MenuItem>
+                {yearsList.map((y) => (
+                  <MenuItem key={y} value={String(y)} sx={{ fontSize: "13px" }}>
+                    {y}
+                  </MenuItem>
+                ))}
               </TextField>
             </Grid>
-            <Grid item xs={12} sm={12} md={2}>
+            <Grid item xs={6} sm={3} md={2}>
+              <Button
+                variant={month === String(currentMonth) && year === String(currentYear) ? "contained" : "outlined"}
+                size="small"
+                fullWidth
+                startIcon={<CalendarToday sx={{ fontSize: 15 }} />}
+                onClick={() => {
+                  if (month === String(currentMonth) && year === String(currentYear)) {
+                    setMonth("");
+                    setYear("");
+                  } else {
+                    setMonth(String(currentMonth));
+                    setYear(String(currentYear));
+                  }
+                  setPage(0);
+                }}
+                sx={{
+                  height: 38,
+                  borderRadius: "6px",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: "12px",
+                  ...(month === String(currentMonth) && year === String(currentYear)
+                    ? {
+                        bgcolor: "#2563eb",
+                        color: "#fff",
+                        boxShadow: "0 1px 3px rgba(37,99,235,0.3)",
+                        "&:hover": { bgcolor: "#1d4ed8" },
+                      }
+                    : {
+                        borderColor: "#bfdbfe",
+                        color: "#1d4ed8",
+                        bgcolor: "#eff6ff",
+                        "&:hover": { bgcolor: "#dbeafe", borderColor: "#3b82f6" },
+                      }),
+                }}
+                title="Filter records for the current month & year"
+              >
+                This Month
+              </Button>
+            </Grid>
+            <Grid item xs={6} sm={3} md={2}>
               <Button
                 variant="outlined"
                 color="error"
@@ -1124,8 +1217,8 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                   "&:hover": {
                     bgcolor: "#fee2e2",
                     borderColor: "#f87171",
-                    color: "#b91c1c"
-                  }
+                    color: "#b91c1c",
+                  },
                 }}
               >
                 Clear All {activeFiltersCount > 0 ? `(${activeFiltersCount})` : "Filters"}

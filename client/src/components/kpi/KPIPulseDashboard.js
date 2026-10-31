@@ -908,12 +908,12 @@ const KPIPulseDashboard = () => {
                                     <div className="analytics-graph-card">
                                         <div className="section-header">
                                             <div>
-                                                <h3>Highest Registered Blockers</h3>
-                                                <p>Ranked by report volume (click card to filter)</p>
+                                                <h3>Top 3 Registered Blockers</h3>
+                                                <p>Top 3 categories by report volume (click card to filter)</p>
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                            {(reportData.stats?.blockerDistribution || []).slice(0, 6).map((stat, i) => {
+                                            {(reportData.stats?.blockerDistribution || []).slice(0, 3).map((stat, i) => {
                                                 const isSelected = blockerCategoryFilter.toUpperCase() === stat.category.toUpperCase();
                                                 return (
                                                     <div

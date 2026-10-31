@@ -307,31 +307,22 @@ function Stage4PricingValidation({ data, onChange, globalData, onGlobalChange })
             <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
               <TableCell>Step</TableCell>
               <TableCell>Action / Task</TableCell>
-              <TableCell>Responsible Person</TableCell>
               <TableCell>Date / Time</TableCell>
               <TableCell>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {[
-              ["Rate validation completed against market benchmark", "Pricing Team"],
-              ["Document checklist confirmed", "Pricing Team"],
-              ["Forwarded to Finance Manager for approval", "Pricing Team"],
-            ].map(([task, person], idx) => (
+              "Rate validation completed against market benchmark",
+              "Document checklist confirmed",
+              "Forwarded to Finance Manager for approval",
+            ].map((task, idx) => (
               <TableRow key={idx}>
                 <TableCell>{idx + 1}</TableCell>
                 <TableCell>
                   <TextField
                     value={actionLog[idx]?.actionTask || task}
                     onChange={(e) => updateActionLog(idx, "actionTask", e.target.value)}
-                    size="small"
-                    fullWidth
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    value={actionLog[idx]?.responsiblePerson || person}
-                    onChange={(e) => updateActionLog(idx, "responsiblePerson", e.target.value)}
                     size="small"
                     fullWidth
                   />

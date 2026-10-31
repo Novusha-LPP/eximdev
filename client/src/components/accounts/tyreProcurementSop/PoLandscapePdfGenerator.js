@@ -4,7 +4,7 @@ import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { SR_LOGO_BASE64 } from "./srLogoBase64";
-import { COMPANY_PROFILES, getCompanyProfile, COMPANY_OPTIONS } from "./companyProfiles";
+import { COMPANY_PROFILES, getCompanyProfile } from "./companyProfiles";
 
 const fmtPoDate = (d) => {
   if (!d) return "-";
@@ -87,8 +87,13 @@ function PoLandscapePdfGenerator({
   const [activeVendorIndex, setActiveVendorIndex] = useState(0);
   const pdfRef = useRef(null);
 
-  // Active Company Selection
-  const initialCompany = globalData?.companyKey || globalData?.stage1?.companyKey || globalData?.companyName || "SURAVIO";
+  // Active Company Selection (Inherited from Stage 1 PR identity)
+  const initialCompany =
+    globalData?.companyKey ||
+    globalData?.stage1?.companyKey ||
+    globalData?.companyName ||
+    stage3Data?.companyKey ||
+    "SURAVIO";
   const [selectedCompanyKey, setSelectedCompanyKey] = useState(() => {
     const prof = getCompanyProfile(initialCompany);
     return prof.id || "SURAVIO";
@@ -103,15 +108,22 @@ function PoLandscapePdfGenerator({
 
   // Synchronize when globalData updates
   useEffect(() => {
-    if (globalData?.companyKey) {
-      setSelectedCompanyKey(globalData.companyKey);
-    } else if (globalData?.companyName) {
-      setSelectedCompanyKey(getCompanyProfile(globalData.companyName).id);
+    const comp =
+      globalData?.companyKey ||
+      globalData?.stage1?.companyKey ||
+      globalData?.companyName ||
+      stage3Data?.companyKey;
+    if (comp) {
+      const prof = getCompanyProfile(comp);
+      setSelectedCompanyKey(prof.id || comp);
+      if (prof.defaultPoFormatStyle && !globalData?.poFormatStyle) {
+        setPoFormatStyle(prof.defaultPoFormatStyle);
+      }
     }
     if (globalData?.poFormatStyle) {
       setPoFormatStyle(globalData.poFormatStyle);
     }
-  }, [globalData?.companyKey, globalData?.companyName, globalData?.poFormatStyle]);
+  }, [globalData?.companyKey, globalData?.stage1?.companyKey, globalData?.companyName, stage3Data?.companyKey, globalData?.poFormatStyle]);
 
   // Resolve Company Profile
   const activeProfile = getCompanyProfile(selectedCompanyKey || globalData?.companyKey || globalData?.companyName);
@@ -124,7 +136,28 @@ function PoLandscapePdfGenerator({
   const prDate = fmtPoDate(globalData?.createdAt || globalData?.stage1?.prDate || globalData?.stage1?.routingChecklist?.[0]?.date);
   const poDate = fmtPoDate(globalData?.stage3?.poDate || globalData?.stage2?.poDate || globalData?.stage3?.signOff?.dateOfApproval || new Date());
   const prRaisedBy = globalData?.stage1?.preparedBy || globalData?.stage1?.requesterName || globalData?.stage2?.purchaseOfficerName || "-";
-  const checkedByName = globalData?.stage1?.hodValidation?.validatedBy || "-";
+  const checkedByName =
+    globalData?.checkedBy ||
+    globalData?.stage2?.checkedBy ||
+    globalData?.stage1?.checkedBy ||
+    globalData?.stage1?.hodValidation?.validatedBy ||
+    activeProfile.settings?.hodApproverName ||
+    "MOHIT SINGH";
+  const checkedByDesignation =
+    globalData?.checkedByDesignation ||
+    globalData?.stage2?.checkedByDesignation ||
+    globalData?.stage1?.checkedByDesignation ||
+    globalData?.stage1?.hodValidation?.designation ||
+    activeProfile.settings?.hodApproverDesignation ||
+    "CEO";
+  const preparedByDesignation =
+    globalData?.stage1?.preparedByDesignation ||
+    globalData?.stage2?.preparedByDesignation ||
+    "Purchase Officer";
+  const approvedByDesignation =
+    globalData?.stage3?.signOff?.designation ||
+    globalData?.stage3?.approvedByDesignation ||
+    "Sr. Manager - Accounts";
   const approvedByName = globalData?.stage3?.signOff?.financeManagerName || globalData?.stage3?.decision?.approvedBy || "-";
 
   // Company / Buyer Details (Dynamic based on selected Company Profile)
@@ -132,6 +165,7 @@ function PoLandscapePdfGenerator({
   const buyerAddress1 = globalData?.companyAddress || globalData?.buyerAddress || activeProfile.buyerAddress1;
   const buyerAddress2 = activeProfile.buyerAddress2 || "";
   const buyerCityState = activeProfile.buyerCityState || "";
+  const buyerPan = globalData?.companyPan || activeProfile.buyerPan || "";
   const buyerGstin = globalData?.companyGstin || globalData?.gstin || activeProfile.buyerGstin;
   const buyerStateCode = activeProfile.buyerStateCode || "State: Gujarat, Code: 24";
   const buyerEmail = globalData?.companyEmail || activeProfile.buyerEmail;
@@ -379,49 +413,74 @@ function PoLandscapePdfGenerator({
 
   const computedItems = itemsList.map((item, idx) => {
     const rawQty = Number(item.qty || item.quantityRequested || item.quantity || 0);
+
+    // Look up specific quote from this vendor for this item
+    const itemProdName = (item.productName || item.tyreType || item.description || "").trim().toUpperCase();
+    const matchedQuote = stage2Suppliers.find(
+      (s, sIdx) =>
+        (s.supplierName || "").trim().toUpperCase() === vendorName.trim().toUpperCase() &&
+        (((s.selectedProduct || s.selectedTyreType || "").trim().toUpperCase() === itemProdName) ||
+         (sIdx === idx && (s.supplierName || "").trim().toUpperCase() === vendorName.trim().toUpperCase()))
+    );
+
     const itemQty =
-      itemsList.length === 1 && vendorAllocatedTotalQty > 0
+      matchedQuote && Number(matchedQuote.qtyAvailable) > 0
+        ? Number(matchedQuote.qtyAvailable)
+        : itemsList.length === 1 && vendorAllocatedTotalQty > 0
         ? vendorAllocatedTotalQty
         : rawQty > 0
         ? rawQty
         : 1;
 
     let itemRate = 0;
-    if (vendorUnitPrice > 0) {
+    if (matchedQuote) {
+      const nP = Number(matchedQuote.unitPriceNew) || 0;
+      const rP = Number(matchedQuote.unitPriceRemould) || 0;
+      itemRate = nP > 0 ? nP : (rP > 0 ? rP : (Number(matchedQuote.priceQuoted) || 0));
+    } else if (vendorUnitPrice > 0 && itemsList.length === 1) {
       itemRate = vendorUnitPrice;
     } else if (item.estUnitCost) {
       itemRate = Number(item.estUnitCost);
+    } else if (vendorUnitPrice > 0) {
+      itemRate = vendorUnitPrice;
     } else if (vendorTotalOrderValue > 0 && vendorAllocatedTotalQty > 0) {
       itemRate = vendorTotalOrderValue / vendorAllocatedTotalQty;
     }
 
     const itemBase = itemQty * itemRate;
-    const gstRateVal = currentVendor.gstRate
-      ? Number(String(currentVendor.gstRate).replace(/%/g, ''))
-      : 0;
+    const gstRateVal = matchedQuote?.gstRate
+      ? Number(String(matchedQuote.gstRate).replace(/%/g, ''))
+      : (currentVendor.gstRate
+        ? Number(String(currentVendor.gstRate).replace(/%/g, ''))
+        : 0);
     const itemGst = (itemBase * gstRateVal) / 100;
 
     calculatedSubTotal += itemBase;
     calculatedTotalGst += itemGst;
 
-    const productName = item.productName || item.tyreType || item.description || currentVendor.selectedProduct || "Item";
-    const brand = item.brandPreference || item.tyreBrand || currentVendor.tyreBrand || "";
-    const spec = item.sizeSpec || item.sizeSpecification || item.specification || currentVendor.sizeSpecification || "";
+    const productName = item.productName || item.tyreType || item.description || matchedQuote?.selectedProduct || currentVendor.selectedProduct || "Item";
+    const brand = matchedQuote?.brand || matchedQuote?.tyreBrand || item.brandPreference || item.tyreBrand || currentVendor.tyreBrand || "";
+    const spec = matchedQuote?.sizeSpecification || matchedQuote?.specification || item.sizeSpec || item.sizeSpecification || item.specification || currentVendor.sizeSpecification || "";
     const fullDescription = [productName, brand, spec].filter(Boolean).join(" - ");
 
     return {
       srNo: idx + 1,
       description: fullDescription || "Goods Specification as per Purchase Order",
-      hsnCode: currentVendor.hsnCode || item.hsnCode || item.hsn || globalData?.stage2?.hsnCode || "-",
+      hsnCode: matchedQuote?.hsnCode || currentVendor.hsnCode || item.hsnCode || item.hsn || globalData?.stage2?.hsnCode || "-",
       unit: item.unit || (itemQty ? `${itemQty} NOS` : "NOS"),
       itemQty,
       itemRate,
-      discPercent: currentVendor.discountOffered ? `${currentVendor.discountOffered}%` : "-",
+      discPercent: (matchedQuote?.discountOffered ?? currentVendor.discountOffered) ? `${matchedQuote?.discountOffered || currentVendor.discountOffered}%` : "-",
       itemTotal: itemBase,
     };
   });
 
-  const grandTotal = vendorTotalOrderValue > 0 ? vendorTotalOrderValue : (calculatedSubTotal + calculatedTotalGst);
+  const grandTotal =
+    vendorTotalOrderValue > 0 && vendorTotalOrderValue >= calculatedSubTotal
+      ? vendorTotalOrderValue
+      : calculatedSubTotal > 0
+      ? calculatedSubTotal + calculatedTotalGst
+      : vendorTotalOrderValue;
   const gstRateDisplay = currentVendor.gstRate
     ? String(currentVendor.gstRate).replace(/%/g, '')
     : (calculatedTotalGst > 0 && calculatedSubTotal > 0
@@ -541,37 +600,6 @@ function PoLandscapePdfGenerator({
         </Tooltip>
       ) : (
         <Box sx={{ display: "inline-flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-          {/* Company Quick Selector Dropdown */}
-          <select
-            value={selectedCompanyKey}
-            onChange={(e) => {
-              const newKey = e.target.value;
-              setSelectedCompanyKey(newKey);
-              const prof = getCompanyProfile(newKey);
-              if (prof.defaultFormat) setPoFormatStyle(prof.defaultFormat);
-            }}
-            disabled={downloading}
-            style={{
-              fontSize: "11px",
-              fontWeight: 700,
-              padding: "4px 8px",
-              borderRadius: "4px",
-              border: "1.5px solid #cbd5e1",
-              backgroundColor: "#ffffff",
-              color: "#0f3b6c",
-              cursor: "pointer",
-              height: "32px",
-              maxWidth: "200px",
-            }}
-            title="Select Purchasing Company"
-          >
-            {COMPANY_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-
           {/* PO Format Selector */}
           <select
             value={poFormatStyle}
@@ -731,6 +759,7 @@ function PoLandscapePdfGenerator({
                 <div style={{ textAlign: "left" }}>{buyerAddress1}</div>
                 {buyerAddress2 && <div style={{ textAlign: "left" }}>{buyerAddress2}</div>}
                 {buyerCityState && <div style={{ textAlign: "left" }}>{buyerCityState}</div>}
+                {buyerPan && <div style={{ textAlign: "left" }}><strong>PAN:</strong> {buyerPan}</div>}
                 <div style={{ textAlign: "left" }}><strong>GSTIN:</strong> {buyerGstin}</div>
                 <div style={{ textAlign: "left" }}>{buyerStateCode}</div>
                 <div style={{ textAlign: "left" }}><strong>Email:</strong> {buyerEmail}</div>
@@ -978,7 +1007,7 @@ function PoLandscapePdfGenerator({
               Prepared By:
             </div>
             <div><strong>Name:</strong> {prRaisedBy}</div>
-            <div><strong>Designation:</strong> Purchase Officer</div>
+            <div><strong>Designation:</strong> {preparedByDesignation}</div>
             <div><strong>Date:</strong> {preparedAtFormatted}</div>
           </div>
 
@@ -987,7 +1016,7 @@ function PoLandscapePdfGenerator({
               Checked By:
             </div>
             <div><strong>Name:</strong> {checkedByName}</div>
-            <div><strong>Designation:</strong> CEO</div>
+            <div><strong>Designation:</strong> {checkedByDesignation}</div>
             <div><strong>Date:</strong> {checkedAtFormatted}</div>
           </div>
 
@@ -996,7 +1025,7 @@ function PoLandscapePdfGenerator({
               Approved By:
             </div>
             <div><strong>Name:</strong> {approvedByName}</div>
-            <div><strong>Designation:</strong> Sr. Manager - Accounts</div>
+            <div><strong>Designation:</strong> {approvedByDesignation}</div>
             <div><strong>Date:</strong> {approvedAtFormatted}</div>
           </div>
         </div>

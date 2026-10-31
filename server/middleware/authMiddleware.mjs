@@ -96,6 +96,9 @@ const verifyToken = async (req, res, next) => {
             const completion = calculateProfileCompletion(fullUser);
             req.user.profileCompletion = completion;
             req.user.isAttendanceAllowedAdmin = fullUser.isAttendanceAllowedAdmin || false;
+            req.user.assigned_procurement_companies = fullUser.assigned_procurement_companies || [];
+            req.user.tyre_procurement_admin = fullUser.tyre_procurement_admin || false;
+            req.user.tyre_procurement_tabs = fullUser.tyre_procurement_tabs || [];
 
             // Only enforce profile completion controls for non-Admin users
             if (fullUser.role !== 'Admin') {

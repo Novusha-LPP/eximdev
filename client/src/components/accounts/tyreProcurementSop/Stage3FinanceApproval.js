@@ -155,6 +155,39 @@ function Stage3FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
             />
           </Box>
         </Box>
+
+        {/* PR Approval Proof verification badge for Finance */}
+        {(globalData?.approvalProof || globalData?.stage1?.approvalProof) && (
+          <Box sx={{ mt: 1.5, p: 1.5, bgcolor: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <span style={{ fontSize: "16px" }}>📎</span>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: "#166534" }}>
+                PR Confirmation & Approval Proof:
+              </Typography>
+              <Typography variant="body2" sx={{ color: "#1e293b", fontWeight: 600 }}>
+                {(globalData.approvalProof || globalData.stage1.approvalProof).fileName || "Proof Document"}
+              </Typography>
+            </Box>
+            {(globalData.approvalProof?.fileUrl || globalData.stage1?.approvalProof?.fileUrl) && (
+              <a
+                href={globalData.approvalProof?.fileUrl || globalData.stage1?.approvalProof?.fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  color: "#2563eb",
+                  textDecoration: "underline",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "3px",
+                }}
+              >
+                View Approval Proof ↗
+              </a>
+            )}
+          </Box>
+        )}
       </Box>
 
       {/* ─── B. Awarded / Selected Supplier(s) Summary ─── */}
@@ -233,7 +266,6 @@ function Stage3FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
                 <th style={{ width: 50, textAlign: "center" }}>Check</th>
                 <th style={{ width: 80 }}>Step</th>
                 <th>Action</th>
-                <th style={{ width: 150 }}>Responsible</th>
                 <th style={{ width: 130 }}>Date Completed</th>
                 <th style={{ width: 120 }}>Time Completed</th>
                 <th style={{ width: 110, textAlign: "center" }}>Status</th>
@@ -251,7 +283,6 @@ function Stage3FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
                 </td>
                 <td style={{ fontWeight: 600 }}>Step 1</td>
                 <td style={{ fontWeight: 600, color: "#1e3a8a" }}>Approved by Finance Manager</td>
-                <td>Finance Manager</td>
                 <td>{approvalDate || "-"}</td>
                 <td>{approvalTime || "-"}</td>
                 <td style={{ textAlign: "center" }}>

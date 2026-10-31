@@ -12,6 +12,8 @@ import {
   TableHead,
   TableRow,
   MenuItem,
+  Checkbox,
+  FormControlLabel,
 } from "@mui/material";
 
 const statusOptions = ["", "Pending", "Done"];
@@ -20,6 +22,38 @@ function Stage6PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => onChange({ [field]: value });
   const updateNested = (group, field, value) =>
     onChange({ [group]: { ...data[group], [field]: value } });
+
+  const handleUtrChange = (val) => {
+    const trimmed = (val || "").trim();
+    const isPaid = Boolean(trimmed);
+    const today = new Date().toISOString().split("T")[0];
+    const currentPaymentDate = data.paymentDetails?.paymentDate;
+    onChange({
+      paymentDetails: {
+        ...data.paymentDetails,
+        utrReferenceNo: val,
+        isPaid,
+        ...(isPaid && !currentPaymentDate ? { paymentDate: today } : {}),
+      },
+    });
+    if (isPaid && onGlobalChange) {
+      onGlobalChange("status", "Payment Done");
+    }
+  };
+
+  const handlePaidChange = (checked) => {
+    const hasUtr = Boolean(data.paymentDetails?.utrReferenceNo?.trim());
+    if (!hasUtr) return;
+    onChange({
+      paymentDetails: {
+        ...data.paymentDetails,
+        isPaid: Boolean(checked),
+      },
+    });
+    if (checked && onGlobalChange) {
+      onGlobalChange("status", "Payment Done");
+    }
+  };
 
   const actionLog = data.actionLog || [];
   const updateActionLog = (idx, field, value) => {
@@ -155,13 +189,28 @@ function Stage6PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
           />
         </Grid>
         <Grid item xs={12} md={6}>
-          <TextField
-            label="UTR / Transaction Reference No."
-            value={data.paymentDetails?.utrReferenceNo || ""}
-            onChange={(e) => updateNested("paymentDetails", "utrReferenceNo", e.target.value)}
-            fullWidth
-            size="small"
-          />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <TextField
+              label="UTR / Transaction Reference No."
+              value={data.paymentDetails?.utrReferenceNo || ""}
+              onChange={(e) => handleUtrChange(e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={Boolean(data.paymentDetails?.isPaid && data.paymentDetails?.utrReferenceNo?.trim())}
+                  disabled={!Boolean(data.paymentDetails?.utrReferenceNo?.trim())}
+                  onChange={(e) => handlePaidChange(e.target.checked)}
+                  color="success"
+                  size="small"
+                />
+              }
+              label="Paid?"
+              sx={{ whiteSpace: "nowrap", mr: 0 }}
+            />
+          </Box>
         </Grid>
         <Grid item xs={12} md={6}>
           <TextField
@@ -251,31 +300,22 @@ function Stage6PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
             <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
               <TableCell>Step</TableCell>
               <TableCell>Action / Task</TableCell>
-              <TableCell>Responsible Person</TableCell>
               <TableCell>Date / Time</TableCell>
               <TableCell>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {[
-              ["Payment processed and UTR recorded", "Accounting Team"],
-              ["Payment confirmation intimated to Purchase Officer", "Accounting Team"],
-              ["Purchase Officer authorised to place RM order", "System / Accounting"],
-            ].map(([task, person], idx) => (
+              "Payment processed and UTR recorded",
+              "Payment confirmation intimated to Purchase Officer",
+              "Purchase Officer authorised to place RM order",
+            ].map((task, idx) => (
               <TableRow key={idx}>
                 <TableCell>{idx + 1}</TableCell>
                 <TableCell>
                   <TextField
                     value={actionLog[idx]?.actionTask || task}
                     onChange={(e) => updateActionLog(idx, "actionTask", e.target.value)}
-                    size="small"
-                    fullWidth
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    value={actionLog[idx]?.responsiblePerson || person}
-                    onChange={(e) => updateActionLog(idx, "responsiblePerson", e.target.value)}
                     size="small"
                     fullWidth
                   />

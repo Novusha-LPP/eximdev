@@ -554,6 +554,8 @@ const DEFAULT_TERMS = [
             const hCodes = Array.from(new Set(vendorQuotes.map((q) => q.hsnCode).filter(Boolean)));
             return hCodes.length > 0 ? hCodes.join(", ") : (globalData?.stage1?.itemsRequired?.[0]?.hsnCode || "");
           })(),
+          additionalRemarks: vendorQuotes.map((q) => q.remarks).filter(Boolean).join("; "),
+          remarks: vendorQuotes.map((q) => q.remarks).filter(Boolean).join("; "),
         };
       } else {
         let quoteIdx = -1;
@@ -610,6 +612,8 @@ const DEFAULT_TERMS = [
             deliveryLocation: s.deliveryLocation || compProfile?.defaultDeliveryLocation || "",
             deliveryContact: s.deliveryContact || compProfile?.defaultDeliveryContact || "",
             hsnCode: s.hsnCode || globalData?.stage1?.itemsRequired?.[quoteIdx]?.hsnCode || globalData?.stage1?.itemsRequired?.[0]?.hsnCode || "",
+            additionalRemarks: s.remarks || "",
+            remarks: s.remarks || "",
           };
         }
       }
@@ -1589,6 +1593,18 @@ const DEFAULT_TERMS = [
                     updateSelectedSupplier(idx, "address", e.target.value.toUpperCase());
                   }}
                   placeholder="Supplier Address"
+                />
+              </div>
+              <div className="sop-field-group" style={{ gridColumn: "span 2" }}>
+                <label className="sop-field-label">Additional Remarks (shown in PO)</label>
+                <input
+                  className="sop-input"
+                  value={item.additionalRemarks || item.remarks || ""}
+                  onChange={(e) => {
+                    updateSelectedSupplier(idx, "additionalRemarks", e.target.value.toUpperCase());
+                    updateSelectedSupplier(idx, "remarks", e.target.value.toUpperCase());
+                  }}
+                  placeholder="e.g. SPECIAL INSTRUCTIONS / WARRANTY CLAUSE"
                 />
               </div>
             </div>

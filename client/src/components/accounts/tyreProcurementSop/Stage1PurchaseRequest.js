@@ -67,6 +67,14 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
     }
   }, [user, data.preparedBy, data.contactNumber, onChange]);
 
+  const [tyreCategories, setTyreCategories] = useState([
+    "New Nylon Tyre",
+    "New Radial Tyre",
+    "Remould Nylon Tyre",
+    "Remould Radial Tyre",
+    "New China Tyre",
+  ]);
+
   useEffect(() => {
     // Fetch saved generic procurement products from backend
     axios
@@ -78,6 +86,18 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
       })
       .catch((err) => {
         console.error("Error fetching saved procurement products:", err);
+      });
+
+    // Fetch tyre categories master (PR-2)
+    axios
+      .get(`${process.env.REACT_APP_API_STRING}/tyre-procurement/tyre-categories`)
+      .then((res) => {
+        if (res.data?.categories?.length > 0) {
+          setTyreCategories(res.data.categories.map((c) => c.categoryName));
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching tyre categories:", err);
       });
   }, []);
 
@@ -835,8 +855,9 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
           <table className="sop-table">
             <thead>
               <tr>
-                <th style={{ width: "180px" }}>Product Name / Item</th>
-                <th style={{ width: "180px" }}>Brand Preference</th>
+                <th style={{ width: "160px" }}>Product Name / Item</th>
+                <th style={{ width: "140px" }}>Tyre Category</th>
+                <th style={{ width: "140px" }}>Brand Preference</th>
                 <th>Specification</th>
                 <th style={{ width: "80px" }}>Qty</th>
                 <th style={{ width: "115px" }}>Est. Price (₹)</th>
@@ -858,6 +879,21 @@ function Stage1PurchaseRequest({ data = {}, onChange, globalData = {}, onGlobalC
                         onBlur={() => saveProductDetails(itemsRequired[idx])}
                         placeholder="e.g. Paper, Ink, Tyre"
                       />
+                    </td>
+                    <td>
+                      <select
+                        className="sop-select"
+                        value={item.tyreCategory || ""}
+                        onChange={(e) => updateItem(idx, "tyreCategory", e.target.value)}
+                        style={{ height: "34px", fontSize: "11.5px", fontWeight: 600 }}
+                      >
+                        <option value="">-- Tyre Category --</option>
+                        {tyreCategories.map((cat, cIdx) => (
+                          <option key={cIdx} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td>
                       <input

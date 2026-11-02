@@ -83,8 +83,181 @@ const InvoiceDisplay = ({ row, showOOC = true, showInvoices = true, showCTH = tr
 
   const processedShippingLineInvoices = getProcessedShippingLineInvoices();
 
+  // IB-2: Combine all Hasti invoices and charges (so 2nd/subsequent entries are never hidden)
+  const getProcessedHastiInvoices = () => {
+    const list = [];
+    const addedUrls = new Set();
+
+    if (Array.isArray(hasti_invoices)) {
+      hasti_invoices.forEach((item, index) => {
+        const url = typeof item === "string" ? item : item?.url;
+        if (url && !addedUrls.has(url)) {
+          addedUrls.add(url);
+          list.push({
+            type: "simple",
+            name: (typeof item === "object" && item?.name) ? item.name : `Hasti Invoice ${list.length + 1}`,
+            url,
+            section: "hasti",
+          });
+        }
+      });
+    }
+
+    const allCharges = [...(charges || []), ...(row.charges || [])];
+    allCharges.forEach((c) => {
+      const head = (c.chargeHead || "").toUpperCase();
+      if (head.includes("HASTI")) {
+        const checkAndAdd = (url, suffix) => {
+          if (url && !addedUrls.has(url)) {
+            addedUrls.add(url);
+            list.push({
+              type: "simple",
+              name: `Hasti Charge ${list.length + 1}${suffix ? ` (${suffix})` : ""}`,
+              url,
+              section: "hasti",
+            });
+          }
+        };
+
+        if (Array.isArray(c.cost?.url)) c.cost.url.forEach(u => checkAndAdd(u, "Cost"));
+        else checkAndAdd(c.cost?.url, "Cost");
+
+        if (Array.isArray(c.cost?.url_final)) c.cost.url_final.forEach(u => checkAndAdd(u, "Final"));
+        if (Array.isArray(c.revenue?.url)) c.revenue.url.forEach(u => checkAndAdd(u, "Revenue"));
+        checkAndAdd(c.payment_request_receipt_url, "Payment Receipt");
+        checkAndAdd(c.purchase_book_receipt_url, "PB Receipt");
+      }
+    });
+
+    return list;
+  };
+
+  // IB-2: Combine all Thar invoices and charges (so 2nd/subsequent entries are never hidden)
+  const getProcessedTharInvoices = () => {
+    const list = [];
+    const addedUrls = new Set();
+
+    if (Array.isArray(thar_invoices)) {
+      thar_invoices.forEach((item, index) => {
+        const url = typeof item === "string" ? item : item?.url;
+        if (url && !addedUrls.has(url)) {
+          addedUrls.add(url);
+          list.push({
+            type: "simple",
+            name: (typeof item === "object" && item?.name) ? item.name : `Thar Invoice ${list.length + 1}`,
+            url,
+            section: "thar",
+          });
+        }
+      });
+    }
+
+    const allCharges = [...(charges || []), ...(row.charges || [])];
+    allCharges.forEach((c) => {
+      const head = (c.chargeHead || "").toUpperCase();
+      if (head.includes("THAR")) {
+        const checkAndAdd = (url, suffix) => {
+          if (url && !addedUrls.has(url)) {
+            addedUrls.add(url);
+            list.push({
+              type: "simple",
+              name: `Thar Charge ${list.length + 1}${suffix ? ` (${suffix})` : ""}`,
+              url,
+              section: "thar",
+            });
+          }
+        };
+
+        if (Array.isArray(c.cost?.url)) c.cost.url.forEach(u => checkAndAdd(u, "Cost"));
+        else checkAndAdd(c.cost?.url, "Cost");
+
+        if (Array.isArray(c.cost?.url_final)) c.cost.url_final.forEach(u => checkAndAdd(u, "Final"));
+        if (Array.isArray(c.revenue?.url)) c.revenue.url.forEach(u => checkAndAdd(u, "Revenue"));
+        checkAndAdd(c.payment_request_receipt_url, "Payment Receipt");
+        checkAndAdd(c.purchase_book_receipt_url, "PB Receipt");
+      }
+    });
+
+    return list;
+  };
+
+  // IB-1: Customs Duty acknowledgement, receipt, and supporting documents
+  const getProcessedCustomsDutyDocuments = () => {
+    const list = [];
+    const addedUrls = new Set();
+
+    const addDoc = (url, defaultName) => {
+      if (!url || typeof url !== "string" || addedUrls.has(url)) return;
+      addedUrls.add(url);
+      list.push({
+        type: "simple",
+        name: defaultName || `Customs Duty Document ${list.length + 1}`,
+        url,
+        section: "customs_duty",
+      });
+    };
+
+    const directFields = [
+      { key: "customs_duty_acknowledgement", label: "Customs Duty Acknowledgement" },
+      { key: "customs_duty_receipt", label: "Customs Duty Receipt" },
+      { key: "duty_receipt_img", label: "Duty Receipt" },
+      { key: "customs_duty_challan", label: "Customs Duty Challan" },
+      { key: "duty_challan_img", label: "Duty Challan" },
+    ];
+
+    directFields.forEach(({ key, label }) => {
+      const val = row[key];
+      if (Array.isArray(val)) {
+        val.forEach((u, i) => addDoc(u, `${label} ${val.length > 1 ? i + 1 : ""}`));
+      } else if (val) {
+        addDoc(val, label);
+      }
+    });
+
+    if (Array.isArray(row.documents)) {
+      row.documents.forEach((doc, i) => {
+        const name = (doc.document_name || doc.name || "").toUpperCase();
+        if (name.includes("DUTY") || name.includes("CUSTOM")) {
+          const docUrl = typeof doc.url === "string" ? doc.url : (Array.isArray(doc.url) ? doc.url[0] : null);
+          if (docUrl) {
+            addDoc(docUrl, doc.document_name || `Customs Duty Document ${i + 1}`);
+          }
+        }
+      });
+    }
+
+    const allCharges = [...(charges || []), ...(row.charges || [])];
+    allCharges.forEach((c) => {
+      const head = (c.chargeHead || "").toUpperCase();
+      if (head.includes("DUTY") || head.includes("CUSTOM")) {
+        const checkAndAdd = (url, suffix) => {
+          if (url) addDoc(url, `Customs Duty ${suffix} ${list.length + 1}`);
+        };
+
+        if (Array.isArray(c.cost?.url)) c.cost.url.forEach(u => checkAndAdd(u, "Supporting"));
+        else checkAndAdd(c.cost?.url, "Supporting");
+
+        if (Array.isArray(c.cost?.url_final)) c.cost.url_final.forEach(u => checkAndAdd(u, "Challan"));
+        checkAndAdd(c.payment_request_receipt_url, "Payment Receipt / Acknowledgement");
+        checkAndAdd(c.purchase_book_receipt_url, "Payment Acknowledgement");
+      }
+    });
+
+    return list;
+  };
+
+  const processedCustomsDutyDocuments = getProcessedCustomsDutyDocuments();
+  const processedHastiInvoices = getProcessedHastiInvoices();
+  const processedTharInvoices = getProcessedTharInvoices();
+
   // Invoice sections
   const invoiceSections = [
+    {
+      key: "customs_duty",
+      title: "Customs Duty",
+      items: processedCustomsDutyDocuments,
+      icon: "🏛️",
+    },
     {
       key: "shipping_line",
       title: "Shipping Line",
@@ -101,13 +274,13 @@ const InvoiceDisplay = ({ row, showOOC = true, showInvoices = true, showCTH = tr
     {
       key: "thar",
       title: "Thar",
-      items: thar_invoices,
+      items: processedTharInvoices,
       icon: "🚛",
     },
     {
       key: "hasti",
       title: "Hasti",
-      items: hasti_invoices,
+      items: processedHastiInvoices,
       icon: "🚚",
     },
     {

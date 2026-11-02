@@ -1097,10 +1097,12 @@ function PaymentPending({ workMode = "Payment" }) {
                   </Grid>
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">Against Bill</Typography>
+                    <Typography variant="caption" fontWeight="bold">Bill No / Against Bill</Typography>
                   </Grid>
                   <Grid item xs={8} sx={{ p: 1 }}>
-                    <Typography variant="body2">{selectedPaymentRequest.againstBill || "-"}</Typography>
+                    <Typography variant="body2" fontWeight="bold" color="primary">
+                      {selectedPaymentRequest.purchaseBookInvoiceNo || selectedPaymentRequest.supplierInvNo || selectedPaymentRequest.againstBill || "-"}
+                    </Typography>
                   </Grid>
                 </Grid>
               </Box>

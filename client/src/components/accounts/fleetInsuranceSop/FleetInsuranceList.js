@@ -54,7 +54,10 @@ import {
   Close,
   Cancel,
   FlashOn,
-  Launch
+  Launch,
+  MonetizationOn,
+  VerifiedUser,
+  DateRange
 } from "@mui/icons-material";
 import FleetInsuranceHistory from "./FleetInsuranceHistory";
 import FleetInsuranceAttachmentsModal from "./FleetInsuranceAttachmentsModal";
@@ -174,6 +177,14 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
   const [search, setSearch] = useState(() => savedFleetFilters?.search || "");
   const [month, setMonth] = useState(() => (savedFleetFilters?.month !== undefined ? savedFleetFilters.month : ""));
   const [year, setYear] = useState(() => (savedFleetFilters?.year !== undefined ? savedFleetFilters.year : ""));
+  const [fromDate, setFromDate] = useState(() => savedFleetFilters?.fromDate || "");
+  const [toDate, setToDate] = useState(() => savedFleetFilters?.toDate || "");
+  const [dateBasis, setDateBasis] = useState(() => savedFleetFilters?.dateBasis || "renewalDate");
+  const [renewalMetrics, setRenewalMetrics] = useState({
+    totalRenewalSpend: 0,
+    renewedCount: 0,
+    dateBasis: "renewalDate",
+  });
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
@@ -197,6 +208,9 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
         search,
         month,
         year,
+        fromDate,
+        toDate,
+        dateBasis,
         page,
         rowsPerPage,
         filters
@@ -205,25 +219,29 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
     } catch (e) {
       console.error("Error saving fleet insurance filters to storage:", e);
     }
-  }, [search, month, year, page, rowsPerPage, filters]);
+  }, [search, month, year, fromDate, toDate, dateBasis, page, rowsPerPage, filters]);
 
   const activeFiltersCount = React.useMemo(() => {
     let count = 0;
     if (search && search.trim()) count++;
     if (month && month !== "") count++;
     if (year && year !== "") count++;
+    if (fromDate) count++;
+    if (toDate) count++;
     if (filters) {
       Object.values(filters).forEach(val => {
         if (val && String(val).trim()) count++;
       });
     }
     return count;
-  }, [search, month, year, filters]);
+  }, [search, month, year, fromDate, toDate, filters]);
 
   const hasActiveFilters = Boolean(
     search.trim() ||
     (month && month !== "") ||
     (year && year !== "") ||
+    fromDate ||
+    toDate ||
     Object.values(filters).some(v => Boolean(v && String(v).trim()))
   );
 
@@ -231,6 +249,9 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
     setSearch("");
     setMonth("");
     setYear("");
+    setFromDate("");
+    setToDate("");
+    setDateBasis("renewalDate");
     setFilters({
       regNo: "",
       owner: "",
@@ -378,6 +399,9 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
           search,
           month,
           year,
+          fromDate,
+          toDate,
+          dateBasis,
           page: page + 1,
           limit: rowsPerPage,
           ...filters
@@ -385,6 +409,9 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
       });
       setData(res.data.data || []);
       setTotal(res.data.total || 0);
+      if (res.data.metrics) {
+        setRenewalMetrics(res.data.metrics);
+      }
     } catch (err) {
       console.error("Error fetching Fleet Insurance SOP list:", err);
     } finally {
@@ -399,7 +426,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
       fetchPaymentUtrRecords();
     }, 500);
     return () => clearTimeout(delay);
-  }, [page, rowsPerPage, search, month, year, filters]);
+  }, [page, rowsPerPage, search, month, year, fromDate, toDate, dateBasis, filters]);
 
 
 
@@ -708,7 +735,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
       {/* Top Fleet Operational Metrics Header Cards */}
       {/* Top Operational Metrics Header Cards */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={2}>
           <Paper
             elevation={0}
             sx={{
@@ -718,24 +745,26 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
               background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
               display: "flex",
               alignItems: "center",
-              gap: 2,
+              gap: 1.5,
+              height: "100%",
+              boxSizing: "border-box"
             }}
           >
-            <Avatar sx={{ bgcolor: "rgba(37, 99, 235, 0.1)", color: "#2563eb", width: 44, height: 44 }}>
+            <Avatar sx={{ bgcolor: "rgba(37, 99, 235, 0.1)", color: "#2563eb", width: 42, height: 42 }}>
               <DirectionsCar sx={{ fontSize: 22 }} />
             </Avatar>
             <Box>
-              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Total Fleet Records
+              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Total Fleet
               </Typography>
-              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
+              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "20px", lineHeight: 1.2 }}>
                 {total}
               </Typography>
             </Box>
           </Paper>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={2}>
           <Paper
             elevation={0}
             sx={{
@@ -745,24 +774,26 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
               background: "linear-gradient(135deg, #ffffff 0%, #fffbe6 100%)",
               display: "flex",
               alignItems: "center",
-              gap: 2,
+              gap: 1.5,
+              height: "100%",
+              boxSizing: "border-box"
             }}
           >
-            <Avatar sx={{ bgcolor: "rgba(217, 119, 6, 0.1)", color: "#d97706", width: 44, height: 44 }}>
+            <Avatar sx={{ bgcolor: "rgba(217, 119, 6, 0.1)", color: "#d97706", width: 42, height: 42 }}>
               <HourglassEmpty sx={{ fontSize: 22 }} />
             </Avatar>
             <Box>
-              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Expiring Soon (7 Days)
+              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Expiring (7 Days)
               </Typography>
-              <Typography sx={{ fontWeight: 700, color: expiringRecords.length > 0 ? "#dc2626" : "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
+              <Typography sx={{ fontWeight: 700, color: expiringRecords.length > 0 ? "#dc2626" : "#0f172a", fontSize: "20px", lineHeight: 1.2 }}>
                 {expiringRecords.length}
               </Typography>
             </Box>
           </Paper>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={2}>
           <Paper
             elevation={0}
             sx={{
@@ -772,24 +803,26 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
               background: "linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)",
               display: "flex",
               alignItems: "center",
-              gap: 2,
+              gap: 1.5,
+              height: "100%",
+              boxSizing: "border-box"
             }}
           >
-            <Avatar sx={{ bgcolor: "rgba(2, 132, 199, 0.1)", color: "#0284c7", width: 44, height: 44 }}>
+            <Avatar sx={{ bgcolor: "rgba(2, 132, 199, 0.1)", color: "#0284c7", width: 42, height: 42 }}>
               <CheckCircle sx={{ fontSize: 22 }} />
             </Avatar>
             <Box>
-              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Approval Pending
+              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Approvals
               </Typography>
-              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
+              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "20px", lineHeight: 1.2 }}>
                 {approvalRecords.length}
               </Typography>
             </Box>
           </Paper>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={2}>
           <Paper
             elevation={0}
             sx={{
@@ -799,18 +832,88 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
               background: "linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)",
               display: "flex",
               alignItems: "center",
-              gap: 2,
+              gap: 1.5,
+              height: "100%",
+              boxSizing: "border-box"
             }}
           >
-            <Avatar sx={{ bgcolor: "rgba(22, 163, 74, 0.1)", color: "#16a34a", width: 44, height: 44 }}>
+            <Avatar sx={{ bgcolor: "rgba(22, 163, 74, 0.1)", color: "#16a34a", width: 42, height: 42 }}>
               <Autorenew sx={{ fontSize: 22 }} />
             </Avatar>
             <Box>
-              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Payment & UTR Pending
+              <Typography sx={{ color: "#64748b", fontWeight: 700, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                UTR Pending
               </Typography>
-              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "22px", lineHeight: 1.2 }}>
+              <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "20px", lineHeight: 1.2 }}>
                 {paymentUtrRecords.filter((r) => !r.paymentUtr).length}
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* FI-1: Total Renewal Spend Card */}
+        <Grid item xs={12} sm={6} md={2}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 1.8,
+              borderRadius: "8px",
+              border: "1px solid #bbf7d0",
+              background: "linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)",
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              height: "100%",
+              boxSizing: "border-box",
+              boxShadow: "0 2px 6px rgba(16, 185, 129, 0.08)"
+            }}
+          >
+            <Avatar sx={{ bgcolor: "rgba(16, 185, 129, 0.12)", color: "#059669", width: 42, height: 42 }}>
+              <MonetizationOn sx={{ fontSize: 24 }} />
+            </Avatar>
+            <Box sx={{ overflow: "hidden" }}>
+              <Typography sx={{ color: "#047857", fontWeight: 700, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", whiteSpace: "nowrap" }}>
+                Renewal Spend
+              </Typography>
+              <Typography sx={{ fontWeight: 800, color: "#065f46", fontSize: "18px", lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={`₹ ${(renewalMetrics.totalRenewalSpend || 0).toLocaleString("en-IN")}`}>
+                ₹{(renewalMetrics.totalRenewalSpend || 0).toLocaleString("en-IN")}
+              </Typography>
+              <Typography sx={{ color: "#64748b", fontSize: "10px", lineHeight: 1.1, mt: 0.3 }} noWrap>
+                via {dateBasis === "paymentDate" ? "Payment Date" : "Renewal Date"}
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* FI-1: Policies Renewed Count Card */}
+        <Grid item xs={12} sm={6} md={2}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 1.8,
+              borderRadius: "8px",
+              border: "1px solid #bfdbfe",
+              background: "linear-gradient(135deg, #ffffff 0%, #eff6ff 100%)",
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              height: "100%",
+              boxSizing: "border-box",
+              boxShadow: "0 2px 6px rgba(37, 99, 235, 0.08)"
+            }}
+          >
+            <Avatar sx={{ bgcolor: "rgba(37, 99, 235, 0.12)", color: "#1d4ed8", width: 42, height: 42 }}>
+              <VerifiedUser sx={{ fontSize: 22 }} />
+            </Avatar>
+            <Box>
+              <Typography sx={{ color: "#1e40af", fontWeight: 700, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Policies Renewed
+              </Typography>
+              <Typography sx={{ fontWeight: 800, color: "#1e3a8a", fontSize: "20px", lineHeight: 1.2 }}>
+                {renewalMetrics.renewedCount || 0}
+              </Typography>
+              <Typography sx={{ color: "#64748b", fontSize: "10px", lineHeight: 1.1, mt: 0.3 }}>
+                In selected period
               </Typography>
             </Box>
           </Paper>
@@ -1026,6 +1129,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
         </Box>
 
         {mainTab === 0 && (
+          <React.Fragment>
           <Grid container spacing={1.5} alignItems="center">
             <Grid item xs={12} sm={6} md={3.5}>
               <TextField
@@ -1225,6 +1329,110 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
               </Button>
             </Grid>
           </Grid>
+
+          {/* FI-1: Date Range Selection & Date Basis Toggle */}
+          <Box sx={{ mt: 1.5, pt: 1.5, borderTop: "1px dashed #e2e8f0" }}>
+            <Grid container spacing={1.5} alignItems="center">
+              <Grid item xs={12} sm={3} md={2.5}>
+                <TextField
+                  type="date"
+                  label="From Date"
+                  value={fromDate}
+                  onChange={(e) => {
+                    setFromDate(e.target.value);
+                    setPage(0);
+                  }}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "6px",
+                      bgcolor: "#fafaff",
+                      height: 38,
+                      fontSize: "13px",
+                      "& fieldset": { borderColor: "#cbd5e1" },
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={3} md={2.5}>
+                <TextField
+                  type="date"
+                  label="To Date"
+                  value={toDate}
+                  onChange={(e) => {
+                    setToDate(e.target.value);
+                    setPage(0);
+                  }}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "6px",
+                      bgcolor: "#fafaff",
+                      height: 38,
+                      fontSize: "13px",
+                      "& fieldset": { borderColor: "#cbd5e1" },
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4} md={3}>
+                <TextField
+                  select
+                  label="Date Basis"
+                  value={dateBasis}
+                  onChange={(e) => {
+                    setDateBasis(e.target.value);
+                    setPage(0);
+                  }}
+                  fullWidth
+                  SelectProps={{
+                    renderValue: (val) => (
+                      <span style={{ color: "#0f172a", fontWeight: 600 }}>
+                        {val === "paymentDate" ? "Payment Date" : "Renewal Date (Default)"}
+                      </span>
+                    ),
+                  }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "6px",
+                      bgcolor: "#fafaff",
+                      height: 38,
+                      fontSize: "13px",
+                      "& fieldset": { borderColor: "#cbd5e1" },
+                    },
+                  }}
+                >
+                  <MenuItem value="renewalDate" sx={{ fontSize: "13px" }}>
+                    Renewal Date (Default)
+                  </MenuItem>
+                  <MenuItem value="paymentDate" sx={{ fontSize: "13px" }}>
+                    Payment Date
+                  </MenuItem>
+                </TextField>
+              </Grid>
+              {(fromDate || toDate) && (
+                <Grid item xs={12} sm={2} md={2}>
+                  <Button
+                    variant="text"
+                    color="secondary"
+                    size="small"
+                    startIcon={<Clear sx={{ fontSize: 16 }} />}
+                    onClick={() => {
+                      setFromDate("");
+                      setToDate("");
+                      setPage(0);
+                    }}
+                    sx={{ textTransform: "none", fontWeight: 600, fontSize: "12px", color: "#64748b" }}
+                  >
+                    Clear Date Range
+                  </Button>
+                </Grid>
+              )}
+            </Grid>
+          </Box>
+          </React.Fragment>
         )}
       </Paper>
 

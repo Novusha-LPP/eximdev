@@ -53,6 +53,11 @@ const tyreItemSchema = new mongoose.Schema(
     qty: { type: Number, default: 0 },
     estUnitCost: { type: Number, default: 0 },
     estTotal: { type: Number, default: 0 },
+    tyreCategory: { type: String, default: "" }, // PR-2: New Nylon Tyre, New Radial Tyre, Remould Nylon Tyre, Remould Radial Tyre, New China Tyre
+    isCancelled: { type: Boolean, default: false }, // PR-7: Cancel item post-payment
+    cancelledAt: Date,
+    cancelledBy: String,
+    cancellationReason: String,
   },
   { _id: true }
 );
@@ -185,6 +190,10 @@ const stage2Schema = new mongoose.Schema(
     totalOrderValue: { type: Number, default: 0 },
     selectedSuppliers: { type: [selectedSupplierSchema], default: [] },
     declaration: String,
+    additionalRemarks: { type: String, default: "" }, // PR-5: Additional Remarks in Supplier Quotation Shown in PO
+    poCreatedBy: String, // PR-4: Audit trail
+    poCreatedByName: String,
+    poCreatedAt: Date,
     routingChecklist: { type: [routingChecklistSchema], default: [] },
   },
   { _id: false }
@@ -403,6 +412,9 @@ const stage6Schema = new mongoose.Schema(
       returnClauseReviewed: { type: String, enum: ["Yes", "No", "YES", "NO", ""], default: "" },
     },
     inspectionNotes: String,
+    grnCreatedBy: String, // PR-4: Audit trail
+    grnCreatedByName: String,
+    grnCreatedAt: Date,
     approvals: { type: [approvalSchema], default: [] },
   },
   { _id: false }
@@ -431,6 +443,19 @@ const tyreProcurementSopSchema = new mongoose.Schema(
     attachments: { type: [attachmentSchema], default: [] },
     additionalInformation: { type: String, default: "" },
     tatDays: { type: Number, default: 0 },
+    createdBy: { type: String, default: "" }, // PR-4: Audit trail
+    createdByName: { type: String, default: "" },
+    updatedBy: { type: String, default: "" },
+    updatedByName: { type: String, default: "" },
+    auditTrail: [
+      {
+        action: String, // "PR Created", "PO Created", "GRN Completed", "Item Cancelled", etc.
+        performedBy: String,
+        performedByName: String,
+        timestamp: { type: Date, default: Date.now },
+        details: String,
+      },
+    ],
     status: {
       type: String,
       set: (val) => {

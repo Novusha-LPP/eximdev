@@ -174,6 +174,7 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectData, setRejectData] = useState({ remark: "" });
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [sorting, setSorting] = useState([]);
   const voucherRef = React.useRef();
 
   // Persist filter states to sessionStorage
@@ -433,60 +434,91 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
         return;
       }
 
-      // Sort jobs chronologically (ascending) by bill_document_sent_to_accounts
-      const sortedJobs = [...jobs].sort((a, b) => {
-        const valA = a.bill_document_sent_to_accounts;
-        const valB = b.bill_document_sent_to_accounts;
-        if (!valA && !valB) return 0;
-        if (!valA) return 1;
-        if (!valB) return -1;
-        const dateA = new Date(valA);
-        const dateB = new Date(valB);
-        return dateA - dateB;
+      // IB-4: Export pending bills only
+      const pendingJobs = jobs.filter((j) => {
+        if (j.isCompleted || j.status === "Completed") return false;
+        return true;
       });
 
-      // Map to requested fields
+      // IB-4: Respect column sorting if active, or default to bill_document_sent_to_accounts
+      let sortedJobs = [...pendingJobs];
+      if (sorting && sorting.length > 0) {
+        const { id, desc } = sorting[0];
+        sortedJobs.sort((a, b) => {
+          let valA = a[id];
+          let valB = b[id];
+          if (id === "job_no") {
+            valA = a.job_number || a.job_no || "";
+            valB = b.job_number || b.job_no || "";
+          }
+          if (id === "importer") {
+            valA = a.importer || "";
+            valB = b.importer || "";
+          }
+          if (id === "out_of_charge") {
+            valA = a.out_of_charge || a.out_of_charge_date || "";
+            valB = b.out_of_charge || b.out_of_charge_date || "";
+          }
+          if (!valA && !valB) return 0;
+          if (!valA) return desc ? 1 : -1;
+          if (!valB) return desc ? -1 : 1;
+          if (valA < valB) return desc ? 1 : -1;
+          if (valA > valB) return desc ? -1 : 1;
+          return 0;
+        });
+      } else {
+        sortedJobs.sort((a, b) => {
+          const valA = a.bill_document_sent_to_accounts;
+          const valB = b.bill_document_sent_to_accounts;
+          if (!valA && !valB) return 0;
+          if (!valA) return 1;
+          if (!valB) return -1;
+          const dateA = new Date(valA);
+          const dateB = new Date(valB);
+          return dateA - dateB;
+        });
+      }
+
+      // IB-4: Exact 6 Columns: Job No, Party Name, BE No., BE Date, BL Number, Out of Charge Date
       const excelData = sortedJobs.map((job) => {
-        const sentDateRaw = job.bill_document_sent_to_accounts;
-        let formattedSentDate = "-";
-        if (sentDateRaw) {
-          const date = new Date(sentDateRaw);
-          formattedSentDate = isNaN(date)
-            ? sentDateRaw
-            : date.toLocaleString("en-IN", {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-              });
-        }
+        const formatDt = (d) => {
+          if (!d) return "";
+          try {
+            const dt = new Date(d);
+            return isNaN(dt.getTime()) ? String(d) : dt.toLocaleDateString("en-GB");
+          } catch (e) {
+            return String(d);
+          }
+        };
+
+        const oocDate = job.out_of_charge || job.out_of_charge_date;
 
         return {
-          "Job Number": job.job_number || job.job_no || "",
-          "Importer Name": job.importer || "",
+          "Job No": job.job_number || job.job_no || "",
+          "Party Name": job.importer || "",
+          "BE No.": job.be_no || "",
+          "BE Date": formatDt(job.be_date),
           "BL Number": job.awb_bl_no || "",
-          "Bill Doc Sent To Accounts": formattedSentDate,
+          "Out of Charge Date": formatDt(oocDate),
         };
       });
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
       
-      // Auto-fit column widths
       const colWidths = [
-        { wch: 25 }, // Job Number
-        { wch: 35 }, // Importer Name
+        { wch: 20 }, // Job No
+        { wch: 35 }, // Party Name
+        { wch: 20 }, // BE No.
+        { wch: 15 }, // BE Date
         { wch: 25 }, // BL Number
-        { wch: 30 }  // Bill Doc Sent To Accounts
+        { wch: 20 }, // Out of Charge Date
       ];
       worksheet['!cols'] = colWidths;
 
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Import Billing Jobs");
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Pending Bills");
       
-      const fileName = `Import_Billing_Jobs_${new Date().toISOString().split("T")[0]}.xlsx`;
+      const fileName = `Pending_Bills_${new Date().toISOString().split("T")[0]}.xlsx`;
       XLSX.writeFile(workbook, fileName);
     } catch (err) {
       console.error("Error exporting excel:", err);
@@ -598,7 +630,7 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
         {
           accessorKey: "job_no",
           header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
-          enableSorting: false,
+          enableSorting: true,
           size: 250,
           Cell: ({ cell }) => {
             const {
@@ -757,15 +789,34 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
         },
         {
           accessorKey: "importer",
-          header: isDoView ? "Party" : "Importer",
-          enableSorting: false,
+          header: isDoView ? "Party" : "Party Name",
+          enableSorting: true,
           size: 150,
         },
-
+        {
+          accessorKey: "be_no",
+          header: "BE No & Date",
+          enableSorting: true,
+          size: 150,
+          Cell: ({ cell }) => {
+            const { be_no, be_date } = cell.row.original;
+            if (!be_no) return "-";
+            return (
+              <div>
+                <strong style={{ color: "#1a237e" }}>{be_no}</strong>
+                {be_date && (
+                  <div style={{ fontSize: "0.75rem", color: "#666" }}>
+                    {new Date(be_date).toLocaleDateString("en-GB")}
+                  </div>
+                )}
+              </div>
+            );
+          },
+        },
         {
           accessorKey: "awb_bl_no",
           header: isDoView ? "BL Number" : "BL Num & Date",
-          enableSorting: false,
+          enableSorting: true,
           size: 150,
           Cell: ({ cell }) => {
             const { awb_bl_no, awb_bl_date } = cell.row.original; // Destructure properties here
@@ -821,7 +872,7 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
         {
           accessorKey: "bill_document_sent_to_accounts",
           header: "Bill Doc Sent To Accounts",
-          enableSorting: false,
+          enableSorting: true,
           size: 300,
           Cell: ({ cell }) => {
             const value = cell.getValue();
@@ -841,20 +892,16 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
           },
         },
         {
-          accessorKey: "reason_for_delay",
-          header: "Reason for Delay",
-          enableSorting: false,
-          size: 220,
-          Cell: ({ cell }) => (
-            <ReasonForDelayCell
-              row={cell.row.original}
-              onSaveSuccess={(jobId, newReason) => {
-                setRows((prev) =>
-                  prev.map((r) => (r._id === jobId ? { ...r, reason_for_delay: newReason } : r))
-                );
-              }}
-            />
-          ),
+          accessorKey: "out_of_charge",
+          header: "Out of Charge Date",
+          enableSorting: true,
+          size: 160,
+          Cell: ({ cell }) => {
+            const val = cell.getValue() || cell.row.original.out_of_charge_date;
+            if (!val) return "-";
+            const dt = new Date(val);
+            return isNaN(dt.getTime()) ? val : dt.toLocaleDateString("en-GB");
+          },
         },
 
         {
@@ -933,6 +980,11 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   const tableConfig = {
     columns,
     data: rows,
+    enableSorting: true,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
     enableColumnResizing: true,
     enableColumnOrdering: true,
     enablePagination: false, // Handled manually via MUI Pagination

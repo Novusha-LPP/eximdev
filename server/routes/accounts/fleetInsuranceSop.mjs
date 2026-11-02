@@ -226,7 +226,25 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
     // Ensure any new vehicles from directory are automatically synced
     await syncVehiclesToFleetInsurance();
 
-    const { page = 1, limit = 10, search = "", month = "", year = "", regNo, owner, size, modelType, premiumAmount, premiumQuote, expiryDate, renewed, tat } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      month = "",
+      year = "",
+      fromDate = "",
+      toDate = "",
+      dateBasis = "renewalDate",
+      regNo,
+      owner,
+      size,
+      modelType,
+      premiumAmount,
+      premiumQuote,
+      expiryDate,
+      renewed,
+      tat
+    } = req.query;
     const query = {};
     if (tat !== undefined && tat !== "") {
       query.tat = Number(tat);
@@ -318,8 +336,32 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
       { $replaceRoot: { newRoot: "$latestDoc" } }
     ];
 
-    // Apply date filter on the latest active policy per vehicle (if not searching for a specific vehicle)
-    if (!hasSearch) {
+    // Apply date range filter (if specified, takes priority over month/year)
+    if (fromDate || toDate) {
+      const start = fromDate ? new Date(fromDate) : new Date("1970-01-01");
+      start.setHours(0, 0, 0, 0);
+      const end = toDate ? new Date(toDate) : new Date("2099-12-31");
+      end.setHours(23, 59, 59, 999);
+
+      if (dateBasis === "paymentDate") {
+        pipeline.push({
+          $match: {
+            paymentDate: { $gte: start, $lte: end }
+          }
+        });
+      } else {
+        // Default: renewalDate basis
+        pipeline.push({
+          $match: {
+            $or: [
+              { renewalDate: { $gte: start, $lte: end } },
+              { renewedDate: { $gte: start, $lte: end } },
+              { newPolicyFromDate: { $gte: start, $lte: end } }
+            ]
+          }
+        });
+      }
+    } else if (!hasSearch) {
       if (year && month) {
         const yVal = parseInt(year);
         const mVal = parseInt(month);
@@ -385,6 +427,35 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
           ],
           totalCount: [
             { $count: "count" }
+          ],
+          metrics: [
+            {
+              $match: {
+                $or: [
+                  { renewed: { $regex: "^yes$", $options: "i" } },
+                  { renewalStatus: "Renewed" }
+                ]
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                renewedCount: { $sum: 1 },
+                totalRenewalSpend: {
+                  $sum: {
+                    $ifNull: [
+                      "$newTotalPolicyPremium",
+                      {
+                        $ifNull: [
+                          "$newPremiumAmount",
+                          { $ifNull: ["$totalPolicyPremium", { $ifNull: ["$premiumAmount", 0] }] }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
           ]
         }
       }
@@ -395,8 +466,21 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
     const result = await FleetInsuranceSopModel.aggregate(pipeline);
     const data = result[0].data;
     const total = result[0].totalCount[0] ? result[0].totalCount[0].count : 0;
+    const metricsResult = result[0].metrics && result[0].metrics[0] ? result[0].metrics[0] : {};
 
-    res.status(200).json({ data, total, page: parseInt(page), limit: parseInt(limit) });
+    res.status(200).json({
+      data,
+      total,
+      metrics: {
+        totalRenewalSpend: metricsResult.totalRenewalSpend || 0,
+        renewedCount: metricsResult.renewedCount || 0,
+        dateBasis: dateBasis || "renewalDate",
+        fromDate: fromDate || null,
+        toDate: toDate || null
+      },
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
   } catch (error) {
     console.error("Error fetching Fleet Insurance SOP records:", error);
     res.status(500).json({ message: "Internal server error" });
